@@ -16,11 +16,14 @@ class Form extends Model
         'phone',
         'name',
         'status',
-        'webhook_id',
         'user_id',
         'lead_id',
         'contact_id',
-        'error',
+        'utm_medium',
+        'utm_content',
+        'utm_source',
+        'utm_term',
+        'utm_campaign',
     ];
 
     public function text(): string

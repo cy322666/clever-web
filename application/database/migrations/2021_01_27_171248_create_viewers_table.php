@@ -48,7 +48,7 @@ class CreateViewersTable extends Migration
             $table->integer('contact_id')->nullable();
             $table->integer('lead_id')->nullable();
             $table->integer('time')->nullable();
-            $table->string('status')->default('wait');
+            $table->string('status')->default(0);
 
             //TODO indexes
         });

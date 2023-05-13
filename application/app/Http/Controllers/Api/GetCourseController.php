@@ -7,30 +7,48 @@ use App\Jobs\GetCourseOrderSend;
 use App\Jobs\GetCourseRegistrationSend;
 use App\Models\Integrations\GetCourse\Form;
 use App\Models\Integrations\GetCourse\Order;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class GetCourseController extends Controller
 {
-    public function pay(Request $request)
+    public function pay(User $user, Request $request)
     {
 
     }
 
-    public function order(Request $request)
+    public function order(User $user, Request $request)
     {
         $order = Order::query()->create([
-
+            'phone'     => $request->phone,
+            'email'     => $request->email,
+            'name'      => $request->name,
+            'number'    => $request->number,
+            'order_id'  => $request->order_id,
+            'positions' => $request->positions,
+            'status'    => $request->status,
+            'link'      => $request->link,
+            'cost_money'    => $request->cost_money,
+            'payed_money'   => $request->payed_money,
+            'left_cost_money' => $request->left_cost_money,
         ]);
 
-        GetCourseOrderSend::dispatch($order);
+        GetCourseOrderSend::dispatch($order, $user->getcourse_settings);
     }
 
-    public function registration(Request $request)
+    public function registration(User $user, Request $request)
     {
         $form = Form::query()->create([
-
+            'phone' => $request->phone,
+            'email' => $request->email,
+            'name'  => $request->name,
+            'utm_medium'  => $request->utm_medium,
+            'utm_content' => $request->utm_content,
+            'utm_source'  => $request->utm_source,
+            'utm_term'    => $request->utm_term,
+            'utm_campaign'=> $request->utm_campaign,
         ]);
 
-        GetCourseRegistrationSend::dispatch($form);
+        GetCourseRegistrationSend::dispatch($form, $user->getcourse_settings);
     }
 }

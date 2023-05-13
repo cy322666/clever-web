@@ -24,11 +24,11 @@ Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook']);
 
 Route::group(['prefix' => 'getcourse'], function () {
 
-    Route::post('pays/{user:uuid}', [GetCourseController::class, 'pay']);
+    Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay']);
 
-    Route::post('orders/{user:uuid}', [GetCourseController::class, 'order']);
+    Route::get('orders/{user:uuid}', [GetCourseController::class, 'order']);
 
-    Route::post('registrations/{user:uuid}', [GetCourseController::class, 'registration']);
+    Route::get('forms/{user:uuid}', [GetCourseController::class, 'registration']);
 });
 
 

@@ -21,15 +21,11 @@ class Order extends Model
         'left_cost_money',
         'cost_money',
         'payed_money',
-        'order_status',
-        'status',
         'link',
-        'status_order',
-        'webhook_id',
+        'status',
         'user_id',
         'lead_id',
         'contact_id',
-        'error',
     ];
 
     public function text(): string

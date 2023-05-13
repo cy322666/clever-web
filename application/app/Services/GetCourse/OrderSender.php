@@ -22,26 +22,27 @@ abstract class OrderSender
             'Почта'    => $order->email
         ], $amoApi);
 
-        if ($contact == null) {
+        if ($contact == null)
             $contact = Contacts::create($amoApi, $order->name);
-        }
 
         $lead = Leads::search($contact, $amoApi);
 
-        if (!$lead)
+        if (!$lead) {
+
             $lead = Leads::create($contact, [
                 'status_id' => $setting->status_id_order,//TODO success
                 'responsible_user_id' => $setting->responsible_user_id_order,//TODO
-            ], 'Новый зритель вебинара');//TODO можно сделать своим
-
+            ], 'Новый заказ GetCourse');//TODO можно сделать своим
+        }
 //            $note = Notes::add($lead, []);
 
-        Tags::add($lead, ['ЗаказГеткурс']);//TODO default tag
+//        Tags::add($lead, [$setting->tag]);//TODO default tag
 
         $order->lead_id    = $lead->id;
         $order->contact_id = $contact->id;
         $order->status     = 1;
         $order->save();
-//            $viewer->note_id    = $note->id;
+
+        return 1;
     }
 }

@@ -18,13 +18,27 @@ class GetCourseResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-collection';
 
+    protected static ?string $slug = 'integrations/getcourse/settings';
+
     protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                //
+                Forms\Components\Builder\Block::make('heading')
+                    ->schema([
+                        Forms\Components\TextInput::make('response_user_id_default')->integer(),
+                        Forms\Components\TextInput::make('response_user_id_form')->integer(),
+                        Forms\Components\TextInput::make('response_user_id_order')->integer(),
+                    ]),
+                Forms\Components\Builder\Block::make('heading')
+                    ->schema([
+                        Forms\Components\TextInput::make('status_id_order')->integer(),
+                        Forms\Components\TextInput::make('status_id_order_close')->integer(),
+                        Forms\Components\TextInput::make('status_id_form')->integer(),
+                    ]),
+//                Forms\Components\TextInput::make('response_user_name'),
             ]);
     }
 
@@ -55,9 +69,9 @@ class GetCourseResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListGetCourses::route('/'),
+            'index'  => Pages\ListGetCourses::route('/'),
             'create' => Pages\CreateGetCourse::route('/create'),
-            'edit' => Pages\EditGetCourse::route('/{record}/edit'),
+            'edit'   => Pages\EditGetCourse::route('/{record}/edit'),
         ];
     }
 }

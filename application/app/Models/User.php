@@ -53,6 +53,11 @@ class User extends Authenticatable
         return $this->hasOne(Setting::class);
     }
 
+    public function getcourse_settings(): HasOne
+    {
+        return $this->hasOne(Integrations\GetCourse\Setting::class);
+    }
+
     public function account(): HasOne
     {
         return $this->hasOne(Account::class);

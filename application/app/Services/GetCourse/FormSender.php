@@ -23,9 +23,8 @@ abstract class FormSender
             'Почта'    => $form->email
         ], $amoApi);
 
-        if ($contact == null) {
+        if ($contact == null)
             $contact = Contacts::create($amoApi, $form->name);
-        }
 
         $lead = Leads::search($contact, $amoApi);
 
@@ -37,12 +36,13 @@ abstract class FormSender
 
 //            $note = Notes::add($lead, []);
 
-        Tags::add($lead, ['РегистрацияГеткурс']);//TODO default tag
+//        Tags::add($lead, ['РегистрацияГеткурс']);//TODO default tag
 
         $form->lead_id    = $lead->id;
         $form->contact_id = $contact->id;
         $form->status     = 1;
         $form->save();
-//            $viewer->note_id    = $note->id;
+
+        return 1;
     }
 }
