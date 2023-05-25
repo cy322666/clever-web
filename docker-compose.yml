@@ -6,7 +6,7 @@ services:
         volumes:
             - ./application:/var/www/html
         ports:
-            - "7070:8000"
+            - "8000:8000"
         links:
             - postgresql
 #            - redis
