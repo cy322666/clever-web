@@ -6,6 +6,7 @@ namespace App\Services\amoCRM\Models;
 
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Log;
+use Ufee\Amo\Models\Lead;
 
 abstract class Leads
 {
@@ -72,7 +73,7 @@ abstract class Leads
         return $lead;
     }
 
-    public static function setUtms($lead, array $utms)
+    public static function setUtms(Lead $lead, array $utms): Lead
     {
         if (!empty($utms['utm_source'])) {
 
@@ -90,7 +91,7 @@ abstract class Leads
 
             $lead->cf('utm_campaign')->setValue($utms['utm_campaign']);
         }
-        if (!empty($utms['utm_medium'])) {
+        if (!empty($utms['utm_medium']) && !$lead->cf('utm_medium')->getValue()) {
 
             $lead->cf('utm_medium')->setValue($utms['utm_medium']);
         }

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class Staff extends Model
 {
     protected $fillable = [
-        'account_id',
+        'user_id',
         'name',
         'staff_id',
         'group',

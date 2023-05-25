@@ -7,6 +7,7 @@ use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Resources\Form;
+use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Resources\Resource;
 use Filament\Resources\Table;
 use Filament\Tables;
@@ -69,6 +70,8 @@ class UserResource extends Resource
     {
         return [
             RelationManagers\AppsRelationManager::class,
+            RelationManagers\StaffsRelationManager::class,
+            RelationManagers\StatusesRelationManager::class,
         ];
     }
 

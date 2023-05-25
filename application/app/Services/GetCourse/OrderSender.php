@@ -22,12 +22,18 @@ abstract class OrderSender
             'Почта'    => $order->email
         ], $amoApi);
 
-        if ($contact == null)
+        if ($contact == null) {
+
             $contact = Contacts::create($amoApi, $order->name);
 
-        $lead = Leads::search($contact, $amoApi);
+            $contact = Contacts::update($contact, [
+                'Телефоны' => [$order->phone],
+                'Почта'    => $order->email,
+            ]);
+        } else
+            $lead = Leads::search($contact, $amoApi);
 
-        if (!$lead) {
+        if (empty($lead)) {
 
             $lead = Leads::create($contact, [
                 'status_id' => $setting->status_id_order,//TODO success
@@ -36,7 +42,10 @@ abstract class OrderSender
         }
 //            $note = Notes::add($lead, []);
 
-//        Tags::add($lead, [$setting->tag]);//TODO default tag
+        Tags::add($lead, [$setting->tag_order]);
+
+        $lead->sale = (int)$setting->cost_money;
+        $lead->save();
 
         $order->lead_id    = $lead->id;
         $order->contact_id = $contact->id;

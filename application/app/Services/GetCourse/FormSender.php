@@ -9,6 +9,7 @@ use App\Models\Integrations\GetCourse\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
+use App\Services\amoCRM\Models\Notes;
 use App\Services\amoCRM\Models\Tags;
 
 abstract class FormSender
@@ -20,21 +21,39 @@ abstract class FormSender
     {
         $contact = Contacts::search([
             'Телефоны' => [$form->phone],
-            'Почта'    => $form->email
+            'Почта'    => $form->email,
         ], $amoApi);
 
-        if ($contact == null)
+        if ($contact == null) {
+
             $contact = Contacts::create($amoApi, $form->name);
 
-        $lead = Leads::search($contact, $amoApi);
+            $contact = Contacts::update($contact, [
+                'Телефоны' => [$form->phone],
+                'Почта'    => $form->email,
+            ]);
+        } else
+            $lead = Leads::search($contact, $amoApi);
 
-        if (!$lead)
+        if (empty($lead)) {
+
             $lead = Leads::create($contact, [
                 'status_id' => $setting->status_id_form,
                 'responsible_user_id' => $setting->responsible_user_id_form,//TODO
-            ], 'Новая регистрация Геткурс');//TODO можно сделать своим
+            ], 'Новая регистрация GetCourse');//TODO можно сделать своим
 
-//            $note = Notes::add($lead, []);
+            //TODO
+//            Leads::setUtms($lead, [
+//                'utm_source'   => $form->utm_source,
+//                'utm_medium'   => $form->utm_medium,
+//                'utm_content'  => $form->utm_content,
+//                'utm_term'     => $form->utm_term,
+//                'utm_campaign' => $form->utm_campaign,
+//                'utm_referrer' => $form->utm_referrer,
+//            ]);
+        }
+
+        Notes::addOne($lead, $form->text());
 
 //        Tags::add($lead, ['РегистрацияГеткурс']);//TODO default tag
 

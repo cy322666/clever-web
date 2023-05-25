@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GetCourseFormSend;
 use App\Jobs\GetCourseOrderSend;
-use App\Jobs\GetCourseRegistrationSend;
 use App\Models\Integrations\GetCourse\Form;
 use App\Models\Integrations\GetCourse\Order;
 use App\Models\User;
+use App\Services\amoCRM\Models\Contacts;
 use Illuminate\Http\Request;
 
 class GetCourseController extends Controller
@@ -20,7 +21,7 @@ class GetCourseController extends Controller
     public function order(User $user, Request $request)
     {
         $order = Order::query()->create([
-            'phone'     => $request->phone,
+            'phone'     => Contacts::clearPhone($request->phone),
             'email'     => $request->email,
             'name'      => $request->name,
             'number'    => $request->number,
@@ -28,9 +29,9 @@ class GetCourseController extends Controller
             'positions' => $request->positions,
             'status'    => $request->status,
             'link'      => $request->link,
-            'cost_money'    => $request->cost_money,
-            'payed_money'   => $request->payed_money,
-            'left_cost_money' => $request->left_cost_money,
+            'cost_money'      => preg_replace("/[^0-9]/", '', $request->cost_money),
+            'payed_money'     => preg_replace("/[^0-9]/", '', $request->payed_money),
+            'left_cost_money' => preg_replace("/[^0-9]/", '', $request->left_cost_money),
         ]);
 
         GetCourseOrderSend::dispatch($order, $user->getcourse_settings);
@@ -39,7 +40,7 @@ class GetCourseController extends Controller
     public function registration(User $user, Request $request)
     {
         $form = Form::query()->create([
-            'phone' => $request->phone,
+            'phone' => Contacts::clearPhone($request->phone),
             'email' => $request->email,
             'name'  => $request->name,
             'utm_medium'  => $request->utm_medium,
@@ -49,6 +50,10 @@ class GetCourseController extends Controller
             'utm_campaign'=> $request->utm_campaign,
         ]);
 
-        GetCourseRegistrationSend::dispatch($form, $user->getcourse_settings);
+        GetCourseFormSend::dispatch(
+            $form,
+            $user->getcourse_settings,
+            $user->account,
+        );
     }
 }

@@ -22,17 +22,18 @@ abstract class ViewerSender
                 'Почта'    => $viewer->email
             ], $amoApi);
 
-            if ($contact == null)
+            if ($contact == null) {
+
                 $contact = Contacts::create($amoApi, $viewer->username);
 
-            $contact = Contacts::update($contact, [
-                'Телефоны' => [$viewer->phone],
-                'Почта'    => $viewer->email,
-            ]);
+                $contact = Contacts::update($contact, [
+                    'Телефоны' => [$viewer->phone],
+                    'Почта'    => $viewer->email,
+                ]);
+            } else
+                $lead = Leads::search($contact, $amoApi);
 
-            $lead = Leads::search($contact, $amoApi);
-
-            if (!$lead) {
+            if (empty($lead)) {
 
                 $lead = Leads::create($contact, [
                     'status_id' => $setting->{"status_id_$viewer->type"},
@@ -40,7 +41,7 @@ abstract class ViewerSender
                 ], 'Новый зритель вебинара');
 
                 Leads::setUtms($lead, [
-                    'utm_source'  =>$viewer->utm_source ?? null,
+                    'utm_source'  => $viewer->utm_source ?? null,
                     'utm_medium'  => $viewer->utm_medium ?? null,
                     'utm_content' => $viewer->utm_content ?? null,
                     'utm_term'    => $viewer->utm_term ?? null,

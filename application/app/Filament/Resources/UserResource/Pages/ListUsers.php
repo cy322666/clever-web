@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
+use App\Models\amoCRM\Staff;
+use App\Services\amoCRM\Client;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\ListRecords;
 

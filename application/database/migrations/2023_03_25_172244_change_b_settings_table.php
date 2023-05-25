@@ -17,6 +17,8 @@ return new class extends Migration
 
             $table->dropColumn('account_id');
             $table->dropColumn('response_user_name');
+
+            $table->integer('user_id')->nullable();
         });
     }
 
@@ -29,10 +31,10 @@ return new class extends Migration
     {
         Schema::table('bizon_settings', function (Blueprint $table) {
 
-            $table->dropColumn('user_id');
-
             $table->integer('account_id')->nullable();
             $table->string('response_user_name')->nullable();
+
+            $table->dropColumn('user_id');
         });
     }
 };

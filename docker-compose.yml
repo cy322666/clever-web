@@ -23,9 +23,9 @@ services:
             POSTGRES_USER: root
             POSTGRES_PASSWORD: pQLkm8NOkS0gOBox
             POSTGRES_DB: clever
-        volumes:
-            - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
-        command: ["postgres", "-c", "config_file=/etc/postgresql.conf"]
+#        volumes:
+#            - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
+#        command: [ "postgres", "-c", "config_file=/etc/postgresql.conf" ]
         restart: always
 #    redis:
 #        image: bitnami/redis:latest

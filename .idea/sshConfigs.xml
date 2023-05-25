@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="45.12.74.216" id="0db439bc-80c9-4a88-b6c6-ae552413a3d6" port="22" customName="app.clevercrm.pro" nameFormat="CUSTOM" username="root" useOpenSSHConfig="true">
+        <option name="customName" value="app.clevercrm.pro" />
+      </sshConfig>
+    </configs>
+  </component>
+</project>
