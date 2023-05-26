@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="6a093f1a-29e1-48de-af3f-5864ddefaef1" name="app.clevercrm.pro">
+        <fileTransfer accessType="SFTP" host="45.12.74.216" port="22" sshConfigId="0db439bc-80c9-4a88-b6c6-ae552413a3d6" sshConfig="app.clevercrm.pro">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

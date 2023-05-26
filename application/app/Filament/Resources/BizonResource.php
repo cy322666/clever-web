@@ -24,38 +24,59 @@ class BizonResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Builder\Block::make('heading')
+                Forms\Components\Section::make('Heading')
+                    ->description('Description')
                     ->schema([
-                        Forms\Components\TextInput::make('login'),
-                        Forms\Components\TextInput::make('password'),
-                        Forms\Components\TextInput::make('token'),
-                    ]),
-                Forms\Components\Builder\Block::make('heading')
-                    ->schema([
-                        Forms\Components\TextInput::make('status_id_cold')->integer(),
-                        Forms\Components\TextInput::make('status_id_soft')->integer(),
-                        Forms\Components\TextInput::make('status_id_hot')->integer(),
-                    ]),
-//                Forms\Components\TextInput::make('pipeline_id')->integer(),
-                Forms\Components\Builder\Block::make('heading')
-                    ->schema([
-                        Forms\Components\TextInput::make('tag_cold'),
-                        Forms\Components\TextInput::make('tag_soft'),
-                        Forms\Components\TextInput::make('tag_hot'),
-                        Forms\Components\TextInput::make('tag'),
-                        ]),
 
-                Forms\Components\Builder\Block::make('heading')
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\TextInput::make('login'),
+                                Forms\Components\TextInput::make('password'),
+                                Forms\Components\TextInput::make('token'),
+                            ])->columnSpan(2),
+
+                        Forms\Components\Fieldset::make('Описание')
+                            ->schema([
+                                Forms\Components\TextInput::make('response_user_id')->integer(),
+                                Forms\Components\TextInput::make('pipeline_id')->integer(),
+                            ])->columnSpan(2),
+                    ]),
+
+                Forms\Components\Section::make('Heading')
+                    ->description('Description')
                     ->schema([
-                        Forms\Components\TextInput::make('time_cold')->integer(),
-                        Forms\Components\TextInput::make('time_soft')->integer(),
-                        Forms\Components\TextInput::make('time_hot')->integer(),
-                        ]),
-                Forms\Components\Builder\Block::make('heading')
-                    ->schema([
-                        Forms\Components\TextInput::make('response_user_id')->integer(),
-                        ]),
-//                Forms\Components\TextInput::make('response_user_name'),
+
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\Builder\Block::make('heading')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('status_id_cold')->integer(),
+                                        Forms\Components\TextInput::make('status_id_soft')->integer(),
+                                        Forms\Components\TextInput::make('status_id_hot')->integer(),
+                                    ]),
+                            ]),
+
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\Builder\Block::make('heading')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('tag_cold'),
+                                        Forms\Components\TextInput::make('tag_soft'),
+                                        Forms\Components\TextInput::make('tag_hot'),
+                                        Forms\Components\TextInput::make('tag'),
+                                    ]),
+                            ]),
+
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\Builder\Block::make('heading')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('time_cold')->integer(),
+                                        Forms\Components\TextInput::make('time_soft')->integer(),
+                                        Forms\Components\TextInput::make('time_hot')->integer(),
+                                    ]),
+                            ]),
+                    ])->columns(3),
             ]);
     }
 

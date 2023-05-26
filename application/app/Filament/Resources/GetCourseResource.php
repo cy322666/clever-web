@@ -26,19 +26,32 @@ class GetCourseResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Builder\Block::make('heading')
+                Forms\Components\Section::make('Heading')
+                    ->description('Description')
                     ->schema([
-                        Forms\Components\TextInput::make('response_user_id_default')->integer(),
-                        Forms\Components\TextInput::make('response_user_id_form')->integer(),
-                        Forms\Components\TextInput::make('response_user_id_order')->integer(),
+
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\TextInput::make('response_user_id_default')->integer(),
+                                Forms\Components\TextInput::make('response_user_id_form')->integer(),
+                                Forms\Components\TextInput::make('response_user_id_order')->integer(),
+                            ]),
+
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\TextInput::make('status_id_order')->integer(),
+                                Forms\Components\TextInput::make('status_id_order_close')->integer(),
+                                Forms\Components\TextInput::make('status_id_form')->integer(),
+                            ]),
+
+                        Forms\Components\Fieldset::make('Доступы')
+                            ->schema([
+                                Forms\Components\TextInput::make('lead_name_order')->string(),
+                                Forms\Components\TextInput::make('lead_name_form')->string(),
+                                Forms\Components\TextInput::make('tag_order')->string(),
+                                Forms\Components\TextInput::make('tag_form')->string(),
+                            ]),
                     ]),
-                Forms\Components\Builder\Block::make('heading')
-                    ->schema([
-                        Forms\Components\TextInput::make('status_id_order')->integer(),
-                        Forms\Components\TextInput::make('status_id_order_close')->integer(),
-                        Forms\Components\TextInput::make('status_id_form')->integer(),
-                    ]),
-//                Forms\Components\TextInput::make('response_user_name'),
             ]);
     }
 

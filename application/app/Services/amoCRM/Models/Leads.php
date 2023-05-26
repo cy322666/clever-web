@@ -52,7 +52,7 @@ abstract class Leads
         }
     }
 
-    public static function create($contact, array $params, string $leadname)
+    public static function create($contact, array $params, ?string $leadname)
     {
         $lead = $contact->createLead();
 

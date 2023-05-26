@@ -25,19 +25,24 @@ class GetCourseController extends Controller
             'email'     => $request->email,
             'name'      => $request->name,
             'number'    => $request->number,
-            'order_id'  => $request->order_id,
+            'order_id'  => $request->id,
             'positions' => $request->positions,
-            'status'    => $request->status,
-            'link'      => $request->link,
+            'status_order' => $request->status,
+            'link'         => $request->link,
             'cost_money'      => preg_replace("/[^0-9]/", '', $request->cost_money),
             'payed_money'     => preg_replace("/[^0-9]/", '', $request->payed_money),
             'left_cost_money' => preg_replace("/[^0-9]/", '', $request->left_cost_money),
+            'user_id' => $user->id,
         ]);
 
-        GetCourseOrderSend::dispatch($order, $user->getcourse_settings);
+        GetCourseOrderSend::dispatch(
+            $order,
+            $user->getcourse_settings,
+            $user->account
+        );
     }
 
-    public function registration(User $user, Request $request)
+    public function form(User $user, Request $request)
     {
         $form = Form::query()->create([
             'phone' => Contacts::clearPhone($request->phone),
@@ -48,6 +53,7 @@ class GetCourseController extends Controller
             'utm_source'  => $request->utm_source,
             'utm_term'    => $request->utm_term,
             'utm_campaign'=> $request->utm_campaign,
+            'user_id' => $user->id,
         ]);
 
         GetCourseFormSend::dispatch(

@@ -9,6 +9,10 @@ class Order extends Model
 {
     use HasFactory;
 
+    const STATUS_WAIT = 0;
+    const STATUS_OK   = 1;
+    const STATUS_FAIL = 2;
+
     protected $table = 'getcourse_orders';
 
     protected $fillable = [
@@ -23,28 +27,10 @@ class Order extends Model
         'payed_money',
         'link',
         'status',
+        'status_order',
         'user_id',
         'lead_id',
         'contact_id',
+        'user_id',
     ];
-
-    public function text(): string
-    {
-        $note = [
-            "Информация о заказе",
-            '----------------------',
-            ' - Имя : ' . $this->name,
-            ' - Телефон : ' . $this->phone,
-            ' - Почта : ' . $this->email,
-            ' - Номер заказа : ' . $this->number,
-            ' - ID Заказа : ' . $this->order_id,
-            ' - Название тарифа : ' . $this->positions,
-            ' - Стоимость тарифа : ' . $this->cost_money,
-            ' - Оплачено : ' . $this->payed_money,
-            ' - Осталось заплатить : ' . $this->left_cost_money,
-            ' - Статус заказа : ' . $this->status_order,
-            ' - Ссылка : ' . $this->link,
-        ];
-        return implode("\n", $note);
-    }
 }

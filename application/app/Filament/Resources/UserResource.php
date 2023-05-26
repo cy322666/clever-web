@@ -26,6 +26,7 @@ class UserResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('email'),
                 Forms\Components\TextInput::make('name'),
+                Forms\Components\TextInput::make('uuid'),
             ]);
     }
 

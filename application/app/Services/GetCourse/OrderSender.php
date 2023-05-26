@@ -2,12 +2,13 @@
 
 namespace App\Services\GetCourse;
 
-use App\Models\Integrations\Bizon\Viewer;
+use App\Models\Integrations\Bizon\OrderNote;
 use App\Models\Integrations\GetCourse\Order;
 use App\Models\Integrations\GetCourse\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
+use App\Services\amoCRM\Models\Notes;
 use App\Services\amoCRM\Models\Tags;
 
 abstract class OrderSender
@@ -35,12 +36,15 @@ abstract class OrderSender
 
         if (empty($lead)) {
 
+            $statusId = $order->left_cost_money == 0 ? $setting->status_id_order : $setting->status_id_order_close;
+
             $lead = Leads::create($contact, [
-                'status_id' => $setting->status_id_order,//TODO success
-                'responsible_user_id' => $setting->responsible_user_id_order,//TODO
-            ], 'Новый заказ GetCourse');//TODO можно сделать своим
+                'status_id' => $statusId,
+                'responsible_user_id' => $setting->responsible_user_id_order ?? $setting->response_user_default,
+            ], $setting->lead_name_order);
         }
-//            $note = Notes::add($lead, []);
+
+        Notes::addOne($lead, OrderNote::create($order));
 
         Tags::add($lead, [$setting->tag_order]);
 
@@ -49,7 +53,7 @@ abstract class OrderSender
 
         $order->lead_id    = $lead->id;
         $order->contact_id = $contact->id;
-        $order->status     = 1;
+        $order->status     = Order::STATUS_OK;
         $order->save();
 
         return 1;

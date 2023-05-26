@@ -28,7 +28,7 @@ Route::group(['prefix' => 'getcourse'], function () {
 
     Route::get('orders/{user:uuid}', [GetCourseController::class, 'order']);
 
-    Route::get('forms/{user:uuid}', [GetCourseController::class, 'registration']);
+    Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 });
 
 

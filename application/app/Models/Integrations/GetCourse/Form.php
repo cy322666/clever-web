@@ -9,6 +9,10 @@ class Form extends Model
 {
     use HasFactory;
 
+    const STATUS_WAIT = 0;
+    const STATUS_OK   = 1;
+    const STATUS_FAIL = 2;
+
     protected $table = 'getcourse_forms';
 
     protected $fillable = [
@@ -24,17 +28,6 @@ class Form extends Model
         'utm_source',
         'utm_term',
         'utm_campaign',
+        'user_id',
     ];
-
-    public function text(): string
-    {
-        $note = [
-            "Информация о заявке",
-            '----------------------',
-            ' - Имя : ' . $this->name,
-            ' - Телефон : ' . $this->phone,
-            ' - Почта : ' . $this->email,
-        ];
-        return implode("\n", $note);
-    }
 }

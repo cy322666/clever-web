@@ -2,9 +2,8 @@
 
 namespace App\Services\GetCourse;
 
-use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\GetCourse\Form;
-use App\Models\Integrations\GetCourse\Order;
+use App\Models\Integrations\GetCourse\FormNote;
 use App\Models\Integrations\GetCourse\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
@@ -39,27 +38,26 @@ abstract class FormSender
 
             $lead = Leads::create($contact, [
                 'status_id' => $setting->status_id_form,
-                'responsible_user_id' => $setting->responsible_user_id_form,//TODO
-            ], 'Новая регистрация GetCourse');//TODO можно сделать своим
+                'responsible_user_id' => $setting->responsible_user_id_form ?? $setting->response_user_default,
+            ], $setting->lead_name_form);
 
-            //TODO
-//            Leads::setUtms($lead, [
-//                'utm_source'   => $form->utm_source,
-//                'utm_medium'   => $form->utm_medium,
-//                'utm_content'  => $form->utm_content,
-//                'utm_term'     => $form->utm_term,
-//                'utm_campaign' => $form->utm_campaign,
-//                'utm_referrer' => $form->utm_referrer,
-//            ]);
+            Leads::setUtms($lead, [
+                'utm_source'   => $form->utm_source,
+                'utm_medium'   => $form->utm_medium,
+                'utm_content'  => $form->utm_content,
+                'utm_term'     => $form->utm_term,
+                'utm_campaign' => $form->utm_campaign,
+                'utm_referrer' => $form->utm_referrer,
+            ]);
         }
 
-        Notes::addOne($lead, $form->text());
+        Notes::addOne($lead, FormNote::create($form));
 
-//        Tags::add($lead, ['РегистрацияГеткурс']);//TODO default tag
+        Tags::add($lead, $setting->tag_form);
 
         $form->lead_id    = $lead->id;
         $form->contact_id = $contact->id;
-        $form->status     = 1;
+        $form->status     = Form::STATUS_OK;
         $form->save();
 
         return 1;

@@ -26,6 +26,10 @@ class Setting extends Model
         'response_user_id_default',
         'response_user_id_form',
         'response_user_id_order',
+        'lead_name_order',
+        'lead_name_form',
+        'tag_order',
+        'tag_form',
     ];
 
     public function account(): BelongsTo

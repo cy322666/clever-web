@@ -12,6 +12,10 @@ class Viewer extends Model
 {
     use HasFactory;
 
+    const STATUS_WAIT = 0;
+    const STATUS_OK   = 1;
+    const STATUS_FAIL = 2;
+
     protected $table = 'bizon_viewers';
 
     protected $fillable = [

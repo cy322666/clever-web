@@ -31,7 +31,7 @@ abstract class ViewerSender
                     'Почта'    => $viewer->email,
                 ]);
             } else
-                $lead = Leads::search($contact, $amoApi);
+                $lead = Leads::search($contact, $amoApi, $setting->pipeline_id);
 
             if (empty($lead)) {
 
@@ -64,7 +64,7 @@ abstract class ViewerSender
 
             $viewer->lead_id    = $lead->id;
             $viewer->contact_id = $contact->id;
-            $viewer->status     = 1;
+            $viewer->status     = Viewer::STATUS_OK;
             $viewer->save();
 
             return 1;
