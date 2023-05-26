@@ -24,9 +24,28 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('email'),
-                Forms\Components\TextInput::make('name'),
-                Forms\Components\TextInput::make('uuid'),
+                Forms\Components\Section::make('Аккаунт')
+                    ->description('Основная информация')
+                    ->schema([
+                        Forms\Components\TextInput::make('email')->disabled(),
+                        Forms\Components\TextInput::make('name')->disabled(),
+                        Forms\Components\TextInput::make('uuid')->disabled(),
+                ])->columnSpan([
+                    'sm' => 2,
+                ]),
+                Forms\Components\Card::make()
+                    ->schema([
+                        Forms\Components\Placeholder::make('created_at')
+                            ->label('Создана')
+                            ->content(fn (?User $record): string => $record ? $record->created_at->diffForHumans() : '-'),
+                        Forms\Components\Placeholder::make('updated_at')
+                            ->label('Обновлена')
+                            ->content(fn (?User $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
+                    ])
+                    ->columnSpan(1),
+            ])->columns([
+                'sm' => 3,
+                'lg' => null,
             ]);
     }
 
@@ -53,7 +72,7 @@ class UserResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('account.active')
-                    ->label('Аккаунт')
+                    ->label('Статус')
                     ->sortable(),
             ])
             ->filters([
@@ -63,7 +82,7 @@ class UserResource extends Resource
 //                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+//                Tables\Actions\DeleteBulkAction::make(),
             ]);
     }
 
@@ -79,9 +98,9 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListUsers::route('/'),
+            'index'  => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
-            'edit' => Pages\EditUser::route('/{record}/edit'),
+            'edit'   => Pages\EditUser::route('/{record}/edit'),
         ];
     }
 }

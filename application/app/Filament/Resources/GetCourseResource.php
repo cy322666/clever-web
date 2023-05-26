@@ -8,9 +8,6 @@ use Filament\Forms;
 use Filament\Resources\Form;
 use Filament\Resources\Resource;
 use Filament\Resources\Table;
-use Filament\Tables;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class GetCourseResource extends Resource
 {
@@ -26,30 +23,40 @@ class GetCourseResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Heading')
-                    ->description('Description')
+                Forms\Components\Section::make('Настройки')
+                    ->description('Для работы интеграции заполните обязательные поля')
                     ->schema([
 
-                        Forms\Components\Fieldset::make('Доступы')
+                        Forms\Components\Fieldset::make('Основное')
                             ->schema([
-                                Forms\Components\TextInput::make('response_user_id_default')->integer(),
-                                Forms\Components\TextInput::make('response_user_id_form')->integer(),
-                                Forms\Components\TextInput::make('response_user_id_order')->integer(),
+                                Forms\Components\Builder\Block::make('Теги')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('response_user_id_default')->label('Отв. по умолчанию'),
+                                        Forms\Components\TextInput::make('response_user_id_form')->label('Отв. по заявкам'),
+                                        Forms\Components\TextInput::make('response_user_id_order')->label('Отв. по заказам'),
+                                    ]),
+
+                                Forms\Components\Builder\Block::make('Этапы')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('status_id_order')->label('Этап новых заказов'),
+                                        Forms\Components\TextInput::make('status_id_order_close')->label('Этап оплаченных заказов'),
+                                        Forms\Components\TextInput::make('status_id_form')->label('Этап новых заявок'),
+                                    ]),
                             ]),
 
-                        Forms\Components\Fieldset::make('Доступы')
+                        Forms\Components\Fieldset::make('Основное')
                             ->schema([
-                                Forms\Components\TextInput::make('status_id_order')->integer(),
-                                Forms\Components\TextInput::make('status_id_order_close')->integer(),
-                                Forms\Components\TextInput::make('status_id_form')->integer(),
-                            ]),
+                                Forms\Components\Builder\Block::make('Названия')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('lead_name_order')->label('Название сделки для заказов'),
+                                        Forms\Components\TextInput::make('lead_name_form')->label('Название сделки для заказов'),
+                                    ]),
 
-                        Forms\Components\Fieldset::make('Доступы')
-                            ->schema([
-                                Forms\Components\TextInput::make('lead_name_order')->string(),
-                                Forms\Components\TextInput::make('lead_name_form')->string(),
-                                Forms\Components\TextInput::make('tag_order')->string(),
-                                Forms\Components\TextInput::make('tag_form')->string(),
+                                Forms\Components\Builder\Block::make('Теги')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
+                                        Forms\Components\TextInput::make('tag_form')->label('Тег для заявок'),
+                                    ]),
                             ]),
                     ]),
             ]);
@@ -65,10 +72,10 @@ class GetCourseResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+//                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+//                Tables\Actions\DeleteBulkAction::make(),
             ]);
     }
 

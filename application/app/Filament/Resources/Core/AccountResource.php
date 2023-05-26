@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Core;
 
 use App\Filament\Resources\Core\AccountResource\Pages;
 use App\Filament\Resources\UserResource;
-use App\Filament\Widgets\amoCRMButton;
 use App\Models\Core\Account;
 use Filament\Forms;
 use Filament\Resources\Form;
@@ -40,14 +39,14 @@ class AccountResource extends Resource
                     ->toggleable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('redirect')
-                    ->label('redirect_uri'),
+                Tables\Columns\TextColumn::make('subdomain')
+                    ->label('Поддомен'),
 
-                Tables\Columns\TextColumn::make('access_token')
-                    ->label('access_token'),
+//                Tables\Columns\TextColumn::make('access_token')
+//                    ->label('Токен'),
 
                 Tables\Columns\TextColumn::make('status')
-                    ->label('status'),
+                    ->label('Статус'),
 
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Клиент')
@@ -86,11 +85,11 @@ class AccountResource extends Resource
 //                    ->label('Ответственный')
 //                    ->sortable(),
 //
-//                Tables\Columns\TextColumn::make('created_at')
-//                    ->label('Создан')
-//                    ->dateTime()
-//                    ->sortable()
-//                    ->toggleable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Создан')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(),
 //
 //                Tables\Columns\TextColumn::make('updated_at')
 //                    ->label('Обновлен')
@@ -118,7 +117,7 @@ class AccountResource extends Resource
 //                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+//                Tables\Actions\DeleteBulkAction::make(),
             ]);
     }
 
@@ -131,7 +130,7 @@ class AccountResource extends Resource
     {
         return [
             'index' => Pages\ListAccounts::route('/'),
-            'create' => Pages\CreateAccount::route('/create'),
+//            'create' => Pages\CreateAccount::route('/create'),
             'edit' => Pages\EditAccount::route('/{record}/edit'),
         ];
     }

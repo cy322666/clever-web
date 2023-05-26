@@ -22,7 +22,9 @@ class EditUser extends EditRecord
     protected function getActions(): array
     {
         return [
-            Actions\Action::make('amocrm_update')->action('amocrmUpdate'),
+            Actions\Action::make('amocrm_update')
+                ->label('Синхронизировать amoCRM')
+                ->action('amocrmUpdate'),
         ];
     }
 

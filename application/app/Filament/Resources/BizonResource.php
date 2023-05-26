@@ -24,59 +24,65 @@ class BizonResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Heading')
-                    ->description('Description')
+                Forms\Components\Section::make('Настройки')
+                    ->description('Для работы интеграции заполните обязательные поля')
                     ->schema([
 
                         Forms\Components\Fieldset::make('Доступы')
                             ->schema([
-                                Forms\Components\TextInput::make('login'),
-                                Forms\Components\TextInput::make('password'),
-                                Forms\Components\TextInput::make('token'),
-                            ])->columnSpan(2),
-
-                        Forms\Components\Fieldset::make('Описание')
-                            ->schema([
-                                Forms\Components\TextInput::make('response_user_id')->integer(),
-                                Forms\Components\TextInput::make('pipeline_id')->integer(),
+//                                Forms\Components\TextInput::make('login'),
+//                                Forms\Components\TextInput::make('password'),
+                                Forms\Components\TextInput::make('token')->label('Токен'),
                             ])->columnSpan(2),
                     ]),
 
-                Forms\Components\Section::make('Heading')
-                    ->description('Description')
+                Forms\Components\Section::make('Сегментация')
+                    ->description('Разделите посетителей вебинара на сегементы по времени нахождения на вебинаре')
                     ->schema([
 
-                        Forms\Components\Fieldset::make('Доступы')
+                        Forms\Components\Fieldset::make('Условия')
                             ->schema([
-                                Forms\Components\Builder\Block::make('heading')
+                                Forms\Components\Builder\Block::make('Этапы')
                                     ->schema([
-                                        Forms\Components\TextInput::make('status_id_cold')->integer(),
-                                        Forms\Components\TextInput::make('status_id_soft')->integer(),
-                                        Forms\Components\TextInput::make('status_id_hot')->integer(),
+                                        Forms\Components\TextInput::make('status_id_cold')->label('Этап холодных'),
+                                        Forms\Components\TextInput::make('status_id_soft')->label('Этап теплых'),
+                                        Forms\Components\TextInput::make('status_id_hot')->label('Этап горячих'),
                                     ]),
+
+                                Forms\Components\Builder\Block::make('Этапы')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('time_cold')->label('Время холодных'),
+                                        Forms\Components\TextInput::make('time_soft')->label('Время теплых'),
+                                        Forms\Components\TextInput::make('time_hot')->label('Время горячих'),
+                                    ]),
+
+                            ])->columns([
+                                'sm' => 2,
+                                'lg' => null,
                             ]),
 
-                        Forms\Components\Fieldset::make('Доступы')
+                        Forms\Components\Fieldset::make('Сделки')
                             ->schema([
-                                Forms\Components\Builder\Block::make('heading')
-                                    ->schema([
-                                        Forms\Components\TextInput::make('tag_cold'),
-                                        Forms\Components\TextInput::make('tag_soft'),
-                                        Forms\Components\TextInput::make('tag_hot'),
-                                        Forms\Components\TextInput::make('tag'),
-                                    ]),
-                            ]),
 
-                        Forms\Components\Fieldset::make('Доступы')
-                            ->schema([
-                                Forms\Components\Builder\Block::make('heading')
+                                Forms\Components\Builder\Block::make('Теги')
                                     ->schema([
-                                        Forms\Components\TextInput::make('time_cold')->integer(),
-                                        Forms\Components\TextInput::make('time_soft')->integer(),
-                                        Forms\Components\TextInput::make('time_hot')->integer(),
+                                        Forms\Components\TextInput::make('tag_cold')->label('Тег холодных'),
+                                        Forms\Components\TextInput::make('tag_soft')->label('Тег теплых'),
+                                        Forms\Components\TextInput::make('tag_hot')->label('Тег горячих'),
+                                        Forms\Components\TextInput::make('tag')->label('Тег по умолчанию'),
                                     ]),
+
+                                Forms\Components\Builder\Block::make('Другое')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('response_user_id')->label('Ответственный по умолчанию'),
+                                        Forms\Components\TextInput::make('pipeline_id')->label('Вебинарная воронка'),
+                                    ]),
+                            ])
+                            ->columns([
+                                'sm' => 2,
+                                'lg' => null,
                             ]),
-                    ])->columns(3),
+                    ])
             ]);
     }
 
@@ -90,10 +96,10 @@ class BizonResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+//                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+//                Tables\Actions\DeleteBulkAction::make(),
             ]);
     }
 
