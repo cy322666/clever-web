@@ -141,6 +141,11 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/doctrine/lexer" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/doctrine/cache" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/league/flysystem-local" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/bacon/bacon-qr-code" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/paragonie/constant_time_encoding" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/pragmarx/google2fa" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/dasprid/enum" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/jeffgreco13/filament-breezy" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

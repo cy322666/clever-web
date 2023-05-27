@@ -26,16 +26,16 @@ return [
     ],
 
     'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
+        'key'    => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
     'amocrm' => [
-        'app_name'      => env('AMO_APP_NAME'),
-        'client_id'     => env('AMO_CLIENT_ID'),
-        'description'   => env('AMO_DESCRIPTION'),
-        'redirect_uri'  => env('AMO_REDIRECT_URI'),
-        'secrets_uri'   => env('AMO_SECRETS_URI'),
+        'app_name'     => env('AMO_APP_NAME'),
+        'client_id'    => env('AMO_CLIENT_ID'),
+        'description'  => env('AMO_DESCRIPTION'),
+        'redirect_uri' => env('AMO_REDIRECT_URI'),
+        'secrets_uri'  => env('AMO_SECRETS_URI'),
     ]
 ];

@@ -26,6 +26,7 @@ class AccountResource extends Resource
                 Forms\Components\TextInput::make('redirect_uri'),
                 Forms\Components\TextInput::make('code'),
                 Forms\Components\TextInput::make('subdomain'),
+                //TODO timezone
             ]);
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\GetCourseController;
 use Illuminate\Http\Request;
@@ -31,4 +32,10 @@ Route::group(['prefix' => 'getcourse'], function () {
     Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 });
 
+Route::group(['prefix' => 'getcourse'], function () {
+
+    Route::post('secrets', [AuthController::class, 'secrets']);
+
+    Route::get('redirect', [AuthController::class, 'redirect']);
+});
 

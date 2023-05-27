@@ -31,16 +31,24 @@ class GetCourseResource extends Resource
                             ->schema([
                                 Forms\Components\Builder\Block::make('Теги')
                                     ->schema([
-                                        Forms\Components\TextInput::make('response_user_id_default')->label('Отв. по умолчанию'),
+                                        Forms\Components\TextInput::make('response_user_id_default')
+                                            ->label('Отв. по умолчанию')
+                                            ->required(),
                                         Forms\Components\TextInput::make('response_user_id_form')->label('Отв. по заявкам'),
                                         Forms\Components\TextInput::make('response_user_id_order')->label('Отв. по заказам'),
                                     ]),
 
                                 Forms\Components\Builder\Block::make('Этапы')
                                     ->schema([
-                                        Forms\Components\TextInput::make('status_id_order')->label('Этап новых заказов'),
-                                        Forms\Components\TextInput::make('status_id_order_close')->label('Этап оплаченных заказов'),
-                                        Forms\Components\TextInput::make('status_id_form')->label('Этап новых заявок'),
+                                        Forms\Components\TextInput::make('status_id_order')
+                                            ->label('Этап новых заказов')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('status_id_order_close')
+                                            ->label('Этап оплаченных заказов')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('status_id_form')
+                                            ->label('Этап новых заявок')
+                                            ->required(),
                                     ]),
                             ]),
 

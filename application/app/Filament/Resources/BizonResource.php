@@ -27,12 +27,13 @@ class BizonResource extends Resource
                 Forms\Components\Section::make('Настройки')
                     ->description('Для работы интеграции заполните обязательные поля')
                     ->schema([
-
                         Forms\Components\Fieldset::make('Доступы')
                             ->schema([
 //                                Forms\Components\TextInput::make('login'),
 //                                Forms\Components\TextInput::make('password'),
-                                Forms\Components\TextInput::make('token')->label('Токен'),
+                                Forms\Components\TextInput::make('token')
+                                    ->label('Токен')
+                                    ->required(),
                             ])->columnSpan(2),
                     ]),
 
@@ -44,16 +45,28 @@ class BizonResource extends Resource
                             ->schema([
                                 Forms\Components\Builder\Block::make('Этапы')
                                     ->schema([
-                                        Forms\Components\TextInput::make('status_id_cold')->label('Этап холодных'),
-                                        Forms\Components\TextInput::make('status_id_soft')->label('Этап теплых'),
-                                        Forms\Components\TextInput::make('status_id_hot')->label('Этап горячих'),
+                                        Forms\Components\TextInput::make('status_id_cold')
+                                            ->label('Этап холодных')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('status_id_soft')
+                                            ->label('Этап теплых')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('status_id_hot')
+                                            ->label('Этап горячих')
+                                            ->required(),
                                     ]),
 
                                 Forms\Components\Builder\Block::make('Этапы')
                                     ->schema([
-                                        Forms\Components\TextInput::make('time_cold')->label('Время холодных'),
-                                        Forms\Components\TextInput::make('time_soft')->label('Время теплых'),
-                                        Forms\Components\TextInput::make('time_hot')->label('Время горячих'),
+                                        Forms\Components\TextInput::make('time_cold')
+                                            ->label('Время холодных')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('time_soft')
+                                            ->label('Время теплых')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('time_hot')
+                                            ->label('Время горячих')
+                                            ->required(),
                                     ]),
 
                             ])->columns([
@@ -74,8 +87,12 @@ class BizonResource extends Resource
 
                                 Forms\Components\Builder\Block::make('Другое')
                                     ->schema([
-                                        Forms\Components\TextInput::make('response_user_id')->label('Ответственный по умолчанию'),
-                                        Forms\Components\TextInput::make('pipeline_id')->label('Вебинарная воронка'),
+                                        Forms\Components\TextInput::make('response_user_id')
+                                            ->label('Ответственный по умолчанию')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('pipeline_id')
+                                            ->label('Вебинарная воронка')
+                                            ->required(),
                                     ]),
                             ])
                             ->columns([

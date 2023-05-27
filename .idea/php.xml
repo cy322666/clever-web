@@ -141,6 +141,11 @@
       <path value="$PROJECT_DIR$/application/vendor/doctrine/lexer" />
       <path value="$PROJECT_DIR$/application/vendor/doctrine/cache" />
       <path value="$PROJECT_DIR$/application/vendor/league/flysystem-local" />
+      <path value="$PROJECT_DIR$/application/vendor/bacon/bacon-qr-code" />
+      <path value="$PROJECT_DIR$/application/vendor/paragonie/constant_time_encoding" />
+      <path value="$PROJECT_DIR$/application/vendor/pragmarx/google2fa" />
+      <path value="$PROJECT_DIR$/application/vendor/dasprid/enum" />
+      <path value="$PROJECT_DIR$/application/vendor/jeffgreco13/filament-breezy" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.0" />

@@ -21,7 +21,7 @@ return [
     /*
     | Whether or not to automatically display the My Profile page in the navigation of Filament. NOTE: if enable_profile_page => false then this value is ignored.
     */
-    "show_profile_page_in_navbar" => true,
+    "show_profile_page_in_navbar" => false,
     /*
     | Customize the icon profile page icon in the navbar. Does not apply to the user menu.
     */
@@ -110,7 +110,7 @@ return [
     |--------------------------------------------------------------------------
     | Where to redirect the user after registration.
     */
-    "registration_redirect_url" => config("filament.home_url", "/"),
+    "registration_redirect_url" => config("filament.home_url", "/admin/login"),
     /*
     |--------------------------------------------------------------------------
     | Enable sanctum api token management.
