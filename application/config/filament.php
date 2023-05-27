@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\AuthService;
 use Filament\AvatarProviders\UiAvatarsProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -316,7 +317,7 @@ return [
 
     'middleware' => [
         'auth' => [
-            Authenticate::class,
+            AuthService::class,
         ],
         'base' => [
             EncryptCookies::class,
