@@ -12,6 +12,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use JeffGreco13\FilamentBreezy\Http\Livewire\Auth\Login;
 
 return [
 
@@ -61,7 +62,7 @@ return [
     |
     */
 
-    'home_url' => '/',
+    'home_url' => '/admin/login',
 
     /*
     |--------------------------------------------------------------------------
@@ -87,7 +88,7 @@ return [
     'auth' => [
         'guard' => env('FILAMENT_AUTH_GUARD', 'web'),
         'pages' => [
-            'login' => \JeffGreco13\FilamentBreezy\Http\Livewire\Auth\Login::class,
+            'login' => Login::class,
         ],
     ],
 
@@ -139,8 +140,8 @@ return [
         'namespace' => 'App\\Filament\\Widgets',
         'path' => app_path('Filament/Widgets'),
         'register' => [
-            Widgets\AccountWidget::class,
-            Widgets\FilamentInfoWidget::class,
+//            Widgets\AccountWidget::class,
+//            Widgets\FilamentInfoWidget::class,
         ],
     ],
 
