@@ -16,7 +16,7 @@ class StaffsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    public static function form(Form $form): Form
+    public function form(Forms\Form $form): Forms\Form
     {
         return $form
             ->schema([
@@ -26,7 +26,7 @@ class StaffsRelationManager extends RelationManager
             ]);
     }
 
-    public static function table(Table $table): Table
+    public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->columns([

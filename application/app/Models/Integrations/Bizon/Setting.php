@@ -20,7 +20,7 @@ class Setting extends Model
         'status_id_cold',
         'status_id_soft',
         'status_id_hot',
-        'responsible_user_id',
+        'response_user_id',
         'tag',
         'time_cold',
         'time_soft',

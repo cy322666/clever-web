@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('amocrm_pipelines', function (Blueprint $table) {
+        Schema::table('amocrm_statuses', function (Blueprint $table) {
 
             $table->boolean('is_archive')->default(false);
         });
@@ -26,7 +26,7 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::table('amocrm_pipelines', function (Blueprint $table) {
+        Schema::table('amocrm_statuses', function (Blueprint $table) {
 
             $table->dropColumn('is_archive');
         });

@@ -3,7 +3,7 @@
 chmod -R 777 storage
 chmod -R 777 vendor
 
-#composer install
+composer update
 
 #php artisan key:generate
 

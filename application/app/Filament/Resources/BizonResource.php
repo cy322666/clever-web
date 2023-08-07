@@ -3,11 +3,17 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\BizonResource\Pages;
+use App\Models\amoCRM\Staff;
+use App\Models\amoCRM\Status;
 use App\Models\Integrations\Bizon\Setting;
 use Filament\Forms;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Split;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Form;
 use Filament\Resources\Resource;
 use Filament\Resources\Table;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -16,14 +22,31 @@ class BizonResource extends Resource
 {
     protected static ?string $model = Setting::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-collection';
+//    protected static ?string $navigationIcon = 'heroicon-o-collection';
 
     protected static bool $shouldRegisterNavigation = false;
 
-    public static function form(Form $form): Form
+    public static function form(Forms\Form $form): Forms\Form
     {
         return $form
             ->schema([
+
+//                Split::make([
+//                    Section::make([
+//                        TextEntry::make('title')
+//                            ->weight(FontWeight::Bold),
+//                        TextEntry::make('content')
+//                            ->markdown()
+//                            ->prose(),
+//                    ])->grow(),
+//                    Section::make([
+//                        TextEntry::make('created_at')
+//                            ->dateTime(),
+//                        TextEntry::make('published_at')
+//                            ->dateTime(),
+//                    ]),
+//                ])->from('md'),
+
                 Forms\Components\Section::make('Настройки')
                     ->description('Для работы интеграции заполните обязательные поля')
                     ->schema([
@@ -43,21 +66,26 @@ class BizonResource extends Resource
 
                         Forms\Components\Fieldset::make('Условия')
                             ->schema([
-                                Forms\Components\Builder\Block::make('Этапы')
-                                    ->schema([
-                                        Forms\Components\TextInput::make('status_id_cold')
+//                                Forms\Components\Builder\Block::make('Этапы')
+//                                    ->schema([
+                                        Forms\Components\Select::make('status_id_cold')
                                             ->label('Этап холодных')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('status_id_soft')
-                                            ->label('Этап теплых')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('status_id_hot')
-                                            ->label('Этап горячих')
-                                            ->required(),
-                                    ]),
+                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                            ->searchable(),
 
-                                Forms\Components\Builder\Block::make('Этапы')
-                                    ->schema([
+                                        Forms\Components\Select::make('status_id_soft')
+                                            ->label('Этап теплых')
+                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                            ->searchable(),
+
+                                        Forms\Components\Select::make('status_id_hot')
+                                            ->label('Этап горячих')
+                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                            ->searchable(),
+//                                    ]),
+
+//                                Forms\Components\Builder\Block::make('Этапы')
+//                                    ->schema([
                                         Forms\Components\TextInput::make('time_cold')
                                             ->label('Время холодных')
                                             ->required(),
@@ -77,33 +105,37 @@ class BizonResource extends Resource
                         Forms\Components\Fieldset::make('Сделки')
                             ->schema([
 
-                                Forms\Components\Builder\Block::make('Теги')
-                                    ->schema([
+//                                Forms\Components\Builder\Block::make('Теги')
+//                                    ->schema([
                                         Forms\Components\TextInput::make('tag_cold')->label('Тег холодных'),
                                         Forms\Components\TextInput::make('tag_soft')->label('Тег теплых'),
                                         Forms\Components\TextInput::make('tag_hot')->label('Тег горячих'),
                                         Forms\Components\TextInput::make('tag')->label('Тег по умолчанию'),
-                                    ]),
+//                                    ]),
 
-                                Forms\Components\Builder\Block::make('Другое')
-                                    ->schema([
-                                        Forms\Components\TextInput::make('response_user_id')
+//                                Forms\Components\Builder\Block::make('Другое')
+//                                    ->schema([
+
+                                        Forms\Components\Select::make('response_user_id')
                                             ->label('Ответственный по умолчанию')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('pipeline_id')
+                                            ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                            ->searchable(),
+
+                                        Forms\Components\Select::make('pipeline_id')
                                             ->label('Вебинарная воронка')
-                                            ->required(),
-                                    ]),
+                                            ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+                                            ->searchable(),
+//                                    ]),
                             ])
                             ->columns([
                                 'sm' => 2,
                                 'lg' => null,
                             ]),
-                    ])
+//                    ])
             ]);
     }
 
-    public static function table(Table $table): Table
+    public static function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->columns([

@@ -17,10 +17,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
-
 Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook']);
 
 Route::group(['prefix' => 'getcourse'], function () {
@@ -32,7 +28,7 @@ Route::group(['prefix' => 'getcourse'], function () {
     Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 });
 
-Route::group(['prefix' => 'getcourse'], function () {
+Route::group(['prefix' => 'auth'], function () {
 
     Route::post('secrets', [AuthController::class, 'secrets']);
 

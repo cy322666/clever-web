@@ -13,13 +13,13 @@ class GetCourseResource extends Resource
 {
     protected static ?string $model = GetCourse\Setting::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-collection';
+//    protected static ?string $navigationIcon = 'heroicon-o-collection';
 
     protected static ?string $slug = 'integrations/getcourse/settings';
 
     protected static bool $shouldRegisterNavigation = false;
 
-    public static function form(Form $form): Form
+    public static function form(Forms\Form $form): Forms\Form
     {
         return $form
             ->schema([
@@ -70,7 +70,7 @@ class GetCourseResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
+    public static function table(\Filament\Tables\Table $table): \Filament\Tables\Table
     {
         return $table
             ->columns([

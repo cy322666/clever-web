@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\BizonViewerSend;
-use App\Models\Core\Access;
 use App\Models\Core\Account;
 //use App\Models\Integrations\Bizon\BizonDispatcher;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Bizon\Webinar;
 use App\Models\User;
-use App\Services\amoCRM\Strategy\Bizon\SendFactory;
 use App\Services\Bizon365\Client;
 use App\Services\Bizon365\ViewerSender;
 use Carbon\Carbon;

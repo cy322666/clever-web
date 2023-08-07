@@ -17,20 +17,20 @@ class AppsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-//    public static function form(Form $form): Form
-//    {
-//        return $form
-//            ->schema([
-//                Forms\Components\TextInput::make('name')
-//                    ->required()
-//                    ->maxLength(255),
-//            ]);
-//    }
+    public function form(Forms\Form $form): Forms\Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
+            ]);
+    }
 
     /**
      * @throws Exception
      */
-    public static function table(Table $table): Table
+    public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->columns([
@@ -45,7 +45,12 @@ class AppsRelationManager extends RelationManager
             ->actions([
                 Tables\Actions\Action::make('view')
                     ->label('View')
-                    ->url(fn ($record): string => route('filament.resources.integrations/'.$record->name.'/settings.edit', $record)),
+                    ->url(function ($record) {
+
+                        $resourceName = 'App\Filament\Resources\\'.ucfirst($record->name).'Resource';
+
+                        return $resourceName::getUrl('edit', ['record' => $record]);
+                    }),
             ])
             ->bulkActions([
 //                Tables\Actions\DeleteBulkAction::make(),
