@@ -12,7 +12,7 @@ class LeadSource extends Model
     protected $table = 'alfacrm_lead_sources';
 
     protected $fillable = [
-        'account_id',
+        'user_id',
         'code',
         'name',
         'is_enabled',

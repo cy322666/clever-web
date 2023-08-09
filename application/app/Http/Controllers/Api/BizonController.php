@@ -18,12 +18,11 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Laravel\Octane\Exceptions\DdException;
 
 class BizonController extends Controller
 {
     /**
-     * @throws GuzzleException|DdException
+     * @throws GuzzleException
      * @throws Exception
      */
     public function hook(User $user, Request $request)

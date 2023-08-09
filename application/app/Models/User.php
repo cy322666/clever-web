@@ -60,6 +60,11 @@ class User extends Authenticatable
         return $this->hasOne(Integrations\GetCourse\Setting::class);
     }
 
+    public function alfacrm_settings(): HasOne
+    {
+        return $this->hasOne(Integrations\Alfa\Setting::class);
+    }
+
     public function account(): HasOne
     {
         return $this->hasOne(Account::class);

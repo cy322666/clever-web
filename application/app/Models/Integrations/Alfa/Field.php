@@ -12,7 +12,7 @@ class Field extends Model
     protected $table = 'alfacrm_fields';
 
     protected $fillable = [
-        'account_id',
+        'user_id',
         'entity',
         'name',
         'code',

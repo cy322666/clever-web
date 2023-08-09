@@ -3,12 +3,10 @@
 namespace App\Filament\Resources\Core;
 
 use App\Filament\Resources\Core\AccountResource\Pages;
-use App\Filament\Resources\UserResource;
+use App\Filament\Resources\Core\UserResource;
 use App\Models\Core\Account;
 use Filament\Forms;
-use Filament\Resources\Form;
 use Filament\Resources\Resource;
-use Filament\Resources\Table;
 use Filament\Tables;
 
 class AccountResource extends Resource
@@ -49,12 +47,12 @@ class AccountResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Статус'),
 
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Клиент')
-                    ->searchable()
-                    ->sortable()
-                    ->url(fn ($record) => UserResource::getUrl('edit', ['record' => $record]))
-                    ->toggleable(),
+//                Tables\Columns\TextColumn::make('user.name')
+//                    ->label('Клиент')
+//                    ->searchable()
+//                    ->sortable()
+//                    ->url(fn ($record) => UserResource::getUrl('edit', ['record' => $record]))
+//                    ->toggleable(),
 //
 //                Tables\Columns\BadgeColumn::make('status.name')
 //                    ->label('Статус')

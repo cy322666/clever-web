@@ -48,8 +48,16 @@ class Setting extends Model
         'web',
 
         'branch_id',
-        'account_id',
+
+        'domain',
+        'email',
+        'api_key',
     ];
+
+    public static function getResourceName()
+    {
+
+    }
 
     public function webhooks()
     {

@@ -2,7 +2,6 @@
 
 namespace App\Models\Core;
 
-use App\Models\amoCRM\Pipeline;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\User;
@@ -19,7 +18,6 @@ class Account extends Model
 
     protected $fillable = [
         'user_id',
-        'account_id',
         'code',
         'state',
         'client_id',

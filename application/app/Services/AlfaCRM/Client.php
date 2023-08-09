@@ -2,6 +2,7 @@
 
 namespace App\Services\AlfaCRM;
 
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -26,13 +27,16 @@ class Client
     {
         $this->http = new \GuzzleHttp\Client();
 
-        $this->domain = $storage->subdomain;
+        $this->domain = $storage->domain;
         $this->email  = $storage->client_id;
         $this->apikey = $storage->code;
 
         $this->storage = $storage;
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function init(): static
     {
         $response = $this
@@ -59,7 +63,10 @@ class Client
 
     public function headers(): array
     {
-        $headers = ['Accept' => 'application/json', 'Content-Type' => 'application/json'];
+        $headers = [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json'
+        ];
 
         if ($this->token) {
 
