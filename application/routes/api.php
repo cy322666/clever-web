@@ -20,7 +20,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])->middleware(CheckActiveUser::class);;
 
-
 Route::group(['prefix' => 'getcourse'], function () {
 
     Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay']);
@@ -31,10 +30,9 @@ Route::group(['prefix' => 'getcourse'], function () {
 
 })->middleware(CheckActiveUser::class);
 
-Route::group(['prefix' => 'auth'], function () {
+Route::group(['prefix' => 'amocrm'], function () {
 
     Route::post('secrets', [AuthController::class, 'secrets']);
 
     Route::get('redirect', [AuthController::class, 'redirect']);
 });
-

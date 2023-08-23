@@ -98,6 +98,8 @@ class Webinar extends Model
             'clickFile'   => $user_array['clickFile'] ?? null,
             'clickBanner' => !empty($user_array['clickBanner']) ? 'Да' : 'Нет',
             'commentaries'=> count($commentariesTS[$user_key]) > 0 ? json_encode($commentariesTS[$user_key]) : null,
+
+            'status' => Viewer::STATUS_WAIT,
         ]);
     }
 }

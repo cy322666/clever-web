@@ -34,7 +34,7 @@ return new class extends Migration
             $table->integer('status_omission_2')->nullable();
             $table->integer('status_omission_3')->nullable();
 
-            $table->integer('user_id')->nullable();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
 
             $table->json('fields')->nullable();
         });

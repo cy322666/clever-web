@@ -12,14 +12,20 @@ class App extends Model
     use HasFactory;
 
     protected $fillable = [
-        'account_id',
+        'resource_name',
+        'setting_id',
         'user_id',
         'name',
         'active',
     ];
 
-    public function account(): HasOne
+    public function user(): HasOne
     {
-        return $this->hasOne(Account::class, 'id', 'account_id');
+        return $this->hasOne(User::class, 'id', 'user_id');
+    }
+
+    public function setting(): HasOne
+    {
+        return $this->hasOne(Account::class, 'id', 'account_id');//TODO
     }
 }

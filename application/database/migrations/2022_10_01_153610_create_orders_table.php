@@ -33,8 +33,7 @@ return new class extends Migration
             $table->integer('lead_id')->nullable();
             $table->integer('contact_id')->nullable();
 
-            $table->integer('webhook_id')->nullable();
-            $table->integer('user_id')->nullable();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
 
             $table->text('error')->nullable();
         });

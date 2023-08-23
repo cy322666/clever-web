@@ -17,10 +17,9 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            $table->integer('user_id')->nullable();
-//            $table->integer('account_id')->nullable();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('app_name')->nullable();
-            $table->integer('app_id')->nullable();
+            $table->foreignId('app_id')->constrained('apps')->cascadeOnDelete();
             $table->boolean('active')->nullable();
             $table->string('path')->nullable();
             $table->string('type')->nullable();

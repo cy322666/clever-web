@@ -22,22 +22,27 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Аккаунт')
-                    ->description('Основная информация')
+                Forms\Components\Section::make('Основная информация')
                     ->schema([
-                        Forms\Components\TextInput::make('email')->disabled(),
-                        Forms\Components\TextInput::make('name')->disabled(),
-                        Forms\Components\TextInput::make('uuid')->disabled(),
+                        Forms\Components\TextInput::make('email')
+                            ->label('Почта')
+                            ->disabled(),
+                        Forms\Components\TextInput::make('name')
+                            ->label('Логин')
+                            ->disabled(),
+                        Forms\Components\TextInput::make('uuid')
+                            ->label('Идентификатор')
+                            ->disabled(),
                 ])->columnSpan([
                     'sm' => 2,
                 ]),
                 Forms\Components\Card::make()
                     ->schema([
                         Forms\Components\Placeholder::make('created_at')
-                            ->label('Создана')
+                            ->label('Создан')
                             ->content(fn (?User $record): string => $record ? $record->created_at->diffForHumans() : '-'),
                         Forms\Components\Placeholder::make('updated_at')
-                            ->label('Обновлена')
+                            ->label('Обновлен')
                             ->content(fn (?User $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
                     ])
                     ->columnSpan(1),
@@ -97,8 +102,8 @@ class UserResource extends Resource
     {
         return [
             'index'  => Pages\ListUsers::route('/'),
-            'create' => Pages\CreateUser::route('/create'),
             'edit'   => Pages\EditUser::route('/{record}/edit'),
+            'view'   => Pages\ViewUser::route('/{record}'),
         ];
     }
 }

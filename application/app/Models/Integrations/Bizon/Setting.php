@@ -16,7 +16,7 @@ class Setting extends Model
 
     protected $fillable = [
         'pipeline_id',
-        'account_id',
+        'user_id',
         'status_id_cold',
         'status_id_soft',
         'status_id_hot',

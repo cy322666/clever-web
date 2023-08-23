@@ -6,5 +6,5 @@ use Filament\Widgets\Widget;
 
 class amoCRMButton extends Widget
 {
-    protected static string $view = 'filament.widgets.amocrm-button';
+    protected static string $view = 'filament.app.widgets.amocrm-button';
 }

@@ -28,11 +28,11 @@ class BizonResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'Настроек Бизон';
+    protected static ?string $recordTitleAttribute = 'Бизон';
 
     public static function getRecordTitle(?Model $record): string|Htmlable|null
     {
-        return 'настроек Бизон';
+        return 'Бизон 365';
     }
 
     public static function form(Forms\Form $form): Forms\Form

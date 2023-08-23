@@ -2,20 +2,27 @@
 
 namespace App\Observers;
 
+use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Core\UserCreateService;
+use Illuminate\Support\Facades\Artisan;
 use Ramsey\Uuid\Uuid;
 
 class UserObserver
 {
     public bool $afterCommit = true;
 
-    public function created(User $user)
+    public function created(User $user): void
     {
-        (new UserCreateService($user))->setServices();
-
         $user->uuid = Uuid::uuid4();
         $user->save();
+
+        $user->account()->create();
+
+        /* создание моеделей интеграции */
+        Artisan::call('install:alfa', ['user_id' => $user->id]);
+        Artisan::call('install:bizon', ['user_id' => $user->id]);
+        Artisan::call('install:getcourse', ['user_id' => $user->id]);
     }
 
     /**

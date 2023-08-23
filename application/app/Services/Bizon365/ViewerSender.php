@@ -2,9 +2,12 @@
 
 namespace App\Services\Bizon365;
 
+use App\Models\amoCRM\Staff;
+use App\Models\amoCRM\Status;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Bizon\ViewerNote;
+use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\amoCRM\Models\Notes;
@@ -12,11 +15,29 @@ use App\Services\amoCRM\Models\Tags;
 
 abstract class ViewerSender
 {
+    /**
+     * @param Client $amoApi
+     * @param Viewer $viewer
+     * @param Setting $setting
+     * @return string
+     */
     public static function send(
-        \App\Services\amoCRM\Client $amoApi,
+        Client $amoApi,
         Viewer $viewer,
         Setting $setting) :string
     {
+            $pipelineId = Status::query()
+                ->find($setting->pipeline_id)
+                ->pipeline_id;
+
+            $statusId   = Status::query()
+                ->find($setting->{"status_id_$viewer->type"})
+                ->status_id;
+
+            $responsibleId = Staff::query()
+                ->find($setting->response_user_id)
+                ->staff_id;
+
             $contact = Contacts::search([
                 'Телефоны' => [$viewer->phone],
                 'Почта'    => $viewer->email
@@ -25,22 +46,22 @@ abstract class ViewerSender
             if ($contact == null) {
 
                 $contact = Contacts::create($amoApi, $viewer->username);
-
                 $contact = Contacts::update($contact, [
                     'Телефоны' => [$viewer->phone],
                     'Почта'    => $viewer->email,
+                    'Ответственный' => $responsibleId,
                 ]);
             } else
-                $lead = Leads::search($contact, $amoApi, $setting->pipeline_id);
+                $lead = Leads::search($contact, $amoApi, $pipelineId);
 
             if (empty($lead)) {
 
                 $lead = Leads::create($contact, [
-                    'status_id' => $setting->{"status_id_$viewer->type"},
-                    'responsible_user_id' => $setting->responsible_user_id,
+                    'responsible_user_id' => $responsibleId,
+                    'status_id'           => $statusId,
                 ], 'Новый зритель вебинара');
 
-                Leads::setUtms($lead, [
+                $lead = Leads::setUtms($lead, [
                     'utm_source'  => $viewer->utm_source ?? null,
                     'utm_medium'  => $viewer->utm_medium ?? null,
                     'utm_content' => $viewer->utm_content ?? null,
@@ -52,10 +73,8 @@ abstract class ViewerSender
 
             Notes::addOne($lead, ViewerNote::create($viewer));
 
-            if ($viewer->commentaries) {
-
+            if ($viewer->commentaries)
                 Notes::addOne($lead, ViewerNote::comments($viewer));
-            }
 
             Tags::add($lead, [
                 $setting->tag,

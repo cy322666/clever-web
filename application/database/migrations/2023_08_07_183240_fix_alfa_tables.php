@@ -11,26 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('alfacrm_lead_sources', function (Blueprint $table) {
-
-            $table->dropColumn('account_id');
-
-            $table->integer('user_id')->nullable();
-        });
-
-        Schema::table('alfacrm_lead_statuses', function (Blueprint $table) {
-
-            $table->dropColumn('account_id');
-
-            $table->integer('user_id')->nullable();
-        });
-
         Schema::table('alfacrm_fields', function (Blueprint $table) {
 
             $table->integer('entity')->nullable();
             $table->string('name')->nullable();
             $table->string('code')->nullable();
-            $table->integer('user_id')->nullable();
+
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
         });
 
         Schema::table('alfacrm_settings', function (Blueprint $table) {
@@ -46,20 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('alfacrm_lead_sources', function (Blueprint $table) {
-
-            $table->dropColumn('user_id');
-
-            $table->integer('account_id')->nullable();
-        });
-
-        Schema::table('alfacrm_lead_statuses', function (Blueprint $table) {
-
-            $table->dropColumn('user_id');
-
-            $table->integer('account_id')->nullable();
-        });
-
         Schema::table('alfacrm_fields', function (Blueprint $table) {
 
             $table->dropColumn('entity');

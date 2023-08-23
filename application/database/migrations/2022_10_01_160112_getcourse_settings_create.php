@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            $table->integer('user_id')->nullable();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
 
             $table->string('status_id_form')->nullable();
             $table->string('status_id_order')->nullable();

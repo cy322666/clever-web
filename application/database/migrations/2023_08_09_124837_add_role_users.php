@@ -15,22 +15,8 @@ return new class extends Migration
 
             $table->boolean('is_root')->default(false);
 
-            $table->dropColumn('account_id');
-
             $table->dateTime('expires_tariff_at')->nullable();
             $table->string('tariff')->default('trial');
-        });
-
-        Schema::table('accounts', function (Blueprint $table) {
-
-            $table->dropColumn('endpoint');
-            $table->dropColumn('status');
-            $table->dropColumn('state');
-            $table->dropColumn('token_bizon');
-            $table->dropColumn('work');
-            $table->dropColumn('token_type');
-            $table->dropColumn('expires_tariff');
-            $table->dropColumn('referer');
         });
     }
 
@@ -43,22 +29,8 @@ return new class extends Migration
 
             $table->dropColumn('is_root');
 
-            $table->integer('account_id')->nullable();
-
             $table->dropColumn('expires_tariff_at');
             $table->dropColumn('tariff');
-        });
-
-        Schema::table('accounts', function (Blueprint $table) {
-
-            $table->string('endpoint')->nullable();
-            $table->string('status')->nullable();
-            $table->string('state')->nullable();
-            $table->string('token_bizon')->nullable();
-            $table->string('work')->nullable();
-            $table->string('token_type')->nullable();
-            $table->string('expires_tariff')->nullable();
-            $table->string('referer')->nullable();
         });
     }
 };

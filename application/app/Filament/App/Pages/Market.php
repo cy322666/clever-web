@@ -13,7 +13,7 @@ class Market extends Page
 
     protected static string $view = 'filament.app.pages.market';
 
-    protected static ?string $title = 'Магазин';
+    protected static ?string $title = 'Магазин интеграций';
 
     protected function getHeaderWidgets(): array
     {

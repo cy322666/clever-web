@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            $table->string('user')->nullable();
+            $table->string('user_id')->nullable();
             $table->text('message')->nullable();
             $table->string('contacts')->nullable();
             $table->string('type')->nullable();

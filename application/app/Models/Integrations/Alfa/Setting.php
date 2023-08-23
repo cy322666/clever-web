@@ -52,6 +52,8 @@ class Setting extends Model
         'domain',
         'email',
         'api_key',
+
+        'user_id',
     ];
 
     public static function getResourceName()

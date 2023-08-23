@@ -26,11 +26,11 @@ class AlfaResource extends Resource
      */
     protected static ?string $model = Setting::class;
 
-    protected static ?string $recordTitleAttribute = 'Настроек АльфаСРМ';
+    protected static ?string $recordTitleAttribute = 'АльфаСРМ';
 
     public static function getRecordTitle(?Model $record): string|Htmlable|null
     {
-        return 'настроек АльфаСРМ';
+        return 'АльфаСРМ';
     }
 
     protected static ?string $slug = 'settings/alfacrm';

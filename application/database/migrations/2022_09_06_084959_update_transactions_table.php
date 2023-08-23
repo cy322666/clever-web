@@ -29,7 +29,7 @@ return new class extends Migration
     {
         Schema::table('alfacrm_transactions', function (Blueprint $table) {
 
-            $table->dropColumn('webhook_id');
+            $table->dropColumn('user_id');
             $table->integer('amo_contact_id')->nullable();
         });
     }

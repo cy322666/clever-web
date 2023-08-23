@@ -19,8 +19,7 @@ return new class extends Migration
 
             $table->json('fields')->nullable();
 
-            $table->integer('user_id')->nullable();
-            $table->integer('account_id')->nullable();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
 
             $table->integer('amo_lead_id')->nullable();
             $table->integer('amo_contact_id')->nullable();

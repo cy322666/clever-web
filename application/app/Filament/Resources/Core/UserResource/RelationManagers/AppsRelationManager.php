@@ -16,17 +16,9 @@ class AppsRelationManager extends RelationManager
 {
     protected static string $relationship = 'apps';
 
-    protected static ?string $recordTitleAttribute = 'name';
+    protected static ?string $title = 'Интеграции';
 
-    public function form(Forms\Form $form): Forms\Form
-    {
-        return $form
-            ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
-            ]);
-    }
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected function getTableQuery(): Builder|Relation|null
     {
@@ -40,24 +32,24 @@ class AppsRelationManager extends RelationManager
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name'),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Название')
+                    ->description(function ($record) {
+
+                        return $record->resource_name::getRecordTitle($record);
+                    })
             ])
-            ->filters([
-                //
-            ])
-            ->headerActions([
-//                Tables\Actions\CreateAction::make(),
-            ])
+            ->filters([])
+            ->headerActions([])
             ->actions([
                 Tables\Actions\Action::make('view')
-                    ->label('View')
+                    ->label('Настроить')
                     ->url(function (Model $record) {
 
                         return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
                     }),
             ])
-            ->bulkActions([
-//                Tables\Actions\DeleteBulkAction::make(),
-            ]);
+            ->bulkActions([])
+            ->paginated(false);
     }
 }

@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::table('alfacrm_transactions', function (Blueprint $table) {
 
-            $table->integer('user_id')->nullable();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
         });
     }
 

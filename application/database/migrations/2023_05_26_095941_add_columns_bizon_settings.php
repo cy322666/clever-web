@@ -13,9 +13,10 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('alfacrm_transactions', function (Blueprint $table) {
-
-            $table->renameColumn('account_id', 'webhook_id')->nullable();
+        Schema::table('bizon_settings', function (Blueprint $table) {
+            $table->string('token')->nullable();
+            $table->string('login')->nullable();
+            $table->string('password')->nullable();
         });
     }
 
@@ -26,9 +27,10 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::table('alfacrm_fields', function (Blueprint $table) {
-
-            $table->renameColumn('webhook_id', 'account_id');
+        Schema::table('bizon_settings', function (Blueprint $table) {
+            $table->dropColumn('token');
+            $table->dropColumn('login');
+            $table->dropColumn('password');
         });
     }
 };

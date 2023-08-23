@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Filament\Resources\Core\UserResource;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\amoCRM\Client;
 use Exception;
+use Filament\Facades\Filament;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
@@ -17,42 +20,47 @@ class AuthController extends Controller
     /**
      * @throws Exception
      */
-    public function redirect(Request $request): Factory|View|Application
+    public function redirect(Request $request): string
     {
         Log::info(__METHOD__, $request->toArray());
 
-        $account = Auth::user()->account;
+        $user = User::query()
+            ->where('uuid', $request->uuid)
+            ->first();
 
-        $account->client_id = $request->client_id;
+        $account = $user->account;
+
         $account->code = $request->code;
+        $account->zone = explode('.', $request->referer)[2];
+        $account->client_id = $request->client_id;
+        $account->subdomain = explode('.', $request->referer)[0];
+        $account->redirect_uri  = config('services.amocrm.redirect_uri');
+        $account->client_secret = config('services.amocrm.client_secret');
         $account->save();
 
         (new Client($account))->init();
 
-        return view('redirect');
+        redirect(UserResource::getUrl('view', ['record' => $user]));
     }
 
     public function secrets(Request $request)
     {
         Log::info(__METHOD__, $request->toArray());
 
-//        $user = User::where('uuid', $request->input('user'))->first();
+//        $user = User::query()
+//            ->where('uuid', $request->input('user'))
+//            ->first();
 //
-//        $access = $user->access()->where('service_name', 'amocrm')->first();
+//        $account = $user->account;
 //
-//        if(!$access) {
-//
-//            $access = new Access();
-//            $access->user_id = $user->id;
-//            $access->account_id = $user->account->id;
-//        }
-//
-//        $access->service_name = 'amocrm';
-//        $access->client_secret = $request->client_secret;
-//        $access->client_id = $request->client_id;
-//        $access->subdomain = explode($request->referer, '.amocrm.')[0];
-//        //$access->state = $request->post('state');
-//        $access->save();
+//        $account->subdomain = explode($request->referer, '.amocrm.')[0];//TODO
+//        $account->save();
+        //$access->state = $request->post('state');
+    }
+
+    public function off(Request $request)
+    {
+        Log::info(__METHOD__, $request->toArray());
     }
 }
 //TODO пуши в телегу

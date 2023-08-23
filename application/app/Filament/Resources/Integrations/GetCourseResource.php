@@ -19,11 +19,11 @@ class GetCourseResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'Настроек Геткурс';
+    protected static ?string $recordTitleAttribute = 'Геткурс';
 
     public static function getRecordTitle(?Model $record): string|Htmlable|null
     {
-        return 'настроек Геткурс';
+        return 'Геткурс';
     }
 
     public static function form(Forms\Form $form): Forms\Form
