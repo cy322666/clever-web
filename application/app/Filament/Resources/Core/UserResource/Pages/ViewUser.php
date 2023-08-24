@@ -40,13 +40,13 @@ class ViewUser extends ViewRecord
 
         $auth = Request::get('auth');
 
-        if ($auth === 'false')
+        if ($auth === '0')
             Notification::make()
                 ->title('amoCRM не подключена. Подключите или обратитесь в чат поддержки')
                 ->warning()
                 ->send();
 
-        if ($auth === 'true')
+        if ($auth === '1')
             Notification::make()
                 ->title('amoCRM успешно подключена')
                 ->success()

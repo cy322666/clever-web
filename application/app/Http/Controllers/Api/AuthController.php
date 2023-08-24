@@ -52,21 +52,6 @@ class AuthController extends Controller
         ]);
     }
 
-    public function secrets(Request $request)
-    {
-        Log::info(__METHOD__, $request->toArray());
-
-//        $user = User::query()
-//            ->where('uuid', $request->input('user'))
-//            ->first();
-//
-//        $account = $user->account;
-//
-//        $account->subdomain = explode($request->referer, '.amocrm.')[0];//TODO
-//        $account->save();
-        //$access->state = $request->post('state');
-    }
-
     public function off(Request $request)
     {
         Log::info(__METHOD__, $request->toArray());
