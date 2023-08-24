@@ -3,22 +3,13 @@
 namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\Resources\Core\UserResource;
-use App\Models\amoCRM\Staff;
-use App\Models\amoCRM\Status;
-use App\Models\User;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Actions;
-use Filament\Resources\Pages\EditRecord;
-use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\URL;
 
 class ViewUser extends ViewRecord
 {
@@ -84,13 +75,5 @@ class ViewUser extends ViewRecord
                     ->danger()
                     ->send();
         }
-
-        //https://www.amocrm.ru/oauth/?state=hello&mode=popup&origin=&client_id=0be256d8-dfac-4af7-b729-d8fdd1a4b177
     }
-
-//    public static function shouldRegisterNavigation(): bool
-//    {
-//        return true;
-//            //auth()->user()->canManageSettings();
-//    }
 }

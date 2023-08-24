@@ -22,6 +22,7 @@ class Client
             'client_id' => $account->client_id ?? null,
             'client_secret' => $account->client_secret ?? null,
             'redirect_uri'  => $account->redirect_uri ?? null,
+            'zone' => $account->zone ?? null,
         ], $account);
 
         Oauthapi::setOauthStorage($this->storage);
@@ -42,6 +43,7 @@ class Client
             'client_id'     => $this->storage->model->client_id,
             'client_secret' => $this->storage->model->client_secret,
             'redirect_uri'  => $this->storage->model->redirect_uri,
+            'zone'          => $account->zone ?? null,
         ]);
 
         try {
