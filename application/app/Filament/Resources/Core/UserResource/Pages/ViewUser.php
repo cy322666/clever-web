@@ -92,7 +92,7 @@ class ViewUser extends ViewRecord
 
             Notification::make()
                 ->title('Успешно обновлено')
-                ->warning()
+                ->success()
                 ->send();
         }
     }
