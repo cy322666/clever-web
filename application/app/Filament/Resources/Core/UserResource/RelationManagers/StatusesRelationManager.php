@@ -47,6 +47,14 @@ class StatusesRelationManager extends RelationManager
             ->headerActions([])
             ->actions([])
             ->bulkActions([])
-            ->paginated([20, 30, 50]);
+            ->paginated([20, 30, 50])
+            ->emptyStateHeading('Не сихронизировано')
+            ->emptyStateDescription('Нажмите на кнопку Синхронизировать с amoCRM')
+            ->emptyStateIcon('exclamation-triangle');
+    }
+
+    public function isReadOnly(): bool
+    {
+        return true;
     }
 }

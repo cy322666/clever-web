@@ -29,12 +29,19 @@ class StaffsRelationManager extends RelationManager
                     ->label('ID'),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Имя'),
-//                Tables\Columns\TextColumn::make('updated_at'),
             ])
             ->filters([])
             ->headerActions([])
             ->actions([])
             ->bulkActions([])
-            ->paginated([20, 30, 50]);
+            ->paginated([20, 30, 50])
+            ->emptyStateHeading('Не сихронизировано')
+            ->emptyStateDescription('Нажмите на кнопку Синхронизировать с amoCRM')
+            ->emptyStateIcon('exclamation-triangle');
+    }
+
+    public function isReadOnly(): bool
+    {
+        return true;
     }
 }
