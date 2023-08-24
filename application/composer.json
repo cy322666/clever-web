@@ -18,6 +18,7 @@
         "filament/widgets": "^3.0",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^10.10",
+        "laravel/octane": "^2.0",
         "laravel/sanctum": "^3.2",
         "laravel/telescope": "^4.16",
         "laravel/tinker": "^2.8",
