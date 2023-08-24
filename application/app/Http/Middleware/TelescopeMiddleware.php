@@ -9,22 +9,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TelescopeMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param Request $request
-     * @param \Closure(Request): (Response) $next
-     * @param User $user
-     * @return bool
-     */
-    public function handle(Request $request, Closure $next, User $user): bool
+    public function handle(Request $request, Closure $next)
     {
-        if (app()->environment('local') ||
-            $user->is_root ||
+        if (app()->environment('local')) {
+
+            return $next($request);
+        }
+
+        $user = $request->user();
+
+        if ($user) {
+
+            if ($user->is_root ||
             in_array($user->email, [])) {
 
-            return true;
-        } else
-            return false;
+                return $next($request);
+            }
+        }
+
+        return false;
     }
 }
