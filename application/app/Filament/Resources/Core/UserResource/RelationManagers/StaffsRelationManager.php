@@ -2,13 +2,10 @@
 
 namespace App\Filament\Resources\Core\UserResource\RelationManagers;
 
-use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Resources\Table;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 
 class StaffsRelationManager extends RelationManager
@@ -34,13 +31,10 @@ class StaffsRelationManager extends RelationManager
                     ->label('Имя'),
 //                Tables\Columns\TextColumn::make('updated_at'),
             ])
-            ->filters([
-            ])
-            ->headerActions([
-            ])
-            ->actions([
-            ])
-            ->bulkActions([
-            ]);
+            ->filters([])
+            ->headerActions([])
+            ->actions([])
+            ->bulkActions([])
+            ->paginated([20, 30, 50]);
     }
 }

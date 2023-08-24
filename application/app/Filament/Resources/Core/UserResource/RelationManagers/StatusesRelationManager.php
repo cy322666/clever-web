@@ -19,9 +19,13 @@ class StatusesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected function getTableQuery(): Builder|Relation|null
+    protected function getTableQuery(?bool $active = false): Builder|Relation|null
     {
-        return Auth::user()->amocrm_statuses()->getQuery();
+        return Auth::user()
+            ->amocrm_statuses()
+            ->where('name', '!=', 'Неразобранное')
+            ->where('is_active', $active)
+            ->getQuery();
     }
 
     public function table(Tables\Table $table): Tables\Table
@@ -42,6 +46,7 @@ class StatusesRelationManager extends RelationManager
             ->filters([])
             ->headerActions([])
             ->actions([])
-            ->bulkActions([]);
+            ->bulkActions([])
+            ->paginated([20, 30, 50]);
     }
 }
