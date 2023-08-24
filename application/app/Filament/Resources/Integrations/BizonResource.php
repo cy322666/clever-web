@@ -72,7 +72,7 @@ class BizonResource extends Resource
                                     ->label('Ваша вебхук ссылка')
                                     ->url()
                                     ->readOnly()
-                                    ->helperText('Скопируйте ее в настройки вебинарной комнаты')
+                                    ->helperText('Скопируйте ее полностью в настройки вебинарной комнаты')
 
                             ])->columnSpan(2),
                     ]),
