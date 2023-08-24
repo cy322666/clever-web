@@ -38,17 +38,6 @@ class AuthController extends Controller
         $account->client_secret = config('services.amocrm.client_secret');
         $account->save();
 
-        try {
-            (new Client($user->account))->init();
-
-            $account->active = true;
-            $account->save();
-
-        } catch (\Throwable $e) {
-
-            Log::error(__METHOD__, [$e->getMessage().' '.$e->getFile().' '.$e->getLine()]);
-        }
-
         return redirect()->route('filament.app.resources.core.users.view', ['record' => $user]);
     }
 

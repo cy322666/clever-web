@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 
 class ViewUser extends ViewRecord
@@ -41,25 +42,21 @@ class ViewUser extends ViewRecord
      */
     public function amocrmUpdate(): void
     {
-        $amoApi = (new Client(Auth::user()->account))->init();
+        $account = Auth::user()->account;
 
-        if ($amoApi->auth !== false) {
-
-            Account::users($amoApi);
-            Account::statuses($amoApi);
-
-            Notification::make()
-                ->title('Успешно обновлено')
-                ->success()
-                ->send();
-
-        } else {
+        if (!$account->auth) {
 
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
 
+            $account->active = true;
+            $account->save();
+
+        }
+
+        try {
             $amoApi = (new Client(Auth::user()->account))->init();
 
-            if ($amoApi->auth !== false) {
+            if ($account->active && $amoApi->auth) {
 
                 Account::users($amoApi);
                 Account::statuses($amoApi);
@@ -68,12 +65,20 @@ class ViewUser extends ViewRecord
                     ->title('Успешно обновлено')
                     ->success()
                     ->send();
-
             } else
                 Notification::make()
-                    ->title('Ошибка')
-                    ->danger()
+                    ->title('Ошибка обновления. Попробуйте снова')
+                    ->warning()
                     ->send();
+
+        } catch (\Throwable $e) {
+
+            Log::error(__METHOD__, [$e->getMessage()]);
+
+            Notification::make()
+                ->title('Критическая ошибка обновления. Обратитесь в тех поддержку')
+                ->danger()
+                ->send();
         }
     }
 }
