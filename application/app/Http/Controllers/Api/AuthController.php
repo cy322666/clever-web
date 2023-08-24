@@ -20,7 +20,7 @@ class AuthController extends Controller
     /**
      * @throws Exception
      */
-    public function redirect(Request $request): string
+    public function redirect(Request $request)
     {
         Log::info(__METHOD__, $request->toArray());
 
