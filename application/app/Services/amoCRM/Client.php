@@ -33,7 +33,7 @@ class Client
      */
     public function init(): Client
     {
-        if ($this->storage->model->created_at == null) {
+        if ($this->storage->model->code == null) {
 
             return $this;
         }
