@@ -51,13 +51,21 @@ class Client
 
             $this->auth = true;
 
-        } catch (Exception $exception) {
+        } catch (Exception $e) {
 
-            if ($this->storage->model->refresh_token) {
+            Log::warning(__METHOD__, [$e->getMessage()]);
 
-                $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
-            } else
-                $oauth = $this->service->fetchAccessToken($this->storage->model->code);
+            try {
+                if ($this->storage->model->refresh_token) {
+
+                    $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
+                } else
+                    $oauth = $this->service->fetchAccessToken($this->storage->model->code);
+
+            } catch (\Throwable $e) {
+
+                Log::error(__METHOD__, [$e->getMessage()]);
+            }
 
             $this->storage->setOauthData($this->service, [
                 'token_type'    => 'Bearer',
