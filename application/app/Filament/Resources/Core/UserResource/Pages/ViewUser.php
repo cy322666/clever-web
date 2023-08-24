@@ -51,6 +51,13 @@ class ViewUser extends ViewRecord
         if (!$account->auth) {
 
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
+
+            if ($account->auth)
+                Notification::make()
+                    ->title('Успешно. Нажмите на кнопку Синхронизировать amoCRM')
+                    ->warning()
+                    ->send();
+
         } else
             Notification::make()
                 ->title('amoCRM уже подключена')
