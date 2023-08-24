@@ -9,42 +9,39 @@ use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class StatusesRelationManager extends RelationManager
 {
     protected static string $relationship = 'amocrm_statuses';
 
+    protected static ?string $title = 'Этапы и воронки';
+
     protected static ?string $recordTitleAttribute = 'name';
 
     protected function getTableQuery(): Builder|Relation|null
     {
-        return Status::query()->where('name', '!=', 'Неразобранное');
-    }
-
-    public function form(Forms\Form $form): Forms\Form
-    {
-        return $form
-            ->schema([]);
+        return Auth::user()->amocrm_statuses()->getQuery();
     }
 
     public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('pipeline_id'),
-                Tables\Columns\TextColumn::make('pipeline_name'),
-                Tables\Columns\TextColumn::make('status_id'),
-                Tables\Columns\TextColumn::make('name'),
-                Tables\Columns\ColorColumn::make('color'),
+                Tables\Columns\TextColumn::make('pipeline_id')
+                    ->label('ID воронки'),
+                Tables\Columns\TextColumn::make('pipeline_name')
+                    ->label('Название воронки'),
+                Tables\Columns\TextColumn::make('status_id')
+                    ->label('ID этапа'),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Название этапа'),
+                Tables\Columns\ColorColumn::make('color')
+                    ->label('Цвет этапа'),
             ])
-            ->filters([
-                //
-            ])
-            ->headerActions([
-            ])
-            ->actions([
-            ])
-            ->bulkActions([
-            ]);
+            ->filters([])
+            ->headerActions([])
+            ->actions([])
+            ->bulkActions([]);
     }
 }

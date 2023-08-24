@@ -34,7 +34,7 @@ class Client
     {
         if (!$this->storage->model->subdomain) {
 
-            return $this;//TODO no domain
+            return $this;
         }
 
         $this->service = Oauthapi::setInstance([

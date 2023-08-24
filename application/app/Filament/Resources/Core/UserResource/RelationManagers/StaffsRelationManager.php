@@ -7,31 +7,32 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Resources\Table;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class StaffsRelationManager extends RelationManager
 {
     protected static string $relationship = 'amocrm_staffs';
 
+    protected static ?string $title = 'Сотрудники';
+
     protected static ?string $recordTitleAttribute = 'name';
 
-    public function form(Forms\Form $form): Forms\Form
+    protected function getTableQuery(): Builder|Relation|null
     {
-        return $form
-            ->schema([
-//                Forms\Components\TextInput::make('name')
-//                    ->required()
-//                    ->maxLength(255),
-            ]);
+        return Auth::user()->amocrm_staffs()->getQuery();
     }
 
     public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('staff_id'),
-                Tables\Columns\TextColumn::make('name'),
-                Tables\Columns\TextColumn::make('updated_at'),
+                Tables\Columns\TextColumn::make('staff_id')
+                    ->label('ID'),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Имя'),
+//                Tables\Columns\TextColumn::make('updated_at'),
             ])
             ->filters([
             ])
