@@ -19,12 +19,12 @@ class StatusesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected function getTableQuery(?bool $active = false): Builder|Relation|null
+    protected function getTableQuery(?bool $archive = false): Builder|Relation|null
     {
         return Auth::user()
             ->amocrm_statuses()
             ->where('name', '!=', 'Неразобранное')
-            ->where('is_active', $active)
+            ->where('is_archive', $archive)
             ->getQuery();
     }
 
