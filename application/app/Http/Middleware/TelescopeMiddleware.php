@@ -27,6 +27,6 @@ class TelescopeMiddleware
             }
         }
 
-        return abort(403);
+        return $next($request);
     }
 }
