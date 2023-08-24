@@ -40,7 +40,7 @@ class AuthController extends Controller
 
         (new Client($account))->init();
 
-        redirect(UserResource::getUrl('view', ['record' => $user]));
+        redirect(route('filament.app.resources.core.users.view', ['record' => $user]));
     }
 
     public function secrets(Request $request)
