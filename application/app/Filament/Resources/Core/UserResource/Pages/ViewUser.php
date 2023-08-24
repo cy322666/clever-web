@@ -62,12 +62,29 @@ class ViewUser extends ViewRecord
                 ->success()
                 ->send();
 
-        } else
+        } else {
+
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
-//            Notification::make()
-//                ->title('Авторизуйся')
-//                ->warning()
-//                ->send();
+
+            $amoApi = (new Client(Auth::user()->account))->init();
+
+            if ($amoApi->auth !== false) {
+
+                Account::users($amoApi);
+                Account::statuses($amoApi);
+
+                Notification::make()
+                    ->title('Успешно обновлено')
+                    ->success()
+                    ->send();
+
+            } else
+                Notification::make()
+                    ->title('Ошибка')
+                    ->danger()
+                    ->send();
+        }
+
         //https://www.amocrm.ru/oauth/?state=hello&mode=popup&origin=&client_id=0be256d8-dfac-4af7-b729-d8fdd1a4b177
     }
 
