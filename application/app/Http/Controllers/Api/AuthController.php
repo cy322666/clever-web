@@ -38,7 +38,7 @@ class AuthController extends Controller
         $account->client_secret = config('services.amocrm.client_secret');
         $account->save();
 
-        $amoApi = (new Client($account))->init();
+        $amoApi = (new Client($account->refresh()))->init();
 
         if ($amoApi->auth) {
 
@@ -46,7 +46,10 @@ class AuthController extends Controller
             $account->save();
         }
 
-        return redirect()->route('filament.app.resources.core.users.view', ['record' => $user]);
+        return redirect()->route('filament.app.resources.core.users.view', [
+            'record' => $user,
+            'auth'   => $amoApi->auth,
+        ]);
     }
 
     public function secrets(Request $request)
