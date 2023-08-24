@@ -38,10 +38,10 @@ class AuthController extends Controller
         $account->client_secret = config('services.amocrm.client_secret');
         $account->save();
 
-        $amoApi = (new Client(Auth::user()->account))->init();
+        $amoApi = (new Client($account))->init();
 
         if ($amoApi->auth) {
-            
+
             $account->active = true;
             $account->save();
         }
