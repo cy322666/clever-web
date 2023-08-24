@@ -25,7 +25,7 @@ class AuthController extends Controller
         Log::info(__METHOD__, $request->toArray());
 
         $user = User::query()
-            ->where('uuid', $request->uuid)
+            ->where('uuid', $request->state)
             ->first();
 
         $account = $user->account;

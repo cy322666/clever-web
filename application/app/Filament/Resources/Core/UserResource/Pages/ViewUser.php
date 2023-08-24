@@ -63,7 +63,7 @@ class ViewUser extends ViewRecord
                 ->send();
 
         } else
-            Redirect::to('https://www.amocrm.ru/oauth/?state=hello&mode=popup&client_id='.config('services.amocrm.client_id').'&uuid='.Auth::user()->uuid);
+            Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
 //            Notification::make()
 //                ->title('Авторизуйся')
 //                ->warning()
