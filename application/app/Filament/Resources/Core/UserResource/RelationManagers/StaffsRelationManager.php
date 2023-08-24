@@ -37,7 +37,7 @@ class StaffsRelationManager extends RelationManager
             ->paginated([20, 30, 50])
             ->emptyStateHeading('Не сихронизировано')
             ->emptyStateDescription('Нажмите на кнопку Синхронизировать с amoCRM')
-            ->emptyStateIcon('exclamation-triangle');
+            ->emptyStateIcon('heroicon-o-exclamation-triangle');
     }
 
     public function isReadOnly(): bool
