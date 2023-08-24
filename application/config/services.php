@@ -34,6 +34,7 @@ return [
     'amocrm' => [
         'app_name'     => env('AMO_APP_NAME'),
         'client_id'    => env('AMO_CLIENT_ID'),
+        'client_secret'=> env('AMO_CLIENT_SECRET'),
         'description'  => env('AMO_DESCRIPTION'),
         'redirect_uri' => env('AMO_REDIRECT_URI'),
         'secrets_uri'  => env('AMO_SECRETS_URI'),
