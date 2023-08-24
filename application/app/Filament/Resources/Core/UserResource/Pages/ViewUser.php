@@ -47,16 +47,15 @@ class ViewUser extends ViewRecord
         if (!$account->auth) {
 
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
-
-            $account->active = true;
-            $account->save();
-
         }
 
         try {
             $amoApi = (new Client(Auth::user()->account))->init();
 
-            if ($account->active && $amoApi->auth) {
+            if ($amoApi->auth) {
+
+                $account->active = true;
+                $account->save();
 
                 Account::users($amoApi);
                 Account::statuses($amoApi);

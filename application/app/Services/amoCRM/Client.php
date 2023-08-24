@@ -33,7 +33,7 @@ class Client
      */
     public function init(): Client
     {
-        if (!$this->storage->model->subdomain) {
+        if ($this->storage->model->created_at == null) {
 
             return $this;
         }
@@ -69,8 +69,6 @@ class Client
 
             $this->auth = true;
         }
-
-        $this->service->queries->setDelay(1);
 
         return $this;
     }
