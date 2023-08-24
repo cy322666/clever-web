@@ -17,6 +17,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Env;
 
 class BizonResource extends Resource
 {
@@ -66,6 +67,13 @@ class BizonResource extends Resource
                                 Forms\Components\TextInput::make('token')
                                     ->label('Токен')
                                     ->required(),
+
+                                Forms\Components\TextInput::make('link')
+                                    ->label('Ваша вебхук ссылка')
+                                    ->url()
+                                    ->readOnly()
+                                    ->helperText('Скопируйте ее в настройки вебинарной комнаты')
+
                             ])->columnSpan(2),
                     ]),
 

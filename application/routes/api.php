@@ -7,18 +7,9 @@ use App\Http\Middleware\CheckActiveUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
-
-Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])->middleware(CheckActiveUser::class);;
+Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])
+    ->middleware(CheckActiveUser::class)
+    ->name('bizon.hook');
 
 Route::group(['prefix' => 'getcourse'], function () {
 

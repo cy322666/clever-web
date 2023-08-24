@@ -76,6 +76,13 @@ class AppPanelProvider extends PanelProvider
 //            ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder->items([
+
+                    NavigationItem::make('Home')
+                        ->label('Аккаунт')
+                        ->icon('heroicon-o-home')
+//                        ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard'))
+                        ->url(fn (): string => UserResource::getUrl('view', ['record' => User::first()])),
+
                     NavigationItem::make('Market')
                         ->label('Магазин')
                         ->icon('heroicon-o-shopping-bag')
@@ -83,11 +90,6 @@ class AppPanelProvider extends PanelProvider
                         ->url(fn (): string => Market::getUrl()),
 //                    ...UserResource::getNavigationItems(),
 
-                    NavigationItem::make('Profile')
-                        ->label('Аккаунт')
-                        ->icon('heroicon-o-home')
-//                        ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard'))
-                        ->url(fn (): string => UserResource::getUrl('view', ['record' => User::first()])),
                 // UserResource::getUrl('view', ['record' => Auth::user()]
 //                    ...UserResource::getNavigationItems(),
 

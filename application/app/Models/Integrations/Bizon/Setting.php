@@ -3,6 +3,7 @@
 namespace App\Models\Integrations\Bizon;
 
 use App\Models\Core\Account;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -35,8 +36,13 @@ class Setting extends Model
 
     protected $table = 'bizon_settings';
 
+    public function getLink(): string
+    {
+        return route('bizon.hook', ['user' => $this->user->uuid]);
+    }
+
     public function user(): HasOne
     {
-        return $this->hasOne(Account::class);
+        return $this->hasOne(User::class, 'id', 'user_id');
     }
 }
