@@ -147,8 +147,8 @@ return [
     */
 
     'cache' => [
-        'rows'  => 1,
-        'bytes' => 1,
+        'rows' => 1000,
+        'bytes' => 10000,
     ],
 
     /*
@@ -190,7 +190,6 @@ return [
         'routes',
         'composer.lock',
         '.env',
-        'vendor',//TODO
     ],
 
     /*
@@ -204,7 +203,7 @@ return [
     |
     */
 
-    'garbage' => 100,
+    'garbage' => 50,
 
     /*
     |--------------------------------------------------------------------------
@@ -217,6 +216,6 @@ return [
     |
     */
 
-    'max_execution_time' => 90,
+    'max_execution_time' => 30,
 
 ];

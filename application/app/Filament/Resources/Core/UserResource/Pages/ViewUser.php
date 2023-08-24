@@ -11,14 +11,13 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Request;
 
 class ViewUser extends ViewRecord
 {
     protected static string $resource = UserResource::class;
 
     protected static ?string $title = 'Аккаунт';
-
-    public ?bool $auth;
 
     protected function getActions(): array
     {
@@ -33,6 +32,25 @@ class ViewUser extends ViewRecord
                 ->color(Color::Orange)
                 ->action('amocrmUpdate'),
         ];
+    }
+
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        $auth = Request::get('auth');
+
+        if ($auth === 'false')
+            Notification::make()
+                ->title('amoCRM не подключена. Подключите или обратитесь в чат поддержки')
+                ->warning()
+                ->send();
+
+        if ($auth === 'true')
+            Notification::make()
+                ->title('amoCRM успешно подключена')
+                ->success()
+                ->send();
     }
 
     protected function getHeaderWidgets(): array
@@ -76,11 +94,6 @@ class ViewUser extends ViewRecord
                 ->title('Успешно обновлено')
                 ->warning()
                 ->send();
-
-        } else
-            Notification::make()
-                ->title('amoCRM не подключена. Подключите или обратитесь в чат поддержки')
-                ->warning()
-                ->send();
+        }
     }
 }
