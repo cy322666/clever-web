@@ -20,7 +20,7 @@ class Account
                 'staff_id' => $user->id,
             ], [
                 'name'     => $user->name,
-                'group'    => $user->group->id,
+                'group'    => $user->group->id,//group name?
             ]);
         }
     }
@@ -38,6 +38,7 @@ class Account
                     'status_id'    => $status['id'],
                 ], [
                     'name'         => $status['name'],
+                    'is_archive'   => $status['archive'],//TODO
                     'color'        => $status['color'],
                     'pipeline_id'  => $pipeline['id'],
                     'pipeline_name'=> $pipeline['name'],

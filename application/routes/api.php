@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Middleware\CheckActiveUser;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])

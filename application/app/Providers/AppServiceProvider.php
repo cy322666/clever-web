@@ -24,15 +24,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if($this->app->environment('prod')) {
+
             URL::forceScheme('https');
         }
-//        FilamentColor::register([
-//            'gray' => Color::Zinc,
-//            'info' => Color::Blue,
-//            'danger' =>  Color::Red,
-//            'primary' => Color::Rose,
-//            'success' => Color::Green,
-//            'warning' => Color::Rose,
-//        ]);
     }
 }
