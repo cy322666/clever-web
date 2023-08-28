@@ -99,14 +99,11 @@ class BizonResource extends Resource
                                         ->searchable(),
 
                                     Forms\Components\TextInput::make('time_cold')
-                                        ->label('Время холодных')
-                                        ->required(),
+                                        ->label('Время холодных'),
                                     Forms\Components\TextInput::make('time_soft')
-                                        ->label('Время теплых')
-                                        ->required(),
+                                        ->label('Время теплых'),
                                     Forms\Components\TextInput::make('time_hot')
-                                        ->label('Время горячих')
-                                        ->required(),
+                                        ->label('Время горячих'),
                                 ]),
 
                         Forms\Components\Fieldset::make('Сделки')

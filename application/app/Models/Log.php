@@ -18,5 +18,6 @@ class Log extends Model
         'method',
         'error',
         'details',
+        'user_id',
     ];
 }

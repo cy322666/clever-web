@@ -3,6 +3,7 @@
 namespace App\Services\amoCRM;
 
 use App\Models\Core\Account;
+use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,7 @@ class Client
 {
     public Oauthapi $service;
     public EloquentStorage $storage;
+    public User $user;
 
     public bool $auth = false;
     public bool $logs = false;
@@ -39,6 +41,8 @@ class Client
             'redirect_uri'  => $this->storage->model->redirect_uri,
             'zone'          => $this->storage->model->zone,
         ]);
+
+        $this->user = $account->user;
     }
 
     public function checkAuth(): bool
@@ -96,7 +100,7 @@ class Client
 
         $this->service->queries->onResponseCode(429, function(QueryModel $query) {
 
-            \App\Models\Log::query()->create([
+            $this->user->logs()->create([
                 'code' => 429,
                 'url'  => $query->getUrl(),
                 'method'  => $query->method,
@@ -112,7 +116,7 @@ class Client
          */
         function(QueryModel $query) {
 
-            $log = \App\Models\Log::query()->create([
+            $log =  $this->user->logs()->create([
                 'code'  => $query->response->getCode(),
                 'url'   => $query->getUrl(),
                 'start' => $query->startDate(),
