@@ -27,6 +27,7 @@ class Status extends Model
     public static function getWithoutUnsorted(): Builder
     {
         return Status::query()
+            ->where('user_id', Auth::id())
             ->where('is_archive', false)
             ->where('name', '!=', 'Неразобранное');
     }
@@ -39,6 +40,7 @@ class Status extends Model
     public static function getPipelines(): Builder
     {
         return static::getWithUser()
+            ->where('user_id', Auth::id())
             ->where('is_archive', false)
             ->distinct('pipeline_id');
     }

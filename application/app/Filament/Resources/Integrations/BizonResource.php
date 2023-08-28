@@ -29,7 +29,7 @@ class BizonResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'Бизон';
+    protected static ?string $recordTitleAttribute = 'Бизон 365';
 
     public static function getRecordTitle(?Model $record): string|Htmlable|null
     {

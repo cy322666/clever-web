@@ -3,8 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\GetCourseFormSend;
-use App\Jobs\GetCourseOrderSend;
 use App\Models\Integrations\GetCourse\Form;
 use App\Models\Integrations\GetCourse\Order;
 use App\Models\User;
@@ -21,7 +19,8 @@ class GetCourseController extends Controller
     public function order(User $user, Request $request)
     {
         $order = Order::query()->create([
-            'phone'     => Contacts::clearPhone($request->phone),
+            'user_id'   => $user->id,
+            'phone'     => $request->phone,
             'email'     => $request->email,
             'name'      => $request->name,
             'number'    => $request->number,
@@ -32,7 +31,6 @@ class GetCourseController extends Controller
             'cost_money'      => preg_replace("/[^0-9]/", '', $request->cost_money),
             'payed_money'     => preg_replace("/[^0-9]/", '', $request->payed_money),
             'left_cost_money' => preg_replace("/[^0-9]/", '', $request->left_cost_money),
-            'user_id' => $user->id,
         ]);
 
         GetCourseOrderSend::dispatch(
@@ -45,15 +43,15 @@ class GetCourseController extends Controller
     public function form(User $user, Request $request)
     {
         $form = Form::query()->create([
-            'phone' => Contacts::clearPhone($request->phone),
-            'email' => $request->email,
-            'name'  => $request->name,
+            'user_id' => $user->id,
+            'phone'   => $request->phone,
+            'email'   => $request->email,
+            'name'    => $request->name,
             'utm_medium'  => $request->utm_medium,
             'utm_content' => $request->utm_content,
             'utm_source'  => $request->utm_source,
             'utm_term'    => $request->utm_term,
             'utm_campaign'=> $request->utm_campaign,
-            'user_id' => $user->id,
         ]);
 
         GetCourseFormSend::dispatch(

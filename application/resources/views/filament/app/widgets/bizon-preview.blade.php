@@ -14,7 +14,7 @@
                         'dark:text-primary-500 dark:hover:text-primary-400' => config('filament.dark_mode'),
                     ])
                 >
-                    Бизон
+                    Бизон 365
                 </a>
             </div>
 

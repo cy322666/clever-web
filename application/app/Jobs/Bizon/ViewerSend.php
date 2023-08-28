@@ -92,7 +92,7 @@ class ViewerSend implements ShouldQueue, ShouldBeUnique
     // artisan queue:listen database --queue=bizon_export --sleep=3
     public function handle(): bool
     {
-        Artisan::call('app:viewer-send', [
+        Artisan::call('app:bizon-viewer-send', [
             'viewer'  => $this->viewer,
             'account' => $this->acccount,
             'setting' => $this->setting,

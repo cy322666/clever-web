@@ -23,14 +23,14 @@ class ViewUser extends ViewRecord
     {
         return [
             Actions\Action::make('amocrmAuth')
-                ->label('Подключить amoCRM')
-                ->color(Color::Red)
-                ->action('amocrmAuth'),
+                ->color(fn() => $this->record->account->active ? Color::Green : Color::Red)
+                ->label(fn() => $this->record->account->active ? 'amoCRM Подключена' : 'Подключить amoCRM')
+                ->disabled(fn() => $this->record->account->active),
 
-            Actions\Action::make('amocrmUpdate')
-                ->label('Синхронизировать amoCRM')
-                ->color(Color::Orange)
-                ->action('amocrmUpdate'),
+            Actions\Action::make('activeUpdate')
+                ->action('amocrmUpdate')
+                ->label('Синхронизировать')
+                ->disabled(fn() => !$this->record->account->active)
         ];
     }
 
