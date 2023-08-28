@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GetCourse\FormSend;
+use App\Jobs\GetCourse\OrderSend;
 use App\Models\Integrations\GetCourse\Form;
 use App\Models\Integrations\GetCourse\Order;
 use App\Models\User;
@@ -33,7 +35,7 @@ class GetCourseController extends Controller
             'left_cost_money' => preg_replace("/[^0-9]/", '', $request->left_cost_money),
         ]);
 
-        GetCourseOrderSend::dispatch(
+        OrderSend::dispatch(
             $order,
             $user->getcourse_settings,
             $user->account
@@ -54,10 +56,10 @@ class GetCourseController extends Controller
             'utm_campaign'=> $request->utm_campaign,
         ]);
 
-        GetCourseFormSend::dispatch(
+        FormSend::dispatch(
             $form,
-            $user->getcourse_settings,
             $user->account,
+            $user->getcourse_settings,
         );
     }
 }

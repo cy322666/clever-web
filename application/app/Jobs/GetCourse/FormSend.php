@@ -38,7 +38,7 @@ class FormSend implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId()
     {
-        return $this->form->id;
+        return $this->setting->id;
     }
 
     /**
