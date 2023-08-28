@@ -83,72 +83,58 @@ class BizonResource extends Resource
 
                         Forms\Components\Fieldset::make('Условия')
                             ->schema([
-//                                Forms\Components\Builder\Block::make('Этапы')
-//                                    ->schema([
-                                        Forms\Components\Select::make('status_id_cold')
-                                            ->label('Этап холодных')
-                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                            ->searchable(),
+                                    Forms\Components\Select::make('status_id_cold')
+                                        ->label('Этап холодных')
+                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->searchable(),
 
-                                        Forms\Components\Select::make('status_id_soft')
-                                            ->label('Этап теплых')
-                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                            ->searchable(),
+                                    Forms\Components\Select::make('status_id_soft')
+                                        ->label('Этап теплых')
+                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->searchable(),
 
-                                        Forms\Components\Select::make('status_id_hot')
-                                            ->label('Этап горячих')
-                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                            ->searchable(),
-//                                    ]),
+                                    Forms\Components\Select::make('status_id_hot')
+                                        ->label('Этап горячих')
+                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->searchable(),
 
-//                                Forms\Components\Builder\Block::make('Этапы')
-//                                    ->schema([
-                                        Forms\Components\TextInput::make('time_cold')
-                                            ->label('Время холодных')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('time_soft')
-                                            ->label('Время теплых')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('time_hot')
-                                            ->label('Время горячих')
-                                            ->required(),
-                                    ]),
-
-                            ])->columns([
-                                'sm' => 2,
-                                'lg' => null,
-                            ]),
+                                    Forms\Components\TextInput::make('time_cold')
+                                        ->label('Время холодных')
+                                        ->required(),
+                                    Forms\Components\TextInput::make('time_soft')
+                                        ->label('Время теплых')
+                                        ->required(),
+                                    Forms\Components\TextInput::make('time_hot')
+                                        ->label('Время горячих')
+                                        ->required(),
+                                ]),
 
                         Forms\Components\Fieldset::make('Сделки')
                             ->schema([
+                                Forms\Components\TextInput::make('tag_cold')->label('Тег холодных'),
+                                Forms\Components\TextInput::make('tag_soft')->label('Тег теплых'),
+                                Forms\Components\TextInput::make('tag_hot')->label('Тег горячих'),
+                                Forms\Components\TextInput::make('tag')->label('Тег по умолчанию'),
 
-//                                Forms\Components\Builder\Block::make('Теги')
-//                                    ->schema([
-                                        Forms\Components\TextInput::make('tag_cold')->label('Тег холодных'),
-                                        Forms\Components\TextInput::make('tag_soft')->label('Тег теплых'),
-                                        Forms\Components\TextInput::make('tag_hot')->label('Тег горячих'),
-                                        Forms\Components\TextInput::make('tag')->label('Тег по умолчанию'),
-//                                    ]),
+                                Forms\Components\Select::make('response_user_id')
+                                    ->label('Ответственный по умолчанию')
+                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->searchable(),
 
-//                                Forms\Components\Builder\Block::make('Другое')
-//                                    ->schema([
-
-                                        Forms\Components\Select::make('response_user_id')
-                                            ->label('Ответственный по умолчанию')
-                                            ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                            ->searchable(),
-
-                                        Forms\Components\Select::make('pipeline_id')
-                                            ->label('Вебинарная воронка')
-                                            ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                                            ->searchable(),
-//                                    ]),
+                                Forms\Components\Select::make('pipeline_id')
+                                    ->label('Вебинарная воронка')
+                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+                                    ->searchable(),
                             ])
                             ->columns([
                                 'sm' => 2,
                                 'lg' => null,
                             ]),
-//                    ])
+
+                    ])->columns([
+                        'sm' => 2,
+                        'lg' => null,
+                    ]),
             ]);
     }
 

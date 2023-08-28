@@ -19,8 +19,13 @@ class Account
                 'user_id'  => Auth::user()->id,
                 'staff_id' => $user->id,
             ], [
+                'group_id'   => $user->group->id,
+                'group_name' => $user->group->name,
                 'name'     => $user->name,
-                'group'    => $user->group->id,//group name?
+                'active'   => $user->is_active,
+                'login'    => $user->login,
+                'phone'    => $user->phone,
+                'admin'    => $user->is_admin,
             ]);
         }
     }
@@ -38,7 +43,8 @@ class Account
                     'status_id'    => $status['id'],
                 ], [
                     'name'         => $status['name'],
-                    'is_archive'   => $status['archive'],//TODO
+                    'is_main'      => $pipeline['is_main'],
+//                    'is_archive'   => $status['archive'],//TODO
                     'color'        => $status['color'],
                     'pipeline_id'  => $pipeline['id'],
                     'pipeline_name'=> $pipeline['name'],

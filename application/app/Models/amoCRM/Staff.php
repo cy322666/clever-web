@@ -14,7 +14,12 @@ class Staff extends Model
         'user_id',
         'name',
         'staff_id',
-        'group',
+        'group_id',
+        'group_name',
+        'active',
+        'login',
+        'phone',
+        'admin',
     ];
 
     protected $table = 'amocrm_staffs';

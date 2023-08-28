@@ -3,20 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\BizonViewerSend;
-use App\Models\Core\Account;
-//use App\Models\Integrations\Bizon\BizonDispatcher;
-use App\Models\Integrations\Bizon\Setting;
-use App\Models\Integrations\Bizon\Viewer;
-use App\Models\Integrations\Bizon\Webinar;
+use App\Jobs\Bizon\ViewerSend;
 use App\Models\User;
 use App\Services\Bizon365\Client;
-use App\Services\Bizon365\ViewerSender;
-use Carbon\Carbon;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class BizonController extends Controller
@@ -31,13 +23,16 @@ class BizonController extends Controller
 
         $setting = $user->bizon_settings;
 
-        if ($setting->token) {
-
-            $bizon = (new Client())->setToken($setting->token);
-        } else
-            die('!token');
+        $bizon = (new Client())->setToken($setting->token);
 
         $info = $bizon->webinar($webinar->webinarId);
+
+        if ($info->report == null) {
+
+            Log::error(__METHOD__, ['!Bizon report', ['user' => $user->id]]);
+
+            return;
+        }
 
         $webinar->room_title = $info->room_title;
         $webinar->created    = $info->report->created;
@@ -48,11 +43,13 @@ class BizonController extends Controller
 
         $commentariesTS = json_decode($info->report->messages, true);
 
-        foreach ($report['usersMeta'] as $user_key => $user_array) {
+        $amoApi = (new \App\Services\amoCRM\Client($user->account))->init();
 
-            $viewer = $webinar->setViewer($user_key, $user_array, $setting, $commentariesTS);
+        foreach ($report['usersMeta'] as $userKey => $userArray) {
 
-            BizonViewerSend::dispatch($viewer, $setting, $user->account);
+            $viewer = $webinar->setViewer($userKey, $userArray, $setting, $commentariesTS);
+
+            ViewerSend::dispatch($viewer, $setting, $user->account);
         }
     }
 }

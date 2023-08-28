@@ -42,6 +42,8 @@ class AuthController extends Controller
 
         if ($amoApi->auth) {
 
+//            $amoApi->service->account; TODO
+
             $account->active = true;
             $account->save();
         }

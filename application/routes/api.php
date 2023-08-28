@@ -3,11 +3,12 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\GetCourseController;
-use App\Http\Middleware\CheckActiveUser;
 use Illuminate\Support\Facades\Route;
 
+
+
 Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])
-    ->middleware(CheckActiveUser::class)
+    ->middleware(['user.active', 'bizon'])
     ->name('bizon.hook');
 
 Route::group(['prefix' => 'getcourse'], function () {
@@ -18,7 +19,7 @@ Route::group(['prefix' => 'getcourse'], function () {
 
     Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 
-})->middleware(CheckActiveUser::class);
+})->middleware('user.active');
 
 Route::group(['prefix' => 'amocrm'], function () {
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Middleware;
+namespace App\Http\Middleware\Api;
 
 use App\Models\User;
 use Carbon\Carbon;
@@ -13,29 +13,29 @@ class CheckActiveUser
     /**
      * Handle an incoming request.
      *
-     * @param \App\Models\User $user
      * @param \Illuminate\Http\Request $request
      * @param \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response) $next
-     * @return \Symfony\Component\HttpFoundation\Response|null
+     * @return \Symfony\Component\HttpFoundation\Response
      */
-    public function handle(User $user, Request $request, Closure $next): null|Response
+    public function handle(Request $request, Closure $next)
     {
-        if ($user->active) {
+        $user = $request->user;
 
-            if ($user->expires_tariff_at !== null && !$user->is_root) {
+        if ($user && $user->active) {
 
-                if (Carbon::parse($user->expires_tariff_at)->format('Y-m-d H') >
-                    Carbon::now()->format('Y-m-d H')) {
+            if (Carbon::parse($user->expires_tariff_at)->format('Y-m-d H') >
+                Carbon::now()->format('Y-m-d H')) {
 
-                    return $next($request);
-                } else {
-                    $user->active = false;
-                    $user->save();
-
-                    //TODO push + set webhook
-                }
-            } else
                 return $next($request);
+            } else {
+                $user->active = false;
+                $user->save();
+
+                return (new Response('tariff expired', 403));
+                //TODO push + set webhook
+            }
         }
+
+        return (new Response());
     }
 }

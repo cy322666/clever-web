@@ -18,15 +18,16 @@ class BizonAuthenticate
      */
     public function handle(Request $request, Closure $next)
     {
-        if ($request->webhook->active === true &&
-            $request->webhook
-                ->bizonSetting
-                ->first()
-                ->active == true) {
+        $setting = $request->user->bizon_settings;
+
+        if ($setting->active && $setting->token) {
 
             return $next($request);
-        } else
-            Log::alert(__METHOD__.' неактивный статус для вебхука');
+        }
+
+        return \response()->abort(403, 'setting no active');
+
+//            Log::alert(__METHOD__.' неактивный статус для вебхука');
         //TODO убить редирект
         //TODO уведомление?
     }
