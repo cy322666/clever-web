@@ -95,7 +95,7 @@ class Webinar extends Model
             'utm_medium' => $user_array['utm_medium'] ?? null,
             'utm_campaign' => $user_array['utm_campaign'] ?? null,
 
-            'clickFile'   => $user_array['clickFile'] ? 'Да' : 'Нет',
+            'clickFile'   => !empty($user_array['clickFile']) && $user_array['clickFile'] == 'Да' ? 'Да' : 'Нет',
             'clickBanner' => !empty($user_array['clickBanner']) ? 'Да' : 'Нет',
             'commentaries'=> count($commentariesTS[$user_key]) > 0 ? json_encode($commentariesTS[$user_key]) : null,
 

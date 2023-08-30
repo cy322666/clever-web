@@ -6,12 +6,13 @@ use App\Models\Core\Account;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Viewer;
 use App\Services\amoCRM\Client;
-use App\Services\Bizon365\ViewerSender;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\RateLimited;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -68,6 +69,7 @@ class ViewerSend implements ShouldQueue
         $this->onQueue('bizon_export');
     }
 
+
     /**
      * Получить посредника, через которого должно пройти задание.
      *
@@ -75,17 +77,16 @@ class ViewerSend implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [];
+        return [(new WithoutOverlapping($this->acccount->id))->releaseAfter(5)];
     }
 
     /**
      * Execute the job.
-     * @return bool
      * @throws \Exception
      * @var Client $amoApi
      */
     // artisan queue:listen database --queue=bizon_export --sleep=3
-    public function handle(): bool
+    public function handle()
     {
         Artisan::call('app:bizon-viewer-send', [
             'viewer'  => $this->viewer->id,
