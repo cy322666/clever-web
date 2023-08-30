@@ -20,13 +20,13 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
         Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 
     })->middleware('user.active');
+});
 
-    Route::group(['prefix' => 'amocrm'], function () {
+Route::group(['prefix' => 'amocrm'], function () {
 
-        Route::post('secrets', [AuthController::class, 'secrets']);
+    Route::post('secrets', [AuthController::class, 'secrets']);
 
-        Route::get('redirect', [AuthController::class, 'redirect']);
-    });
+    Route::get('redirect', [AuthController::class, 'redirect']);
 });
 
 
