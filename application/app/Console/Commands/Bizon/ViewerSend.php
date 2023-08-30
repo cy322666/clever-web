@@ -39,8 +39,6 @@ class ViewerSend extends Command
      */
     public function handle()
     {
-        Log::channel('bizon')->info(__METHOD__.' > начало отправки viewer id : '.$this->argument('viewer'));
-
         $viewer  = Viewer::find($this->argument('viewer'));
         $setting = Setting::find($this->argument('setting'));
         $account = Account::find($this->argument('account'));
