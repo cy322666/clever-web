@@ -17,25 +17,19 @@ class CheckActiveUser
      * @param \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response) $next
      * @return \Symfony\Component\HttpFoundation\Response
      */
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user;
 
         if ($user && $user->active) {
 
-            if (Carbon::parse($user->expires_tariff_at)->format('Y-m-d H') >
-                Carbon::now()->format('Y-m-d H')) {
+            return $next($request);
+        } else {
+            $user->active = false;
+            $user->save();
 
-                return $next($request);
-            } else {
-                $user->active = false;
-                $user->save();
-
-                return (new Response('tariff expired', 403));
-                //TODO push + set webhook
-            }
+            return (new Response('tariff expired', 403));
+            //TODO push + set webhook
         }
-
-        return (new Response());
     }
 }
