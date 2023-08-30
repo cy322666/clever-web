@@ -5,15 +5,16 @@ namespace App\Console\Commands\GetCourse;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
-use App\Models\Integrations\Bizon\Setting;
-use App\Models\Integrations\GetCourse\Form;
+use App\Models\Integrations\GetCourse\Order;
+use App\Models\Integrations\GetCourse\OrderNote;
+use App\Models\Integrations\GetCourse\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\amoCRM\Models\Notes;
+use App\Services\amoCRM\Models\Tags;
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
-use Illuminate\Support\Facades\Log;
 
 class OrderSend extends Command
 {
@@ -37,62 +38,67 @@ class OrderSend extends Command
      */
     public function handle()
     {
-        Log::channel('getcourse-order')->info(__METHOD__.' > начало отправки order id : '.$this->argument('order'));
-
-        $order   = Form::find($this->argument('order'));
-        $setting = Setting::find($this->argument('setting'));
+        $order = Order::find($this->argument('order'));
         $account = Account::find($this->argument('account'));
+        $setting = Setting::find($this->argument('setting'));
 
         $amoApi = (new Client($account))
             ->init()
-            ->initLogs(Env::get('APP_DEBUG'));
+            ->initLogs(Env::get('APP_DEBUG'))
+            ->setDelay(0.2);
 
         $statusId = Status::query()
-            ->find($setting->status_id_form ?? $setting->status_id_default)
+            ->find($setting->status_id_order ?? $setting->status_id_default)
             ?->status_id;
 
         $responsibleId = Staff::query()
-            ->find($setting->response_user_id_form ?? $setting->response_user_id_default)
+            ->find($setting->responsible_user_id_order ?? $setting->response_user_id_default)
             ?->staff_id;
+
+        if ($order->payed_money == $order->cost_money) {
+            $statusId = Status::query()
+                ->find($setting->status_id_order_close)
+                ?->status_id ?? $statusId;
+        }
 
         $contact = Contacts::search([
             'Телефоны' => [$order->phone],
-            'Почта'    => $order->email,
+            'Почта' => $order->email,
         ], $amoApi);
 
+        if ($contact == null) {
+            $contact = Contacts::create($amoApi, $order->name);
+        } else {
+            $lead = Leads::search($contact, $amoApi);
+        }
 
+        $contact = Contacts::update($contact, [
+            'Имя' => $order->name,
+            'Телефоны' => [$order->phone],
+            'Почта' => $order->email,
+            'Ответственный' => $responsibleId,
+        ]);
 
-        if ($this->order->payed_money == $this->order->cost_money) {
+        if (empty($lead)) {
+            $lead = Leads::create($contact, [
+                'sale' => $order->cost_money,
+                'responsible_user_id' => $responsibleId,
+                'status_id' => $statusId,
+            ], 'Новый заказ с Геткурс');
+        }
 
-            $statusId = $this->setting->status_id_order_close ?? $this->setting->status_id_order;
-        } else
-            $statusId = $this->setting->status_id_order;
+        Tags::add($lead, [
+            $setting->tag,
+            $setting->tag_order,
+        ]);
 
-            $responsibleId = $this->setting->responsible_user_id_order ?? $this->setting->responsible_user_id_default;
+        Notes::addOne($lead, OrderNote::create($order));
 
-        try {
-
-
-//'Новый заказ GetCourse'
-
-            $contact = Contacts::search([
-                'Телефоны' => [$this->order->phone],
-                'Почта'    => $this->order->email,
-            ], $amoApi);
-
-            if ($contact == null) {
-
-                $contact = Contacts::create($amoApi, $this->order->name);
-            }
-
-
-
+        //TODO ссылка для хуков
         $order->contact_id = $contact->id;
         $order->lead_id = $lead->id;
         $order->status = 1;
         $order->save();
-
-        Notes::addOne($lead, $this->order->text());
 
         return true;
     }

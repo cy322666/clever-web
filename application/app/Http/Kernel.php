@@ -4,6 +4,7 @@ namespace App\Http;
 
 use App\Http\Middleware\Api\BizonAuthenticate;
 use App\Http\Middleware\Api\CheckActiveUser;
+use App\Http\Middleware\Api\LogInput;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -69,5 +70,7 @@ class Kernel extends HttpKernel
 
         'user.active' => CheckActiveUser::class,
         'bizon' => BizonAuthenticate::class,
+
+        'input' => LogInput::class,
     ];
 }

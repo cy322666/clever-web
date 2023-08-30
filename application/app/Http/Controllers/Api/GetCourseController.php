@@ -37,8 +37,8 @@ class GetCourseController extends Controller
 
         OrderSend::dispatch(
             $order,
+            $user->account,
             $user->getcourse_settings,
-            $user->account
         );
     }
 

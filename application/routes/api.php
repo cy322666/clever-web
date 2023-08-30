@@ -5,25 +5,28 @@ use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\GetCourseController;
 use Illuminate\Support\Facades\Route;
 
+Route::group(['middleware' => ['user.active', 'input']], function () {
 
+    Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])
+        ->middleware(['bizon'])
+        ->name('bizon.hook');
 
-Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])
-    ->middleware(['user.active', 'bizon'])
-    ->name('bizon.hook');
+    Route::group(['prefix' => 'getcourse'], function () {
 
-Route::group(['prefix' => 'getcourse'], function () {
+        Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay']);
 
-    Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay']);
+        Route::get('orders/{user:uuid}', [GetCourseController::class, 'order']);
 
-    Route::get('orders/{user:uuid}', [GetCourseController::class, 'order']);
+        Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 
-    Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
+    })->middleware('user.active');
 
-})->middleware('user.active');
+    Route::group(['prefix' => 'amocrm'], function () {
 
-Route::group(['prefix' => 'amocrm'], function () {
+        Route::post('secrets', [AuthController::class, 'secrets']);
 
-    Route::post('secrets', [AuthController::class, 'secrets']);
-
-    Route::get('redirect', [AuthController::class, 'redirect']);
+        Route::get('redirect', [AuthController::class, 'redirect']);
+    });
 });
+
+

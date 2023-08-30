@@ -16,7 +16,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 
-class ViewerSend implements ShouldQueue, ShouldBeUnique
+class ViewerSend implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -78,11 +78,6 @@ class ViewerSend implements ShouldQueue, ShouldBeUnique
         return [];
     }
 
-    public function uniqueId()
-    {
-        return $this->viewer->id;
-    }
-
     /**
      * Execute the job.
      * @return bool
@@ -93,9 +88,9 @@ class ViewerSend implements ShouldQueue, ShouldBeUnique
     public function handle(): bool
     {
         Artisan::call('app:bizon-viewer-send', [
-            'viewer'  => $this->viewer,
-            'account' => $this->acccount,
-            'setting' => $this->setting,
+            'viewer'  => $this->viewer->id,
+            'account' => $this->acccount->id,
+            'setting' => $this->setting->id,
         ]);
     }
 }

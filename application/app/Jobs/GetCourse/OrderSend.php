@@ -6,14 +6,13 @@ use App\Models\Core\Account;
 use App\Models\Integrations\GetCourse\Order;
 use App\Models\Integrations\GetCourse\Setting;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
 
-class OrderSend implements ShouldQueue, ShouldBeUnique
+class OrderSend implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -26,17 +25,17 @@ class OrderSend implements ShouldQueue, ShouldBeUnique
         $this->onQueue('getcourse_order');
     }
 
-    public function tags(): array
-    {
-        return $this->setting->id;
-    }
+//    public function uniqueId()
+//    {
+//        return $this->setting->id;
+//    }
 
-    public function handle(): bool
+    public function handle()
     {
         Artisan::call('app:getcourse-order-send', [
-            'order'   => $this->order,
-            'account' => $this->account,
-            'setting' => $this->setting,
+            'order'   => $this->order->id,
+            'account' => $this->account->id,
+            'setting' => $this->setting->id,
         ]);
     }
 }

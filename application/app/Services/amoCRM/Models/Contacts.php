@@ -20,7 +20,8 @@ abstract class Contacts extends Client
             }
         }
 
-        if($contacts == null && key_exists('Почта', $arrayFields)) {
+        if(($contacts == null || !$contacts->first()) &&
+            key_exists('Почта', $arrayFields)) {
 
             $contacts = $client->service
                 ->contacts()
@@ -28,6 +29,7 @@ abstract class Contacts extends Client
         }
 
         if($contacts !== null && $contacts->first())
+
             return $contacts->first();
         else
             return null;

@@ -11,6 +11,7 @@ use Filament\Facades\Filament;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ class AuthController extends Controller
     /**
      * @throws Exception
      */
-    public function redirect(Request $request)
+    public function redirect(Request $request): RedirectResponse
     {
         Log::info(__METHOD__, $request->toArray());
 
@@ -38,12 +39,12 @@ class AuthController extends Controller
         $account->client_secret = config('services.amocrm.client_secret');
         $account->save();
 
-        $amoApi = (new Client($account->refresh()))->init();
+        $amoApi = (new Client($account->refresh()))
+            ->init();
 
-        if ($amoApi->auth) {
+        if ($amoApi->checkAuth()) {
 
 //            $amoApi->service->account; TODO
-
             $account->active = true;
             $account->save();
         }

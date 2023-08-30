@@ -1,8 +1,6 @@
 <?php
 
-namespace App\Models\Integrations\Bizon;
-
-use App\Models\Integrations\GetCourse\Order;
+namespace App\Models\Integrations\GetCourse;
 
 abstract class OrderNote
 {
@@ -16,8 +14,8 @@ abstract class OrderNote
             ' - Почта : ' . $order->email,
             ' - Номер заказа : ' . $order->number,
             ' - ID Заказа : ' . $order->order_id,
-            ' - Название тарифа : ' . $order->positions,
-            ' - Стоимость тарифа : ' . $order->cost_money,
+            ' - Название : ' . $order->positions,
+            ' - Стоимость : ' . $order->cost_money,
             ' - Оплачено : ' . $order->payed_money,
             ' - Осталось заплатить : ' . $order->left_cost_money,
             ' - Статус заказа : ' . $order->status_order,

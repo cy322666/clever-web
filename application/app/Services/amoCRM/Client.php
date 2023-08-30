@@ -45,6 +45,13 @@ class Client
         $this->user = $account->user;
     }
 
+    public function setDelay(int $second): static
+    {
+        $this->service->queries->setDelay($second);
+
+        return $this;
+    }
+
     public function checkAuth(): bool
     {
         if ($this->storage->model->code == null) {
@@ -111,7 +118,6 @@ class Client
         $this->service->queries->listen(
         /**
          * @param \Ufee\Amo\Base\Models\QueryModel $query
-         * @param bool $debugMode
          * @return void
          */
         function(QueryModel $query) {
