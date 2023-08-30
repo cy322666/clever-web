@@ -103,8 +103,8 @@ class ViewerSend extends Command
         Tags::add($lead, [
             $setting->tag,
             $setting->{"tag_$viewer->type"},
-            $viewer->clickBanner == 'Да' ? 'КликБаннер' : null,
-            $viewer->clickFile == 'Да' ? 'КликКнопка' : null,
+            $viewer->clickBanner == 'Да' ? 'КликБаннер' : null, //TODO
+            $viewer->clickFile == 'Да' ? 'КликКнопка' : null, //TODO
         ]);
 
         $viewer->lead_id    = $lead->id;

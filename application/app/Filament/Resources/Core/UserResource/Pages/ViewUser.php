@@ -97,4 +97,12 @@ class ViewUser extends ViewRecord
                 ->send();
         }
     }
+
+    protected function authorizeAccess(): void
+    {
+        if (!Auth::user()->is_root && Auth::id() !== $this->record->id) {
+
+            $this->redirect(UserResource::getUrl('view', ['record' => Auth::id()]));
+        }
+    }
 }
