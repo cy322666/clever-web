@@ -65,7 +65,7 @@ class ViewUser extends ViewRecord
     }
 
     public function amocrmAuth(): void
-    {dd('sadsa');
+    {
         $account = Auth::user()->account;
 
         if (!$account->active) {
