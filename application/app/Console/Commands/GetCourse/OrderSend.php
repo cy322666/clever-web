@@ -44,8 +44,8 @@ class OrderSend extends Command
 
         $amoApi = (new Client($account))
             ->init()
-            ->initLogs(Env::get('APP_DEBUG'))
-            ->setDelay(0.2);
+            ->setDelay(0.2)
+            ->initLogs(Env::get('APP_DEBUG'));
 
         $statusId = Status::query()
             ->find($setting->status_id_order ?? $setting->status_id_default)

@@ -28,30 +28,33 @@ class AlfaResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'АльфаСРМ';
 
-    public static function getRecordTitle(?Model $record): string|Htmlable|null
-    {
-        return 'АльфаСРМ';
-    }
-
     protected static ?string $slug = 'settings/alfacrm';
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static bool $shouldRegisterNavigation = false;
 
+    public static function getRecordTitle(?Model $record): string|Htmlable|null
+    {
+        return 'АльфаСРМ';
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
                Section::make('Настройки')
-                   ->description('Для работы интеграции заполните обязательные поля')
+                   ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
                    ->schema([
                        Fieldset::make('Доступы')
                            ->schema([
-                                TextInput::make('login')
-                                    ->label('Почта')
+                                TextInput::make('api_key')
+                                    ->label('Токен')
                                     ->required(),
-                                TextInput::make('password')
-                                    ->label('Пароль')
+                                TextInput::make('domain')
+                                    ->label('Домен')
+                                    ->required(),
+                               TextInput::make('email')
+                                    ->label('Email')
                                     ->required(),
                            ])->columnSpan(2),
                    ]),
@@ -62,8 +65,7 @@ class AlfaResource extends Resource
 
                        Fieldset::make('Условия')
                            ->schema([
-//                                Forms\Components\Builder\Block::make('Этапы')
-//                                    ->schema([
+//
                                Select::make('status_record_1')
                                    ->label('Этап записи')
                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id') ?? [])
@@ -99,14 +101,13 @@ class AlfaResource extends Resource
 //                                Forms\Components\Builder\Block::make('Этапы')
 //                                    ->schema([
 
-//                               Select::make('branch_id')
-//                                   ->label('Филиал')
-//                                   ->options(Branch::getWithUser()->pluck('name', 'id') ?? [])
-//                                   ->searchable(),
+                               Select::make('branch_id')
+                                   ->label('Филиал')
+                                   ->options(Branch::getWithUser()->pluck('name', 'id') ?? [])
+                                   ->searchable(),
 
                                Checkbox::make('work_lead')
-                                   ->label('Работа с лидами')
-                                   ->required(),
+                                   ->label('Работа с лидами'),
                            ]),
 
                    ])->columns([
@@ -120,12 +121,8 @@ class AlfaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->columns([
-                //
-            ])
-            ->filters([
-                //
-            ])
+            ->columns([])
+            ->filters([])
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])

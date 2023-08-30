@@ -13,10 +13,7 @@ use Illuminate\Http\Request;
 
 class GetCourseController extends Controller
 {
-    public function pay(User $user, Request $request)
-    {
-
-    }
+    public function pay(User $user, Request $request) {}
 
     public function order(User $user, Request $request)
     {

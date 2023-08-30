@@ -33,7 +33,7 @@ class GetCourseResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля')
+                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
                     ->schema([
 
                         Forms\Components\Fieldset::make('Основное')

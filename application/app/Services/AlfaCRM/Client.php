@@ -28,8 +28,8 @@ class Client
         $this->http = new \GuzzleHttp\Client();
 
         $this->domain = $storage->domain;
-        $this->email  = $storage->client_id;
-        $this->apikey = $storage->code;
+        $this->email  = $storage->email;
+        $this->apikey = $storage->api_key;
 
         $this->storage = $storage;
     }
@@ -41,7 +41,7 @@ class Client
     {
         $response = $this
             ->http
-            ->post("https://{$this->domain}.".self::$baseUrl.'auth/login', [
+            ->post('https://'.$this->domain.'.'.self::$baseUrl.'auth/login', [
                 'headers' => $this->headers(),
                 'body' => json_encode([
                     'email'   => $this->email,
@@ -50,13 +50,12 @@ class Client
             ]);
 
         try {
-
             $this->token = json_decode($response->getBody()->getContents())->token;
-
-            $this->auth = true;
+            $this->auth  = true;
 
         } catch (\Throwable $exception) {
 
+            $this->auth  = false;
         }
         return $this;
     }

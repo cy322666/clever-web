@@ -8,6 +8,9 @@ class Branch
 {
     public function __construct(private Client $client) {}
 
+    /**
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
     public function all()
     {
         $response = $this->client

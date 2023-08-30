@@ -47,6 +47,7 @@ class ViewerSend extends Command
 
         $amoApi = (new Client($account))
             ->init()
+            ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
 
         $pipelineId = Status::query()

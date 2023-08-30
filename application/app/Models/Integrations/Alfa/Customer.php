@@ -13,7 +13,7 @@ class Customer extends Model
     protected $table = 'alfacrm_customers';
 
     protected $fillable = [
-        'account_id',
+        'user_id',
     ];
 
     public static array $ignoreFields = [

@@ -23,6 +23,7 @@ class ViewUser extends ViewRecord
     {
         return [
             Actions\Action::make('amocrmAuth')
+                ->action('amocrmAuth')
                 ->color(fn() => $this->record->account->active ? Color::Green : Color::Red)
                 ->label(fn() => $this->record->account->active ? 'amoCRM Подключена' : 'Подключить amoCRM')
                 ->disabled(fn() => $this->record->account->active),
@@ -64,10 +65,10 @@ class ViewUser extends ViewRecord
     }
 
     public function amocrmAuth(): void
-    {
+    {dd('sadsa');
         $account = Auth::user()->account;
 
-        if (!$account->auth) {
+        if (!$account->active) {
 
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
 

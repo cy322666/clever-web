@@ -9,50 +9,44 @@ use App\Jobs\AlfaCRM\CameWithoutLead;
 use App\Jobs\AlfaCRM\OmissionWithoutLead;
 use App\Jobs\AlfaCRM\RecordWithLead;
 use App\Jobs\AlfaCRM\RecordWithoutLead;
-use App\Models\AlfaCRM\Setting;
-use App\Models\AlfaCRM\Transaction;
+use App\Models\Alfa\Transaction;
 use App\Models\User;
 use App\Models\Webhook;
+use App\Services\AlfaCRM\Client;
 use App\Services\AlfaCRM\Client as alfaApi;
-use App\Services\AlfaCRM\Mapper;
 use App\Services\AlfaCRM\Models\Lesson;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class AlfaCRMController extends Controller
 {
     private alfaApi $alfaApi;
 
-    public function record(Webhook $webhook, RecordRequest $request, Transaction $transaction)
+    /**
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
+    public function record(User $user, Request $request)
     {
         $data = $request->leads['status'][0] ?? $request->leads['add'][0];
 
-        try {
-            $setting = $webhook
-                ->user
-                ->alfaSetting()
-                ->firstOrFail();
+        Transaction::query()->create([
+            'user' => $user->id,
+            'amo_lead_id' => $data['id'],
+            'status_id'   => $data['status_id'],
+        ]);
 
-            if($setting->checkStatus('record', $data['status_id'])) {
+        $alfaApi = (new Client($user->alfacrm_settings))->init();
 
-                $transaction->setRecordData($data, $webhook);
+        if (!$alfaApi->auth) {
 
-                if ($setting->work_lead == true) {
 
-                    RecordWithLead::dispatch($setting, $webhook, $transaction, $data);
-                } else
-                    RecordWithoutLead::dispatch($setting, $webhook, $transaction, $data);
-            }
-        } catch (ModelNotFoundException $exception) {
-
-            $transaction->error = 'Not found settings';
-            $transaction->save();
-
-        } catch (\Throwable $exception) {
-
-            $transaction->error = $exception->getMessage().' '.$exception->getFile().' '.$exception->getLine();
-            $transaction->save();
         }
+//
+//        RecordWithLead::dispatch($setting, $webhook, $transaction, $data);
+//            else
+//        RecordWithoutLead::dispatch($setting, $webhook, $transaction, $data);
     }
 
     public function came(Webhook $webhook, CameRequest $request)
