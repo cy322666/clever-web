@@ -7,6 +7,7 @@ use App\Jobs\Bizon\ViewerSend;
 use App\Models\User;
 use App\Services\Bizon365\Client;
 use Exception;
+use Filament\Notifications\Notification;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +45,16 @@ class BizonController extends Controller
         $commentariesTS = json_decode($info->report->messages, true);
 
         $amoApi = (new \App\Services\amoCRM\Client($user->account))->init();
+
+        if (!$amoApi->auth) {
+
+            Notification::make()
+                ->title('Зрители вебинара не выгруженны из-за ошибки авторизации в amoCRM')
+                ->danger()
+                ->sendToDatabase($user);
+
+            return;
+        }
 
         foreach ($report['usersMeta'] as $userKey => $userArray) {
 
