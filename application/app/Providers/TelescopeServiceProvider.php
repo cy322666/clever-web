@@ -19,9 +19,6 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
         $this->hideSensitiveRequestDetails();
 
         Telescope::filter(function (IncomingEntry $entry) {
-            if ($this->app->environment('local')) {
-                return true;
-            }
 
             return $entry->isReportableException() ||
                    $entry->isFailedRequest() ||
@@ -54,11 +51,16 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      *
      * This gate determines who can access Telescope in non-local environments.
      */
-    protected function gate(): void
+    protected function gate(): bool
     {
-        Gate::define('viewTelescope', function ($user) {
+        if ($this->app->environment('local')) {
 
             return true;
+        }
+
+        Gate::define('viewTelescope', function ($user) {
+
+            return $user->is_root;
         });
     }
 }
