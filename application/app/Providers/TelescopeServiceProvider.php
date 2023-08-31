@@ -51,7 +51,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      *
      * This gate determines who can access Telescope in non-local environments.
      */
-    protected function gate(): bool
+    protected function gate()
     {
         if ($this->app->environment('local')) {
 
