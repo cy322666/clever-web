@@ -3,13 +3,15 @@
 chmod -R 777 storage
 chmod -R 777 vendor
 
-#composer update
+composer install
 
 #php artisan key:generate
 
 composer require laravel/octane --with-all-dependencies
 
-#php artisan telescope:install
+php artisan telescope:install
+
+php artisan horizon:install
 
 php artisan octane:install --server="swoole"
 
