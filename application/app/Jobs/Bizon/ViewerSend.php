@@ -75,10 +75,10 @@ class ViewerSend implements ShouldQueue
      *
      * @return array
      */
-    public function middleware(): array
-    {
-        return [(new WithoutOverlapping($this->acccount->id))->releaseAfter(5)];
-    }
+//    public function middleware(): array
+//    {
+//        return [(new WithoutOverlapping($this->acccount->id))->releaseAfter(5)];
+//    }
 
     /**
      * Execute the job.

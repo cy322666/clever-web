@@ -11,6 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
+use STS\FilamentImpersonate\Tables\Actions\Impersonate;
 
 class UserResource extends Resource
 {
@@ -74,15 +76,22 @@ class UserResource extends Resource
                     ->dateTime()
                     ->sortable(),
 
-//                Tables\Columns\TextColumn::make('account.active')
-//                    ->label('Статус')
-//                    ->sortable(),
+                Tables\Columns\BooleanColumn::make('active')
+                    ->label('Статус')
+                    ->sortable(),
+
+                Tables\Columns\BooleanColumn::make('is_root')
+                    ->label('Админ')
+                    ->sortable(),
             ])
             ->filters([
                 //
             ])
             ->actions([
 //                Tables\Actions\EditAction::make(),
+                Impersonate::make()
+                    ->openUrlInNewTab()
+                    ->redirectTo(route('filament.app.resources.core.users.view', ['record' => Auth::id()]))
             ])
             ->bulkActions([
 //                Tables\Actions\DeleteBulkAction::make(),

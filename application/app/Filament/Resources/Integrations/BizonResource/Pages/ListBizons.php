@@ -3,17 +3,24 @@
 namespace App\Filament\Resources\Integrations\BizonResource\Pages;
 
 use App\Filament\Resources\Integrations\BizonResource;
+use App\Models\Integrations\Bizon\Webinar;
 use Filament\Pages\Actions;
+use Filament\Pages\Concerns\ExposesTableToWidgets;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Widgets\Concerns\InteractsWithPageTable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class ListBizons extends ListRecords
 {
     protected static string $resource = BizonResource::class;
 
-    protected function getActions(): array
+    use ExposesTableToWidgets;
+
+    protected function getFooterWidgets(): array
     {
         return [
-            Actions\CreateAction::make(),
+//            BizonResource\Widgets\ViewersTable::class
         ];
     }
 }

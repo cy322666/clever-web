@@ -93,6 +93,8 @@ class Webinar extends Model
             'tz'         => $user_array['tz'] ?? null,
             'utm_source' => $user_array['utm_source'] ?? null,
             'utm_medium' => $user_array['utm_medium'] ?? null,
+            'utm_term' => $user_array['utm_term'] ?? null,
+            'utm_content' => $user_array['utm_content'] ?? null,
             'utm_campaign' => $user_array['utm_campaign'] ?? null,
 
             'clickFile'   => !empty($user_array['clickFile']) && $user_array['clickFile'] == 'Да' ? 'Да' : 'Нет',

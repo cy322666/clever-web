@@ -57,7 +57,10 @@ class Viewer extends Model
         'clickFile',
         'newOrder',
         'orderDetails',
-        'type'
+        'type',
+        'utm_medium',
+        'utm_content',
+        'utm_source',
     ];
 
     //возможность сортировки по полям

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Integrations\BizonResource\Pages;
 
+use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\BizonResource;
 use App\Models\Integrations\Alfa\Setting;
 use Filament\Forms\Components\TextInput;
@@ -39,6 +40,10 @@ class EditBizon extends EditRecord
 
             Actions\Action::make('instruction')
                 ->label('Инструкция'),
+
+            Actions\Action::make('list')
+                ->label('История')
+                ->url(WebinarResource::getUrl())
         ];
     }
 

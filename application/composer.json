@@ -23,6 +23,7 @@
         "laravel/sanctum": "^3.2",
         "laravel/telescope": "^4.16",
         "laravel/tinker": "^2.8",
+        "stechstudio/filament-impersonate": "^3.5",
         "ufee/amoapi": "0.9.3.5"
     },
     "require-dev": {

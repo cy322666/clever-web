@@ -26,5 +26,7 @@
 
         @filamentScripts
         @vite('resources/js/app.js')
+{{--        TODO --}}
+        <x-impersonate::banner/>
     </body>
 </html>

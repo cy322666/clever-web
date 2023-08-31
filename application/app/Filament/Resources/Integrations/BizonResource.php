@@ -161,8 +161,7 @@ class BizonResource extends Resource
     {
         return [
             'index' => Pages\ListBizons::route('/'),
-            'create' => Pages\CreateBizon::route('/create'),
-            'edit' => Pages\EditBizon::route('/{record}/edit'),
+            'edit'  => Pages\EditBizon::route('/{record}/edit'),
         ];
     }
 }
