@@ -93,27 +93,28 @@ class AppPanelProvider extends PanelProvider
                         ->label('Магазин')
                         ->icon('heroicon-o-shopping-bag')
 //                        ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard'))
-                        ->url(fn (): string => Market::getUrl()),
+                        ->url(fn (): string => Market::getUrl())
+                        ->hidden(fn() => !Auth::user()->is_root),
 
                     NavigationItem::make('Users')
                         ->label('Пользователи')
                         ->icon('heroicon-o-shopping-bag')
                         ->url(fn (): string => UserResource::getUrl())
-                        ->hidden(fn(User $user) => $user->is_root),
+                        ->hidden(fn() => !Auth::user()->is_root),
 
                    NavigationItem::make('Telescopte')
                        ->label('Телескоп')
                        ->icon('heroicon-o-shopping-bag')
                        ->url(route('telescope'))
                        ->openUrlInNewTab()
-                       ->hidden(fn(User $user) => $user->is_root),
+                       ->hidden(fn() => !Auth::user()->is_root),
 
                      NavigationItem::make('Horizon')
                          ->label('Горизонт')
                          ->icon('heroicon-o-shopping-bag')
                          ->url(route('horizon.index'))
                          ->openUrlInNewTab()
-                         ->hidden(fn(User $user) => $user->is_root)
+                         ->hidden(fn() => !Auth::user()->is_root)
 
                 // UserResource::getUrl('view', ['record' => Auth::user()]
 //                    ...UserResource::getNavigationItems(),

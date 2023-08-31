@@ -37,6 +37,11 @@ class ViewUser extends ViewRecord
 
     public function mount(int|string $record): void
     {
+        if (Auth::id() !== (int)$record) {
+
+            $this->redirect(UserResource::getUrl('view', ['record' => Auth::id()]));
+        }
+
         parent::mount($record);
 
         $auth = Request::get('auth');
