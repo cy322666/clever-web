@@ -67,10 +67,20 @@ class WebinarResource extends Resource
                         fn(Webinar $webinar) => $webinar->viewers()->where('status', 2)->count()
                     ),
 
-                Tables\Columns\IconColumn::make('status')
+                //TODO relationship methods
+                Tables\Columns\BooleanColumn::make('status')
                     ->label('Выгружен')
-                    ->trueIcon('heroicon-o-badge-check')
-                    ->falseIcon('heroicon-o-x-circle'),
+                    ->state(fn(Webinar $webinar) =>
+                        $webinar
+                            ->viewers()
+                            ->where('status', 1)
+                            ->count() ==
+                        $webinar
+                            ->viewers()
+                            ->count()
+                    )
+//                    ->trueIcon('heroicon-o-badge-check')
+//                    ->falseIcon('heroicon-o-x-circle'),
             ])
             ->filters([])
             ->actions([
