@@ -4,7 +4,9 @@ namespace App\Console\Commands\Install;
 
 use App\Models\App;
 use App\Models\Integrations\GetCourse\Setting;
+use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 
 class GetCourseCreate extends Command
 {
@@ -12,7 +14,7 @@ class GetCourseCreate extends Command
 
     private string $resource = 'App\Filament\Resources\Integrations\GetCourseResource';
 
-    protected $signature = 'install:getcourse {user_id}';
+    protected $signature = 'install:getcourse {user_id?}';
 
     /**
      * The console command description.
@@ -28,15 +30,32 @@ class GetCourseCreate extends Command
     {
         $userId = $this->argument('user_id');
 
-        $setting = Setting::query()->create([
-            'user_id' => $userId,
-        ]);
+        if ($userId) {
 
-        App::query()->create([
-            'name'          => $this->app,
-            'user_id'       => $userId,
-            'setting_id'    => $setting->id,
-            'resource_name' => $this->resource,
-        ]);
+            if (!App::query()
+                ->where('user_id', $userId)
+                ->where('name', $this->app)
+                ->exists()) {
+
+                $setting = Setting::query()->create([
+                    'user_id' => $userId,
+                ]);
+
+                App::query()->create([
+                    'name'          => $this->app,
+                    'user_id'       => $userId,
+                    'setting_id'    => $setting->id,
+                    'resource_name' => $this->resource,
+                ]);
+            }
+        } else {
+
+            $users = User::query()->get();
+
+            foreach ($users as $user) {
+
+                Artisan::call('install:getcourse', ['user_id' => $user->id]);
+            }
+        }
     }
 }

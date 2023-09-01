@@ -3,18 +3,18 @@
 namespace App\Console\Commands\Install;
 
 use App\Models\App;
-use App\Models\Integrations\Bizon\Setting;
+use App\Models\Integrations\Tilda\Setting;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 
-class BizonCreate extends Command
+class TildaCreate extends Command
 {
-    private string $app = 'bizon';
+    private string $app = 'tilda';
 
-    private string $resource = 'App\Filament\Resources\Integrations\BizonResource';
+    private string $resource = 'App\Filament\Resources\Integrations\TildaResource';
 
-    protected $signature = 'install:bizon {user_id?}';
+    protected $signature = 'install:tilda {user_id?}';
 
     /**
      * The console command description.
@@ -54,7 +54,7 @@ class BizonCreate extends Command
 
             foreach ($users as $user) {
 
-                Artisan::call('install:bizon', ['user_id' => $user->id]);
+                Artisan::call('install:tilda', ['user_id' => $user->id]);
             }
         }
     }
