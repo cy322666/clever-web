@@ -8,6 +8,7 @@ use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Webinar;
+use Filament\Forms\Components\Field;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -64,7 +65,7 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_root;
     }
 
-    public function canBeImpersonated()
+    public function canBeImpersonated(): bool
     {
         return true;
     }
@@ -112,5 +113,10 @@ class User extends Authenticatable implements FilamentUser
     public function logs(): HasMany
     {
         return $this->hasMany(Log::class);
+    }
+
+    public function fields(): HasMany
+    {
+        return $this->hasMany(Field::class);
     }
 }
