@@ -81,48 +81,48 @@ abstract class Leads
 
     public static function setUtms(Lead $lead, array $utms): Lead
     {
-        if (!empty($utms['utm_source'])) {
+        if (!empty($utms['utm_source']) && $utms['utm_source'] !== null) {
 
             $lead->cf('utm_source')->setValue($utms['utm_source']);
         }
-        if (!empty($utms['utm_content'])) {
+        if (!empty($utms['utm_content']) && $utms['utm_content'] !== null) {
 
             $lead->cf('utm_content')->setValue($utms['utm_content']);
         }
-        if (!empty($utms['utm_term'])) {
+        if (!empty($utms['utm_term']) && $utms['utm_term'] !== null) {
 
             $lead->cf('utm_term')->setValue($utms['utm_term']);
         }
-        if (!empty($utms['utm_campaign'])) {
+        if (!empty($utms['utm_campaign']) && $utms['utm_campaign'] !== null) {
 
             $lead->cf('utm_campaign')->setValue($utms['utm_campaign']);
         }
-        if (!empty($utms['utm_medium']) && !$lead->cf('utm_medium')->getValue()) {
+        if (!empty($utms['utm_medium']) && $utms['utm_medium'] !== null && !$lead->cf('utm_medium')->getValue()) {
 
             $lead->cf('utm_medium')->setValue($utms['utm_medium']);
         }
 
-        if (!empty($utms['_ym_uid']) && !$lead->cf('_ym_uid')->getValue()) {
+        if (!empty($utms['_ym_uid']) && $utms['_ym_uid'] !== null && !$lead->cf('_ym_uid')->getValue()) {
 
             $lead->cf('_ym_uid')->setValue($utms['_ym_uid']);
         }
 
-        if (!empty($utms['roistat_visit']) && !$lead->cf('roistat_visit')->getValue()) {
+        if (!empty($utms['roistat_visit']) && $utms['roistat_visit'] !== null && !$lead->cf('roistat_visit')->getValue()) {
 
             $lead->cf('roistat')->setValue($utms['roistat']);
         }
 
-        if (!empty($utms['roistat']) && !$lead->cf('roistat')->getValue()) {
+        if (!empty($utms['roistat']) && $utms['roistat'] !== null && !$lead->cf('roistat')->getValue()) {
 
             $lead->cf('roistat')->setValue($utms['roistat']);
         }
 
-        if (!empty($utms['referrer']) && !$lead->cf('referrer')->getValue()) {
+        if (!empty($utms['referrer']) && $utms['referrer'] !== null && !$lead->cf('referrer')->getValue()) {
 
             $lead->cf('referrer')->setValue($utms['referrer']);
         }
 
-        if (!empty($utms['previousUrl']) && !$lead->cf('referrer')->getValue()) {
+        if (!empty($utms['previousUrl']) && $utms['previousUrl'] !== null && !$lead->cf('referrer')->getValue()) {
 
             $lead->cf('referrer')->setValue($utms['previousUrl']);
         }

@@ -39,6 +39,11 @@ class Form extends Model
         }
 
         $utms['roistat_url'] = $this->roistat_url;
+        $utms['utm_source']  = $this->utm_source;
+        $utms['utm_medium']  = $this->utm_medium;
+        $utms['utm_content'] = $this->utm_content;
+        $utms['utm_term'] = $this->utm_term;
+        $utms['utm_campaign'] = $this->utm_campaign;
 
         return $utms;
     }
