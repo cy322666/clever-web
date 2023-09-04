@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Log;
 
 class BizonController extends Controller
 {
+    public function form(User $user, Request $request)
+    {
+
+    }
+
     /**
      * @throws GuzzleException
      * @throws Exception

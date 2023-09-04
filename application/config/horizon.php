@@ -184,6 +184,7 @@ return [
             'connection' => 'redis',
             'queue' => [
                 'default',
+                'bizon_form',
                 'bizon_export',
                 'getcourse_form',
                 'getcourse_order',

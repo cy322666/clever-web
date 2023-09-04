@@ -31,7 +31,11 @@ class Setting extends Model
         'tag_hot',
         'token',
         'login',
-        'password'
+        'password',
+        'status_id_form',
+        'pipeline_id_form',
+        'responsible_user_id_form',
+        'tag_form',
     ];
 
     protected $table = 'bizon_settings';

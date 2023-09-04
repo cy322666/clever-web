@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Jobs\GetCourse;
+namespace App\Jobs\Bizon;
 
 use App\Models\Core\Account;
-use App\Models\Integrations\GetCourse\Form;
-use App\Models\Integrations\GetCourse\Setting;
+use App\Models\Integrations\Bizon\Form;
+use App\Models\Integrations\Bizon\Setting;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,18 +16,24 @@ class FormSend implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Create a new job instance.
+     */
     public function __construct(
         public Form $form,
         public Account $account,
         public Setting $setting,
     )
     {
-        $this->onQueue('getcourse_form');
+        $this->onQueue('bizon_form');
     }
 
-    public function handle()
+    /**
+     * Execute the job.
+     */
+    public function handle(): void
     {
-        Artisan::call('app:getcourse-form-send', [
+        Artisan::call('app:bizon-form-send', [
             'form'    => $this->form->id,
             'account' => $this->account->id,
             'setting' => $this->setting->id,
