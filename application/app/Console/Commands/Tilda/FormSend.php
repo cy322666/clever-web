@@ -65,7 +65,7 @@ class FormSend extends Command
 
         if ($contact == null) {
 
-            $contact = Contacts::create($amoApi, $body->{$setting['name']} ?? 'Заявка с сайта');
+            $contact = Contacts::create($amoApi, $body->{$setting['name']} ?? 'Лид с тильды');
 
         } elseif ($setting['is_union'][0] == 'yes') {
 
@@ -73,7 +73,6 @@ class FormSend extends Command
         }
 
         $contact = Contacts::update($contact, [
-//            'Имя' => $form->name,
             'Телефоны' => $setting['phone'] ? [$body->{$setting['phone']}] : null,
             'Почта'    => $setting['email'] ? $body->{$setting['email']} : null,
             'Ответственный' => $responsibleId,
@@ -95,6 +94,7 @@ class FormSend extends Command
         }
 
         Tags::add($lead, $setting['tag'] ?? null);
+        Tags::add($lead, 'tilda');
 
         Notes::addOne($lead, FormNote::create($form));
 
