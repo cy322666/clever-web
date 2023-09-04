@@ -20,5 +20,6 @@ class Field extends Model
         'is_api_only',
         'entity_type',
         'enums',
+        'user_id',
     ];
 }

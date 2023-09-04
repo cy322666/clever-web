@@ -151,6 +151,8 @@
       <excludeFolder url="file://$MODULE_DIR$/_application/vendor/league/flysystem-local" />
       <excludeFolder url="file://$MODULE_DIR$/_application/vendor/league/flysystem" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/psr/clock" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/stechstudio/filament-impersonate" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/lab404/laravel-impersonate" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

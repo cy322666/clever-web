@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Console\Commands\GetCourse;
+namespace App\Console\Commands\Tilda;
 
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
-use App\Models\Integrations\GetCourse\Form;
-use App\Models\Integrations\GetCourse\FormNote;
-use App\Models\Integrations\GetCourse\Setting;
+use App\Models\Integrations\Tilda\Form;
+use App\Models\Integrations\Tilda\FormNote;
+use App\Models\Integrations\Tilda\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
@@ -23,7 +23,7 @@ class FormSend extends Command
      *
      * @var string
      */
-    protected $signature = 'app:getcourse-form-send {form} {account} {setting}';
+    protected $signature = 'app:tilda-form-send {form} {account} {setting}';
 
     /**
      * The console command description.
@@ -36,41 +36,46 @@ class FormSend extends Command
      * Execute the console command.
      * @throws \Exception
      */
-    public function handle()
+    public function handle(): bool
     {
         $form    = Form::find($this->argument('form'));
+        $body    = json_decode($form->body);
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 
+        $setting = json_decode($setting->settings, true)[$form->site];
+
         $amoApi = (new Client($account))
             ->init()
-            ->setDelay(0.2)
+            ->setDelay(0.5)
             ->initLogs(Env::get('APP_DEBUG'));
 
-        $statusId = Status::query()
-            ->find($setting->status_id_form ?? $setting->status_id_default)
-            ?->status_id;
+        $pipelineId = Status::query()
+            ->find($setting['pipeline_id'])
+            ?->pipeline_id;
 
         $responsibleId = Staff::query()
-            ->find($setting->response_user_id_form ?? $setting->response_user_id_default)
+            ->find($setting['responsible_user_id'])
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [$form->phone],
-            'Почта'    => $form->email,
+            'Телефоны' => [$body->{$setting['phone']}],
+            'Почта'    => $body->{$setting['email']} ?? null,
         ], $amoApi);
 
         if ($contact == null) {
 
-            $contact = Contacts::create($amoApi, $form->name);
+            $contact = Contacts::create($amoApi, $body->{$setting['name']} ?? 'Заявка с сайта');
 
-        } else
-            $lead = Leads::search($contact, $amoApi);
+        } elseif ($setting['is_union'][0] == 'yes') {
+
+            $lead = Leads::search($contact, $amoApi, $pipelineId);
+        }
 
         $contact = Contacts::update($contact, [
-            'Имя' => $form->name,
-            'Телефоны' => [$form->phone],
-            'Почта'    => $form->email,
+//            'Имя' => $form->name,
+            'Телефоны' => $setting['phone'] ? [$body->{$setting['phone']}] : null,
+            'Почта'    => $setting['email'] ? $body->{$setting['email']} : null,
             'Ответственный' => $responsibleId,
         ]);
 
@@ -78,22 +83,18 @@ class FormSend extends Command
 
             $lead = Leads::create($contact, [
                 'responsible_user_id' => $responsibleId,
-                'status_id'           => $statusId,
-            ], 'Новая заявка с Геткурс');
+                'pipeline_id' => $pipelineId,
+            ], 'Новая заявка с Тильды');
 
-            $lead = Leads::setUtms($lead, [
-                'utm_source'  => $form->utm_source ?? null,
-                'utm_medium'  => $form->utm_medium ?? null,
-                'utm_content' => $form->utm_content ?? null,
-                'utm_term'    => $form->utm_term ?? null,
-                'utm_campaign'=> $form->utm_campaign ?? null,
-            ]);
+            $lead = Leads::setUtms($lead, $form->parseCookies());
         }
 
-        Tags::add($lead, [
-            $setting->tag,
-            $setting->tag_form,
-        ]);
+        if (isset($setting['fields'])) {
+
+            $lead = $form->getCustomFields($lead, $setting['fields']);
+        }
+
+        Tags::add($lead, $setting['tag'] ?? null);
 
         Notes::addOne($lead, FormNote::create($form));
 

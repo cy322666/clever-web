@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\ViewRecord;
@@ -95,6 +97,7 @@ class ViewUser extends ViewRecord
 
             Account::users($amoApi);
             Account::statuses($amoApi);
+            Account::fields($amoApi);
 
             Notification::make()
                 ->title('Успешно обновлено')

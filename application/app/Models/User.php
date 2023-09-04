@@ -3,12 +3,12 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Webinar;
-use Filament\Forms\Components\Field;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -85,6 +85,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Integrations\Alfa\Setting::class);
     }
 
+    public function tilda_settings(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\Tilda\Setting::class);
+    }
+
     public function account(): HasOne
     {
         return $this->hasOne(Account::class);
@@ -110,7 +115,7 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Status::class);
     }
 
-    public function logs(): HasMany
+    public function amocrm_logs(): HasMany
     {
         return $this->hasMany(Log::class);
     }

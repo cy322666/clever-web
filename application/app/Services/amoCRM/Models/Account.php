@@ -2,6 +2,7 @@
 
 namespace App\Services\amoCRM\Models;
 
+use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Services\amoCRM\Client;
@@ -53,8 +54,31 @@ class Account
         }
     }
 
-    public function pipelines(Client $amoApi)
+    /**
+     * @throws \Exception
+     */
+    public static function fields(Client $amoApi): void
     {
+        $fields = $amoApi->service
+            ->ajax()
+            ->get('/api/v4/leads/custom_fields')
+            ->_embedded
+            ->custom_fields;
 
+        foreach ($fields as $field) {
+
+            Field::query()->updateOrCreate([
+                'user_id' => Auth::id(),
+                'field_id' => $field->id,
+            ], [
+                'name' => $field->name,
+                'type' => $field->type,
+                'code' => $field->code,
+                'sort' => $field->sort,
+                'is_api_only' => $field->is_api_only,
+                'entity_type' => $field->entity_type,
+                'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
+            ]);
+        }
     }
 }

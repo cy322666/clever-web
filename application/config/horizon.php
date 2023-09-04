@@ -182,7 +182,13 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default', 'bizon_export', 'getcourse_form', 'getcourse_order'],
+            'queue' => [
+                'default',
+                'bizon_export',
+                'getcourse_form',
+                'getcourse_order',
+                'tilda_form',
+            ],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 10,

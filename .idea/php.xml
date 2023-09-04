@@ -155,6 +155,8 @@
       <path value="$PROJECT_DIR$/application/vendor/spatie/color" />
       <path value="$PROJECT_DIR$/application/vendor/symfony/html-sanitizer" />
       <path value="$PROJECT_DIR$/application/vendor/psr/clock" />
+      <path value="$PROJECT_DIR$/application/vendor/stechstudio/filament-impersonate" />
+      <path value="$PROJECT_DIR$/application/vendor/lab404/laravel-impersonate" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">

@@ -74,66 +74,60 @@ class AppPanelProvider extends PanelProvider
 //                    ->isActiveWhen(fn () => request()->routeIs('filament.admin.pages.dashboard')),
                 // ...
 //            ])
+//            ->navigationGroups([
+//                NavigationGroup::make()
+//                    ->label('Основное')
+//                    ->icon('heroicon-o-shopping-cart'),
+//                NavigationGroup::make('base')
+//                    ->label('Админ')
+//                    ->icon('heroicon-o-pencil'),
+//            ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
-                return $builder->items([
+                return $builder->groups([
 
-                    NavigationItem::make('Home')
-                        ->label('Аккаунт')
-                        ->icon('heroicon-o-home')
-//                        ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard'))
-                        ->url(fn (): string => UserResource::getUrl('view', ['record' => User::first()])),
+                    NavigationGroup::make('')
+                        ->items([
+                            NavigationItem::make('Home')
+                                ->label('Аккаунт')
+                                ->icon('heroicon-o-home')
+                                ->url(fn (): string => UserResource::getUrl('view', ['record' => User::first()])),
 
-                    NavigationItem::make('Market')
-                        ->label('Магазин')
-                        ->icon('heroicon-o-shopping-bag')
-//                        ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard'))
-                        ->url(fn (): string => Market::getUrl()),
+                            NavigationItem::make('Market')
+                                ->label('Магазин')
+                                ->icon('heroicon-o-shopping-bag')
+                                ->url(fn (): string => Market::getUrl()),
+                        ]),
 
-                    NavigationItem::make('Logs')
-                        ->label('Магазин')
-                        ->icon('heroicon-o-shopping-bag')
-//                        ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard'))
-                        ->url(fn (): string => Market::getUrl())
-                        ->hidden(fn() => !Auth::user()->is_root),
+                    NavigationGroup::make('')
+                        ->items([
+                            NavigationItem::make('Logs')
+                                ->label('Логи')
+                                ->icon('heroicon-o-code-bracket')
+                                ->url(fn (): string => Market::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
 
-                    NavigationItem::make('Users')
-                        ->label('Пользователи')
-                        ->icon('heroicon-o-shopping-bag')
-                        ->url(fn (): string => UserResource::getUrl())
-                        ->hidden(fn() => !Auth::user()->is_root),
+                            NavigationItem::make('Users')
+                                ->label('Пользователи')
+                                ->icon('heroicon-o-user-circle')
+                                ->url(fn (): string => UserResource::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
 
-                   NavigationItem::make('Telescopte')
-                       ->label('Телескоп')
-                       ->icon('heroicon-o-shopping-bag')
-                       ->url(route('telescope'))
-                       ->openUrlInNewTab()
-                       ->hidden(fn() => !Auth::user()->is_root),
+                            NavigationItem::make('Telescopte')
+                                ->label('Телескоп')
+                                ->icon('heroicon-o-puzzle-piece')
+                                ->url(route('telescope'))
+                                ->openUrlInNewTab()
+                                ->hidden(fn() => !Auth::user()->is_root),
 
-                     NavigationItem::make('Horizon')
-                         ->label('Горизонт')
-                         ->icon('heroicon-o-shopping-bag')
-                         ->url(route('horizon.index'))
-                         ->openUrlInNewTab()
-                         ->hidden(fn() => !Auth::user()->is_root)
-
-                // UserResource::getUrl('view', ['record' => Auth::user()]
-//                    ...UserResource::getNavigationItems(),
-
+                            NavigationItem::make('Horizon')
+                                ->label('Горизонт')
+                                ->icon('heroicon-o-cube-transparent')
+                                ->url(route('horizon.index'))
+                                ->openUrlInNewTab()
+                                ->hidden(fn() => !Auth::user()->is_root)
+                        ]),
                 ]);
             })
-//            ->navigationItems([
-//                NavigationItem::make('Analytics')
-//                    ->url(UserResource::getUrl('edit', ['record' => User::first()]))
-//                    ->icon('heroicon-o-presentation-chart-line')
-//                    ->group('Reports')
-//                    ->sort(3)
-//            ->userMenuItems([
-//                MenuItem::make()
-//                    ->label('Settings')
-//                    ->url(route('filament.admin.pages.settings'))
-//                    ->icon('heroicon-o-cog-6-tooth'),
-//                // ...
-//            ])
             ->globalSearch(false)
             ->breadcrumbs(false)
             ->middleware([

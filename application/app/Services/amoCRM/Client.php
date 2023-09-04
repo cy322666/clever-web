@@ -107,7 +107,7 @@ class Client
 
         $this->service->queries->onResponseCode(429, function(QueryModel $query) {
 
-            $this->user->logs()->create([
+            $this->user->amocrm_logs()->create([
                 'code' => 429,
                 'url'  => $query->getUrl(),
                 'method'  => $query->method,
@@ -122,7 +122,7 @@ class Client
          */
         function(QueryModel $query) {
 
-            $log =  $this->user->logs()->create([
+            $log =  $this->user->amocrm_logs()->create([
                 'code'  => $query->response->getCode(),
                 'url'   => $query->getUrl(),
                 'start' => $query->startDate(),

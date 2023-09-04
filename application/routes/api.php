@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\GetCourseController;
+use App\Http\Controllers\Api\TildaController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['user.active', 'input']], function () {
@@ -21,6 +22,13 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
 
     })->middleware('user.active');
 });
+
+Route::group(['prefix' => 'tilda'], function () {
+
+    Route::post('hook/{user:uuid}/{site}', [TildaController::class, 'hook'])->name('tilda.hook');
+
+})->middleware('user.active');
+
 
 Route::group(['prefix' => 'amocrm'], function () {
 

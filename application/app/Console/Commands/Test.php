@@ -47,7 +47,7 @@ class Test extends Command
             foreach ($fields as $field) {
 
                 Field::query()->updateOrCreate([
-                    'user_id' => Auth::id(),
+                    'user_id' => 3,
                     'field_id' => $field->id,
                 ], [
                     'name' => $field->name,

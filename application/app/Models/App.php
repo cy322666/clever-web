@@ -26,6 +26,8 @@ class App extends Model
 
     public function setting(): HasOne
     {
-        return $this->hasOne(Account::class, 'id', 'setting_id');//TODO
+//        $modelName = $this->resource_name::$model;
+//
+//        return $this->hasOne($modelName::class, 'id', 'setting_id');
     }
 }

@@ -6,6 +6,7 @@ namespace App\Services\amoCRM\Models;
 
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 use Ufee\Amo\Models\Lead;
 
 abstract class Leads
@@ -101,6 +102,26 @@ abstract class Leads
             $lead->cf('utm_medium')->setValue($utms['utm_medium']);
         }
 
+        if (!empty($utms['_ym_uid']) && !$lead->cf('_ym_uid')->getValue()) {
+
+            $lead->cf('_ym_uid')->setValue($utms['_ym_uid']);
+        }
+
+        if (!empty($utms['roistat_visit']) && !$lead->cf('roistat_visit')->getValue()) {
+
+            $lead->cf('roistat')->setValue($utms['roistat']);
+        }
+
+        if (!empty($utms['roistat']) && !$lead->cf('roistat')->getValue()) {
+
+            $lead->cf('roistat')->setValue($utms['roistat']);
+        }
+
+        if (!empty($utms['referrer']) && !$lead->cf('referrer')->getValue()) {
+
+            $lead->cf('referrer')->setValue($utms['referrer']);
+        }
+
         return $lead;
     }
 
@@ -136,14 +157,13 @@ abstract class Leads
         }
     }
 
-    public static function get($client, $id)
+    public static function setField(Lead $lead, string $fieldName, $value): Lead
     {
         try {
-            return $client->service->leads()->find($id);
+            $lead->cf($fieldName)->setValue($value);
 
-        } catch (\Exception $exception) {
+        } catch (Throwable $e) {}
 
-            Log::error(__METHOD__. ' : '.$exception->getMessage(). ' , сделка : '.$id);
-        }
+        return $lead;
     }
 }

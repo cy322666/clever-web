@@ -16,5 +16,8 @@ class Setting extends Model
         'settings',
         'active',
         'user_id',
+        'name',
+        'email',
+        'phone',
     ];
 }
