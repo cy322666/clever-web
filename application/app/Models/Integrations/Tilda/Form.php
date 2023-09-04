@@ -40,7 +40,7 @@ class Form extends Model
 
         $utms['roistat_url'] = $this->roistat_url;
 
-        return $arrayCookies;
+        return $utms;
     }
 
     public function setCustomFields(Lead $lead, $fields) : Lead

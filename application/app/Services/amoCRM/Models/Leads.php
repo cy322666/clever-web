@@ -122,9 +122,9 @@ abstract class Leads
             $lead->cf('referrer')->setValue($utms['referrer']);
         }
 
-        if (!empty($utms['previousUrl']) && !$lead->cf('previousUrl')->getValue()) {
+        if (!empty($utms['previousUrl']) && !$lead->cf('referrer')->getValue()) {
 
-            $lead->cf('referrer')->setValue($utms['referrer']);
+            $lead->cf('referrer')->setValue($utms['previousUrl']);
         }
 
         return $lead;
