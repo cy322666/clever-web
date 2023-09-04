@@ -36,17 +36,26 @@ class Setting extends Model
         'pipeline_id_form',
         'responsible_user_id_form',
         'tag_form',
+        'status_id_form',
+        'pipeline_id_form',
+        'responsible_user_id_form',
+        'tag_form',
     ];
 
     protected $table = 'bizon_settings';
 
-    public function getLink(): string
+    public function user(): HasOne
+    {
+        return $this->hasOne(User::class, 'id', 'user_id');
+    }
+
+    public function getWebinarLink(): string
     {
         return route('bizon.hook', ['user' => $this->user->uuid]);
     }
 
-    public function user(): HasOne
+    public function getFormLink(): string
     {
-        return $this->hasOne(User::class, 'id', 'user_id');
+        return route('bizon.form', ['user' => $this->user->uuid]);
     }
 }

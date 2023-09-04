@@ -16,7 +16,7 @@ return new class extends Migration
             $table->integer('status_id_form')->nullable();
             $table->integer('pipeline_id_form')->nullable();
             $table->integer('responsible_user_id_form')->nullable();
-            $table->integer('tag_form')->nullable();
+            $table->string('tag_form')->nullable();
         });
     }
 

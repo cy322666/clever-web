@@ -41,23 +41,13 @@ class AppsRelationManager extends RelationManager
 
                         return $record->resource_name::getRecordTitle($record);
                     }),
-                 Tables\Columns\IconColumn::make('active')
+                 Tables\Columns\BooleanColumn::make('active')
                      ->label('Активен')
                      ->state(function (App $app) {
 
                          $modelName = $app->resource_name::getModel();
 
                          return $modelName::query()->where('id', $app->setting_id)->first()->active;
-                     })
-                     ->icon(fn (string $state): string => match ($state) {
-                         '1' => 'heroicon-o-pencil',
-                         '0' => 'heroicon-o-clock',
-                         '' => 'heroicon-o-clock',
-                     })
-                     ->color(fn (string $state): string => match ($state) {
-                         '1' => 'success',
-                         '0' => 'danger',
-                         ''  => 'danger',
                      })
             ])
             ->filters([])

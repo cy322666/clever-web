@@ -12,6 +12,10 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
         ->middleware(['bizon'])
         ->name('bizon.hook');
 
+    Route::post('bizon/form/{user:uuid}', [BizonController::class, 'form'])
+        ->middleware(['bizon'])
+        ->name('bizon.form');
+
     Route::group(['prefix' => 'getcourse'], function () {
 
         Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay']);

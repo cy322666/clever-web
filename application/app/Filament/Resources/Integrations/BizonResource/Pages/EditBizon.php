@@ -54,7 +54,8 @@ class EditBizon extends EditRecord
 
     public function mutateFormDataBeforeFill(array $data): array
     {
-        $data['link'] = $this->record->getLink();
+        $data['link_webinar'] = $this->record->getWebinarLink();
+        $data['link_form']    = $this->record->getFormLink();
 
         return parent::mutateFormDataBeforeFill($data);
     }

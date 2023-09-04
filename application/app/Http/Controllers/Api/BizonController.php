@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\Bizon\FormSend;
 use App\Jobs\Bizon\ViewerSend;
+use App\Models\Integrations\Bizon\Form;
 use App\Models\User;
 use App\Services\Bizon365\Client;
 use Exception;
@@ -16,7 +18,11 @@ class BizonController extends Controller
 {
     public function form(User $user, Request $request)
     {
+        $form = Form::query()->create([
 
+        ]);
+
+        FormSend::dispatch($form, $user->bizon_settings, $user->account);
     }
 
     /**

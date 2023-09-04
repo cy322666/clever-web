@@ -68,16 +68,52 @@ class BizonResource extends Resource
                                     ->label('Токен')
                                     ->required(),
 
-                                Forms\Components\TextInput::make('link')
-                                    ->label('Ваша вебхук ссылка')
+                                Forms\Components\TextInput::make('link_webinar')
+                                    ->label('Вебинарная ссылка')
                                     ->url()
                                     ->readOnly()
-                                    ->helperText('Скопируйте ее полностью в настройки вебинарной комнаты')
+                                    ->helperText('Скопируйте ее полностью в настройки вебинарной комнаты'),
+
+                                Forms\Components\TextInput::make('link_form')
+                                    ->label('Регистрационная ссылка')
+                                    ->url()
+                                    ->readOnly()
+                                    ->helperText('Скопируйте ее полностью в настройки страницы регистрации')
 
                             ])->columnSpan(2),
                     ]),
 
-                Forms\Components\Section::make('Сегментация')
+                Forms\Components\Section::make('Регистрации')
+                    ->description('Настройки для регистраций')
+                    ->schema([
+
+                        Forms\Components\Fieldset::make('Условия')
+                            ->schema([
+                                Forms\Components\Select::make('status_id_form')
+                                    ->label('Этап')
+                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                    ->searchable(),
+
+                                Forms\Components\Select::make('pipeline_id_form')
+                                    ->label('Воронка')
+                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+                                    ->searchable(),
+
+                                Forms\Components\Select::make('responsible_user_id_form')
+                                    ->label('Ответственный')
+                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->searchable(),
+
+                                Forms\Components\TextInput::make('tag_form')
+                                    ->label('Тег'),
+                            ]),
+
+                    ])->columns([
+                        'sm' => 2,
+                        'lg' => null,
+                    ]),
+
+                Forms\Components\Section::make('Вебинар')
                     ->description('Разделите посетителей вебинара на сегементы по времени нахождения на вебинаре')
                     ->schema([
 
