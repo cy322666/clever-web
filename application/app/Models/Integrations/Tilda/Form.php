@@ -38,12 +38,12 @@ class Form extends Model
             $utms[trim($array[0])] = trim(urldecode($array[1]));
         }
 
-        $utms['roistat_url'] = $this->roistat_url;
-        $utms['utm_source']  = $this->utm_source;
-        $utms['utm_medium']  = $this->utm_medium;
-        $utms['utm_content'] = $this->utm_content;
-        $utms['utm_term'] = $this->utm_term;
-        $utms['utm_campaign'] = $this->utm_campaign;
+        $utms['roistat_url'] = $body->roistat_url ?? null;
+        $utms['utm_source']  = $body->utm_source ?? null;
+        $utms['utm_medium']  = $body->utm_medium ?? null;
+        $utms['utm_content'] = $body->utm_content ?? null;
+        $utms['utm_term'] = $body->utm_term ?? null;
+        $utms['utm_campaign'] = $body->utm_campaign ?? null;
 
         return $utms;
     }
