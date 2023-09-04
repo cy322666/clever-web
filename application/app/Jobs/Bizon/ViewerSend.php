@@ -62,8 +62,6 @@ class ViewerSend implements ShouldQueue
         $this->onQueue('bizon_export');
     }
 
-    public $delay = 2;
-
     /**
      * Получить посредника, через которого должно пройти задание.
      *

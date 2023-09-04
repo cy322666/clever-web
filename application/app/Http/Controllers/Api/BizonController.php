@@ -56,11 +56,13 @@ class BizonController extends Controller
             return;
         }
 
+        $delay = 0;
+
         foreach ($report['usersMeta'] as $userKey => $userArray) {
 
             $viewer = $webinar->setViewer($userKey, $userArray, $setting, $commentariesTS);
 
-            ViewerSend::dispatch($viewer, $setting, $user->account);
+            ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
         }
     }
 }
