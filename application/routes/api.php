@@ -20,15 +20,14 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
 
         Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
 
-    })->middleware('user.active');
+    });
+
+    Route::group(['prefix' => 'tilda'], function () {
+
+        Route::post('hook/{user:uuid}/{site}', [TildaController::class, 'hook'])->name('tilda.hook');
+
+    });
 });
-
-Route::group(['prefix' => 'tilda'], function () {
-
-    Route::post('hook/{user:uuid}/{site}', [TildaController::class, 'hook'])->name('tilda.hook');
-
-})->middleware('user.active');
-
 
 Route::group(['prefix' => 'amocrm'], function () {
 
