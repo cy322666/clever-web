@@ -25,6 +25,11 @@ class FormSend implements ShouldQueue
         $this->onQueue('getcourse_form');
     }
 
+    public function tags(): array
+    {
+        return ['getcourse-form', 'client:'.$this->account->subdomain];
+    }
+
     public function handle()
     {
         Artisan::call('app:getcourse-form-send', [

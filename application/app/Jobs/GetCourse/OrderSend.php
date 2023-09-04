@@ -25,10 +25,10 @@ class OrderSend implements ShouldQueue
         $this->onQueue('getcourse_order');
     }
 
-//    public function uniqueId()
-//    {
-//        return $this->setting->id;
-//    }
+    public function tags(): array
+    {
+        return ['getcourse-order', 'client:'.$this->account->subdomain];
+    }
 
     public function handle()
     {

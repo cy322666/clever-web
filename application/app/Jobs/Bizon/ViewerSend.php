@@ -51,15 +51,22 @@ class ViewerSend implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @return void
+     * @param Viewer $viewer
+     * @param Setting $setting
+     * @param Account $account
      */
     public function __construct(
-        private Viewer $viewer,
-        private Setting $setting,
-        private Account $acccount,
+        public Viewer $viewer,
+        public Setting $setting,
+        public Account $account,
     )
     {
         $this->onQueue('bizon_export');
+    }
+
+    public function tags(): array
+    {
+        return ['bizon-export', 'client:'.$this->account->subdomain];
     }
 
     /**
@@ -82,7 +89,7 @@ class ViewerSend implements ShouldQueue
     {
         Artisan::call('app:bizon-viewer-send', [
             'viewer'  => $this->viewer->id,
-            'account' => $this->acccount->id,
+            'account' => $this->account->id,
             'setting' => $this->setting->id,
         ]);
     }

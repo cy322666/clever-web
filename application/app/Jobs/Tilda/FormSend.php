@@ -29,6 +29,10 @@ class FormSend implements ShouldQueue
         $this->onQueue('tilda_form');
     }
 
+    public function tags(): array
+    {
+        return ['tilda', 'client:'.$this->account->subdomain];
+    }
     /**
      * Execute the job.
      */

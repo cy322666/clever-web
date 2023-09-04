@@ -28,6 +28,11 @@ class FormSend implements ShouldQueue
         $this->onQueue('bizon_form');
     }
 
+    public function tags(): array
+    {
+        return ['bizon-form', 'client:'.$this->account->subdomain];
+    }
+
     /**
      * Execute the job.
      */
