@@ -23,9 +23,10 @@ abstract class Contacts extends Client
         if(($contacts == null || !$contacts->first()) &&
             key_exists('Почта', $arrayFields)) {
 
-            $contacts = $client->service
-                ->contacts()
-                ->searchByEmail($arrayFields['Почта']);
+            if ($arrayFields['Почта'])
+                $contacts = $client->service
+                    ->contacts()
+                    ->searchByEmail($arrayFields['Почта']);
         }
 
         if($contacts !== null && $contacts->first())
