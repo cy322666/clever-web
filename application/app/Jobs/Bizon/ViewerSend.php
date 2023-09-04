@@ -26,7 +26,7 @@ class ViewerSend implements ShouldQueue
      *
      * @var int
      */
-    public int $tries = 1;
+    public int $tries = 3;
     /**
      * Количество секунд, в течение которых задание может выполняться до истечения тайм-аута.
      *
@@ -40,13 +40,6 @@ class ViewerSend implements ShouldQueue
      * @var int
      */
     public int $backoff = 10;
-
-    /**
-     * Indicate if the job should be marked as failed on timeout.
-     *
-     * @var bool
-     */
-    public bool $failOnTimeout = true;
 
     /**
      * Количество секунд, по истечении которых уникальная блокировка задания будет снята.
@@ -69,6 +62,7 @@ class ViewerSend implements ShouldQueue
         $this->onQueue('bizon_export');
     }
 
+    public $delay = 2;
 
     /**
      * Получить посредника, через которого должно пройти задание.
