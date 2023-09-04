@@ -59,7 +59,7 @@ class FormSend extends Command
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [$body->{$setting['phone']}],
+            'Телефоны' => [Contacts::clearPhone($body->{$setting['phone']})],
             'Почта'    => $body->{$setting['email']} ?? null,
         ], $amoApi);
 
@@ -67,7 +67,7 @@ class FormSend extends Command
 
             $contact = Contacts::create($amoApi, $body->{$setting['name']} ?? 'Лид с тильды');
 
-        } elseif ($setting['is_union'][0] == 'yes') {
+        } elseif ($setting['is_union'] == 'yes') {
 
             $lead = Leads::search($contact, $amoApi, $pipelineId);
         }
@@ -84,13 +84,13 @@ class FormSend extends Command
                 'responsible_user_id' => $responsibleId,
                 'pipeline_id' => $pipelineId,
             ], 'Новая заявка с Тильды');
-
-            $lead = Leads::setUtms($lead, $form->parseCookies());
         }
+
+        $lead = Leads::setUtms($lead, $form->parseCookies());
 
         if (isset($setting['fields'])) {
 
-            $lead = $form->getCustomFields($lead, $setting['fields']);
+            $lead = $form->setCustomFields($lead, $setting['fields']);
         }
 
         Tags::add($lead, $setting['tag'] ?? null);

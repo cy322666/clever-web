@@ -25,14 +25,25 @@ class Form extends Model
 
     public function parseCookies() : array
     {
-        $arrayCookies = explode('; ', $this->body->COOKIES ?? '');
+        $utms = [];
 
-        $arrayCookies['referrer'] = $this->roistat_url ?? null;
+        $body = json_decode($this->body);
 
-        return  $arrayCookies;
+        $arrayCookies = explode(';', $body->COOKIES ?? '');
+
+        foreach ($arrayCookies as $cookie) {
+
+            $array = explode('=', $cookie);
+
+            $utms[trim($array[0])] = trim(urldecode($array[1]));
+        }
+
+        $utms['roistat_url'] = $this->roistat_url;
+
+        return $arrayCookies;
     }
 
-    public function getCustomFields(Lead $lead, $fields) : Lead
+    public function setCustomFields(Lead $lead, $fields) : Lead
     {
         $body = json_decode($this->body);
 

@@ -78,6 +78,15 @@ abstract class Contacts extends Client
         return $contact;
     }
 
+    public static function clearPhone(?string $phone): ?string
+    {
+        if ($phone) {
+
+            return substr(str_replace([',', '(', ')', '-', '+', ' '],'', $phone), -10);
+        } else
+            return null;
+    }
+
     public static function create(Client $amoapi, $name = 'Неизвестно')
     {
         $contact = $amoapi->service
