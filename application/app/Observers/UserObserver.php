@@ -2,9 +2,7 @@
 
 namespace App\Observers;
 
-use App\Models\Core\Account;
 use App\Models\User;
-use App\Services\Core\UserCreateService;
 use Illuminate\Support\Facades\Artisan;
 use Ramsey\Uuid\Uuid;
 
@@ -19,10 +17,11 @@ class UserObserver
 
         $user->account()->create();
 
-        /* создание моеделей интеграции */
+        /* создание моделей интеграции */
         Artisan::call('install:alfa', ['user_id' => $user->id]);
         Artisan::call('install:bizon', ['user_id' => $user->id]);
         Artisan::call('install:getcourse', ['user_id' => $user->id]);
+        Artisan::call('install:tilda', ['user_id' => $user->id]);
     }
 
     /**
