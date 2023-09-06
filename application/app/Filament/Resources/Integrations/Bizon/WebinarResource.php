@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Integrations\Bizon;
 
 use App\Filament\Resources\Integrations\Bizon\WebinarResource\Pages;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource\RelationManagers;
+use App\Jobs\Bizon\ViewerSend;
 use App\Models\Integrations\Bizon\Webinar;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -11,8 +12,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class WebinarResource extends Resource
 {
@@ -22,7 +25,14 @@ class WebinarResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('user_id', Auth::id());
+        $query = parent::getEloquentQuery();
+
+        if (!Auth::user()->is_root) {
+
+            $query->where('user_id', Auth::id());
+        }
+
+        return $query;
     }
 
     public static function form(Form $form): Form
@@ -37,7 +47,14 @@ class WebinarResource extends Resource
                 Tables\Columns\TextColumn::make('roomid')
                     ->label('ID')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->hidden(),
+
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Клиент')
+                    ->searchable()
+                    ->sortable()
+                    ->hidden(fn() => !Auth::user()->is_root),
 
                 Tables\Columns\TextColumn::make('room_title')
                     ->label('Название')
@@ -61,11 +78,11 @@ class WebinarResource extends Resource
                         fn(Webinar $webinar) => $webinar->viewers()->where('status', 1)->count()
                     ),
 
-                Tables\Columns\TextColumn::make('fails')
-                    ->label('Ошибок')
-                    ->state(
-                        fn(Webinar $webinar) => $webinar->viewers()->where('status', 2)->count()
-                    ),
+//                Tables\Columns\TextColumn::make('fails')
+//                    ->label('Ошибок')
+//                    ->state(
+//                        fn(Webinar $webinar) => $webinar->viewers()->where('status', 2)->count()
+//                    ),
 
                 //TODO relationship methods
                 Tables\Columns\BooleanColumn::make('status')
@@ -79,17 +96,39 @@ class WebinarResource extends Resource
                             ->viewers()
                             ->count()
                     )
-//                    ->trueIcon('heroicon-o-badge-check')
-//                    ->falseIcon('heroicon-o-x-circle'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([])
             ->actions([
 //                Tables\Actions\Action::make('edit')
 //                    ->url(fn (Webinar $record): string => route('posts.edit', $record))
 //                    ->openUrlInNewTab()
             ])
+            ->paginated([20, 30, 'all'])
+            ->poll('15s')
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([]),
+                Tables\Actions\BulkAction::make('dispatched')
+                    ->action(function (Collection $collection) {
+
+                        $collection->each(function (Webinar $webinar) {
+
+                            $user    = $webinar->user;
+                            $setting = $user->bizon_settings;
+
+                            $viewers = $webinar
+                                ->viewers()
+                                ->where('status', 0)
+                                ->get();
+
+                            $delay = 0;
+
+                            foreach ($viewers as $viewer) {
+
+                                ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
+                            }
+                        });
+                    })
+                    ->label('Догрузить')
             ])
             ->emptyStateActions([]);
     }

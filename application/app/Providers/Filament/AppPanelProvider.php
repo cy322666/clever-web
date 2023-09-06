@@ -11,6 +11,9 @@ use App\Filament\App\Widgets\GetCoursePreview;
 use App\Filament\Resources\Core\AccountResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Core\UserResource\Pages\EditUser;
+use App\Filament\Resources\Integrations\Bizon\WebinarResource;
+use App\Filament\Resources\Integrations\Tilda\FormResource;
+use App\Filament\Resources\Integrations\TildaResource;
 use App\Http\Middleware\RootMiddleware;
 use App\Models\User;
 use Filament\Http\Middleware\Authenticate;
@@ -56,32 +59,6 @@ class AppPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\\Filament\\App\\Widgets')
             ->databaseNotifications()
-//            ->navigationItems([
-//                NavigationItem::make('Analytics')
-//                    ->url('https://filament.pirsch.io', shouldOpenInNewTab: true)
-//                    ->icon('heroicon-o-presentation-chart-line')
-//                    ->group('Reports')
-//                    ->sort(3),
-//
-//                NavigationItem::make('Analytics')
-//                    ->url('https://filament.pirsch.io', shouldOpenInNewTab: true)
-//                    ->icon('heroicon-o-presentation-chart-line')
-//                    ->group('Reports')
-//                    ->sort(3),
-//                NavigationItem::make('dashboard')
-//                    ->label(fn (): string => __('filament-panels::pages/dashboard.title'))
-//                    ->url(fn (): string => EditUser::getUrl())
-//                    ->isActiveWhen(fn () => request()->routeIs('filament.admin.pages.dashboard')),
-                // ...
-//            ])
-//            ->navigationGroups([
-//                NavigationGroup::make()
-//                    ->label('Основное')
-//                    ->icon('heroicon-o-shopping-cart'),
-//                NavigationGroup::make('base')
-//                    ->label('Админ')
-//                    ->icon('heroicon-o-pencil'),
-//            ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder->groups([
 
@@ -125,6 +102,21 @@ class AppPanelProvider extends PanelProvider
                                 ->url(route('horizon.index'))
                                 ->openUrlInNewTab()
                                 ->hidden(fn() => !Auth::user()->is_root)
+                        ]),
+
+                    NavigationGroup::make('')
+                        ->items([
+                            NavigationItem::make('Бизон')
+                                ->label('Бизон')
+                                ->icon('heroicon-o-academic-cap')
+                                ->url(fn (): string => WebinarResource::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
+
+                            NavigationItem::make('Тильда')
+                                ->label('Тильда')
+                                ->icon('heroicon-o-identification')
+                                ->url(fn (): string => FormResource::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
                         ]),
                 ]);
             })

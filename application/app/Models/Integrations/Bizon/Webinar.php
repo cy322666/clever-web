@@ -4,10 +4,13 @@ namespace App\Models\Integrations\Bizon;
 
 use App\Models\Core\Account;
 use App\Models\Integrations\Bizon\Setting;
+use App\Models\User;
 use App\Services\amoCRM\Client;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @method static create(array $toArray)
@@ -45,14 +48,14 @@ class Webinar extends Model
         'room_title',
     ];
 
-    public function viewers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function viewers(): HasMany
     {
         return $this->hasMany(Viewer::class);
     }
 
-    public function account(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Account::class);
+        return $this->belongsTo(User::class);
     }
 
     public function setViewer($user_key, $user_array, Setting $setting, array $commentariesTS): Model
@@ -67,8 +70,8 @@ class Webinar extends Model
             'chatUserId' => $user_array['chatUserId'],
             'phone'      => $user_array['phone'],
             'webinarId'  => $user_array['webinarId'],
-            'view'       => Carbon::parse($view / 1000)->format('Y-m-d H:i:s') ?? '-',
-            'viewTill'   => Carbon::parse($viewTill / 1000)->format('Y-m-d H:i:s') ?? '-',
+            'view'       => Carbon::parse($view / 1000)->timezone('Europe/Moscow')->format('Y-m-d H:i:s') ?? '-',
+            'viewTill'   => Carbon::parse($viewTill / 1000)->timezone('Europe/Moscow')->format('Y-m-d H:i:s') ?? '-',
             'time'       => $time,
             'email'      => $user_array['email'],
             'username'   => $user_array['username'],

@@ -3,9 +3,11 @@
 namespace App\Models\Integrations\Tilda;
 
 use App\Models\amoCRM\Field;
+use App\Models\User;
 use App\Services\amoCRM\Models\Leads;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Ufee\Amo\Models\Lead;
 
 class Form extends Model
@@ -22,6 +24,11 @@ class Form extends Model
         'user_id',
         'site',
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function parseCookies() : array
     {

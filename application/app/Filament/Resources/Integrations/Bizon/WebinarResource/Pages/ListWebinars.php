@@ -9,9 +9,4 @@ use Filament\Resources\Pages\ListRecords;
 class ListWebinars extends ListRecords
 {
     protected static string $resource = WebinarResource::class;
-
-    protected function getFooterWidgets(): array
-    {
-        return [];
-    }
 }
