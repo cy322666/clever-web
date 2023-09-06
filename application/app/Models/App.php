@@ -11,12 +11,21 @@ class App extends Model
 {
     use HasFactory;
 
+    const STATE_CREATED  = 0;
+    const STATE_INACTIVE = 1;
+    const STATE_ACTIVE   = 2;
+
+    const STATE_CREATED_WORD  = 'Не настроено';
+    const STATE_INACTIVE_WORD = 'Не активно';
+    const STATE_ACTIVE_WORD   = 'Активно';
+
     protected $fillable = [
         'resource_name',
         'setting_id',
         'user_id',
         'name',
-        'active',
+        'expires_tariff_at',
+        'status',
     ];
 
     public function user(): HasOne

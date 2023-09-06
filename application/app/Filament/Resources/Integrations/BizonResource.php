@@ -31,9 +31,9 @@ class BizonResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Бизон 365';
 
-    public static function getRecordTitle(?Model $record): string|Htmlable|null
+    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
     {
-        return 'Бизон 365';
+        return 'Бизон365';
     }
 
     public static function form(Forms\Form $form): Forms\Form

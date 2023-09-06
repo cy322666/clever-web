@@ -28,7 +28,7 @@ class TildaResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Тильда';
 
-    public static function getRecordTitle(?Model $record): string|Htmlable|null
+    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
     {
         return 'Тильда';
     }
@@ -107,7 +107,7 @@ class TildaResource extends Resource
                             ->defaultItems(1)
                             ->reorderable(false)
                             ->reorderableWithDragAndDrop(false)
-                            ->addActionLabel('+ Добавить настройку')
+                            ->addActionLabel('+ Добавить форму')
                     ])
             ]);
     }

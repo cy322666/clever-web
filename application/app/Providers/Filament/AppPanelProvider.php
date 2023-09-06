@@ -17,6 +17,7 @@ use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Http\Middleware\RootMiddleware;
 use App\Models\User;
+use Exception;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -42,7 +43,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 class AppPanelProvider extends PanelProvider
 {
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function panel(Panel $panel): Panel
     {

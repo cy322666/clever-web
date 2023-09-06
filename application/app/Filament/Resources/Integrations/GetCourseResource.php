@@ -23,7 +23,7 @@ class GetCourseResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Геткурс';
 
-    public static function getRecordTitle(?Model $record): string|Htmlable|null
+    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
     {
         return 'Геткурс';
     }

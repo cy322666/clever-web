@@ -34,7 +34,7 @@ class AlfaResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    public static function getRecordTitle(?Model $record): string|Htmlable|null
+    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
     {
         return 'АльфаСРМ';
     }
