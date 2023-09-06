@@ -97,8 +97,8 @@ class Webinar extends Model
             'utm_content' => $user_array['utm_content'] ?? null,
             'utm_campaign' => $user_array['utm_campaign'] ?? null,
 
-            'clickFile'   => !empty($user_array['clickFile']) && $user_array['clickFile'] == 'Да' ? 'Да' : 'Нет',
-            'clickBanner' => !empty($user_array['clickBanner']) ? 'Да' : 'Нет',
+            'clickFile'   => count($user_array['buttons']) > 0 ? 'Да' : 'Нет',
+            'clickBanner' => count($user_array['banners']) > 0 ? 'Да' : 'Нет',
             'commentaries'=> count($commentariesTS[$user_key]) > 0 ? json_encode($commentariesTS[$user_key]) : null,
 
             'status' => Viewer::STATUS_WAIT,
