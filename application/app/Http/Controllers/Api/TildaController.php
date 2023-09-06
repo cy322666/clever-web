@@ -34,6 +34,7 @@ class TildaController extends Controller
             'user_id' => $user->id,
             'body'    => json_encode($request->toArray(), JSON_UNESCAPED_UNICODE),
             'site'    => $site,
+            'status'  => false,
         ]);
 
         FormSend::dispatch($form, $user->account, $setting);

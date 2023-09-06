@@ -9,6 +9,7 @@ use App\Filament\App\Widgets\AlfaPreview;
 use App\Filament\App\Widgets\BizonPreview;
 use App\Filament\App\Widgets\GetCoursePreview;
 use App\Filament\Resources\Core\AccountResource;
+use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Core\UserResource\Pages\EditUser;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
@@ -80,7 +81,7 @@ class AppPanelProvider extends PanelProvider
                             NavigationItem::make('Logs')
                                 ->label('Логи')
                                 ->icon('heroicon-o-code-bracket')
-                                ->url(fn (): string => Market::getUrl())
+                                ->url(fn (): string => LogResource::getUrl())
                                 ->hidden(fn() => !Auth::user()->is_root),
 
                             NavigationItem::make('Users')

@@ -21,6 +21,18 @@ class FormResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (!Auth::user()->is_root) {
+
+            $query->where('user_id', Auth::id());
+        }
+
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -50,11 +62,9 @@ class FormResource extends Resource
                      ->label('Форма'),
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([10, 20, 'all'])
+            ->paginated([20, 40, 'all'])
             ->poll('15s')
-            ->filters([
-                //
-            ])
+            ->filters([])
             ->actions([])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('dispatched')
