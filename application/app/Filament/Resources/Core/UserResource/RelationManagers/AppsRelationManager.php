@@ -25,7 +25,7 @@ class AppsRelationManager extends RelationManager
 
     protected function getTableQuery(): Builder|Relation|null
     {
-        return Auth::user()->apps()->getQuery();
+        return Auth::user()->apps()->where('status', '!=', 0)->getQuery();
     }
 
     /**
@@ -41,20 +41,34 @@ class AppsRelationManager extends RelationManager
 
                         return $record->resource_name::getRecordTitle($record);
                     }),
-                 Tables\Columns\BooleanColumn::make('active')
-                     ->label('Активен')
-                     ->state(function (App $app) {
 
-                         $modelName = $app->resource_name::getModel();
+                Tables\Columns\TextColumn::make('expires_tariff_at')
+                    ->label('Истекает'),
 
-                         return $modelName::query()->where('id', $app->setting_id)->first()->active;
+                 Tables\Columns\BadgeColumn::make('status')
+                     ->label('Статус')
+                     ->color(fn (App $app): string => match ($app->status) {
+                         App::STATE_CREATED  => 'gray',
+                         App::STATE_INACTIVE => 'warning',
+                         App::STATE_ACTIVE   => 'success',
                      })
+                     ->formatStateUsing(fn($state) => match($state) {
+                         App::STATE_CREATED  => App::STATE_CREATED_WORD,
+                         App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
+                         App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
+                     }),
             ])
             ->filters([])
             ->headerActions([])
             ->actions([
+//                Tables\Actions\Action::make('view')
+//                    ->label('Настроить')
+//                    ->url(function (Model $record) {
+//
+//                        return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
+//                    }),
                 Tables\Actions\Action::make('view')
-                    ->label('Настроить')
+                    ->label('Оплатить')
                     ->url(function (Model $record) {
 
                         return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
