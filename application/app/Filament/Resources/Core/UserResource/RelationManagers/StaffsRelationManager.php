@@ -38,7 +38,7 @@ class StaffsRelationManager extends RelationManager
             ->bulkActions([])
             ->paginated([20, 30, 50])
             ->emptyStateHeading('Не сихронизировано')
-            ->emptyStateDescription('Нажмите на кнопку Синхронизировать amoCRM')
+            ->emptyStateDescription('Нажмите на кнопку Синхронизировать')
             ->emptyStateIcon('heroicon-o-exclamation-triangle');
     }
 

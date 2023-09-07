@@ -2,6 +2,8 @@
 
 namespace App\Models\Integrations\Bizon;
 
+use App\Filament\Resources\Integrations\BizonResource;
+use App\Helpers\Traits\SettingRelation;
 use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
@@ -15,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class Setting extends Model
 {
-    use HasFactory;
+    use HasFactory, SettingRelation;
 
     protected $fillable = [
         'pipeline_id',
@@ -46,10 +48,7 @@ class Setting extends Model
 
     protected $table = 'bizon_settings';
 
-    public function user(): HasOne
-    {
-        return $this->hasOne(User::class, 'id', 'user_id');
-    }
+    public static string $resource = BizonResource::class;
 
     public function getWebinarLink(): string
     {
@@ -59,11 +58,5 @@ class Setting extends Model
     public function getFormLink(): string
     {
         return route('bizon.form', ['user' => $this->user->uuid]);
-    }
-
-    public function app(): BelongsTo
-    {
-        return $this->belongsTo(App::class, 'id','setting_id')
-            ->where('user_id', $this->user_id);
     }
 }

@@ -120,7 +120,7 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Log::class);
     }
 
-    public function fields(): HasMany
+    public function fields(): HasMany//amocrm TODO
     {
         return $this->hasMany(Field::class);
     }

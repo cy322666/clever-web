@@ -18,11 +18,11 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
 
     Route::group(['prefix' => 'getcourse'], function () {
 
-        Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay']);
+        Route::get('pays/{user:uuid}', [GetCourseController::class, 'pay'])->name('getcourse.pay');
 
-        Route::get('orders/{user:uuid}', [GetCourseController::class, 'order']);
+        Route::get('orders/{user:uuid}', [GetCourseController::class, 'order'])->name('getcourse.order');
 
-        Route::get('forms/{user:uuid}', [GetCourseController::class, 'form']);
+        Route::get('forms/{user:uuid}', [GetCourseController::class, 'form'])->name('getcourse.form');
 
     });
 

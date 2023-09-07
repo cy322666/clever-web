@@ -77,6 +77,9 @@ class AppsRelationManager extends RelationManager
 //                    }),
             ])
             ->bulkActions([])
-            ->paginated(false);
+            ->paginated(false)
+            ->emptyStateHeading('Нет активных интеграций')
+            ->emptyStateDescription('Перейдите в магазин')
+            ->emptyStateIcon('heroicon-o-exclamation-triangle');
     }
 }

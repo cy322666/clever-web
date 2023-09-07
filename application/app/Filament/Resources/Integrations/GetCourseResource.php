@@ -36,46 +36,58 @@ class GetCourseResource extends Resource
                     ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
                     ->schema([
 
-                        Forms\Components\Fieldset::make('Основное')
+                        Forms\Components\Fieldset::make('Вебхуки')
                             ->schema([
-//
-                                Forms\Components\Select::make('response_user_id_default')
-                                    ->label('Отв. по умолчанию')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->required(),
-                                Forms\Components\Select::make('response_user_id_form')
-                                    ->label('Отв. по заявкам')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                    ->searchable(),
-                                Forms\Components\Select::make('response_user_id_order')
-                                    ->label('Отв. по заказам')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                    ->searchable(),
-                                Forms\Components\Select::make('status_id_order')
-                                    ->label('Этап новых заказов')
-                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                    ->searchable(),
-                                Forms\Components\Select::make('status_id_order_close')
-                                    ->label('Этап оплаченных заказов')
-                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                    ->searchable(),
-                                Forms\Components\Select::make('status_id_form')
-                                    ->label('Этап новых заявок')
-                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                    ->searchable(),
+
+                                Forms\Components\TextInput::make('link_order')
+                                    ->label('Вебхук ссылка для заказов')
+                                    ->disabled(),
+
+                                Forms\Components\TextInput::make('link_form')
+                                    ->label('Вебхук ссылка для форм')
+                                    ->disabled(),
+                             ]),
+
+                            Forms\Components\Fieldset::make('Основное')
+                                ->schema([
+
+                                    Forms\Components\Select::make('response_user_id_default')
+                                        ->label('Отв. по умолчанию')
+                                        ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                        ->searchable()
+                                        ->required(),
+                                    Forms\Components\Select::make('response_user_id_form')
+                                        ->label('Отв. по заявкам')
+                                        ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                        ->searchable(),
+                                    Forms\Components\Select::make('response_user_id_order')
+                                        ->label('Отв. по заказам')
+                                        ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                        ->searchable(),
+                                    Forms\Components\Select::make('status_id_order')
+                                        ->label('Этап новых заказов')
+                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->searchable(),
+                                    Forms\Components\Select::make('status_id_order_close')
+                                        ->label('Этап оплаченных заказов')
+                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->searchable(),
+                                    Forms\Components\Select::make('status_id_form')
+                                        ->label('Этап новых заявок')
+                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->searchable(),
                             ]),
 
-                        Forms\Components\Fieldset::make('Теги')
-                            ->schema([
-//                                Forms\Components\TextInput::make('lead_name_order')
-//                                    ->label('Название сделки для заказов'),
-//
-//                                Forms\Components\TextInput::make('lead_name_form')
-//                                    ->label('Название сделки для заказов'),
-                                Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
-                                Forms\Components\TextInput::make('tag_form')->label('Тег для заявок'),
-                            ]),
+                            Forms\Components\Fieldset::make('Теги')
+                                ->schema([
+    //                                Forms\Components\TextInput::make('lead_name_order')
+    //                                    ->label('Название сделки для заказов'),
+    //
+    //                                Forms\Components\TextInput::make('lead_name_form')
+    //                                    ->label('Название сделки для заказов'),
+                                    Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
+                                    Forms\Components\TextInput::make('tag_form')->label('Тег для заявок'),
+                                ]),
                     ]),
             ]);
     }

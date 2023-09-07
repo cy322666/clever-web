@@ -2,6 +2,8 @@
 
 namespace App\Models\Integrations\Tilda;
 
+use App\Filament\Resources\Integrations\TildaResource;
+use App\Helpers\Traits\SettingRelation;
 use App\Models\App;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,9 +13,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Setting extends Model
 {
-    use HasFactory;
+    use HasFactory, SettingRelation;
 
     protected $table = 'tilda_settings';
+
+    public static string $resource = TildaResource::class;
 
     protected $fillable = [
         'bodies',
@@ -25,14 +29,4 @@ class Setting extends Model
         'phone',
     ];
 
-    public function user(): HasOne
-    {
-        return $this->hasOne(User::class, 'id', 'user_id');
-    }
-
-    public function app(): BelongsTo
-    {
-        return $this->belongsTo(App::class, 'id','setting_id')
-            ->where('user_id', $this->user_id);
-    }
 }

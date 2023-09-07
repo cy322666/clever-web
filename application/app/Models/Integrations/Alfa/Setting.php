@@ -2,26 +2,23 @@
 
 namespace App\Models\Integrations\Alfa;
 
+use App\Filament\Resources\Integrations\AlfaResource;
+use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Field;
-use App\Models\App;
-use App\Models\User;
-use App\Models\Webhook;
 use App\Services\AlfaCRM\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 use App\Services\AlfaCRM\Client as alfaApi;
 
 class Setting extends Model
 {
-    use HasFactory;
+    use HasFactory, SettingRelation;
 
     protected $table = 'alfacrm_settings';
+
+    public static string $resource = AlfaResource::class;
 
     protected $fillable = [
         'status_came_1',
@@ -58,17 +55,6 @@ class Setting extends Model
 
         'user_id',
     ];
-
-    public function user(): HasOne
-    {
-        return $this->hasOne(User::class, 'id', 'user_id');
-    }
-
-    public function app(): BelongsTo
-    {
-        return $this->belongsTo(App::class, 'id','setting_id')
-            ->where('user_id', $this->user_id);
-    }
 
     public function checkStatus(string $action, int $statusId): bool
     {
