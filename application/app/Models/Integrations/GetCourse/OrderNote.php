@@ -17,7 +17,7 @@ abstract class OrderNote
             ' - Название : ' . $order->positions,
             ' - Стоимость : ' . $order->cost_money,
             ' - Оплачено : ' . $order->payed_money,
-            ' - Осталось заплатить : ' . $order->left_cost_money,
+            ' - Осталось : ' . $order->left_cost_money,
             ' - Статус заказа : ' . $order->status_order,
             ' - Ссылка : ' . $order->link,
         ];

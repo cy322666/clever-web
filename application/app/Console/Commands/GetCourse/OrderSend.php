@@ -51,26 +51,31 @@ class OrderSend extends Command
             ->find($setting->status_id_order ?? $setting->status_id_default)
             ?->status_id;
 
+        if ($order->payed_money == $order->cost_money &&
+            $setting->status_id_order_close) {
+
+            $statusClose =  $statusId = Status::query()
+                ->find($setting->status_id_order_close);
+
+            if ($statusClose->exists()) {
+
+                $statusId = $statusClose->status_id;
+            }
+        }
+
         $responsibleId = Staff::query()
             ->find($setting->responsible_user_id_order ?? $setting->response_user_id_default)
             ?->staff_id;
-
-        if ($order->payed_money == $order->cost_money) {
-            $statusId = Status::query()
-                ->find($setting->status_id_order_close)
-                ?->status_id ?? $statusId;
-        }
 
         $contact = Contacts::search([
             'Телефоны' => [$order->phone],
             'Почта' => $order->email,
         ], $amoApi);
 
-        if ($contact == null) {
+        if ($contact == null)
             $contact = Contacts::create($amoApi, $order->name);
-        } else {
+        else
             $lead = Leads::search($contact, $amoApi);
-        }
 
         $contact = Contacts::update($contact, [
             'Имя' => $order->name,
@@ -80,12 +85,17 @@ class OrderSend extends Command
         ]);
 
         if (empty($lead)) {
+
             $lead = Leads::create($contact, [
                 'sale' => $order->cost_money,
                 'responsible_user_id' => $responsibleId,
                 'status_id' => $statusId,
             ], 'Новый заказ с Геткурс');
-        }
+        } else
+            $lead = Leads::update($lead, [
+                'status_id' => $statusId,
+                'sale' => $order->cost_money,
+            ], []);
 
         Tags::add($lead, [
             $setting->tag,
