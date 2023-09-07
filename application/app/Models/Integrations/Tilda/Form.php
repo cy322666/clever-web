@@ -36,13 +36,16 @@ class Form extends Model
 
         $body = json_decode($this->body);
 
-        $arrayCookies = explode(';', $body->COOKIES ?? '');
+        if ($body->COOKIES) {
 
-        foreach ($arrayCookies as $cookie) {
+            $arrayCookies = explode(';', $body->COOKIES ?? '');
 
-            $array = explode('=', $cookie);
+            foreach ($arrayCookies as $cookie) {
 
-            $utms[trim($array[0])] = trim(urldecode($array[1] ?? ''));
+                $array = explode('=', $cookie);
+
+                $utms[trim($array[0])] = trim(urldecode($array[1] ?? ''));
+            }
         }
 
         $utms['roistat_url'] = $body->roistat_url ?? null;
