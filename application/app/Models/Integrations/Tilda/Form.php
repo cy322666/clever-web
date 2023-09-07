@@ -42,7 +42,7 @@ class Form extends Model
 
             $array = explode('=', $cookie);
 
-            $utms[trim($array[0])] = trim(urldecode($array[1]));
+            $utms[trim($array[0])] = trim(urldecode($array[1] ?? ''));
         }
 
         $utms['roistat_url'] = $body->roistat_url ?? null;
