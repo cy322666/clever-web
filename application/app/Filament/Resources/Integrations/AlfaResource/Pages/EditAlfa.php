@@ -3,14 +3,12 @@
 namespace App\Filament\Resources\Integrations\AlfaResource\Pages;
 
 use App\Filament\Resources\Integrations\AlfaResource;
+use App\Helpers\Actions\UpdateButton;
 use App\Services\AlfaCRM\Client;
 use App\Services\AlfaCRM\Models\Account;
-use App\Services\AlfaCRM\Models\Branch;
-use App\Services\AlfaCRM\Models\Source;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Filament\Support\Colors\Color;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Auth;
 
@@ -21,25 +19,7 @@ class EditAlfa extends EditRecord
     protected function getActions(): array
     {
         return [
-            Actions\Action::make('activeUpdate')
-                ->action(function () {
-                    $this->record->active = !$this->record->active;
-                    $this->record->save();
-
-                    if ($this->record->active)
-
-                        Notification::make()
-                            ->title('Интеграция включена')
-                            ->success()
-                            ->send();
-                    else
-                        Notification::make()
-                            ->title('Интеграция выключена')
-                            ->danger()
-                            ->send();
-                })
-                ->color(fn() => $this->record->active ? Color::Red : Color::Green)
-                ->label(fn() => $this->record->active ? 'Выключить' : 'Включить'),
+            UpdateButton::getAction($this->record),
 
             Actions\Action::make('instruction')
                 ->label('Инструкция'),
@@ -70,7 +50,7 @@ class EditAlfa extends EditRecord
 
         } else
             Notification::make()
-                ->title('Авторизуйся')
+                ->title('Ошибка обновления')
                 ->warning()
                 ->send();
     }

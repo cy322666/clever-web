@@ -2,11 +2,13 @@
 
 namespace App\Models\Integrations\GetCourse;
 
+use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Config;
 use Ramsey\Uuid\Uuid;
 
@@ -29,50 +31,24 @@ class Setting extends Model
         'tag_form',
     ];
 
-    public function account(): BelongsTo
+    public function user(): HasOne
     {
-        return $this->belongsTo(Account::class);
+        return $this->hasOne(User::class, 'id', 'user_id');
     }
 
-    public function webhooks()
-    {
-        return $this->hasMany(Webhook::class);
-    }
-
-    public function forms()
+    public function forms(): BelongsTo
     {
         return $this->belongsTo(Form::class);
     }
 
-    public function orders()
+    public function orders(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    public function createWebhooks(User $user)
+    public function app(): BelongsTo
     {
-        $this->webhooks()->create([
-            'user_id'  => $user->id,
-            'app_name' => 'getcourse',
-            'app_id'   => 3,
-            'active'   => true,
-            'path'     => 'getcourse.api.form',
-            'type'     => 'status_form',
-            'platform' => 'getcourse',
-            'uuid'     => Uuid::uuid4(),
-            'params'   => Config::get('services.getcourse.wh_form_params')
-        ]);
-
-        $this->webhooks()->create([
-            'user_id'  => $user->id,
-            'app_name' => 'getcourse',
-            'app_id'   => 3,
-            'active'   => true,
-            'path'     => 'getcourse.api.order',
-            'type'     => 'status_order',
-            'platform' => 'getcourse',
-            'uuid'     => Uuid::uuid4(),
-            'params'   => Config::get('services.getcourse.wh_order_params')
-        ]);
+        return $this->belongsTo(App::class, 'id','setting_id')
+            ->where('user_id', $this->user_id);
     }
 }

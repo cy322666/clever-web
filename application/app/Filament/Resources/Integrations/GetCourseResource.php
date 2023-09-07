@@ -107,8 +107,6 @@ class GetCourseResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListGetCourses::route('/'),
-            'create' => Pages\CreateGetCourse::route('/create'),
             'edit'   => Pages\EditGetCourse::route('/{record}/edit'),
         ];
     }

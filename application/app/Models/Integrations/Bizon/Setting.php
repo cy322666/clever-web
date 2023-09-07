@@ -2,10 +2,12 @@
 
 namespace App\Models\Integrations\Bizon;
 
+use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -57,5 +59,11 @@ class Setting extends Model
     public function getFormLink(): string
     {
         return route('bizon.form', ['user' => $this->user->uuid]);
+    }
+
+    public function app(): BelongsTo
+    {
+        return $this->belongsTo(App::class, 'id','setting_id')
+            ->where('user_id', $this->user_id);
     }
 }

@@ -51,28 +51,30 @@ class AppsRelationManager extends RelationManager
                          App::STATE_CREATED  => 'gray',
                          App::STATE_INACTIVE => 'warning',
                          App::STATE_ACTIVE   => 'success',
+                         App::STATE_EXPIRES  => 'gray',
                      })
                      ->formatStateUsing(fn($state) => match($state) {
                          App::STATE_CREATED  => App::STATE_CREATED_WORD,
                          App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
                          App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
+                         App::STATE_EXPIRES  => App::STATE_EXPIRES_WORD,
                      }),
             ])
             ->filters([])
             ->headerActions([])
             ->actions([
-//                Tables\Actions\Action::make('view')
-//                    ->label('Настроить')
-//                    ->url(function (Model $record) {
-//
-//                        return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
-//                    }),
                 Tables\Actions\Action::make('view')
-                    ->label('Оплатить')
+                    ->label('Настроить')
                     ->url(function (Model $record) {
 
                         return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
                     }),
+//                Tables\Actions\Action::make('view')
+//                    ->label('Оплатить')
+//                    ->url(function (Model $record) {
+//
+//                        return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
+//                    }),
             ])
             ->bulkActions([])
             ->paginated(false);

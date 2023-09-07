@@ -123,17 +123,9 @@ class AlfaResource extends Resource
         return $table
             ->columns([])
             ->filters([])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ])
-            ->emptyStateActions([
-                Tables\Actions\CreateAction::make(),
-            ]);
+            ->actions([])
+            ->bulkActions([])
+            ->emptyStateActions([]);
     }
 
     public static function getRelations(): array
@@ -144,8 +136,6 @@ class AlfaResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListAlfas::route('/'),
-            'create' => Pages\CreateAlfa::route('/create'),
             'edit'   => Pages\EditAlfa::route('/{record}/edit'),
         ];
     }

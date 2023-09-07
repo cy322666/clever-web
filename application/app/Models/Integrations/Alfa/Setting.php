@@ -3,11 +3,14 @@
 namespace App\Models\Integrations\Alfa;
 
 use App\Models\amoCRM\Field;
+use App\Models\App;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Services\AlfaCRM\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Log;
 use Ramsey\Uuid\Uuid;
 use Ufee\Amo\Models\Contact;
@@ -56,14 +59,15 @@ class Setting extends Model
         'user_id',
     ];
 
-    public static function getResourceName()
+    public function user(): HasOne
     {
-
+        return $this->hasOne(User::class, 'id', 'user_id');
     }
 
-    public function webhooks()
+    public function app(): BelongsTo
     {
-        return $this->hasMany(Webhook::class);
+        return $this->belongsTo(App::class, 'id','setting_id')
+            ->where('user_id', $this->user_id);
     }
 
     public function checkStatus(string $action, int $statusId): bool
@@ -208,30 +212,5 @@ class Setting extends Model
         (new Customer($alfaApi))->update($customer->id, $fieldValues);
 
         return $customer;
-    }
-
-    public function createWebhooks(User $user)
-    {
-        $this->webhooks()->create([
-            'user_id'  => $user->id,
-            'app_name' => 'alfacrm',
-            'app_id'   => 1,
-            'active'   => true,
-            'path'     => 'alfacrm.came',
-            'type'     => 'status_came',
-            'platform' => 'alfacrm',
-            'uuid'     => Uuid::uuid4(),
-        ]);
-
-        $this->webhooks()->create([
-            'user_id'  => $user->id,
-            'app_name' => 'alfacrm',
-            'app_id'   => 1,
-            'active'   => true,
-            'path'     => 'alfacrm.omission',
-            'type'     => 'status_omission',
-            'platform' => 'alfacrm',
-            'uuid'     => Uuid::uuid4(),
-        ]);
     }
 }

@@ -196,7 +196,6 @@ class BizonResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListBizons::route('/'),
             'edit'  => Pages\EditBizon::route('/{record}/edit'),
         ];
     }

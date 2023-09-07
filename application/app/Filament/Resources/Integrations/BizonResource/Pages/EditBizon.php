@@ -4,12 +4,9 @@ namespace App\Filament\Resources\Integrations\BizonResource\Pages;
 
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\BizonResource;
-use App\Models\Integrations\Alfa\Setting;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
+use App\Helpers\Actions\UpdateButton;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\EditRecord;
-use Filament\Support\Colors\Color;
 
 class EditBizon extends EditRecord
 {
@@ -18,25 +15,7 @@ class EditBizon extends EditRecord
     protected function getActions(): array
     {
         return [
-            Actions\Action::make('activeUpdate')
-                ->action(function () {
-                    $this->record->active = !$this->record->active;
-                    $this->record->save();
-
-                    if ($this->record->active)
-
-                        Notification::make()
-                            ->title('Интеграция включена')
-                            ->success()
-                            ->send();
-                    else
-                        Notification::make()
-                            ->title('Интеграция выключена')
-                            ->danger()
-                            ->send();
-                })
-                ->color(fn() => $this->record->active ? Color::Red : Color::Green)
-                ->label(fn() => $this->record->active ? 'Выключить' : 'Включить'),
+            UpdateButton::getAction($this->record),
 
             Actions\Action::make('instruction')
                 ->label('Инструкция'),
@@ -45,11 +24,6 @@ class EditBizon extends EditRecord
                 ->label('История')
                 ->url(WebinarResource::getUrl())
         ];
-    }
-
-    public function activeUpdate()
-    {
-
     }
 
     public function mutateFormDataBeforeFill(array $data): array

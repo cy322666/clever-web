@@ -2,34 +2,22 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\App\Pages\Billing;
 use App\Filament\App\Pages\Market;
-use App\Filament\App\Pages\Profile;
-use App\Filament\App\Widgets\AlfaPreview;
-use App\Filament\App\Widgets\BizonPreview;
-use App\Filament\App\Widgets\GetCoursePreview;
-use App\Filament\Resources\Core\AccountResource;
 use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
-use App\Filament\Resources\Core\UserResource\Pages\EditUser;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
-use App\Filament\Resources\Integrations\TildaResource;
-use App\Http\Middleware\RootMiddleware;
 use App\Models\User;
 use Exception;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -37,7 +25,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AppPanelProvider extends PanelProvider
