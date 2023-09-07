@@ -36,7 +36,7 @@ class Form extends Model
 
         $body = json_decode($this->body);
 
-        if ($body->COOKIES) {
+        if (!empty($body->COOKIES)) {
 
             $arrayCookies = explode(';', $body->COOKIES ?? '');
 
