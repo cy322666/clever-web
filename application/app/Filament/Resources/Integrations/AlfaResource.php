@@ -105,9 +105,9 @@ class AlfaResource extends Resource
                                    ->label('Филиал')
                                    ->options(Branch::getWithUser()->pluck('name', 'id') ?? [])
                                    ->searchable(),
-
-                               Checkbox::make('work_lead')
-                                   ->label('Работа с лидами'),
+//
+//                               Checkbox::make('work_lead')
+//                                   ->label('Работа с лидами'),
                            ]),
 
                    ])->columns([

@@ -3,6 +3,7 @@
 namespace App\Services\AlfaCRM\Models;
 
 use App\Services\AlfaCRM\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 class Lesson
 {
@@ -13,6 +14,9 @@ class Lesson
 
     public function __construct(private Client $client) {}
 
+    /**
+     * @throws GuzzleException
+     */
     public function get(int $id, int $status = 3)
     {
         $response = $this->client

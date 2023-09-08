@@ -60,7 +60,7 @@ class BizonController extends Controller
         if (!$amoApi->auth) {
 
             Notification::make()
-                ->title('Зрители вебинара не выгруженны из-за ошибки авторизации в amoCRM')
+                ->title('Зрители вебинара не выгружены из-за ошибки авторизации в amoCRM')
                 ->danger()
                 ->sendToDatabase($user);
 

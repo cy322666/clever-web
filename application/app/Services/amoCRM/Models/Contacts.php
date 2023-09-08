@@ -106,6 +106,6 @@ abstract class Contacts extends Client
 
     public static function buildLink($amoApi, int $contactId) : string
     {
-        return 'https://'.$amoApi->storage->model->subdomain.'.amocrm.ru/contacts/detail/'.$contactId;
+        return 'https://'.$amoApi->storage->model->subdomain.'.amocrm.'.$amoApi->storage->zone.'/contacts/detail/'.$contactId;
     }
 }

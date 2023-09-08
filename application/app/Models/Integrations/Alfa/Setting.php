@@ -4,7 +4,6 @@ namespace App\Models\Integrations\Alfa;
 
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Helpers\Traits\SettingRelation;
-use App\Models\amoCRM\Field;
 use App\Services\AlfaCRM\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +18,11 @@ class Setting extends Model
     protected $table = 'alfacrm_settings';
 
     public static string $resource = AlfaResource::class;
+
+    public const CREATED = 0;
+    public const RECORD = 1;
+    public const CAME = 2;
+    public const OMISSION = 3;
 
     protected $fillable = [
         'status_came_1',
@@ -92,18 +96,23 @@ class Setting extends Model
     }
 
     /*
+     * // TODO не использую
+     *
         $fields - json в поле
         $code - поле из альфы
         $fieldName - название поля амо в бд (в сущности)
         $fieldValues - массив со значениями для клиента в АльфаСРМ
     */
-    public function getFieldValues(Lead $lead, ?Contact $contact, Account $account, Account $alfaAccount): array
+    public function getFieldValues(Lead $lead, ?Contact $contact, Setting $setting): array
     {
+        $user = $setting->user;
+
         foreach (json_decode($this->fields) as $code => $fieldName) {
 
             if ($fieldName !== null) {
 
-                $amoField = $account->fields(Field::class)
+                $amoField = Field::query()
+                    ->where('user_id', $user->id)
                     ->where('name', $fieldName)
                     ->first();
 
@@ -118,7 +127,8 @@ class Setting extends Model
                 //исключительные поля
                 if ($code == 'lead_source_id' && $fieldValue) {
 
-                    $fieldValue = $alfaAccount->alfaSources()
+                    $fieldValue = LeadSource::query()
+                        ->where('user_id', $user->id)
                         ->where('name', $fieldValue)
                         ->first()
                             ?->source_id;
@@ -130,15 +140,16 @@ class Setting extends Model
 
         if (empty($fieldValues['branch_id'])) {
 
-            $fieldValues['branch_id'] = $alfaAccount->alfaBranches()->first()->branch_id;
+            $fieldValues['branch_id'] = $user->alfacrm_branches()->first()->branch_id;
         }
 
         return $fieldValues ?? [];
     }
 
-    public static function getBranchId(Lead $lead, Contact $contact, Account $account, Setting $setting)
+    public static function getBranchId(Lead $lead, Contact $contact, Setting $setting)
     {
-        $branchId = $account->alfaBranches()
+        $branchId = Branch::query()
+            ->where('user_id', $setting->user->id)
             ->orderBy('branch_id')
             ->first()
             ->branch_id;
@@ -147,7 +158,7 @@ class Setting extends Model
 
         if ($branchValue) {
 
-            foreach ($account->alfaBranches as $branch) {
+            foreach ($setting->user->alfacrm_branches as $branch) {
 
                 if (trim(mb_strtolower($branch->name)) == trim(mb_strtolower($branchValue))) {
 
@@ -161,11 +172,11 @@ class Setting extends Model
         return $branchId;
     }
 
-    public function customerUpdateOrCreate(array $fieldValues, alfaApi $alfaApi, ?bool $workLead = false)
+    public function customerUpdateOrCreate(array $fieldValues, alfaApi $alfaApi, ?bool $workLead = true)
     {
         $customers = (new Customer($alfaApi))->search($fieldValues['phone']);
 
-        if ($workLead == true) {
+        if ($workLead) {
 
             $customers = (new Customer($alfaApi))->search($fieldValues['phone']);
 
@@ -181,7 +192,7 @@ class Setting extends Model
 
             $fieldValues['branch_ids'] = [$fieldValues['branch_id']];
 
-            $fieldValues['study_status_id'] = $workLead ? $this->stage_record_id : 1;
+            $fieldValues['study_status_id'] = $workLead ? $fieldValues['stage_id'] : 1;
             $fieldValues['is_study'] = $workLead ? 0 : 1;
             $fieldValues['legal_type'] = 1;
 

@@ -130,36 +130,29 @@ abstract class Leads
         return $lead;
     }
 
-    public static function update(Lead $lead, array $params, array $fields)
+    public static function update(Lead $lead, array $params, array $fields): Lead
     {
-        try {
+        if($fields) {
 
-            if($fields) {
+            foreach ($fields as $key => $field) {
 
-                foreach ($fields as $key => $field) {
-
-                    $lead->cf($key)->setValue($field);
-                }
+                $lead->cf($key)->setValue($field);
             }
-
-            if(!empty($params['responsible_user_id']))
-                $lead->responsible_user_id = $params['responsible_user_id'];
-
-            if(!empty($params['status_id']))
-                $lead->status_id = $params['status_id'];
-
-            if(!empty($params['sale']))
-                $lead->sale = $params['sale'];
-
-            $lead->updated_at = time();
-            $lead->save();
-
-            return $lead;
-
-        } catch (\Exception $exception) {
-
-            Log::error(__METHOD__. ' : ошибка обновления '.$exception->getMessage(). ' , сделка : '.$lead->id);
         }
+
+        if(!empty($params['responsible_user_id']))
+            $lead->responsible_user_id = $params['responsible_user_id'];
+
+        if(!empty($params['status_id']))
+            $lead->status_id = $params['status_id'];
+
+        if(!empty($params['sale']))
+            $lead->sale = $params['sale'];
+
+        $lead->updated_at = time();
+        $lead->save();
+
+        return $lead;
     }
 
     public static function setField(Lead $lead, string $fieldName, $value): Lead

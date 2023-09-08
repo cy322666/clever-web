@@ -21,15 +21,18 @@ class CheckActiveUser
     {
         $user = $request->user;
 
+        if (is_string($user)) {
+
+            $user = User::query()
+                ->where('uuid', $user)
+                ->first();
+        }
+
         if ($user && $user->active) {
 
             return $next($request);
-        } else {
-            $user->active = false;
-            $user->save();
-
-            return (new Response('tariff expired', 403));
-            //TODO push + set webhook
         }
+
+        return (new Response('forbidden', 403));
     }
 }

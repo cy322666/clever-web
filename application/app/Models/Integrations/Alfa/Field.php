@@ -22,7 +22,6 @@ class Field extends Model
     public static function prepareCreateCustomer(&$fieldValues, $amoApi, $alfaApi, $contact)
     {
         $fieldValues['web'][] = Contacts::buildLink($amoApi, $contact->id);
-        $fieldValues['branch_id']  = $alfaApi->branchId;//TODO бренчи затирает UDP проверить поправил
         $fieldValues['is_study']   = 1;
         $fieldValues['legal_type'] = 1;
 
@@ -32,11 +31,9 @@ class Field extends Model
         }
     }
 
-    public static function prepareCreateLead(&$fieldValues, $amoApi, $alfaApi, $contact, $stageId)
+    public static function prepareCreateLead(&$fieldValues, $amoApi, $contact)
     {
-        $fieldValues['lead_status_id'] = $stageId;
         $fieldValues['web'][] = Contacts::buildLink($amoApi, $contact->id);
-        $fieldValues['branch_id']  = $alfaApi->branchId;//TODO бренчи затирает все еще?
         $fieldValues['is_study']   = 0;
         $fieldValues['legal_type'] = 1;
 

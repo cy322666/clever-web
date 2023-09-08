@@ -37,7 +37,7 @@ class Client
     /**
      * @throws GuzzleException
      */
-    public function init(): static
+    public function init()
     {
         $response = $this
             ->http

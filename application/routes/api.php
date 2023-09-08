@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\GetCourseController;
@@ -8,13 +9,16 @@ use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['user.active', 'input']], function () {
 
-    Route::post('bizon/hook/{user:uuid}', [BizonController::class, 'hook'])
-        ->middleware(['bizon'])
-        ->name('bizon.hook');
+    Route::group(['prefix' => 'bizon'], function () {
 
-    Route::post('bizon/form/{user:uuid}', [BizonController::class, 'form'])
-        ->middleware(['bizon'])
-        ->name('bizon.form');
+        Route::post('hook/{user:uuid}', [BizonController::class, 'hook'])
+            ->middleware(['bizon'])
+            ->name('bizon.hook');
+
+        Route::post('form/{user:uuid}', [BizonController::class, 'form'])
+            ->middleware(['bizon'])
+            ->name('bizon.form');
+    });
 
     Route::group(['prefix' => 'getcourse'], function () {
 
@@ -29,7 +33,15 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
     Route::group(['prefix' => 'tilda'], function () {
 
         Route::post('hook/{user:uuid}/{site}', [TildaController::class, 'hook'])->name('tilda.hook');
+    });
 
+    Route::group(['prefix' => 'alfacrm'], function () {
+
+        Route::post('record/{user:uuid}', [AlfaCRMController::class, 'record'])->name('alfacrm.record');
+
+        Route::post('came/{user:uuid}', [AlfaCRMController::class, 'came'])->name('alfacrm.came');
+
+        Route::post('omission/{user:uuid}', [AlfaCRMController::class, 'omission'])->name('alfacrm.omission');
     });
 });
 

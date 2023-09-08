@@ -7,6 +7,7 @@ use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
+use App\Models\Integrations\Alfa\Branch;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Webinar;
 use Filament\Models\Contracts\FilamentUser;
@@ -83,6 +84,11 @@ class User extends Authenticatable implements FilamentUser
     public function alfacrm_settings(): HasOne
     {
         return $this->hasOne(Integrations\Alfa\Setting::class);
+    }
+
+    public function alfacrm_branches(): HasMany
+    {
+        return $this->hasMany(Branch::class);
     }
 
     public function tilda_settings(): HasOne
