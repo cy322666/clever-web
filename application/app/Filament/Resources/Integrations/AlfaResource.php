@@ -59,28 +59,31 @@ class AlfaResource extends Resource
                            ])->columnSpan(2),
                    ]),
 
-               Section::make('Сегментация')
-                   ->description('Разделите посетителей вебинара на сегементы по времени нахождения на вебинаре')
+               Section::make('Настройки интеграции')
+                   ->description('Соотнесите статусы воронки amoCRM и этапы в AlfaCRM')
                    ->schema([
 
-                       Fieldset::make('Условия')
+                       Fieldset::make('Настройки amoCRM')
                            ->schema([
-//
+
                                Select::make('status_record_1')
-                                   ->label('Этап записи')
+                                   ->label('Статус записи')
                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id') ?? [])
                                    ->searchable(),
 
                                Select::make('status_came_1')
-                                   ->label('Этап пришедших')
+                                   ->label('Статус пришедших')
                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id') ?? [])
                                    ->searchable(),
 
                                Select::make('status_omission_1')
-                                   ->label('Этап отказавшихся')
+                                   ->label('Статус отказавшихся')
                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
                                    ->searchable(),
+                           ]),
 
+                       Fieldset::make('Настройка AlfaCRM')
+                           ->schema([
 
                                Select::make('stage_record_1')
                                    ->label('Этап записи')
@@ -96,16 +99,13 @@ class AlfaResource extends Resource
                                    ->label('Этап отказавшихся')
                                    ->options(LeadStatus::getWithUser()->pluck('name', 'id') ?? [])
                                    ->searchable(),
-//                                    ]),
-
-//                                Forms\Components\Builder\Block::make('Этапы')
-//                                    ->schema([
 
                                Select::make('branch_id')
                                    ->label('Филиал')
                                    ->options(Branch::getWithUser()->pluck('name', 'id') ?? [])
+                                   ->required()
                                    ->searchable(),
-//
+
 //                               Checkbox::make('work_lead')
 //                                   ->label('Работа с лидами'),
                            ]),
