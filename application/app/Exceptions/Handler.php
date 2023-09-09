@@ -35,8 +35,8 @@ class Handler extends ExceptionHandler
                 try {
                     Telegram::send(
                         '*Ошибка в коде!* ' . "\n" . "*Где:* $title" . "\n" . "*Текст:* $msg",
-                        env('TG_CHAT_DEBUG'),
-                        env('TG_TOKEN_DEBUG'),
+                        env('TG_DEBUG_CHAT_ID'),
+                        env('TG_DEBUG_TOKEN'),
                         []
                     );
                 } catch (Throwable $e) {
