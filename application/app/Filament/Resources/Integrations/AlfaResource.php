@@ -42,8 +42,8 @@ class AlfaResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-               Section::make('Настройки')
-                   ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
+               Section::make('Основное')
+                   ->description('Для работы интеграции заполните обязательные поля для авторизации в AlfaCRM')
                    ->schema([
                        Fieldset::make('Доступы')
                            ->schema([
