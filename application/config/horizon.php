@@ -193,6 +193,7 @@ return [
                 'alfacrm_record',
                 'alfacrm_came',
                 'alfacrm_omission',
+                'active_lead',
             ],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActiveLeadController;
 use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
@@ -43,6 +44,8 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
 
         Route::post('omission/{user:uuid}', [AlfaCRMController::class, 'omission'])->name('alfacrm.omission');
     });
+
+    Route::post('active-leads/{user:uuid}', [ActiveLeadController::class, 'hook'])->name('active-leads.hook');
 });
 
 Route::group(['prefix' => 'amocrm'], function () {
