@@ -39,7 +39,7 @@ class ViewerSend implements ShouldQueue
      *
      * @var int
      */
-    public int $backoff = 10;
+    public int $backoff = 20;
 
     /**
      * Количество секунд, по истечении которых уникальная блокировка задания будет снята.

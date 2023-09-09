@@ -109,7 +109,7 @@ class Client
 
             $this->user->amocrm_logs()->create([
                 'code' => 429,
-                'url'  => $query->getUrl(),
+                'url'  => static::trimUrl($query->getUrl()),
                 'method'  => $query->method,
                 'details' => json_encode($query->toArray()),
             ]);
@@ -124,7 +124,7 @@ class Client
 
             $log =  $this->user->amocrm_logs()->create([
                 'code'  => $query->response->getCode(),
-                'url'   => $query->getUrl(),
+                'url'   => static::trimUrl($query->getUrl()),
                 'start' => $query->startDate(),
                 'end'   => $query->endDate(),
                 'method'  => $query->method,
@@ -142,4 +142,10 @@ class Client
 
         return $this;
     }
+
+    private static function trimUrl(string $url)
+    {
+        return strlen($url) > 250 ? mb_strimwidth($url, 0, 200, "...") : $url;
+    }
+
 }
