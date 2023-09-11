@@ -3,8 +3,8 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\ActiveLeadResource\Pages;
+use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Status;
-use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\ActiveLead\Setting;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Section;
@@ -19,7 +19,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class ActiveLeadResource extends Resource
 {
-    protected static ?string $model = Lead::class;
+    use TenantResource;
+
+    protected static ?string $model = Setting::class;
 
     protected static ?string $slug = 'settings/active';
 
@@ -49,8 +51,8 @@ class ActiveLeadResource extends Resource
                                 Select::make('condition')
                                     ->label('Проверять по одной воронке')
                                     ->options([
-                                        'Проверять воронку' => Setting::CONDITION_PIPELINE,
-                                        'Проверять везде'   => Setting::CONDITION_ALL,
+                                        Setting::CONDITION_PIPELINE => 'Проверять воронку',
+                                        Setting::CONDITION_ALL      => 'Проверять везде',
                                     ]),
 
                                 Select::make('pipeline_id')

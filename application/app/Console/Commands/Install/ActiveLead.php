@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands\Install;
 
-use App\Filament\Resources\ActiveLeadResource;
+use App\Filament\Resources\Integrations\ActiveLeadResource;
 use App\Models\App;
 use App\Models\Integrations\ActiveLead\Setting;
 use App\Models\User;

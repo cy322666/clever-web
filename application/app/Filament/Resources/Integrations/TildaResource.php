@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\TildaResource\Pages;
+use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Tilda;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Auth;
 
 class TildaResource extends Resource
 {
+    use TenantResource;
+
     protected static ?string $model = Tilda\Setting::class;
 
     protected static ?string $slug = 'settings/tilda';

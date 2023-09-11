@@ -3,24 +3,20 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\BizonResource\Pages;
+use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Bizon\Setting;
 use Filament\Forms;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Components\Split;
-use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Env;
 
 class BizonResource extends Resource
 {
+    use TenantResource;
+
     protected static ?string $model = Setting::class;
 
     protected static ?string $slug = 'settings/bizon';

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\GetCourseResource\Pages;
+use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\GetCourse;
@@ -13,9 +14,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class GetCourseResource extends Resource
 {
-    protected static ?string $model = GetCourse\Setting::class;
+    use TenantResource;
 
-//    protected static ?string $navigationIcon = 'heroicon-o-collection';
+    protected static ?string $model = GetCourse\Setting::class;
 
     protected static ?string $slug = 'settings/getcourse';
 

@@ -48,15 +48,20 @@ class App extends Model
      */
     public function setStatusWithActive(Model $setting) : Model
     {
-        if (Carbon::parse($this->expires_tariff_at) < Carbon::now())  {
+        if ($this->expires_tariff_at === null) {
+
+            $this->expires_tariff_at = Carbon::now()->addWeek()->format('Y-m-d');
+            $this->save();
+
+        } elseif (Carbon::parse($this->expires_tariff_at) < Carbon::now())  {
 
             $this->status = App::STATE_EXPIRES;
             $this->save();
 
             $setting->active = false;
             $setting->save();
-        } else {
 
+        } else {
             $this->status = $setting->active ? App::STATE_ACTIVE : App::STATE_INACTIVE;
             $this->save();
         }

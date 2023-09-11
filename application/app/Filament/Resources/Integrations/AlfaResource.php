@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\AlfaResource\Pages;
+use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Alfa\Branch;
 use App\Models\Integrations\Alfa\LeadStatus;
@@ -17,13 +18,14 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class AlfaResource extends Resource
 {
-    /**
-     * @var string|null
-     */
+    use TenantResource;
+
     protected static ?string $model = Setting::class;
 
     protected static ?string $recordTitleAttribute = 'АльфаСРМ';

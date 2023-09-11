@@ -2,14 +2,18 @@
 
 namespace App\Models\Integrations\ActiveLead;
 
+use App\Filament\Resources\Integrations\ActiveLeadResource;
+use App\Helpers\Traits\SettingRelation;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Setting extends Model
 {
-    use HasFactory;
+    use HasFactory, SettingRelation;
 
     protected $table = 'active_lead_settings';
+
+    public static string $resource = ActiveLeadResource::class;
 
     const CONDITION_PIPELINE = 0;
     const CONDITION_ALL = 1;

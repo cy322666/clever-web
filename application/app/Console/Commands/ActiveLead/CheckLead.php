@@ -11,7 +11,6 @@ use App\Services\amoCRM\Models\Leads;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
-use Illuminate\Support\Facades\Artisan;
 use Ufee\Amo\Base\Collections\Collection;
 
 class CheckLead extends Command
@@ -57,18 +56,15 @@ class CheckLead extends Command
                 ->find($setting->pipeline_id_check)
                 ->pipeline_id;
 
-            $tag   = $setting->tag_pipeline;
             $leads = Leads::search($contact, $amoApi, $pipelineId);
 
-        } else {
-            $tag   = $setting->tag_all;
+        } else
             $leads = Leads::search($contact, $amoApi);
-        }
 
         /** @var Collection $leads */
         if ($leads->count() > 1) {
 
-            $lead->attachTag($tag);
+            $lead->attachTag($setting->tag);
         }
 
         $model->is_active   = $leads->count() > 1;
