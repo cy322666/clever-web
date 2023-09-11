@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         FilamentAsset::register([
-            Js::make('amochat', __DIR__ . resource_path('/js/amochat.js')),
+            Js::make('amochat', resource_path('js/amochat.js')),
         ]);
 
         if($this->app->environment('production')) {
