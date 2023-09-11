@@ -1,27 +1,71 @@
 <?php
 
-namespace App\Filament\Resources;
+namespace App\Filament\Resources\Integrations;
 
-use App\Filament\Resources\ActiveLeadResource\Pages;
-use Filament\Forms;
+use App\Filament\Resources\Integrations\ActiveLeadResource\Pages;
+use App\Models\amoCRM\Status;
+use App\Models\Integrations\ActiveLead\Lead;
+use App\Models\Integrations\ActiveLead\Setting;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 
 class ActiveLeadResource extends Resource
 {
-    protected static ?string $model = ActiveLead::class;
+    protected static ?string $model = Lead::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $slug = 'settings/active-lead';
+
+    protected static bool $shouldRegisterNavigation = false;
+
+    protected static ?string $recordTitleAttribute = 'В работе';
+
+    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
+    {
+        return 'В работе';
+    }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                //
+                Section::make('Регистрации')
+                    ->description('Настройки для регистраций')
+                    ->schema([
+
+                        Fieldset::make('Условия')
+                            ->schema([
+
+                                TextInput::make('link')
+                                    ->label('Вебхук ссылка'),
+
+                                Select::make('condition')
+                                    ->label('Проверять по одной воронке')
+                                    ->options([
+                                        'Проверять воронку' => Setting::CONDITION_PIPELINE,
+                                        'Проверять везде'   => Setting::CONDITION_ALL,
+                                    ]),
+
+                                Select::make('pipeline_id')
+                                    ->label('Воронка для проверки')
+                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+                                    ->searchable(),
+
+                                TextInput::make('tag')
+                                    ->label('Тег'),
+                            ]),
+
+                    ])->columns([
+                        'sm' => 2,
+                        'lg' => null,
+                    ]),
             ]);
     }
 
@@ -57,8 +101,6 @@ class ActiveLeadResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListActiveLeads::route('/'),
-            'create' => Pages\CreateActiveLead::route('/create'),
             'edit' => Pages\EditActiveLead::route('/{record}/edit'),
         ];
     }

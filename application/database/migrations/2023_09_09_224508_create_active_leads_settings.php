@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            $table->string('tag_all')->nullable();
-            $table->string('tag_pipeline')->nullable();
-            $table->boolean('check_pipeline')->default(false);
+            $table->string('tag')->nullable();
+            $table->integer('pipeline_id')->nullable();
+            $table->boolean('condition')->default(0);
             $table->boolean('active')->default(false);
 
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();

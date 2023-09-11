@@ -30,5 +30,6 @@ class UpdateAll extends Command
         Artisan::call('install:alfa');
         Artisan::call('install:getcourse');
         Artisan::call('install:tilda');
+        Artisan::call('install:active-lead');
     }
 }

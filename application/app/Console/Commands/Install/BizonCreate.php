@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Install;
 
+use App\Filament\Resources\Integrations\BizonResource;
 use App\Models\App;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\User;
@@ -12,7 +13,7 @@ class BizonCreate extends Command
 {
     private string $app = 'bizon';
 
-    private string $resource = 'App\Filament\Resources\Integrations\BizonResource';
+    private string $resource = BizonResource::class;
 
     protected $signature = 'install:bizon {user_id?}';
 
@@ -47,6 +48,8 @@ class BizonCreate extends Command
                     'setting_id'    => $setting->id,
                     'resource_name' => $this->resource,
                 ]);
+
+                dump(__METHOD__.' > migrate success user : '.$userId);
             }
         } else {
 

@@ -22,6 +22,7 @@ class UserObserver
         Artisan::call('install:bizon', ['user_id' => $user->id]);
         Artisan::call('install:getcourse', ['user_id' => $user->id]);
         Artisan::call('install:tilda', ['user_id' => $user->id]);
+        Artisan::call('install:active-lead', ['user_id' => $user->id]);
     }
 
     /**
@@ -30,7 +31,7 @@ class UserObserver
      * @param User $user
      * @return void
      */
-    public function updated(User $user)
+    public function updated(User $user): void
     {
         //
     }
@@ -65,6 +66,5 @@ class UserObserver
      */
     public function forceDeleted(User $user)
     {
-        (new UserCreateService($user))->dropServices();
     }
 }

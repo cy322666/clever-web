@@ -130,4 +130,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(Field::class);
     }
+
+    public function activeLeadSetting(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\ActiveLead\Setting::class);
+    }
 }

@@ -2,19 +2,20 @@
 
 namespace App\Console\Commands\Install;
 
+use App\Filament\Resources\ActiveLeadResource;
 use App\Models\App;
-use App\Models\Integrations\Tilda\Setting;
+use App\Models\Integrations\ActiveLead\Setting;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 
-class TildaCreate extends Command
+class ActiveLead extends Command
 {
-    private string $app = 'tilda';
+    private string $app = 'active-lead';
 
-    private string $resource = 'App\Filament\Resources\Integrations\TildaResource';
+    private string $resource = ActiveLeadResource::class;
 
-    protected $signature = 'install:tilda {user_id?}';
+    protected $signature = 'install:active-lead {user_id?}';
 
     /**
      * The console command description.
@@ -56,7 +57,7 @@ class TildaCreate extends Command
 
             foreach ($users as $user) {
 
-                Artisan::call('install:tilda', ['user_id' => $user->id]);
+                Artisan::call('install:active-lead', ['user_id' => $user->id]);
             }
         }
     }

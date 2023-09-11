@@ -11,10 +11,13 @@ class Setting extends Model
 
     protected $table = 'active_lead_settings';
 
+    const CONDITION_PIPELINE = 0;
+    const CONDITION_ALL = 1;
+
     protected $fillable = [
         'user_id',
-        'check_pipeline',
-        'tag_pipeline',
-        'tag_all',
+        'condition',
+        'pipeline_id',
+        'tag',
     ];
 }
