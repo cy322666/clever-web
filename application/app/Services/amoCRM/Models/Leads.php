@@ -32,7 +32,7 @@ abstract class Leads
         return $leads;
     }
 
-    //поиск активных в воронке
+    //поиск активной в воронке
     public static function search($contact, $client, int|array $pipelines = null)
     {
         return $contact->leads->filter(function($lead) use ($client, $pipelines) {
@@ -56,6 +56,31 @@ abstract class Leads
                     return true;
             }
         })->sortBy('created_at', 'DESC')?->first();
+    }
+
+    public static function searchAll($contact, $client, int|array $pipelines = null)
+    {
+        return $contact->leads->filter(function($lead) use ($client, $pipelines) {
+
+            if ($lead->status_id != 143 &&
+                $lead->status_id != 142) {
+
+                if($pipelines != null) {
+
+                    if (is_array($pipelines)) {
+
+                        if (in_array($lead->pipeline_id, $pipelines)) {
+
+                            return true;
+                        }
+                    } elseif ($lead->pipeline_id == $pipelines) {
+
+                        return true;
+                    }
+                } else
+                    return true;
+            }
+        });
     }
 
     public static function create($contact, array $params, ?string $leadname)
