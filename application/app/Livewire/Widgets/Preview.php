@@ -19,6 +19,7 @@ use Filament\Infolists\Infolist;
 use Filament\Support\Enums\FontWeight;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -78,7 +79,8 @@ class Preview extends Widget implements HasForms, HasInfolists
                                     ->label('')
                                     ->state(function (App $app) {
 
-                                        return 'Бесплатно';
+                                        /** @var Model $cost Resource -> Setting type*/
+                                        return 'Цена: '.$app->resource_name::getModel()::$cost['1_month'];
                                     })
                                     ->color(Color::GRAY_300)
                                     ->alignLeft(),

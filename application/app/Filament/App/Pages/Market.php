@@ -2,16 +2,7 @@
 
 namespace App\Filament\App\Pages;
 
-use App\Filament\App\Widgets\AlfaPreview;
-use App\Filament\App\Widgets\BizonPreview;
-use App\Filament\App\Widgets\GetCoursePreview;
 use App\Livewire\Widgets\Preview;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Concerns\InteractsWithInfolists;
-use Filament\Infolists\Contracts\HasInfolists;
-use Filament\Infolists\Infolist;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,7 +18,7 @@ class Market extends Page
     {
         foreach (Auth::user()->apps as $app)
         {
-            $widgets[] = Preview::make( ['app' => $app]);
+            $widgets[] = Preview::make(['app' => $app]);
         }
 
         return $widgets ?? [];
