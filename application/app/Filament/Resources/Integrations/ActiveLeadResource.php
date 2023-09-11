@@ -21,7 +21,7 @@ class ActiveLeadResource extends Resource
 {
     protected static ?string $model = Lead::class;
 
-    protected static ?string $slug = 'settings/active-lead';
+    protected static ?string $slug = 'settings/active';
 
     protected static bool $shouldRegisterNavigation = false;
 
