@@ -6,7 +6,6 @@ use App\Models\Core\Account;
 use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\ActiveLead\Setting;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -19,8 +18,8 @@ class CheckLead implements ShouldQueue
 
     public function __construct(
         public Lead $model,
-        public Account $account,
         public Setting $setting,
+        public Account $account,
     )
     {
         $this->onQueue('active_lead');
