@@ -56,10 +56,10 @@ class CheckLead extends Command
                 ->find($setting->pipeline_id_check)
                 ->pipeline_id;
 
-            $leads = Leads::search($contact, $amoApi, $pipelineId);
+            $leads = Leads::searchAll($contact, $amoApi, $pipelineId);
 
         } else
-            $leads = Leads::search($contact, $amoApi);
+            $leads = Leads::searchAll($contact, $amoApi);
 
         /** @var Collection $leads */
         if ($leads->count() > 1) {
