@@ -12,7 +12,14 @@ class ActiveLeadController extends Controller
 {
     public function hook(User $user, Request $request)
     {
-        $model = Lead::query()->create($request->toArray());
+        $data = $request->toArray()['leads']['status'][0] ?? $request->toArray()['leads']['add'][0];
+
+        $model = Lead::query()->create([
+            'user_id' => $user->id,
+            'lead_id' => $data['id'],
+            'status_id'   => $data['status_id'],
+            'pipeline_id' => $data['pipeline_id'],
+        ]);
 
         CheckLead::dispatch($model, $user->activeLeadSetting, $user->account);
     }
