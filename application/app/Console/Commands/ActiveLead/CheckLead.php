@@ -20,7 +20,7 @@ class CheckLead extends Command
      *
      * @var string
      */
-    protected $signature = 'app:check-lead {lead} {account} {setting}';
+    protected $signature = 'app:check-lead {model} {account} {setting}';
 
     /**
      * The console command description.
@@ -35,7 +35,7 @@ class CheckLead extends Command
      */
     public function handle()
     {
-        $model   = Lead::find($this->argument('lead'));
+        $model   = Lead::find($this->argument('model'));
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 

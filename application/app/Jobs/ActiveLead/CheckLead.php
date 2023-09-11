@@ -36,7 +36,7 @@ class CheckLead implements ShouldQueue
     public function handle(): void
     {
         Artisan::call('app:check-lead', [
-            'form'    => $this->model->id,
+            'model'   => $this->model->id,
             'account' => $this->account->id,
             'setting' => $this->setting->id,
         ]);
