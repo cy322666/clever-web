@@ -20,7 +20,7 @@ class CheckLead extends Command
      *
      * @var string
      */
-    protected $signature = 'app:check-lead {model} {account} {setting}';
+    protected $signature = 'app:check-lead {model} {setting} {account}';
 
     /**
      * The console command description.

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Integrations\Bizon;
 
 use App\Filament\Resources\Integrations\Bizon\WebinarResource\Pages;
-use App\Filament\Resources\Integrations\Bizon\WebinarResource\RelationManagers;
 use App\Jobs\Bizon\ViewerSend;
 use App\Models\Integrations\Bizon\Webinar;
 use Filament\Forms;
