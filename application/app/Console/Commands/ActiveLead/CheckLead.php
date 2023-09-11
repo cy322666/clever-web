@@ -65,10 +65,12 @@ class CheckLead extends Command
         if ($leads->count() > 1) {
 
             $lead->attachTag($setting->tag);
+            $lead->save();
         }
 
         $model->is_active   = $leads->count() > 1;
         $model->count_leads = $leads->count();
+        $model->contact_id  = $contact->id;
         $model->status = 1;
         $model->save();
     }
