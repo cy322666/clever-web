@@ -5,21 +5,18 @@ services:
         build: ./docker/images/php81
         volumes:
             - ./application:/var/www/html
+            - ./docker/images/cron/files:/var/spool/cron/crontabs/
         ports:
             - "8080:8000"
         links:
             - postgresql
             - redis
             - supervisor
-#        networks:
-#            - cluster
         working_dir: /var/www/html
     postgresql:
         image: postgres:14.1-alpine
         ports:
             - "5425:5432"
-#        networks:
-#            - cluster
         environment:
             POSTGRES_USER: root
             POSTGRES_PASSWORD: pQLkm8NOkS0gOBox
@@ -44,4 +41,5 @@ services:
             - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
         ports:
             - "8007:8008"
+
 
