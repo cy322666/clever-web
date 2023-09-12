@@ -26,6 +26,8 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
+use ShuvroRoy\FilamentSpatieLaravelBackup\Pages\Backups;
 
 class AppPanelProvider extends PanelProvider
 {
@@ -90,7 +92,13 @@ class AppPanelProvider extends PanelProvider
                                 ->icon('heroicon-o-cube-transparent')
                                 ->url(route('horizon.index'))
                                 ->openUrlInNewTab()
-                                ->hidden(fn() => !Auth::user()->is_root)
+                                ->hidden(fn() => !Auth::user()->is_root),
+
+                             NavigationItem::make('Backups')
+                                 ->label('Бэкапы')
+                                 ->icon('heroicon-o-circle-stack')
+                                 ->url(Backups::getUrl())
+                                 ->hidden(fn() => !Auth::user()->is_root)
                         ]),
 
                     NavigationGroup::make('')
@@ -109,6 +117,12 @@ class AppPanelProvider extends PanelProvider
                         ]),
                 ]);
             })
+            ->plugin(
+                FilamentSpatieLaravelBackupPlugin::make()
+                    ->usingPage(Backups::class)
+                    ->usingPolingInterval('10s')
+                    ->usingQueue('backups')
+            )
             ->globalSearch(false)
             ->breadcrumbs(false)
             ->middleware([

@@ -153,6 +153,12 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/psr/clock" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/stechstudio/filament-impersonate" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/lab404/laravel-impersonate" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/temporary-directory" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/laravel-signal-aware-command" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/laravel-backup" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/db-dumper" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/calebporzio/sushi" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/shuvroroy/filament-spatie-laravel-backup" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

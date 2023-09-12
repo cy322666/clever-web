@@ -157,6 +157,12 @@
       <path value="$PROJECT_DIR$/application/vendor/psr/clock" />
       <path value="$PROJECT_DIR$/application/vendor/stechstudio/filament-impersonate" />
       <path value="$PROJECT_DIR$/application/vendor/lab404/laravel-impersonate" />
+      <path value="$PROJECT_DIR$/application/vendor/spatie/temporary-directory" />
+      <path value="$PROJECT_DIR$/application/vendor/spatie/laravel-signal-aware-command" />
+      <path value="$PROJECT_DIR$/application/vendor/spatie/laravel-backup" />
+      <path value="$PROJECT_DIR$/application/vendor/spatie/db-dumper" />
+      <path value="$PROJECT_DIR$/application/vendor/calebporzio/sushi" />
+      <path value="$PROJECT_DIR$/application/vendor/shuvroroy/filament-spatie-laravel-backup" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">
