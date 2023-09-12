@@ -159,6 +159,8 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/db-dumper" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/calebporzio/sushi" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/shuvroroy/filament-spatie-laravel-backup" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravelcollective/html" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/studio/laravel-totem" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

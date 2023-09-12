@@ -94,6 +94,13 @@ class AppPanelProvider extends PanelProvider
                                 ->openUrlInNewTab()
                                 ->hidden(fn() => !Auth::user()->is_root),
 
+                            NavigationItem::make('Totem')
+                                ->label('Тотем')
+                                ->icon('heroicon-o-bell-alert')
+                                ->url(route('totem.dashboard'))
+                                ->openUrlInNewTab()
+                                ->hidden(fn() => !Auth::user()->is_root),
+
                              NavigationItem::make('Backups')
                                  ->label('Бэкапы')
                                  ->icon('heroicon-o-circle-stack')

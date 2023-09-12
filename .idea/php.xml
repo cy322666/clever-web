@@ -163,6 +163,8 @@
       <path value="$PROJECT_DIR$/application/vendor/spatie/db-dumper" />
       <path value="$PROJECT_DIR$/application/vendor/calebporzio/sushi" />
       <path value="$PROJECT_DIR$/application/vendor/shuvroroy/filament-spatie-laravel-backup" />
+      <path value="$PROJECT_DIR$/application/vendor/laravelcollective/html" />
+      <path value="$PROJECT_DIR$/application/vendor/studio/laravel-totem" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">
