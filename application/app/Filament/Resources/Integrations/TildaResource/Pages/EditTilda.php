@@ -33,7 +33,6 @@ class EditTilda extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         if ($data['settings']) {
-
             $data['settings'] = json_decode($data['settings'], true);
 
             for($i = 0; count($data['settings']) !== $i; $i++) {

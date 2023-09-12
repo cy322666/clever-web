@@ -28,7 +28,7 @@ return new class extends Migration
     {
         Schema::table('alfacrm_settings', function (Blueprint $table) {
 
-            $table->dropColumn('branch_id')->nullable();
+            $table->dropColumn('branch_id');
         });
     }
 };
