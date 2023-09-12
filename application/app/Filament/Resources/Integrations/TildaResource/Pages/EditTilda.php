@@ -20,7 +20,9 @@ class EditTilda extends EditRecord
             UpdateButton::getAction($this->record),
 
             Actions\Action::make('instruction')
-                ->label('Инструкция'),
+                ->label('Инструкция')
+                ->url('https://youtu.be/b5aPWhK2oc8?si=nSGpU-XRSlTRScNQ')
+                ->openUrlInNewTab(),
 
             Actions\Action::make('list')
                 ->label('История')

@@ -18,7 +18,9 @@ class EditBizon extends EditRecord
             UpdateButton::getAction($this->record),
 
             Actions\Action::make('instruction')
-                ->label('Инструкция'),
+                ->label('Инструкция')
+                ->url('https://youtu.be/5-0YZJTE6ww?si=kxKeglVIT--DqcFF')
+                ->openUrlInNewTab(),
 
             Actions\Action::make('list')
                 ->label('История')

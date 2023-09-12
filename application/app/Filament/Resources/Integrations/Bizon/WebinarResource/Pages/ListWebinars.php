@@ -8,5 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListWebinars extends ListRecords
 {
+    protected static ?string $title = 'История отчетов';
+
     protected static string $resource = WebinarResource::class;
 }

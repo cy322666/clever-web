@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Integrations\ActiveLeadResource\Pages;
 
+use App\Filament\Resources\Integrations\Active\LeadResource;
 use App\Filament\Resources\Integrations\ActiveLeadResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Helpers\Actions\UpdateButton;
@@ -26,7 +27,7 @@ class EditActiveLead extends EditRecord
 
             Actions\Action::make('list')
                 ->label('История')
-                ->url(FormResource::getUrl())
+                ->url(LeadResource::getUrl())
         ];
     }
 

@@ -20,6 +20,8 @@ class WebinarResource extends Resource
 {
     protected static ?string $model = Webinar::class;
 
+    protected static ?string $recordTitleAttribute = 'История отчетов';
+
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function getEloquentQuery(): Builder

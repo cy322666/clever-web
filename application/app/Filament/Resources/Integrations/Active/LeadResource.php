@@ -32,22 +32,39 @@ class LeadResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Клиент')
+                    ->searchable()
+                    ->sortable()
+                    ->hidden(fn() => !Auth::user()->is_root),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Создан')
+                    ->dateTime()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('lead_id')
+                    ->label('ID сделки')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('contact_id')
+                    ->label('ID контакта')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('count_leads')
+                    ->label('Всего открытых'),
+
+                Tables\Columns\BooleanColumn::make('is_active')
+                    ->label('Есть активная'),
+
+                Tables\Columns\BooleanColumn::make('status')
+                    ->label('Выгружен'),
             ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ])
-            ->emptyStateActions([
-                Tables\Actions\CreateAction::make(),
-            ]);
+            ->filters([])
+            ->actions([])
+            ->bulkActions([])
+            ->emptyStateActions([])
+            ->paginated([20, 30, 50]);
     }
 
     public static function getRelations(): array
