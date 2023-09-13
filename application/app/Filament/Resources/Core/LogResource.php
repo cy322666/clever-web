@@ -95,10 +95,10 @@ class LogResource extends Resource
                     ->toggledHiddenByDefault()
                     ->wrap(),
 
-//                Tables\Columns\TextColumn::make('data')
-//                    ->label('Тело ответа')
-//                    ->toggledHiddenByDefault(true)
-//                    ->wrap(),
+                Tables\Columns\TextColumn::make('data')
+                    ->label('Тело ответа')
+                    ->toggledHiddenByDefault(true)
+                    ->wrap(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
