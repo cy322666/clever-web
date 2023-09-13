@@ -13,6 +13,8 @@ COPY files/php/php.ini /usr/local/etc/php/conf.d/php.ini
 RUN apk --no-cache upgrade && \
     apk --no-cache add bash git sudo openssh libxml2-dev postgresql-dev oniguruma-dev autoconf g++ make npm freetype-dev libjpeg-turbo-dev libpng-dev libzip-dev
 
+RUN apk add --no-cache postgresql-client libpq-dev
+
 # COMPOSER: install binary and prestissimo
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
 
@@ -50,7 +52,6 @@ RUN apk add --no-cache nodejs npm && \
     npm install -g chokidar
 
 RUN docker-php-ext-install gd mysqli pdo pdo_mysql -j5 gd mbstring mysqli pdo pdo_mysql shmop
-#RUN docker-php-ext-enable gd mysqli pdo pdo_mysql -j5 gd mbstring mysqli pdo pdo_mysql shmop
 
 RUN apk --update add redis
 
