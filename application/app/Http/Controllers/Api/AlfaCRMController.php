@@ -13,6 +13,7 @@ use App\Services\AlfaCRM\Client as alfaApi;
 use App\Services\AlfaCRM\Models\Lesson;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AlfaCRMController extends Controller
 {
@@ -42,6 +43,8 @@ class AlfaCRMController extends Controller
 
         $lesson = (new Lesson($alfaApi))->get($request->entity_id);
 
+        Log::info(__METHOD__, [$lesson]);
+
         if ($lesson &&
             $lesson->status == Lesson::LESSON_CAME_TYPE_ID &&
             $lesson->lesson_type_id == Lesson::LESSON_TYPE_ID) {
@@ -68,6 +71,8 @@ class AlfaCRMController extends Controller
         $alfaApi  = (new alfaApi($setting))->init();
 
         $lesson = (new Lesson($alfaApi))->get($request->entity_id, Lesson::LESSON_OMISSION_TYPE_ID);
+
+        Log::info(__METHOD__, [$lesson]);
 
         if ($lesson &&
             $lesson->status == Lesson::LESSON_OMISSION_TYPE_ID &&

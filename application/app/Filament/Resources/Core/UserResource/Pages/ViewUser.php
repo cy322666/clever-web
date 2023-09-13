@@ -78,8 +78,6 @@ class ViewUser extends ViewRecord
 
         if (!$account->active) {
 
-            Log::info(__METHOD__.' > '.'https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'), Auth::user()?->toArray());
-
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
 
         } else
