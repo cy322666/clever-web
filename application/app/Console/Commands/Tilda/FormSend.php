@@ -66,17 +66,19 @@ class FormSend extends Command
         if ($contact == null) {
 
             $contact = Contacts::create($amoApi, $body->{$setting['name']} ?? 'Лид с тильды');
+            $contact = Contacts::update($contact, [
+                'Телефоны' => $setting['phone'] ? [$body->{$setting['phone']}] : null,
+                'Почта'    => $setting['email'] ? $body->{$setting['email']} : null,
+                'Ответственный' => $responsibleId,
+            ]);
 
         } elseif ($setting['is_union'] == 'yes') {
 
             $lead = Leads::search($contact, $amoApi, $pipelineId);
-        }
 
-        $contact = Contacts::update($contact, [
-            'Телефоны' => $setting['phone'] ? [$body->{$setting['phone']}] : null,
-            'Почта'    => $setting['email'] ? $body->{$setting['email']} : null,
-            'Ответственный' => $responsibleId,
-        ]);
+            if ($lead)
+                $responsibleId = $lead->responsible_user_id;
+        }
 
         if (empty($lead)) {
 
