@@ -69,18 +69,19 @@ return [
              * If you are using only InnoDB tables on a MySQL server, you can
              * also supply the useSingleTransaction option to avoid table locking.
              *
-             * E.g.
-             * 'mysql' => [
-             *       ...
-             *      'dump' => [
-             *           'useSingleTransaction' => true,
-             *       ],
+             * E.g.*/
+              'pgsql' => [
+                   'dump' => [
+                        'useSingleTransaction' => true,
+                    ],
+                ],
+                      /*
              * ],
              *
              * For a complete list of available customization options, see https://github.com/spatie/db-dumper
              */
             'databases' => [
-                'mysql'
+                'pgsql'
                 //env('DB_CONNECTION'),
             ],
         ],

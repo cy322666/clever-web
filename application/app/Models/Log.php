@@ -10,6 +10,8 @@ class Log extends Model
 {
     use HasFactory;
 
+    protected $table = 'amocrm_logs';
+
     protected $fillable = [
         'data',
         'url',
@@ -20,6 +22,11 @@ class Log extends Model
         'error',
         'details',
         'user_id',
+        'args',
+        'body',
+        'retries',
+        'memory_usage',
+        'execution_time',
     ];
 
     public function user(): BelongsTo

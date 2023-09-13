@@ -20,7 +20,7 @@ class Client
     public bool $logs = false;
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function __construct(Account $account)
     {
@@ -117,19 +117,27 @@ class Client
 
         $this->service->queries->listen(
         /**
-         * @param \Ufee\Amo\Base\Models\QueryModel $query
+         * @param QueryModel $query
          * @return void
          */
         function(QueryModel $query) {
 
-            $log =  $this->user->amocrm_logs()->create([
-                'code'  => $query->response->getCode(),
-                'url'   => static::trimUrl($query->getUrl()),
-                'start' => $query->startDate(),
-                'end'   => $query->endDate(),
-                'method'  => $query->method,
-                'details' => json_encode($query->toArray()),
-            ]);
+            $log =  $this->user
+                ->amocrm_logs()
+                ->create([
+                    'code'  => $query->response->getCode(),
+                    'url'   => $query->toArray()['url'] ?? '',
+                    'start' => $query->startDate(),
+                    'end'   => $query->endDate(),
+                    'method'  => $query->method,
+                    'details' => json_encode($query->toArray()),
+
+                    'args' => json_encode($query->toArray()['args']) ?? null,
+                    'body' => json_encode($query->toArray()['post_data']) ?? null,
+                    'retries' => $query->toArray()['retries'] ?? null,
+                    'memory_usage' => $query->toArray()['memory_usage'] ?? null,
+                    'execution_time' => $query->toArray()['execution_time'] ?? null,
+                ]);
 
             if ($query->response->getCode() === 0) {
 
