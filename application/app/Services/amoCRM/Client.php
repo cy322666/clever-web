@@ -151,7 +151,7 @@ class Client
         return $this;
     }
 
-    private static function trimUrl(string $url)
+    private static function trimUrl(string $url): string
     {
         return strlen($url) > 250 ? mb_strimwidth($url, 0, 200, "...") : $url;
     }

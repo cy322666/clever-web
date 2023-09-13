@@ -27,7 +27,8 @@
         "shuvroroy/filament-spatie-laravel-backup": "^2.0",
         "stechstudio/filament-impersonate": "^3.5",
         "studio/laravel-totem": "^10.0",
-        "ufee/amoapi": "0.9.3.5"
+        "ufee/amoapi": "0.9.3.5",
+      "ext-mbstring": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",

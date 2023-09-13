@@ -97,7 +97,7 @@ class LogResource extends Resource
 
                 Tables\Columns\TextColumn::make('data')
                     ->label('Тело ответа')
-                    ->toggledHiddenByDefault(true)
+                    ->toggledHiddenByDefault()
                     ->wrap(),
             ])
             ->defaultSort('created_at', 'desc')

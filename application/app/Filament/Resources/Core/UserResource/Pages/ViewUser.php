@@ -12,6 +12,7 @@ use Filament\Pages\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
 
@@ -76,6 +77,8 @@ class ViewUser extends ViewRecord
         $account = Auth::user()->account;
 
         if (!$account->active) {
+
+            Log::info(__METHOD__.' > '.'https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
 
             Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
 
