@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Core;
 
 use App\Filament\Resources\Core\LogResource\Pages;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -43,8 +44,17 @@ class LogResource extends Resource
                 Tables\Columns\TextColumn::make('user.email')
                     ->label('Клиент'),
 
+                Tables\Columns\TextColumn::make('url')
+                    ->label('URL')
+                    ->toggleable()
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('code')
                     ->label('Код')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('method')
+                    ->label('Метод')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('start')
@@ -55,26 +65,61 @@ class LogResource extends Resource
                 Tables\Columns\TextColumn::make('end')
                     ->label('Ответ')
                     ->date('m-d H:i:s')
+                    ->toggledHiddenByDefault()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('execution_time')
+                    ->label('Время')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('error')
                     ->label('Ошибка')
                     ->sortable()
+                    ->toggleable()
+                    ->toggledHiddenByDefault()
                     ->wrap(),
 
-                Tables\Columns\TextColumn::make('details')
-                    ->label('Тело запроса')
+                Tables\Columns\TextColumn::make('retries')
+                    ->label('Попыток')
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('memory_usage')
+                    ->label('Память')
+                    ->toggleable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('args')
+                    ->label('Аргументы')
+                    ->toggleable()
+                    ->toggledHiddenByDefault()
                     ->wrap(),
 
-                Tables\Columns\TextColumn::make('data')
-                    ->label('Тело ответа')
-                    ->toggledHiddenByDefault(true)
-                    ->wrap(),
+//                Tables\Columns\TextColumn::make('data')
+//                    ->label('Тело ответа')
+//                    ->toggledHiddenByDefault(true)
+//                    ->wrap(),
             ])
             ->defaultSort('created_at', 'desc')
-            ->filters([])
+            ->filters([
+                Tables\Filters\SelectFilter::make('users')
+                    ->label('Клиент')
+                    ->multiple()
+                    ->relationship('user', 'email'),
+//                    ->options(fn() => User::query()->get()->pluck('email', 'id'))
+                 Tables\Filters\SelectFilter::make('method')
+                     ->label('Метод')
+                     ->options([
+                         'GET' => 'GET',
+                         'POST' => 'POST'
+                     ]),
+                Tables\Filters\Filter::make('error')
+                    ->default()
+                    ->query(fn (Builder $query): Builder => $query->where('error', '!=', null))
+            ])
             ->actions([])
             ->bulkActions([])
+            ->paginated([30, 50, 100])
             ->emptyStateActions([]);
     }
 
