@@ -95,7 +95,7 @@ class TildaResource extends Resource
 
                                         Forms\Components\Select::make('field_amo')
                                             ->label('Поле из amoCRM')
-                                            ->options(Auth::user()->fields()->pluck('name', 'id'))
+                                            ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
                                             ->required(),
                                     ])
                                     ->columns()

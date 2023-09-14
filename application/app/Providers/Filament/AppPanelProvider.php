@@ -6,6 +6,7 @@ use App\Filament\App\Pages\Market;
 use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
+use App\Filament\Resources\Integrations\Dadata\InfoResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Models\User;
 use Exception;
@@ -120,6 +121,12 @@ class AppPanelProvider extends PanelProvider
                                 ->label('Тильда')
                                 ->icon('heroicon-o-identification')
                                 ->url(fn (): string => FormResource::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
+
+                            NavigationItem::make('Инфо')
+                                ->label('Инфо')
+                                ->icon('heroicon-o-magnifying-glass')
+                                ->url(fn (): string => InfoResource::getUrl())
                                 ->hidden(fn() => !Auth::user()->is_root),
                         ]),
                 ]);

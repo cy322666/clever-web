@@ -27,11 +27,11 @@ class ActiveLeadResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'В работе';
+    protected static ?string $recordTitleAttribute = 'Проверка дубля';
 
     public static function getRecordTitle(?Model $record = null): string|Htmlable|null
     {
-        return 'В работе';
+        return 'Проверка дубля';
     }
 
     public static function form(Form $form): Form

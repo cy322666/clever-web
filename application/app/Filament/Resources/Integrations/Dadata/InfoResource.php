@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Filament\Resources\Integrations\Active;
+namespace App\Filament\Resources\Integrations\Dadata;
 
-use App\Filament\Resources\Integrations\Active\LeadResource\Pages;
-use App\Models\Integrations\ActiveLead\Lead;
+use App\Filament\Resources\Integrations\Dadata\InfoResource\Pages;
+use App\Models\Integrations\Dadata\Lead;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
-class LeadResource extends Resource
+class InfoResource extends Resource
 {
     protected static ?string $model = Lead::class;
 
@@ -51,11 +51,17 @@ class LeadResource extends Resource
                     ->label('ID контакта')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('count_leads')
-                    ->label('Всего открытых'),
+                Tables\Columns\TextColumn::make('phone_at')
+                    ->label('Тел изначальный'),
 
-                Tables\Columns\BooleanColumn::make('is_active')
-                    ->label('Есть активная'),
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Тел формат'),
+
+                Tables\Columns\TextColumn::make('country')
+                    ->label('Страна'),
+
+                Tables\Columns\TextColumn::make('region')
+                    ->label('Регион'),
 
                 Tables\Columns\BooleanColumn::make('status')
                     ->label('Выгружен'),
@@ -70,7 +76,7 @@ class LeadResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListLeads::route('/'),
+            'index' => Pages\ListInfos::route('/'),
         ];
     }
 }
