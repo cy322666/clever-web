@@ -34,10 +34,17 @@ class Client
         $this->storage = $storage;
     }
 
+    public function setBranch(int $branchId): static
+    {
+        $this->branchId = $branchId;
+
+        return $this;
+    }
+
     /**
      * @throws GuzzleException
      */
-    public function init()
+    public function init(): static
     {
         $response = $this
             ->http

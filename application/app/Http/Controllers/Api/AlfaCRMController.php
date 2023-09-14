@@ -39,7 +39,9 @@ class AlfaCRMController extends Controller
     {
         $setting = $user->alfacrm_settings;
 
-        $alfaApi  = (new alfaApi($setting))->init();
+        $alfaApi = (new alfaApi($setting))
+            ->setBranch($request->branch_id)
+            ->init();
 
         $lesson = (new Lesson($alfaApi))->get($request->entity_id);
 
@@ -68,7 +70,9 @@ class AlfaCRMController extends Controller
     {
         $setting = $user->alfacrm_settings;
 
-        $alfaApi  = (new alfaApi($setting))->init();
+        $alfaApi  = (new alfaApi($setting))
+            ->setBranch($request->branch_id)
+            ->init();
 
         $lesson = (new Lesson($alfaApi))->get($request->entity_id, Lesson::LESSON_OMISSION_TYPE_ID);
 

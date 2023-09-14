@@ -47,7 +47,9 @@ class OmissionSend extends Command
             ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
 
-        $alfaApi  = (new \App\Services\AlfaCRM\Client($setting))->init();
+        $alfaApi  = (new \App\Services\AlfaCRM\Client($setting))
+            ->setBranch($transaction->branch_id)
+            ->init();
 
         $customer = (new Customer($alfaApi))->get($this->transaction->alfa_client_id);
 
