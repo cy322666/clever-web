@@ -141,5 +141,10 @@ class Account
                 'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
             ]);
         }
+
+        Auth::user()
+            ->amocrm_fields()
+            ->where('updated_at', '<', Carbon::now()->subMinute()->format('Y-m-d H:i:s'))
+            ->delete();
     }
 }

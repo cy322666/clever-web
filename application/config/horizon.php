@@ -196,6 +196,7 @@ return [
                 'alfacrm_came',
                 'alfacrm_omission',
                 'active_lead',
+                'data_info',
             ],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',

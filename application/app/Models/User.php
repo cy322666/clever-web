@@ -126,7 +126,17 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Log::class);
     }
 
+    public function dataSetting(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\Dadata\Setting::class);
+    }
+
     public function fields(): HasMany//amocrm TODO
+    {
+        return $this->hasMany(Field::class);
+    }
+
+    public function amocrm_fields(): HasMany//amocrm TODO
     {
         return $this->hasMany(Field::class);
     }

@@ -9,6 +9,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
+        "ext-mbstring": "*",
         "doctrine/dbal": "3.6.6",
         "filament/actions": "^3.0",
         "filament/filament": "^3.0",
@@ -18,6 +19,7 @@
         "filament/tables": "^3.0",
         "filament/widgets": "^3.0",
         "guzzlehttp/guzzle": "^7.2",
+        "hflabs/dadata": "^22.3",
         "laravel/framework": "^10.10",
         "laravel/horizon": "^5.19",
         "laravel/octane": "^2.0",
@@ -27,8 +29,7 @@
         "shuvroroy/filament-spatie-laravel-backup": "^2.0",
         "stechstudio/filament-impersonate": "^3.5",
         "studio/laravel-totem": "^10.0",
-        "ufee/amoapi": "0.9.3.5",
-      "ext-mbstring": "*"
+        "ufee/amoapi": "0.9.3.5"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",

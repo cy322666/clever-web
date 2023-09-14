@@ -3,6 +3,8 @@
 namespace App\Services\amoCRM\Models;
 
 use App\Services\amoCRM\Client;
+use Ufee\Amo\Models\Contact;
+use Ufee\Amo\Models\Lead;
 
 abstract class Contacts extends Client
 {
@@ -34,6 +36,16 @@ abstract class Contacts extends Client
             return $contacts->first();
         else
             return null;
+    }
+
+    public static function setField(Contact $contact, string $fieldName, $value): Contact
+    {
+        try {
+            $contact->cf($fieldName)->setValue($value);
+
+        } catch (\Throwable $e) {}
+
+        return $contact;
     }
 
     public static function update($contact, $arrayFields = [])

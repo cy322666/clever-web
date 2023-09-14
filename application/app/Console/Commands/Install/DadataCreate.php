@@ -2,20 +2,20 @@
 
 namespace App\Console\Commands\Install;
 
-use App\Filament\Resources\Integrations\AlfaResource;
+use App\Filament\Resources\Integrations\DadataResource;
 use App\Models\App;
-use App\Models\Integrations\Alfa\Setting;
+use App\Models\Integrations\Dadata\Setting;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 
-class AlfaCreate extends Command
+class DadataCreate extends Command
 {
-    private string $app = 'alfacrm';
+    private string $app = 'data-info';
 
-    private string $resource = AlfaResource::class;
+    private string $resource = DadataResource::class;
 
-    protected $signature = 'install:alfa {user_id?}';
+    protected $signature = 'install:dada-info {user_id?}';
 
     /**
      * The console command description.
@@ -57,7 +57,7 @@ class AlfaCreate extends Command
 
             foreach ($users as $user) {
 
-                Artisan::call('install:alfa', ['user_id' => $user->id]);
+                Artisan::call('install:dada-info', ['user_id' => $user->id]);
             }
         }
     }

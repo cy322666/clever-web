@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ActiveLeadController;
 use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
+use App\Http\Controllers\Api\DadataController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,8 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
     });
 
     Route::post('active-leads/{user:uuid}', [ActiveLeadController::class, 'hook'])->name('active-leads.hook');
+
+    Route::post('data/{user:uuid}', [DadataController::class, 'hook'])->name('data.hook');
 });
 
 Route::group(['prefix' => 'amocrm'], function () {
