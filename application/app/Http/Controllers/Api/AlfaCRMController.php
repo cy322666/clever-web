@@ -59,7 +59,7 @@ class AlfaCRMController extends Controller
                 'alfa_client_id' => $lesson->customer_ids[0],
             ]);
 
-            CameWithoutLead::dispatch($setting, $transaction, $request->toArray());
+            CameWithoutLead::dispatch($transaction, $setting, $request->toArray());
         }
     }
 
