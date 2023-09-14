@@ -22,7 +22,7 @@ class Status extends Model
 
     protected $table = 'amocrm_statuses';
 
-    public $timestamps = false;
+    public $timestamps = true;
 
     public static function getWithoutUnsorted(): Builder
     {

@@ -28,9 +28,11 @@ class StaffsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('staff_id')
                     ->label('ID'),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Имя'),
+                    ->label('Имя')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('group_name')
-                    ->label('Группа'),
+                    ->label('Группа')
+                    ->searchable(),
             ])
             ->filters([])
             ->headerActions([])

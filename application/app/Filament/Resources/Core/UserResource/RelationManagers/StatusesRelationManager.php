@@ -35,11 +35,13 @@ class StatusesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('pipeline_id')
                     ->label('ID воронки'),
                 Tables\Columns\TextColumn::make('pipeline_name')
-                    ->label('Название воронки'),
+                    ->label('Название воронки')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('status_id')
                     ->label('ID этапа'),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Название этапа'),
+                    ->label('Название этапа')
+                    ->searchable(),
                 Tables\Columns\ColorColumn::make('color')
                     ->label('Цвет этапа'),
             ])
