@@ -48,7 +48,7 @@ class CameSend extends Command
             ->initLogs(Env::get('APP_DEBUG'));
 
         $alfaApi  = (new \App\Services\AlfaCRM\Client($setting))
-            ->setBranch($transaction->branch_id)
+            ->setBranch($transaction->alfa_branch_id)
             ->init();
 
         $customer = (new Customer($alfaApi))->get($transaction->alfa_client_id);

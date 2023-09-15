@@ -47,7 +47,7 @@ class RecordSend extends Command
             ->initLogs(Env::get('APP_DEBUG'));
 
         $alfaApi = (new \App\Services\AlfaCRM\Client($setting))
-            ->setBranch($transaction->branch_id)
+            ->setBranch($transaction->alfa_branch_id)
             ->init();
 
         $lead = $amoApi->service
