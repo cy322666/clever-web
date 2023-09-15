@@ -68,8 +68,8 @@ class OrderSend extends Command
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [$order->phone],
-            'Почта' => $order->email,
+            'Телефоны' => [$order->phone ?? null],
+            'Почта' => $order->email ?? null,
         ], $amoApi);
 
         if ($contact == null)
@@ -78,9 +78,9 @@ class OrderSend extends Command
             $lead = Leads::search($contact, $amoApi);
 
         $contact = Contacts::update($contact, [
-            'Имя' => $order->name,
-            'Телефоны' => [$order->phone],
-            'Почта' => $order->email,
+            'Имя'       => $order->name,
+            'Телефоны'  => [$order->phone ?? null],
+            'Почта'     => $order->email ?? null,
             'Ответственный' => $responsibleId,
         ]);
 
@@ -104,7 +104,6 @@ class OrderSend extends Command
 
         Notes::addOne($lead, OrderNote::create($order));
 
-        //TODO ссылка для хуков
         $order->contact_id = $contact->id;
         $order->lead_id = $lead->id;
         $order->status = 1;

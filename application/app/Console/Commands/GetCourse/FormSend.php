@@ -56,8 +56,8 @@ class FormSend extends Command
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [$form->phone],
-            'Почта'    => $form->email,
+            'Телефоны' => [$form->phone ?? null],
+            'Почта'    => $form->email ?? null,
         ], $amoApi);
 
         if ($contact == null) {
@@ -69,8 +69,8 @@ class FormSend extends Command
 
         $contact = Contacts::update($contact, [
             'Имя' => $form->name,
-            'Телефоны' => [$form->phone],
-            'Почта'    => $form->email,
+            'Телефоны' => [$form->phone ?? null],
+            'Почта'    => $form->email ?? null,
             'Ответственный' => $responsibleId,
         ]);
 
