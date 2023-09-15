@@ -2,14 +2,9 @@
 
 namespace App\Jobs\AlfaCRM;
 
-use App\Models\AlfaCRM\Customer;
-use App\Models\AlfaCRM\Field;
-use App\Models\AlfaCRM\Setting;
-use App\Models\AlfaCRM\Transaction;
 use App\Models\Webhook;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Notes;
-use App\Services\ManagerClients\AlfaCRMManager;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Bus\Queueable;

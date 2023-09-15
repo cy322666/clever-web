@@ -63,7 +63,7 @@ class RecordWithLead implements ShouldQueue
      *
      * @return void
      */
-    public function handle(): void
+    public function handle()
     {
         Artisan::call('app:alfacrm-record-send', [
             'transaction' => $this->transaction->id,

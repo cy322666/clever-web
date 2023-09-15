@@ -2,8 +2,6 @@
 
 namespace App\Jobs\AlfaCRM;
 
-use App\Models\AlfaCRM\Setting;
-use App\Models\AlfaCRM\Transaction;
 use App\Models\Core\Account;
 use App\Models\Webhook;
 use App\Services\AlfaCRM\Models\Customer;
@@ -69,7 +67,7 @@ class OmissionWithoutLead implements ShouldQueue
      * @return false
      * @throws Exception
      */
-    public function handle(): bool
+    public function handle()
     {
         Artisan::call('app:alfacrm-omission-send', [
             'transaction' => $this->transaction->id,
