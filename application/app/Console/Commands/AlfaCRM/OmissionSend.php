@@ -55,7 +55,7 @@ class OmissionSend extends Command
 
         $parentTransaction = Transaction::query()
             ->where('status', Setting::RECORD)
-            ->where('branch_id', $transaction->branch_id)
+            ->where('branch_id', $transaction->alfa_branch_id)
             ->where('alfa_client_id', $transaction->alfa_client_id)
             ->first();
 
