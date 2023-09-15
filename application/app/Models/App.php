@@ -49,7 +49,7 @@ class App extends Model
     public function setStatusWithActive(Model $setting, App $app) : Model
     {
         $resource = $app->resource_name;
-        $setting  = $resource->getModel();
+        $setting  = $resource::getModel();
 
         if ($this->expires_tariff_at === null) {
 
