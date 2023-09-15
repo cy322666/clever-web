@@ -48,9 +48,6 @@ class App extends Model
      */
     public function setStatusWithActive(Model $setting, App $app) : Model
     {
-        $resource = $app->resource_name;
-        $setting  = $resource::getModel();
-
         if ($this->expires_tariff_at === null) {
 
             $this->expires_tariff_at = $setting::$cost['1_month'] != 'бесплатно' ? Carbon::now()->addWeek()->format('Y-m-d') : Carbon::now()->addYear()->format('Y-m-d');
