@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations\DadataResource\Pages;
 
 use App\Filament\Resources\Integrations\Active\LeadResource;
+use App\Filament\Resources\Integrations\Dadata\InfoResource;
 use App\Filament\Resources\Integrations\DadataResource;
 use App\Helpers\Actions\UpdateButton;
 use Filament\Actions;
@@ -21,9 +22,9 @@ class EditDadata extends EditRecord
             Actions\Action::make('instruction')
                 ->label('Инструкция'),
 
-//            Actions\Action::make('list')
-//                ->label('История')
-//                ->url(LeadResource::getUrl())//TODO
+            Actions\Action::make('list')
+                ->label('История')
+                ->url(InfoResource::getUrl())
         ];
     }
 
