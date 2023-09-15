@@ -34,8 +34,6 @@ class LeadResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('user.email')
                     ->label('Клиент')
-                    ->searchable()
-                    ->sortable()
                     ->hidden(fn() => !Auth::user()->is_root),
 
                 Tables\Columns\TextColumn::make('created_at')
@@ -44,12 +42,10 @@ class LeadResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('lead_id')
-                    ->label('ID сделки')
-                    ->searchable(),
+                    ->label('ID сделки'),
 
                 Tables\Columns\TextColumn::make('contact_id')
-                    ->label('ID контакта')
-                    ->searchable(),
+                    ->label('ID контакта'),
 
                 Tables\Columns\TextColumn::make('count_leads')
                     ->label('Всего открытых'),
