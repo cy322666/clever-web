@@ -37,7 +37,7 @@ class AlfaCRMController extends Controller
      */
     public function came(User $user, Request $request)
     {
-        $setting = ;
+        $setting = $user->alfacrm_settings ;
 
         $alfaApi = (new alfaApi($setting))
             ->setBranch($request->branch_id)
