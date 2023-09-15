@@ -30,6 +30,8 @@ class TildaController extends Controller
         $setting->bodies = json_encode($bodies, true);
         $setting->save();
 
+        if ($request->test == 'test') exit;
+
         $form = Form::query()->create([
             'user_id' => $user->id,
             'body'    => json_encode($request->toArray(), JSON_UNESCAPED_UNICODE),
