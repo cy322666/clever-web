@@ -76,6 +76,7 @@ class RecordSend extends Command
 
 //        Field::prepareCreateLead($fieldValues, $amoApi, $alfaApi, $contact);
 
+        $transaction->amo_contact_id = $contact->id;
         $transaction->alfa_client_id = $customer->id;
         $transaction->fields = json_encode($fieldsAlfacrm);
         $transaction->alfa_branch_id = $fieldsAlfacrm['branch_id'];

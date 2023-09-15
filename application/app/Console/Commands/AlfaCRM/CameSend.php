@@ -103,6 +103,7 @@ class CameSend extends Command
         $lead->save();
 
         $transaction->amo_lead_id = $lead->id;
+        $transaction->amo_contact_id = $contact->id;
         $transaction->status_id = $lead->status_id;
         $transaction->save();
 

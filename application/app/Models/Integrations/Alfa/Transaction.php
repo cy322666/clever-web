@@ -13,6 +13,7 @@ class Transaction extends Model
         'webhook_id',
         'fields',        //поля для отправки в альфу
         'amo_lead_id',
+        'amo_contact_id',
         'alfa_branch_id',
         'alfa_client_id',
         'comment',
