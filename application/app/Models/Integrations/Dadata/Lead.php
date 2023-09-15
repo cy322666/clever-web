@@ -47,17 +47,16 @@ class Lead extends Model
 
                 if ($fieldModel->entity_type == 'leads')
 
-                    $lead = Leads::setField($lead, $fieldModel->name, $dataModel->{$dataModelKey});
+                    if (!Leads::getField($lead, $fieldModel->name))
+
+                        $lead = Leads::setField($lead, $fieldModel->name, $dataModel->{$dataModelKey});
 
                 elseif ($fieldModel->entity_type == 'contacts')
 
-                    $contact = Contacts::setField($contact, $fieldModel->name, $dataModel->{$dataModelKey});
+                    if (!Contacts::getField($contact, $fieldModel->name))
+
+                        $contact = Contacts::setField($contact, $fieldModel->name, $dataModel->{$dataModelKey});
             }
         }
-
-//        return [
-//            'lead' => $lead,
-//            'contact' => $contact,
-//        ];
     }
 }
