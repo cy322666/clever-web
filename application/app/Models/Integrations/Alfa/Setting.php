@@ -66,6 +66,21 @@ class Setting extends Model
         'user_id',
     ];
 
+    public function getRecordLink(): string
+    {
+        return route('alfacrm.record', ['user' => $this->user->uuid]);
+    }
+
+    public function getCameLink(): string
+    {
+        return route('alfacrm.came', ['user' => $this->user->uuid]);
+    }
+
+    public function getOmissionLink(): string
+    {
+        return route('alfacrm.omission', ['user' => $this->user->uuid]);
+    }
+
     public function checkStatus(string $action, int $statusId): bool
     {
         $action = 'status_'.$action;

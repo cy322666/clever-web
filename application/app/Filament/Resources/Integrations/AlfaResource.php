@@ -59,6 +59,19 @@ class AlfaResource extends Resource
                                     ->label('Email')
                                     ->required(),
                            ])->columnSpan(2),
+
+                       Fieldset::make('Ссылки')
+                           ->schema([
+                               TextInput::make('link_record')
+                                   ->label('Вебхук записи')
+                                   ->disabled(),
+                               TextInput::make('link_came')
+                                   ->label('Вебхук посещения')
+                                   ->disabled(),
+                               TextInput::make('link_omission')
+                                   ->label('Вебхук отмены')
+                                   ->disabled(),
+                           ])->columnSpan(2),
                    ]),
 
                Section::make('Настройки интеграции')

@@ -26,8 +26,17 @@ class EditAlfa extends EditRecord
             Actions\Action::make('alfaUpdate')
                 ->label('Синхронизировать AlfaCRM')
                 ->action('alfaUpdate')
-//                ->disabled(fn() => !$this->record->api_key) //TODO
+                ->disabled(fn() => !$this->record->api_key)
         ];
+    }
+
+    public function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['link_record']   = $this->record->getRecordLink();
+        $data['link_came']     = $this->record->getCameLink();
+        $data['link_omission'] = $this->record->getOmissionLink();
+
+        return parent::mutateFormDataBeforeFill($data);
     }
 
     /**
