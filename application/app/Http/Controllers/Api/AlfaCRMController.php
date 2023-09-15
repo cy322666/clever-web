@@ -37,6 +37,8 @@ class AlfaCRMController extends Controller
      */
     public function came(User $user, Request $request)
     {
+        $setting = ;
+
         $alfaApi = (new alfaApi($setting))
             ->setBranch($request->branch_id)
             ->init();
@@ -57,7 +59,7 @@ class AlfaCRMController extends Controller
                 'alfa_client_id' => $lesson->customer_ids[0],
             ]);
 
-            CameWithoutLead::dispatch($transaction, $user->alfacrm_settings, $user->account);
+            CameWithoutLead::dispatch($transaction, $setting, $user->account);
 //        }
     }
 
