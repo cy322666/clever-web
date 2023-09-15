@@ -14,13 +14,19 @@ class ActiveLeadController extends Controller
     {
         $data = $request->toArray()['leads']['status'][0] ?? $request->toArray()['leads']['add'][0];
 
-        $model = Lead::query()->create([
-            'user_id' => $user->id,
-            'lead_id' => $data['id'],
-            'status_id'   => $data['status_id'],
-            'pipeline_id' => $data['pipeline_id'],
-        ]);
+        if (!Lead::query()
+            ->where('user_id', $user->id)
+            ->where('lead_id', $data['id'])
+            ->exists()) {
 
-        CheckLead::dispatch($model, $user->activeLeadSetting, $user->account);
+            $model = Lead::query()->create([
+                'user_id' => $user->id,
+                'lead_id' => $data['id'],
+                'status_id'   => $data['status_id'],
+                'pipeline_id' => $data['pipeline_id'],
+            ]);
+
+            CheckLead::dispatch($model, $user->activeLeadSetting, $user->account);
+        }
     }
 }
