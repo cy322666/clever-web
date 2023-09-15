@@ -120,4 +120,15 @@ abstract class Contacts extends Client
     {
         return 'https://'.$amoApi->storage->model->subdomain.'.amocrm.'.$amoApi->storage->zone.'/contacts/detail/'.$contactId;
     }
+
+    public static function getField(Contact $contact, string $fieldName)
+    {
+        try {
+            return $contact->cf($fieldName)->getValue();
+
+        } catch (\Throwable $e) {
+
+            return null;
+        }
+    }
 }

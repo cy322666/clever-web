@@ -189,4 +189,15 @@ abstract class Leads
 
         return $lead;
     }
+
+    public static function getField(Lead $lead, string $fieldName)
+    {
+        try {
+            return $lead->cf($fieldName)->getValue();
+
+        } catch (Throwable $e) {
+
+            return null;
+        }
+    }
 }
