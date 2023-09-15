@@ -55,6 +55,10 @@ class TildaResource extends Resource
                                     ->label('Тело заявки')
                                     ->disabled(),
 
+                                Forms\Components\TextInput::make('name_form')
+                                    ->label('Название')
+                                    ->hint('Для различения настроек форм'),
+
                                 Forms\Components\Select::make('pipeline_id')
                                     ->label('Воронка')
                                     ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))

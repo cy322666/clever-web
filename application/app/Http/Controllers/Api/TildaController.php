@@ -22,7 +22,7 @@ class TildaController extends Controller
 
         foreach ($data as $key => $value) {
 
-            $data[strtolower($key)] = '*';
+            $data[$key] = '*';
         }
 
         $bodies[$site] = $data;
