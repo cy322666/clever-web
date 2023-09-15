@@ -54,13 +54,11 @@ class OrderSend extends Command
         if ($order->payed_money == $order->cost_money &&
             $setting->status_id_order_close) {
 
-            $statusClose =  $statusId = Status::query()
-                ->find($setting->status_id_order_close);
+            $statusClose =  $statusId = Status::query()->find($setting->status_id_order_close);
 
-            if ($statusClose->exists()) {
+            if ($statusClose->exists())
 
                 $statusId = $statusClose->status_id;
-            }
         }
 
         $responsibleId = Staff::query()
@@ -88,19 +86,17 @@ class OrderSend extends Command
 
             $lead = Leads::create($contact, [
                 'sale' => $order->cost_money,
-                'responsible_user_id' => $responsibleId,
                 'status_id' => $statusId,
+                'responsible_user_id' => $responsibleId,
             ], 'Новый заказ с Геткурс');
         } else
             $lead = Leads::update($lead, [
                 'status_id' => $statusId,
-                'sale' => $order->cost_money,
+                'sale'      => $order->cost_money,
             ], []);
 
-        Tags::add($lead, [
-            $setting->tag,
-            $setting->tag_order,
-        ]);
+        Tags::add($lead, $setting->tag);
+        Tags::add($lead, $setting->tag_order);
 
         Notes::addOne($lead, OrderNote::create($order));
 
@@ -108,7 +104,5 @@ class OrderSend extends Command
         $order->lead_id = $lead->id;
         $order->status = 1;
         $order->save();
-
-        return true;
     }
 }
