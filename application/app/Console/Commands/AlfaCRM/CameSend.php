@@ -59,7 +59,7 @@ class CameSend extends Command
             ->where('alfa_client_id', $transaction->alfa_client_id)
             ->first();
 
-        if ($parentTransaction->exists() && $parentTransaction->amo_lead_id) {
+        if ($parentTransaction && $parentTransaction->exists() && $parentTransaction->amo_lead_id) {
 
             $lead = $amoApi->service
                 ->leads()
