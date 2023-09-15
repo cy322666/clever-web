@@ -16,6 +16,7 @@ class Transaction extends Model
         'amo_contact_id',
         'alfa_branch_id',
         'alfa_client_id',
+        'alfa_lesson_id',
         'comment',
         'status',
         'status_id',

@@ -3,12 +3,16 @@
 namespace App\Services\AlfaCRM\Models;
 
 use App\Services\AlfaCRM\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 
 class Customer
 {
     public function __construct(private Client $client) {}
 
+    /**
+     * @throws GuzzleException
+     */
     public function all()
     {
         $response = $this->client
@@ -24,6 +28,9 @@ class Customer
         return json_decode($response->getBody()->getContents())->items;
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function get(int $id)
     {
         $response = $this->client
@@ -38,6 +45,9 @@ class Customer
         return json_decode($response->getBody()->getContents())?->items[0];
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function first()
     {
         $response = $this->client
@@ -52,6 +62,9 @@ class Customer
         return json_decode($response->getBody()->getContents())->items[0];
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function search(string $value)
     {
         $response = $this->client
@@ -67,6 +80,9 @@ class Customer
         return json_decode($response->getBody()->getContents())->items;
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function searchLead(string $value)
     {
         $response = $this->client
@@ -83,6 +99,9 @@ class Customer
         return json_decode($response->getBody()->getContents())->items;
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function update(int $id, array $params)
     {
         $response = $this->client
@@ -93,6 +112,9 @@ class Customer
             ]);
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function create(array $params)
     {
         $response = $this->client

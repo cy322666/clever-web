@@ -56,6 +56,7 @@ class AlfaCRMController extends Controller
                 'comment' => 'came',
                 'status'  => Setting::CAME,
                 'alfa_branch_id' => $request->branch_id,
+                'alfa_lesson_id' => $request->entity_id,
                 'alfa_client_id' => $lesson->customer_ids[0] ?? null,
             ]);
 
@@ -86,6 +87,7 @@ class AlfaCRMController extends Controller
                 ->create([
                     'alfa_branch_id' => $request->branch_id,
                     'alfa_client_id' => $lesson->customer_ids[0] ?? null,
+                    'alfa_lesson_id' => $request->entity_id,
                     'user_id' => $user->id,
                     'comment' => 'omission',
                     'status'  => Setting::OMISSION,

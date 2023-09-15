@@ -81,7 +81,7 @@ class OmissionSend extends Command
             $contact = Contacts::create($amoApi, $customer->name);
             $contact = Contacts::update($contact, [
                 'Телефоны' => $customer->phone,
-                'Почта'    => $customer->email[0],
+                'Почта'    => $customer->email[0] ?? null,
             ]);
         }
 
