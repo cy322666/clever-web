@@ -56,7 +56,7 @@ class AlfaCRMController extends Controller
                 'comment' => 'came',
                 'status'  => Setting::CAME,
                 'alfa_branch_id' => $request->branch_id,
-                'alfa_client_id' => $lesson->customer_ids[0],
+                'alfa_client_id' => $lesson->customer_ids[0] ?? null,
             ]);
 
             CameWithoutLead::dispatch($transaction, $setting, $user->account);
@@ -85,7 +85,7 @@ class AlfaCRMController extends Controller
             $transaction = Transaction::query()
                 ->create([
                     'alfa_branch_id' => $request->branch_id,
-                    'alfa_client_id' => $lesson->customer_ids[0],
+                    'alfa_client_id' => $lesson->customer_ids[0] ?? null,
                     'user_id' => $user->id,
                     'comment' => 'omission',
                     'status'  => Setting::OMISSION,
