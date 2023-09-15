@@ -16,9 +16,10 @@ abstract class Contacts extends Client
 
             foreach ($arrayFields['Телефоны'] as $phone) {
 
-                $contacts = $client->service
-                    ->contacts()
-                    ->searchByPhone(substr($phone, -10));
+                if ($phone)
+                    $contacts = $client->service
+                        ->contacts()
+                        ->searchByPhone(substr($phone, -10));
             }
         }
 
@@ -26,6 +27,7 @@ abstract class Contacts extends Client
             key_exists('Почта', $arrayFields)) {
 
             if ($arrayFields['Почта'])
+
                 $contacts = $client->service
                     ->contacts()
                     ->searchByEmail($arrayFields['Почта']);
