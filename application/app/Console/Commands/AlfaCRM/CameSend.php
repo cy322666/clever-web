@@ -85,10 +85,8 @@ class CameSend extends Command
             ]);
         }
 
-        $link = Contacts::buildLink($amoApi, $contact->id);
-
         (new Customer($alfaApi))->update($transaction->alfa_client_id, [
-            'web' => $link,
+            'web' => Contacts::buildLink($amoApi, $contact->id),
         ]);
 
         $lead = empty($lead) ? Leads::create($contact, [], 'Новая сделка из AlfaCRM') : Leads::search($contact, $amoApi);
@@ -97,7 +95,7 @@ class CameSend extends Command
 
         $lead = Leads::update($lead, ['status_id' => $statusId], []);
 
-        Notes::addOne($lead, 'Синхронизировано с АльфаСРМ, ссылка на клиента '. $link);
+        Notes::addOne($lead, 'Синхронизировано с АльфаСРМ, ссылка на клиента '. \App\Models\Integrations\Alfa\Customer::buildLink($alfaApi, $customer->id));
 
         $lead->status_id = $setting->status_came_1;
         $lead->save();
