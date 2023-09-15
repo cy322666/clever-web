@@ -15,7 +15,7 @@ class DadataCreate extends Command
 
     private string $resource = DadataResource::class;
 
-    protected $signature = 'install:dada-info {user_id?}';
+    protected $signature = 'install:data-info {user_id?}';
 
     /**
      * The console command description.
@@ -57,7 +57,7 @@ class DadataCreate extends Command
 
             foreach ($users as $user) {
 
-                Artisan::call('install:dada-info', ['user_id' => $user->id]);
+                Artisan::call('install:data-info', ['user_id' => $user->id]);
             }
         }
     }
