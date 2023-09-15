@@ -63,7 +63,7 @@ class CameSend extends Command
 
             $lead = $amoApi->service
                 ->leads()
-                ->find($this->transaction->amo_lead_id);
+                ->find($transaction->amo_lead_id);
 
             $contact = $lead->contact;
         }
@@ -99,7 +99,7 @@ class CameSend extends Command
 
         Notes::addOne($lead, 'Синхронизировано с АльфаСРМ, ссылка на клиента '. $link);
 
-        $lead->status_id = $this->setting->status_came_1;
+        $lead->status_id = $setting->status_came_1;
         $lead->save();
 
         $transaction->amo_lead_id = $lead->id;

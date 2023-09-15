@@ -51,7 +51,7 @@ class OmissionSend extends Command
             ->setBranch($transaction->alfa_branch_id)
             ->init();
 
-        $customer = (new Customer($alfaApi))->get($this->transaction->alfa_client_id);
+        $customer = (new Customer($alfaApi))->get($transaction->alfa_client_id);
 
         $parentTransaction = Transaction::query()
             ->where('status', Setting::RECORD)
@@ -63,7 +63,7 @@ class OmissionSend extends Command
 
             $lead = $amoApi->service
                 ->leads()
-                ->find($this->transaction->amo_lead_id);
+                ->find($transaction->amo_lead_id);
 
             $contact = $lead->contact;
         }
@@ -99,7 +99,7 @@ class OmissionSend extends Command
 
         Notes::addOne($lead, 'Синхронизировано с АльфаСРМ, ссылка на клиента '. $link);
 
-        $lead->status_id = $this->setting->status_came_1;
+        $lead->status_id = $setting->status_came_1;
         $lead->save();
 
         $transaction->amo_lead_id = $lead->id;
