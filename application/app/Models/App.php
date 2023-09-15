@@ -46,20 +46,23 @@ class App extends Model
      * @param Model $setting
      * @return Model
      */
-    public function setStatusWithActive(Model $setting) : Model
+    public function setStatusWithActive(Model $setting, App $app) : Model
     {
+        $resource = $app->resource_name;
+        $setting  = $resource->getModel();
+
         if ($this->expires_tariff_at === null) {
 
-            $this->expires_tariff_at = Carbon::now()->addWeek()->format('Y-m-d');
+            $this->expires_tariff_at = $setting::$cost['1_month'] != 'бесплатно' ? Carbon::now()->addWeek()->format('Y-m-d') : Carbon::now()->addYear()->format('Y-m-d');
             $this->save();
+
+            $app->status = $setting->active ? App::STATE_ACTIVE : App::STATE_INACTIVE;
+            $app->save();
 
         } elseif (Carbon::parse($this->expires_tariff_at) < Carbon::now())  {
 
             $this->status = App::STATE_EXPIRES;
             $this->save();
-
-            $setting->active = false;
-            $setting->save();
 
         } else {
             $this->status = $setting->active ? App::STATE_ACTIVE : App::STATE_INACTIVE;

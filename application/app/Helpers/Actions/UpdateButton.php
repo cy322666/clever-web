@@ -2,6 +2,7 @@
 
 namespace App\Helpers\Actions;
 
+use App\Models\App;
 use Filament\Pages\Actions\Action;
 use Filament\Support\Colors\Color;
 use Illuminate\Database\Eloquent\Model;
@@ -20,10 +21,10 @@ abstract class UpdateButton
 
                     $app = $record->app;
 
-                    $record->active = !$record->active;
+                    $record->active = $app->status != App::STATE_EXPIRES ? !$record->active : App::STATE_EXPIRES;
                     $record->save();
 
-                    $app->setStatusWithActive($record->refresh());
+                    $app->setStatusWithActive($record->refresh(), $app);
 
                     $app->sendNotificationStatus();
             })
