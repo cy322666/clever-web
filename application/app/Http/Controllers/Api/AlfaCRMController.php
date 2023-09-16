@@ -51,6 +51,8 @@ class AlfaCRMController extends Controller
 //            $lesson->status == Lesson::LESSON_CAME_TYPE_ID &&
 //            $lesson->lesson_type_id == Lesson::LESSON_TYPE_ID) {
 
+        if (!empty($lesson->customer_ids[0]))
+
             $transaction = Transaction::query()->create([
                 'user_id' => $user->id,
                 'comment' => 'came',
@@ -82,6 +84,8 @@ class AlfaCRMController extends Controller
 //        if ($lesson &&
 //            $lesson->status == Lesson::LESSON_OMISSION_TYPE_ID &&
 //            $lesson->lesson_type_id == Lesson::LESSON_TYPE_ID) {
+
+        if (!empty($lesson->customer_ids[0]))
 
             $transaction = Transaction::query()
                 ->create([
