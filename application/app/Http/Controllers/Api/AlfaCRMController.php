@@ -51,7 +51,7 @@ class AlfaCRMController extends Controller
 //            $lesson->status == Lesson::LESSON_CAME_TYPE_ID &&
 //            $lesson->lesson_type_id == Lesson::LESSON_TYPE_ID) {
 
-        if (!empty($lesson->customer_ids[0]))
+        if (!empty($lesson->customer_ids[0])) {
 
             $transaction = Transaction::query()->create([
                 'user_id' => $user->id,
@@ -63,6 +63,7 @@ class AlfaCRMController extends Controller
             ]);
 
             CameWithoutLead::dispatch($transaction, $setting, $user->account);
+        }
 //        }
     }
 
@@ -85,7 +86,7 @@ class AlfaCRMController extends Controller
 //            $lesson->status == Lesson::LESSON_OMISSION_TYPE_ID &&
 //            $lesson->lesson_type_id == Lesson::LESSON_TYPE_ID) {
 
-        if (!empty($lesson->customer_ids[0]))
+        if (!empty($lesson->customer_ids[0])) {
 
             $transaction = Transaction::query()
                 ->create([
@@ -98,6 +99,7 @@ class AlfaCRMController extends Controller
                 ]);
 
             OmissionWithoutLead::dispatch($transaction, $setting, $user->account);
+        }
 //        }
     }
 
