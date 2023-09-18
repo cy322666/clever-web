@@ -58,6 +58,21 @@ class Form extends Model
         return $utms;
     }
 
+    public static function getValueForKey(string $key, \stdClass $body, array $setting)
+    {
+        $key   = ucfirst($key);
+
+        $value = !empty($setting[$key]) && !empty($body->{$setting[$key]}) ? $body->{$setting[$key]} : null;
+
+        if (!$value) {
+
+            $key = strtolower($key);
+
+            $value = !empty($setting[$key]) && !empty($body->{$setting[$key]}) ? $body->{$setting[$key]} : null;
+        }
+        return $value;
+    }
+
     public function setCustomFields(Lead $lead, $fields) : Lead
     {
         $body = json_decode($this->body);
