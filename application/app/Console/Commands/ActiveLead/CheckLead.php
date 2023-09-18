@@ -50,27 +50,35 @@ class CheckLead extends Command
 
         $contact = $lead->contact;
 
-        if ($setting->check_pipeline) {
+        if ($contact) {
 
-            $pipelineId = Status::query()
-                ->find($setting->pipeline_id_check)
-                ->pipeline_id;
+            if ($setting->check_pipeline) {
 
-            $leads = Leads::searchAll($contact, $amoApi, $pipelineId);
+                $pipelineId = Status::query()
+                    ->find($setting->pipeline_id_check)
+                    ->pipeline_id;
 
-        } else
-            $leads = Leads::searchAll($contact, $amoApi);
+                $leads = Leads::searchAll($contact, $amoApi, $pipelineId);
 
-        /** @var Collection $leads */
-        if ($leads->count() > 1) {
+            } else
+                $leads = Leads::searchAll($contact, $amoApi);
 
-            $lead->attachTag($setting->tag);
-            $lead->save();
+            /** @var Collection $leads */
+            if ($leads->count() > 1) {
+
+                $lead->attachTag($setting->tag);
+                $lead->save();
+            }
+
+            $model->is_active   = $leads->count() > 1;
+            $model->count_leads = $leads->count();
+            $model->contact_id  = $contact->id;
+
+        } else {
+            $model->is_active   = false;
+            $model->count_leads = 1;
         }
 
-        $model->is_active   = $leads->count() > 1;
-        $model->count_leads = $leads->count();
-        $model->contact_id  = $contact->id;
         $model->status = 1;
         $model->save();
     }
