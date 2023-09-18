@@ -56,6 +56,8 @@ class Setting extends Model
 
     public static string $resource = BizonResource::class;
 
+    public static string $description = "Передача зрителей вебинара. Сегментация зрителей. Передача регистраций на вебинар...";
+
     public function getWebinarLink(): string
     {
         return route('bizon.hook', ['user' => $this->user->uuid]);

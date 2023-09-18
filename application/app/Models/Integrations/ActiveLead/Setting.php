@@ -15,6 +15,8 @@ class Setting extends Model
 
     public static string $resource = ActiveLeadResource::class;
 
+    public static string $description = "Проверка открытых сделок на контакте созданной сделки. Возможность задавать условия проверки...";
+
     const CONDITION_PIPELINE = 0;
     const CONDITION_ALL = 1;
 

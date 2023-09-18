@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\BizonResource\Pages;
+use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BizonResource extends Resource
 {
-    use TenantResource;
+    use TenantResource, SettingResource;
 
     protected static ?string $model = Setting::class;
 
@@ -24,11 +25,6 @@ class BizonResource extends Resource
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Бизон 365';
-
-    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
-    {
-        return 'Бизон365';
-    }
 
     public static function form(Forms\Form $form): Forms\Form
     {

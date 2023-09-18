@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\ActiveLeadResource\Pages;
+use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ActiveLead\Setting;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ActiveLeadResource extends Resource
 {
-    use TenantResource;
+    use TenantResource, SettingResource;
 
     protected static ?string $model = Setting::class;
 
@@ -28,11 +29,6 @@ class ActiveLeadResource extends Resource
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Проверка дубля';
-
-    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
-    {
-        return 'Проверка дубля';
-    }
 
     public static function form(Form $form): Form
     {

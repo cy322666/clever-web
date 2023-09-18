@@ -19,6 +19,8 @@ class Setting extends Model
 
     public static string $resource = AlfaResource::class;
 
+    public static string $description = "Передача клиента в АльфаСРМ. Изменение этапа при проведении/отмене урока...";
+
     public const CREATED = 0;
     public const RECORD = 1;
     public const CAME = 2;

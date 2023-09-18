@@ -19,6 +19,8 @@ class Setting extends Model
 
     public static string $resource = GetCourseResource::class;
 
+    public static string $description = "Интеграция нескольких форм/сайтов/настроек. Поиск и склейка дублей контакта. Возможность склеивать сделки...";
+
     public static array $cost = [
         '1_month'  => '1.000 р',
         '6_month'  => '5.000 р',

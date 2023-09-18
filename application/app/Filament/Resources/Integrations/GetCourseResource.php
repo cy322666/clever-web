@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\GetCourseResource\Pages;
+use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class GetCourseResource extends Resource
 {
-    use TenantResource;
+    use TenantResource, SettingResource;
 
     protected static ?string $model = GetCourse\Setting::class;
 
@@ -23,11 +24,6 @@ class GetCourseResource extends Resource
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Геткурс';
-
-    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
-    {
-        return 'Геткурс';
-    }
 
     public static function form(Forms\Form $form): Forms\Form
     {

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\AlfaResource\Pages;
+use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Alfa\Branch;
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\Auth;
 
 class AlfaResource extends Resource
 {
-    use TenantResource;
+    use TenantResource, SettingResource;
 
     protected static ?string $model = Setting::class;
 
@@ -35,11 +36,6 @@ class AlfaResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static bool $shouldRegisterNavigation = false;
-
-    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
-    {
-        return 'АльфаСРМ';
-    }
 
     public static function form(Form $form): Form
     {

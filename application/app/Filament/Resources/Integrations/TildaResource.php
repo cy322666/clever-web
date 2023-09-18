@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\TildaResource\Pages;
+use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Auth;
 
 class TildaResource extends Resource
 {
-    use TenantResource;
+    use TenantResource, SettingResource;
 
     protected static ?string $model = Tilda\Setting::class;
 
@@ -30,11 +31,6 @@ class TildaResource extends Resource
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Тильда';
-
-    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
-    {
-        return 'Тильда';
-    }
 
     public static function form(Form $form): Form
     {

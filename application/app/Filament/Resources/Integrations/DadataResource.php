@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\DadataResource\Pages;
+use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Status;
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\Auth;
 
 class DadataResource extends Resource
 {
-    use TenantResource;
+    use TenantResource, SettingResource;
 
     protected static ?string $model = Dadata\Setting::class;
 
@@ -33,11 +34,6 @@ class DadataResource extends Resource
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Инфо по номеру';
-
-    public static function getRecordTitle(?Model $record = null): string|Htmlable|null
-    {
-        return 'Инфо по номеру';
-    }
 
     public static function form(Form $form): Form
     {
