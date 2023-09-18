@@ -65,7 +65,7 @@ class FormSend extends Command
 
         if ($contact == null) {
 
-            $contact = Contacts::create($amoApi, $body->{$setting['name']} ?? 'Лид с тильды');
+            $contact = Contacts::create($amoApi, $body->{$setting['name']});
             $contact = Contacts::update($contact, [
                 'Телефоны' => !empty($setting['phone']) && !empty($body?->{$setting['phone']}) ? [$body?->{$setting['phone']}] : null,
                 'Почта'    => !empty($setting['email']) && !empty($body?->{$setting['email']}) ? $body?->{$setting['email']} : null,
