@@ -7,6 +7,7 @@ namespace App\Services\amoCRM\Models;
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
 abstract class Leads
@@ -58,7 +59,7 @@ abstract class Leads
         })->sortBy('created_at', 'DESC')?->first();
     }
 
-    public static function searchAll($contact, $client, int|array $pipelines = null)
+    public static function searchAll(Contact $contact, $client, int|array $pipelines = null)
     {
         return $contact->leads->filter(function($lead) use ($client, $pipelines) {
 
