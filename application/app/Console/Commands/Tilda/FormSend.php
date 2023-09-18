@@ -67,7 +67,7 @@ class FormSend extends Command
 
             $contact = Contacts::create($amoApi, Form::getValueForKey('name', $body, $setting));
             $contact = Contacts::update($contact, [
-                'Телефоны' => Form::getValueForKey('phone', $body, $setting),
+                'Телефоны' => [Form::getValueForKey('phone', $body, $setting)],
                 'Почта'    => Form::getValueForKey('email', $body, $setting),
                 'Ответственный' => $responsibleId,
             ]);
