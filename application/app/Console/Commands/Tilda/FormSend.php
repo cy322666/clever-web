@@ -59,16 +59,16 @@ class FormSend extends Command
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [Contacts::clearPhone($body->{$setting['phone']})],
-            'Почта'    => $body->{$setting['email']} ?? null,
+            'Телефоны' => [Form::getValueForKey('phone', $body, $setting)],
+            'Почта'    => Form::getValueForKey('email', $body, $setting),
         ], $amoApi);
 
         if ($contact == null) {
 
-            $contact = Contacts::create($amoApi, $body->{$setting['name']});
+            $contact = Contacts::create($amoApi, Form::getValueForKey('name', $body, $setting));
             $contact = Contacts::update($contact, [
-                'Телефоны' => !empty($setting['phone']) && !empty($body?->{$setting['phone']}) ? [$body?->{$setting['phone']}] : null,
-                'Почта'    => !empty($setting['email']) && !empty($body?->{$setting['email']}) ? $body?->{$setting['email']} : null,
+                'Телефоны' => Form::getValueForKey('phone', $body, $setting),
+                'Почта'    => Form::getValueForKey('email', $body, $setting),
                 'Ответственный' => $responsibleId,
             ]);
 
