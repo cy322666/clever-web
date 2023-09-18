@@ -69,6 +69,13 @@ class Form extends Model
             $key = strtolower($key);
 
             $value = !empty($setting[$key]) && !empty($body->{$setting[$key]}) ? $body->{$setting[$key]} : null;
+
+            if (!$value) {
+
+                $keySetting = strtolower($setting[$key]);
+
+                $value = !empty($keySetting) && !empty($body->{$keySetting}) ? $body->{$keySetting} : null;
+            }
         }
         return $value;
     }
