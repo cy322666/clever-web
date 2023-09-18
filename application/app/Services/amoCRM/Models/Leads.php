@@ -132,10 +132,10 @@ abstract class Leads
             $lead->cf('_ym_uid')->setValue($utms['_ym_uid']);
         }
 
-        if (!empty($utms['roistat_visit']) && $utms['roistat_visit'] !== null && !$lead->cf('roistat_visit')->getValue()) {
-
-            $lead->cf('roistat')->setValue($utms['roistat']);
-        }
+//        if (!empty($utms['roistat_visit']) && $utms['roistat_visit'] !== null && !$lead->cf('roistat_visit')->getValue()) {
+//
+//            $lead->cf('roistat')->setValue($utms['roistat']);
+//        }
 
         if (!empty($utms['roistat']) && $utms['roistat'] !== null && !$lead->cf('roistat')->getValue()) {
 
