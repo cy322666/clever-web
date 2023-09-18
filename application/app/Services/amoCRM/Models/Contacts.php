@@ -107,7 +107,7 @@ abstract class Contacts extends Client
             ->contacts()
             ->create();
 
-        $contact->name = $name;
+        $contact->name = !$name ? 'Неизвестно' : $name;
         $contact->save();
 
         return $contact;
