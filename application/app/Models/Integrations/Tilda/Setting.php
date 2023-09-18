@@ -19,6 +19,8 @@ class Setting extends Model
 
     public static string $resource = TildaResource::class;
 
+    public static string $description = "Интеграция нескольких форм/сайтов/настроек. Поиск и склейка дублей контакта. Возможность склеивать сделки...";
+
     public static array $cost = [
         '1_month'  => '500 р',
         '6_month'  => '3000 р',
