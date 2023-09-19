@@ -29,6 +29,7 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
 
             if (Env::get('APP_ENV') == 'production') {
+
                 $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getMessage(), 0, 150));
                 $title = $e->getFile() . ' : ' . $e->getLine();
 
@@ -39,7 +40,7 @@ class Handler extends ExceptionHandler
                     []
                 );
 
-                $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getTraceAsString(), 0, 200));
+                $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getTraceAsString(), 0, 150));
 
                 Telegram::send(
                     'Детали'."\n".$msg,
