@@ -10,6 +10,6 @@ class DocsController extends Controller
 {
     public function redirect(Request $request)
     {
-        Log::info(__METHOD__, file_get_contents('php://input'));
+        Log::info(__METHOD__, [file_get_contents('php://input')]);
     }
 }
