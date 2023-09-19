@@ -39,9 +39,9 @@ class FormSend extends Command
     public function handle(): bool
     {
         $form    = Form::find($this->argument('form'));
-        $body    = json_decode($form->body);
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
+        $body    = json_decode($form->body);
 
         $setting = json_decode($setting->settings, true)[$form->site];
 
@@ -59,7 +59,7 @@ class FormSend extends Command
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [Form::getValueForKey('phone', $body, $setting)],
+            'Телефоны' => [Contacts::clearPhone(Form::getValueForKey('phone', $body, $setting))],
             'Почта'    => Form::getValueForKey('email', $body, $setting),
         ], $amoApi);
 
