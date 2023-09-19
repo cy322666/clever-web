@@ -38,9 +38,7 @@ class Handler extends ExceptionHandler
                     env('TG_DEBUG_TOKEN'),
                     []
                 );
-            }
 
-            if (Env::get('APP_ENV') == 'production') {
                 $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getTraceAsString(), 0, 200));
 
                 Telegram::send(
