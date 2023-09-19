@@ -67,6 +67,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'amo_debug' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/amo_debug/laravel.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 5,
+            'replace_placeholders' => true,
+        ],
+
         'tokens' => [
             'driver' => 'single',
             'path' => storage_path('logs/tokens/laravel.log'),

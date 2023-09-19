@@ -14,6 +14,7 @@ class Client
 {
     public Oauthapi $service;
     public EloquentStorage $storage;
+    public Account $account;
     public User $user;
 
     public bool $auth = false;
@@ -24,6 +25,8 @@ class Client
      */
     public function __construct(Account $account)
     {
+        $this->user = $account->user;
+
         $this->storage = new EloquentStorage([
             'domain'    => $account->subdomain ?? null,
             'client_id' => $account->client_id ?? null,
@@ -41,8 +44,6 @@ class Client
             'redirect_uri'  => $this->storage->model->redirect_uri,
             'zone'          => $this->storage->model->zone,
         ]);
-
-        $this->user = $account->user;
     }
 
     public function setDelay(int $second): static

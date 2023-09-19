@@ -3,6 +3,7 @@
 namespace App\Services\amoCRM\Models;
 
 use App\Services\amoCRM\Client;
+use Illuminate\Support\Facades\Log;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
@@ -50,7 +51,7 @@ abstract class Contacts extends Client
         return $contact;
     }
 
-    public static function update($contact, $arrayFields = [])
+    public static function update(Contact $contact, $arrayFields = [])
     {
         if(key_exists('Телефоны', $arrayFields)) {
 
@@ -87,7 +88,17 @@ abstract class Contacts extends Client
             }
         }
 
-        $contact->save();
+        try {
+            $contact->save();
+
+        } catch (\Throwable $e) {
+
+            Log::channel('amo_debug')->warning([
+            'message' => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
+            'account' => ['no']
+        ]);
+}
 
         return $contact;
     }
@@ -108,14 +119,37 @@ abstract class Contacts extends Client
             ->create();
 
         $contact->name = !$name ? 'Неизвестно' : $name;
-        $contact->save();
+
+        try {
+
+            $contact->save();
+
+        } catch (\Throwable $e) {
+
+            Log::channel('amo_debug')->warning([
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+                'account' => $amoapi->account->toArray(),
+            ]);
+        }
 
         return $contact;
     }
 
-    public static function get($client, $id)
+    public static function get($amoapi, $id)
     {
-        return $client->service->contacts()->find($id);
+        try {
+
+            return $amoapi->service->contacts()->find($id);
+
+        } catch (\Throwable $e) {
+
+            Log::channel('amo_debug')->warning([
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+                'account' => $amoapi->account->toArray(),
+            ]);
+        }
     }
 
     public static function buildLink($amoApi, int $contactId) : string
