@@ -55,7 +55,7 @@ class BizonController extends Controller
 
         $commentariesTS = json_decode($info->report->messages, true);
 
-        $amoApi = (new \App\Services\amoCRM\Client($user->account));
+//        $amoApi = (new \App\Services\amoCRM\Client($user->account));
 
 //        if (!$amoApi->auth) {
 //
