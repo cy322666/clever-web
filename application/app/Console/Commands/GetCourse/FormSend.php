@@ -43,7 +43,6 @@ class FormSend extends Command
         $setting = Setting::find($this->argument('setting'));
 
         $amoApi = (new Client($account))
-            ->init()
             ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
 

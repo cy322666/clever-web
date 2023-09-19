@@ -92,7 +92,12 @@ class ViewUser extends ViewRecord
      */
     public function amocrmUpdate(): void
     {
-        $amoApi = (new Client(Auth::user()->account))->init();
+        $amoApi = (new Client(Auth::user()->account));
+
+        if (!$amoApi->auth) {
+
+            $amoApi->init();
+        }
 
         if ($amoApi->auth) {
 

@@ -44,7 +44,6 @@ class ViewerSend extends Command
         $account = Account::find($this->argument('account'));
 
         $amoApi = (new Client($account))
-            ->init()
             ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
 

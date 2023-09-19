@@ -46,7 +46,6 @@ class FormSend extends Command
         $setting = json_decode($setting->settings, true)[$form->site];
 
         $amoApi = (new Client($account))
-            ->init()
             ->setDelay(0.5)
             ->initLogs(Env::get('APP_DEBUG'));
 

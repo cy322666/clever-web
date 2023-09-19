@@ -39,15 +39,16 @@ class AuthController extends Controller
         $account->client_secret = config('services.amocrm.client_secret');
         $account->save();
 
-        $amoApi = (new Client($account->refresh()))
-            ->init();
+        $amoApi = (new Client($account->refresh()));
 
-        if ($amoApi->checkAuth()) {
+        if (!$amoApi->checkAuth()) {
+            $amoApi->init();
 
 //            $amoApi->service->account; TODO
-            $account->active = true;
-            $account->save();
         }
+
+        $account->active = $amoApi->auth;
+        $account->save();
 
         return redirect()->route('filament.app.resources.core.users.view', [
             'record' => $user,

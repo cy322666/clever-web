@@ -55,17 +55,17 @@ class BizonController extends Controller
 
         $commentariesTS = json_decode($info->report->messages, true);
 
-        $amoApi = (new \App\Services\amoCRM\Client($user->account))->init();
+        $amoApi = (new \App\Services\amoCRM\Client($user->account));
 
-        if (!$amoApi->auth) {
-
-            Notification::make()
-                ->title('Зрители вебинара не выгружены из-за ошибки авторизации в amoCRM')
-                ->danger()
-                ->sendToDatabase($user);
-
-            return;
-        }
+//        if (!$amoApi->auth) {
+//
+//            Notification::make()
+//                ->title('Зрители вебинара не выгружены из-за ошибки авторизации в amoCRM')
+//                ->danger()
+//                ->sendToDatabase($user);
+//
+//            return;
+//        }
 
         $delay = 0;
 

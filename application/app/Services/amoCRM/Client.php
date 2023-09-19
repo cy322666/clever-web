@@ -44,6 +44,8 @@ class Client
             'redirect_uri'  => $this->storage->model->redirect_uri,
             'zone'          => $this->storage->model->zone,
         ]);
+
+        $this->checkAuth();
     }
 
     public function setDelay(int $second): static
