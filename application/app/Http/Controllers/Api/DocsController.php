@@ -10,6 +10,6 @@ class DocsController extends Controller
 {
     public function redirect(Request $request)
     {
-        Log::info(__METHOD__, explode('=', $request->getRequestUri()));
+        Log::info(__METHOD__, explode('=', $request->path()));
     }
 }
