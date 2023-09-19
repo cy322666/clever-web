@@ -67,6 +67,13 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'tokens' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/tokens/laravel.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'getcourse-form' => [
             'driver' => 'daily',
             'path' => storage_path('logs/getcourse/form/laravel.log'),

@@ -78,6 +78,9 @@ class Client
         if ($this->storage->model->refresh_token) {
 
             $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
+
+            Log::channel('tokens')->info('refresh user : '.$this->user->email, $oauth);
+
         } else
             $oauth = $this->service->fetchAccessToken($this->storage->model->code);
 
