@@ -10,6 +10,6 @@ class DocsController extends Controller
 {
     public function redirect(Request $request)
     {
-        Log::info(__METHOD__, $request->toArray());
+        Log::info(__METHOD__, $request->all());
     }
 }
