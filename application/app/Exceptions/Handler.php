@@ -32,16 +32,23 @@ class Handler extends ExceptionHandler
                 $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getMessage(), 0, 150));
                 $title = $e->getFile() . ' : ' . $e->getLine();
 
-                try {
-                    Telegram::send(
-                        '*Ошибка в коде!* ' . "\n" . "*Где:* $title" . "\n" . "*Текст:* $msg",
-                        env('TG_DEBUG_CHAT_ID'),
-                        env('TG_DEBUG_TOKEN'),
-                        []
-                    );
-                } catch (Throwable $e) {
-                    Telegram::send('REPORT ERROR : ' . $title, env('TG_DEBUG_CHAT_ID'), env('TG_DEBUG_TOKEN'), []);
-                }
+                Telegram::send(
+                    '*Ошибка в коде!* ' . "\n" . "*Где:* $title" . "\n" . "*Текст:* $msg",
+                    env('TG_DEBUG_CHAT_ID'),
+                    env('TG_DEBUG_TOKEN'),
+                    []
+                );
+            }
+
+            if (Env::get('APP_ENV') == 'production') {
+                $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getTraceAsString(), 0, 200));
+
+                Telegram::send(
+                    'Детали'."\n".$msg,
+                    env('TG_DEBUG_CHAT_ID'),
+                    env('TG_DEBUG_TOKEN'),
+                    []
+                );
             }
         });
     }
