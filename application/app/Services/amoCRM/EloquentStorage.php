@@ -32,30 +32,30 @@ class EloquentStorage extends AbstractStorage
         return true;
     }
 
-    public function getOauthData(Oauthapi $client, $field = null)
+    public function getOauthData(Oauthapi $client, $field = null): string|array
     {
-        return $this->getOauth();
+        return $this->getOauth($field);
     }
 
-    private function getOauth() : array
+    protected function getOauth(?string $field = null) : string|array
     {
-        return [
+        $data = [
             'token_type'    => 'Bearer',
             'access_token'  => $this->model->access_token,
             'refresh_token' => $this->model->refresh_token,
             'expires_in'    => $this->model->expires_in,
             'created_at'    => $this->model->created_at,
         ];
+
+        return $field ? $data[$field] : $data;
     }
 
-    private function setOauth(array $oauth) : array
+    private function setOauth(array $oauth): void
     {
         $this->model->access_token  = $oauth['access_token'];
         $this->model->refresh_token = $oauth['refresh_token'];
         $this->model->expires_in    = $oauth['expires_in'];
         $this->model->created_at    = $oauth['created_at'];
         $this->model->save();
-
-        return $oauth;
     }
 }

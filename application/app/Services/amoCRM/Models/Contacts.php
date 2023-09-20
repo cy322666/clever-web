@@ -9,7 +9,10 @@ use Ufee\Amo\Models\Lead;
 
 abstract class Contacts extends Client
 {
-    public static function search($arrayFields, $client)
+    /**
+     * @throws \Exception
+     */
+    public static function search($arrayFields, Client $amoApi)
     {
         $contacts = null;
 
@@ -18,7 +21,7 @@ abstract class Contacts extends Client
             foreach ($arrayFields['Телефоны'] as $phone) {
 
                 if ($phone)
-                    $contacts = $client->service
+                    $contacts = $amoApi->service
                         ->contacts()
                         ->searchByPhone(substr($phone, -10));
             }
@@ -29,7 +32,7 @@ abstract class Contacts extends Client
 
             if ($arrayFields['Почта'])
 
-                $contacts = $client->service
+                $contacts = $amoApi->service
                     ->contacts()
                     ->searchByEmail($arrayFields['Почта']);
         }
