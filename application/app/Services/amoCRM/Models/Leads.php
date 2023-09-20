@@ -100,7 +100,6 @@ abstract class Leads
             $lead->status_id = $params['status_id'];
 
         $lead->contacts_id = $contact->id;
-        $lead->updated_at = time() + 30;
         $lead->save();
 
         return $lead;
@@ -153,6 +152,9 @@ abstract class Leads
 
             $lead->cf('referrer')->setValue($utms['previousUrl']);
         }
+
+        $lead->updated_at = time() + 10;
+        $lead->save();
 
         return $lead;
     }
