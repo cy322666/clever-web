@@ -45,7 +45,10 @@ class Client
             'zone'          => $this->storage->model->zone,
         ]);
 
-        $this->checkAuth();
+        if(!$this->checkAuth()) {
+
+            $this->init();
+        }
     }
 
     public function setDelay(int $second): static
