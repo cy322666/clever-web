@@ -124,7 +124,27 @@ class WebinarResource extends Resource
                             }
                         });
                     })
-                    ->label('Догрузить')
+                    ->label('Догрузить'),
+
+                Tables\Actions\BulkAction::make('repeated')
+                    ->action(function (Collection $collection) {
+
+                        $collection->each(function (Webinar $webinar) {
+
+                            $user    = $webinar->user;
+                            $setting = $user->bizon_settings;
+
+                            $viewers = $webinar->viewers;
+
+                            $delay = 0;
+
+                            foreach ($viewers as $viewer) {
+
+                                ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
+                            }
+                        });
+                    })
+                    ->label('Выгрузить')
             ])
             ->emptyStateActions([]);
     }
