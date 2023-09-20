@@ -75,6 +75,8 @@ class FormResource extends Resource
                             $user    = $form->user;
                             $setting = $user->tilda_settings;
 
+                            sleep(2);
+
                             FormSend::dispatch($form, $user->account, $setting);
                         });
                     })
