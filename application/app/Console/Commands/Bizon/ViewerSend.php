@@ -81,16 +81,16 @@ class ViewerSend extends Command
                 'responsible_user_id' => $responsibleId,
                 'status_id'           => $statusId,
             ], 'Новый зритель вебинара');
-
-            $lead = Leads::setUtms($lead, [
-                'utm_source'  => $viewer->utm_source ?? null,
-                'utm_medium'  => $viewer->utm_medium ?? null,
-                'utm_content' => $viewer->utm_content ?? null,
-                'utm_term'    => $viewer->utm_term ?? null,
-                'utm_campaign'=> $viewer->utm_campaign ?? null,
-                'utm_referrer'=> $viewer->utm_referrer ?? null,
-            ]);
         }
+
+        $lead = Leads::setUtms($lead, [
+            'utm_source'  => $viewer->utm_source ?? null,
+            'utm_medium'  => $viewer->utm_medium ?? null,
+            'utm_content' => $viewer->utm_content ?? null,
+            'utm_term'    => $viewer->utm_term ?? null,
+            'utm_campaign'=> $viewer->utm_campaign ?? null,
+            'utm_referrer'=> $viewer->utm_referrer ?? null,
+        ]);
 
         Notes::addOne($lead, ViewerNote::create($viewer));
 
