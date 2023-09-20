@@ -100,7 +100,7 @@ abstract class Leads
             $lead->status_id = $params['status_id'];
 
         $lead->contacts_id = $contact->id;
-        $lead->updated_at = time() + 5;
+        $lead->updated_at = time() + 30;
         $lead->save();
 
         return $lead;
