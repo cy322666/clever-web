@@ -50,9 +50,11 @@ class FormResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('lead_id')
+                    ->url(fn(Form $form) => 'https://'.$form->user->account->subdomain.'.amocrm.ru/leads/detail/'.$form->lead_id, true)
                     ->label('Сделка'),
 
                 Tables\Columns\TextColumn::make('contact_id')
+                    ->url(fn(Form $form) => 'https://'.$form->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$form->lead_id, true)
                     ->label('Контакт'),
 
                 Tables\Columns\BooleanColumn::make('status')
