@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\DocResource\Pages;
+use App\Helpers\Traits\SettingResource;
+use App\Helpers\Traits\TenantResource;
 use App\Models\Integrations\Docs\Setting;
 use Carbon\Carbon;
 use Filament\Forms;
@@ -17,6 +19,8 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class DocResource extends Resource
 {
+    use TenantResource, SettingResource;
+
     protected static ?string $model = Setting::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
