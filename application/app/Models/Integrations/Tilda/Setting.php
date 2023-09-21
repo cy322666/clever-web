@@ -35,6 +35,7 @@ class Setting extends Model
         'name',
         'email',
         'phone',
+        'utms',
     ];
 
 }

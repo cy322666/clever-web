@@ -85,6 +85,14 @@ class TildaResource extends Resource
                                     ])
                                     ->required(),
 
+                                Forms\Components\Radio::make('utms')
+                                    ->label('Действия с метками')
+                                    ->options([
+                                        'merge'   => 'Дополнять',
+                                        'rewrite' => 'Перезаписывать',
+                                    ])
+                                    ->required(),
+
                                 Forms\Components\Repeater::make('fields')
                                     ->label('Соотношение полей сделки')
                                     ->schema([

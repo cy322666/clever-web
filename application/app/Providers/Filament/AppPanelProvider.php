@@ -7,6 +7,7 @@ use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Dadata\InfoResource;
+use App\Filament\Resources\Integrations\DocResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Models\User;
 use Exception;
@@ -127,6 +128,15 @@ class AppPanelProvider extends PanelProvider
                                 ->label('Инфо')
                                 ->icon('heroicon-o-magnifying-glass')
                                 ->url(fn (): string => InfoResource::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
+                        ]),
+
+                    NavigationGroup::make('')
+                        ->items([
+                            NavigationItem::make('Доки')
+                                ->label('Доки')
+                                ->icon('heroicon-o-academic-cap')
+                                ->url(fn (): string => DocResource::getUrl('edit', ['record' => 1]))
                                 ->hidden(fn() => !Auth::user()->is_root),
                         ]),
                 ]);

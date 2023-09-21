@@ -50,6 +50,7 @@ class Setting extends Model
         'pipeline_id_form',
         'responsible_user_id_form',
         'tag_form',
+        'utms',
     ];
 
     protected $table = 'bizon_settings';

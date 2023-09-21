@@ -50,9 +50,4 @@ class EditTilda extends EditRecord
 
         return $data;
     }
-
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        return $data;
-    }
 }

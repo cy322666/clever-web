@@ -32,5 +32,6 @@ class UpdateAll extends Command
         Artisan::call('install:tilda');
         Artisan::call('install:active-lead');
         Artisan::call('install:data-info');
+        Artisan::call('install:doc');
     }
 }

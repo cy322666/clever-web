@@ -83,14 +83,20 @@ class ViewerSend extends Command
             ], 'Новый зритель вебинара');
         }
 
-        $lead = Leads::setUtms($lead, [
+        $utms = [
             'utm_source'  => $viewer->utm_source ?? null,
             'utm_medium'  => $viewer->utm_medium ?? null,
             'utm_content' => $viewer->utm_content ?? null,
             'utm_term'    => $viewer->utm_term ?? null,
             'utm_campaign'=> $viewer->utm_campaign ?? null,
             'utm_referrer'=> $viewer->utm_referrer ?? null,
-        ]);
+        ];
+
+        if ($setting->utms == 'rewrite') {
+
+            $lead = Leads::setRewriteUtms($lead, $utms);
+        } else
+            $lead = Leads::setUtms($lead, $utms);
 
         Notes::addOne($lead, ViewerNote::create($viewer));
 
