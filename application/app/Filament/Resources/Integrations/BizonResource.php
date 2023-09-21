@@ -148,6 +148,14 @@ class BizonResource extends Resource
                                     ->label('Вебинарная воронка')
                                     ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
                                     ->searchable(),
+
+                                Forms\Components\Radio::make('utms')
+                                    ->label('Действия с метками')
+                                    ->options([
+                                        'merge'   => 'Дополнять',
+                                        'rewrite' => 'Перезаписывать',
+                                    ])
+                                    ->required(),
                             ])
                             ->columns([
                                 'sm' => 2,
