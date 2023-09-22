@@ -60,7 +60,7 @@ class ViewerSend extends Command
             ?->staff_id;
 
         $contact = Contacts::search([
-            'Телефоны' => [$viewer->phone],
+            'Телефоны' => [Contacts::clearPhone($viewer->phone)],
             'Почта'    => $viewer->email
         ], $amoApi);
 
@@ -68,7 +68,7 @@ class ViewerSend extends Command
 
             $contact = Contacts::create($amoApi, $viewer->username);
             $contact = Contacts::update($contact, [
-                'Телефоны' => [$viewer->phone],
+                'Телефоны' => [Contacts::clearPhone($viewer->phone)],
                 'Почта'    => $viewer->email,
                 'Ответственный' => $responsibleId,
             ]);
