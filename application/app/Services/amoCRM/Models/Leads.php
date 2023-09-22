@@ -130,7 +130,7 @@ abstract class Leads
             $lead->cf('roistat')->setValue($utms['roistat']);
         }
 
-//        $lead->updated_at = time() + 10;
+        $lead->updated_at = null;
         $lead->save();
 
         return $lead;
@@ -164,7 +164,7 @@ abstract class Leads
             $lead->cf('referrer')->setValue($utms['previousUrl']);
         }
 
-//        $lead->updated_at = time() + 10;
+        $lead->updated_at = null;
         $lead->save();
 
         return $lead;
@@ -189,7 +189,7 @@ abstract class Leads
         if(!empty($params['sale']))
             $lead->sale = $params['sale'];
 
-//        $lead->updated_at = time();
+        $lead->updated_at = time();
         $lead->save();
 
         return $lead;
