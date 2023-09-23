@@ -52,8 +52,10 @@ class FormSend extends Command
             ->find($setting->response_user_id_form)
             ?->staff_id;
 
+        $phone = Contacts::clearPhone($form->phone);
+
         $contact = Contacts::search([
-            'Телефоны' => [Contacts::clearPhone($form->phone)],
+            'Телефоны' => [$phone],
             'Почта'    => $form->email,
         ], $amoApi);
 
@@ -66,7 +68,7 @@ class FormSend extends Command
 
         $contact = Contacts::update($contact, [
             'Имя' => $form->name,
-            'Телефоны' => [Contacts::clearPhone($form->phone)],
+            'Телефоны' => [$phone],
             'Почта'    => $form->email,
             'Ответственный' => $responsibleId,
         ]);

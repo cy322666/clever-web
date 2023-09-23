@@ -57,8 +57,11 @@ class FormSend extends Command
             ->find($setting['responsible_user_id'])
             ?->staff_id;
 
+        $phone = Form::getValueForKey('phone', $body, $setting);
+        $phone = Contacts::clearPhone($phone);
+
         $contact = Contacts::search([
-            'Телефоны' => [Contacts::clearPhone(Form::getValueForKey('phone', $body, $setting))],
+            'Телефоны' => [$phone],
             'Почта'    => Form::getValueForKey('email', $body, $setting),
         ], $amoApi);
 
@@ -66,7 +69,7 @@ class FormSend extends Command
 
             $contact = Contacts::create($amoApi, Form::getValueForKey('name', $body, $setting) ?? 'Неизвестно');
             $contact = Contacts::update($contact, [
-                'Телефоны' => [Contacts::clearPhone(Form::getValueForKey('phone', $body, $setting))],
+                'Телефоны' => [$phone],
                 'Почта'    => Form::getValueForKey('email', $body, $setting),
                 'Ответственный' => $responsibleId,
             ]);
