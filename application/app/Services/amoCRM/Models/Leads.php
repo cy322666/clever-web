@@ -125,6 +125,11 @@ abstract class Leads
             $lead->cf('utm_campaign')->setValue($utms['utm_campaign']);
         }
 
+        if ($utms['utm_medium'] ?? null) {
+
+            $lead->cf('utm_medium')->setValue($utms['utm_medium']);
+        }
+
         if ($utms['roistat'] ?? null) {
 
             $lead->cf('roistat')->setValue($utms['roistat']);
@@ -139,6 +144,28 @@ abstract class Leads
     //merge
     public static function setUtms(Lead $lead, array $utms): Lead
     {
+        if (!empty($utms['utm_source']) && !$lead->cf('utm_source')->getValue()) {
+
+            $lead->cf('utm_source')->setValue($utms['utm_source']);
+        }
+        if (!empty($utms['utm_content']) && !$lead->cf('utm_content')->getValue()) {
+
+            $lead->cf('utm_content')->setValue($utms['utm_content']);
+        }
+        if (!empty($utms['utm_term']) && !$lead->cf('utm_term')->getValue()) {
+
+            $lead->cf('utm_term')->setValue($utms['utm_term']);
+        }
+        if (!empty($utms['utm_campaign']) && !$lead->cf('utm_campaign')->getValue()) {
+
+            $lead->cf('utm_campaign')->setValue($utms['utm_campaign']);
+        }
+
+        if ($utms['utm_medium'] ?? null) {
+
+            $lead->cf('utm_medium')->setValue($utms['utm_medium']);
+        }
+
         if (!empty($utms['_ym_uid']) && !$lead->cf('_ym_uid')->getValue()) {
 
             $lead->cf('_ym_uid')->setValue($utms['_ym_uid']);
