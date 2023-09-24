@@ -79,15 +79,21 @@ class FormSend extends Command
                 'responsible_user_id' => $responsibleId,
                 'status_id'           => $statusId,
             ], 'Новая регистрация на Бизон');
-
-//            $lead = Leads::setUtms($lead, [
-//                'utm_source'  => $form->utm_source ?? null,
-//                'utm_medium'  => $form->utm_medium ?? null,
-//                'utm_content' => $form->utm_content ?? null,
-//                'utm_term'    => $form->utm_term ?? null,
-//                'utm_campaign'=> $form->utm_campaign ?? null,
-//            ]);
         }
+
+        $utms = [
+            'utm_source'  => $form->utm_source ?? null,
+            'utm_medium'  => $form->utm_medium ?? null,
+            'utm_content' => $form->utm_content ?? null,
+            'utm_term'    => $form->utm_term ?? null,
+            'utm_campaign'=> $form->utm_campaign ?? null,
+        ];
+
+        if ($setting['utms'] == 'rewrite') {
+
+            $lead = Leads::setRewriteUtms($lead, $utms);
+        } else
+            $lead = Leads::setUtms($lead, $utms);
 
         Tags::add($lead, $setting->tag_form);
 
@@ -97,7 +103,5 @@ class FormSend extends Command
         $form->lead_id = $lead->id;
         $form->status = 1;
         $form->save();
-
-        return true;
     }
 }
