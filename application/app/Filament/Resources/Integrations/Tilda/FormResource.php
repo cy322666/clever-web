@@ -38,6 +38,9 @@ class FormResource extends Resource
         return $table
             ->columns([
 
+                Tables\Columns\TextColumn::make('id')
+                    ->label('ID'),
+
                 Tables\Columns\TextColumn::make('user.email')
                     ->label('Клиент')
                     ->searchable()
