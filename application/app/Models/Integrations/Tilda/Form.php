@@ -37,6 +37,14 @@ class Form extends Model
 
         $body = json_decode($this->body);
 
+        $utms['roistat_url'] = $body->roistat_url ?? null;
+        $utms['roistat']     = $body->roistat ?? null;
+        $utms['utm_source']  = $body->utm_source ?? null;
+        $utms['utm_medium']  = $body->utm_medium ?? null;
+        $utms['utm_content'] = $body->utm_content ?? null;
+        $utms['utm_term'] = $body->utm_term ?? null;
+        $utms['utm_campaign'] = $body->utm_campaign ?? null;
+
         if (!empty($body->COOKIES)) {
 
             $arrayCookies = explode(';', $body->COOKIES ?? '');
@@ -48,13 +56,6 @@ class Form extends Model
                 $utms[trim($array[0])] = trim(urldecode($array[1] ?? ''));
             }
         }
-
-        $utms['roistat_url'] = $body->roistat_url ?? null;
-        $utms['utm_source']  = $body->utm_source ?? null;
-        $utms['utm_medium']  = $body->utm_medium ?? null;
-        $utms['utm_content'] = $body->utm_content ?? null;
-        $utms['utm_term'] = $body->utm_term ?? null;
-        $utms['utm_campaign'] = $body->utm_campaign ?? null;
 
         return $utms;
     }
