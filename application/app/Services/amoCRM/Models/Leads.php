@@ -135,7 +135,14 @@ abstract class Leads
             $lead->cf('roistat')->setValue($utms['roistat']);
         }
 
-//        $lead->updated_at = null;
+        if (empty($utms['roistat']) && !empty($utms['roistat_visit'])) {
+
+            if (!$lead->cf('roistat')->getValue()) {
+
+                $lead->cf('roistat')->setValue($utms['roistat_visit']);
+            }
+        }
+
         $lead->save();
 
         return $lead;
