@@ -36,13 +36,13 @@ class FormSend extends Command
      * Execute the console command.
      * @throws \Exception
      */
-    public function handle(): bool
+    public function handle()
     {
         $form    = Form::find($this->argument('form'));
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
-        $body    = json_decode($form->body);
 
+        $body = json_decode($form->body);
         $setting = json_decode($setting->settings, true)[$form->site];
 
         $amoApi = (new Client($account))
@@ -90,16 +90,15 @@ class FormSend extends Command
             ], 'Новая заявка с Тильды');
         }
 
-        if ($setting['utms'] == 'rewrite') {
+        if ($setting['utms'] == 'rewrite')
 
             $lead = Leads::setRewriteUtms($lead, $form->parseCookies());
-        } else
+        else
             $lead = Leads::setUtms($lead, $form->parseCookies());
 
-        if (isset($setting['fields'])) {
+        if (isset($setting['fields']))
 
             $lead = $form->setCustomFields($lead, $setting['fields']);
-        }
 
         Tags::add($lead, $setting['tag'] ?? null);
         Tags::add($lead, 'tilda');
@@ -110,7 +109,5 @@ class FormSend extends Command
         $form->lead_id = $lead->id;
         $form->status = 1;
         $form->save();
-
-        return true;
     }
 }

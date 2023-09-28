@@ -85,7 +85,7 @@ class FormResource extends Resource
                             FormSend::dispatch($form, $user->account, $setting);
                         });
                     })
-                    ->label('Догрузить')
+                    ->label('Выгрузить')
             ])
             ->emptyStateActions([]);
     }

@@ -38,5 +38,9 @@ return [
         'description'  => env('AMO_DESCRIPTION'),
         'redirect_uri' => env('AMO_REDIRECT_URI'),
         'secrets_uri'  => env('AMO_SECRETS_URI'),
-    ]
+    ],
+    'yandex' => [
+        'local_storage_path'  => storage_path('app/public/'),
+        'yandex_storage_path' => 'amoCRM/Documents/',
+    ],
 ];
