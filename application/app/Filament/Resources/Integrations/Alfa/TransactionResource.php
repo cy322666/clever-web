@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class TransactionResource extends Resource
 {
@@ -60,19 +61,24 @@ class TransactionResource extends Resource
                     ->url(fn(Transaction $transaction) => 'https://'.$transaction->user->alfacrm_settings->domain.'.s20.online/company/'.$transaction->alfa_branch_id.'/customer/view?id='.$transaction->alfa_client_id, true)
                     ->label('Клиент'),
 
-//                Tables\Columns\TextColumn::make('alfa_branch_id')
-//                    ->label('ID филиала'),
+                Tables\Columns\TextColumn::make('alfa_branch_id')
+                    ->label('ID филиала'),
 
                 Tables\Columns\TextColumn::make('alfa_lesson_id')
                     ->label('ID урока'),
 
-                //TODO
                 Tables\Columns\TextColumn::make('status')
                     ->label('Событие')
-                    ->state(fn(Transaction $transaction) => match ($transaction->status) {
-                        Setting::RECORD => 'Записан',
-                        Setting::CAME => 'Пришел',
-                        Setting::OMISSION => 'Не пришел',
+                    ->badge()
+                    ->color(fn (Transaction $transaction) => match ((int)$transaction->status) {
+                        Setting::RECORD => 'gray',
+                        Setting::CAME => 'success',
+                        Setting::OMISSION => 'danger',
+                    })
+                    ->state(fn(Transaction $transaction) => match ((int)$transaction->status) {
+                        Setting::RECORD => 'записан',
+                        Setting::CAME => 'пришел',
+                        Setting::OMISSION => 'не пришел',
                         default => '-',
                     }),
             ])
