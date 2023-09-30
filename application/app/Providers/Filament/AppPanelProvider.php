@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\App\Pages\Market;
 use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
+use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Dadata\InfoResource;
 use App\Filament\Resources\Integrations\DocResource;
@@ -122,6 +123,12 @@ class AppPanelProvider extends PanelProvider
                                 ->label('Тильда')
                                 ->icon('heroicon-o-identification')
                                 ->url(fn (): string => FormResource::getUrl())
+                                ->hidden(fn() => !Auth::user()->is_root),
+
+                            NavigationItem::make('Альфа')
+                                ->label('Альфа')
+                                ->icon('heroicon-o-bars-3-bottom-left')
+                                ->url(fn (): string => TransactionResource::getUrl())
                                 ->hidden(fn() => !Auth::user()->is_root),
 
                             NavigationItem::make('Инфо')

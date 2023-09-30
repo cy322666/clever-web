@@ -2,7 +2,9 @@
 
 namespace App\Models\Integrations\Alfa;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Transaction extends Model
 {
@@ -23,4 +25,9 @@ class Transaction extends Model
         'error',
         'user_id',
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 }
