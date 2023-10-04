@@ -39,4 +39,27 @@ class Setting extends Model
     {
         return $this->hasMany(Field::class)->where('user_id', Auth::id());
     }
+
+    public static function caseMonth(string $month, string $case)
+    {
+        if ($case == 'r') {
+
+            return match ($month) {
+
+                'январь'  => 'января',
+                'февраль' => 'февраля',
+                'март'   => 'марта',
+                'апрель' => 'апреля',
+                'май'    => 'мая',
+                'июнь'   => 'июня',
+                'июль'   => 'июля',
+                'август' => 'августа',
+                'октябрь'  => 'октября',
+                'сентябрь' => 'сентября',
+                'ноябрь'   => 'ноября',
+                'декабрь'  => 'декабря',
+                default => $month,
+            };
+        }
+    }
 }

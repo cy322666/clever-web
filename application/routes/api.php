@@ -51,7 +51,7 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
 
     Route::post('data/{user:uuid}', [DadataController::class, 'hook'])->name('data.hook');
 
-    Route::post('docs/{user:uuid}/{doc}', [DocsController::class, 'hook'])->name('docs.hook');
+    Route::post('docs/{user:uuid}/{doc}', [DocsController::class, 'hook'])->name('doc.hook');
 
 });
 
@@ -62,5 +62,5 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::get('redirect', [AuthController::class, 'redirect']);
 });
 
-Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('docs.redirect');
+Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
 

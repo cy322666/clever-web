@@ -2,7 +2,12 @@
 
 namespace App\Models\Integrations\Docs;
 
+use App\Http\Requests\Api\GetCourse\PaymentRequest;
 use App\Models\amoCRM\Field;
+use App\Services\Doc\DefaultFormatting;
+use App\Services\Doc\FormatService;
+use App\Services\Doc\StaticFormatting;
+use App\Services\Doc\TransformFormatting;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,32 +28,45 @@ class Doc extends Model
         'doc_id',
     ];
 
-    public static array $staticVariables = [
-        'date',
-    ];
-
+    /**
+     * обычные поля
+     * статические
+     * обычные преобразованные
+     * проверка от сложного к простому
+     *
+     * @param array $variables
+     * @param TemplateProcessor $doc
+     * @param array $entities
+     * @return TemplateProcessor
+     */
     public static function generate(array $variables, TemplateProcessor $doc, array $entities): TemplateProcessor
     {
+        // переменные из шаблона
         foreach ($variables as $variable) {
 
-            if (in_array($variable, static::$staticVariables)) {
+            // 123123#date|Y-m-d - поле амо + форматирование
+            if (strripos($variable, '#')) {
 
-                if ($variable == 'date') {
+                // значение из amoCRM
+                $value = FormatService::getValue(FormatService::getFieldId($variable), $entities);
 
-                    $doc->setValue('date', Carbon::now()->format('Y-m-d'));
-                }
-            } else {
+                // transform
+                $valueFormat = TransformFormatting::matchTypeAndFormat($variable, $value);
 
-                $field = Field::query()
-                    ->where('field_id', $variable)
-                    ->first();
+            } elseif(strripos($variable, '|')) {
 
-                $value = $entities[$field->entity_type]->cf($field->name)->getValue();
+                // static
+                $valueFormat = StaticFormatting::matchTypeAndFormat($variable);
 
-                $doc->setValue($variable, $value);
+            } else
+                //простое поле
+                $value = FormatService::getValue((int)$variable, $entities);
 
-                unset($field, $value);
-            }
+            $doc->setValue($variable, $valueFormat ?? $value);
+
+            unset($variable);
+            unset($valueFormat);
+            unset($value);
         }
 
         return $doc;

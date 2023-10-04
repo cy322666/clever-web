@@ -38,6 +38,18 @@ class DocResource extends Resource
                             ->label('Основное')
                             ->schema([
 
+                                Forms\Components\TextInput::make('link')
+                                    ->label('Вебхук ссылка'),
+
+                                Forms\Components\TextInput::make('name_form')
+                                    ->label('Название')
+                                    ->hint('Для различения документов'),
+
+                                Forms\Components\Select::make('field_amo')
+                                    ->label('Поле из amoCRM')
+                                    ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
+                                    ->required(),
+
                                 Forms\Components\FileUpload::make('template')
                                     ->label('Шаблон')
                                     ->directory(fn() => 'docs/templates/'.Auth::user()->account->subdomain)
@@ -46,15 +58,6 @@ class DocResource extends Resource
                                         fn (TemporaryUploadedFile $file): string => (string) str($file->getClientOriginalName())
                                             ->prepend(Carbon::now()->format('Y-m-d H:i:s').'-'),
                                     ),
-
-                                Forms\Components\TextInput::make('name_form')
-                                    ->label('Название')
-                                    ->hint('Для различения настроек форм'),
-
-                                Forms\Components\Select::make('field_amo')
-                                    ->label('Поле из amoCRM')
-                                    ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
-                                    ->required(),
                             ])
                             ->columns()
                             ->collapsible()
