@@ -40,9 +40,9 @@ class Generate extends Command
      */
     public function handle()
     {
-        $doc    = Doc::find($this->argument('doc'));
-        $account = Account::find($this->argument('account'));
-        $setting = Setting::find($this->argument('setting'));
+        $doc     = $this->argument('doc');
+        $account = $this->argument('account');
+        $setting = $this->argument('setting');
 
         $settingRaw = json_decode($setting->settings, true);
         $settingRaw = $doc->doc_id ? $settingRaw[$doc->doc_id] : $settingRaw[0];
