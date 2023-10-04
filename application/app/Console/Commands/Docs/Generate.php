@@ -25,7 +25,7 @@ class Generate extends Command
      *
      * @var string
      */
-    protected $signature = 'app:generate {doc} {account} {setting}';
+    protected $signature = 'app:doc-generate {doc} {account} {setting}';
 
     /**
      * The console command description.

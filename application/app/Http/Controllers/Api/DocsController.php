@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Integrations\Docs\Doc;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 
@@ -21,11 +22,17 @@ class DocsController extends Controller
 
     public function hook(User $user, string $doc, Request $request)
     {
-        Doc::query()->create([
+        $doc = Doc::query()->create([
             'user_id' => $user->id,
             'lead_id' => $request->leads['add'][0]['id'] ?? $request->leads['status'][0]['id'],
             'doc_id'  => $doc,
             'status'  => false,
+        ]);
+
+        Artisan::call('app:doc-generate', [
+            'doc' => $doc,
+            'account' => $user->account,
+            'setting' => $user->doc_settings,
         ]);
     }
 }

@@ -81,6 +81,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Integrations\GetCourse\Setting::class);
     }
 
+    public function doc_settings(): HasOne
+    {
+        return $this->hasOne(Integrations\Docs\Setting::class);
+    }
+
     public function alfacrm_settings(): HasOne
     {
         return $this->hasOne(Integrations\Alfa\Setting::class);
