@@ -31,6 +31,7 @@ class Setting extends Model
         'user_id',
         'settings',
         'active',
+        'filename',
         'yandex_token',
         'yandex_expires_in',
     ];
