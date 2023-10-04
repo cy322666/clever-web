@@ -20,12 +20,18 @@ trait MatchFormat
 
                 $keyFormat = explode('|', $variable)[0];
                 $format    = explode('|', $variable)[1];
+
+            } elseif (strripos($variable, '@')) {
+
+                $keyFormat = explode('|', $variable)[0];
+                $format    = explode('|', $variable)[1];
             }
 
             return match ($keyFormat) {
                 'date' => FormatService::formatDate($format, $value),
                 'word' => FormatService::formatWord($format, $value),
                 'numeric' => FormatService::formatNumeric($format, $value),
+                'standard' => FormatService::formatStandard($format, $value),
             };
         } catch (\Throwable $e) {
 

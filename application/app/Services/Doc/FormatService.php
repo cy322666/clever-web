@@ -60,6 +60,16 @@ abstract class FormatService
         }
     }
 
+    public static function getValueStandard(string $fieldKey, array $entities): ?string
+    {
+        return match ($fieldKey) {
+            'lead_name' => $entities['leads']->name,
+            'contact_name' => $entities['contacts']->name,
+            'phone' => $entities['contacts']->cf('Телефон')->getValue(),
+            'email' => $entities['contacts']->cf('Email')->getValue(),
+        };
+    }
+
     //получаем из поля шаблона ид
     public static function getFieldId(string $variable) :int
     {
@@ -88,6 +98,17 @@ abstract class FormatService
             'ucfirst-3' => mb_substr($value, 0, 3),
             'strtoupper' => strtoupper($value),
 //            'case-r' =>
+            default => $value,
+        };
+    }
+
+    public static function formatStandard(string $key, ?string $value) : string
+    {
+        return match ($key) {
+            'lead_name' => ucfirst($value),
+            'phone' => mb_substr($value, 0, 1),
+            'email' => mb_substr($value, 0, 2),
+            'contact_name' => mb_substr($value, 0, 3),
             default => $value,
         };
     }

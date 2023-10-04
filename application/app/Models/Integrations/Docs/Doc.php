@@ -6,6 +6,7 @@ use App\Http\Requests\Api\GetCourse\PaymentRequest;
 use App\Models\amoCRM\Field;
 use App\Services\Doc\DefaultFormatting;
 use App\Services\Doc\FormatService;
+use App\Services\Doc\StandardFormatting;
 use App\Services\Doc\StaticFormatting;
 use App\Services\Doc\TransformFormatting;
 use Carbon\Carbon;
@@ -57,6 +58,13 @@ class Doc extends Model
 
                 // static
                 $valueFormat = StaticFormatting::matchTypeAndFormat($variable);
+
+            } elseif(strripos($variable, '@')) {
+
+                // standard
+                $value = FormatService::getValueStandard(str_replace('@', '', $variable), $entities);
+
+                $valueFormat = StandardFormatting::matchTypeAndFormat($variable);
 
             } else
                 //простое поле
