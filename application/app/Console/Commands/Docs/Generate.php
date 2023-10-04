@@ -87,9 +87,9 @@ class Generate extends Command
         $lead->cf($linkField->name)->setValue($resource->public_url);
         $lead->save();
 
-        $setting->filename = $resource->public_url;
-        $setting->status = 1;
-        $setting->save();
+        $doc->filename = $resource->public_url;
+        $doc->status = 1;
+        $doc->save();
 
         // проверить сущестует такой файл на диске ?
         // вернет, например, false
