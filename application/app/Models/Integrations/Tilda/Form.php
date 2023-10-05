@@ -49,6 +49,12 @@ class Form extends Model
             }
         }
 
+        $utms['utm_source'] = $body->utm_source ?? null;
+        $utms['utm_medium'] = $body->utm_medium ?? null;
+        $utms['utm_campaign'] = $body->utm_campaign ?? null;
+        $utms['utm_content'] = $body->utm_content ?? null;
+        $utms['utm_term'] = $body->utm_term ?? null;
+
         return $utms;
     }
 
