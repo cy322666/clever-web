@@ -58,6 +58,8 @@ abstract class FormatService
 
             dump($e->getMessage(), $field ?? null, $fieldId);
         }
+
+        return null;
     }
 
     public static function getValueStandard(string $fieldKey, array $entities): ?string
