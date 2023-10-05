@@ -75,19 +75,19 @@ class Generate extends Command
         $uploadPath = Config::get('services.yandex.yandex_storage_path').$account->subdomain;
 
         //save to pdf
-        \PhpOffice\PhpWord\Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
-        \PhpOffice\PhpWord\Settings::setPdfRendererName(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF);
+//        \PhpOffice\PhpWord\Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
+//        \PhpOffice\PhpWord\Settings::setPdfRendererName(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF);
+//
+//        $phpWord = \PhpOffice\PhpWord\IOFactory::load($localPath.'/'.$filename.'.docx');
+//
+//        $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord , 'PDF');
+//        $xmlWriter->save($localPath.'/'.$filename.'.pdf');
 
-        $phpWord = \PhpOffice\PhpWord\IOFactory::load($localPath.'/'.$filename.'.docx');
+        $disk->resource($filename)->upload($localPath.'/'.$filename.'.docx', true);//pdf
 
-        $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord , 'PDF');
-        $xmlWriter->save($localPath.'/'.$filename.'.pdf');
+        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.docx', true);//pdf
 
-        $disk->resource($filename)->upload($localPath.'/'.$filename.'.pdf', true);
-
-        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.pdf', true);
-
-        $resource = $disk->resource($uploadPath.'/'.$filename.'.pdf')->publish();
+        $resource = $disk->resource($uploadPath.'/'.$filename.'.docx')->publish();//pdf
 
         $linkField = Field::query()->find($settingRaw['field_amo']);
 
