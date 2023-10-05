@@ -81,7 +81,7 @@ class Generate extends Command
         $phpWord = \PhpOffice\PhpWord\IOFactory::load($localPath.'/'.$filename.'.docx');
 
         $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord , 'PDF');
-        $xmlWriter->save($filename.'.pdf');
+        $xmlWriter->save($localPath.'/'.$filename.'.pdf');
 
         $disk->resource($filename)->upload($localPath.'/'.$filename.'.pdf', true);
 
