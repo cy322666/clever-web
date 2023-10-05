@@ -30,9 +30,9 @@ class DocsController extends Controller
         ]);
 
         Artisan::call('app:doc-generate', [
-            'doc' => $doc,
-            'account' => $user->account,
-            'setting' => $user->doc_settings,
+            'doc' => $doc->id,
+            'account' => $user->account->id,
+            'setting' => $user->doc_settings->id,
         ]);
     }
 }
