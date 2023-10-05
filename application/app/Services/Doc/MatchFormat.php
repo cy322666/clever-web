@@ -9,22 +9,22 @@ trait MatchFormat
     {
         try {
 
-            if (strripos($variable, '#')) {
+            if (str_contains($variable, '#')) {
 
-                $formats = explode('#', $variable)[1];
+                $formats   = explode('#', $variable)[1];
 
                 $keyFormat = explode('|', $formats)[0];
                 $format    = explode('|', $formats)[1];
 
-            } elseif (strripos($variable, '|')) {
+            } elseif (str_contains($variable, '|')) {
 
                 $keyFormat = explode('|', $variable)[0];
                 $format    = explode('|', $variable)[1];
 
-            } elseif (strripos($variable, '@')) {
+            } elseif (str_contains($variable, '@')) {
 
-                $keyFormat = explode('|', $variable)[0];
-                $format    = explode('|', $variable)[1];
+                $keyFormat = 'standard';
+                $format    = str_replace('@', '', $variable);
             }
 
             return match ($keyFormat) {

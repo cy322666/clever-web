@@ -46,7 +46,7 @@ class Doc extends Model
         foreach ($variables as $variable) {
 
             // 123123#date|Y-m-d - поле амо + форматирование
-            if (strripos($variable, '#')) {
+            if (str_contains($variable, '#')) {
 
                 // значение из amoCRM
                 $value = FormatService::getValue(FormatService::getFieldId($variable), $entities);
@@ -54,19 +54,15 @@ class Doc extends Model
                 // transform
                 $valueFormat = TransformFormatting::matchTypeAndFormat($variable, $value);
 
-            } elseif(strripos($variable, '|')) {
+            } elseif(str_contains($variable, '|')) {
 
                 // static
                 $valueFormat = StaticFormatting::matchTypeAndFormat($variable);
 
-            } elseif(strripos($variable, '@')) {
-
+            } elseif(str_contains($variable, '@'))
                 // standard
                 $value = FormatService::getValueStandard(str_replace('@', '', $variable), $entities);
-
-                $valueFormat = StandardFormatting::matchTypeAndFormat($variable);
-
-            } else
+            else
                 //простое поле
                 $value = FormatService::getValue((int)$variable, $entities);
 

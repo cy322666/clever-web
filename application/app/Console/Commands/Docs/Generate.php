@@ -40,9 +40,9 @@ class Generate extends Command
      */
     public function handle()
     {
-        $doc     = $this->argument('doc');
-        $account = $this->argument('account');
-        $setting = $this->argument('setting');
+        $doc     = Doc::find($this->argument('doc'));
+        $account = Account::find($this->argument('account'));
+        $setting = Setting::find($this->argument('setting'));
 
         $settingRaw = json_decode($setting->settings, true);
         $settingRaw = $doc->doc_id ? $settingRaw[$doc->doc_id] : $settingRaw[0];
@@ -62,25 +62,32 @@ class Generate extends Command
             'contacts' => $contact,
         ]);
 
-        $filename = $settingRaw['name_form'].'-'.Carbon::now()->format('Y-m-d').'.docx';
-
-//        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($document, 'Word2007');
+        $filename = $settingRaw['name_form'].'-'.Carbon::now()->format('Y-m-d');
 
         $localPath = DiskService::getLocalPath().$account->subdomain;
 
         DiskService::checkLocalDirectory($localPath);
 
-        $document->saveAs($localPath.'/'.$filename);
+        $document->saveAs($localPath.'/'.$filename.'.docx');
 
         $disk = new Disk(\env('YANDEX_DISK_TOKEN')); // TODO
 
         $uploadPath = Config::get('services.yandex.yandex_storage_path').$account->subdomain;
 
-        $disk->resource($filename)->upload($localPath.'/'.$filename, true);
+        //save to pdf
+        \PhpOffice\PhpWord\Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
+        \PhpOffice\PhpWord\Settings::setPdfRendererName(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF);
 
-        $disk->resource($filename)->move($uploadPath.'/'.$filename, true);
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($localPath.'/'.$filename.'.docx');
 
-        $resource = $disk->resource($uploadPath.'/'.$filename)->publish();
+        $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord , 'PDF');
+        $xmlWriter->save($filename.'.pdf');
+
+        $disk->resource($filename)->upload($localPath.'/'.$filename.'.pdf', true);
+
+        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.pdf', true);
+
+        $resource = $disk->resource($uploadPath.'/'.$filename.'.pdf')->publish();
 
         $linkField = Field::query()->find($settingRaw['field_amo']);
 

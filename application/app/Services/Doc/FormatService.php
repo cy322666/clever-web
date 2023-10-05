@@ -40,7 +40,7 @@ abstract class FormatService
             'y'   => $date->format('y'),
             'Y'   => $date->format('Y'),
             'm-ru' => $date->month()->monthName,
-            'm-ru-case-r' => Setting::caseMonth($date->month()->monthName, 'r'),
+            'm-ru-case-r' => Setting::caseMonth($date->monthName, 'r'),
             default => $date->format($key),
         };
     }
@@ -52,7 +52,8 @@ abstract class FormatService
                 ->where('field_id', $fieldId)
                 ->first();
 
-            return $entities[$field->entity_type]->cf($field->name)->getValue();
+            if ($field)
+                return $entities[$field->entity_type]->cf($field->name)->getValue();
 
         } catch (\Throwable $e) {
 
@@ -67,19 +68,19 @@ abstract class FormatService
         return match ($fieldKey) {
             'lead_name' => $entities['leads']->name,
             'contact_name' => $entities['contacts']->name,
-            'phone' => $entities['contacts']->cf('Телефон')->getValue(),
-            'email' => $entities['contacts']->cf('Email')->getValue(),
+            'phone' => $entities['contacts']?->cf('Телефон')->getValue(),
+            'email' => $entities['contacts']?->cf('Email')->getValue(),
         };
     }
 
     //получаем из поля шаблона ид
     public static function getFieldId(string $variable) :int
     {
-        if (strripos($variable, '#'))
+        if (str_contains($variable, '#'))
 
             return explode('#', $variable)[0];
 
-        if (strripos($variable, '|'))
+        if (str_contains($variable, '|'))
 
             return explode('|', $variable)[0];
 

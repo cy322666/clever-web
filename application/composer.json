@@ -12,6 +12,7 @@
         "ext-mbstring": "*",
         "arhitector/yandex": "^1.2",
         "doctrine/dbal": "3.6.6",
+        "dompdf/dompdf": "^2.0",
         "filament/actions": "^3.0",
         "filament/filament": "^3.0",
         "filament/forms": "^3.0",
