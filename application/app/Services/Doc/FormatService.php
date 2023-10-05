@@ -45,7 +45,7 @@ abstract class FormatService
         };
     }
 
-    public static function getValue(int $fieldId, array $entities): string
+    public static function getValue(int $fieldId, array $entities): ?string
     {
         try {
             $field = Field::query()
