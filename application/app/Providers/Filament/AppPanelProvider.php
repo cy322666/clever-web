@@ -28,6 +28,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\Pages\Backups;
@@ -54,6 +55,7 @@ class AppPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\\Filament\\App\\Widgets')
             ->databaseNotifications()
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
+
                 return $builder->groups([
 
                     NavigationGroup::make('')
@@ -69,89 +71,88 @@ class AppPanelProvider extends PanelProvider
                                 ->url(fn (): string => Market::getUrl()),
                         ]),
 
-                    NavigationGroup::make('')
-                        ->items([
-                            NavigationItem::make('Logs')
-                                ->label('Логи')
-                                ->icon('heroicon-o-code-bracket')
-                                ->url(fn (): string => LogResource::getUrl())
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Users')
-                                ->label('Пользователи')
-                                ->icon('heroicon-o-user-circle')
-                                ->url(fn (): string => UserResource::getUrl())
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Telescopte')
-                                ->label('Телескоп')
-                                ->icon('heroicon-o-puzzle-piece')
-                                ->url(route('telescope'))
-                                ->openUrlInNewTab()
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Horizon')
-                                ->label('Горизонт')
-                                ->icon('heroicon-o-cube-transparent')
-                                ->url(route('horizon.index'))
-                                ->openUrlInNewTab()
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Totem')
-                                ->label('Тотем')
-                                ->icon('heroicon-o-bell-alert')
-                                ->url(route('totem.dashboard'))
-                                ->openUrlInNewTab()
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                             NavigationItem::make('Backups')
-                                 ->label('Бэкапы')
-                                 ->icon('heroicon-o-circle-stack')
-                                 ->url(Backups::getUrl())
-                                 ->hidden(fn() => !Auth::user()->is_root)
-                        ]),
-
-                    NavigationGroup::make('')
-                        ->items([
-                            NavigationItem::make('Бизон')
-                                ->label('Бизон')
-                                ->icon('heroicon-o-academic-cap')
-                                ->url(fn (): string => WebinarResource::getUrl())
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Тильда')
-                                ->label('Тильда')
-                                ->icon('heroicon-o-identification')
-                                ->url(fn (): string => FormResource::getUrl())
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Альфа')
-                                ->label('Альфа')
-                                ->icon('heroicon-o-bars-3-bottom-left')
-                                ->url(fn (): string => TransactionResource::getUrl())
-                                ->hidden(fn() => !Auth::user()->is_root),
-
-                            NavigationItem::make('Инфо')
-                                ->label('Инфо')
-                                ->icon('heroicon-o-magnifying-glass')
-                                ->url(fn (): string => InfoResource::getUrl())
-                                ->hidden(fn() => !Auth::user()->is_root),
-                        ]),
-
-                    NavigationGroup::make('')
-                        ->items([
-                            NavigationItem::make('Доки')
-                                ->label('Доки')
-                                ->icon('heroicon-o-academic-cap')
-                                ->url(fn (): string => DocResource::getUrl('edit', ['record' => 1]))
-                                ->hidden(fn() => !Auth::user()->is_root),
-                        ]),
+//                    NavigationGroup::make('')
+//                        ->items([
+//                            NavigationItem::make('Logs')
+//                                ->label('Логи')
+//                                ->icon('heroicon-o-code-bracket')
+//                                ->url(fn (): string => LogResource::getUrl())
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Users')
+//                                ->label('Пользователи')
+//                                ->icon('heroicon-o-user-circle')
+//                                ->url(fn (): string => UserResource::getUrl())
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Telescopte')
+//                                ->label('Телескоп')
+//                                ->icon('heroicon-o-puzzle-piece')
+//                                ->url(route('telescope'))
+//                                ->openUrlInNewTab()
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Horizon')
+//                                ->label('Горизонт')
+//                                ->icon('heroicon-o-cube-transparent')
+//                                ->url(route('horizon.index'))
+//                                ->openUrlInNewTab()
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Totem')
+//                                ->label('Тотем')
+//                                ->icon('heroicon-o-bell-alert')
+//                                ->url(route('totem.dashboard'))
+//                                ->openUrlInNewTab()
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                             NavigationItem::make('Backups')
+//                                 ->label('Бэкапы')
+//                                 ->icon('heroicon-o-circle-stack')
+//                                 ->url(Backups::getUrl())
+//                                 ->hidden(fn() => Auth::user()->is_root)
+//                        ]),
+//
+//                    NavigationGroup::make('')
+//                        ->items([
+//                            NavigationItem::make('Бизон')
+//                                ->label('Бизон')
+//                                ->icon('heroicon-o-academic-cap')
+//                                ->url(fn (): string => WebinarResource::getUrl())
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Тильда')
+//                                ->label('Тильда')
+//                                ->icon('heroicon-o-identification')
+//                                ->url(fn (): string => FormResource::getUrl())
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Альфа')
+//                                ->label('Альфа')
+//                                ->icon('heroicon-o-bars-3-bottom-left')
+//                                ->url(fn (): string => TransactionResource::getUrl())
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//
+//                            NavigationItem::make('Инфо')
+//                                ->label('Инфо')
+//                                ->icon('heroicon-o-magnifying-glass')
+//                                ->url(fn (): string => InfoResource::getUrl())
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//                        ]),
+//
+//                    NavigationGroup::make('')
+//                        ->items([
+//                            NavigationItem::make('Доки')
+//                                ->label('Доки')
+//                                ->icon('heroicon-o-academic-cap')
+//                                ->url(fn (): string => DocResource::getUrl('edit', ['record' => 1]))
+//                                ->hidden(fn() => !Auth::user()->is_root),
+//                        ]),
                 ]);
             })
             ->plugin(
                 FilamentSpatieLaravelBackupPlugin::make()
                     ->usingPage(Backups::class)
-                    ->usingPolingInterval('10s')
                     ->usingQueue('backups')
             )
             ->globalSearch(false)
