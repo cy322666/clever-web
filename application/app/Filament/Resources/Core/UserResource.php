@@ -82,9 +82,8 @@ class UserResource extends Resource
                     ->label('Админ')
                     ->sortable(),
             ])
-            ->filters([
-                //
-            ])
+            ->filters([])
+            ->paginated([10, 30, 'all'])
             ->actions([
 //                Tables\Actions\EditAction::make(),
                 Impersonate::make()

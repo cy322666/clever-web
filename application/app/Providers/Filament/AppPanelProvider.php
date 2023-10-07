@@ -73,48 +73,6 @@ class AppPanelProvider extends PanelProvider
 
 //                    NavigationGroup::make('')
 //                        ->items([
-//                            NavigationItem::make('Logs')
-//                                ->label('Логи')
-//                                ->icon('heroicon-o-code-bracket')
-//                                ->url(fn (): string => LogResource::getUrl())
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Users')
-//                                ->label('Пользователи')
-//                                ->icon('heroicon-o-user-circle')
-//                                ->url(fn (): string => UserResource::getUrl())
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Telescopte')
-//                                ->label('Телескоп')
-//                                ->icon('heroicon-o-puzzle-piece')
-//                                ->url(route('telescope'))
-//                                ->openUrlInNewTab()
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Horizon')
-//                                ->label('Горизонт')
-//                                ->icon('heroicon-o-cube-transparent')
-//                                ->url(route('horizon.index'))
-//                                ->openUrlInNewTab()
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Totem')
-//                                ->label('Тотем')
-//                                ->icon('heroicon-o-bell-alert')
-//                                ->url(route('totem.dashboard'))
-//                                ->openUrlInNewTab()
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                             NavigationItem::make('Backups')
-//                                 ->label('Бэкапы')
-//                                 ->icon('heroicon-o-circle-stack')
-//                                 ->url(Backups::getUrl())
-//                                 ->hidden(fn() => Auth::user()->is_root)
-//                        ]),
-//
-//                    NavigationGroup::make('')
-//                        ->items([
 //                            NavigationItem::make('Бизон')
 //                                ->label('Бизон')
 //                                ->icon('heroicon-o-academic-cap')

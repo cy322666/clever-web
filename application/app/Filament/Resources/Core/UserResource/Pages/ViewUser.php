@@ -34,7 +34,13 @@ class ViewUser extends ViewRecord
             Actions\Action::make('activeUpdate')
                 ->action('amocrmUpdate')
                 ->label('Синхронизировать')
-                ->disabled(fn() => !$this->record->account->active)
+                ->disabled(fn() => !$this->record->account->active),
+
+           Actions\Action::make('root')
+               ->label('Монитор')
+               ->url(UserResource::getUrl())
+               ->color(Color::Gray)
+               ->hidden(fn() => !Auth::user()->is_root)
         ];
     }
 
@@ -101,8 +107,8 @@ class ViewUser extends ViewRecord
 
         if ($amoApi->auth) {
 
-            Account::users($amoApi);
-            Account::statuses($amoApi);
+//            Account::users($amoApi);
+//            Account::statuses($amoApi);
             Account::fields($amoApi);
 
             Notification::make()
