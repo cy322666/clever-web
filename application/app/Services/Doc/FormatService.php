@@ -5,6 +5,7 @@ namespace App\Services\Doc;
 use App\Models\amoCRM\Field;
 use App\Models\Integrations\Docs\Setting;
 use Carbon\Carbon;
+use Ramsey\Uuid\Uuid;
 
 abstract class FormatService
 {
@@ -112,6 +113,7 @@ abstract class FormatService
             'phone' => mb_substr($value, 0, 1),
             'email' => mb_substr($value, 0, 2),
             'contact_name' => mb_substr($value, 0, 3),
+            'uuid' => Uuid::uuid6(),
             default => $value,
         };
     }
