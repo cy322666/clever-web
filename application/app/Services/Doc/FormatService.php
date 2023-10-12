@@ -101,7 +101,6 @@ abstract class FormatService
             'ucfirst-2' => mb_substr($value, 0, 2),
             'ucfirst-3' => mb_substr($value, 0, 3),
             'strtoupper' => strtoupper($value),
-//            'case-r' =>
             default => $value,
         };
     }
