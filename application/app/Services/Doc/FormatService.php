@@ -71,6 +71,7 @@ abstract class FormatService
             'contact_name' => $entities['contacts']->name,
             'phone' => $entities['contacts']?->cf('Телефон')->getValue(),
             'email' => $entities['contacts']?->cf('Email')->getValue(),
+            'uuid' => Uuid::uuid6(),
         };
     }
 
@@ -112,7 +113,6 @@ abstract class FormatService
             'phone' => mb_substr($value, 0, 1),
             'email' => mb_substr($value, 0, 2),
             'contact_name' => mb_substr($value, 0, 3),
-            'uuid' => Uuid::uuid6(),
             default => $value,
         };
     }
