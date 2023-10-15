@@ -78,20 +78,20 @@ class Generate extends Command
 
         if ($setting['format'] == 'pdf') {
             //save to pdf
-            Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
             Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
+
+            Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
 
             $phpWord = IOFactory::load($localPath.'/'.$filename.'.docx');
 
             $xmlWriter = IOFactory::createWriter($phpWord , 'PDF');
             $xmlWriter->save($localPath.'/'.$filename.'.pdf');
 
-        } else {
-            //save to word
-            $disk->resource($filename)->upload($localPath.'/'.$filename.'.docx', true);
-
-            $disk->resource($filename)->move($uploadPath.'/'.$filename.'.docx', true);
         }
+
+        $disk->resource($filename)->upload($localPath.'/'.$filename.'.'.$setting['format'], true);
+
+        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.'.$setting['format'], true);
 
         $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$setting['format'])->publish();
 
