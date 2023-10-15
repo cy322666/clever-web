@@ -56,7 +56,7 @@ class DocResource extends Resource
                                     ->visibility('public')
                                     ->getUploadedFileNameForStorageUsing(
                                         fn (TemporaryUploadedFile $file): string => (string) str($file->getClientOriginalName())
-                                            ->prepend(Carbon::now()->format('Y-m-d H:i:s').'-'),
+                                            ->prepend(Carbon::now()->format('Y-m-d H-i-s').'-'),
                                     ),
 
                                 Forms\Components\Radio::make('format')
