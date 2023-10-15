@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\File;
 use Mackey\Yandex\Disk;
 use Mackey\Yandex\Exception\AlreadyExistsException;
 use Mackey\Yandex\Exception\NotFoundException;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class Generate extends Command
@@ -74,20 +76,24 @@ class Generate extends Command
 
         $uploadPath = Config::get('services.yandex.yandex_storage_path').$account->subdomain;
 
-        //save to pdf
-//        \PhpOffice\PhpWord\Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
-//        \PhpOffice\PhpWord\Settings::setPdfRendererName(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF);
-//
-//        $phpWord = \PhpOffice\PhpWord\IOFactory::load($localPath.'/'.$filename.'.docx');
-//
-//        $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord , 'PDF');
-//        $xmlWriter->save($localPath.'/'.$filename.'.pdf');
+        if ($setting['format'] == 'pdf') {
+            //save to pdf
+            Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
+            Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
 
-        $disk->resource($filename)->upload($localPath.'/'.$filename.'.docx', true);//pdf
+            $phpWord = IOFactory::load($localPath.'/'.$filename.'.docx');
 
-        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.docx', true);//pdf
+            $xmlWriter = IOFactory::createWriter($phpWord , 'PDF');
+            $xmlWriter->save($localPath.'/'.$filename.'.pdf');
 
-        $resource = $disk->resource($uploadPath.'/'.$filename.'.docx')->publish();//pdf
+        } else {
+            //save to word
+            $disk->resource($filename)->upload($localPath.'/'.$filename.'.docx', true);
+
+            $disk->resource($filename)->move($uploadPath.'/'.$filename.'.docx', true);
+        }
+
+        $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$setting['format'])->publish();
 
         $linkField = Field::query()->find($settingRaw['field_amo']);
 
