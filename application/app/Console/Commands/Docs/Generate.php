@@ -76,7 +76,7 @@ class Generate extends Command
 
         $uploadPath = Config::get('services.yandex.yandex_storage_path').$account->subdomain;
 
-        if ($setting['format'] == 'pdf') {
+        if ($settingRaw['format'] == 'pdf') {
             //save to pdf
             Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
 
