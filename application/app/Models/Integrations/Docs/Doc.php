@@ -45,6 +45,7 @@ class Doc extends Model
         // переменные из шаблона
         foreach ($variables as $variable) {
 
+            $value = null;
             // 123123#date|Y-m-d - поле амо + форматирование
             if (str_contains($variable, '#')) {
 
