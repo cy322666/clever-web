@@ -86,14 +86,13 @@ class Generate extends Command
 
             $xmlWriter = IOFactory::createWriter($phpWord , 'PDF');
             $xmlWriter->save($localPath.'/'.$filename.'.pdf');
-
         }
 
-        $disk->resource($filename)->upload($localPath.'/'.$filename.'.'.$setting['format'], true);
+        $disk->resource($filename)->upload($localPath.'/'.$filename.'.'.$settingRaw['format'], true);
 
-        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.'.$setting['format'], true);
+        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.'.$settingRaw['format'], true);
 
-        $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$setting['format'])->publish();
+        $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$settingRaw['format'])->publish();
 
         $linkField = Field::query()->find($settingRaw['field_amo']);
 
