@@ -33,6 +33,8 @@ abstract class FormatService
     {
         $date = $value ? Carbon::parse($value) : Carbon::now();
 
+        $date->timezone('Europe/Moscow');
+
         return match ($key) {
             'Y-m-d' => $date->format('Y-m-d'),
             'Y.m.d' => $date->format('Y.m.d'),
