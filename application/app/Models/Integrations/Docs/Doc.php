@@ -86,6 +86,6 @@ class Doc extends Model
             $fileName .= FormatService::getValue((int)$item, $entities).'-';
         }
 
-        return trim('-',$fileName.Carbon::now()->format('Y-m-d'));
+        return $fileName.Carbon::now()->format('Y-m-d');
     }
 }
