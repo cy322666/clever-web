@@ -45,6 +45,9 @@ class DocResource extends Resource
                                     ->label('Название')
                                     ->hint('Для различения документов'),
 
+                                Forms\Components\TextInput::make('name_file')
+                                    ->label('Формат названия документа'),
+
                                 Forms\Components\Select::make('field_amo')
                                     ->label('Поле из amoCRM')
                                     ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
