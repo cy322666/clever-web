@@ -8,11 +8,20 @@ use App\Models\Integrations\Docs\Doc;
 use App\Models\Integrations\Docs\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\Doc\DiskService;
+use Aspose\Words\ApiException;
+use Aspose\Words\Model\PdfSaveOptionsData;
+use Aspose\Words\Model\Requests\ConvertDocumentRequest;
+use Aspose\Words\Model\Requests\DownloadFileRequest;
+use Aspose\Words\Model\Requests\SaveAsRequest;
+use Aspose\Words\Model\Requests\UploadFileRequest;
+use Aspose\Words\Model\StorageFile;
+use Aspose\Words\WordsApi;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Mackey\Yandex\Disk;
 use Mackey\Yandex\Exception\AlreadyExistsException;
 use Mackey\Yandex\Exception\NotFoundException;
@@ -77,15 +86,20 @@ class Generate extends Command
         $uploadPath = Config::get('services.yandex.yandex_storage_path').$account->subdomain;
 
         if ($settingRaw['format'] == 'pdf') {
-            //save to pdf
-            Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
 
-            Settings::setPdfRendererPath($localPath.'/'.$filename.'.docx');
+            $api = new WordsApi(Env::get('ASPOSE_CLIENT_ID'), Env::get('ASPOSE_SECRET'));
 
-            $phpWord = IOFactory::load($localPath.'/'.$filename.'.docx');
+            $upload_request = new UploadFileRequest($localPath.'/'.$filename.'.docx', $filename);
+            $api->uploadFile($upload_request);
 
-            $xmlWriter = IOFactory::createWriter($phpWord , 'PDF');
-            $xmlWriter->save($localPath.'/'.$filename.'.pdf');
+            $saveOptions = new PdfSaveOptionsData(array("file_name" => $filename.'.pdf'));
+            $request = new SaveAsRequest($filename, $saveOptions);
+            $api->saveAs($request);
+
+            $request = new DownloadFileRequest($filename.'.pdf');
+            $resultD = $api->downloadFile($request);
+
+            file_put_contents($localPath.'/'.$filename.'.pdf', $resultD->fread($resultD->getSize()));
         }
 
         $disk->resource($filename)->upload($localPath.'/'.$filename.'.'.$settingRaw['format'], true);
@@ -102,12 +116,5 @@ class Generate extends Command
         $doc->filename = $resource->public_url;
         $doc->status = 1;
         $doc->save();
-
-        // проверить сущестует такой файл на диске ?
-        // вернет, например, false
-
-        // загрузить файл на диск под имененм "новый файл.txt".
-
-        // файл загружен, вывести информацию.
     }
 }
