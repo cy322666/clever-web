@@ -75,7 +75,7 @@ class Generate extends Command
 
         $document = Doc::generate($document->getVariables(), $document, $entities);
 
-        $filename = $doc->getFileName($settingRaw['file_name'] ?? null, $entities);
+        $filename = $doc->getFileName($settingRaw['name_file'] ?? null, $entities);
 
         $localPath = DiskService::getLocalPath().$account->subdomain;
 
