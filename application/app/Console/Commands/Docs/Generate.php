@@ -68,12 +68,14 @@ class Generate extends Command
 
         $document = new TemplateProcessor(DiskService::getLocalPath().$settingRaw['template']);
 
-        $document = Doc::generate($document->getVariables(), $document, [
-            'leads'    => $lead,
+        $entities = [
+            'leads' => $lead,
             'contacts' => $contact,
-        ]);
+        ];
 
-        $filename = $settingRaw['name_form'].'-'.Carbon::now()->format('Y-m-d');
+        $document = Doc::generate($document->getVariables(), $document, $entities);
+
+        $filename = $doc->getFileName($settingRaw['file_name'] ?? null, $entities);
 
         $localPath = DiskService::getLocalPath().$account->subdomain;
 
