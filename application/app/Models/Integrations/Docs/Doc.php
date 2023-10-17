@@ -83,7 +83,7 @@ class Doc extends Model
 
         foreach (explode('+', $template) as $item) {
 
-            $fileName .= FormatService::getValue($item, $entities).'-';
+            $fileName .= FormatService::getValue((int)$item, $entities).'-';
         }
 
         return $fileName.Carbon::now()->format('Y-m-d');
