@@ -76,4 +76,16 @@ class Doc extends Model
 
         return $doc;
     }
+
+    public function getFileName(?string $template, array $entities) : string
+    {
+        $fileName = '';
+
+        foreach (explode('+', $template) as $item) {
+
+            $fileName .= FormatService::getValue($item, $entities).'-';
+        }
+
+        return $fileName.Carbon::now()->format('Y-m-d');
+    }
 }
