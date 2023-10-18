@@ -107,8 +107,8 @@ class ViewUser extends ViewRecord
 
         if ($amoApi->auth) {
 
-//            Account::users($amoApi);
-//            Account::statuses($amoApi);
+            Account::users($amoApi);
+            Account::statuses($amoApi);
             Account::fields($amoApi);
 
             Notification::make()
