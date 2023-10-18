@@ -66,7 +66,7 @@ class Client
         }
 
         try {
-            $this->service->account();
+            $this->service->account;
 
             return true;
 
