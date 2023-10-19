@@ -32,7 +32,7 @@ class EditGetCourse extends EditRecord
 
         $data['link_form'] = route('getcourse.form', [
             'user' => Auth::user()->uuid,
-        ]).'?phone={object.user.phone}&name={object.user.first_name}&email={object.user.email}';
+        ]).'?phone={object.phone}&name={object.first_name}&email={object.email}';
 
         return $data;
     }
