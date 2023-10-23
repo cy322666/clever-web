@@ -83,7 +83,7 @@ class Generate extends Command
 
         $document->saveAs($localPath.'/'.$filename.'.docx');
 
-        $disk = new Disk(\env('YANDEX_DISK_TOKEN')); // TODO
+        $disk = new Disk($setting->yandex_token);
 
         $uploadPath = Config::get('services.yandex.yandex_storage_path').$account->subdomain;
 

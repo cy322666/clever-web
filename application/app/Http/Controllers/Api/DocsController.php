@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Integrations\Docs\Doc;
 use App\Models\User;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
+use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -12,12 +15,18 @@ use Illuminate\Support\Facades\URL;
 
 class DocsController extends Controller
 {
-    public function redirect(Request $request)
+    /**
+     * @param Request $request
+     * @return View|Application|Factory|\Illuminate\Contracts\Foundation\Application
+     */
+    public function redirect(Request $request): View|Application|Factory|\Illuminate\Contracts\Foundation\Application
     {
-        dd($_GET);
+        return view('api.yandex-redirect');
+    }
 
-        Log::info(__METHOD__, $request->all());
-        //https://oauth.yandex.ru/authorize?response_type=token&client_id=b5ecb51c6a594755a2faefda59c2c6a9&state=test
+    public function parsing(Request $request)
+    {
+        Log::info(__METHOD__, $request->toArray());
     }
 
     public function hook(User $user, string $doc, Request $request)
