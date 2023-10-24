@@ -42,34 +42,46 @@ class FormSend extends Command
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 
+        $setting = json_decode($setting->settings, true)[$form->form];
+
         $amoApi = (new Client($account))
-            ->setDelay(0.2)
+            ->setDelay(0.5)
             ->initLogs(Env::get('APP_DEBUG'));
 
-        $statusId = Status::query()
-            ->find($setting->status_id_form ?? $setting->status_id_default)
-            ?->status_id;
+        $pipelineId = Status::query()
+            ->find($setting['pipeline_id'] ?? $setting->pipeline_id_default)
+            ?->pipeline_id;
 
         $responsibleId = Staff::query()
-            ->find($setting->response_user_id_form ?? $setting->response_user_id_default)
+            ->find($setting['responsible_user_id'] ?? $setting->response_user_id_default)
             ?->staff_id;
 
+        $statusId = Status::query()
+            ->find($setting['status_id'] ?? $setting->status_id_default)
+            ?->status_id;
+
+        $phone = Contacts::clearPhone($form->phone);
+
         $contact = Contacts::search([
-            'Телефоны' => [$form->phone ?? null],
+            'Телефоны' => [$phone ?? null],
             'Почта'    => $form->email ?? null,
         ], $amoApi);
 
-        if ($contact == null) {
-
+        if ($contact == null)
             $contact = Contacts::create($amoApi, $form->name);
 
-        } else
-            $lead = Leads::search($contact, $amoApi);
+        elseif ($setting['is_union'] == 'yes') {
+
+            $lead = Leads::search($contact, $amoApi, $pipelineId);
+
+            if ($lead)
+                $responsibleId = $lead->responsible_user_id;
+        }
 
         $contact = Contacts::update($contact, [
             'Имя' => $form->name,
-            'Телефоны' => [$form->phone ?? null],
-            'Почта'    => $form->email ?? null,
+            'Телефоны' => [$phone],
+            'Почта'    => $form->email,
             'Ответственный' => $responsibleId,
         ]);
 
@@ -79,20 +91,33 @@ class FormSend extends Command
                 'responsible_user_id' => $responsibleId,
                 'status_id'           => $statusId,
             ], 'Новая заявка с Геткурс');
-
-            $lead = Leads::setUtms($lead, [
-                'utm_source'  => $form->utm_source ?? null,
-                'utm_medium'  => $form->utm_medium ?? null,
-                'utm_content' => $form->utm_content ?? null,
-                'utm_term'    => $form->utm_term ?? null,
-                'utm_campaign'=> $form->utm_campaign ?? null,
-            ]);
         }
 
-        Tags::add($lead, [
-            $setting->tag,
-            $setting->tag_form,
-        ]);
+        $utms = [
+            'utm_term'   => $form->utm_term,
+            'utm_source' => $form->utm_source,
+            'utm_medium' => $form->utm_medium,
+            'utm_content'  => $form->utm_content,
+            'utm_campaign' => $form->utm_campaign,
+        ];
+
+        if ($setting['utms'] == 'rewrite')
+
+            $lead = Leads::setRewriteUtms($lead, $utms);
+        else
+            $lead = Leads::setUtms($lead, $utms);
+
+        if (isset($setting['fields']) && count($setting['fields']) > 0)
+
+            $lead = $form->setCustomFields($lead, $setting['fields']);
+
+        Tags::add($lead, $setting['tag'] ?? null);
+
+        //TODO
+//        Tags::add($lead, [
+//            $setting->tag,
+//            $setting->tag_form,
+//        ]);
 
         Notes::addOne($lead, FormNote::create($form));
 
@@ -100,7 +125,5 @@ class FormSend extends Command
         $form->lead_id = $lead->id;
         $form->status = 1;
         $form->save();
-
-        return true;
     }
 }

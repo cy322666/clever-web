@@ -17,6 +17,19 @@ class Setting extends Model
 
     protected $table = 'getcourse_settings';
 
+    protected $fillable = [
+        'settings',
+        'active',
+        'user_id',
+        'tag_order',
+        'user_id',
+        'utms',
+        'response_user_id_order',
+        'response_user_id_default',
+        'status_id_order_close',
+        'status_id_order',
+    ];
+
     public static string $resource = GetCourseResource::class;
 
     public static string $description = "Интеграция нескольких форм/сайтов/настроек. Поиск и склейка дублей контакта. Возможность склеивать сделки...";
@@ -25,19 +38,6 @@ class Setting extends Model
         '1_month'  => '1.000 р',
         '6_month'  => '5.000 р',
         '12_month' => '10.000 р',
-    ];
-
-    protected $fillable = [
-        'user_id',
-        'status_id_form',
-        'status_id_order',
-        'status_id_order_close',
-        'active',
-        'response_user_id_default',
-        'response_user_id_form',
-        'response_user_id_order',
-        'tag_order',
-        'tag_form',
     ];
 
     public function forms(): BelongsTo

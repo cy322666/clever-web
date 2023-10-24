@@ -29,5 +29,6 @@ class Form extends Model
         'utm_term',
         'utm_campaign',
         'user_id',
+        'form',
     ];
 }

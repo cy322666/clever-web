@@ -29,8 +29,7 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
 
         Route::get('orders/{user:uuid}', [GetCourseController::class, 'order'])->name('getcourse.order');
 
-        Route::get('forms/{user:uuid}', [GetCourseController::class, 'form'])->name('getcourse.form');
-
+        Route::get('forms/{user:uuid}/{form}', [GetCourseController::class, 'form'])->name('getcourse.form');
     });
 
     Route::group(['prefix' => 'tilda'], function () {

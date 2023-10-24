@@ -10,8 +10,10 @@ use App\Models\amoCRM\Status;
 use App\Models\Integrations\GetCourse;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class GetCourseResource extends Resource
 {
@@ -40,56 +42,108 @@ class GetCourseResource extends Resource
                                     ->label('Вебхук ссылка для заказов')
                                     ->disabled(),
 
-                                Forms\Components\TextInput::make('link_form')
-                                    ->label('Вебхук ссылка для форм')
-                                    ->disabled(),
+                                Forms\Components\Select::make('response_user_id_default')
+                                    ->label('Отв. по умолчанию')
+                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required(),
+                                Forms\Components\Select::make('response_user_id_order')
+                                    ->label('Отв. по заказам')
+                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->searchable(),
+                                Forms\Components\Select::make('status_id_order')
+                                    ->label('Этап новых заказов')
+                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                    ->searchable(),
+                                Forms\Components\Select::make('status_id_order_close')
+                                    ->label('Этап оплаченных заказов')
+                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                    ->searchable(),
+
+                                Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
+
+//                                Forms\Components\TextInput::make('link_form')
+//                                    ->label('Вебхук ссылка для форм')
+//                                    ->disabled(),
                              ]),
 
-                            Forms\Components\Fieldset::make('Основное')
-                                ->schema([
+                        Forms\Components\Repeater::make('settings')
+                            ->label('Регистрации')
+                            ->schema([
 
-                                    Forms\Components\Select::make('response_user_id_default')
-                                        ->label('Отв. по умолчанию')
-                                        ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                        ->searchable()
-                                        ->required(),
-                                    Forms\Components\Select::make('response_user_id_form')
-                                        ->label('Отв. по заявкам')
-                                        ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                        ->searchable(),
-                                    Forms\Components\Select::make('response_user_id_order')
-                                        ->label('Отв. по заказам')
-                                        ->options(Staff::getWithUser()->pluck('name', 'id'))
-                                        ->searchable(),
-                                    Forms\Components\Select::make('status_id_order')
-                                        ->label('Этап новых заказов')
-                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                        ->searchable(),
-                                    Forms\Components\Select::make('status_id_order_close')
-                                        ->label('Этап оплаченных заказов')
-                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                        ->searchable(),
-                                    Forms\Components\Select::make('status_id_form')
-                                        ->label('Этап новых заявок')
-                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
-                                        ->searchable(),
-                            ]),
+                                Forms\Components\TextInput::make('link_form')
+                                    ->label('Вебхук ссылка')
+                                    ->disabled(),
 
-                            Forms\Components\Fieldset::make('Теги')
-                                ->schema([
-    //                                Forms\Components\TextInput::make('lead_name_order')
-    //                                    ->label('Название сделки для заказов'),
-    //
-    //                                Forms\Components\TextInput::make('lead_name_form')
-    //                                    ->label('Название сделки для заказов'),
-                                    Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
-                                    Forms\Components\TextInput::make('tag_form')->label('Тег для заявок'),
-                                ]),
+                                Forms\Components\TextInput::make('name_form')
+                                    ->label('Название')
+                                    ->hint('Для различения настроек форм'),
+
+                                Forms\Components\Select::make('status_id')
+                                    ->label('Этап')
+                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                    ->required(),
+
+                                Forms\Components\Select::make('pipeline_id')
+                                    ->label('Воронка')
+                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+                                    ->required(),
+
+                                Forms\Components\Select::make('responsible_user_id')
+                                    ->label('Ответственный')
+                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->required(),
+
+                                Forms\Components\TextInput::make('tag')
+                                    ->label('Тег'),
+
+                                Forms\Components\Radio::make('is_union')
+                                    ->label('Объединять повторные сделки')
+                                    ->options([
+                                        'yes' => 'Да',
+                                        'no'  => 'Нет',
+                                    ])
+                                    ->required(),
+
+                                Forms\Components\Radio::make('utms')
+                                    ->label('Действия с метками')
+                                    ->options([
+                                        'merge'   => 'Дополнять',
+                                        'rewrite' => 'Перезаписывать',
+                                    ])
+                                    ->required(),
+
+                                Forms\Components\Repeater::make('fields')
+                                    ->label('Соотношение полей сделки')
+                                    ->schema([
+
+                                        Forms\Components\TextInput::make('field_form')
+                                            ->label('Поле из формы')
+                                            ->required(),
+
+                                        Forms\Components\Select::make('field_amo')
+                                            ->label('Поле из amoCRM')
+                                            ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
+                                            ->required(),
+                                    ])
+                                    ->columns()
+                                    ->collapsible()
+                                    ->defaultItems(1)
+                                    ->reorderable(false)
+                                    ->reorderableWithDragAndDrop(false)
+                                    ->addActionLabel('+ Добавить поле')
+                            ])
+                            ->columns()
+                            ->collapsible()
+                            ->defaultItems(1)
+                            ->reorderable(false)
+                            ->reorderableWithDragAndDrop(false)
+                            ->addActionLabel('+ Добавить форму')
                     ]),
             ]);
     }
 
-    public static function table(\Filament\Tables\Table $table): \Filament\Tables\Table
+    public static function table(Table $table): Table
     {
         return $table
             ->columns([
