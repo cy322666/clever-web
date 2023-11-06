@@ -79,7 +79,7 @@ abstract class FormatService
     }
 
     //получаем из поля шаблона ид
-    public static function getFieldId(string $variable) :int
+    public static function getFieldId(string $variable) :int|string
     {
         if (str_contains($variable, '#'))
 
