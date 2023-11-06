@@ -61,6 +61,10 @@ class GetCourseResource extends Resource
                                     ->searchable(),
 
                                 Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
+
+//                                Forms\Components\TextInput::make('link_form')
+//                                    ->label('Вебхук ссылка для форм')
+//                                    ->disabled(),
                              ]),
 
                         Forms\Components\Repeater::make('settings')

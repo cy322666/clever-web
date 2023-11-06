@@ -2,8 +2,6 @@
 
 namespace App\Services\Doc;
 
-use Illuminate\Support\Facades\Log;
-
 trait MatchFormat
 {
     // example - 123123#date|Y-m-d
@@ -37,7 +35,7 @@ trait MatchFormat
             };
         } catch (\Throwable $e) {
 
-            Log::error($e->getFile().' '.$e->getMessage(), $variable);
+            dump($e->getFile().' '.$e->getMessage(), $variable);
         }
     }
 }
