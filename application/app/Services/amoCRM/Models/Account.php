@@ -65,10 +65,10 @@ class Account
             }
         }
 
-        Auth::user()
-            ->amocrm_statuses()
-            ->where('updated_at', '<', Carbon::now()->subSeconds(30)->format('Y-m-d H:i:s'))
-            ->delete();
+//        Auth::user()
+//            ->amocrm_statuses()
+//            ->where('updated_at', '<', Carbon::now()->subSeconds(30)->format('Y-m-d H:i:s'))
+//            ->delete();
     }
 
     /**
@@ -142,9 +142,9 @@ class Account
             ]);
         }
 
-        Auth::user()
-            ->amocrm_fields()
-            ->where('updated_at', '<', Carbon::now()->subMinute()->format('Y-m-d H:i:s'))
-            ->delete();
+//        Auth::user()
+//            ->amocrm_fields()
+//            ->where('updated_at', '<', Carbon::now()->subMinute()->format('Y-m-d H:i:s'))
+//            ->delete();
     }
 }
