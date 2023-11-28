@@ -37,7 +37,7 @@ trait MatchFormat
             };
         } catch (\Throwable $e) {
 
-            Log::error($e->getFile().' '.$e->getMessage(), $variable);
+            Log::error($e->getFile().' '.$e->getMessage(), [$variable]);
         }
     }
 }
