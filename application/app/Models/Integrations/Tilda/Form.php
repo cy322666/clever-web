@@ -55,6 +55,23 @@ class Form extends Model
         $utms['utm_content'] = $body->utm_content ?? null;
         $utms['utm_term'] = $body->utm_term ?? null;
 
+        $rawUrl = $utms['TILDAUTM'] ?? null;
+
+        if ($rawUrl) {
+
+            $arrRawUtms = explode('|||amp;', $rawUrl);
+
+            foreach ($arrRawUtms as $arrRawUtm) {
+
+                $arrUtm = explode('=', $arrRawUtm);
+
+                if (empty($utms[$arrUtm[0]])) {
+
+                    $utms[$arrUtm[0]] = explode('#', $arrUtm[1])[0];
+                }
+            }
+        }
+
         return $utms;
     }
 
