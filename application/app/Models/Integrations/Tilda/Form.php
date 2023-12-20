@@ -68,6 +68,8 @@ class Form extends Model
                 if (empty($utms[$arrUtm[0]])) {
 
                     $utms[$arrUtm[0]] = explode('#', $arrUtm[1])[0];
+
+                    $utms[$arrUtm[0]] = str_replace('|||', '', $utms[$arrUtm[0]]);
                 }
             }
         }
