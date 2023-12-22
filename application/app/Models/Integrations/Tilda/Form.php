@@ -57,6 +57,8 @@ class Form extends Model
 
         $rawUrl = $utms['TILDAUTM'] ?? null;
 
+        Log::alert(__METHOD__, ['raw_utm' => $rawUrl]);
+
         if ($rawUrl) {
 
             $arrRawUtms = explode('|||amp;', $rawUrl);
@@ -73,6 +75,8 @@ class Form extends Model
                 }
             }
         }
+
+        Log::alert(__METHOD__, ['utms' => $utms]);
 
         return $utms;
     }
