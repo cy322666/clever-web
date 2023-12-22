@@ -61,7 +61,7 @@ class Form extends Model
 
         if ($rawUrl) {
 
-            $arrRawUtms = explode('|||amp;', $rawUrl);
+            $arrRawUtms = explode('amp;', $rawUrl);
 
             foreach ($arrRawUtms as $arrRawUtm) {
 
