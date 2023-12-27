@@ -114,6 +114,8 @@ class Form extends Model
             $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
         }
 
+        $lead->save();
+
         return $lead;
     }
 }
