@@ -101,6 +101,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(\App\Models\Integrations\Tilda\Setting::class);
     }
 
+    public function distribution_settings(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\Distribution\Setting::class);
+    }
+
     public function account(): HasOne
     {
         return $this->hasOne(Account::class);

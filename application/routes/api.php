@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\DadataController;
+use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\DocsController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
@@ -37,6 +38,11 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
         Route::post('hook/{user:uuid}/{site}', [TildaController::class, 'hook'])->name('tilda.hook');
     });
 
+    Route::group(['prefix' => 'distribution'], function () {
+
+        Route::post('hook/{user:uuid}/{template}', [DistributionController::class, 'hook'])->name('distribution.hook');
+    });
+
     Route::group(['prefix' => 'alfacrm'], function () {
 
         Route::post('record/{user:uuid}', [AlfaCRMController::class, 'record'])->name('alfacrm.record');
@@ -59,8 +65,6 @@ Route::group(['prefix' => 'amocrm'], function () {
 
     Route::get('redirect', [AuthController::class, 'redirect']);
 });
-
-Route::get('docs/yandex/parsing', [DocsController::class, 'parsing'])->name('doc.parsing');
 
 Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
 
