@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Distribution;
+namespace App\Services\Distribution\Strategies;
 
 use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
@@ -8,13 +8,12 @@ use App\Models\User;
 use App\Services\amoCRM\Client;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use Ufee\Amo\Base\Services\Model;
 
 class BaseStrategy
 {
     public User $user;
-    public Transaction $setting;
-    public Setting $transaction;
+    public Setting $setting;
+    public Transaction $transaction;
 
     public Collection|array $transactions;
 
@@ -31,7 +30,7 @@ class BaseStrategy
         $this->transaction = $transaction;
 
         $this->type = $this->transaction->type;
-        $this->staffs = json_decode($this->setting->settings, true)[$this->transaction->template];
+        $this->staffs = json_decode($this->setting->settings, true)[$this->transaction->template]['staffs'];
 
         return $this;
     }
@@ -41,13 +40,13 @@ class BaseStrategy
         $dateAt = $dateAt !== null ? $dateAt : Carbon::now()->timezone('Europe/Moscow');
 
         $this->transactions = Transaction::query()
-            ->where('created_at', $dateAt->format('Y-m-d'))
+            ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
             ->where('user_id', $this->user->id)
             ->where('status', true)
-            ->where('type', $this->strategy)
+            ->where('type', static::$strategy)
             ->get();
 
-        return  $this;
+        return $this;
     }
 
     public function changeResponsuble(Client $amoApi, int $staff)

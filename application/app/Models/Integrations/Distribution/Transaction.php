@@ -2,10 +2,12 @@
 
 namespace App\Models\Integrations\Distribution;
 
-use App\Services\Distribution\BaseStrategy;
-use App\Services\Distribution\RotationStrategy;
+use App\Models\User;
+use App\Services\Distribution\Strategies\BaseStrategy;
+use App\Services\Distribution\Strategies\RotationStrategy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Transaction extends Model
 {
@@ -35,5 +37,10 @@ class Transaction extends Model
             Setting::STRATEGY_ROTATION => new RotationStrategy(),
             Setting::STRATEGY_RANDOM   => 'Равномерно вразброс',
         };
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

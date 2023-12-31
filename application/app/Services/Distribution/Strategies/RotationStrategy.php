@@ -1,14 +1,8 @@
 <?php
 
-namespace App\Services\Distribution;
+namespace App\Services\Distribution\Strategies;
 
 use App\Models\Integrations\Distribution\Setting;
-use App\Models\Integrations\Distribution\Transaction;
-use App\Models\User;
-use App\Services\amoCRM\Client;
-use Carbon\Carbon;
-use Exception;
-use Illuminate\Database\Eloquent\Collection;
 
 class RotationStrategy extends BaseStrategy
 {
@@ -22,18 +16,19 @@ class RotationStrategy extends BaseStrategy
 
     public function getStaffId() : ?int
     {
-        $lastTransaction = $this->transaction->last();
+        $lastTransaction = $this->transactions->last();
 
         if ($lastTransaction && count($this->staffs) > 0) {
 
             foreach ($this->staffs as $key => $staffId) {
 
-                if ($lastTransaction->staff_id == $staffId) {
+                if ($lastTransaction->staff_amocrm_id == $staffId) {
 
-                    // крайний чел в списке
-                    return end($this->staffs) == $key ? $this->staffs[0] : end($this->staffs);
+                    return end($this->staffs) == $staffId ? $this->staffs[0] : $this->staffs[++$key];
                 }
             }
         }
+
+        return $this->staffs[0];
     }
 }

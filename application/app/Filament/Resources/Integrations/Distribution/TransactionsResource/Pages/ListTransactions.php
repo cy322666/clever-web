@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Filament\Resources\Integrations\Distribution\SettingResource\Pages;
+namespace App\Filament\Resources\Integrations\Distribution\TransactionsResource\Pages;
 
 use App\Filament\Resources\Integrations\Distribution\ScheduleResource;
-use App\Filament\Resources\Integrations\Distribution\SettingResource;
+use App\Filament\Resources\Integrations\Distribution\TransactionsResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Auth;
 
-class EditSetting extends EditRecord
+class ListTransactions extends ListRecords
 {
-    protected static string $resource = SettingResource::class;
+    protected static string $resource = TransactionsResource::class;
 
     protected function getHeaderActions(): array
     {

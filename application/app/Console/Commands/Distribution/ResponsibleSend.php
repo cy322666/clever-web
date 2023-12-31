@@ -39,7 +39,7 @@ class ResponsibleSend extends Command
         $setting = $this->argument('setting');
         $user = $this->argument('user');
 
-        $setting = json_decode($setting->settings, true)[$transaction->template];
+//        $settingTemplate = json_decode($setting->settings, true)[$transaction->template];
 
         $amoApi = (new Client($account))
             ->setDelay(0.5)
@@ -60,7 +60,7 @@ class ResponsibleSend extends Command
             ->where('staff_id', $staffId)
             ->first();
 
-        $transaction->contact_id = $lead->contact_id ?? null;
+        $transaction->contact_id = $lead->contact->id ?? null;
         $transaction->status = true;
         $transaction->staff_id = $staff->id;
         $transaction->staff_name = $staff->name;

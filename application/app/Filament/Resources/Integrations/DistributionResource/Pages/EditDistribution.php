@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations\DistributionResource\Pages;
 
 use App\Filament\Resources\Integrations\Distribution\ScheduleResource;
+use App\Filament\Resources\Integrations\Distribution\TransactionsResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Helpers\Actions\UpdateButton;
@@ -26,7 +27,7 @@ class EditDistribution extends EditRecord
 
             Actions\Action::make('logs')
                 ->label('Логи')
-                ->url(ScheduleResource::getUrl()),
+                ->url(TransactionsResource::getUrl()),
 
             Actions\Action::make('schedule')
                 ->label('График')
@@ -38,18 +39,14 @@ class EditDistribution extends EditRecord
     {
         if ($data['settings']) {
             $data['settings'] = json_decode($data['settings'], true);
-//
-//            for($i = 0; count($data['settings']) !== $i; $i++) {
-//
-//                $data['settings'][$i]['link'] = \route('tilda.hook', [
-//                    'user' => Auth::user()->uuid,
-//                    'site' => $i,
-//                ]);
-//
-////                $body = json_decode($data['bodies'], true)[$i] ?? [];
-//
-////                $data['settings'][$i]['body'] = json_encode($body, JSON_UNESCAPED_UNICODE);
-//            }
+
+            for($i = 0; count($data['settings']) !== $i; $i++) {
+
+                $data['settings'][$i]['link'] = \route('distribution.hook', [
+                    'user' => Auth::user()->uuid,
+                    'template' => $i,
+                ]);
+            }
         }
 
         return $data;
