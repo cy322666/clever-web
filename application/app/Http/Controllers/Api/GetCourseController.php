@@ -8,8 +8,8 @@ use App\Jobs\GetCourse\OrderSend;
 use App\Models\Integrations\GetCourse\Form;
 use App\Models\Integrations\GetCourse\Order;
 use App\Models\User;
-use App\Services\amoCRM\Models\Contacts;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class GetCourseController extends Controller
 {
@@ -17,6 +17,8 @@ class GetCourseController extends Controller
 
     public function order(User $user, Request $request)
     {
+        Log::channel('input')->info(__METHOD__, $request->toArray());
+
         $cost  = str_replace(',00', $request->cost_money);
         $payed = str_replace(',00', $request->payed_money);
         $left  = str_replace(',00', $request->left_cost_money);
@@ -45,6 +47,8 @@ class GetCourseController extends Controller
 
     public function form(User $user, Request $request)
     {
+        Log::channel('input')->info(__METHOD__, $request->toArray());
+
         $form = Form::query()->create([
             'user_id' => $user->id,
             'phone'   => $request->phone,
