@@ -19,9 +19,9 @@ class GetCourseController extends Controller
     {
         Log::channel('input')->info(__METHOD__, $request->toArray());
 
-        $cost  = str_replace(',00', $request->cost_money);
-        $payed = str_replace(',00', $request->payed_money);
-        $left  = str_replace(',00', $request->left_cost_money);
+        $cost  = explode('.', $request->cost_money)[0] ?? 0;
+        $payed = explode('.', $request->payed_money)[0] ?? 0;
+        $left  = explode('.', $request->left_cost_money)[0] ?? 0;
 
         $order = Order::query()->create([
             'user_id'   => $user->id,
