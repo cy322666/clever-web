@@ -17,6 +17,10 @@ class GetCourseController extends Controller
 
     public function order(User $user, Request $request)
     {
+        $cost  = str_replace(',00', $request->cost_money);
+        $payed = str_replace(',00', $request->payed_money);
+        $left  = str_replace(',00', $request->left_cost_money);
+
         $order = Order::query()->create([
             'user_id'   => $user->id,
             'phone'     => $request->phone,
@@ -27,9 +31,9 @@ class GetCourseController extends Controller
             'positions' => $request->positions,
             'status_order' => $request->status,
             'link'         => $request->link,
-            'cost_money'      => preg_replace("/[^0-9]/", '', $request->cost_money),
-            'payed_money'     => preg_replace("/[^0-9]/", '', $request->payed_money),
-            'left_cost_money' => preg_replace("/[^0-9]/", '', $request->left_cost_money),
+            'cost_money'      => preg_replace("/[^0-9]/", '', $cost),
+            'payed_money'     => preg_replace("/[^0-9]/", '', $payed),
+            'left_cost_money' => preg_replace("/[^0-9]/", '', $left),
         ]);
 
         OrderSend::dispatch(
