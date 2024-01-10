@@ -25,6 +25,7 @@ class UserObserver
         Artisan::call('install:active-lead', ['user_id' => $user->id]);
         Artisan::call('install:data-info', ['user_id' => $user->id]);
         Artisan::call('install:doc', ['user_id' => $user->id]);
+        Artisan::call('install:distribution', ['user_id' => $user->id]);
     }
 
     /**
