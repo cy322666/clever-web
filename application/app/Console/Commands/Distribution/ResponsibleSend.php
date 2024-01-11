@@ -51,9 +51,10 @@ class ResponsibleSend extends Command
         $staffId = $strategy
             ->setModels($user, $transaction, $setting)
             ->setTransactions()
+            ->sliceSchedule()
             ->getStaffId();
 
-        $lead = $strategy->changeResponsuble($amoApi, $staffId);
+        $lead = $strategy->changeResponsible($amoApi, $staffId);
 
         $staff = Staff::query()
             ->where('user_id', $user->id)

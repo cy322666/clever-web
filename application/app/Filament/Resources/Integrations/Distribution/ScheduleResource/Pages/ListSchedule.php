@@ -9,6 +9,8 @@ use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Bizon\Webinar;
 use App\Models\Integrations\Distribution\Scheduler;
 use App\Models\User;
+use Carbon\Carbon;
+use Coolsam\FilamentFlatpickr\Enums\FlatpickrMode;
 use Coolsam\FilamentFlatpickr\Enums\FlatpickrMonthSelectorType;
 use Coolsam\FilamentFlatpickr\Enums\FlatpickrTheme;
 use Coolsam\FilamentFlatpickr\Forms\Components\Flatpickr;
@@ -20,6 +22,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Form;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Actions\Action;
@@ -42,10 +45,10 @@ class ListSchedule extends ListRecords
     {
         $query = Staff::query();
 
-//        if (!Auth::user()->is_root) {
-//
-//            $query->where('user_id', Auth::id());
-//        }
+        if (!Auth::user()->is_root) {
+
+            $query->where('user_id', Auth::id());
+        }
 
         return $query;
     }
@@ -56,6 +59,7 @@ class ListSchedule extends ListRecords
             ->columns([
                 TextColumn::make('id')
                     ->label('ID')
+                    ->hidden()
                     ->sortable(),
 
                 TextColumn::make('name')
@@ -71,55 +75,22 @@ class ListSchedule extends ListRecords
                     ->label('Почта')
                     ->wrap()
                     ->searchable(),
-
-//                ::make('active')
-//                    ->label('Создан')
-//                    ->sortable(),
-//
-//                Tables\Columns\TextColumn::make('count')
-//                    ->label('Зрителей')
-//                    ->state(
-//                        fn(Webinar $webinar) => $webinar->viewers()->count()
-//                    ),
-//
-//                Tables\Columns\TextColumn::make('success')
-//                    ->label('Отправлено')
-//                    ->state(
-//                        fn(Webinar $webinar) => $webinar->viewers()->where('status', 1)->count()
-//                    ),
-
-//                Tables\Columns\TextColumn::make('fails')
-//                    ->label('Ошибок')
-//                    ->state(
-//                        fn(Webinar $webinar) => $webinar->viewers()->where('status', 2)->count()
-//                    ),
-
-                //TODO relationship methods
-//                Tables\Columns\BooleanColumn::make('status')
-//                    ->label('Выгружен')
-//                    ->state(fn(Webinar $webinar) =>
-//                        $webinar
-//                            ->viewers()
-//                            ->where('status', 1)
-//                            ->count() ==
-//                        $webinar
-//                            ->viewers()
-//                            ->count()
-//                    )
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([])
             ->actions([
                 Action::make('scheduleSave')
+                    ->label('Периоды')
                     ->form([
 
                         Section::make('Настройки графика')
                             ->description('Заполните выходные и рабочие периоды')
                             ->schema([
                                 Repeater::make('settings')
-                                    ->name('')
+                                    ->name('Периоды')
                                     ->schema([
 
+                                        //TODO можно тему ебнуть смену
                                         Flatpickr::make('period')
                                             ->name('Период')
                                             ->allowInput() // Allow a user to manually input the date in the textbox (make the textbox editable)
@@ -129,18 +100,13 @@ class ListSchedule extends ListRecords
                                             ->animate() // Animate transitions in the datepicker.
                                             ->dateFormat('Y-m-d H:i') // Set the main date format
                                             ->ariaDateFormat('Y-m-d H:i') // Aria
-                                            //TODO можно тему ебнуть смену
-                                            ->theme(\Coolsam\FilamentFlatpickr\Enums\FlatpickrTheme::DARK) // Set the datepicker theme (applies for all the date-pickers in the current page). For type sanity, Checkout the FlatpickrTheme enum class for a list of allowed themes.
-                                            ->mode(\Coolsam\FilamentFlatpickr\Enums\FlatpickrMode::RANGE) // Set the mode as single, range or multiple. Alternatively, you can just use ->range() or ->multiple()
-                                            ->monthSelectorType(\Coolsam\FilamentFlatpickr\Enums\FlatpickrMonthSelectorType::STATIK)
+                                            ->theme(FlatpickrTheme::DARK) // Set the datepicker theme (applies for all the date-pickers in the current page). For type sanity, Checkout the FlatpickrTheme enum class for a list of allowed themes.
+                                            ->mode(FlatpickrMode::RANGE) // Set the mode as single, range or multiple. Alternatively, you can just use ->range() or ->multiple()
+                                            ->monthSelectorType(FlatpickrMonthSelectorType::STATIK)
                                             ->nextArrow('>')
                                             ->prevArrow('<')
                                             ->minTime(now()->format('H:i:s'))
-
                                             ->enableTime()
-                                            ->multiple()
-
-
                                             ->required(),
 
                                         Radio::make('type')
@@ -159,6 +125,22 @@ class ListSchedule extends ListRecords
                                     ->addActionLabel('+ Добавить период')
                             ]),
                     ])
+                    ->fillForm(function(Staff $staff){
+
+                        $settings = $staff->scheduler->settings ?? null;
+                        $dataForm = [];
+
+                        if ($settings)
+                            foreach (json_decode($settings, true) as $setting) {
+
+                                $dataForm[] = [
+                                    'period' => $setting['at'].' to '.$setting['to'],
+                                    'type'   => $setting['type'],
+                                ];
+                            }
+
+                        return ['settings' => $dataForm];
+                    })
                     ->action(function ($data, $record): void {
 
                         $periods = [];
@@ -182,33 +164,9 @@ class ListSchedule extends ListRecords
                             'user_id'  => $record->user_id,
                         ]);
                     })
-            ], ActionsPosition::BeforeColumns)
+            ])
             ->paginated([20, 30, 'all'])
             ->poll('30s')
-            ->bulkActions([
-//                Tables\Actions\BulkAction::make('dispatched')
-//                    ->action(function (Collection $collection) {
-//
-//                        $collection->each(function (Webinar $webinar) {
-//
-//                            $user    = $webinar->user;
-//                            $setting = $user->bizon_settings;
-//
-//                            $viewers = $webinar
-//                                ->viewers()
-//                                ->where('status', 0)
-//                                ->get();
-//
-//                            $delay = 0;
-//
-//                            foreach ($viewers as $viewer) {
-//
-//                                ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
-//                            }
-//                        });
-//                    })
-//                    ->label('Догрузить'),
-            ])
             ->emptyStateActions([]);
     }
 

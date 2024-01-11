@@ -43,13 +43,54 @@ class BaseStrategy
             ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
             ->where('user_id', $this->user->id)
             ->where('status', true)
-            ->where('type', static::$strategy)
+            ->where('template', $this->transaction->template)//schedule_yes
             ->get();
 
         return $this;
     }
 
-    public function changeResponsuble(Client $amoApi, int $staff)
+    public function sliceSchedule()
+    {
+        //по графику?
+        if ($this->transaction->schedule) {
+
+            $now = Carbon::now()->timezone('Europe/Moscow');
+            $isWork = false;
+
+            //отбираем только тех, кто работает по графику сейчас
+            foreach ($this->staffs as $staff) {
+
+                $schedulers = $staff->schedule->setting ?? null;
+
+                if ($schedulers) {
+
+                    $schedulers = json_decode($schedulers);
+
+                    foreach ($schedulers as $scheduler) {
+
+                        if ($scheduler->type == 'work') {
+
+                            $at = Carbon::parse($scheduler->at);
+                            $to = Carbon::parse($scheduler->to);
+
+                            if ($now > $at && $now < $to) {
+
+                                $isWork = true;
+
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                if (!$isWork)
+                    unset($this->staffs[$staff]);
+            }
+        }
+        return $this;
+    }
+
+    public function changeResponsible(Client $amoApi, int $staff)
     {
         $lead = $amoApi->service
             ->leads()
