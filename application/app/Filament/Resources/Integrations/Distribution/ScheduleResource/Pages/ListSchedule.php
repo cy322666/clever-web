@@ -39,9 +39,9 @@ class ListSchedule extends ListRecords
 {
     protected static string $resource = ScheduleResource::class;
 
-    //страница с индивидуальным графиком
+    //страница с таблицей сотрудников
 
-    public static function getEloquentQuery(): Builder
+    protected function getTableQuery(): ?Builder
     {
         $query = Staff::query();
 
@@ -49,7 +49,6 @@ class ListSchedule extends ListRecords
 
             $query->where('user_id', Auth::id());
         }
-
         return $query;
     }
 
