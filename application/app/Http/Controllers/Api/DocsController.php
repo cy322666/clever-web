@@ -24,11 +24,6 @@ class DocsController extends Controller
         return view('api.yandex-redirect');
     }
 
-    public function parsing(Request $request)
-    {
-        Log::info(__METHOD__, $request->toArray());
-    }
-
     public function hook(User $user, string $doc, Request $request)
     {
         $doc = Doc::query()->create([
