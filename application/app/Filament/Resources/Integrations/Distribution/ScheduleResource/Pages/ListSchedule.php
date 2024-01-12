@@ -92,6 +92,7 @@ class ListSchedule extends ListRecords
                                         //TODO можно тему ебнуть смену
                                         Flatpickr::make('period')
                                             ->name('Период')
+                                            ->minTime('00:00')
                                             ->use24hr()
                                             ->allowInput() // Allow a user to manually input the date in the textbox (make the textbox editable)
 //                                            ->hourIncrement() // Intervals of incrementing hours in a time picker
@@ -105,7 +106,7 @@ class ListSchedule extends ListRecords
                                             ->monthSelectorType(FlatpickrMonthSelectorType::STATIK)
                                             ->nextArrow()
                                             ->prevArrow('<')
-                                            ->minTime(now()->format('H:i:s'))
+//                                            ->minTime(now()->format('H:i:s'))
                                             ->enableTime()
                                             ->required(),
 
