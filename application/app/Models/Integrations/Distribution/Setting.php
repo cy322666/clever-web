@@ -3,6 +3,7 @@
 namespace App\Models\Integrations\Distribution;
 
 use App\Filament\Resources\Integrations\DistributionResource;
+use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Staff;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Setting extends Model
 {
-    use HasFactory;
+    use HasFactory, SettingRelation;
 
     protected $table = 'distribution_settings';
 

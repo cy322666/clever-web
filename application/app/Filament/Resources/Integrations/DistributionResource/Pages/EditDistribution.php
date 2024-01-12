@@ -22,7 +22,7 @@ class EditDistribution extends EditRecord
 
             Actions\Action::make('instruction')
                 ->label('Инструкция')
-                ->url('https://youtu.be/b5aPWhK2oc8?si=nSGpU-XRSlTRScNQ')
+                ->url('')
                 ->openUrlInNewTab(),
 
             Actions\Action::make('logs')
