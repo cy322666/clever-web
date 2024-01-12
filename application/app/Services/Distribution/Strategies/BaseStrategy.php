@@ -76,8 +76,6 @@ class BaseStrategy
                             if ($now > $at && $now < $to) {
 
                                 $isWork = true;
-
-                                continue;
                             }
                         }
                     }
@@ -98,6 +96,13 @@ class BaseStrategy
 
         $lead->responsible_user_id = $staff ?? $lead->responsible_user_id;
         $lead->save();
+
+        $contact = $lead->contact ?? null;
+
+        if ($contact) {
+            $contact->responsible_user_id = $staff ?? $lead->responsible_user_id;
+            $contact->save();
+        }
 
         return $lead;
     }
