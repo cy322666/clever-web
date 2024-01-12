@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Integrations\AlfaResource\Pages;
 
+use App\Filament\Resources\Integrations\Active\LeadResource;
+use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Services\AlfaCRM\Client;
@@ -26,7 +28,11 @@ class EditAlfa extends EditRecord
             Actions\Action::make('alfaUpdate')
                 ->label('Синхронизировать AlfaCRM')
                 ->action('alfaUpdate')
-                ->disabled(fn() => !$this->record->api_key)
+                ->disabled(fn() => !$this->record->api_key),
+
+             Actions\Action::make('list')
+                 ->label('История')
+                 ->url(TransactionResource::getUrl())
         ];
     }
 

@@ -21,18 +21,6 @@ class TransactionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if (!Auth::user()->is_root) {
-
-            $query->where('user_id', Auth::id());
-        }
-
-        return $query;
-    }
-
     public static function table(Table $table): Table
     {
         return $table
