@@ -92,9 +92,10 @@ class ListSchedule extends ListRecords
                                         //TODO можно тему ебнуть смену
                                         Flatpickr::make('period')
                                             ->name('Период')
+                                            ->use24hr()
                                             ->allowInput() // Allow a user to manually input the date in the textbox (make the textbox editable)
-                                            ->hourIncrement(1) // Intervals of incrementing hours in a time picker
-                                            ->minuteIncrement(10) // Intervals of minute increment in a time picker
+//                                            ->hourIncrement() // Intervals of incrementing hours in a time picker
+//                                            ->minuteIncrement(10) // Intervals of minute increment in a time picker
                                             ->enableSeconds(false) // Enable seconds in a time picker
                                             ->animate() // Animate transitions in the datepicker.
                                             ->dateFormat('Y-m-d H:i') // Set the main date format
@@ -102,7 +103,7 @@ class ListSchedule extends ListRecords
                                             ->theme(FlatpickrTheme::DARK) // Set the datepicker theme (applies for all the date-pickers in the current page). For type sanity, Checkout the FlatpickrTheme enum class for a list of allowed themes.
                                             ->mode(FlatpickrMode::RANGE) // Set the mode as single, range or multiple. Alternatively, you can just use ->range() or ->multiple()
                                             ->monthSelectorType(FlatpickrMonthSelectorType::STATIK)
-                                            ->nextArrow('>')
+                                            ->nextArrow()
                                             ->prevArrow('<')
                                             ->minTime(now()->format('H:i:s'))
                                             ->enableTime()
