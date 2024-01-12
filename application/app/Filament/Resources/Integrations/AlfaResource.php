@@ -114,7 +114,7 @@ class AlfaResource extends Resource
                                Select::make('branch_id')
                                    ->label('Филиал')
                                    ->options(Branch::getWithUser()->pluck('name', 'id') ?? [])
-                                   ->required()
+//                                   ->required()
                                    ->searchable(),
 
 //                               Checkbox::make('work_lead')
