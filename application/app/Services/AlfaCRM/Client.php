@@ -34,7 +34,7 @@ class Client
         $this->storage = $storage;
     }
 
-    public function setBranch(int $branchId): static
+    public function setBranch(int $branchId = 1): static
     {
         $this->branchId = $branchId;
 
