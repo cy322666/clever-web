@@ -36,7 +36,7 @@ class Transaction extends Model
         return match ($this->type) {
             Setting::STRATEGY_SCHEDULE => new ScheduleStrategy(),
             Setting::STRATEGY_ROTATION => new RotationStrategy(),
-            Setting::STRATEGY_RANDOM   => 'Равномерно вразброс',
+            Setting::STRATEGY_RANDOM   => new RotationStrategy(),//
         };
     }
 
