@@ -58,6 +58,7 @@ class DistributionResource extends Resource
                                         Distribution\Setting::STRATEGY_SCHEDULE => 'График',
                                         Distribution\Setting::STRATEGY_ROTATION => 'По очереди',
                                         Distribution\Setting::STRATEGY_RANDOM   => 'Равномерно вразброс',
+                                        null => '',
                                     ])
                                     ->required(),
 
