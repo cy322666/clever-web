@@ -69,6 +69,22 @@ class DistributionResource extends Resource
                                     ])
                                     ->required(),
 
+                                Radio::make('update_tasks')
+                                    ->label('Менять в задачах')
+                                    ->options([
+                                        'yes' => 'Да',
+                                        'no'  => 'Нет',
+                                    ])
+                                    ->required(),
+
+                                Radio::make('update_contact_company')
+                                    ->label('Менять в контакте/компании')
+                                    ->options([
+                                        'yes' => 'Да',
+                                        'no'  => 'Нет',
+                                    ])
+                                    ->required(),
+
                                 Select::make('staffs')
                                     ->label('Сотрудники')
                                     ->multiple()

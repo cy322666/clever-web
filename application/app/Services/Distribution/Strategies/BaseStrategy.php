@@ -8,12 +8,15 @@ use App\Models\User;
 use App\Services\amoCRM\Client;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Ufee\Amo\Base\Services\Model;
 
 class BaseStrategy
 {
     public User $user;
     public Setting $setting;
     public Transaction $transaction;
+
+    public ?array $template = [];
 
     public Collection|array $transactions;
 
@@ -29,8 +32,10 @@ class BaseStrategy
         $this->setting = $setting;
         $this->transaction = $transaction;
 
+        $this->template = json_decode($this->setting->settings, true)[$this->transaction->template] ?? [];
+
         $this->type = $this->transaction->type;
-        $this->staffs = json_decode($this->setting->settings, true)[$this->transaction->template]['staffs'];
+        $this->staffs = $this->template['staffs'] ?? [];
 
         return $this;
     }
@@ -88,20 +93,49 @@ class BaseStrategy
         return $this;
     }
 
-    public function changeResponsible(Client $amoApi, int $staff)
+    /**
+     * @param Client $amoApi
+     * @param int $staff
+     * @return \Ufee\Amo\Base\Collections\Collection|Model|null
+     * @throws \Exception
+     */
+    public function changeResponsible(Client $amoApi, int $staff): \Ufee\Amo\Base\Collections\Collection|Model|null
     {
         $lead = $amoApi->service
             ->leads()
             ->find($this->transaction->lead_id);
 
-        $lead->responsible_user_id = $staff ?? $lead->responsible_user_id;
+        $lead->responsible_user_id = $staff;
         $lead->save();
 
-        $contact = $lead->contact ?? null;
+        if (!empty($this->template['update_contact_company']) &&
+            $this->template['update_contact_company'] == 'yes') {
 
-        if ($contact) {
-            $contact->responsible_user_id = $staff ?? $lead->responsible_user_id;
-            $contact->save();
+            $contact = $lead->contact ?? null;
+
+            if ($contact) {
+                $contact->responsible_user_id = $staff;
+                $contact->save();
+            }
+
+            $company = $lead->company ?? null;
+
+            if ($company) {
+                $company->responsible_user_id = $staff;
+                $company->save();
+            }
+        }
+
+        if (!empty($this->template['update_tasks']) &&
+            $this->template['update_tasks'] == 'yes') {
+
+            $tasks = $lead->tasks;
+
+            foreach ($tasks as $task) {
+
+                $task->responsible_user_id = $staff;
+                $task->save();
+            }
         }
 
         return $lead;

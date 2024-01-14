@@ -39,8 +39,6 @@ class ResponsibleSend extends Command
         $setting = $this->argument('setting');
         $user = $this->argument('user');
 
-//        $settingTemplate = json_decode($setting->settings, true)[$transaction->template];
-
         $amoApi = (new Client($account))
             ->setDelay(0.5)
             ->initLogs(Env::get('APP_DEBUG'));
