@@ -82,23 +82,7 @@ class TransactionsResource extends Resource
             ->poll('15s')
             ->filters([])
             ->actions([])
-            ->bulkActions([
-                Tables\Actions\BulkAction::make('dispatched')
-                    ->action(function (Collection $collection) {
-
-                        $collection->each(function (Transaction $transaction) {
-
-                            $user    = $transaction->user;
-                            $setting = $user->tilda_settings;
-
-                            sleep(2);
-
-                            //TODO need?
-//                            FormSend::dispatch($transaction, $user->account, $setting);
-                        });
-                    })
-                    ->label('Выгрузить')
-            ])
+            ->bulkActions([])
             ->emptyStateActions([]);
     }
 
