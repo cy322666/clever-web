@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Integrations\Distribution;
 
 use App\Filament\Resources\Integrations\Distribution\TransactionsResource\Pages;
 use App\Jobs\Tilda\FormSend;
+use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -41,7 +42,15 @@ class TransactionsResource extends Resource
                     ->hidden(),
 
                 Tables\Columns\TextColumn::make('type')
-                    ->label('Тип распределения'),
+                    ->label('Тип распределения')
+                    ->formatStateUsing(function (Transaction $transaction) {
+
+                        return match ($transaction->type) {
+                            Setting::STRATEGY_SCHEDULE => 'График',
+                            Setting::STRATEGY_ROTATION => 'По очереди',
+                            Setting::STRATEGY_RANDOM   => 'Вразброс',
+                        };
+                    }),
 
                 Tables\Columns\TextColumn::make('staff_name')
                     ->label('Ответственный'),
