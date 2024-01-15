@@ -31,7 +31,7 @@ class Transaction extends Model
         'template',
     ];
 
-    public function matchStrategy() : BaseStrategy
+    public function matchStrategy()
     {
         return match ($this->type) {
             Setting::STRATEGY_SCHEDULE => new ScheduleStrategy(),
