@@ -4,7 +4,7 @@ namespace App\Services\Distribution\Strategies;
 
 use App\Models\Integrations\Distribution\Setting;
 
-class ScheduleStrategy
+class ScheduleStrategy extends BaseStrategy
 {
     public ?string $type; //график
     public static string $strategy = Setting::STRATEGY_SCHEDULE; //стратегия
