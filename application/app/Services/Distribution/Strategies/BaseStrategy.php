@@ -9,6 +9,7 @@ use App\Services\amoCRM\Client;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Ufee\Amo\Base\Services\Model;
+use Ufee\Amo\Models\Lead;
 
 class BaseStrategy
 {
@@ -96,10 +97,10 @@ class BaseStrategy
     /**
      * @param Client $amoApi
      * @param int $staff
-     * @return \Ufee\Amo\Base\Collections\Collection|Model|null
+     * @return \Ufee\Amo\Base\Collections\Collection|Model|Lead|null
      * @throws \Exception
      */
-    public function changeResponsible(Client $amoApi, int $staff): \Ufee\Amo\Base\Collections\Collection|Model|null
+    public function changeResponsible(Client $amoApi, int $staff): \Ufee\Amo\Base\Collections\Collection|Model|null|Lead
     {
         $lead = $amoApi->service
             ->leads()
