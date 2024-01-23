@@ -34,7 +34,7 @@ class Staff extends Model
     /**
      * @return HasOne
      */
-    public function scheduler(): HasOne
+    public function schedule(): HasOne
     {
         return $this->hasOne(Scheduler::class);
     }

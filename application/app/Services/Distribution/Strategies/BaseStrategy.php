@@ -2,12 +2,14 @@
 
 namespace App\Services\Distribution\Strategies;
 
+use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
 use App\Models\User;
 use App\Services\amoCRM\Client;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 use Ufee\Amo\Base\Services\Model;
 use Ufee\Amo\Models\Lead;
 
@@ -18,6 +20,7 @@ class BaseStrategy
     public Transaction $transaction;
 
     public ?array $template = [];
+    public ?array $staffs = [];
 
     public Collection|array $transactions;
 
@@ -66,11 +69,15 @@ class BaseStrategy
             //отбираем только тех, кто работает по графику сейчас
             foreach ($this->staffs as $staff) {
 
-                $schedulers = $staff->schedule->setting ?? null;
+                $staff = Staff::query()->where('staff_id', $staff)->first();
+
+                $schedulers = $staff->schedule->settings ?? null;
 
                 if ($schedulers) {
 
                     $schedulers = json_decode($schedulers);
+
+                    Log::info(__METHOD__.' staff_id => '.$staff->id, $schedulers);
 
                     foreach ($schedulers as $scheduler) {
 
@@ -80,6 +87,8 @@ class BaseStrategy
                             $to = Carbon::parse($scheduler->to);
 
                             if ($now > $at && $now < $to) {
+
+                                Log::info(__METHOD__.' staff_id => '.$staff->id.' is work');
 
                                 $isWork = true;
                             }

@@ -8,7 +8,6 @@ class RotationStrategy extends BaseStrategy
 {
     public ?string $type; //график
     public static string $strategy = Setting::STRATEGY_ROTATION; //стратегия
-    public array $staffs = [];
 
     // без графика
     // берем все распределения за сегодня
