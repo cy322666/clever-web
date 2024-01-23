@@ -128,7 +128,7 @@ class ListSchedule extends ListRecords
                     ])
                     ->fillForm(function(Staff $staff){
 
-                        $settings = $staff->scheduler->settings ?? null;
+                        $settings = $staff->schedule->settings ?? null;
                         $dataForm = [];
 
                         if ($settings)
