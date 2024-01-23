@@ -97,7 +97,7 @@ class BaseStrategy
                 }
 
                 if (!$isWork)
-                    unset($this->staffs[$staff]);
+                    unset($this->staffs[$staff->staff_id]);
             }
         }
         return $this;
