@@ -19,17 +19,20 @@ class AlfaCRMController extends Controller
 {
     public function record(User $user, Request $request)
     {
-        $data = $request->leads['status'][0] ?? $request->leads['add'][0];
+        if ($request->leads) {
 
-        $transaction = Transaction::query()->create([
-            'user_id' => $user->id,
-            'comment' => 'record',
-            'status'  => Setting::RECORD,
-            'amo_lead_id' => $data['id'],
-            'status_id'   => $data['status_id'],
-        ]);
+            $data = $request->leads['status'][0] ?? $request->leads['add'][0];
 
-        RecordWithLead::dispatch($transaction, $user->alfacrm_settings, $user->account);
+            $transaction = Transaction::query()->create([
+                'user_id' => $user->id,
+                'comment' => 'record',
+                'status'  => Setting::RECORD,
+                'amo_lead_id' => $data['id'],
+                'status_id'   => $data['status_id'],
+            ]);
+
+            RecordWithLead::dispatch($transaction, $user->alfacrm_settings, $user->account);
+        }
     }
 
     /**
