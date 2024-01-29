@@ -33,6 +33,8 @@ class Sync extends Command
         $account = \App\Models\Core\Account::query()
             ->find($this->argument('account'));
 
+        $user = $account->user;
+
         $amoApi = (new Client($account));
 
         if (!$amoApi->auth) {
@@ -42,9 +44,9 @@ class Sync extends Command
 
         if ($amoApi->auth) {
 
-            Account::users($amoApi);
-            Account::statuses($amoApi);
-            Account::fields($amoApi);
+            Account::users($amoApi, $user);
+            Account::statuses($amoApi, $user);
+            Account::fields($amoApi, $user);
         }
     }
 }
