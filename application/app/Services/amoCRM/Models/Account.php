@@ -102,6 +102,8 @@ class Account
                         'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
                     ]);
                 }
+            else
+                break;
         }
 
         $fields = $amoApi->service
