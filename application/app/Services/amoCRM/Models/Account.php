@@ -83,7 +83,7 @@ class Account
                 ->ajax()
                 ->get('/api/v4/leads/custom_fields', ['page' => $i])
                 ->_embedded
-                ->custom_fields;
+                ->custom_fields ?? false;
 
             if (!is_bool($fields))
 
