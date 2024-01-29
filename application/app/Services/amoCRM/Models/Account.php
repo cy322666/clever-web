@@ -85,21 +85,23 @@ class Account
                 ->_embedded
                 ->custom_fields;
 
-            foreach ($fields as $field) {
+            if (!is_bool($fields))
 
-                Field::query()->updateOrCreate([
-                    'user_id' => $user->id,
-                    'field_id' => $field->id,
-                ], [
-                    'name' => $field->name,
-                    'type' => $field->type,
-                    'code' => $field->code,
-                    'sort' => $field->sort,
-                    'is_api_only' => $field->is_api_only,
-                    'entity_type' => $field->entity_type,
-                    'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
-                ]);
-            }
+                foreach ($fields as $field) {
+
+                    Field::query()->updateOrCreate([
+                        'user_id' => $user->id,
+                        'field_id' => $field->id,
+                    ], [
+                        'name' => $field->name,
+                        'type' => $field->type,
+                        'code' => $field->code,
+                        'sort' => $field->sort,
+                        'is_api_only' => $field->is_api_only,
+                        'entity_type' => $field->entity_type,
+                        'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
+                    ]);
+                }
         }
 
         $fields = $amoApi->service
