@@ -30,7 +30,11 @@ class Sync extends Command
      */
     public function handle()
     {
-        $amoApi = (new Client(Auth::user()->account));
+        $account = \App\Models\Core\Account::query()
+            ->find($this->argument('account'))
+            ->first();
+
+        $amoApi = (new Client($account));
 
         if (!$amoApi->auth) {
 
