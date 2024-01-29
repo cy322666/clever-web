@@ -77,26 +77,29 @@ class Account
      */
     public static function fields(Client $amoApi, User $user): void
     {
-        $fields = $amoApi->service
-            ->ajax()
-            ->get('/api/v4/leads/custom_fields')
-            ->_embedded
-            ->custom_fields;
+        for($i = 1 ;; $i++) {
 
-        foreach ($fields as $field) {
+            $fields = $amoApi->service
+                ->ajax()
+                ->get('/api/v4/leads/custom_fields', ['page' => $i])
+                ->_embedded
+                ->custom_fields;
 
-            Field::query()->updateOrCreate([
-                'user_id' => $user->id,
-                'field_id' => $field->id,
-            ], [
-                'name' => $field->name,
-                'type' => $field->type,
-                'code' => $field->code,
-                'sort' => $field->sort,
-                'is_api_only' => $field->is_api_only,
-                'entity_type' => $field->entity_type,
-                'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
-            ]);
+            foreach ($fields as $field) {
+
+                Field::query()->updateOrCreate([
+                    'user_id' => $user->id,
+                    'field_id' => $field->id,
+                ], [
+                    'name' => $field->name,
+                    'type' => $field->type,
+                    'code' => $field->code,
+                    'sort' => $field->sort,
+                    'is_api_only' => $field->is_api_only,
+                    'entity_type' => $field->entity_type,
+                    'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
+                ]);
+            }
         }
 
         $fields = $amoApi->service
