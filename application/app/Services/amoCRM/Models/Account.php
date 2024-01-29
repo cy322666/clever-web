@@ -86,7 +86,7 @@ class Account
         foreach ($fields as $field) {
 
             Field::query()->updateOrCreate([
-                'user_id' => $user,
+                'user_id' => $user->id,
                 'field_id' => $field->id,
             ], [
                 'name' => $field->name,
@@ -108,7 +108,7 @@ class Account
         foreach ($fields as $field) {
 
             Field::query()->updateOrCreate([
-                'user_id' => $user,
+                'user_id' => $user->id,
                 'field_id' => $field->id,
             ], [
                 'name' => $field->name,
@@ -130,7 +130,7 @@ class Account
         foreach ($fields as $field) {
 
             Field::query()->updateOrCreate([
-                'user_id' => $user,
+                'user_id' => $user->id,
                 'field_id' => $field->id,
             ], [
                 'name' => $field->name,
