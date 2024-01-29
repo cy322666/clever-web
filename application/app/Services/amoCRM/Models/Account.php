@@ -5,6 +5,7 @@ namespace App\Services\amoCRM\Models;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\User;
 use App\Services\amoCRM\Client;
 use Carbon\Carbon;
 use Exception;
@@ -13,14 +14,14 @@ use Illuminate\Support\Facades\Log;
 
 class Account
 {
-    public static function users(Client $amoApi): void
+    public static function users(Client $amoApi, User $userModel): void
     {
         $users = $amoApi->service->account->users;
 
         foreach ($users as $user) {
 
             Staff::query()->updateOrCreate([
-                'user_id'  => Auth::user()->id,
+                'user_id'  => $userModel->id,
                 'staff_id' => $user->id,
             ], [
                 'group_id'   => $user->group->id,
@@ -37,7 +38,7 @@ class Account
     /**
      * @throws Exception
      */
-    public static function statuses(Client $amoApi): void
+    public static function statuses(Client $amoApi, User $user): void
     {
         $pipelines = $amoApi->service ->ajax()
             ->get('/api/v4/leads/pipelines')
@@ -52,7 +53,7 @@ class Account
 
                     //TODO del deleted
                     Status::query()->updateOrCreate([
-                        'user_id'      => Auth::user()->id,
+                        'user_id'      => $user->id,
                         'status_id'    => $status->id,
                     ], [
                         'name'         => $status->name,
@@ -74,7 +75,7 @@ class Account
     /**
      * @throws Exception
      */
-    public static function fields(Client $amoApi): void
+    public static function fields(Client $amoApi, User $user): void
     {
         $fields = $amoApi->service
             ->ajax()
@@ -85,7 +86,7 @@ class Account
         foreach ($fields as $field) {
 
             Field::query()->updateOrCreate([
-                'user_id' => Auth::id(),
+                'user_id' => $user,
                 'field_id' => $field->id,
             ], [
                 'name' => $field->name,
@@ -107,7 +108,7 @@ class Account
         foreach ($fields as $field) {
 
             Field::query()->updateOrCreate([
-                'user_id' => Auth::id(),
+                'user_id' => $user,
                 'field_id' => $field->id,
             ], [
                 'name' => $field->name,
@@ -129,7 +130,7 @@ class Account
         foreach ($fields as $field) {
 
             Field::query()->updateOrCreate([
-                'user_id' => Auth::id(),
+                'user_id' => $user,
                 'field_id' => $field->id,
             ], [
                 'name' => $field->name,
