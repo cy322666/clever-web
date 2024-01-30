@@ -11,6 +11,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Colors\Color;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
@@ -100,22 +101,23 @@ class ViewUser extends ViewRecord
     {
         $amoApi = (new Client(Auth::user()->account));
 
-        if (!$amoApi->auth) {
+        if (!$amoApi->auth)
 
             $amoApi->init();
-        }
 
         if ($amoApi->auth) {
 
-            Account::users($amoApi);
-            Account::statuses($amoApi);
-            Account::fields($amoApi);
+            Artisan::call('app:sync', ['account' => Auth::user()->account]);
 
             Notification::make()
                 ->title('Успешно обновлено')
                 ->success()
                 ->send();
-        }
+        } else
+            Notification::make()
+                ->title('Ошибка авторизации')
+                ->danger()
+                ->send();
     }
 
     protected function authorizeAccess(): void
