@@ -35,9 +35,9 @@ class Account extends Model
 
     protected $guarded = [];
 
-    public function user()
+    public function user(): HasOne
     {
-        return $this->belongsTo(User::class);
+        return $this->hasOne(User::class);
     }
 
     public function staffs(): HasMany
