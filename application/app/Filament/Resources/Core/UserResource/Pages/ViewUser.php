@@ -109,7 +109,7 @@ class ViewUser extends ViewRecord
 
         if ($amoApi->auth) {
 
-            Artisan::call('app:sync', ['account' => $account]);
+            Artisan::call('app:sync', ['account' => $account->id]);
 
             Notification::make()
                 ->title('Успешно обновлено')
