@@ -99,7 +99,9 @@ class ViewUser extends ViewRecord
      */
     public function amocrmUpdate(): void
     {
-        $amoApi = (new Client(Auth::user()->account));
+        $account = Auth::user()->account;
+
+        $amoApi = new Client($account);
 
         if (!$amoApi->auth)
 
@@ -107,7 +109,7 @@ class ViewUser extends ViewRecord
 
         if ($amoApi->auth) {
 
-            Artisan::call('app:sync', ['account' => Auth::user()->account]);
+            Artisan::call('app:sync', ['account' => $account]);
 
             Notification::make()
                 ->title('Успешно обновлено')

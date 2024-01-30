@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class Account
 {
-    public static function users(Client $amoApi, User $userModel): void
+    public static function users(Client $amoApi, $userModel): void
     {
         $users = $amoApi->service->account->users;
 
@@ -38,7 +38,7 @@ class Account
     /**
      * @throws Exception
      */
-    public static function statuses(Client $amoApi, User $user): void
+    public static function statuses(Client $amoApi, $user): void
     {
         $pipelines = $amoApi->service ->ajax()
             ->get('/api/v4/leads/pipelines')
@@ -75,7 +75,7 @@ class Account
     /**
      * @throws Exception
      */
-    public static function fields(Client $amoApi, User $user): void
+    public static function fields(Client $amoApi, $user): void
     {
         for($i = 1 ;; $i++) {
 
