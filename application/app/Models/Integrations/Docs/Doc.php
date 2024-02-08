@@ -81,11 +81,15 @@ class Doc extends Model
     {
         $fileName = '';
 
-        foreach (explode('+', $template) as $item) {
+        if (strripos($template, '+') !== false) {
 
-            $fileName .= FormatService::getValue((int)$item, $entities).'-';
+            foreach (explode('+', $template) as $item) {
+
+                $fileName .= FormatService::getValue((int)$item, $entities) . '-';
+            }
+
+            return $fileName.Carbon::now()->format('Y-m-d');
         }
-
-        return $fileName.Carbon::now()->format('Y-m-d');
+        return $template;
     }
 }
