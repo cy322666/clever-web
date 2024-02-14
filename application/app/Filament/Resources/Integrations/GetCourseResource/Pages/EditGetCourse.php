@@ -55,7 +55,8 @@ class EditGetCourse extends EditRecord
 
             for ($i = 0; count($data['order_settings']) !== $i; $i++) {
                 $data['order_settings'][$i]['link_form'] = route('getcourse.order', [
-                        'user' => Auth::user()->uuid
+                        'user' => Auth::user()->uuid,
+                        'template' => $i,
                     ]) . '?phone={object.user.phone}&name={object.user.first_name}&email={object.user.email}&number={object.number}&id={object.id}&positions={object.positions}&left_cost_money={object.left_cost_money}&cost_money={object.cost_money}&payed_money={object.payed_money}&status={object.status}&link={object.payment_link}&promocode={object.promocode}';
 
                 $body = !empty($data['bodies']) ? json_decode($data['bodies'], true)[$i] : [];
