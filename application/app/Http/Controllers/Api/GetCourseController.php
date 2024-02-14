@@ -13,17 +13,14 @@ use Illuminate\Support\Facades\Log;
 
 class GetCourseController extends Controller
 {
-    public function pay(User $user, Request $request) {}
-
-    public function order(User $user, Request $request)
+    public function order(User $user, Request $request, string $template)
     {
-        Log::channel('input')->info(__METHOD__, $request->toArray());
-
         $cost  = explode('.', $request->cost_money)[0] ?? 0;
         $payed = explode('.', $request->payed_money)[0] ?? 0;
         $left  = explode('.', $request->left_cost_money)[0] ?? 0;
 
         $order = Order::query()->create([
+            'template'  => $template,
             'user_id'   => $user->id,
             'phone'     => $request->phone,
             'email'     => $request->email,
@@ -45,11 +42,10 @@ class GetCourseController extends Controller
         );
     }
 
-    public function form(User $user, Request $request)
+    public function form(User $user, Request $request, string $form)
     {
-        Log::channel('input')->info(__METHOD__, $request->toArray());
-
         $form = Form::query()->create([
+            'form'    => $form,
             'user_id' => $user->id,
             'phone'   => $request->phone,
             'email'   => $request->email,

@@ -21,13 +21,7 @@ class Setting extends Model
         'settings',
         'active',
         'user_id',
-        'tag_order',
-        'user_id',
-        'utms',
-        'response_user_id_order',
-        'response_user_id_default',
-        'status_id_order_close',
-        'status_id_order',
+        'order_settings',
     ];
 
     public static string $resource = GetCourseResource::class;

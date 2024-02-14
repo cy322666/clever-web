@@ -42,18 +42,20 @@ class OrderSend extends Command
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 
+        $setting = json_decode($setting->settings, true)[$order->template];
+
         $amoApi = (new Client($account))
             ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
 
         $statusId = Status::query()
-            ->find($setting->status_id_order ?? $setting->status_id_default)
+            ->find($setting['status_id_order'] ?? $setting['status_id_default'])
             ?->status_id;
 
         if ($order->payed_money == $order->cost_money &&
-            $setting->status_id_order_close) {
+            $setting['status_id_order_close']) {
 
-            $statusClose =  $statusId = Status::query()->find($setting->status_id_order_close);
+            $statusClose =  $statusId = Status::query()->find($setting['status_id_order_close']);
 
             if ($statusClose->exists())
 
@@ -61,7 +63,7 @@ class OrderSend extends Command
         }
 
         $responsibleId = Staff::query()
-            ->find($setting->responsible_user_id_order ?? $setting->response_user_id_default)
+            ->find($setting['responsible_user_id_order'] ?? $setting['response_user_id_default'])
             ?->staff_id;
 
         $contact = Contacts::search([
@@ -94,8 +96,8 @@ class OrderSend extends Command
                 'sale'      => $order->cost_money,
             ], []);
 
-        Tags::add($lead, $setting->tag);
-        Tags::add($lead, $setting->tag_order);
+        Tags::add($lead, $setting['tag'] ?? null);
+        Tags::add($lead, $setting['tag_order'] ?? null);
 
         Notes::addOne($lead, OrderNote::create($order));
 

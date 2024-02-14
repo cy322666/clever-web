@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('create_lead_settings', function (Blueprint $table) {
+        Schema::create('create_lead_transactions', function (Blueprint $table) {
             $table->id();
             $table->timestamps();
         });
@@ -22,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('create_lead_settings');
+        Schema::dropIfExists('create_lead_transactions');
     }
 };

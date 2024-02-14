@@ -33,10 +33,7 @@ class EditGetCourse extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['link_order'] = route('getcourse.order', [
-                'user' => Auth::user()->uuid
-            ]) . '?phone={object.user.phone}&name={object.user.first_name}&email={object.user.email}&number={object.number}&id={object.id}&positions={object.positions}&left_cost_money={object.left_cost_money}&cost_money={object.cost_money}&payed_money={object.payed_money}&status={object.status}&link={object.payment_link}&promocode={object.promocode}';
-
+        //forms
         if ($data['settings']) {
             $data['settings'] = json_decode($data['settings'], true);
 
@@ -49,6 +46,21 @@ class EditGetCourse extends EditRecord
                 $body = !empty($data['bodies']) ? json_decode($data['bodies'], true)[$i] : [];
 
                 $data['settings'][$i]['body'] = json_encode($body, JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        //orders
+        if ($data['order_settings']) {
+            $data['order_settings'] = json_decode($data['order_settings'], true);
+
+            for ($i = 0; count($data['order_settings']) !== $i; $i++) {
+                $data['order_settings'][$i]['link_form'] = route('getcourse.order', [
+                        'user' => Auth::user()->uuid
+                    ]) . '?phone={object.user.phone}&name={object.user.first_name}&email={object.user.email}&number={object.number}&id={object.id}&positions={object.positions}&left_cost_money={object.left_cost_money}&cost_money={object.cost_money}&payed_money={object.payed_money}&status={object.status}&link={object.payment_link}&promocode={object.promocode}';
+
+                $body = !empty($data['bodies']) ? json_decode($data['bodies'], true)[$i] : [];
+
+                $data['order_settings'][$i]['body'] = json_encode($body, JSON_UNESCAPED_UNICODE);
             }
         }
 
