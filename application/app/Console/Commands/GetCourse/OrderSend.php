@@ -42,14 +42,14 @@ class OrderSend extends Command
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 
-        $setting = json_decode($setting->settings, true)[$order->template];
+        $setting = json_decode($setting->order_settings, true)[$order->template];
 
         $amoApi = (new Client($account))
             ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
 
         $statusId = Status::query()
-            ->find($setting['status_id_order'] ?? $setting['status_id_default'])
+            ->find($setting['status_id_order'])
             ?->status_id;
 
         if ($order->payed_money == $order->cost_money &&
@@ -63,7 +63,7 @@ class OrderSend extends Command
         }
 
         $responsibleId = Staff::query()
-            ->find($setting['responsible_user_id_order'] ?? $setting['response_user_id_default'])
+            ->find($setting['response_user_id_order'])
             ?->staff_id;
 
         $contact = Contacts::search([
