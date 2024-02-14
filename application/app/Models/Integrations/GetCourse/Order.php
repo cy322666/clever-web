@@ -32,5 +32,6 @@ class Order extends Model
         'lead_id',
         'contact_id',
         'user_id',
+        'template',
     ];
 }
