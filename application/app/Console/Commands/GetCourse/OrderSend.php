@@ -15,6 +15,7 @@ use App\Services\amoCRM\Models\Notes;
 use App\Services\amoCRM\Models\Tags;
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Log;
 
 class OrderSend extends Command
 {
@@ -55,7 +56,7 @@ class OrderSend extends Command
         if ($order->payed_money == $order->cost_money &&
             $setting['status_id_order_close']) {
 
-            $statusClose =  $statusId = Status::query()->find($setting['status_id_order_close']);
+            $statusClose = $statusId = Status::query()->find($setting['status_id_order_close']);
 
             if ($statusClose->exists())
 
@@ -95,6 +96,12 @@ class OrderSend extends Command
                 'status_id' => $statusId,
                 'sale'      => $order->cost_money,
             ], []);
+
+        Log::info(__METHOD__,[
+            'lead_id' => $lead->id,
+            'status_id' => $statusId,
+            'resp' => $responsibleId,
+        ]);
 
         Tags::add($lead, $setting['tag'] ?? null);
         Tags::add($lead, $setting['tag_order'] ?? null);
