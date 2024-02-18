@@ -89,19 +89,8 @@ abstract class Contacts extends Client
                 }
                 $contact->cf($fieldsName)->setValue($fieldValue);
             }
-        }
-
-        try {
-            $contact->save();
-
-        } catch (\Throwable $e) {
-
-            Log::channel('amo_debug')->warning([
-            'message' => $e->getMessage(),
-            'trace'   => $e->getTraceAsString(),
-            'account' => ['no']
-        ]);
-}
+        $contact->save();
+    }
 
         return $contact;
     }
@@ -123,36 +112,14 @@ abstract class Contacts extends Client
 
         $contact->name = !$name ? 'Неизвестно' : $name;
 
-        try {
-
-            $contact->save();
-
-        } catch (\Throwable $e) {
-
-            Log::channel('amo_debug')->warning([
-                'message' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-                'account' => $amoapi->account->toArray(),
-            ]);
-        }
+        $contact->save();
 
         return $contact;
     }
 
     public static function get($amoapi, $id)
     {
-        try {
-
-            return $amoapi->service->contacts()->find($id);
-
-        } catch (\Throwable $e) {
-
-            Log::channel('amo_debug')->warning([
-                'message' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-                'account' => $amoapi->account->toArray(),
-            ]);
-        }
+        return $amoapi->service->contacts()->find($id);
     }
 
     public static function buildLink($amoApi, int $contactId) : string
