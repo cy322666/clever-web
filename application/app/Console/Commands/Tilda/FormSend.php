@@ -68,11 +68,6 @@ class FormSend extends Command
         if ($contact == null) {
 
             $contact = Contacts::create($amoApi, Form::getValueForKey('name', $body, $setting) ?? 'Неизвестно');
-            $contact = Contacts::update($contact, [
-                'Телефоны' => [$phone],
-                'Почта'    => Form::getValueForKey('email', $body, $setting),
-                'Ответственный' => $responsibleId,
-            ]);
 
         } elseif ($setting['is_union'] == 'yes') {
 
@@ -81,6 +76,12 @@ class FormSend extends Command
             if ($lead)
                 $responsibleId = $lead->responsible_user_id;
         }
+
+        $contact = Contacts::update($contact, [
+            'Телефоны' => [$phone],
+            'Почта'    => Form::getValueForKey('email', $body, $setting),
+            'Ответственный' => $responsibleId,
+        ]);
 
         if (empty($lead)) {
 
