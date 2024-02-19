@@ -89,8 +89,8 @@ abstract class Contacts extends Client
                 }
                 $contact->cf($fieldsName)->setValue($fieldValue);
             }
+        }
         $contact->save();
-    }
 
         return $contact;
     }
