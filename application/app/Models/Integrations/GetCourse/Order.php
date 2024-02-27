@@ -2,6 +2,7 @@
 
 namespace App\Models\Integrations\GetCourse;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,5 +41,10 @@ class Order extends Model
     public function setting(): HasOne
     {
         return $this->hasOne(Setting::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

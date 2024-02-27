@@ -36,10 +36,18 @@ class ListOrders extends ListRecords
         return [];
     }
 
-    public static function table(Table $table): Table
+    protected static ?string $title = 'История заказов';
+
+    protected function getTableQuery(): ?Builder
+    {
+        return GetCourse\Order::query()->where('user_id', Auth::user()->id);
+    }
+
+    public function table(Table $table): Table
     {
         return $table
             ->columns([
+
                 TextColumn::make('id')
                     ->label('ID'),
 
@@ -55,31 +63,40 @@ class ListOrders extends ListRecords
                     ->sortable(),
 
                 TextColumn::make('lead_id')
-                    ->url(fn(GetCourse\Order $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/leads/detail/'.$form->lead_id, true)
+                    ->url(fn(GetCourse\Order $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/leads/detail/'.$order->lead_id, true)
                     ->label('Сделка'),
 
                 TextColumn::make('contact_id')
-                    ->url(fn(GetCourse\Order $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$form->lead_id, true)
+                    ->url(fn(GetCourse\Order $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$order->lead_id, true)
                     ->label('Контакт'),
 
                 BooleanColumn::make('status')
                     ->label('Выгружен'),
 
-                TextColumn::make('template')
-                    ->label('Шаблон'),
+                TextColumn::make('site')
+                    ->label('Форма'),
             ])
+            ->defaultSort('created_at', 'desc')
+            ->paginated([20, 40, 'all'])
+            ->poll('15s')
             ->filters([])
             ->actions([])
             ->bulkActions([
                 BulkAction::make('dispatched')
                     ->action(function (Collection $collection) {
 
-                        $collection->each(function (GetCourse\Order $order) {
+                        $collection->each(function (Form $form) {
 
-                            OrderSend::dispatch($order, $order->user->account, $order->setting);
+                            $user    = $form->user;
+                            $setting = $user->tilda_settings;
+
+                            sleep(2);
+
+                            FormSend::dispatch($form, $user->account, $setting);
                         });
                     })
                     ->label('Выгрузить')
-            ]);
+            ])
+            ->emptyStateActions([]);
     }
 }
