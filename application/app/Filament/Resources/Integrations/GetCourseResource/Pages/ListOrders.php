@@ -78,7 +78,7 @@ class ListOrders extends ListRecords
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
-            ->poll('15s')
+            ->poll('5s')
             ->filters([])
             ->actions([])
             ->bulkActions([
