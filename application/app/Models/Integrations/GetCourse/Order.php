@@ -4,6 +4,8 @@ namespace App\Models\Integrations\GetCourse;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -34,4 +36,9 @@ class Order extends Model
         'user_id',
         'template',
     ];
+
+    public function setting(): HasOne
+    {
+        return $this->hasOne(Setting::class);
+    }
 }

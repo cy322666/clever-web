@@ -3,15 +3,24 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\GetCourseResource\Pages;
+use App\Filament\Resources\Integrations\Tilda\FormResource\Pages\ListOrders;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
+use App\Jobs\GetCourse\OrderSend;
+use App\Jobs\Tilda\FormSend;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\GetCourse;
+use App\Models\Integrations\Tilda\Form;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Tables\Actions\BulkAction;
+use Filament\Tables\Columns\BooleanColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -26,6 +35,18 @@ class GetCourseResource extends Resource
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Геткурс';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (!Auth::user()->is_root) {
+
+            $query->where('user_id', Auth::id());
+        }
+
+        return $query;
+    }
 
     public static function form(Forms\Form $form): Forms\Form
     {
@@ -199,23 +220,6 @@ class GetCourseResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                //
-            ])
-            ->filters([
-                //
-            ])
-            ->actions([
-//                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-//                Tables\Actions\DeleteBulkAction::make(),
-            ]);
-    }
-
     public static function getRelations(): array
     {
         return [
@@ -227,6 +231,7 @@ class GetCourseResource extends Resource
     {
         return [
             'edit'   => Pages\EditGetCourse::route('/{record}/edit'),
+            'list'   => ListOrders::route('/orders'),
         ];
     }
 }
