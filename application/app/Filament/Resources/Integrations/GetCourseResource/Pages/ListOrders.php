@@ -85,14 +85,9 @@ class ListOrders extends ListRecords
                 BulkAction::make('dispatched')
                     ->action(function (Collection $collection) {
 
-                        $collection->each(function (Form $form) {
+                        $collection->each(function (GetCourse\Order $order) {
 
-                            $user    = $form->user;
-                            $setting = $user->tilda_settings;
-
-                            sleep(2);
-
-                            FormSend::dispatch($form, $user->account, $setting);
+                            OrderSend::dispatch($order, $order->user->account, $order->setting);
                         });
                     })
                     ->label('Выгрузить')
