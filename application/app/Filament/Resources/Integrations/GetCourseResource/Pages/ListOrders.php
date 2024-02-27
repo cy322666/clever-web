@@ -87,7 +87,9 @@ class ListOrders extends ListRecords
 
                         $collection->each(function (GetCourse\Order $order) {
 
-                            OrderSend::dispatch($order, $order->user->account, $order->setting);
+                            $user = $order->user;
+
+                            OrderSend::dispatch($order, $user->account, $user->getcourse_settings);
                         });
                     })
                     ->label('Выгрузить')
