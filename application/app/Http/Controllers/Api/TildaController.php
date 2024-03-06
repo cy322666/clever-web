@@ -39,6 +39,8 @@ class TildaController extends Controller
             'status'  => false,
         ]);
 
-        FormSend::dispatch($form, $user->account, $setting);
+        if ($user->tilda_settings->active)
+
+            FormSend::dispatch($form, $user->account, $setting);
     }
 }
