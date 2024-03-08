@@ -89,11 +89,11 @@ class Preview extends Widget implements HasForms, HasInfolists
                             ->schema([
 
                                 /** @var Model $cost Resource -> Setting type*/
-                                TextEntry::make('cost_1_month')
-                                    ->label('')
-                                    ->state(fn (App $app) => '- 1 мес : '.$app->resource_name::getModel()::$cost['1_month'])
-                                    ->color(Color::GRAY_300)
-                                    ->alignLeft(),
+//                                TextEntry::make('cost_1_month')
+//                                    ->label('')
+//                                    ->state(fn (App $app) => '- 1 мес : '.$app->resource_name::getModel()::$cost['1_month'])
+//                                    ->color(Color::GRAY_300)
+//                                    ->alignLeft(),
 
                                 TextEntry::make('cost_6_month')
                                     ->label('')

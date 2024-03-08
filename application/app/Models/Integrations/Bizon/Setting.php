@@ -21,8 +21,8 @@ class Setting extends Model
 
     public static array $cost = [
         '1_month'  => '500 р',
-        '6_month'  => '3.000 р',
-        '12_month' => '5.000 р',
+        '6_month'  => '6.000 р',
+        '12_month' => '12.000 р',
     ];
 
     protected $fillable = [
