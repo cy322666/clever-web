@@ -109,7 +109,7 @@ class Form extends Model
 
         foreach ($fields as $field) {
 
-            $fieldName = Field::query()->find($field['field_amo'])->name;
+            $fieldName = Field::query()->find($field['field_amo'])?->name;
 
             if (!empty($field['field_form']) && !empty($body->{$field['field_form']}))
 
