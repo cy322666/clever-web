@@ -53,7 +53,7 @@ class FormSend extends Command
             ->find($setting['pipeline_id'])
             ?->pipeline_id;
 
-        $pipelineId = Status::query()
+        $statusId = Status::query()
             ->find($setting['status_id'])
             ?->status_id;
 
