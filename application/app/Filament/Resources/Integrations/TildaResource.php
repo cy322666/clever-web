@@ -60,6 +60,11 @@ class TildaResource extends Resource
                                     ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
                                     ->required(),
 
+                                Forms\Components\Select::make('status_id')
+                                    ->label('Этап')
+                                    ->options(Status::getWithUser()->pluck('name', 'id'))
+                                    ->required(),
+
                                 Forms\Components\Select::make('responsible_user_id')
                                     ->label('Ответственный')
                                     ->options(Staff::getWithUser()->pluck('name', 'id'))

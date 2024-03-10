@@ -53,6 +53,10 @@ class FormSend extends Command
             ->find($setting['pipeline_id'])
             ?->pipeline_id;
 
+        $pipelineId = Status::query()
+            ->find($setting['status_id'])
+            ?->status_id;
+
         $responsibleId = Staff::query()
             ->find($setting['responsible_user_id'])
             ?->staff_id;
@@ -88,6 +92,7 @@ class FormSend extends Command
             $lead = Leads::create($contact, [
                 'responsible_user_id' => $responsibleId,
                 'pipeline_id' => $pipelineId,
+                'status_id' => $statusId,
             ], 'Новая заявка с Тильды');
         }
 
