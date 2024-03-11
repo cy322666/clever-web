@@ -54,7 +54,7 @@ class FormSend extends Command
             ?->pipeline_id;
 
         $statusId = Status::query()
-            ->find($setting['status_id'])
+            ->find($setting['status_id'] ?? null)
             ?->status_id;
 
         $responsibleId = Staff::query()
