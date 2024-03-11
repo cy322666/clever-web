@@ -96,11 +96,15 @@ class FormSend extends Command
             ], 'Новая заявка с Тильды');
         }
 
+        $lead = Leads::refresh($lead, $amoApi);
+
         if ($setting['utms'] == 'rewrite')
 
             $lead = Leads::setRewriteUtms($lead, $form->parseCookies());
         else
             $lead = Leads::setUtms($lead, $form->parseCookies());
+
+        $lead = Leads::refresh($lead, $amoApi);
 
         if (isset($setting['fields']))
 

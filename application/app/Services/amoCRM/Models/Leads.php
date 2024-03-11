@@ -33,6 +33,13 @@ abstract class Leads
         return $leads;
     }
 
+    public static function refresh($lead, $client)
+    {
+        sleep(2);
+
+        return $client->service->leads()->find($lead->id);
+    }
+
     //поиск активной в воронке
     public static function search($contact, $client, int|array $pipelines = null)
     {
