@@ -153,7 +153,7 @@ abstract class Leads
             }
         }
 
-        $lead->save();
+//        $lead->save();
 
         return $lead;
     }
@@ -208,7 +208,7 @@ abstract class Leads
             $lead->cf('referrer')->setValue($utms['previousUrl']);
         }
 
-        $lead->save();
+//        $lead->save();
 
         return $lead;
     }

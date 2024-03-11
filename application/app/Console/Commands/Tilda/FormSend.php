@@ -104,7 +104,7 @@ class FormSend extends Command
         else
             $lead = Leads::setUtms($lead, $form->parseCookies());
 
-        $lead = Leads::refresh($lead, $amoApi);
+//        $lead = Leads::refresh($lead, $amoApi);
 
         if (isset($setting['fields']))
 
