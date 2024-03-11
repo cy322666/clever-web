@@ -111,6 +111,8 @@ class FormSend extends Command
 
             $lead = $form->setCustomFields($lead, $setting['fields']);
 
+        $lead->save();
+
         Tags::add($lead, $setting['tag'] ?? null);
 
         //TODO
