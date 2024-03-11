@@ -96,6 +96,9 @@ abstract class Leads
         if(!empty($params['responsible_user_id']))
             $lead->responsible_user_id = $params['responsible_user_id'];
 
+        if(!empty($params['pipeline_id']))
+            $lead->pipeline_id = $params['pipeline_id'];
+
         if(!empty($params['status_id']))
             $lead->status_id = $params['status_id'];
 
@@ -198,7 +201,6 @@ abstract class Leads
             $lead->cf('referrer')->setValue($utms['previousUrl']);
         }
 
-//        $lead->updated_at = null;
         $lead->save();
 
         return $lead;
