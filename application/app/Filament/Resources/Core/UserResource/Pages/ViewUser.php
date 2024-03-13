@@ -32,6 +32,12 @@ class ViewUser extends ViewRecord
                 ->label(fn() => $this->record->account->active ? 'amoCRM Подключена' : 'Подключить amoCRM')
                 ->disabled(fn() => $this->record->account->active),
 
+            Actions\Action::make('breakAuth')
+                ->action('breakAuth')
+                ->color(Color::Gray)
+                ->label('Отозвать авторизацию')
+                ->disabled(fn() => $this->record->account->active),
+
             Actions\Action::make('activeUpdate')
                 ->action('amocrmUpdate')
                 ->label('Синхронизировать')
@@ -92,6 +98,29 @@ class ViewUser extends ViewRecord
                 ->title('amoCRM уже подключена')
                 ->warning()
                 ->send();
+    }
+
+    public function breakAuth()
+    {
+        $account = Auth::user()->account;
+
+        if ($account->active) {
+
+            $account->code = null;
+            $account->access_token = null;
+            $account->subdomain = null;
+            $account->refresh_token = null;
+            $account->client_id = null;
+            $account->client_secret = null;
+            $account->zone = null;
+            $account->active = false;
+            $account->save();
+
+            Notification::make()
+                ->title('Авторизация отозвана')
+                ->warning()
+                ->send();
+        }
     }
 
     /**
