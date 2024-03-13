@@ -32,15 +32,15 @@ class ViewUser extends ViewRecord
                 ->label(fn() => $this->record->account->active ? 'amoCRM Подключена' : 'Подключить amoCRM')
                 ->disabled(fn() => $this->record->account->active),
 
+            Actions\Action::make('activeUpdate')
+                ->action('amocrmUpdate')
+                ->label('Синхронизировать')
+                ->disabled(fn() => !$this->record->account->active),
+
             Actions\Action::make('breakAuth')
                 ->action('breakAuth')
                 ->color(Color::Gray)
                 ->label('Отозвать авторизацию')
-                ->disabled(fn() => !$this->record->account->active),
-
-            Actions\Action::make('activeUpdate')
-                ->action('amocrmUpdate')
-                ->label('Синхронизировать')
                 ->disabled(fn() => !$this->record->account->active),
 
            Actions\Action::make('root')
