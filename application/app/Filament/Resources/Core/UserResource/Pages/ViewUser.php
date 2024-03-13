@@ -36,7 +36,7 @@ class ViewUser extends ViewRecord
                 ->action('breakAuth')
                 ->color(Color::Gray)
                 ->label('Отозвать авторизацию')
-                ->disabled(fn() => $this->record->account->active),
+                ->disabled(fn() => !$this->record->account->active),
 
             Actions\Action::make('activeUpdate')
                 ->action('amocrmUpdate')
