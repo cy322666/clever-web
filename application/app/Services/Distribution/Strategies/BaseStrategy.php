@@ -115,36 +115,39 @@ class BaseStrategy
             ->leads()
             ->find($this->transaction->lead_id);
 
-        $lead->responsible_user_id = $staff;
-        $lead->save();
+        if ($lead) {
 
-        if (!empty($this->template['update_contact_company']) &&
-            $this->template['update_contact_company'] == 'yes') {
+            $lead->responsible_user_id = $staff;
+            $lead->save();
 
-            $contact = $lead->contact ?? null;
+            if (!empty($this->template['update_contact_company']) &&
+                $this->template['update_contact_company'] == 'yes') {
 
-            if ($contact) {
-                $contact->responsible_user_id = $staff;
-                $contact->save();
+                $contact = $lead->contact ?? null;
+
+                if ($contact) {
+                    $contact->responsible_user_id = $staff;
+                    $contact->save();
+                }
+
+                $company = $lead->company ?? null;
+
+                if ($company) {
+                    $company->responsible_user_id = $staff;
+                    $company->save();
+                }
             }
 
-            $company = $lead->company ?? null;
+            if (!empty($this->template['update_tasks']) &&
+                $this->template['update_tasks'] == 'yes') {
 
-            if ($company) {
-                $company->responsible_user_id = $staff;
-                $company->save();
-            }
-        }
+                $tasks = $lead->tasks;
 
-        if (!empty($this->template['update_tasks']) &&
-            $this->template['update_tasks'] == 'yes') {
+                foreach ($tasks as $task) {
 
-            $tasks = $lead->tasks;
-
-            foreach ($tasks as $task) {
-
-                $task->responsible_user_id = $staff;
-                $task->save();
+                    $task->responsible_user_id = $staff;
+                    $task->save();
+                }
             }
         }
 
