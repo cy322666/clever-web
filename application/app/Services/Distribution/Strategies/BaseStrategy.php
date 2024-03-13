@@ -52,7 +52,9 @@ class BaseStrategy
             ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
             ->where('user_id', $this->user->id)
             ->where('status', true)
-            ->where('template', $this->transaction->template)//schedule_yes
+            ->where('template', $this->transaction->template)
+            ->where('id', '<', $this->transaction->id)
+            ->orderByDesc('id')
             ->get();
 
         return $this;
