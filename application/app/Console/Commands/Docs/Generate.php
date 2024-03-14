@@ -89,7 +89,7 @@ class Generate extends Command
 
         if ($settingRaw['format'] == 'pdf') {
 
-            $api = new WordsApi($account->aspose_client_id, $account->aspose_client_secret);
+            $api = new WordsApi($setting->aspose_client_id, $setting->aspose_client_secret);
 
             $upload_request = new UploadFileRequest($localPath.'/'.$filename.'.docx', $filename);
             $api->uploadFile($upload_request);
