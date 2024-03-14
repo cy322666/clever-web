@@ -108,10 +108,9 @@ class BaseStrategy
     /**
      * @param Client $amoApi
      * @param int $staff
-     * @return \Ufee\Amo\Base\Collections\Collection|Model|Lead|null
      * @throws \Exception
      */
-    public function changeResponsible(Client $amoApi, int $staff): \Ufee\Amo\Base\Collections\Collection|Model|null|Lead
+    public function changeResponsible(Client $amoApi, int $staff)
     {
         $lead = $amoApi->service
             ->leads()

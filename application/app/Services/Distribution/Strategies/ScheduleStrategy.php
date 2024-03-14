@@ -19,7 +19,7 @@ class ScheduleStrategy extends BaseStrategy
     {
         $lastTransaction = $this->transactions->first();
 
-        Log::info(__METHOD__.' last id => '.$lastTransaction->id.' base id => '.$this->transaction->id);
+        Log::info(__METHOD__.' last id => '.$lastTransaction->id ?? null.' base id => '.$this->transaction?->id ?? null);
 
         //есть на кого распределять и есть на что ориентироваться (last)
         if ($lastTransaction && count($this->staffs) > 0) {
