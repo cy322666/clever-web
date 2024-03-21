@@ -32,7 +32,8 @@ class AmocrmFieldsRelationManager extends RelationManager
             ->recordTitleAttribute('name')
             ->columns([
                 Tables\Columns\TextColumn::make('field_id')
-                    ->label('ID'),
+                    ->label('ID')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Название')
                     ->searchable(),
@@ -42,11 +43,15 @@ class AmocrmFieldsRelationManager extends RelationManager
                         'leads' => 'Сделки',
                         'contacts' => 'Контакты',
                         'companies' => 'Компании',
-                })
+                }),
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Тип'),
+
+                Tables\Columns\TextColumn::make('entity_type')
+                    ->label('Сущность')
+                    ->toggleable()
             ])
-            ->filters([
-                //
-            ])
+            ->filters([])
             ->paginated([20, 50, 'all'])
             ->headerActions([])
             ->actions([])
