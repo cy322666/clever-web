@@ -50,7 +50,7 @@ class BaseStrategy
 
         $query = Transaction::query()
             ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
-            ->where('user_id', $this->user->id)
+            ->where('user_id', $this->transaction->user_id)
             ->where('status', true)
             ->where('template', $this->transaction->template)
             ->where('id', '<', $this->transaction->id)
