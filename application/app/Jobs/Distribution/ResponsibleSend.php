@@ -23,9 +23,9 @@ class ResponsibleSend implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public Transaction $transaction,
-        public Setting $setting,
-        public User $user
+        public $transaction,
+        public $setting,
+        public $user
     ) {
         $this->onQueue('distribution_transaction');
 
