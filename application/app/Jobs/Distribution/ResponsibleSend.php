@@ -29,7 +29,9 @@ class ResponsibleSend implements ShouldQueue
     ) {
         $this->onQueue('distribution_transaction');
 
-        $this->account = $this->user->account;
+        $user = User::query()->find($this->user);
+
+        $this->account = $user->account;
     }
 
     public function tags(): array
@@ -44,7 +46,7 @@ class ResponsibleSend implements ShouldQueue
     {
         Artisan::call('app:distribution-responsible-send', [
             'transaction' => $this->transaction,
-            'account' => $this->account,
+            'account' => $this->account->id,
             'setting' => $this->setting,
             'user' => $this->user,
         ]);
