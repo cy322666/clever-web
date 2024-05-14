@@ -54,7 +54,7 @@ class BaseStrategy
             ->where('status', true)
             ->where('template', $this->transaction->template)
             ->where('id', '<', $this->transaction->id)
-            ->orderByDesc('id');
+            ->orderBy('id', 'DESC');
 
         $this->transactions = $query->get();
 
