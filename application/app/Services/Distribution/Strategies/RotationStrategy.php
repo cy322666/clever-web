@@ -3,6 +3,7 @@
 namespace App\Services\Distribution\Strategies;
 
 use App\Models\Integrations\Distribution\Setting;
+use Illuminate\Support\Facades\Log;
 
 class RotationStrategy extends BaseStrategy
 {
@@ -19,11 +20,19 @@ class RotationStrategy extends BaseStrategy
 
         if ($lastTransaction && count($this->staffs) > 0) {
 
+            Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['count staff '.count($this->staffs)]);
+
             foreach ($this->staffs as $key => $staffId) {
 
                 if ($lastTransaction->staff_amocrm_id == $staffId) {
 
-                    return end($this->staffs) == $staffId ? $this->staffs[0] : $this->staffs[++$key];
+                    Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, [$lastTransaction->staff_amocrm_id.' == '.$staffId]);
+
+                    $staffId = end($this->staffs) == $staffId ? $this->staffs[0] : $this->staffs[++$key];
+
+                    Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['staff_id' => $staffId]);
+
+                    return $staffId;
                 }
             }
         }
