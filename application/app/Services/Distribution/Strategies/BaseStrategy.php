@@ -48,14 +48,17 @@ class BaseStrategy
     {
         $dateAt = $dateAt !== null ? $dateAt : Carbon::now()->timezone('Europe/Moscow');
 
-        $this->transactions = Transaction::query()
+        $query = Transaction::query()
             ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
             ->where('user_id', $this->user->id)
             ->where('status', true)
             ->where('template', $this->transaction->template)
             ->where('id', '<', $this->transaction->id)
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        $this->transactions = $query->get();
+
+        Log::debug(__METHOD__.' user_id '.$this->user->id, ['query' => $query->ddRawSql()]);
 
         return $this;
     }
