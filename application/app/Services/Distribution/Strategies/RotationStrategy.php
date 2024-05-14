@@ -18,6 +18,10 @@ class RotationStrategy extends BaseStrategy
     {
         $lastTransaction = $this->transactions->last();
 
+        Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, [
+            'last trans' => $lastTransaction->id,
+            'last trans resp' => $lastTransaction->staff_amocrm_id]);
+
         if ($lastTransaction && count($this->staffs) > 0) {
 
             Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['count staff '.count($this->staffs)]);
