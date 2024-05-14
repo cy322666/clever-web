@@ -58,7 +58,7 @@ class BaseStrategy
 
         $this->transactions = $query->get();
 
-        Log::debug(__METHOD__.' user_id '.$this->user->id, ['query' => $query->ddRawSql()]);
+        Log::debug(__METHOD__.' user_id '.$this->user->id, ['query' => $query->toRawSql()]);
 
         return $this;
     }
