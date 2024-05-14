@@ -34,10 +34,10 @@ class ResponsibleSend extends Command
      */
     public function handle()
     {
-        $transaction = $this->argument('transaction');
-        $account = $this->argument('account');
-        $setting = $this->argument('setting');
-        $user = $this->argument('user');
+        $transaction = Transaction::find($this->argument('transaction'));
+        $account     = Account::find($this->argument('account'));
+        $setting     = \App\Models\Integrations\Distribution\Setting::find($this->argument('setting'));
+        $user        = User::find($this->argument('user'));
 
         $amoApi = (new Client($account))
             ->setDelay(0.5)

@@ -27,6 +27,6 @@ class DistributionController extends Controller
             'status'   => false,
         ]);
 
-        ResponsibleSend::dispatch($transaction, $setting, $user);
+        ResponsibleSend::dispatch($transaction->id, $setting->id, $user->id);
     }
 }
