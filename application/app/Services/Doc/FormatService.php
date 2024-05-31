@@ -56,7 +56,7 @@ abstract class FormatService
                 ->first();
 
             if ($field)
-                return $entities[$field->entity_type]->byId($field->field_id)->getValue();
+                return $entities[$field->entity_type]->customFields->byId($field->field_id)->getValue();
 
         } catch (\Throwable $e) {
 
