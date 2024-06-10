@@ -53,8 +53,8 @@ class BaseStrategy
             ->where('user_id', $this->transaction->user_id)
             ->where('status', true)
             ->where('template', $this->transaction->template)
-            ->where('id', '<', $this->transaction->id);
-//            ->orderBy('id', 'DESC');
+            ->where('id', '<', $this->transaction->id)
+            ->orderBy('id', 'ASC');
 
         $this->transactions = $query->get();
 
