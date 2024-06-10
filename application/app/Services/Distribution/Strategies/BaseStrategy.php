@@ -68,11 +68,14 @@ class BaseStrategy
         //по графику?
         if ($this->transaction->schedule) {
 
+            Log::debug(__METHOD__.' ДО отбора по рабочему графику  : ', [$this->staffs]);
+
             $now = Carbon::now()->timezone('Europe/Moscow');
-            $isWork = false;
 
             //отбираем только тех, кто работает по графику сейчас
             foreach ($this->staffs as $staff) {
+
+                $isWork = false;
 
                 $staff = Staff::query()->where('staff_id', $staff)->first();
 
@@ -104,7 +107,10 @@ class BaseStrategy
                 if (!$isWork)
                     unset($this->staffs[$staff->staff_id]);
             }
+
+            Log::debug(__METHOD__.' ПОСЛЕ отбора по рабочему графику остались : ', [$this->staffs]);
         }
+
         return $this;
     }
 
