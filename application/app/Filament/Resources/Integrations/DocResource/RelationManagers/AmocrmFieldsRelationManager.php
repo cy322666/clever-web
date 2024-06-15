@@ -34,9 +34,11 @@ class AmocrmFieldsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('field_id')
                     ->label('ID')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('name')
                     ->label('Название')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('entity_type')
                     ->label('Сущность поля')
                     ->state(fn(Field $field) => match ($field->entity_type) {

@@ -55,7 +55,7 @@ class DistributionResource extends Resource
                                 Select::make('strategy')
                                     ->label('Тип распределения')
                                     ->options([
-                                        Distribution\Setting::STRATEGY_SCHEDULE => 'График',
+//                                        Distribution\Setting::STRATEGY_SCHEDULE => 'График',
                                         Distribution\Setting::STRATEGY_ROTATION => 'По очереди',
                                         Distribution\Setting::STRATEGY_RANDOM   => 'Равномерно вразброс',
                                         null => '',
@@ -67,6 +67,14 @@ class DistributionResource extends Resource
                                     ->options([
                                         'schedule_yes' => 'Да',
                                         'schedule_no'  => 'Нет',
+                                    ])
+                                    ->required(),
+
+                                Radio::make('check_active')
+                                    ->label('Учитывать активные сделки')
+                                    ->options([
+                                        'yes' => 'Да',
+                                        'no'  => 'Нет',
                                     ])
                                     ->required(),
 

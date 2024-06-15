@@ -50,6 +50,7 @@ class App extends Model
     {
         if ($this->expires_tariff_at === null) {
 
+            //TODO какие бесплатно??
             $this->expires_tariff_at = $setting::$cost['1_month'] != 'бесплатно' ? Carbon::now()->addWeek()->format('Y-m-d') : Carbon::now()->addYear()->format('Y-m-d');
             $this->save();
 
@@ -70,7 +71,7 @@ class App extends Model
     }
 
     /**
-     * - при смене статуса по кнопке отправляет уведомление
+     * - при смене статуса по кнопке отправляет уведомление TODO сделать и себе в тг
      *
      * @return void
      */

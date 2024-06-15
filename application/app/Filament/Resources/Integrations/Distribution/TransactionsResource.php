@@ -46,7 +46,7 @@ class TransactionsResource extends Resource
                     ->formatStateUsing(function (Transaction $transaction) {
 
                         return match ($transaction->type) {
-                            Setting::STRATEGY_SCHEDULE => 'График',
+//                            Setting::STRATEGY_SCHEDULE => 'График',
                             Setting::STRATEGY_ROTATION => 'По очереди',
                             Setting::STRATEGY_RANDOM   => 'Вразброс',
                         };

@@ -46,11 +46,16 @@ class ResponsibleSend extends Command
         /** @var Transaction $transaction */
         $strategy = $transaction->matchStrategy();
 
-        $staffId = $strategy
-            ->setModels($user, $transaction, $setting)
-            ->setTransactions()
-            ->sliceSchedule()
-            ->getStaffId();
+        $strategy->setModels($user, $transaction, $setting);
+
+        //check active leads if needle
+        $staffId = $strategy->checkActiveGetStaff($amoApi, $transaction);
+
+        if (!$staffId)
+             $staffId = $strategy
+                ->setTransactions()
+                ->sliceSchedule()
+                ->getStaffId();
 
         $lead = $strategy->changeResponsible($amoApi, $staffId);
 

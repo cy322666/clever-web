@@ -33,6 +33,33 @@ abstract class Leads
         return $leads;
     }
 
+    //поиск активной в воронке
+    public static function searchActiveLeads($contact, int|array $pipelines = null) : array
+    {
+        $leads = [];
+
+        foreach ($contact->leads as $lead) {
+
+            if ($lead->status_id != 143 &&
+                $lead->status_id != 142) {
+
+                if ($pipelines != null) {
+
+                    if (is_array($pipelines)) {
+
+                        if (in_array($lead->pipeline_id, $pipelines))
+
+                            $leads = array_merge($leads, $lead);
+
+                    } elseif ($lead->pipeline_id == $pipelines)
+
+                        $leads = array_merge($leads, $lead);
+                } else
+                    $leads = array_merge($leads, $lead);
+            }
+        }
+    }
+
     public static function refresh($lead, $client)
     {
         sleep(2);

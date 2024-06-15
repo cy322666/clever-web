@@ -7,6 +7,7 @@ use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
 use App\Models\User;
 use App\Services\amoCRM\Client;
+use App\Services\amoCRM\Models\Leads;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -162,5 +163,33 @@ class BaseStrategy
         }
 
         return $lead;
+    }
+
+    //проверяет открытые сделки
+    public function checkActiveGetStaff(Client $amoApi, Transaction $transaction) : bool
+    {
+        if ($transaction->contact_id) {
+
+            if (array_key_exists('check_active', $this->template) && $this->template['check_active'] == 'yes')
+
+            $contact = $amoApi->service->contacts()->find($transaction->contact_id);
+
+            if ($contact)
+
+                $leads = Leads::searchActiveLeads($contact);
+
+                if (count($leads) > 1)
+
+                    foreach ($leads as $lead) {
+
+                        if ($lead->id !== $transaction->lead_id)
+
+                            if (in_array($this->staffs, $lead->responsible_user_id))
+
+                                return $lead->responsible_user_id;
+                    }
+        }
+
+        return false;
     }
 }
