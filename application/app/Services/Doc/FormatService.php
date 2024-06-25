@@ -74,6 +74,8 @@ abstract class FormatService
             'phone' => $entities['contacts']?->cf('Телефон')->getValue(),
             'email' => $entities['contacts']?->cf('Email')->getValue(),
             'uuid' => Uuid::uuid6(),
+            'lead.id' => $entities['leads']->id,
+            'contact.id' => $entities['contacts']->id,
             default => $fieldKey,
         };
     }
