@@ -90,6 +90,18 @@ class TildaResource extends Resource
                                     ])
                                     ->required(),
 
+                                Forms\Components\Radio::make('products')
+                                    ->label('Работать с товарами')
+                                    ->options([
+                                        'yes' => 'Да',
+                                        'no'  => 'Нет',
+                                    ])
+                                    ->required(),
+
+                                Forms\Components\Select::make('field_products')
+                                    ->label('Поле для товаров')
+                                    ->options(Auth::user()->amocrm_fields()->pluck('name', 'id')),
+
                                 Forms\Components\Radio::make('utms')
                                     ->label('Действия с метками')
                                     ->options([

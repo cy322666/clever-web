@@ -56,6 +56,7 @@ class Generate extends Command
         $setting = Setting::find($this->argument('setting'));
 
         $settingRaw = json_decode($setting->settings, true);
+
         $settingRaw = $doc->doc_id ? $settingRaw[$doc->doc_id] : $settingRaw[0];
 
         $amoApi = (new Client($account))

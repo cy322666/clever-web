@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Tilda;
 
+use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
@@ -44,7 +45,6 @@ class FormSend extends Command
 
         $body = json_decode($form->body);
         $setting = json_decode($setting->settings, true)[$form->site];
-
         $amoApi = (new Client($account))
             ->setDelay(0.5)
             ->initLogs(Env::get('APP_DEBUG'));
@@ -104,16 +104,36 @@ class FormSend extends Command
         else
             $lead = Leads::setUtms($lead, $form->parseCookies());
 
-//        $lead = Leads::refresh($lead, $amoApi);
-
         if (isset($setting['fields']))
 
             $lead = $form->setCustomFields($lead, $setting['fields']);
 
+        Notes::addOne($lead, FormNote::create($form));
+
+        if (!empty($setting['products']) && $setting['products'] == 'yes' &&
+            $body->payment && !empty($body->payment->products)) {
+
+            //поле для заполнения продуктами
+            $fieldProducts = Field::query()->find($setting['field_products']);
+
+            $amount = $body->payment->amount;
+
+            foreach ($body->payment->products as $product) {
+
+                try {
+                    $lead->cf($fieldProducts->name)->setValue($product->name);
+
+                } catch (\Throwable) {}
+            }
+
+            $lead->sale = $amount;
+            $lead->save();
+
+            Notes::addOne($lead, FormNote::products($body->payment->products));
+        }
+
         Tags::add($lead, $setting['tag'] ?? null);
         Tags::add($lead, 'tilda');
-
-        Notes::addOne($lead, FormNote::create($form));
 
         $form->contact_id = $contact->id;
         $form->lead_id = $lead->id;
