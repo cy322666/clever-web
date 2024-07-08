@@ -34,6 +34,7 @@ abstract class FormNote
         return implode("\n", $note);
     }
 
+
     public static function products(array $products): string
     {
         $note = [
