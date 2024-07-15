@@ -126,6 +126,10 @@ class FormSend extends Command
                 } catch (\Throwable) {}
             }
 
+            if (isset($setting['fields']))
+
+                $lead = $form->setCustomFieldsProduct($lead, $setting['fields']);
+
             $lead->sale = $amount;
             $lead->save();
 

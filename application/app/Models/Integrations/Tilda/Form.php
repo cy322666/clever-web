@@ -116,7 +116,21 @@ class Form extends Model
                 $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
         }
 
-//        $lead->save();
+        return $lead;
+    }
+
+    public function setCustomFieldsProduct(Lead $lead, $fields) : Lead
+    {
+        $body = json_decode($this->body->payment);
+
+        foreach ($fields as $field) {
+
+            $fieldName = Field::query()->find($field['field_amo'])?->name;
+
+            if (!empty($field['field_form']) && !empty($body->{$field['field_form']}))
+
+                $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
+        }
 
         return $lead;
     }
