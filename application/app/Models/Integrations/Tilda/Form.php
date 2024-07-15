@@ -121,7 +121,7 @@ class Form extends Model
 
     public function setCustomFieldsProduct(Lead $lead, $fields) : Lead
     {
-        $body = json_decode($this->body->payment);
+        $body = json_decode($this->body)->payment;
 
         foreach ($fields as $field) {
 
