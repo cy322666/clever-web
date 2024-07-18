@@ -270,7 +270,10 @@ abstract class Leads
         try {
             $lead->cf($fieldName)->setValue($value);
 
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+
+            Log::warning(__METHOD__.' '.$e->getMessage().' field_name: '.$fieldName.' value: '.$value);
+        }
 
         return $lead;
     }
