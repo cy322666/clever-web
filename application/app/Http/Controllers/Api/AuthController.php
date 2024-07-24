@@ -18,9 +18,7 @@ use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
-    /**
-     * @throws Exception
-     */
+    //обычная установка
     public function redirect(Request $request): RedirectResponse
     {
         Log::info(__METHOD__, $request->toArray());
@@ -53,6 +51,45 @@ class AuthController extends Controller
             'record' => $user,
             'auth'   => $amoApi->auth,
         ]);
+    }
+
+    public function form(Request $request)
+    {
+        Log::info(__METHOD__, $request->toArray());
+    }
+
+    //установка с ОР
+    public function edtechindustry(Request $request)
+    {
+        Log::info(__METHOD__, $request->toArray());
+
+        exit();
+        //TODO создаем а не находим
+        $user = User::query()
+            ->where('uuid', $request->state)
+            ->first();
+
+        sleep(2);//observer работает
+
+        $account = $user->account;
+
+        $account->code = $request->code;
+        $account->zone = explode('.', $request->referer)[2];
+        $account->client_id = $request->client_id;
+        $account->subdomain = explode('.', $request->referer)[0];
+        $account->redirect_uri  = config('services.amocrm.redirect_uri');
+        $account->client_secret = config('services.amocrm.client_secret');
+        $account->save();
+
+        $amoApi = (new Client($account->refresh()));
+
+        if (!$amoApi->checkAuth()) {
+
+            $amoApi->init();
+        }
+
+        $account->active = $amoApi->auth;
+        $account->save();
     }
 
     public function off(Request $request)

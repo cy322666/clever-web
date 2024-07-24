@@ -58,6 +58,10 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::post('secrets', [AuthController::class, 'secrets']);
 
     Route::get('redirect', [AuthController::class, 'redirect']);
+
+    Route::get('edtechindustry/redirect', [AuthController::class, 'redirect']);
+
+    Route::post('edtechindustry/form', [AuthController::class, 'form']);
 });
 
 Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
