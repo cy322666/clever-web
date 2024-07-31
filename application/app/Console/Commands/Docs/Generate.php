@@ -7,6 +7,7 @@ use App\Models\Core\Account;
 use App\Models\Integrations\Docs\Doc;
 use App\Models\Integrations\Docs\Setting;
 use App\Services\amoCRM\Client;
+use App\Services\amoCRM\Models\Notes;
 use App\Services\Doc\DiskService;
 use Aspose\Words\ApiException;
 use Aspose\Words\Model\PdfSaveOptionsData;
@@ -110,6 +111,15 @@ class Generate extends Command
         $disk->resource($filename)->move($uploadPath.'/'.$filename.'.'.$settingRaw['format'], true);
 
         $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$settingRaw['format'])->publish();
+
+        if (!$resource->public_url) {
+
+            Notes::addOne($lead, 'Пришла пустая ссылка на файл от Яндекс диска');
+
+            $doc->save();
+
+            exit;
+        }
 
         $linkField = Field::query()->find($settingRaw['field_amo']);
 
