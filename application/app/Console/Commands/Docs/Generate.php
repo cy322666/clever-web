@@ -22,6 +22,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Mackey\Yandex\Disk;
 use Mackey\Yandex\Exception\AlreadyExistsException;
@@ -106,13 +107,23 @@ class Generate extends Command
             file_put_contents($localPath.'/'.$filename.'.pdf', $resultD->fread($resultD->getSize()));
         }
 
-        $disk->resource($filename)->upload($localPath.'/'.$filename.'.'.$settingRaw['format'], true);
+        try {
+            $disk->resource($filename)->upload($localPath.'/'.$filename.'.'.$settingRaw['format'], true);
 
-        $disk->resource($filename)->move($uploadPath.'/'.$filename.'.'.$settingRaw['format'], true);
+            $disk->resource($filename)->move($uploadPath.'/'.$filename.'.'.$settingRaw['format'], true);
 
-        $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$settingRaw['format'])->publish();
+            $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$settingRaw['format'])->publish();
 
-        if (!$resource->public_url) {
+        } catch (\Throwable $e) {
+
+            Log::error(__METHOD__, [$e->getFile().' '.$e->getLine().' '.$e->getMessage()]);
+
+            sleep(2);
+
+            $resource = $disk->resource($uploadPath.'/'.$filename.'.'.$settingRaw['format'])->publish();
+        }
+
+        if (empty($resource) || !$resource->public_url) {
 
             Notes::addOne($lead, 'Пришла пустая ссылка на файл от Яндекс диска');
 
