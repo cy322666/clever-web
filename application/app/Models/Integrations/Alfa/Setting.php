@@ -197,19 +197,17 @@ class Setting extends Model
 
     public function customerUpdateOrCreate(array $fieldValues, alfaApi $alfaApi, ?bool $workLead = true)
     {
-        if ($fieldValues['phone'])
-            $customers = (new Customer($alfaApi))->search($fieldValues['phone']);
+        $searchValue = $fieldValues['phone'] ?: $fieldValues['email'];
 
-        elseif ($fieldValues['email'])
-            $customers = (new Customer($alfaApi))->search($fieldValues['email']);
+        $customers = (new Customer($alfaApi))->search($searchValue);
 
         if ($workLead) {
 
-            $customers = (new Customer($alfaApi))->search($fieldValues['phone']);
+            $customers = (new Customer($alfaApi))->search($searchValue);
 
             if (count($customers) == 0) {
 
-                $customers = (new Customer($alfaApi))->searchLead($fieldValues['phone']);
+                $customers = (new Customer($alfaApi))->searchLead($searchValue);
             } else {
                 $fieldValues['is_study'] = 1;
             }
