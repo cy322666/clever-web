@@ -4,6 +4,7 @@ namespace App\Console\Commands\AlfaCRM;
 
 use App\Models\Core\Account;
 use App\Models\Integrations\Alfa\Branch;
+use App\Models\Integrations\Alfa\LeadStatus;
 use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Alfa\Customer;
 use App\Models\Integrations\Alfa\Setting;
@@ -68,7 +69,7 @@ class RecordSend extends Command
             'stage_id'  => $setting->stage_record_1,
             'name'      => $contact->name,
             'branch_id' => $setting->branch_id,
-            'lead_status_id' => Branch::query()->find($setting->stage_record_1)->branch_id,
+            'lead_status_id' => LeadStatus::query()->find($setting->stage_record_1)->branch_id,
         ];
 
         $customer = $setting->customerUpdateOrCreate($fieldsAlfacrm, $alfaApi);//TODO разделить на сервисы это че за пздц
