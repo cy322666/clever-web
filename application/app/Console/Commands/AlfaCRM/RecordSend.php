@@ -68,7 +68,7 @@ class RecordSend extends Command
             'email' => $contact->cf('Email')->getValue(),
             'stage_id'  => $setting->stage_record_1,
             'name'      => $contact->name,
-            'branch_id' => $setting->branch_id,
+            'branch_id' => $alfaApi->branchId,
             'lead_status_id' => LeadStatus::query()->find($setting->stage_record_1)->branch_id,
         ];
 
