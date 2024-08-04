@@ -29,6 +29,7 @@ class AlfaCRMController extends Controller
                 'status'  => Setting::RECORD,
                 'amo_lead_id' => $data['id'],
                 'status_id'   => $data['status_id'],
+                'alfa_branch_id' => $user->alfacrm_settings->branch_id,
             ]);
 
             RecordWithLead::dispatch($transaction, $user->alfacrm_settings, $user->account);
