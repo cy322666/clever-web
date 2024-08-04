@@ -199,21 +199,24 @@ class Setting extends Model
     {
         $searchValue = $fieldValues['phone'] ?: $fieldValues['email'];
 
-        $customers = (new Customer($alfaApi))->search($searchValue);
-
-        if ($workLead) {
+        if ($searchValue) {
 
             $customers = (new Customer($alfaApi))->search($searchValue);
 
-            if (count($customers) == 0) {
+            if ($workLead) {
 
-                $customers = (new Customer($alfaApi))->searchLead($searchValue);
-            } else {
-                $fieldValues['is_study'] = 1;
+                $customers = (new Customer($alfaApi))->search($searchValue);
+
+                if (count($customers) == 0) {
+
+                    $customers = (new Customer($alfaApi))->searchLead($searchValue);
+                } else {
+                    $fieldValues['is_study'] = 1;
+                }
             }
         }
 
-        if (count($customers) == 0) {
+        if (empty($customers) || count($customers) == 0) {
 
             $fieldValues['branch_ids'] = [$fieldValues['branch_id']];
 
