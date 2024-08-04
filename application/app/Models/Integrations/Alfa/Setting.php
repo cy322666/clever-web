@@ -226,7 +226,7 @@ class Setting extends Model
 
             $customer = (new Customer($alfaApi))->create($fieldValues);
 
-            if (is_string($customer)) return dd($customer);
+            if (is_string($customer)) return (object)$customer;
 
         } else {
             $customer = $customers[0];
