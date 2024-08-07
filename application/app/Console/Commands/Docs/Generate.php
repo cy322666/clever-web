@@ -76,7 +76,16 @@ class Generate extends Command
             'contacts' => $contact,
         ];
 
-        $document = Doc::generate($document->getVariables(), $document, $entities);
+        try {
+
+            $document = Doc::generate($document->getVariables(), $document, $entities);
+
+        } catch (\Throwable $e) {
+
+            Log::error(__METHOD__, [$e->getMessage().' '.$e->getFile().' '.$e->getLine()]);
+
+            Notes::addOne($lead, 'Ошибка локальной генерации документа, попробуйте позже');
+        }
 
         $filename = $doc->getFileName($settingRaw['name_file'] ?? null, $entities);
 
@@ -92,19 +101,28 @@ class Generate extends Command
 
         if ($settingRaw['format'] == 'pdf') {
 
-            $api = new WordsApi($setting->aspose_client_id, $setting->aspose_client_secret);
+            try {
 
-            $upload_request = new UploadFileRequest($localPath.'/'.$filename.'.docx', $filename);
-            $api->uploadFile($upload_request);
+                $api = new WordsApi($setting->aspose_client_id, $setting->aspose_client_secret);
 
-            $saveOptions = new PdfSaveOptionsData(array("file_name" => $filename.'.pdf'));
-            $request = new SaveAsRequest($filename, $saveOptions);
-            $api->saveAs($request);
+                $upload_request = new UploadFileRequest($localPath.'/'.$filename.'.docx', $filename);
+                $api->uploadFile($upload_request);
 
-            $request = new DownloadFileRequest($filename.'.pdf');
-            $resultD = $api->downloadFile($request);
+                $saveOptions = new PdfSaveOptionsData(array("file_name" => $filename.'.pdf'));
+                $request = new SaveAsRequest($filename, $saveOptions);
+                $api->saveAs($request);
 
-            file_put_contents($localPath.'/'.$filename.'.pdf', $resultD->fread($resultD->getSize()));
+                $request = new DownloadFileRequest($filename.'.pdf');
+                $resultD = $api->downloadFile($request);
+
+                file_put_contents($localPath.'/'.$filename.'.pdf', $resultD->fread($resultD->getSize()));
+
+            } catch (\Throwable $e) {
+
+                Log::error(__METHOD__, [$e->getMessage().' '.$e->getFile().' '.$e->getLine()]);
+
+                Notes::addOne($lead, 'Ошибка генерации pdf, попробуйте позже');
+            }
         }
 
         try {
@@ -117,6 +135,8 @@ class Generate extends Command
         } catch (\Throwable $e) {
 
             Log::error(__METHOD__, [$e->getFile().' '.$e->getLine().' '.$e->getMessage()]);
+
+            Notes::addOne($lead, 'Ошибка сохранения файла на Яндекс, попробуйте позже');
 
             sleep(2);
 
