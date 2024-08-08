@@ -60,7 +60,7 @@ return [
 
         //входящий лог всех апи запросов
         'input' => [
-            'driver' => 'stack',
+            'driver' => 'single',
             'path' => storage_path('logs/input/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => 5,
@@ -68,25 +68,25 @@ return [
         ],
 
         'amo_debug' => [
-            'driver' => 'stack',
+            'driver' => 'single',
             'path' => storage_path('logs/amo_debug/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
-            'days' => 5,
+//            'days' => 5,
             'replace_placeholders' => true,
         ],
 
         'tokens' => [
-            'driver' => 'stack',
+            'driver' => 'single',
             'path' => storage_path('logs/tokens/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
         ],
 
         'getcourse-form' => [
-            'driver' => 'stack',
+            'driver' => 'single',
             'path' => storage_path('logs/getcourse/form/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
-            'days' => 5,
+//            'days' => 5,
             'replace_placeholders' => true,
         ],
 
