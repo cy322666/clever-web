@@ -149,7 +149,7 @@ class Generate extends Command
 
             $doc->save();
 
-            exit;
+            return;
         }
 
         $linkField = Field::query()->find($settingRaw['field_amo']);
