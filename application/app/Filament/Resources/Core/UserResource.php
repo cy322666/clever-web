@@ -81,6 +81,13 @@ class UserResource extends Resource
                 Tables\Columns\BooleanColumn::make('is_root')
                     ->label('Админ')
                     ->sortable(),
+
+                Tables\Columns\BooleanColumn::make('edit')
+                    ->label('Ред')
+                    ->url(function (User $user) {
+
+                        return Pages\EditUser::getUrl(['record' => $user->id]);
+                    }),
             ])
             ->filters([])
             ->paginated([10, 30, 'all'])

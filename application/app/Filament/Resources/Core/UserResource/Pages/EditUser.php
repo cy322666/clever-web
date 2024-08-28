@@ -8,12 +8,15 @@ use App\Models\amoCRM\Status;
 use App\Models\User;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\URL;
@@ -24,7 +27,37 @@ class EditUser extends EditRecord
 
     public function form($form): \Filament\Forms\Form
     {
-        return UserResource::form($form);
+        return $form
+            ->schema([
+                Section::make('Основная информация')
+                    ->schema([
+                        TextInput::make('email')
+                            ->label('Почта'),
+                        TextInput::make('name')
+                            ->label('Логин'),
+                        TextInput::make('uuid')
+                            ->label('Идентификатор')
+                            ->disabled(),
+                        TextInput::make('new_password')
+                            ->label('Новый пароль'),
+                    ])->columnSpan([
+                        'sm' => 2,
+                    ]),
+            ])->columns([
+                'sm' => 3,
+                'lg' => null,
+            ]);
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (!empty($data['new_password'])) {
+
+            $this->record->password = Hash::make($data['new_password']);
+            $this->record->save();
+        }
+
+        return $data;
     }
 
     protected function getHeaderWidgets(): array
