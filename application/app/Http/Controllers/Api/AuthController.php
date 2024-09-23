@@ -58,6 +58,12 @@ class AuthController extends Controller
         Log::info(__METHOD__, $request->toArray());
     }
 
+    //установка виджета
+    public function install(Request $request)
+    {
+        Log::info(__METHOD__, $request->toArray());
+    }
+
     //установка с ОР
     public function edtechindustry(Request $request)
     {

@@ -59,6 +59,9 @@ Route::group(['prefix' => 'amocrm'], function () {
 
     Route::get('redirect', [AuthController::class, 'redirect']);
 
+    //хук с фронта об установке
+    Route::post('install', [AuthController::class, 'install']);
+
     Route::get('edtechindustry/redirect', [AuthController::class, 'redirect']);
 
     Route::post('edtechindustry/form', [AuthController::class, 'form']);
