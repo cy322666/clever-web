@@ -2,8 +2,11 @@
 
 namespace App\Models\Integrations\GetCourse;
 
+use App\Models\amoCRM\Field;
+use App\Services\amoCRM\Models\Leads;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Ufee\Amo\Models\Lead;
 
 class Form extends Model
 {
@@ -31,4 +34,20 @@ class Form extends Model
         'user_id',
         'form',
     ];
+
+    public function setCustomFields(Lead $lead, $fields) : Lead
+    {
+        $body = json_decode($this->body);
+
+        foreach ($fields as $field) {
+
+            $fieldName = Field::query()->find($field['field_amo'])?->name;
+
+            if (!empty($field['field_form']) && !empty($body->{$field['field_form']}))
+
+                $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
+        }
+
+        return $lead;
+    }
 }
