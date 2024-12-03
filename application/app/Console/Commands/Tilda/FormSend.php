@@ -111,7 +111,7 @@ class FormSend extends Command
         Notes::addOne($lead, FormNote::create($form));
 
         if (!empty($setting['products']) && $setting['products'] == 'yes' &&
-            $body->payment && !empty($body->payment->products)) {
+            !empty($body->payment) && !empty($body->payment->products)) {
 
             //поле для заполнения продуктами
             $fieldProducts = Field::query()->find($setting['field_products']);
