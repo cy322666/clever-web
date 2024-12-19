@@ -15,9 +15,9 @@ class GetCourseController extends Controller
 {
     public function order(User $user, Request $request, string $template)
     {
-        $cost  = explode('.', $request->cost_money)[0] ?? 0;
-        $payed = explode('.', $request->payed_money)[0] ?? 0;
-        $left  = explode('.', $request->left_cost_money)[0] ?? 0;
+        $cost  = explode('.', $request->cost_money)[0] ?: 0;
+        $payed = explode('.', $request->payed_money)[0] ?: 0;
+        $left  = explode('.', $request->left_cost_money)[0] ?: 0;
 
         $order = Order::query()->create([
             'template'  => $template,

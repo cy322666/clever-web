@@ -121,7 +121,12 @@ class FormSend extends Command
             foreach ($body->payment->products as $product) {
 
                 try {
-                    $lead->cf($fieldProducts->name)->setValue($product->name);
+
+                    $name = str_replace(['\u0026quot;'], '"', $product->name);
+
+                    $lead->cf($fieldProducts->name)->setValue($name);
+
+                    $name = null;
 
                 } catch (\Throwable) {}
             }

@@ -18,9 +18,7 @@ class BizonController extends Controller
 {
     public function form(User $user, Request $request)
     {
-        $form = Form::query()->create([
-
-        ]);
+        $form = Form::query()->create([]);
 
         FormSend::dispatch($form, $user->bizon_settings, $user->account);
     }
