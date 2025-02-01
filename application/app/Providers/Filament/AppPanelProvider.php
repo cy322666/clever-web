@@ -32,7 +32,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\Pages\Backups;
-use Yebor974\Filament\RenewPassword\RenewPasswordPlugin;
 
 class AppPanelProvider extends PanelProvider
 {
@@ -46,7 +45,6 @@ class AppPanelProvider extends PanelProvider
             ->path('')
             ->login()
             ->registration()
-            ->plugin(new RenewPasswordPlugin())
 //            ->emailVerification()
 //            ->profile(EditUser::class)
             ->colors([

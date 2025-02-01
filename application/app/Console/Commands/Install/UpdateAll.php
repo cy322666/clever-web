@@ -34,5 +34,6 @@ class UpdateAll extends Command
         Artisan::call('install:data-info');
         Artisan::call('install:doc');
         Artisan::call('install:distribution');
+        Artisan::call('install:table');
     }
 }
