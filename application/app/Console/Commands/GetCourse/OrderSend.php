@@ -43,7 +43,9 @@ class OrderSend extends Command
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 
-        $setting = json_decode($setting->order_settings, true)[$order->template];
+        $rawSetting = json_decode($setting->order_settings, true);
+
+        $setting = !empty($rawSetting[$order->template]) ? $rawSetting[$order->template] : throw new \Exception('no settings order getcourse');
 
         $amoApi = (new Client($account))
             ->setDelay(0.2)
@@ -82,7 +84,7 @@ class OrderSend extends Command
             'Телефоны'  => [$order->phone ?? null],
             'Почта'     => $order->email ?? null,
             'Ответственный' => $responsibleId,
-        ]);
+        ], $account->zone);
 
         if (empty($lead)) {
 
@@ -103,8 +105,8 @@ class OrderSend extends Command
             'resp' => $responsibleId,
         ]);
 
-        Tags::add($lead, $setting['tag'] ?? null);
-        Tags::add($lead, $setting['tag_order'] ?? null);
+        Tags::add($lead, $setting['tag']);
+        Tags::add($lead, $setting['tag_order']);
 
         Notes::addOne($lead, OrderNote::create($order));
 

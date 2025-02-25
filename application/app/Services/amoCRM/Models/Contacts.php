@@ -54,13 +54,16 @@ abstract class Contacts extends Client
         return $contact;
     }
 
-    public static function update(Contact $contact, $arrayFields = [])
+    public static function update(Contact $contact, $arrayFields = [], $zone = 'ru')
     {
         if(key_exists('Телефоны', $arrayFields)) {
 
             foreach ($arrayFields['Телефоны'] as $phone) {
 
-                $contact->cf('Телефон')->setValue($phone);
+                if ($zone == 'ru')
+                    $contact->cf('Телефон')->setValue($phone);
+                else
+                    $contact->cf('Phone')->setValue($phone);
             }
         }
 
