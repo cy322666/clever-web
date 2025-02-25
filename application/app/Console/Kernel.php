@@ -15,6 +15,8 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('horizon:snapshot')->everyFiveMinutes();
         $schedule->command('telescope:prune')->daily();
+
+        $schedule->command('queue:failed')->everyTwoMinutes();
 //        $schedule->command('backup:run --db-name='.env('DB_CONNECTION').' --only-db')->dailyAt('00:00');
         // $schedule->command('inspire')->hourly();
     }
