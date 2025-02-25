@@ -33,6 +33,7 @@ class Form extends Model
         'utm_campaign',
         'user_id',
         'form',
+        'body'
     ];
 
     public function setCustomFields(Lead $lead, $fields) : Lead

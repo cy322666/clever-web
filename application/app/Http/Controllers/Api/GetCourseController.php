@@ -55,6 +55,7 @@ class GetCourseController extends Controller
             'utm_source'  => $request->utm_source,
             'utm_term'    => $request->utm_term,
             'utm_campaign'=> $request->utm_campaign,
+            'body' => json_encode($request->toArray()),
         ]);
 
         FormSend::dispatch(
