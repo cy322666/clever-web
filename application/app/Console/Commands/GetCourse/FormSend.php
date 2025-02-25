@@ -83,7 +83,7 @@ class FormSend extends Command
             'Телефоны' => [$phone],
             'Почта'    => $form->email,
             'Ответственный' => $responsibleId,
-        ]);
+        ], $account->zone);
 
         if (empty($lead)) {
 
