@@ -123,6 +123,8 @@ class FormSend extends Command
 
         Notes::addOne($lead, FormNote::create($form));
 
+        Notes::addOne($lead, FormNote::fields($form));
+
         $form->contact_id = $contact->id;
         $form->lead_id = $lead->id;
         $form->status = 1;
