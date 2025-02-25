@@ -73,8 +73,8 @@ class ListOrders extends ListRecords
                 BooleanColumn::make('status')
                     ->label('Выгружен'),
 
-                TextColumn::make('site')
-                    ->label('Форма'),
+//                TextColumn::make('site')
+//                    ->label('Форма'),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])

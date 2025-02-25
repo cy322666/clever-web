@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
-use Yebor974\Filament\RenewPassword\RenewPasswordPlugin;
 
 class ViewUser extends ViewRecord
 {
@@ -49,18 +48,7 @@ class ViewUser extends ViewRecord
                ->url(UserResource::getUrl())
                ->color(Color::Gray)
                ->hidden(fn() => !Auth::user()->is_root),
-
-            Actions\Action::make('renew_pass')
-                ->label('Обновить пароль')
-                ->action('renew')
         ];
-    }
-
-    public function renew()
-    {
-        $this->redirect(RenewPasswordPlugin::make()
-            ->forceRenewPassword()
-            ->getRenewPage());
     }
 
     public function mount(int|string $record): void
