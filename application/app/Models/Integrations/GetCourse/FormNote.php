@@ -44,10 +44,10 @@ abstract class FormNote
 
             if (!in_array($fieldName, self::$defaultFields)) {
 
-                $noteFields = array_merge($noteFields, [$fieldName => $fieldValue."\n"]);
+                $noteFields = array_merge($noteFields, [' - '.$fieldName.': '.$fieldValue."\n"]);
             }
         }
 
-        return implode("\n", $note) . implode("\n", $noteFields);
+        return implode("\n", $note)."\n" . implode("\n", $noteFields);
     }
 }
