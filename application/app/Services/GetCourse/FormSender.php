@@ -18,12 +18,14 @@ abstract class FormSender
         Form $form,
         Setting $setting) :string
     {
-        $contact = Contacts::search([
-            'Телефоны' => [$form->phone],
-            'Почта'    => $form->email,
-        ], $amoApi);
+        if ($amoApi->user->account->zone == 'ru')
 
-        if ($contact == null) {
+            $contact = Contacts::search([
+                'Телефоны' => [$form->phone],
+                'Почта'    => $form->email,
+            ], $amoApi);
+
+        if (empty($contact) || $contact == null) {
 
             $contact = Contacts::create($amoApi, $form->name);
 
