@@ -10,7 +10,7 @@ class Telegram
     /**
      * @throws GuzzleException
      */
-    public static function send(string $msg, string $chatId, string $token, ?array $keyboard, bool $isMarkdown = true)
+    public static function send(string $msg = 'empty', string $chatId, string $token, ?array $keyboard, bool $isMarkdown = true)
     {
         if (strlen($msg) >= 4095) {
 
