@@ -37,7 +37,22 @@ return [
         'database' => [
             'driver' => 'database',
             'table' => 'jobs',
-            'queue' => 'default',
+            'queue' => [
+                'default',
+                'backups',
+
+                'bizon_form',
+                'bizon_export',
+                'getcourse_form',
+                'getcourse_order',
+                'tilda_form',
+                'alfacrm_record',
+                'alfacrm_came',
+                'alfacrm_omission',
+                'active_lead',
+                'data_info',
+                'distribution_transaction',
+            ],
             'retry_after' => 90,
             'after_commit' => false,
         ],
