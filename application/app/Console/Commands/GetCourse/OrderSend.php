@@ -106,8 +106,8 @@ class OrderSend extends Command
             'resp' => $responsibleId,
         ]);
 
-        Tags::add($lead, $setting['tag']);
-        Tags::add($lead, $setting['tag_order']);
+        Tags::add($lead, $setting['tag'] ?? null);
+        Tags::add($lead, $setting['tag_order'] ?? null);
 
         Notes::addOne($lead, OrderNote::create($order));
 
