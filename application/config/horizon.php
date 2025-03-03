@@ -182,7 +182,7 @@ return [
 
     'defaults' => [
         'supervisor-1' => [
-            'connection' => 'redis',
+            'connection' => 'database',
             'queue' => [
                 'default',
                 'backups',
