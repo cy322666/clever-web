@@ -187,9 +187,9 @@ return [
                 'default',
                 'backups',
 
+                'getcourse_form',
                 'bizon_form',
                 'bizon_export',
-                'getcourse_form',
                 'getcourse_order',
                 'tilda_form',
                 'alfacrm_record',
