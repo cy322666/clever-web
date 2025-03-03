@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('horizon:snapshot')->everyFiveMinutes();
+//        $schedule->command('horizon:snapshot')->everyFiveMinutes();
         $schedule->command('telescope:prune')->daily();
 
         $schedule->command('app:failed-jobs')->everyMinute();
