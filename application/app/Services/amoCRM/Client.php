@@ -25,6 +25,7 @@ class Client
      */
     public function __construct(Account $account)
     {
+        $this->account = $account;
         $this->user = $account->user;
 
         $this->storage = new EloquentStorage([

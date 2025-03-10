@@ -69,11 +69,10 @@ class OrderSend extends Command
             ->find($setting['response_user_id_order'])
             ?->staff_id;
 
-        if ($account->zone == 'ru')
-            $contact = Contacts::search([
-                'Телефоны' => [$order->phone ?? null],
-                'Почта' => $order->email ?? null,
-            ], $amoApi);
+        $contact = Contacts::search([
+            'Телефоны' => [$order->phone ?? null],
+            'Почта' => $order->email ?? null,
+        ], $amoApi, $account->zone);
 
         if (empty($contact))
             $contact = Contacts::create($amoApi, $order->name);

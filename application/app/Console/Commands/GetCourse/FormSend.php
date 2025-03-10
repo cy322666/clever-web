@@ -62,11 +62,10 @@ class FormSend extends Command
 
         $phone = Contacts::clearPhone($form->phone);
 
-        if ($account->zone == 'ru')
-            $contact = Contacts::search([
-                'Телефоны' => [$phone ?? null],
-                'Почта'    => $form->email ?? null,
-            ], $amoApi);
+        $contact = Contacts::search([
+            'Телефоны' => [$phone ?? null],
+            'Почта'    => $form->email ?? null,
+        ], $amoApi, $account->zone);
 
         if (empty($contact))
             $contact = Contacts::create($amoApi, $form->name);

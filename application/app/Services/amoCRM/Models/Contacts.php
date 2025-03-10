@@ -3,45 +3,86 @@
 namespace App\Services\amoCRM\Models;
 
 use App\Services\amoCRM\Client;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
 abstract class Contacts extends Client
 {
-    /**
-     * @throws \Exception
-     */
-    public static function search($arrayFields, Client $amoApi)
+    public static function searchCom($arrayFields, $amoApi) : ?int
     {
-        $contacts = null;
-
         if(key_exists('Телефоны', $arrayFields)) {
 
             foreach ($arrayFields['Телефоны'] as $phone) {
 
-                if ($phone)
-                    $contacts = $amoApi->service
-                        ->contacts()
-                        ->searchByPhone(substr($phone, -10));
+                if ($phone) {
+
+                    $resp = Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                        'Authorization' => 'Bearer ' . $amoApi->account->access_token,
+                    ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $phone);
+                }
             }
         }
 
-        if(($contacts == null || !$contacts->first()) &&
-            key_exists('Почта', $arrayFields)) {
+        if (empty($resp->object()->_embedded->contacts[0]->id) && key_exists('Почта', $arrayFields)) {
 
             if ($arrayFields['Почта'])
 
-                $contacts = $amoApi->service
-                    ->contacts()
-                    ->searchByEmail($arrayFields['Почта']);
+                $resp = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Authorization' => 'Bearer ' . $amoApi->account->access_token,
+                ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query='.$arrayFields['Почта']);
         }
 
-        if($contacts !== null && $contacts->first())
+        if (!empty($resp->object()->_embedded->contacts[0]->id))
 
-            return $contacts->first();
+            return $amoApi->services->contacts()->find($resp->object()->_embedded->contacts[0]->id);
         else
             return null;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public static function search($arrayFields, Client $amoApi, $zone = 'ru')
+    {
+        $contacts = null;
+
+        if ($zone !== 'ru') {
+
+            if(key_exists('Телефоны', $arrayFields)) {
+
+                foreach ($arrayFields['Телефоны'] as $phone) {
+
+                    if ($phone)
+                        $contacts = $amoApi->service
+                            ->contacts()
+                            ->searchByPhone(substr($phone, -10));
+                }
+            }
+
+            if(($contacts == null || !$contacts->first()) &&
+                key_exists('Почта', $arrayFields)) {
+
+                if ($arrayFields['Почта'])
+
+                    $contacts = $amoApi->service
+                        ->contacts()
+                        ->searchByEmail($arrayFields['Почта']);
+            }
+
+            if($contacts !== null && $contacts->first())
+
+                return $contacts->first();
+            else
+                return null;
+
+        } else {
+
+            $id = self::searchCom($arrayFields, $amoApi);
+        }
     }
 
     public static function setField(Contact $contact, string $fieldName, $value): Contact
