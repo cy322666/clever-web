@@ -10,7 +10,7 @@ use Ufee\Amo\Models\Lead;
 
 abstract class Contacts extends Client
 {
-    public static function searchCom($arrayFields, $amoApi) : ?int
+    public static function searchCom($arrayFields, Client $amoApi)
     {
         if(key_exists('Телефоны', $arrayFields)) {
 
@@ -38,7 +38,7 @@ abstract class Contacts extends Client
 
         if (!empty($resp->object()->_embedded->contacts[0]->id))
 
-            return $amoApi->services->contacts()->find($resp->object()->_embedded->contacts[0]->id);
+            return $amoApi->service->contacts()->find($resp->object()->_embedded->contacts[0]->id);
         else
             return null;
     }
@@ -50,7 +50,7 @@ abstract class Contacts extends Client
     {
         $contacts = null;
 
-        if ($zone !== 'ru') {
+        if ($zone == 'ru') {
 
             if(key_exists('Телефоны', $arrayFields)) {
 
@@ -79,10 +79,8 @@ abstract class Contacts extends Client
             else
                 return null;
 
-        } else {
-
-            $id = self::searchCom($arrayFields, $amoApi);
-        }
+        } else
+            return self::searchCom($arrayFields, $amoApi);
     }
 
     public static function setField(Contact $contact, string $fieldName, $value): Contact
