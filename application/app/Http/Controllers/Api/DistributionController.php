@@ -18,7 +18,7 @@ class DistributionController extends Controller
 
         $transaction = Transaction::query()->create([
             'user_id' => $user->id,
-            'lead_id' => $request->leads['status'][0]['id'] ?: $request->leads['add'][0]['id'],
+            'lead_id' => !empty($request->leads['status'][0]['id']) ? $request->leads['status'][0]['id'] : $request->leads['add'][0]['id'],
             'body'    => json_encode($request->toArray(), JSON_UNESCAPED_UNICODE),
             'type'    => $settingTemplate['strategy'] ?: false,
             'template' => $template,
