@@ -42,11 +42,15 @@ abstract class FormNote
             '----------------------',
         ];
 
+        $value = '';
+
         foreach ($products as $product) {
 
             foreach ((array)$product as $key => $value) {
 
                 try {
+
+                    $value .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name)."\n";;
 
                     $note = array_merge($note, ['- '.$key.' : '.$value]);
 

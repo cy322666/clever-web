@@ -96,8 +96,6 @@ class FormSend extends Command
             ], 'Новая заявка с Тильды');
         }
 
-        $lead = Leads::refresh($lead, $amoApi);
-
         if ($setting['utms'] == 'rewrite')
 
             $lead = Leads::setRewriteUtms($lead, $form->parseCookies());
@@ -118,18 +116,18 @@ class FormSend extends Command
 
             $amount = $body->payment->amount;
 
+            $name = null;
+
             foreach ($body->payment->products as $product) {
 
                 try {
 
-                    $name = str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
-
-                    $lead->cf($fieldProducts->name)->setValue($name);
-
-                    $name = null;
+                    $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name)."\n";
 
                 } catch (\Throwable) {}
             }
+
+            $lead->cf($fieldProducts->name)->setValue($name);
 
             if (isset($setting['fields']))
 
