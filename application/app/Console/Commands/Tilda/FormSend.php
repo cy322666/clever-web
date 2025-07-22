@@ -122,7 +122,7 @@ class FormSend extends Command
 
                 try {
 
-                    $name = str_replace(['\u0026quot;'], '"', $product->name);
+                    $name = str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
 
                     $lead->cf($fieldProducts->name)->setValue($name);
 
