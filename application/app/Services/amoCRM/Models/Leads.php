@@ -142,6 +142,29 @@ abstract class Leads
         return $lead;
     }
 
+    public static function createPrepare($contact, array $params, ?string $leadname)
+    {
+        $lead = $contact->createLead();
+
+        $lead->name = $leadname;
+
+        if(!empty($params['sale']))
+            $lead->sale = $params['sale'];
+
+        if(!empty($params['responsible_user_id']))
+            $lead->responsible_user_id = $params['responsible_user_id'];
+
+        if(!empty($params['pipeline_id']))
+            $lead->pipeline_id = $params['pipeline_id'];
+
+        if(!empty($params['status_id']))
+            $lead->status_id = $params['status_id'];
+
+        $lead->contacts_id = $contact->id;
+
+        return $lead;
+    }
+
     //rewrite
     public static function setRewriteUtms(Lead $lead, array $utms): Lead
     {
