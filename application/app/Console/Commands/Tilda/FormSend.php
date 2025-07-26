@@ -122,7 +122,17 @@ class FormSend extends Command
 
                 try {
 
-                    $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name)."\n";
+                    $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
+
+                    if (!empty($product->options) && count($product->options) > 0) {
+
+                        foreach ($product->options as $option) {
+
+                            $name .=  ' '.$option->variant.' ';
+                        }
+                    }
+
+                    $name .= $name."\n";
 
                 } catch (\Throwable) {}
             }
