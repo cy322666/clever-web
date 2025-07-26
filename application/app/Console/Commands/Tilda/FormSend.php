@@ -132,7 +132,7 @@ class FormSend extends Command
                         }
                     }
 
-                    $name .= $name."\n";
+                    $name .= "\n";
 
                 } catch (\Throwable) {}
             }
