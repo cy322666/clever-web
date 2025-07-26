@@ -50,7 +50,7 @@ abstract class FormNote
 
                 try {
 
-//                    $value .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name)."\n";;
+                    $value = str_replace(['\u0026quot;', '&quot;'], '"', $value)."\n";
 
                     $note = array_merge($note, ['- '.$key.' : '.$value]);
 
