@@ -10,7 +10,6 @@ services:
             - "8080:8000"
         links:
             - postgresql
-#            - redis
             - supervisor
         working_dir: /var/www/html
     postgresql:
@@ -25,13 +24,6 @@ services:
             - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
         command: [ "postgres", "-c", "config_file=/etc/postgresql.conf" ]
         restart: always
-#    redis:
-#        image: bitnami/redis:latest
-#        ports:
-#            - "6369:6379"
-#        environment:
-#            - ALLOW_EMPTY_PASSWORD=yes
-#        restart: always
     supervisor:
         build: ./docker/images/supervisor
         working_dir: /var/www/html

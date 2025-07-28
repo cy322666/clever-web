@@ -5,7 +5,7 @@ WORKDIR /var/www/html/
 
 # PHP: Copy configuration files & remove dist files
 #RUN mkdir /phpIni
-#COPY files/bin /usr/local/bin/
+#COPY files/bin /usr/local/bin/с≠
 COPY files/php/php.ini /usr/local/etc/php/conf.d/php.ini
 #COPY files/php/ext /phpIni
 
@@ -21,7 +21,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin -
 # PHP: Install php extensions
 RUN pecl channel-update pecl.php.net
 RUN pecl install pcov
-RUN pecl install swoole
+RUN #pecl install swoole
 
 #RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 
@@ -29,7 +29,7 @@ RUN pecl install swoole
 RUN docker-php-ext-install mbstring xml pcntl zip pdo pdo_pgsql bcmath soap
 
 #sockets gd iconv
-RUN docker-php-ext-enable mbstring xml zip swoole pcov pcntl bcmath pdo pdo_pgsql soap
+RUN docker-php-ext-enable mbstring xml zip pcov pcntl bcmath pdo pdo_pgsql soap
 
 RUN docker-php-ext-install exif
 
@@ -53,16 +53,16 @@ RUN apk add --no-cache nodejs npm && \
 
 RUN docker-php-ext-install gd mysqli pdo pdo_mysql -j5 gd mbstring mysqli pdo pdo_mysql shmop
 
-RUN apk --update add redis
+RUN #apk --update add redis
 
-RUN pecl install -o -f redis \
-&&  rm -rf /tmp/pear \
-&&  docker-php-ext-enable redis
+RUN #pecl install -o -f redis \
+#&&  rm -rf /tmp/pear \
+#&&  docker-php-ext-enable redis
 
-ENV SWOOLE_MAX_REQUESTS "100"
-ENV SWOOLE_TASK_WORKERS "1"
-ENV SWOOLE_WATCH $true
-ENV SWOOLE_WORKERS "10"
+#ENV SWOOLE_MAX_REQUESTS "100"
+#ENV SWOOLE_TASK_WORKERS "1"
+#ENV SWOOLE_WATCH $true
+#ENV SWOOLE_WORKERS "10"
 
 RUN chown -R www-data:www-data /var/www/html/
 
