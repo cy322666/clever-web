@@ -53,9 +53,9 @@ RUN apk add --no-cache nodejs npm && \
 
 RUN docker-php-ext-install gd mysqli pdo pdo_mysql -j5 gd mbstring mysqli pdo pdo_mysql shmop
 
-RUN #apk --update add redis
+#RUN apk --update add redis
 
-RUN #pecl install -o -f redis \
+#RUN #pecl install -o -f redis \
 #&&  rm -rf /tmp/pear \
 #&&  docker-php-ext-enable redis
 
