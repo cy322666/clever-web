@@ -236,7 +236,7 @@ class GetCourseResource extends Resource
     {
         return [
             'edit'   => Pages\EditGetCourse::route('/{record}/edit'),
-            'list'   => ListOrders::route('/orders'),
+//            'list'   => ListOrders::route('/orders'),
         ];
     }
 }
