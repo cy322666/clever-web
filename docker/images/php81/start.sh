@@ -18,4 +18,5 @@ php artisan telescope:install
 #php artisan octane:start --server="swoole" --host="0.0.0.0" --workers=10 --task-workers=1 --max-requests=100 --watch;
 
 php artisan serve
+#php artisan serve
 #--port=8080
