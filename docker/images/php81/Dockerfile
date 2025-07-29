@@ -68,4 +68,13 @@ RUN chown -R www-data:www-data /var/www/html/
 
 COPY ./start.sh /
 RUN chmod +x /start.sh
-ENTRYPOINT ["/start.sh"]
+#RUN php artisan serve --host=0.0.0.0 --port=8090
+
+# Открываем порт 8000
+EXPOSE 8000
+#EXPOSE 8089
+
+# Команда для запуска сервера Laravel
+#CMD ["php", "artisan", "serve"]
+
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

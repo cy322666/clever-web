@@ -10,7 +10,7 @@ services:
             - "8080:8000"
         links:
             - postgresql
-#            - supervisor
+            - supervisor
         working_dir: /var/www/html
     postgresql:
         image: postgres:14.1-alpine
@@ -24,14 +24,14 @@ services:
             - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
         command: [ "postgres", "-c", "config_file=/etc/postgresql.conf" ]
         restart: always
-#    supervisor:
-#        build: ./docker/images/supervisor
-#        working_dir: /var/www/html
-#        restart: unless-stopped
-#        volumes:
-#            - ./application:/var/www/html
-#            - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
-#        ports:
-#            - "8007:8008"
+    supervisor:
+        build: ./docker/images/supervisor
+        working_dir: /var/www/html
+        restart: unless-stopped
+        volumes:
+            - ./application:/var/www/html
+            - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
+        ports:
+            - "8007:8008"
 
 
