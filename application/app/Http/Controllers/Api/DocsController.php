@@ -26,6 +26,8 @@ class DocsController extends Controller
 
     public function hook(User $user, string $doc, Request $request)
     {
+        return;
+
         $doc = Doc::query()->create([
             'user_id' => $user->id,
             'lead_id' => $request->leads['add'][0]['id'] ?? $request->leads['status'][0]['id'],

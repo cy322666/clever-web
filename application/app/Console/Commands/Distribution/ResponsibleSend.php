@@ -39,6 +39,8 @@ class ResponsibleSend extends Command
         $setting     = \App\Models\Integrations\Distribution\Setting::find($this->argument('setting'));
         $user        = User::find($this->argument('user'));
 
+        if (!$setting->active) return;
+
         $amoApi = (new Client($account))
             ->setDelay(0.5)
             ->initLogs(Env::get('APP_DEBUG'));
