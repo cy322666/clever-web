@@ -57,6 +57,8 @@ class Generate extends Command
         $account = Account::find($this->argument('account'));
         $setting = Setting::find($this->argument('setting'));
 
+        if (!$setting->active) return;
+
         $settingRaw = json_decode($setting->settings, true);
 
         $settingRaw = $doc->doc_id ? $settingRaw[$doc->doc_id] : $settingRaw[0];

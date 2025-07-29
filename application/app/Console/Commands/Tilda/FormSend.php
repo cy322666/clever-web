@@ -89,7 +89,7 @@ class FormSend extends Command
 
         if (empty($lead)) {
 
-            $lead = Leads::create($contact, [
+            $lead = Leads::createPrepare($contact, [
                 'responsible_user_id' => $responsibleId,
                 'pipeline_id' => $pipelineId,
                 'status_id' => $statusId,
