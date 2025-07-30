@@ -106,8 +106,6 @@ class FormSend extends Command
 
             $lead = $form->setCustomFields($lead, $setting['fields']);
 
-        Notes::addOne($lead, FormNote::create($form));
-
         if (!empty($setting['products']) && $setting['products'] == 'yes' &&
             !empty($body->payment) && !empty($body->payment->products)) {
 
@@ -144,10 +142,20 @@ class FormSend extends Command
                 $lead = $form->setCustomFieldsProduct($lead, $setting['fields']);
 
             $lead->sale = $amount;
-            $lead->save();
+        }
+
+        $lead->save();
+
+        $lead = $amoApi->service->leads()->find($lead->id);
+
+        if (!empty($setting['products']) && $setting['products'] == 'yes' &&
+            !empty($body->payment) && !empty($body->payment->products))
 
             Notes::addOne($lead, FormNote::products($body->payment->products));
-        }
+
+        Notes::addOne($lead, FormNote::create($form));
+
+        $lead = $amoApi->service->leads()->find($lead->id);
 
         Tags::add($lead, $setting['tag'] ?? null);
         Tags::add($lead, 'tilda');
