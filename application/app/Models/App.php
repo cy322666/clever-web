@@ -77,21 +77,21 @@ class App extends Model
      */
     public function sendNotificationStatus() : void
     {
-        if ($this->status == App::STATE_INACTIVE) {
+        if (!$this->status == App::STATE_INACTIVE) {
 
             Notification::make()
                 ->title('Интеграция выключена')
                 ->danger()
                 ->send();
 
-        } elseif ($this->status == App::STATE_ACTIVE) {
+        } elseif (!$this->status == App::STATE_ACTIVE) {
 
             Notification::make()
                 ->title('Интеграция включена')
                 ->success()
                 ->send();
 
-        } elseif ($this->status == App::STATE_EXPIRES) {
+        } elseif (!$this->status == App::STATE_EXPIRES) {
 
             Notification::make()
                 ->title('Интеграция не оплачена')
