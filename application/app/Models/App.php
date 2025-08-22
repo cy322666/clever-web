@@ -13,10 +13,10 @@ class App extends Model
 {
     use HasFactory;
 
-    const STATE_CREATED  = 0;
-    const STATE_INACTIVE = 1;
-    const STATE_ACTIVE   = 2;
-    const STATE_EXPIRES  = 3;
+    const STATE_CREATED  = false;
+    const STATE_INACTIVE = false;
+    const STATE_ACTIVE   = true;
+    const STATE_EXPIRES  = false;
 
     const STATE_CREATED_WORD  = 'Не настроена';
     const STATE_INACTIVE_WORD = 'Не активна';
