@@ -25,9 +25,9 @@ class EditGetCourse extends EditRecord
                 ->url('')//TODO
                 ->openUrlInNewTab(),
 
-            Actions\Action::make('orders')
-                ->label('Заказы')
-                ->url(FormResource\Pages\ListOrders::getUrl())
+//            Actions\Action::make('orders')
+//                ->label('Заказы')
+//                ->url(FormResource\Pages\ListOrders::getUrl())
         ];
     }
 
