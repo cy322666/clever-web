@@ -43,15 +43,13 @@ class Order extends Model
 
     public function setCustomFields(Lead $lead, $fields) : Lead
     {
-        $body = json_decode($this->body);
-
         foreach ($fields as $field) {
 
             $fieldName = Field::query()->find($field['field_amo'])?->name;
 
-            if (!empty($field['field_form']) && !empty($body->{$field['field_form']}))
+            if (!empty($field['field_form']) && !empty($this->{$field['field_form']}))
 
-                $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
+                $lead = Leads::setField($lead, $fieldName, $this->{$field['field_form']});
         }
 
         return $lead;
