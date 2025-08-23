@@ -54,8 +54,8 @@ class Preview extends Widget implements HasForms, HasInfolists
                                     ->badge()
                                     ->color(fn (App $app): string => match ($app->status) {
                                         App::STATE_CREATED  => 'gray',
-                                        App::STATE_INACTIVE => 'warning',
-                                        App::STATE_ACTIVE   => 'success',
+                                        App::STATE_INACTIVE, 0 => 'warning',
+                                        App::STATE_ACTIVE, 1   => 'success',
                                     })
                                     ->formatStateUsing(fn($state) => match($state) {
                                         App::STATE_CREATED  => App::STATE_CREATED_WORD,
