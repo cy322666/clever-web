@@ -59,8 +59,8 @@ class Preview extends Widget implements HasForms, HasInfolists
                                     })
                                     ->formatStateUsing(fn($state) => match($state) {
                                         App::STATE_CREATED  => App::STATE_CREATED_WORD,
-                                        App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
-                                        App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
+                                        App::STATE_INACTIVE, 0 => App::STATE_INACTIVE_WORD,
+                                        App::STATE_ACTIVE, 1   => App::STATE_ACTIVE_WORD,
                                     }),
                                 TextEntry::make('expires_tariff_at')
                                     ->label('')
