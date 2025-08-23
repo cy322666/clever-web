@@ -48,16 +48,16 @@ class AppsRelationManager extends RelationManager
                  Tables\Columns\BadgeColumn::make('status')
                      ->label('Статус')
                      ->color(fn (App $app): string => match ($app->status) {
-                         App::STATE_CREATED  => 'gray',
-                         App::STATE_INACTIVE => 'warning',
-                         App::STATE_ACTIVE   => 'success',
-                         App::STATE_EXPIRES  => 'gray',
+                         App::STATE_CREATED, 0  => 'gray',
+                         App::STATE_INACTIVE, 2 => 'warning',
+                         App::STATE_ACTIVE, 1   => 'success',
+                         App::STATE_EXPIRES, 3  => 'gray',
                      })
                      ->formatStateUsing(fn($state) => match($state) {
-                         App::STATE_CREATED  => App::STATE_CREATED_WORD,
-                         App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
-                         App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
-                         App::STATE_EXPIRES  => App::STATE_EXPIRES_WORD,
+                         App::STATE_CREATED, 0  => App::STATE_CREATED_WORD,
+                         App::STATE_INACTIVE, 2 => App::STATE_INACTIVE_WORD,
+                         App::STATE_ACTIVE, 1   => App::STATE_ACTIVE_WORD,
+                         App::STATE_EXPIRES, 3  => App::STATE_EXPIRES_WORD,
                      }),
             ])
             ->filters([])
