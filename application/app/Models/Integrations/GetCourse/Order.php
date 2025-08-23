@@ -2,11 +2,14 @@
 
 namespace App\Models\Integrations\GetCourse;
 
+use App\Models\amoCRM\Field;
 use App\Models\User;
+use App\Services\amoCRM\Models\Leads;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Ufee\Amo\Models\Lead;
 
 class Order extends Model
 {
@@ -38,6 +41,21 @@ class Order extends Model
         'template',
     ];
 
+    public function setCustomFields(Lead $lead, $fields) : Lead
+    {
+        $body = json_decode($this->body);
+
+        foreach ($fields as $field) {
+
+            $fieldName = Field::query()->find($field['field_amo'])?->name;
+
+            if (!empty($field['field_form']) && !empty($body->{$field['field_form']}))
+
+                $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
+        }
+
+        return $lead;
+    }
     public function setting(): HasOne
     {
         return $this->hasOne(Setting::class);

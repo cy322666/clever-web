@@ -99,6 +99,9 @@ class OrderSend extends Command
                 'sale'      => $order->cost_money,
             ], []);
 
+        $lead = $order->setCustomFields($lead, $setting['fields']);
+        $lead->save();
+
         Log::info(__METHOD__,[
             'lead_id' => $lead->id,
             'status_id' => $statusId,
@@ -107,6 +110,7 @@ class OrderSend extends Command
 
         Tags::add($lead, $setting['tag'] ?? null);
         Tags::add($lead, $setting['tag_order'] ?? null);
+        Tags::add($lead, $order->status_order);
 
         Notes::addOne($lead, OrderNote::create($order));
 
