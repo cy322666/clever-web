@@ -23,6 +23,9 @@ class BaseStrategy
     public ?array $template = [];
     public ?array $staffs = [];
 
+    //те по кому распределяем после проверок
+    public ?array $activeStaff = [];
+
     public Collection|array $transactions;
 
     /**
@@ -55,7 +58,7 @@ class BaseStrategy
             ->where('status', true)
             ->where('template', $this->transaction->template)
             ->where('id', '<', $this->transaction->id)
-            ->orderBy('id', 'ASC');
+            ->orderBy('id', 'DESC');
 
         $this->transactions = $query->get();
 
@@ -75,8 +78,6 @@ class BaseStrategy
 
             //отбираем только тех, кто работает по графику сейчас
             foreach ($this->staffs as $staff) {
-
-                $isWork = false;
 
                 $staff = Staff::query()->where('staff_id', $staff)->first();
 
@@ -99,17 +100,14 @@ class BaseStrategy
 
                                 Log::info(__METHOD__.' staff_id => '.$staff->id.' is work');
 
-                                $isWork = true;
+                                $this->activeStaff[] = $staff->staff_id;
                             }
                         }
                     }
                 }
-
-                if (!$isWork)
-                    unset($this->staffs[$staff->staff_id]);
             }
 
-            Log::debug(__METHOD__.' ПОСЛЕ отбора по рабочему графику остались : ', [$this->staffs]);
+            Log::debug(__METHOD__.' ПОСЛЕ отбора по рабочему графику остались : ', $this->activeStaff);
         }
 
         return $this;
@@ -166,7 +164,7 @@ class BaseStrategy
     }
 
     //проверяет открытые сделки
-    public function checkActiveGetStaff(Client $amoApi, Transaction $transaction) : bool
+    public function checkActiveGetStaff(Client $amoApi, Transaction $transaction) : bool|int
     {
         if ($transaction->contact_id) {
 
