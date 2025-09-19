@@ -16,23 +16,23 @@ class RotationStrategy extends BaseStrategy
 
     public function getStaffId() : ?int
     {
-        $lastTransaction = $this->transactions->last();
+        $lastTransaction = $this->transactions->first();
 
         Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, [
             'last trans' => $lastTransaction->id ?? null,
             'last trans resp' => $lastTransaction->staff_amocrm_id ?? null]);
 
-        if ($lastTransaction && count($this->staffs) > 0) {
+        if ($lastTransaction && count($this->activeStaff) > 0) {
 
-            Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['count staff '.count($this->staffs)]);
+            Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['count staff '.count($this->activeStaff)]);
 
-            foreach ($this->staffs as $key => $staffId) {
+            foreach ($this->activeStaff as $key => $staffId) {
 
                 if ($lastTransaction->staff_amocrm_id == $staffId) {
 
                     Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, [$lastTransaction->staff_amocrm_id.' == '.$staffId]);
 
-                    $staffId = end($this->staffs) == $staffId ? $this->staffs[0] : $this->staffs[++$key];
+                    $staffId = end($this->activeStaff) == $staffId ? $this->activeStaff[0] : $this->activeStaff[++$key];
 
                     Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['staff_id' => $staffId]);
 
@@ -41,6 +41,6 @@ class RotationStrategy extends BaseStrategy
             }
         }
 
-        return $this->staffs[0];
+        return $this->activeStaff[0];
     }
 }
