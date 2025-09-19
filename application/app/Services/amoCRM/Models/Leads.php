@@ -34,7 +34,7 @@ abstract class Leads
     }
 
     //поиск активной в воронке
-    public static function searchActiveLeads($contact, int|array $pipelines = null) : array
+    public static function searchActiveLeads($contact, int|array $pipelines = null) : null|array
     {
         $leads = [];
 
@@ -58,6 +58,8 @@ abstract class Leads
                     $leads = array_merge($leads, $lead);
             }
         }
+
+        return $leads;
     }
 
     public static function refresh($lead, $client)
