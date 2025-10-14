@@ -68,11 +68,20 @@ class FormOrder extends Component implements HasForms
 
         try {
             // amoCRM SDK обычно поддерживает метод search
-            $companies = $amoApi->service->companies;
+            $companiesCollection = $amoApi->service->companies;
 
-            return collect($companies)
+            foreach ($companiesCollection->toArray() as $companyArray) {
+
+                $this->companies[] = [
+                    'id' => $companyArray['id'],
+                    'name' => $companyArray['name'], //проект??
+                ];
+            }
+
+            return collect($this->companies)
                 ->pluck('name', 'id')
                 ->toArray();
+
         } catch (\Throwable $e) {
             logger()->error('Ошибка при поиске компаний: ' . $e->getMessage());
             return [];
@@ -89,6 +98,7 @@ class FormOrder extends Component implements HasForms
 
         try {
             $company = $amoApi->service->companies()->find($id);
+
             return $company?->name ?? null;
         } catch (\Throwable $e) {
             logger()->error('Ошибка при получении компании: ' . $e->getMessage());
@@ -109,33 +119,15 @@ class FormOrder extends Component implements HasForms
 
             if ($field->id == 436721) {
                 foreach ($field->enums as $enum) {
-                    $this->products[] = [ 'id' => $enum->id, 'name' => $enum->value, ];
+                    $this->products[] = [
+                        'id' => $enum->id,
+                        'name' => $enum->value,
+                    ];
                 }
             }
         }
 
         return $this->products;
-
-
-
-//        try {
-//            $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
-//            $productField = collect($fields->_embedded->custom_fields)
-//                ->firstWhere('id', 436721);
-//
-//            if (!$productField) {
-//                return [];
-//            }
-//
-//            return collect($productField->enums)
-//                ->filter(fn($enum) => str_contains(mb_strtolower($enum->value), mb_strtolower($search)))
-//                ->mapWithKeys(fn($enum) => [$enum->id => $enum->value])
-//                ->toArray();
-
-//        } catch (\Throwable $e) {
-//            logger()->error('Ошибка при поиске продуктов: ' . $e->getMessage());
-//            return [];
-//        }
     }
 
     protected function getProductName($id): ?string
@@ -144,24 +136,24 @@ class FormOrder extends Component implements HasForms
             return null;
         }
 
-        $amoApi = new Client(Account::query()->find(3));
+//        $amoApi = new Client(Account::query()->find(3));
+//
+//        try {
+//            $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
+//            $productField = collect($fields->_embedded->custom_fields)
+//                ->firstWhere('id', 436721);
+//
+//            if (!$productField) {
+//                return null;
+//            }
 
-        try {
-            $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
-            $productField = collect($fields->_embedded->custom_fields)
-                ->firstWhere('id', 436721);
-
-            if (!$productField) {
-                return null;
-            }
-
-            return collect($productField->enums)
+            return collect($this->products)
                 ->firstWhere('id', $id)?->value ?? null;
 
-        } catch (\Throwable $e) {
-            logger()->error('Ошибка при получении продукта: ' . $e->getMessage());
-            return null;
-        }
+//        } catch (\Throwable $e) {
+//            logger()->error('Ошибка при получении продукта: ' . $e->getMessage());
+//            return null;
+//        }
     }
 
     // =============================
