@@ -17,3 +17,5 @@ Route::get('/', function () {
     return redirect(\route('filament.app.auth.login'));
 });
 
+Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
+
