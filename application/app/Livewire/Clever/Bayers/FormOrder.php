@@ -40,15 +40,18 @@ class FormOrder extends Component implements HasForms
                     ->label('Клиент')
                     ->searchable()
                     ->getSearchResultsUsing(function (string $query) {
-                        if (!$query) return []; // ничего не показываем, если поле пустое
+                        // Если пользователь ничего не ввёл — возвращаем пустой массив
+                        // Но важно, чтобы поле оставалось кликабельным
+                        if (!$query) return [];
 
                         return collect($this->companies)
-                            ->filter(fn($name) => str_contains(strtolower($name), strtolower($query)))
+                            ->filter(fn($name, $id) => str_contains(strtolower($name), strtolower($query)))
                             ->mapWithKeys(fn($name, $id) => [$id => $name])
                             ->toArray();
                     })
                     ->placeholder('Начните вводить название компании')
                     ->required(),
+
 
 
         Select::make('product_id')
