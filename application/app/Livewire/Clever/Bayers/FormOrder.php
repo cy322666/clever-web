@@ -41,9 +41,23 @@ class FormOrder extends Component implements HasForms
             ->toArray();
     }
 
+    protected function searchProducts(string $search): array
+    {
+        // Фильтруем массив по вхождению строки
+        return collect($this->products)
+            ->filter(fn ($product) => str_contains(mb_strtolower($product['name']), mb_strtolower($search)))
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
     protected function getCompanyName($id): ?string
     {
         return collect($this->companies)->firstWhere('id', $id)['name'] ?? null;
+    }
+
+    protected function getProductName($id): ?string
+    {
+        return collect($this->products)->firstWhere('id', $id)['name'] ?? null;
     }
 
     public function form(Form $form): Form
@@ -53,6 +67,7 @@ class FormOrder extends Component implements HasForms
                 Select::make('company_id')
                     ->label('Клиент')
                     ->options(fn () => $this->getCompanyOptions())
+                    ->searchable()
                     ->getSearchResultsUsing(fn (string $search) => $this->searchCompanies($search))
                     ->getOptionLabelUsing(fn ($value) => $this->getCompanyName($value))
                     ->placeholder('Выберите компанию')
@@ -60,11 +75,11 @@ class FormOrder extends Component implements HasForms
 
                 Select::make('products')
                     ->label('Услуга или продукт')
+                    ->options(fn () => $this->getProductName())
                     ->searchable()
-                    ->options([
-                        'id' => 'ID',
-                        'name' => 'Name'
-                    ])
+                    ->getSearchResultsUsing(fn (string $search) => $this->searchProducts($search))
+                    ->getOptionLabelUsing(fn ($value) => $this->getProductName($value))
+                    ->placeholder('Выберите услугу / продукт')
                     ->required(),
                 Checkbox::make('is_advance')
                     ->label('Нужен аванс')
