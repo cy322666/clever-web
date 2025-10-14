@@ -39,12 +39,14 @@ class FormOrder extends Component implements HasForms
                 Select::make('company_id')
                     ->label('Клиент')
                     ->options($this->companies)
+                    ->searchable()
                     ->placeholder('Выберите компанию')
                     ->required(),
 
                 Select::make('product_id')
                     ->label('Услуга или продукт')
                     ->options($this->products)
+                    ->searchable()
                     ->placeholder('Выберите продукт')
                     ->required(),
 
