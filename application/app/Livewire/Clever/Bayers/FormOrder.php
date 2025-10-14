@@ -19,35 +19,34 @@ class FormOrder extends Component implements HasForms
     public array $companies = [];
     public array $products  = [];
 
+    public ?int $company_id = null;
+    public ?int $product_id = null;
+    public bool $is_advance = false;
+    public ?string $date = null;
+
     public function mount(): void
     {
-        // 🧩 Инициализируем API
+        // 🧩 amoCRM API клиент
         $amoApi = new Client(Account::query()->find(3));
 
-        // --- Загружаем продукты из кастомного поля ---
-        $this->products = []; // важно очистить перед заполнением
+        // --- Загружаем продукты ---
+        $this->products = [];
         $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
 
         foreach ($fields->_embedded->custom_fields as $field) {
             if ($field->id == 436721) {
                 foreach ($field->enums as $enum) {
-                    $this->products[] = [
-                        'id'   => $enum->id,
-                        'name' => $enum->value,
-                    ];
+                    $this->products[$enum->id] = $enum->value;
                 }
             }
         }
 
         // --- Загружаем компании ---
-        $this->companies = []; // очистка массива
+        $this->companies = [];
         $companiesCollection = $amoApi->service->companies;
 
         foreach ($companiesCollection->toArray() as $companyArray) {
-            $this->companies[] = [
-                'id'   => $companyArray['id'],
-                'name' => $companyArray['name'],
-            ];
+            $this->companies[$companyArray['id']] = $companyArray['name'];
         }
 
         // --- Заполняем форму начальными значениями ---
@@ -57,43 +56,21 @@ class FormOrder extends Component implements HasForms
         ]);
     }
 
-    public function getCompanyOptions(): array
-    {
-        return collect($this->companies)->pluck('name', 'id')->toArray();
-    }
-
-    public function getProductOptions(): array
-    {
-        return collect($this->products)->pluck('name', 'id')->toArray();
-    }
-
-    protected function getCompanyName($id): ?string
-    {
-        return collect($this->companies)->firstWhere('id', $id)['name'] ?? null;
-    }
-
-    protected function getProductName($id): ?string
-    {
-        return collect($this->products)->firstWhere('id', $id)['name'] ?? null;
-    }
-
     public function form(Form $form): Form
     {
         return $form
             ->schema([
                 Select::make('company_id')
                     ->label('Клиент')
-                    ->options(fn () => $this->getCompanyOptions())
+                    ->options($this->companies)
                     ->searchable()
-                    ->getOptionLabelUsing(fn ($value) => $this->getCompanyName($value))
                     ->placeholder('Выберите компанию')
                     ->required(),
 
                 Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->options(fn () => $this->getProductOptions())
+                    ->options($this->products)
                     ->searchable()
-                    ->getOptionLabelUsing(fn ($value) => $this->getProductName($value))
                     ->placeholder('Выберите услугу / продукт')
                     ->required(),
 
@@ -104,7 +81,8 @@ class FormOrder extends Component implements HasForms
                 DatePicker::make('date')
                     ->label('Дата платежа')
                     ->required(),
-            ]);
+            ])
+            ->statePath('formData'); // важно, чтобы не конфликтовало с Livewire свойствами
     }
 
     public function create(): void
