@@ -4,8 +4,12 @@ namespace App\Livewire\Clever\Bayers;
 
 use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Livewire\Component;
 
 class FormOrder extends Component implements HasForms
@@ -14,9 +18,36 @@ class FormOrder extends Component implements HasForms
 
     public ?array $data = [];
 
+    public array $companies = [];
+    public array $products  = [];
+
     public function mount(): void
     {
         $this->form->fill();
+    }
+
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Select::make('name')
+                    ->label('Имя')
+                    ->searchable()
+                    ->options($this->companies)
+                    ->required(),
+                Select::make('product')
+                    ->label('Услуга или продукт')
+                    ->searchable()
+                    ->options($this->products)
+                    ->required(),
+                Checkbox::make('is_advance')
+                    ->label('Нужен аванс')
+                    ->required(),
+                DatePicker::make('date')
+                    ->label('Дата платежа')
+                    ->required(),
+            ])
+            ->statePath('data');
     }
 
     public function create(): void
@@ -42,7 +73,6 @@ class FormOrder extends Component implements HasForms
         $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
 
         $products  = [];
-        $companies = [];
 
         foreach ($fields->_embedded->custom_fields as $key => $field) {
 
@@ -62,7 +92,7 @@ class FormOrder extends Component implements HasForms
 
         foreach ($companiesCollection->toArray() as $companyArray) {
 
-            $companies[] = [
+            $this->companies[] = [
                 'id' => $companyArray['id'],
                 'name' => $companyArray['name'],
                 //проект??
