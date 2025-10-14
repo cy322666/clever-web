@@ -1,15 +1,33 @@
-<div>
-    @if (session()->has('success'))
-        <div class="p-4 mb-4 text-sm text-green-800 bg-green-100 rounded-lg" role="alert">
-            {{ session('success') }}
-        </div>
-    @endif
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Форма заявки</title>
 
-    <form wire:submit="create">
+    {{-- Подключаем стили Filament --}}
+    @filamentStyles
+</head>
+<body class="antialiased bg-gray-50">
+
+<div class="max-w-lg mx-auto mt-10 p-6 bg-white rounded-xl shadow-md">
+    <form wire:submit="submit">
         {{ $this->form }}
-
-        <button type="submit" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <x-filament::button type="submit" class="mt-4">
             Отправить
-        </button>
+        </x-filament::button>
     </form>
 </div>
+
+{{-- Подключаем скрипты Filament --}}
+{{--@filamentScripts--}}
+{{--@livewireScripts--}}
+</body>
+</html>
+
+
+{{--<x-filament::layouts.app>--}}
+{{--    <div class="max-w-2xl mx-auto mt-10">--}}
+{{--        {{ $this->form }}--}}
+{{--    </div>--}}
+{{--</x-filament::layouts.app>--}}
+
