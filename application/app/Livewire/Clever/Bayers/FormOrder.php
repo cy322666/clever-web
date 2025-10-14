@@ -22,23 +22,42 @@ class FormOrder extends Component implements HasForms
     public function mount(): void
     {
         $this->form->fill([
-            'companies' => $this->companies,
-            'products'  => $this->products,
+            'company_id' => null,
+            'product_id' => null,
         ]);
+    }
+
+    public function getCompanyOptions()
+    {
+        return collect($this->companies)->pluck('name', 'id')->toArray();
+    }
+
+    protected function searchCompanies(string $search): array
+    {
+        // Фильтруем массив по вхождению строки
+        return collect($this->companies)
+            ->filter(fn ($company) => str_contains(mb_strtolower($company['name']), mb_strtolower($search)))
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    protected function getCompanyName($id): ?string
+    {
+        return collect($this->companies)->firstWhere('id', $id)['name'] ?? null;
     }
 
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                Select::make('companies')
-                    ->label('Имя')
-                    ->searchable()
-                    ->options([
-                        'id' => 'ID',
-                        'name' => 'Name'
-                    ])
+                Select::make('company_id')
+                    ->label('Клиент')
+                    ->options(fn () => $this->getCompanyOptions())
+                    ->getSearchResultsUsing(fn (string $search) => $this->searchCompanies($search))
+                    ->getOptionLabelUsing(fn ($value) => $this->getCompanyName($value))
+                    ->placeholder('Выберите компанию')
                     ->required(),
+
                 Select::make('products')
                     ->label('Услуга или продукт')
                     ->searchable()
