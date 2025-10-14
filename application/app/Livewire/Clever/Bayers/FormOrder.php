@@ -40,10 +40,7 @@ class FormOrder extends Component implements HasForms
                     ->label('Клиент')
                     ->searchable()
                     ->getSearchResultsUsing(function (string $query) {
-                        // Если пользователь ничего не ввёл — возвращаем пустой массив
-                        // Но важно, чтобы поле оставалось кликабельным
-                        if (!$query) return [];
-
+                        if (!$query) return []; // список не раскрывается пока не введён текст
                         return collect($this->companies)
                             ->filter(fn($name, $id) => str_contains(strtolower($name), strtolower($query)))
                             ->mapWithKeys(fn($name, $id) => [$id => $name])
@@ -52,12 +49,17 @@ class FormOrder extends Component implements HasForms
                     ->placeholder('Начните вводить название компании')
                     ->required(),
 
-
-
-        Select::make('product_id')
+                Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->options($this->products)
-                    ->placeholder('Выберите продукт')
+                    ->searchable()
+                    ->getSearchResultsUsing(function (string $query) {
+                        if (!$query) return [];
+                        return collect($this->products)
+                            ->filter(fn($name, $id) => str_contains(strtolower($name), strtolower($query)))
+                            ->mapWithKeys(fn($name, $id) => [$id => $name])
+                            ->toArray();
+                    })
+                    ->placeholder('Начните вводить продукт')
                     ->required(),
 
                 Checkbox::make('is_advance')
@@ -114,7 +116,7 @@ class FormOrder extends Component implements HasForms
     {
         $data = $this->form->getState();
 
-        dump($data); // можно заменить на сохранение
+        dump($data); // здесь можно заменить на сохранение в БД или API
 
         session()->flash('success', 'Заявка успешно отправлена!');
     }
