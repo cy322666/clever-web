@@ -19,14 +19,23 @@ class FormOrder extends Component implements HasForms
     public array $companies = [];
     public array $products  = [];
 
-    public ?int $company_id = null;
-    public ?int $product_id = null;
-    public bool $is_advance = false;
-    public ?string $date = null;
+    public ?array $formData = [
+        'company_id' => null,
+        'product_id' => null,
+        'is_advance' => false,
+        'date' => null,
+    ];
 
     public function mount(): void
     {
-        // 🧩 amoCRM API клиент
+        $this->loadAmoData();
+
+        // Заполняем форму начальными данными (после загрузки опций)
+        $this->form->fill($this->formData);
+    }
+
+    private function loadAmoData(): void
+    {
         $amoApi = new Client(Account::query()->find(3));
 
         // --- Загружаем продукты ---
@@ -48,12 +57,6 @@ class FormOrder extends Component implements HasForms
         foreach ($companiesCollection->toArray() as $companyArray) {
             $this->companies[$companyArray['id']] = $companyArray['name'];
         }
-
-        // --- Заполняем форму начальными значениями ---
-        $this->form->fill([
-            'company_id' => null,
-            'product_id' => null,
-        ]);
     }
 
     public function form(Form $form): Form
@@ -62,40 +65,35 @@ class FormOrder extends Component implements HasForms
             ->schema([
                 Select::make('company_id')
                     ->label('Клиент')
-                    ->options($this->companies)
+                    ->options(fn () => $this->companies)
                     ->searchable()
                     ->placeholder('Выберите компанию')
                     ->required(),
 
                 Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->options($this->products)
+                    ->options(fn () => $this->products)
                     ->searchable()
                     ->placeholder('Выберите услугу / продукт')
                     ->required(),
 
                 Checkbox::make('is_advance')
-                    ->label('Нужен аванс')
-                    ->default(false),
+                    ->label('Нужен аванс'),
 
                 DatePicker::make('date')
                     ->label('Дата платежа')
                     ->required(),
             ])
-            ->statePath('formData'); // важно, чтобы не конфликтовало с Livewire свойствами
+            ->statePath('formData');
     }
 
     public function create(): void
     {
         $data = $this->form->getState();
-
         dump($data);
 
-        // Пример: ContactRequest::create($data);
-
         $this->form->fill();
-
-        session()->flash('success', 'Сообщение отправлено!');
+        session()->flash('success', 'Данные отправлены!');
     }
 
     public function render()
