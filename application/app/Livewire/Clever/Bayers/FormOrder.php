@@ -16,84 +16,166 @@ class FormOrder extends Component implements HasForms
 {
     use InteractsWithForms;
 
-    public array $companies = [];
-    public array $products  = [];
-
-    public ?array $formData = [
-        'company_id' => null,
-        'product_id' => null,
-        'is_advance' => false,
-        'date' => null,
-    ];
-
     public function mount(): void
     {
-        $this->loadAmoData();
-
-        // Заполняем форму начальными данными (после загрузки опций)
-        $this->form->fill($this->formData);
-    }
-
-    private function loadAmoData(): void
-    {
-        $amoApi = new Client(Account::query()->find(3));
-
-        // --- Загружаем продукты ---
-        $this->products = [];
-        $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
-
-        foreach ($fields->_embedded->custom_fields as $field) {
-            if ($field->id == 436721) {
-                foreach ($field->enums as $enum) {
-                    $this->products[$enum->id] = $enum->value;
-                }
-            }
-        }
-
-        // --- Загружаем компании ---
-        $this->companies = [];
-        $companiesCollection = $amoApi->service->companies;
-
-        foreach ($companiesCollection->toArray() as $companyArray) {
-            $this->companies[$companyArray['id']] = $companyArray['name'];
-        }
+        // Начальные значения формы
+        $this->form->fill([
+            'company_id' => null,
+            'product_id' => null,
+            'is_advance' => false,
+            'date' => now(),
+        ]);
     }
 
     public function form(Form $form): Form
     {
         return $form
             ->schema([
+                // --- Клиент (ленивый поиск из amoCRM) ---
                 Select::make('company_id')
                     ->label('Клиент')
-                    ->options(fn () => $this->companies)
                     ->searchable()
-                    ->placeholder('Выберите компанию')
+                    ->getSearchResultsUsing(fn (string $search) => $this->searchCompanies($search))
+                    ->getOptionLabelUsing(fn ($value) => $this->getCompanyName($value))
+                    ->placeholder('Начните вводить название компании')
                     ->required(),
 
+                // --- Продукт или услуга (ленивый поиск из amoCRM) ---
                 Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->options(fn () => $this->products)
                     ->searchable()
-                    ->placeholder('Выберите услугу / продукт')
+                    ->getSearchResultsUsing(fn (string $search) => $this->searchProducts($search))
+                    ->getOptionLabelUsing(fn ($value) => $this->getProductName($value))
+                    ->placeholder('Начните вводить услугу / продукт')
                     ->required(),
 
                 Checkbox::make('is_advance')
-                    ->label('Нужен аванс'),
+                    ->label('Нужен аванс')
+                    ->default(false),
 
                 DatePicker::make('date')
                     ->label('Дата платежа')
                     ->required(),
-            ])
-            ->statePath('formData');
+            ]);
     }
 
+    // =============================
+    // 🧩 Поиск компаний в amoCRM
+    // =============================
+    protected function searchCompanies(string $search): array
+    {
+        $amoApi = new Client(Account::query()->find(3));
+
+        try {
+            // amoCRM SDK обычно поддерживает метод search
+            $companies = $amoApi->service->companies;
+
+            return collect($companies)
+                ->pluck('name', 'id')
+                ->toArray();
+        } catch (\Throwable $e) {
+            logger()->error('Ошибка при поиске компаний: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    protected function getCompanyName($id): ?string
+    {
+        if (!$id) {
+            return null;
+        }
+
+        $amoApi = new Client(Account::query()->find(3));
+
+        try {
+            $company = $amoApi->service->companies()->find($id);
+            return $company?->name ?? null;
+        } catch (\Throwable $e) {
+            logger()->error('Ошибка при получении компании: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // =============================
+    // 🧩 Поиск продуктов в amoCRM
+    // =============================
+    protected function searchProducts(string $search): array
+    {
+        $amoApi = new Client(Account::query()->find(3));
+
+        $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
+
+        foreach ($fields->_embedded->custom_fields as $key => $field) {
+
+            if ($field->id == 436721) {
+                foreach ($field->enums as $enum) {
+                    $this->products[] = [ 'id' => $enum->id, 'name' => $enum->value, ];
+                }
+            }
+        }
+
+        return $this->products;
+
+
+
+//        try {
+//            $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
+//            $productField = collect($fields->_embedded->custom_fields)
+//                ->firstWhere('id', 436721);
+//
+//            if (!$productField) {
+//                return [];
+//            }
+//
+//            return collect($productField->enums)
+//                ->filter(fn($enum) => str_contains(mb_strtolower($enum->value), mb_strtolower($search)))
+//                ->mapWithKeys(fn($enum) => [$enum->id => $enum->value])
+//                ->toArray();
+
+//        } catch (\Throwable $e) {
+//            logger()->error('Ошибка при поиске продуктов: ' . $e->getMessage());
+//            return [];
+//        }
+    }
+
+    protected function getProductName($id): ?string
+    {
+        if (!$id) {
+            return null;
+        }
+
+        $amoApi = new Client(Account::query()->find(3));
+
+        try {
+            $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
+            $productField = collect($fields->_embedded->custom_fields)
+                ->firstWhere('id', 436721);
+
+            if (!$productField) {
+                return null;
+            }
+
+            return collect($productField->enums)
+                ->firstWhere('id', $id)?->value ?? null;
+
+        } catch (\Throwable $e) {
+            logger()->error('Ошибка при получении продукта: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // =============================
+    // 📦 Обработка формы
+    // =============================
     public function create(): void
     {
         $data = $this->form->getState();
-        dump($data);
+
+        dump($data); // можно заменить на сохранение
 
         $this->form->fill();
-        session()->flash('success', 'Данные отправлены!');
+
+        session()->flash('success', 'Заявка успешно отправлена!');
     }
 
     public function render()
