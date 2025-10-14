@@ -21,7 +21,10 @@ class FormOrder extends Component implements HasForms
 
     public function mount(): void
     {
-        $this->form->fill();
+        $this->form->fill([
+            'companies' => $this->companies,
+            'products'  => $this->products,
+        ]);
     }
 
     public function form(Form $form): Form
