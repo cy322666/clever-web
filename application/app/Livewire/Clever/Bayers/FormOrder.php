@@ -28,15 +28,21 @@ class FormOrder extends Component implements HasForms
     {
         return $form
             ->schema([
-                Select::make('name')
+                Select::make('companies')
                     ->label('Имя')
                     ->searchable()
-                    ->options($this->companies)
+                    ->options([
+                        'id' => 'ID',
+                        'name' => 'Name'
+                    ])
                     ->required(),
-                Select::make('product')
+                Select::make('products')
                     ->label('Услуга или продукт')
                     ->searchable()
-                    ->options($this->products)
+                    ->options([
+                        'id' => 'ID',
+                        'name' => 'Name'
+                    ])
                     ->required(),
                 Checkbox::make('is_advance')
                     ->label('Нужен аванс')
@@ -94,16 +100,16 @@ class FormOrder extends Component implements HasForms
             ];
         }
 
-        $this->products = [
-            [
-                'id' => 1,
-                'name' => 2,
-            ],
-            [
-                'id' => 1,
-                'name' => 2,
-            ],
-        ];
+//        $this->products = [
+//            [
+//                'id' => 1,
+//                'name' => 2,
+//            ],
+//            [
+//                'id' => 1,
+//                'name' => 2,
+//            ],
+//        ];
 
         return view('livewire.clever.bayers.form-order');
     }
