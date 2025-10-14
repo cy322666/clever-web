@@ -54,7 +54,7 @@ class FormOrder extends Component implements HasForms
     {
         $data = $this->form->getState();
 
-        dd($data);
+//        dd($data);
         // Обработка данных формы, например, сохранение в базу данных
         // или отправка email.
         // Пример: ContactRequest::create($data);
@@ -80,7 +80,7 @@ class FormOrder extends Component implements HasForms
 
                 foreach ($field->enums as $enum) {
 
-                    $products[] = [
+                    $this->products[] = [
                         'id'   => $enum->id,
                         'name' => $enum->value,
                     ];
