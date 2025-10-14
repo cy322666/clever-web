@@ -38,28 +38,14 @@ class FormOrder extends Component implements HasForms
             ->schema([
                 Select::make('company_id')
                     ->label('Клиент')
-                    ->searchable()
-                    ->getSearchResultsUsing(function (string $query) {
-                        if (!$query) return []; // список не раскрывается пока не введён текст
-                        return collect($this->companies)
-                            ->filter(fn($name, $id) => str_contains(strtolower($name), strtolower($query)))
-                            ->mapWithKeys(fn($name, $id) => [$id => $name])
-                            ->toArray();
-                    })
-                    ->placeholder('Начните вводить название компании')
+                    ->options($this->companies)
+                    ->placeholder('Выберите компанию')
                     ->required(),
 
                 Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->searchable()
-                    ->getSearchResultsUsing(function (string $query) {
-                        if (!$query) return [];
-                        return collect($this->products)
-                            ->filter(fn($name, $id) => str_contains(strtolower($name), strtolower($query)))
-                            ->mapWithKeys(fn($name, $id) => [$id => $name])
-                            ->toArray();
-                    })
-                    ->placeholder('Начните вводить продукт')
+                    ->options($this->products)
+                    ->placeholder('Выберите продукт')
                     ->required(),
 
                 Checkbox::make('is_advance')
@@ -116,7 +102,7 @@ class FormOrder extends Component implements HasForms
     {
         $data = $this->form->getState();
 
-        dump($data); // здесь можно заменить на сохранение в БД или API
+        dump($data); // можно заменить на сохранение
 
         session()->flash('success', 'Заявка успешно отправлена!');
     }
