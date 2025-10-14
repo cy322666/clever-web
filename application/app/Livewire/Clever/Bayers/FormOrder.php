@@ -80,7 +80,7 @@ class FormOrder extends Component implements HasForms
 
                 Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->options(fn () => $this->getCompanyOptions())
+                    ->options(fn () => $this->getProductOptions())
                     ->searchable()
                     ->getSearchResultsUsing(fn (string $search) => $this->searchProducts($search))
                     ->getOptionLabelUsing(fn ($value) => $this->getProductName($value))
