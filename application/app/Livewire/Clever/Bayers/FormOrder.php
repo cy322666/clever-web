@@ -99,7 +99,8 @@ class FormOrder extends Component implements HasForms
 
             ];
         }
-        dd($this->products);
+        dump($this->products);
+        dump($this->companies);
 
         return view('livewire.clever.bayers.form-order');
     }
