@@ -32,6 +32,11 @@ class FormOrder extends Component implements HasForms
         return collect($this->companies)->pluck('name', 'id')->toArray();
     }
 
+    public function getProductOptions()
+    {
+        return collect($this->products)->pluck('name', 'id')->toArray();
+    }
+
     protected function searchCompanies(string $search): array
     {
         // Фильтруем массив по вхождению строки
@@ -75,12 +80,13 @@ class FormOrder extends Component implements HasForms
 
                 Select::make('product_id')
                     ->label('Услуга или продукт')
-                    ->options(fn () => $this->getProductName())
+                    ->options(fn () => $this->getCompanyOptions())
                     ->searchable()
                     ->getSearchResultsUsing(fn (string $search) => $this->searchProducts($search))
                     ->getOptionLabelUsing(fn ($value) => $this->getProductName($value))
                     ->placeholder('Выберите услугу / продукт')
                     ->required(),
+
                 Checkbox::make('is_advance')
                     ->label('Нужен аванс')
                     ->required(),
