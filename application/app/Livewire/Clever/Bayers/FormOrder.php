@@ -16,8 +16,6 @@ class FormOrder extends Component implements HasForms
 {
     use InteractsWithForms;
 
-    public ?array $data = [];
-
     public array $companies = [];
     public array $products  = [];
 
@@ -46,15 +44,14 @@ class FormOrder extends Component implements HasForms
                 DatePicker::make('date')
                     ->label('Дата платежа')
                     ->required(),
-            ])
-            ->statePath('data');
+            ]);
     }
 
     public function create(): void
     {
         $data = $this->form->getState();
 
-//        dd($data);
+        dump($data);
         // Обработка данных формы, например, сохранение в базу данных
         // или отправка email.
         // Пример: ContactRequest::create($data);
@@ -71,8 +68,6 @@ class FormOrder extends Component implements HasForms
         $amoApi = (new Client(Account::query()->find(3)));
 
         $fields = $amoApi->service->ajax()->get('/api/v4/customers/custom_fields');
-
-        $products  = [];
 
         foreach ($fields->_embedded->custom_fields as $key => $field) {
 
@@ -96,11 +91,8 @@ class FormOrder extends Component implements HasForms
                 'id' => $companyArray['id'],
                 'name' => $companyArray['name'],
                 //проект??
-
             ];
         }
-        dump($this->products);
-        dump($this->companies);
 
         return view('livewire.clever.bayers.form-order');
     }
