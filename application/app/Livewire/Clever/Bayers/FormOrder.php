@@ -5,6 +5,7 @@ namespace App\Livewire\Clever\Bayers;
 use App\Models\Clever\Company;
 use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
+use Carbon\Carbon;
 use Dflydev\DotAccessData\Data;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
@@ -93,7 +94,7 @@ class FormOrder extends Component implements HasForms
             foreach ($fields->_embedded->custom_fields as $field) {
                 if ($field->id == 436721) {
                     foreach ($field->enums as $enum) {
-                        $products[$enum->id] = $enum->value;
+                        $products[$enum->value] = $enum->value;
                     }
                 }
             }
@@ -109,13 +110,27 @@ class FormOrder extends Component implements HasForms
     public function create(): void
     {
         $data = $this->form->getState();
+/*
+ * array:5 [▼ // app/Livewire/Clever/Bayers/FormOrder.php:114
+  "company_id" => 31
+  "product_id" => 3051189
+  "is_advance" => true
+  "sale" => 11111
+  "date" => "2025-10-15"
+]
+ */
+        $amoApi = (new Client(Account::query()->find(3)));
 
+        $companyModel = Company::query()->find($data['company_id']);
 
-        dd($data);
+        $company = $amoApi->service->companies()->find($companyModel->company_id);
 
-        $amoApi = new Client(Account::query()->find(3));
-
-
+        $customer = $company->createCustomer();
+        $customer->name = $companyModel->name.' '.$data['product_id'];
+        $customer->next_date = Carbon::parse($data['date'])->timestamp;
+        $customer->next_price = $data['sale'];
+        $customer->cf('Услуга / продукт')->setValue($data['product_id']);
+        $customer->save();
 
         session()->flash('success', 'Заявка успешно отправлена!');
     }
