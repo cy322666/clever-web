@@ -38,16 +38,14 @@ class FormOrder extends Component implements HasForms
                 Select::make('company_id')
                     ->label('Клиент')
                     ->searchable()
-                    ->model(Company::class)
-                    ->searchable()
-//                    ->getSearchResultsUsing(fn (string $search) =>
-//                        Company::query()
-//                            ->where('name', 'like', "%{$search}%")
-//                            ->limit(20)
-//                            ->pluck('name', 'id')
-//                            ->toArray()
-//                        )
-//                    ->getOptionLabelUsing(fn ($value) => Company::find($value)?->name)
+                    ->getSearchResultsUsing(fn (string $search) =>
+                        Company::query()
+                            ->where('name', 'like', "%{$search}%")
+                            ->limit(20)
+                            ->pluck('name', 'id')
+                            ->toArray()
+                        )
+                    ->getOptionLabelUsing(fn ($value) => Company::find($value)?->name)
                     ->placeholder('Начните вводить название компании')
                     ->required(),
 
