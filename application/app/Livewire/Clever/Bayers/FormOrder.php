@@ -19,6 +19,11 @@ class FormOrder extends Component implements HasForms
 {
     use InteractsWithForms;
 
+    public ?int $company_id = null;
+    public ?int $product_id = null;
+    public bool $is_advance = false;
+    public ?string $date = null;
+
     public array $products = [];
 
     public function mount(): void
