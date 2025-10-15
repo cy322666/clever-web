@@ -1,6 +1,8 @@
 <form wire:submit.prevent="create" class="max-w-2xl mx-auto">
-    <x-filament::section>
-        <x-slot name="heading">Создание заказа</x-slot>
+    <x-filament::card>
+        <x-slot name="header">
+            <h2 class="text-lg font-bold">Создание заказа</h2>
+        </x-slot>
 
         {{ $this->form }}
 
@@ -9,5 +11,5 @@
                 Сохранить
             </x-filament::button>
         </x-slot>
-    </x-filament::section>
+    </x-filament::card>
 </form>
