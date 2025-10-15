@@ -41,7 +41,7 @@ class FormOrder extends Component implements HasForms
                     ->searchable()
                     ->getSearchResultsUsing(fn (string $search) =>
                     Company::query()
-                        ->where('name', 'like', "%{$search}%")
+                        ->where('name', 'ilike', "%{$search}%")
                         ->limit(20)
                         ->pluck('name', 'id')
                         ->toArray()
