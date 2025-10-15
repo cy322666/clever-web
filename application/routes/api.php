@@ -67,5 +67,7 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::post('edtechindustry/form', [AuthController::class, 'form']);
 });
 
-Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
+//Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
+
+Route::post('clever/hooks/company', [\App\Http\Controllers\HookController::class, 'companies']);
 

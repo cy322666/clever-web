@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Clever\Bayers;
 
+use App\Models\Clever\Company;
 use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
 use Filament\Forms\Components\Checkbox;
@@ -38,8 +39,16 @@ class FormOrder extends Component implements HasForms
             ->schema([
                 Select::make('company_id')
                     ->label('Клиент')
-                    ->options($this->companies)
-                    ->placeholder('Выберите компанию')
+                    ->searchable()
+                    ->getSearchResultsUsing(fn (string $search) =>
+                        \App\Models\Company::query()
+                            ->where('name', 'like', "%{$search}%")
+                            ->limit(20)
+                            ->pluck('name', 'id')
+                            ->toArray()
+                        )
+                    ->getOptionLabelUsing(fn ($value) => Company::find($value)?->name)
+                    ->placeholder('Начните вводить название компании')
                     ->required(),
 
                 Select::make('product_id')
@@ -56,22 +65,6 @@ class FormOrder extends Component implements HasForms
                     ->label('Дата платежа')
                     ->required(),
             ]);
-    }
-
-    protected function loadCompanies(): void
-    {
-        $amoApi = new Client(Account::query()->find(3));
-
-        try {
-            $companiesCollection = $amoApi->service->companies;
-
-            $this->companies = collect($companiesCollection->toArray())
-                ->pluck('name', 'id')
-                ->toArray();
-        } catch (\Throwable $e) {
-            logger()->error('Ошибка при загрузке компаний: ' . $e->getMessage());
-            $this->companies = [];
-        }
     }
 
     protected function loadProducts(): void
@@ -92,6 +85,7 @@ class FormOrder extends Component implements HasForms
             }
 
             $this->products = $products;
+
         } catch (\Throwable $e) {
             logger()->error('Ошибка при загрузке продуктов: ' . $e->getMessage());
             $this->products = [];
