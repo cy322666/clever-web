@@ -35,20 +35,24 @@ class FormOrder extends Component implements HasForms
     {
         return $form
             ->schema([
+                // 🏢 Поиск компании по названию
                 Select::make('company_id')
                     ->label('Клиент')
                     ->searchable()
                     ->getSearchResultsUsing(fn (string $search) =>
-                        Company::query()
-                            ->where('name', 'like', "%{$search}%")
-                            ->limit(20)
-                            ->pluck('name', 'id')
-                            ->toArray()
-                        )
-                    ->getOptionLabelUsing(fn ($value) => Company::find($value)?->name)
-                    ->placeholder('Начните вводить название компании')
+                    Company::query()
+                        ->where('name', 'like', "%{$search}%")
+                        ->limit(20)
+                        ->pluck('name', 'id')
+                        ->toArray()
+                    )
+                    ->getOptionLabelUsing(fn ($value): ?string =>
+                    Company::find($value)?->name
+                    )
+                    ->placeholder('Введите название компании')
                     ->required(),
 
+                // 📦 Список продуктов
                 Select::make('product_id')
                     ->label('Услуга или продукт')
                     ->options($this->products)
@@ -93,9 +97,7 @@ class FormOrder extends Component implements HasForms
     public function create(): void
     {
         $data = $this->form->getState();
-
-        dump($data); // можно заменить на сохранение
-
+        dump($data);
         session()->flash('success', 'Заявка успешно отправлена!');
     }
 
