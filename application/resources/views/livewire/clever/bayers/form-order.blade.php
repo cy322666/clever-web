@@ -6,10 +6,14 @@
 
         {{ $this->form }}
 
-        <x-slot name="footerActions">
-            <x-filament::button type="submit" class="ml-auto">
-                Сохранить
-            </x-filament::button>
-        </x-slot>
+        @if (View::exists('filament::components.card.footerActions'))
+            <x-slot name="footerActions">
+                <x-filament::button type="submit">Сохранить</x-filament::button>
+            </x-slot>
+        @else
+            <x-slot name="footer">
+                <x-filament::button type="submit">Сохранить</x-filament::button>
+            </x-slot>
+        @endif
     </x-filament::card>
 </form>

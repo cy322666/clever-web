@@ -5,9 +5,11 @@ namespace App\Livewire\Clever\Bayers;
 use App\Models\Clever\Company;
 use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
+use Dflydev\DotAccessData\Data;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -63,6 +65,10 @@ class FormOrder extends Component implements HasForms
                     ->label('Нужен аванс')
                     ->default(false),
 
+                TextInput::make('sale')
+                    ->label('Сумма платежа (если известно)')
+                    ->required(),
+
                 DatePicker::make('date')
                     ->label('Дата платежа')
                     ->required(),
@@ -97,7 +103,14 @@ class FormOrder extends Component implements HasForms
     public function create(): void
     {
         $data = $this->form->getState();
-        dump($data);
+
+
+        dd($data);
+
+        $amoApi = new Client(Account::query()->find(3));
+
+
+
         session()->flash('success', 'Заявка успешно отправлена!');
     }
 
