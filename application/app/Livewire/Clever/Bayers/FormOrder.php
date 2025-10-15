@@ -17,12 +17,10 @@ class FormOrder extends Component implements HasForms
 {
     use InteractsWithForms;
 
-    public array $companies = [];
     public array $products = [];
 
     public function mount(): void
     {
-        $this->loadCompanies();
         $this->loadProducts();
 
         $this->form->fill([
@@ -41,7 +39,7 @@ class FormOrder extends Component implements HasForms
                     ->label('Клиент')
                     ->searchable()
                     ->getSearchResultsUsing(fn (string $search) =>
-                        \App\Models\Company::query()
+                        Company::query()
                             ->where('name', 'like', "%{$search}%")
                             ->limit(20)
                             ->pluck('name', 'id')

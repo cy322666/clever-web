@@ -34,16 +34,17 @@ class Companies extends Command
         try {
             $companiesCollection = $amoApi->service->companies;
 
-            foreach ($companiesCollection as $company) {
+            foreach ($companiesCollection->toArray() as $company) {
 
                 Company::query()->updateOrCreate([
-                    'company_id' => $company->id,
+                    'company_id' => $company['id'],
                 ], [
-                    'name' => $company->name,
+                    'name' => $company['name'],
                 ]);
             }
 
         } catch (\Throwable $e) {
+            dump($e->getMessage());
             logger()->error('Ошибка при загрузке компаний: ' . $e->getMessage());
         }
     }
