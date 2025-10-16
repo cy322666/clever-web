@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\Integrations\Tilda\FormResource\Pages;
+namespace App\Filament\Resources\Integrations\GetCourseResource\Pages;
 
 use App\Filament\Resources\Integrations\GetCourseResource;
-use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Jobs\GetCourse\OrderSend;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
@@ -13,7 +12,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
-use App\Filament\Resources\Integrations\GetCourseResource\Pages;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Jobs\Tilda\FormSend;
