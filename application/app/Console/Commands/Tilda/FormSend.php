@@ -46,8 +46,8 @@ class FormSend extends Command
         $body = json_decode($form->body);
         $setting = json_decode($setting->settings, true)[$form->site];
         $amoApi = (new Client($account))
-            ->setDelay(0.5)
-            ->initLogs(Env::get('APP_DEBUG'));
+            ->setDelay(0.5);
+//            ->initLogs(Env::get('APP_DEBUG'));
 
         $pipelineId = Status::query()
             ->find($setting['pipeline_id'])
