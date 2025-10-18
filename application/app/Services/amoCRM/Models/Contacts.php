@@ -56,10 +56,12 @@ abstract class Contacts extends Client
 
                 foreach ($arrayFields['Телефоны'] as $phone) {
 
-                    if ($phone && strlen($phone) > 9) {}
+                    if ($phone && strlen($phone) > 9) {
+
                         $contacts = $amoApi->service
                             ->contacts()
                             ->searchByPhone(substr($phone, -10));
+                    }
                 }
             }
 
