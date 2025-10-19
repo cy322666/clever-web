@@ -86,7 +86,7 @@ class Test extends Command
 //            ]
 //            ]);
 
-            dd($r);
+           return;
 
         //_embedded->companies[0]->id =
 
