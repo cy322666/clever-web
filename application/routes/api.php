@@ -13,6 +13,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['user.active', 'input']], function () {
 
+    \App\Models\Core\Log::query()->create([
+        'request' => request()->json(),
+        'user_id' => request()?->user(),
+        'app_id',
+        'app_name',
+        'route' => request()->route(),
+        'app_is_active',
+    ]);
+
     Route::group(['prefix' => 'bizon'], function () {
 
         Route::post('hook/{user:uuid}', [BizonController::class, 'hook'])->middleware(['bizon'])->name('bizon.hook');
