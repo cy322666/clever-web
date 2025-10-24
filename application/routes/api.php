@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 Route::group(['middleware' => ['user.active', 'input']], function () {
 
     \App\Models\Core\Log::query()->create([
-        'request' => request()->json(),
+        'request' => json_encode(request()->toArray()),
         'user_id' => request()?->user(),
         'app_id',
         'app_name',
