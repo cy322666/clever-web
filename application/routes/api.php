@@ -13,14 +13,19 @@ use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['user.active', 'input']], function () {
 
-    \App\Models\Core\Log::query()->create([
-        'request' => json_encode(request()->toArray()),
-        'user_id' => request()?->user(),
-        'app_id',
-        'app_name',
-        'route' => request()->route(),
-        'app_is_active',
-    ]);
+    try {
+        \App\Models\Core\Log::query()->create([
+            'request' => json_encode(request()->toArray()),
+            'user_id' => request()?->user(),
+            'app_id',
+            'app_name',
+            'route' => request()->route(),
+            'app_is_active',
+        ]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error(__METHOD__.' : '.$e->getMessage());
+    }
+
 
     Route::group(['prefix' => 'bizon'], function () {
 
