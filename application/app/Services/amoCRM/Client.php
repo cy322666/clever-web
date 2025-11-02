@@ -108,13 +108,15 @@ class Client
 
     public function initCache(int $time = 3600) : Client
     {
-        \Ufee\Amo\Services\Account::setCacheTime($time);
-
         return $this;
+
+        \Ufee\Amo\Services\Account::setCacheTime($time);
     }
 
     public function initLogs(bool $debug = true): Client
     {
+        return $this;
+
         if (!$debug) return $this;
 
         $this->service->queries->onResponseCode(429, function(QueryModel $query) {
