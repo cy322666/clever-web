@@ -48,8 +48,8 @@ class OrderSend extends Command
         $setting = !empty($rawSetting[$order->template]) ? $rawSetting[$order->template] : throw new \Exception('no settings order getcourse');
 
         $amoApi = (new Client($account))
-            ->setDelay(0.2)
-            ->initLogs(Env::get('APP_DEBUG'));
+            ->setDelay(0.2);
+//            ->initLogs(Env::get('APP_DEBUG'));
 
         $statusId = Status::query()
             ->find($setting['status_id_order'])
