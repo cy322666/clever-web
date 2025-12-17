@@ -30,8 +30,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
-use ShuvroRoy\FilamentSpatieLaravelBackup\Pages\Backups;
 
 class AppPanelProvider extends PanelProvider
 {
@@ -53,7 +51,7 @@ class AppPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\\Filament\\App\\Pages')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\\Filament\\App\\Widgets')
-            ->databaseNotifications()
+//            ->databaseNotifications()
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
 
                 return $builder->groups([
@@ -108,11 +106,7 @@ class AppPanelProvider extends PanelProvider
 //                        ]),
                 ]);
             })
-            ->plugin(
-                FilamentSpatieLaravelBackupPlugin::make()
-                    ->usingPage(Backups::class)
-                    ->usingQueue('backups')
-            )
+//            ->plugin()
             ->globalSearch(false)
             ->breadcrumbs(false)
             ->middleware([
