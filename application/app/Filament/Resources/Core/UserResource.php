@@ -8,21 +8,24 @@ use App\Models\User;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
-use STS\FilamentImpersonate\Tables\Actions\Impersonate;
+use STS\FilamentImpersonate\Actions\Impersonate;
+use Tapp\FilamentAuthenticationLog\RelationManagers\AuthenticationLogsRelationManager;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    public static function form(Forms\Form $form): Forms\Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Основная информация')
+                Section::make('Основная информация')
                     ->schema([
                         Forms\Components\TextInput::make('email')
                             ->label('Почта')
@@ -36,7 +39,7 @@ class UserResource extends Resource
                 ])->columnSpan([
                     'sm' => 2,
                 ]),
-                Forms\Components\Card::make()
+                Section::make()
                     ->schema([
                         Forms\Components\Placeholder::make('created_at')
                             ->label('Создан')
@@ -74,6 +77,11 @@ class UserResource extends Resource
                     ->dateTime()
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('count_inputs')
+                    ->label('Запросов')
+                    ->numeric()
+                    ->sortable(),
+
                 Tables\Columns\BooleanColumn::make('active')
                     ->label('Статус')
                     ->sortable(),
@@ -82,8 +90,10 @@ class UserResource extends Resource
                     ->label('Админ')
                     ->sortable(),
 
-                Tables\Columns\BooleanColumn::make('edit')
+                //TODO нет иконки
+                Tables\Columns\IconColumn::make('edit')
                     ->label('Ред')
+                    ->icon('heroicon-m-star')
                     ->url(function (User $user) {
 
                         return Pages\EditUser::getUrl(['record' => $user->id]);
@@ -94,6 +104,7 @@ class UserResource extends Resource
             ->actions([
 //                Tables\Actions\EditAction::make(),
                 Impersonate::make()
+                    ->hiddenLabel()
                     ->openUrlInNewTab()
                     ->redirectTo(route('filament.app.resources.core.users.view', ['record' => Auth::id()]))
             ])
@@ -108,6 +119,7 @@ class UserResource extends Resource
             RelationManagers\AppsRelationManager::class,
             RelationManagers\StaffsRelationManager::class,
             RelationManagers\StatusesRelationManager::class,
+//            AuthenticationLogsRelationManager::class, TODO
         ];
     }
 

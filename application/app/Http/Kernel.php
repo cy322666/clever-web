@@ -2,9 +2,8 @@
 
 namespace App\Http;
 
-use App\Http\Middleware\Api\BizonAuthenticate;
 use App\Http\Middleware\Api\CheckActiveUser;
-use App\Http\Middleware\Api\LogInput;
+use App\Http\Middleware\Api\InputCountUser;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -69,8 +68,9 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
         'user.active' => CheckActiveUser::class,
-        'bizon' => BizonAuthenticate::class,
+        'user.inputs' => InputCountUser::class,
+//        'bizon' => BizonAuthenticate::class,
 
-        'input' => LogInput::class,
+//        'input' => LogInput::class,
     ];
 }

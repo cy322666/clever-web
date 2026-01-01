@@ -4,10 +4,9 @@ namespace App\Http\Middleware\Api;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
-class LogInput
+class InputCountUser
 {
     /**
      * Handle an incoming request.
@@ -18,7 +17,10 @@ class LogInput
      */
     public function handle(Request $request, Closure $next): Response
     {
-        Log::channel('input')->info(json_encode($request->toArray()));
+        $user = $request->user;
+
+        $user->count_inputs += 1;
+        $user->save();
 
         return $next($request);
     }

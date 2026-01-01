@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
@@ -13,7 +12,6 @@ use App\Models\Integrations\Bizon\Webinar;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -35,6 +33,7 @@ class User extends Authenticatable implements FilamentUser
         'password',
         'uuid',
         'active',
+        'count_inputs',
     ];
 
     /**
@@ -71,6 +70,7 @@ class User extends Authenticatable implements FilamentUser
         return true;
     }
 
+    //TODO упростить
     public function bizon_settings(): HasOne
     {
         return $this->hasOne(Setting::class);

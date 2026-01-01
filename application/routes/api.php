@@ -9,22 +9,12 @@ use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\DocsController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
+use App\Http\Controllers\Api\YClientsController;
 use Illuminate\Support\Facades\Route;
 
-Route::group(['middleware' => ['user.active', 'input']], function () {
+//TODO мидлвару на активность юзера и интеграции сделать
 
-//    try {
-//        \App\Models\Core\Log::query()->create([
-//            'request' => json_encode(request()->toArray()),
-//            'user_id' => request()?->user(),
-//            'app_id',
-//            'app_name',
-//            'route' => request()->route(),
-//            'app_is_active',
-//        ]);
-//    } catch (\Throwable $e) {
-//        \Illuminate\Support\Facades\Log::error(__METHOD__.' : '.$e->getMessage());
-//    }
+Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
     Route::group(['prefix' => 'bizon'], function () {
 
@@ -64,7 +54,11 @@ Route::group(['middleware' => ['user.active', 'input']], function () {
     Route::post('data/{user:uuid}', [DadataController::class, 'hook'])->name('data.hook');
 
     Route::post('docs/{user:uuid}/{doc}', [DocsController::class, 'hook'])->name('doc.hook');
+
+    Route::post('yclients/hooks/{user:uuid}', [YClientsController::class, 'hook']);
 });
+
+//amoCRM
 
 Route::group(['prefix' => 'amocrm'], function () {
 
@@ -82,5 +76,5 @@ Route::group(['prefix' => 'amocrm'], function () {
 
 //Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
 
-Route::post('clever/hooks/company', [\App\Http\Controllers\HookController::class, 'companies']);
+
 
