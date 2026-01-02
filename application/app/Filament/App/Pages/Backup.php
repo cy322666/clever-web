@@ -2,6 +2,7 @@
 
 namespace App\Filament\App\Pages;
 
+use Filament\Actions\Action;
 use Filament\Support\Enums\Width;
 
 use Illuminate\Contracts\Support\Htmlable;
@@ -19,5 +20,15 @@ class Backup extends BaseBackups
     public static function getNavigationGroup(): ?string
     {
         return 'Core';
+    }
+
+    protected function getActions(): array
+    {
+        return [
+            Action::make('Create Backup')
+                ->button()
+                ->label(__('filament-spatie-backup::backup.pages.backups.actions.create_backup'))
+                ->action('openOptionModal')
+        ];
     }
 }
