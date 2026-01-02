@@ -6,7 +6,6 @@ use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Jobs\GetCourse\OrderSend;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -80,7 +79,7 @@ class ListOrders extends ListRecords
             ->filters([])
             ->actions([])
             ->bulkActions([
-                BulkAction::make('dispatched')
+                Actions\BulkAction::make('dispatched')
                     ->action(function (Collection $collection) {
 
                         $collection->each(function (GetCourse\Order $order) {

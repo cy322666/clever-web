@@ -13,10 +13,10 @@ class App extends Model
 {
     use HasFactory;
 
-    const STATE_CREATED  = false;
-    const STATE_INACTIVE = false;
-    const STATE_ACTIVE   = true;
-    const STATE_EXPIRES  = false;
+    const STATE_CREATED  = 0;
+    const STATE_INACTIVE = 2;
+    const STATE_ACTIVE   = 1;
+    const STATE_EXPIRES  = 3;
 
     const STATE_CREATED_WORD  = 'Не настроена';
     const STATE_INACTIVE_WORD = 'Не активна';
@@ -30,49 +30,33 @@ class App extends Model
         'name',
         'expires_tariff_at',
         'status',
+        'installed_at',
     ];
+
+    public function getStatusLabel(): string
+    {
+        return match ($this->status) {
+            App::STATE_CREATED  => App::STATE_CREATED_WORD,
+            App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
+            App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
+            App::STATE_EXPIRES  => App::STATE_EXPIRES_WORD,
+        };
+    }
 
     public function user(): HasOne
     {
         return $this->hasOne(User::class, 'id', 'user_id');
     }
 
-    /*
-     * @active - статус в настройках интеграции
-     * @model  - модель настроек интеграции
-     *
-     * учитывает тариф для присвоения статуса приложению
-     *
-     * @param Model $setting
-     * @return Model
-     */
-    public function setStatusWithActive(Model $setting, App $app) : Model
+    public function getSettingModel()
     {
-        if ($this->expires_tariff_at === null) {
-
-            //TODO какие бесплатно??
-            $this->expires_tariff_at = $setting::$cost['1_month'] != 'бесплатно' ? Carbon::now()->addWeek()->format('Y-m-d') : Carbon::now()->addYear()->format('Y-m-d');
-            $this->save();
-
-            $app->status = $setting->active ? App::STATE_ACTIVE : App::STATE_INACTIVE;
-            $app->save();
-
-        } elseif (Carbon::parse($this->expires_tariff_at) < Carbon::now())  {
-
-            $this->status = App::STATE_EXPIRES;
-            $this->save();
-
-        } else {
-            $this->status = $setting->active ? App::STATE_ACTIVE : App::STATE_INACTIVE;
-            $this->save();
-        }
-
-        return  $setting;
+        return $this->resource_name::getModel()::query()->find($this->setting_id);
     }
 
     /**
      * - при смене статуса по кнопке отправляет уведомление TODO сделать и себе в тг
      *
+     * TODO не работает
      * @return void
      */
     public function sendNotificationStatus() : void
@@ -98,5 +82,10 @@ class App extends Model
                 ->warning()
                 ->send();
         }
+    }
+
+    public static function isActiveWidget(Model $setting) : bool
+    {
+        return $setting->active;
     }
 }

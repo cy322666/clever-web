@@ -10,11 +10,11 @@ use App\Models\amoCRM\Status;
 use App\Models\Integrations\Marquiz;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -31,12 +31,16 @@ class MarquizResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Марквиз';
 
-    public static function form(Form $form): Form
+    public static function getTransactions(): int
+    {
+        return Marquiz\Form::query()->count();
+    }
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
                 Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
+                    ->hiddenLabel()
                     ->schema([
                         Repeater::make('settings')
                             ->label('Основное')
@@ -44,6 +48,7 @@ class MarquizResource extends Resource
 
                                 TextInput::make('link')
                                     ->label('Вебхук ссылка')
+                                    ->copyable()
                                     ->disabled(),
 
                                 TextInput::make('name_form')

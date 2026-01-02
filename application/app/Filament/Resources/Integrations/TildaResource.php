@@ -11,14 +11,21 @@ use App\Models\Integrations\Tilda;
 use App\Models\Log;
 use App\Models\User;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontFamily;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 class TildaResource extends Resource
 {
@@ -27,27 +34,32 @@ class TildaResource extends Resource
     protected static ?string $model = Tilda\Setting::class;
 
     protected static ?string $slug = 'settings/tilda';
-
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Тильда';
 
-    public static function form(Form $form): Form
+    public static function getTransactions(): int
     {
-        return $form
+        return Tilda\Form::query()->count();
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
+                Section::make()
+                    ->hiddenLabel()
                     ->schema([
                         Forms\Components\Repeater::make('settings')
-                            ->label('Основное')
+                            ->hiddenLabel()
                             ->schema([
 
                                 Forms\Components\TextInput::make('link')
                                     ->label('Вебхук ссылка')
+                                    ->copyable()
                                     ->disabled(),
 
-                                Forms\Components\Textarea::make('body')
+                                PrettyJsonField::make('body')
                                     ->label('Тело заявки')
                                     ->disabled(),
 
@@ -136,8 +148,31 @@ class TildaResource extends Resource
                             ->reorderable(false)
                             ->reorderableWithDragAndDrop(false)
                             ->addActionLabel('+ Добавить форму')
+                    ])->columnSpan(2),
+
+                Section::make()
+                    ->schema([
+                        TextEntry::make('link')
+                            ->label('Инструкция')
+                            ->color('primary')
+//                            ->markdown(),
+                            ->fontFamily(FontFamily::Mono)
+                            ->weight(FontWeight::ExtraBold),
+
+                        TextEntry::make('price6')
+                            ->money('EUR', divideBy: 100),
+
+                        TextEntry::make('price12')
+                            ->money('EUR', divideBy: 100),
+
+                        Forms\Components\Placeholder::make('updated_at')
+                            ->label('Обновлен')
+                            ->content(fn (?Tilda\Setting $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
                     ])
-            ]);
+                    ->compact()
+                    ->columnSpan(1),
+
+            ])->columns(3);
     }
 
     public static function getRelations(): array

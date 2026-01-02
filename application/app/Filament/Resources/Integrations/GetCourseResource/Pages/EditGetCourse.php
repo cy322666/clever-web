@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Integrations\GetCourseResource\Pages;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Helpers\Actions\UpdateButton;
-use Filament\Pages\Actions;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -20,7 +20,9 @@ class EditGetCourse extends EditRecord
         return [
             UpdateButton::getAction($this->record),
 
-            Actions\Action::make('instruction')
+            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+
+            Action::make('instruction')
                 ->label('Инструкция')
                 ->url('')//TODO
                 ->openUrlInNewTab(),

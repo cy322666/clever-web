@@ -29,10 +29,10 @@ class AppServiceProvider extends ServiceProvider
             Js::make('amochat', resource_path('js/amochat.js')),
         ]);
 
-        Totem::auth(function(Request $request) {
-
-            return $request->user()->is_root;
-        });
+//        Totem::auth(function(Request $request) {
+//
+//            return $request->user()->is_root;
+//        });
 
         if($this->app->environment('production')) {
 

@@ -7,6 +7,7 @@ use App\Filament\Resources\Core\UserResource;
 use App\Models\Core\Account;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 
 class AccountResource extends Resource
@@ -15,7 +16,7 @@ class AccountResource extends Resource
 
 //    protected static ?string $navigationIcon = 'heroicon-o-collection';
 
-    public static function form(Forms\Form $form): Forms\Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -28,6 +29,7 @@ class AccountResource extends Resource
             ]);
     }
 
+    //TODO прибрать
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table

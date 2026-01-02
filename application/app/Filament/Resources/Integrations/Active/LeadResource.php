@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Integrations\Active;
 
 use App\Filament\Resources\Integrations\Active\LeadResource\Pages;
 use App\Models\Integrations\ActiveLead\Lead;
+use App\Models\Integrations\ActiveLead\Setting;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -12,9 +13,9 @@ use Illuminate\Support\Facades\Auth;
 
 class LeadResource extends Resource
 {
-    protected static ?string $model = Lead::class;
+    protected static ?string $model = Setting::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+//    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function getEloquentQuery(): Builder
     {

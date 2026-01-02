@@ -8,13 +8,15 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ActiveLead\Setting;
+use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Dadata;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
@@ -35,7 +37,12 @@ class DadataResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Инфо по номеру';
 
-    public static function form(Form $form): Form
+    public static function getTransactions(): int
+    {
+        return 0;
+    }
+
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -47,6 +54,7 @@ class DadataResource extends Resource
                             ->schema([
 
                                 TextInput::make('link')
+                                    ->copyable()
                                     ->label('Вебхук ссылка'),
 
                                 Select::make('field_country')
@@ -75,11 +83,8 @@ class DadataResource extends Resource
                                     ->searchable(),
                             ]),
 
-                    ])->columns([
-                        'sm' => 2,
-                        'lg' => null,
-                    ]),
-            ]);
+                    ])
+            ])->columns(1);
     }
 
     public static function getPages(): array

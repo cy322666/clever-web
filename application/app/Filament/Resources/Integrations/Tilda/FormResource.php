@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\Tilda\FormResource\Pages;
 use App\Jobs\Tilda\FormSend;
 use App\Models\Integrations\Bizon\Webinar;
 use App\Models\Integrations\Tilda\Form;
+use Filament\Actions\BulkAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -18,8 +19,6 @@ use Illuminate\Support\Facades\Auth;
 class FormResource extends Resource
 {
     protected static ?string $model = Form::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function getEloquentQuery(): Builder
     {
@@ -72,7 +71,7 @@ class FormResource extends Resource
             ->filters([])
             ->actions([])
             ->bulkActions([
-                Tables\Actions\BulkAction::make('dispatched')
+                BulkAction::make('dispatched')
                     ->action(function (Collection $collection) {
 
                         $collection->each(function (Form $form) {

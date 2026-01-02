@@ -6,13 +6,14 @@ use App\Filament\Resources\Integrations\ActiveLeadResource\Pages;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Status;
+use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\ActiveLead\Setting;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
@@ -30,7 +31,7 @@ class ActiveLeadResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Проверка дубля';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -42,6 +43,7 @@ class ActiveLeadResource extends Resource
                             ->schema([
 
                                 TextInput::make('link')
+                                    ->copyable()
                                     ->label('Вебхук ссылка'),
 
                                 Select::make('condition')
@@ -72,5 +74,10 @@ class ActiveLeadResource extends Resource
         return [
             'edit' => Pages\EditActiveLead::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTransactions(): int
+    {
+        return Lead::query()->count();
     }
 }

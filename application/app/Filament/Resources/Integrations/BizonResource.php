@@ -8,8 +8,15 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Bizon\Setting;
+use App\Models\Integrations\Bizon\Viewer;
 use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontFamily;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
@@ -26,34 +33,24 @@ class BizonResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Бизон 365';
 
-    public static function form(Forms\Form $form): Forms\Form
+    public static function getTransactions(): int
     {
-        return $form
+        return Viewer::query()->count();
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
             ->schema([
 
-//                Split::make([
-//                    Section::make([
-//                        TextEntry::make('title')
-//                            ->weight(FontWeight::Bold),
-//                        TextEntry::make('content')
-//                            ->markdown()
-//                            ->prose(),
-//                    ])->grow(),
-//                    Section::make([
-//                        TextEntry::make('created_at')
-//                            ->dateTime(),
-//                        TextEntry::make('published_at')
-//                            ->dateTime(),
-//                    ]),
-//                ])->from('md'),
-
-                Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля')
+                Section::make('Основное')
+                    ->hiddenLabel()
                     ->schema([
-                        Forms\Components\Fieldset::make('Доступы')
+                        Fieldset::make('Доступы')
                             ->schema([
 //                                Forms\Components\TextInput::make('login'),
 //                                Forms\Components\TextInput::make('password'),
+
                                 Forms\Components\TextInput::make('token')
                                     ->label('Токен')
                                     ->required(),
@@ -61,6 +58,7 @@ class BizonResource extends Resource
                                 Forms\Components\TextInput::make('link_webinar')
                                     ->label('Вебинарная ссылка')
                                     ->url()
+                                    ->copyable()
                                     ->readOnly()
                                     ->helperText('Скопируйте ее полностью и вставьте в поле после создания отчета в вебинарной комнате'),
 
@@ -68,16 +66,38 @@ class BizonResource extends Resource
                                     ->label('Регистрационная ссылка')
                                     ->url()
                                     ->readOnly()
+                                    ->copyable()
                                     ->helperText('Скопируйте ее полностью в вставьте в поле вебхука у страницы регистрации')
 
-                            ])->columnSpan(2),
-                    ]),
+                            ]),
+                    ])->columnSpan(2),
 
-                Forms\Components\Section::make('Регистрации')
+                Section::make()
+                    ->schema([
+                        TextEntry::make('link')
+                            ->label('Инструкция')
+                            ->color('primary')
+                            //                            ->markdown(),
+                            ->fontFamily(FontFamily::Mono)
+                            ->weight(FontWeight::ExtraBold),
+
+                        TextEntry::make('price6')
+                            ->money('EUR', divideBy: 100),
+
+                        TextEntry::make('price12')
+                            ->money('EUR', divideBy: 100),
+
+                        TextEntry::make('updated_at')
+                            ->label('Обновлен')
+                    ])
+                    ->compact()
+                    ->columnSpan(1),
+
+                Section::make('Регистрации')
                     ->description('Настройки для регистраций')
                     ->schema([
 
-                        Forms\Components\Fieldset::make('Условия')
+                        Fieldset::make('Условия')
                             ->schema([
                                 Forms\Components\Select::make('status_id_form')
                                     ->label('Этап')
@@ -98,16 +118,14 @@ class BizonResource extends Resource
                                     ->label('Тег'),
                             ]),
 
-                    ])->columns([
-                        'sm' => 2,
-                        'lg' => null,
-                    ]),
+                    ])
+                    ->columnSpan(2),
 
-                Forms\Components\Section::make('Вебинар')
+                Section::make('Вебинар')
                     ->description('Разделите посетителей вебинара на сегементы по времени нахождения на вебинаре')
                     ->schema([
 
-                        Forms\Components\Fieldset::make('Условия')
+                        Fieldset::make('Условия')
                             ->schema([
                                     Forms\Components\Select::make('status_id_cold')
                                         ->label('Этап холодных')
@@ -132,7 +150,7 @@ class BizonResource extends Resource
                                         ->label('Время горячих'),
                                 ]),
 
-                        Forms\Components\Fieldset::make('Сделки')
+                        Fieldset::make('Сделки')
                             ->schema([
                                 Forms\Components\TextInput::make('tag_cold')->label('Тег холодных'),
                                 Forms\Components\TextInput::make('tag_soft')->label('Тег теплых'),
@@ -157,16 +175,11 @@ class BizonResource extends Resource
                                     ])
                                     ->required(),
                             ])
-                            ->columns([
-                                'sm' => 2,
-                                'lg' => null,
-                            ]),
 
-                    ])->columns([
-                        'sm' => 2,
-                        'lg' => null,
-                    ]),
-            ]);
+                    ])
+                    ->columnSpan(2),
+
+            ])->columns(3);
     }
 
     public static function table(Tables\Table $table): Tables\Table

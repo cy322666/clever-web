@@ -18,7 +18,6 @@ class Setting extends Model
     public static string $description = "Интеграция нескольких форм/сайтов/настроек. Поиск и склейка дублей контакта. Возможность склеивать сделки...";
 
     public static array $cost = [
-        '1_month'  => 'бесплатно',
         '6_month'  => 'бесплатно',
         '12_month' => 'бесплатно',
     ];

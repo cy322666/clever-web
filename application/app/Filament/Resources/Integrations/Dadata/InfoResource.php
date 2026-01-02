@@ -14,8 +14,6 @@ class InfoResource extends Resource
 {
     protected static ?string $model = Lead::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();

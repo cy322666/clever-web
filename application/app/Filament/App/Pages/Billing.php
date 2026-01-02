@@ -6,7 +6,8 @@ use Filament\Pages\Page;
 
 class Billing extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+//    protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static string $view = 'filament.app.pages.billing';
+//при обновлении начало ругаться
+//    public static string $view = 'filament.app.pages.billing';
 }

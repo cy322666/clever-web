@@ -13,7 +13,6 @@ class Setting extends Model
     use HasFactory, SettingRelation;
 
     public static array $cost = [
-        '1_month'  => '5000 р',
         '6_month'  => '25.000 р',
         '12_month' => '50.000 р',
     ];

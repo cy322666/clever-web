@@ -33,6 +33,6 @@ class CheckActiveUser
             return $next($request);
         }
 
-        return (new Response('forbidden', 403));
+        return (new Response(null, 403));
     }
 }

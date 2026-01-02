@@ -2,6 +2,9 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\App\Pages\AppStats;
+use App\Filament\App\Pages\Backup;
+use App\Filament\App\Pages\Dashboard;
 use App\Filament\App\Pages\Market;
 use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
@@ -21,6 +24,7 @@ use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Guava\FilamentKnowledgeBase\Plugins\KnowledgeBasePlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -30,6 +34,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
+use Tapp\FilamentAuthenticationLog\FilamentAuthenticationLogPlugin;
 
 class AppPanelProvider extends PanelProvider
 {
@@ -40,13 +46,24 @@ class AppPanelProvider extends PanelProvider
     {
         return $panel
             ->id('app')
-            ->path('')
+            ->path('panel')
             ->login()
             ->registration()
 //            ->emailVerification()
-//            ->profile(EditUser::class)
+//            ->profile(UserResource\Pages\EditUser::class)//TODO
             ->colors([
-                'primary' => Color::Orange,
+                'primary' => Color::Amber,//TODO
+            ])
+            ->plugins([
+                FilamentAuthenticationLogPlugin::make()
+                    ->panelName('app'),
+
+                FilamentSpatieLaravelBackupPlugin::make()
+                    ->usingPage(Backup::class)
+                    ->authorize(fn (): bool => auth()->user()->is_root)
+            ])
+            ->pages([
+                Dashboard::class,
             ])
             ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\\Filament\\App\\Pages')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
@@ -66,47 +83,10 @@ class AppPanelProvider extends PanelProvider
                             NavigationItem::make('Market')
                                 ->label('Магазин')
                                 ->icon('heroicon-o-shopping-bag')
-                                ->url(fn (): string => Market::getUrl()),
+                                ->url(fn (): string => Dashboard::getUrl()),
                         ]),
-
-//                    NavigationGroup::make('')
-//                        ->items([
-//                            NavigationItem::make('Бизон')
-//                                ->label('Бизон')
-//                                ->icon('heroicon-o-academic-cap')
-//                                ->url(fn (): string => WebinarResource::getUrl())
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Тильда')
-//                                ->label('Тильда')
-//                                ->icon('heroicon-o-identification')
-//                                ->url(fn (): string => FormResource::getUrl())
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Альфа')
-//                                ->label('Альфа')
-//                                ->icon('heroicon-o-bars-3-bottom-left')
-//                                ->url(fn (): string => TransactionResource::getUrl())
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//
-//                            NavigationItem::make('Инфо')
-//                                ->label('Инфо')
-//                                ->icon('heroicon-o-magnifying-glass')
-//                                ->url(fn (): string => InfoResource::getUrl())
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//                        ]),
-//
-//                    NavigationGroup::make('')
-//                        ->items([
-//                            NavigationItem::make('Доки')
-//                                ->label('Доки')
-//                                ->icon('heroicon-o-academic-cap')
-//                                ->url(fn (): string => DocResource::getUrl('edit', ['record' => 1]))
-//                                ->hidden(fn() => !Auth::user()->is_root),
-//                        ]),
                 ]);
             })
-//            ->plugin()
             ->globalSearch(false)
             ->breadcrumbs(false)
             ->middleware([

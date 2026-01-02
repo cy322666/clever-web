@@ -7,10 +7,11 @@ use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\Analytic;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,12 +30,16 @@ class AnalyticResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Аналитика';
 
-    public static function form(Forms\Form $form): Forms\Form
+    public static function getTransactions(): int
+    {
+        return 0;
+    }
+
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
                 Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
                     ->schema([
 /*
  * DB_CONNECTION=pgsql
@@ -60,6 +65,7 @@ DB_PASSWORD=pQLkm8NOk1ssgOBox
 
                                 Forms\Components\TextInput::make('link_form')
                                     ->label('Вебхук ссылка')
+                                    ->copyable()
                                     ->disabled(),
 
                                 Forms\Components\TextInput::make('name_form')

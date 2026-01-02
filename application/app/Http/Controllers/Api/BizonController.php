@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\Bizon\FormSend;
 use App\Jobs\Bizon\ViewerSend;
+use App\Models\App;
 use App\Models\Integrations\Bizon\Form;
 use App\Models\User;
 use App\Services\Bizon365\Client;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 
 class BizonController extends Controller
 {
+    //не работает
     public function form(User $user, Request $request)
     {
         $form = Form::query()->create([]);
@@ -29,9 +31,11 @@ class BizonController extends Controller
      */
     public function hook(User $user, Request $request)
     {
-        $webinar = $user->webinars()->create($request->toArray());
-
         $setting = $user->bizon_settings;
+
+        if (!App::isActiveWidget($setting)) return;
+
+        $webinar = $user->webinars()->create($request->toArray());
 
         $bizon = (new Client())->setToken($setting->token);
 

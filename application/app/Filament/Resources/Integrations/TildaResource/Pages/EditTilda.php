@@ -19,6 +19,8 @@ class EditTilda extends EditRecord
         return [
             UpdateButton::getAction($this->record),
 
+            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+
             Actions\Action::make('instruction')
                 ->label('Инструкция')
                 ->url('https://youtu.be/b5aPWhK2oc8?si=nSGpU-XRSlTRScNQ')
@@ -26,6 +28,7 @@ class EditTilda extends EditRecord
 
             Actions\Action::make('list')
                 ->label('История')
+                ->icon('heroicon-o-list-bullet')
                 ->url(FormResource::getUrl())
         ];
     }

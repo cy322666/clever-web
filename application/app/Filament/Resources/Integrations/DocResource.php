@@ -8,8 +8,9 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\Integrations\Docs\Setting;
 use Carbon\Carbon;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,23 +24,26 @@ class DocResource extends Resource
 
     protected static ?string $model = Setting::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
     protected static ?string $recordTitleAttribute = 'Документы';
 
-    public static function form(Form $form): Form
+    public static function getTransactions(): int
     {
-        return $form
+        return 0;
+    }
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
+                Section::make('Настройки')
+                    ->hiddenLabel()
                     ->schema([
                         Forms\Components\Repeater::make('settings')
                             ->label('Основное')
                             ->schema([
 
                                 Forms\Components\TextInput::make('link')
-                                    ->label('Вебхук ссылка'),
+                                    ->label('Вебхук ссылка')
+                                    ->copyable(),
 
                                 Forms\Components\TextInput::make('name_form')
                                     ->label('Название')

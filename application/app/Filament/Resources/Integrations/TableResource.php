@@ -8,8 +8,9 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\Integrations\Table;
 use Carbon\Carbon;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -24,20 +25,22 @@ class TableResource extends Resource
 
     protected static ?string $model = Table\Setting::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
     protected static ?string $slug = 'settings/table';
 
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Таблицы';
 
-    public static function form(Form $form): Form
+    public static function getTransactions(): int
     {
-        return $form
+        return 0;
+    }
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
+                Section::make('Настройки')
+                    ->hiddenLabel()
                     ->schema([
                         Forms\Components\Repeater::make('settings')
                             ->label('Основное')

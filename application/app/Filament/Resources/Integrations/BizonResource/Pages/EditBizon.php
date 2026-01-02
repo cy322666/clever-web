@@ -5,8 +5,9 @@ namespace App\Filament\Resources\Integrations\BizonResource\Pages;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\BizonResource;
 use App\Helpers\Actions\UpdateButton;
-use Filament\Pages\Actions;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth;
 
 class EditBizon extends EditRecord
 {
@@ -17,13 +18,16 @@ class EditBizon extends EditRecord
         return [
             UpdateButton::getAction($this->record),
 
-            Actions\Action::make('instruction')
+            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+
+            Action::make('instruction')
                 ->label('Инструкция')
                 ->url('https://youtu.be/5-0YZJTE6ww?si=kxKeglVIT--DqcFF')
                 ->openUrlInNewTab(),
 
-            Actions\Action::make('list')
+            Action::make('list')
                 ->label('История')
+                ->icon('heroicon-o-list-bullet')
                 ->url(WebinarResource::getUrl())
         ];
     }

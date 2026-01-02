@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\Core\UserResource\Pages;
 
-use App\Filament\Resources\Core\LogResource;
+use App\Filament\App\Pages\AppStats;
+use App\Filament\App\Pages\Backup;
+use App\Filament\Resources\Core\App\AppResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Models\amoCRM\Staff;
 use App\Services\amoCRM\Client;
-use Filament\Pages\Actions;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Auth;
@@ -18,28 +20,43 @@ class ListUsers extends ListRecords
     protected function getActions(): array
     {
         return [
-            Actions\Action::make('logs')
-                ->label('Логи')
-                ->url(LogResource::getUrl())
-                ->color(Color::Cyan),
 
-            Actions\Action::make('telescope')
+            Action::make('telescope')
                 ->label('Телескоп')
                 ->url(route('telescope'))
                 ->openUrlInNewTab()
                 ->color(Color::Blue),
 
-            Actions\Action::make('horizon')
-                ->label('Горизонт')
-                ->url(route('horizon.index'))
-                ->openUrlInNewTab()
-                ->color(Color::Fuchsia),
+//            Action::make('horizon')
+//                ->label('Горизонт')
+//                ->url(route('horizon.index'))
+//                ->openUrlInNewTab()
+//                ->color(Color::Fuchsia),
 
-            Actions\Action::make('totem')
-                ->label('Тотем')
-                ->url(route('totem.dashboard'))
+//            Actions\Action::make('totem')
+//                ->label('Тотем')
+//                ->url(route('totem.dashboard'))
+//                ->openUrlInNewTab()
+//                ->color(Color::Green),
+//
+            Action::make('auths')
+                ->label('Авторизации')
+                ->url(env('APP_URL') . '/panel/authentication-logs')
                 ->openUrlInNewTab()
                 ->color(Color::Green),
+
+            Action::make('apps')
+                ->label('Приложения')
+                ->url(AppStats::getUrl())
+                ->openUrlInNewTab()
+                ->color(Color::Green),
+
+            Action::make('backups')
+                ->label('Бэкапы')
+                ->url(Backup::getUrl())
+                ->openUrlInNewTab()
+                ->color(Color::Green),
+
         ];
     }
 }

@@ -20,17 +20,21 @@ class EditDistribution extends EditRecord
         return [
             UpdateButton::getAction($this->record),
 
+            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+
             Actions\Action::make('instruction')
                 ->label('Инструкция')
                 ->url('')
                 ->openUrlInNewTab(),
 
             Actions\Action::make('logs')
-                ->label('Логи')
+                ->label('История')
+                ->icon('heroicon-o-list-bullet')
                 ->url(TransactionsResource::getUrl()),
 
             Actions\Action::make('schedule')
                 ->label('График')
+                ->icon('heroicon-o-calendar-days')
                 ->url(ScheduleResource::getUrl())//['record' => $this->getRecord()->id])
         ];
     }

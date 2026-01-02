@@ -21,7 +21,6 @@ class Setting extends Model
     const CONDITION_ALL = 1;
 
     public static array $cost = [
-        '1_month'  => 'бесплатно',
         '6_month'  => 'бесплатно',
         '12_month' => 'бесплатно',
     ];

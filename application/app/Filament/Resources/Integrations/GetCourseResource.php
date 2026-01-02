@@ -3,18 +3,19 @@
 namespace App\Filament\Resources\Integrations;
 
 use App\Filament\Resources\Integrations\GetCourseResource\Pages;
-use App\Filament\Resources\Integrations\Tilda\FormResource\Pages\ListOrders;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Jobs\GetCourse\OrderSend;
-use App\Jobs\Tilda\FormSend;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\GetCourse;
-use App\Models\Integrations\Tilda\Form;
 use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
-use Filament\Tables\Actions\BulkAction;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontFamily;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -31,7 +32,6 @@ class GetCourseResource extends Resource
     protected static ?string $model = GetCourse\Setting::class;
 
     protected static ?string $slug = 'settings/getcourse';
-
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Геткурс';
@@ -48,12 +48,17 @@ class GetCourseResource extends Resource
         return $query;
     }
 
-    public static function form(Forms\Form $form): Forms\Form
+    public static function getTransactions(): int
+    {
+        return GetCourse\Form::query()->count() + GetCourse\Order::query()->count();
+    }
+
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Настройки')
-                    ->description('Для работы интеграции заполните обязательные поля и выполните настройки')
+                Section::make('Настройки')
+                    ->hiddenLabel()
                     ->schema([
 
                         Forms\Components\Repeater::make('order_settings')
@@ -66,6 +71,7 @@ class GetCourseResource extends Resource
 
                                         Forms\Components\TextInput::make('link_form')
                                             ->label('Вебхук ссылка')
+                                            ->copyable()
                                             ->disabled(),
 
                                         Forms\Components\TextInput::make('name_form')
@@ -150,6 +156,7 @@ class GetCourseResource extends Resource
 
                                 Forms\Components\TextInput::make('link_form')
                                     ->label('Вебхук ссылка')
+                                    ->copyable()
                                     ->disabled(),
 
                                 Forms\Components\TextInput::make('name_form')
@@ -216,8 +223,31 @@ class GetCourseResource extends Resource
                             ->reorderable(false)
                             ->reorderableWithDragAndDrop(false)
                             ->addActionLabel('+ Добавить форму')
-                    ]),
-            ]);
+                    ])->columnSpan(2),
+
+                Section::make()
+                    ->schema([
+                        TextEntry::make('link')
+                            ->label('Инструкция')
+                            ->color('primary')
+//                            ->markdown(),
+                            ->fontFamily(FontFamily::Mono)
+                            ->weight(FontWeight::ExtraBold),
+
+                        TextEntry::make('price6')
+                            ->money('EUR', divideBy: 100),
+
+                        TextEntry::make('price12')
+                            ->money('EUR', divideBy: 100),
+
+                        Forms\Components\Placeholder::make('updated_at')
+                            ->label('Обновлен')
+                            ->content(fn (?GetCourse\Setting $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
+                    ])
+                    ->compact()
+                    ->columnSpan(1),
+
+            ])->columns(3);
     }
 
     public static function table(Table $table): Table

@@ -19,11 +19,14 @@ class EditDadata extends EditRecord
         return [
             UpdateButton::getAction($this->record),
 
+            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+
             Actions\Action::make('instruction')
                 ->label('Инструкция'),
 
             Actions\Action::make('list')
                 ->label('История')
+                ->icon('heroicon-o-list-bullet')
                 ->url(InfoResource::getUrl())
         ];
     }

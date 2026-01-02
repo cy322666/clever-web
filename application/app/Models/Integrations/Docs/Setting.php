@@ -22,7 +22,6 @@ class Setting extends Model
     public static string $description = "Генерация документов, формирование ссылок и сохранение на Яндекс.Диск...";
 
     public static array $cost = [
-        '1_month'  => '1.000 р',
         '6_month'  => '5.000 р',
         '12_month' => '10.000 р',
     ];

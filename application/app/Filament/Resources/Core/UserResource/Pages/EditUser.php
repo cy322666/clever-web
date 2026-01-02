@@ -8,13 +8,13 @@ use App\Models\amoCRM\Status;
 use App\Models\User;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
-use Filament\Pages\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -25,9 +25,11 @@ class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
 
-    public function form($form): \Filament\Forms\Form
+//    protected static ?string $navigationLabel = 'Профиль';
+
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Section::make('Основная информация')
                     ->schema([

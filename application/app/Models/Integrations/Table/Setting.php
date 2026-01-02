@@ -21,9 +21,8 @@ class Setting extends Model
     public static string $description = "Работа с базами в Excel файлах";
 
     public static array $cost = [
-        '1_month'  => '0 р',
-        '6_month'  => '0 р',
-        '12_month' => '0 р',
+        '6_month'  => 'бесплатно',
+        '12_month' => 'бесплатно',
     ];
 
     protected $fillable = [

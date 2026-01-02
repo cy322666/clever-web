@@ -11,6 +11,7 @@ use App\Services\AlfaCRM\Models\Account;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Colors\Color;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,15 +24,22 @@ class EditAlfa extends EditRecord
         return [
             UpdateButton::getAction($this->record),
 
+            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+
             Actions\Action::make('instruction')
                 ->label('Инструкция'),
+
             Actions\Action::make('alfaUpdate')
-                ->label('Синхронизировать AlfaCRM')
+                ->label('AlfaCRM')
+                ->icon('heroicon-o-arrow-path')
+                ->color(Color::Slate)
                 ->action('alfaUpdate')
+                ->tooltip('Синхронизировать аккаунт АльфаСРМ')
                 ->disabled(fn() => !$this->record->api_key),
 
              Actions\Action::make('list')
                  ->label('История')
+                 ->icon('heroicon-o-list-bullet')
                  ->url(TransactionResource::getUrl())
         ];
     }
