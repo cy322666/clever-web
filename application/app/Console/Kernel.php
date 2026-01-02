@@ -16,7 +16,12 @@ class Kernel extends ConsoleKernel
         $schedule->command('telescope:prune')->daily();
 
 //        $schedule->command('app:failed-jobs')->everyMinute();
-        $schedule->command('backup:run --db-name='.env('DB_CONNECTION').' --only-db')->dailyAt('00:00');
+        $schedule->command('app:check-date-expire')
+            ->dailyAt('01:00');
+
+        $schedule->command('backup:run --db-name='.env('DB_CONNECTION').' --only-db')
+            ->dailyAt('00:00');
+        
         // $schedule->command('inspire')->hourly();
     }
 
