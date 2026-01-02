@@ -5,8 +5,8 @@ namespace App\Filament\Resources\Integrations\Bizon;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource\Pages;
 use App\Jobs\Bizon\ViewerSend;
 use App\Models\Integrations\Bizon\Webinar;
+use Filament\Actions\BulkAction;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -21,8 +21,6 @@ class WebinarResource extends Resource
     protected static ?string $model = Webinar::class;
 
     protected static ?string $recordTitleAttribute = 'История отчетов';
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function getEloquentQuery(): Builder
     {
@@ -103,7 +101,7 @@ class WebinarResource extends Resource
             ->paginated([20, 30, 'all'])
             ->poll('15s')
             ->bulkActions([
-                Tables\Actions\BulkAction::make('dispatched')
+                BulkAction::make('dispatched')
                     ->action(function (Collection $collection) {
 
                         $collection->each(function (Webinar $webinar) {
@@ -126,7 +124,7 @@ class WebinarResource extends Resource
                     })
                     ->label('Догрузить'),
 
-                Tables\Actions\BulkAction::make('repeated')
+                BulkAction::make('repeated')
                     ->action(function (Collection $collection) {
 
                         $collection->each(function (Webinar $webinar) {

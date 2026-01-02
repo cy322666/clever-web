@@ -7,7 +7,6 @@ use App\Jobs\Tilda\FormSend;
 use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -20,16 +19,9 @@ class TransactionsResource extends Resource
 {
     protected static ?string $model = Transaction::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->where('user_id', Auth::id());
-    }
-
-    public static function form(Form $form): Form
-    {
-        return $form->schema([]);
     }
 
     public static function table(Table $table): Table

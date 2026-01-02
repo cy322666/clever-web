@@ -6,7 +6,6 @@ use App\Filament\Resources\Integrations\Alfa\TransactionResource\Pages;
 use App\Models\Integrations\Alfa\Setting;
 use App\Models\Integrations\Alfa\Transaction;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -19,7 +18,7 @@ class TransactionResource extends Resource
 {
     protected static ?string $model = Transaction::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+//    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function table(Table $table): Table
     {
@@ -73,10 +72,7 @@ class TransactionResource extends Resource
             ->defaultSort('created_at', 'DESC')
             ->filters([])
             ->actions([])
-            ->paginated([30, 50, 'all'])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([]),
-            ]);
+            ->paginated([30, 50, 'all']);
     }
 
     public static function getPages(): array

@@ -119,7 +119,6 @@ class UserResource extends Resource
             RelationManagers\AppsRelationManager::class,
             RelationManagers\StaffsRelationManager::class,
             RelationManagers\StatusesRelationManager::class,
-//            AuthenticationLogsRelationManager::class, TODO
         ];
     }
 
