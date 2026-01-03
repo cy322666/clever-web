@@ -7,8 +7,11 @@ use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Viewer;
+use App\Models\Integrations\Bizon\Webinar;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -209,5 +212,21 @@ class BizonResource extends Resource
         return [
             'edit'  => Pages\EditBizon::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        Webinar::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+            )->delete();
+
+        Viewer::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        return true;
     }
 }
