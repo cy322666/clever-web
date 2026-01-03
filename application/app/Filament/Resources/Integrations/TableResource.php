@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations;
 use App\Filament\Resources\Integrations\TableResource\Pages;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
+use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Table;
 use Carbon\Carbon;
 use Filament\Forms;
@@ -101,5 +102,10 @@ class TableResource extends Resource
         return [
             'edit' => Pages\EditTable::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        return true;
     }
 }

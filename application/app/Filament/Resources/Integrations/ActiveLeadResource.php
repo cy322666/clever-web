@@ -8,6 +8,7 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\ActiveLead\Setting;
+use Carbon\Carbon;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
@@ -79,5 +80,16 @@ class ActiveLeadResource extends Resource
     public static function getTransactions(): int
     {
         return Lead::query()->count();
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        Lead::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        return true;
     }
 }

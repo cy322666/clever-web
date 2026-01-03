@@ -7,9 +7,11 @@ use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Tilda;
 use App\Models\Log;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
@@ -185,5 +187,16 @@ class TildaResource extends Resource
         return [
             'edit' => Pages\EditTilda::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        Tilda\Form::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        return true;
     }
 }

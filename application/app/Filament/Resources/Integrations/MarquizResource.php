@@ -7,7 +7,9 @@ use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Marquiz;
+use Carbon\Carbon;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Section;
@@ -122,5 +124,10 @@ class MarquizResource extends Resource
         return [
             'edit' => Pages\EditMarquiz::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        return true;
     }
 }

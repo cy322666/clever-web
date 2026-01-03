@@ -11,6 +11,7 @@ use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\Analytic;
 use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -39,7 +40,7 @@ class AnalyticResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Настройки')
+                Section::make('Настройки')
                     ->schema([
 /*
  * DB_CONNECTION=pgsql
@@ -190,5 +191,16 @@ DB_PASSWORD=pQLkm8NOk1ssgOBox
         return [
             'edit' => Pages\EditAnalytic::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+//        Transaction::query()
+//            ->where('created_at', '<', Carbon::now()
+//                ->subDays($days)
+//                ->format('Y-m-d')
+//            )->delete();
+
+        return true;
     }
 }

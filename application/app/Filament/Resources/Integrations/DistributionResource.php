@@ -8,6 +8,7 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Distribution;
+use Carbon\Carbon;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Infolists\Components\TextEntry;
@@ -166,5 +167,16 @@ class DistributionResource extends Resource
         return [
             'edit' => Pages\EditDistribution::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        Distribution\Transaction::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        return true;
     }
 }

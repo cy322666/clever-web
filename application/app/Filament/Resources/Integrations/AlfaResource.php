@@ -10,6 +10,7 @@ use App\Models\Integrations\Alfa\Branch;
 use App\Models\Integrations\Alfa\LeadStatus;
 use App\Models\Integrations\Alfa\Setting;
 use App\Models\Integrations\Alfa\Transaction;
+use Carbon\Carbon;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
@@ -38,8 +39,9 @@ class AlfaResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
-               Section::make('Основное')
+        return
+            $schema->schema([
+                Section::make('Основное')
                    ->hiddenLabel()
                    ->schema([
                        Fieldset::make('Доступы')
@@ -170,5 +172,16 @@ class AlfaResource extends Resource
         return [
             'edit'   => Pages\EditAlfa::route('/{record}/edit'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        Transaction::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        return true;
     }
 }

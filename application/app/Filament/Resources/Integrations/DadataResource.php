@@ -93,4 +93,9 @@ class DadataResource extends Resource
             'edit' => Pages\EditDadata::route('/{record}/edit'),
         ];
     }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        return true;
+    }
 }

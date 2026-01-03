@@ -9,6 +9,7 @@ use App\Jobs\GetCourse\OrderSend;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\GetCourse;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -268,5 +269,22 @@ class GetCourseResource extends Resource
             'edit'   => Pages\EditGetCourse::route('/{record}/edit'),
 //            'list'   => ListOrders::route('/orders'),
         ];
+    }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        GetCourse\Order::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        GetCourse\Form::query()
+            ->where('created_at', '<', Carbon::now()
+                ->subDays($days)
+                ->format('Y-m-d')
+            )->delete();
+
+        return true;
     }
 }

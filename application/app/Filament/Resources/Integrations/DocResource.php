@@ -113,4 +113,9 @@ class DocResource extends Resource
             'edit' => Pages\EditDoc::route('/{record}/edit'),
         ];
     }
+
+    public static function clearTransactions(int $days = 7): bool
+    {
+        return true;
+    }
 }
