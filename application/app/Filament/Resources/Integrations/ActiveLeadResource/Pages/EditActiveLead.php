@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\Active\LeadResource;
 use App\Filament\Resources\Integrations\ActiveLeadResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
@@ -15,6 +16,8 @@ use function route;
 
 class EditActiveLead extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = ActiveLeadResource::class;
 
     protected function getHeaderActions(): array

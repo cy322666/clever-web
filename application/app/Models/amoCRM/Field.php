@@ -2,8 +2,10 @@
 
 namespace App\Models\amoCRM;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class Field extends Model
 {
@@ -22,4 +24,25 @@ class Field extends Model
         'enums',
         'user_id',
     ];
+
+    public static function getLeadFields(): Builder
+    {
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('entity_type', 'leads');
+    }
+
+    public static function getContactFields(): Builder
+    {
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('entity_type', 'contacts');
+    }
+
+    public static function getCompanyFields(): Builder
+    {
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('entity_type', 'companies');
+    }
 }

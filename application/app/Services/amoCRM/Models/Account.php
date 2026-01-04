@@ -14,16 +14,19 @@ use Illuminate\Support\Facades\Log;
 
 class Account
 {
-    public static function users(Client $amoApi, $userModel): void
+    public static function users(Client $amoApi, User $userModel): void
     {
+        Staff::query()
+            ->where('user_id', $userModel->id)
+            ->delete();
+
         $users = $amoApi->service->account->users;
 
         foreach ($users as $user) {
 
-            Staff::query()->updateOrCreate([
+            Staff::query()->create([
                 'user_id'  => $userModel->id,
                 'staff_id' => $user->id,
-            ], [
                 'group_id'   => $user->group->id,
                 'group_name' => $user->group->name,
                 'name'     => $user->name,
@@ -38,8 +41,12 @@ class Account
     /**
      * @throws Exception
      */
-    public static function statuses(Client $amoApi, $user): void
+    public static function statuses(Client $amoApi, User $user): void
     {
+        Status::query()
+            ->where('user_id', $user->id)
+            ->delete();
+
         $pipelines = $amoApi->service ->ajax()
             ->get('/api/v4/leads/pipelines')
             ->_embedded
@@ -52,24 +59,18 @@ class Account
                 foreach ($pipeline->_embedded->statuses as $status) {
 
                     //TODO del deleted
-                    Status::query()->updateOrCreate([
+                    Status::query()->create([
                         'user_id'      => $user->id,
                         'status_id'    => $status->id,
-                    ], [
+                        'pipeline_id'  => $pipeline->id,
                         'name'         => $status->name,
                         'is_main'      => $pipeline->is_main,
                         'color'        => $status->color,
-                        'pipeline_id'  => $pipeline->id,
                         'pipeline_name'=> $pipeline->name,
                     ]);
                 }
             }
         }
-
-//        Auth::user()
-//            ->amocrm_statuses()
-//            ->where('updated_at', '<', Carbon::now()->subSeconds(30)->format('Y-m-d H:i:s'))
-//            ->delete();
     }
 
     /**
@@ -77,7 +78,11 @@ class Account
      */
     public static function fields(Client $amoApi, $user): void
     {
-        for($i = 1 ;; $i++) {
+        Field::query()
+            ->where('user_id', $user->id)
+            ->delete();
+
+        for($i = 1 ; ; $i++) {
 
             $fields = $amoApi->service
                 ->ajax()
@@ -89,10 +94,9 @@ class Account
 
                 foreach ($fields as $field) {
 
-                    Field::query()->updateOrCreate([
+                    Field::query()->create([
                         'user_id' => $user->id,
                         'field_id' => $field->id,
-                    ], [
                         'name' => $field->name,
                         'type' => $field->type,
                         'code' => $field->code,
@@ -114,10 +118,9 @@ class Account
 
         foreach ($fields as $field) {
 
-            Field::query()->updateOrCreate([
+            Field::query()->create([
                 'user_id' => $user->id,
                 'field_id' => $field->id,
-            ], [
                 'name' => $field->name,
                 'type' => $field->type,
                 'code' => $field->code,
@@ -136,10 +139,9 @@ class Account
 
         foreach ($fields as $field) {
 
-            Field::query()->updateOrCreate([
+            Field::query()->create([
                 'user_id' => $user->id,
                 'field_id' => $field->id,
-            ], [
                 'name' => $field->name,
                 'type' => $field->type,
                 'code' => $field->code,
@@ -149,10 +151,5 @@ class Account
                 'enums' => json_encode($field->enums, JSON_UNESCAPED_UNICODE),
             ]);
         }
-
-//        Auth::user()
-//            ->amocrm_fields()
-//            ->where('updated_at', '<', Carbon::now()->subMinute()->format('Y-m-d H:i:s'))
-//            ->delete();
     }
 }

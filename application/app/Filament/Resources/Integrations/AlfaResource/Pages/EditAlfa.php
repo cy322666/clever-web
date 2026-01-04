@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\Active\LeadResource;
 use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use App\Services\AlfaCRM\Client;
 use App\Services\AlfaCRM\Models\Account;
 use Filament\Actions;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Auth;
 
 class EditAlfa extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = AlfaResource::class;
 
     protected function getActions(): array

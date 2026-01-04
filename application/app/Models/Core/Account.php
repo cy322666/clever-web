@@ -5,6 +5,8 @@ namespace App\Models\Core;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\User;
+use Filament\Actions\Action;
+use Filament\Support\Colors\Color;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,10 +51,5 @@ class Account extends Model
     public function statuses(): HasMany
     {
         return $this->hasMany(Status::class);
-    }
-
-    public function pipelines(): HasMany
-    {
-        return $this->hasMany(Pipeline::class);
     }
 }

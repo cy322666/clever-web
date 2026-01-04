@@ -6,12 +6,15 @@ use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
 class EditTilda extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = TildaResource::class;
 
     protected function getHeaderActions(): array
@@ -20,11 +23,6 @@ class EditTilda extends EditRecord
             UpdateButton::getAction($this->record),
 
             UpdateButton::amoCRMSyncButton(Auth::user()->account),
-
-            Actions\Action::make('instruction')
-                ->label('Инструкция')
-                ->url('https://youtu.be/b5aPWhK2oc8?si=nSGpU-XRSlTRScNQ')
-                ->openUrlInNewTab(),
 
             Actions\Action::make('list')
                 ->label('История')

@@ -64,9 +64,8 @@ class DistributionResource extends Resource
                                 Select::make('strategy')
                                     ->label('Тип распределения')
                                     ->options([
-                                        Distribution\Setting::STRATEGY_SCHEDULE => 'График',
                                         Distribution\Setting::STRATEGY_ROTATION => 'По очереди',
-                                        Distribution\Setting::STRATEGY_RANDOM   => 'Равномерно вразброс',
+                                        Distribution\Setting::STRATEGY_RANDOM   => 'Вразброс',
                                     ])
                                     ->required(),
 
@@ -110,7 +109,7 @@ class DistributionResource extends Resource
                                             ->where('user_id', Auth::id())
                                             ->get()
                                             ->pluck('name', 'staff_id')
-                                    )
+                                    )->searchable()
                             ])
                             ->columns()
                             ->collapsible()

@@ -3,12 +3,15 @@
 namespace App\Filament\Resources\Integrations\AnalyticResource\Pages;
 
 use App\Filament\Resources\Integrations\AnalyticResource;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
 class EditAnalytic extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = AnalyticResource::class;
 
     protected function getHeaderActions(): array

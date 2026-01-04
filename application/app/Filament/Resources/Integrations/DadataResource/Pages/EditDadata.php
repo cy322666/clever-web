@@ -6,12 +6,15 @@ use App\Filament\Resources\Integrations\Active\LeadResource;
 use App\Filament\Resources\Integrations\Dadata\InfoResource;
 use App\Filament\Resources\Integrations\DadataResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
 class EditDadata extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = DadataResource::class;
 
     protected function getHeaderActions(): array

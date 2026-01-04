@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\GetCourseResource\Pages;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +14,8 @@ use function route;
 
 class EditGetCourse extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = GetCourseResource::class;
 
     protected function getActions(): array

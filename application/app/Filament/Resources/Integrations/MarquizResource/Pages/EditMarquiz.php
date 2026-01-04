@@ -5,12 +5,15 @@ namespace App\Filament\Resources\Integrations\MarquizResource\Pages;
 use App\Filament\Resources\Integrations\MarquizResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
 class EditMarquiz extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = MarquizResource::class;
 
     protected function getHeaderActions(): array
