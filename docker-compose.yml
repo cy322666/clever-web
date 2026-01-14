@@ -2,16 +2,20 @@ version: '3.5'
 
 services:
     app:
-        build: ./docker/images/php81
+        build: ./docker/images/php82
         volumes:
             - ./application:/var/www/html
             - ./docker/images/cron/files:/var/spool/cron/crontabs/
         ports:
             - "8080:8000"
-        links:
+        depends_on:
             - postgresql
             - supervisor
         working_dir: /var/www/html
+        networks:
+            default:
+                aliases:
+                    - app
     postgresql:
         image: postgres:14.1-alpine
         ports:
@@ -24,6 +28,10 @@ services:
             - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
         command: [ "postgres", "-c", "config_file=/etc/postgresql.conf" ]
         restart: always
+        networks:
+            default:
+                aliases:
+                    - postgresql
     supervisor:
         build: ./docker/images/supervisor
         working_dir: /var/www/html
@@ -33,5 +41,8 @@ services:
             - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
         ports:
             - "8007:8008"
-
+        networks:
+            default:
+                aliases:
+                    - supervisor
 
