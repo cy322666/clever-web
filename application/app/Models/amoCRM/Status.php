@@ -44,4 +44,59 @@ class Status extends Model
             ->where('is_archive', false)
             ->distinct('pipeline_id');
     }
+
+    public static function getTriggerPipelines() : array
+    {
+        return Status::getPipelines()
+            ->get()
+            ->pluck('pipeline_name', 'pipeline_id')
+            ->toArray();
+    }
+
+    /*
+     *   "Первичные продажи" => array:8 [▼
+     *        "3230029.32756548" => "Новый лид"
+     */
+    public static function getTriggerStatuses() : array
+    {
+        $pipelineArrays = [];
+
+        $pipelines = Status::getPipelines()
+            ->get();
+
+        foreach ($pipelines as $pipeline) {
+
+            $statuses = Status::getWithoutUnsorted()
+                ->where('pipeline_id', $pipeline->pipeline_id)
+                ->get()
+                ->sortBy('id')
+                ->pluck('name', 'status_id')
+                ->toArray();
+
+            foreach ($statuses as $statusId => $statusName) {
+
+                $pipelineArrays[$pipeline->pipeline_name][$pipeline->pipeline_id.'.'.$statusId] = $statusName;
+            }
+        }
+        return $pipelineArrays;
+    }
+
+    // "3230029.32756548"
+    public static function getObject(?string $pStatusId): object
+    {
+        if (is_string($pStatusId)) {
+
+            $array = explode('.', $pStatusId);
+
+            return (object)[
+                'status_id'   => $array[0],
+                'pipeline_id' => $array[1],
+            ];
+
+        } else return
+            (object)[
+                'status_id',
+                'pipeline_id',
+            ];
+    }
 }

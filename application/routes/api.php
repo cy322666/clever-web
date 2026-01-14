@@ -55,7 +55,7 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
     Route::post('docs/{user:uuid}/{doc}', [DocsController::class, 'hook'])->name('doc.hook');
 
-    Route::post('yclients/hooks/{user:uuid}', [YClientsController::class, 'hook']);
+    Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])->name('yclients.hook');
 });
 
 //amoCRM
