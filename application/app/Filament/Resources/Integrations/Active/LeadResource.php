@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Integrations\Active;
 use App\Filament\Resources\Integrations\Active\LeadResource\Pages;
 use App\Models\Integrations\ActiveLead\Lead;
 use App\Models\Integrations\ActiveLead\Setting;
+use App\Models\Log;
+use Carbon\Carbon;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -70,4 +72,6 @@ class LeadResource extends Resource
             'index' => Pages\ListLeads::route('/'),
         ];
     }
+
+
 }

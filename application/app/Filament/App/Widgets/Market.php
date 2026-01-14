@@ -29,11 +29,11 @@ class Market extends TableWidget
             ->columns([
                 Split::make([
 
-    //                TextColumn::make('expires_tariff_at')->label('Истекает'),
                     TextColumn::make('name')
                         ->label('Название')
                         ->weight(FontWeight::Bold)
                         ->size(TextSize::Medium)
+                        ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
                         ->state(fn(?App $app) => $app->resource_name::getRecordTitle()),
 
                     TextColumn::make('status')
@@ -43,7 +43,7 @@ class Market extends TableWidget
                         ->state(fn (App $app): string => match ($app->status) {
                             App::STATE_CREATED  => App::STATE_CREATED_WORD,
                             App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
-                            App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
+                            App::STATE_ACTIVE   => 'До '.$app->expires_tariff_at,
                             App::STATE_EXPIRES  => App::STATE_EXPIRES_WORD,
                         })
                         ->color(fn (App $app): string => match ($app->status) {

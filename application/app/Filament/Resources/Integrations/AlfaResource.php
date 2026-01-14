@@ -78,20 +78,21 @@ class AlfaResource extends Resource
 
                                Select::make('status_record_1')
                                    ->label('Статус записи')
-                                   ->options(Status::getWithoutUnsorted()->pluck('name', 'id') ?? [])
+                                   ->options(Status::getTriggerStatuses())
                                    ->searchable(),
 
                                Select::make('status_came_1')
                                    ->label('Статус пришедших')
-                                   ->options(Status::getWithoutUnsorted()->pluck('name', 'id') ?? [])
+                                   ->options(Status::getTriggerStatuses())
                                    ->searchable(),
 
                                Select::make('status_omission_1')
                                    ->label('Статус отказавшихся')
-//                                   ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
                                    ->options(Status::getTriggerStatuses())
                                    ->searchable(),
                            ]),
+
+                       //TODO соотношение полей
 
                        Fieldset::make('Настройка AlfaCRM')
                            ->schema([

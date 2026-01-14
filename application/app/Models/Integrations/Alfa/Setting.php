@@ -19,6 +19,7 @@ class Setting extends Model
 
     public static string $resource = AlfaResource::class;
 
+    //TODO лишнее?
     public static string $description = "Передача клиента в АльфаСРМ. Изменение этапа при проведении/отмене урока...";
 
     public const CREATED = 0;
@@ -27,8 +28,8 @@ class Setting extends Model
     public const OMISSION = 3;
 
     static array $cost = [
-        '6_month'  => '10.000 р',
-        '12_month' => '20.000 р',
+        '6_month'  => '6.000 р',
+        '12_month' => '10.000 р',
     ];
 
     protected $fillable = [

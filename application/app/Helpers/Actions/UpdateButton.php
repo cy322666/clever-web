@@ -6,6 +6,7 @@ use App\Models\App;
 use App\Models\Core\Account;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Support\Colors\Color;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -29,13 +30,54 @@ abstract class UpdateButton
                     if ($record->status == App::STATE_CREATED && is_null($record->install_at))
                         $app->installed_at = Carbon::now();
 
-                    $record->active = $app->status != App::STATE_EXPIRES ? !$record->active : App::STATE_EXPIRES;
+                    // тут спокойно управляем кнопкой, приложение доступно юзеру
+                    if ($app->status == App::STATE_ACTIVE || $app->status == App::STATE_CREATED) {
+
+                        if ($record->active) {
+
+                            $record->active = false;
+
+                            Notification::make()
+                                ->title('Интеграция выключена')
+                                ->danger()
+                                ->send();
+                        }
+
+                        if (!$record->active) {
+
+                            $record->active = true;
+
+                            Notification::make()
+                                ->title('Интеграция включена')
+                                ->success()
+                                ->send();
+                        }
+                    }
+
+                    // тут недоступно
+                    if ($app->status == App::STATE_EXPIRES || $app->status == App::STATE_INACTIVE) {
+
+                        if ($record->active) {
+
+                            $record->active = false;
+
+                            Notification::make()
+                                ->title('Интеграция выключена')
+                                ->danger()
+                                ->send();
+                        }
+
+                        if (!$record->active) {
+
+                            Notification::make()
+                                ->title('Интеграция не оплачена')
+                                ->warning()
+                                ->body('Для оплаты обратитесь в чат ниже')
+                                ->send();
+                        }
+                    }
+
                     $record->save();
-
-//                    $app->setStatusWithActive($record->refresh(), $app);
-
-                    //TODO не работает
-//                    $app->sendNotificationStatus();
             })
             ->color(fn() => $record->active ? Color::Red : Color::Green)
             ->label(fn() => $record->active ? 'Выключить' : 'Включить');

@@ -100,34 +100,6 @@ class ViewUser extends ViewRecord
         }
     }
 
-    /**
-     * @throws \Exception
-     */
-    public function amocrmUpdate(): void
-    {
-        $account = Auth::user()->account;
-
-        $amoApi = new Client($account);
-
-        if (!$amoApi->auth)
-
-            $amoApi->init();
-
-        if ($amoApi->auth) {
-
-            Artisan::call('app:sync', ['account' => $account->id]);
-
-            Notification::make()
-                ->title('Успешно обновлено')
-                ->success()
-                ->send();
-        } else
-            Notification::make()
-                ->title('Ошибка авторизации')
-                ->danger()
-                ->send();
-    }
-
     protected function authorizeAccess(): void
     {
         if (!Auth::user()->is_root && Auth::id() !== $this->record->id) {

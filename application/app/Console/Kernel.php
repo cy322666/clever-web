@@ -13,7 +13,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('telescope:prune')->daily();
+        $schedule->command('telescope:prune')
+            ->dailyAt('00:00');
 
 //        $schedule->command('app:failed-jobs')->everyMinute();
         $schedule->command('app:check-date-expire')
@@ -21,7 +22,7 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('backup:run --db-name='.env('DB_CONNECTION').' --only-db')
             ->dailyAt('00:00');
-        
+
         // $schedule->command('inspire')->hourly();
     }
 

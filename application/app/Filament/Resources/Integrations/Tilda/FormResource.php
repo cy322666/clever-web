@@ -22,14 +22,7 @@ class FormResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-
-        if (!Auth::user()->is_root) {
-
-            $query->where('user_id', Auth::id());
-        }
-
-        return $query;
+        return parent::getEloquentQuery()->where('user_id', Auth::id());
     }
 
     public static function table(Table $table): Table

@@ -79,24 +79,24 @@ class GetCourseResource extends Resource
                                             ->label('Название')
                                             ->hint('Для различения настроек форм'),
 
-                                        Forms\Components\Select::make('pipeline_id')
-                                            ->label('Воронка')
-                                            ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                                            ->required(),
+//                                        Forms\Components\Select::make('pipeline_id')
+//                                            ->label('Воронка')
+//                                            ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+//                                            ->required(),
 
                                         Forms\Components\Select::make('status_id_order')
                                             ->label('Этап новых заказов')
-                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                            ->options(Status::getTriggerStatuses())
                                             ->searchable(),
 
                                         Forms\Components\Select::make('response_user_id_order')
                                             ->label('Отв. по заказам')
-                                            ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                            ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
                                             ->searchable(),
 
                                         Forms\Components\Select::make('status_id_order_close')
                                             ->label('Этап оплаченных заказов')
-                                            ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                            ->options(Status::getTriggerStatuses())
                                             ->searchable(),
 
                                         Forms\Components\TextInput::make('tag_order')->label('Тег для заказов'),
@@ -128,6 +128,7 @@ class GetCourseResource extends Resource
                                                 Forms\Components\Select::make('field_amo')
                                                     ->label('Поле из amoCRM')
                                                     ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
+                                                    ->searchable()
                                                     ->required(),
                                             ])
                                             ->columns()
@@ -136,13 +137,6 @@ class GetCourseResource extends Resource
                                             ->reorderable(false)
                                             ->reorderableWithDragAndDrop(false)
                                             ->addActionLabel('+ Добавить поле')
-//                                    ])
-//                                    ->columns()
-//                                    ->collapsible()
-//                                    ->defaultItems(1)
-//                                    ->reorderable(false)
-//                                    ->reorderableWithDragAndDrop(false)
-//                                    ->addActionLabel('+ Добавить форму'),
                              ])
                             ->columns()
                             ->collapsible()
@@ -166,17 +160,19 @@ class GetCourseResource extends Resource
 
                                 Forms\Components\Select::make('status_id')
                                     ->label('Этап')
-                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                    ->options(Status::getTriggerStatuses())
+                                    ->searchable()
                                     ->required(),
 
-                                Forms\Components\Select::make('pipeline_id')
-                                    ->label('Воронка')
-                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                                    ->required(),
+//                                Forms\Components\Select::make('pipeline_id')
+//                                    ->label('Воронка')
+//                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+//                                    ->required(),
 
                                 Forms\Components\Select::make('responsible_user_id')
                                     ->label('Ответственный')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
+                                    ->searchable()
                                     ->required(),
 
                                 Forms\Components\TextInput::make('tag')
@@ -208,6 +204,7 @@ class GetCourseResource extends Resource
 
                                         Forms\Components\Select::make('field_amo')
                                             ->label('Поле из amoCRM')
+                                            ->searchable()
                                             ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
                                             ->required(),
                                     ])
@@ -251,6 +248,8 @@ class GetCourseResource extends Resource
             ])->columns(3);
     }
 
+    //TODO список полей наверное надо из гк
+
     public static function table(Table $table): Table
     {
 //
@@ -267,7 +266,7 @@ class GetCourseResource extends Resource
     {
         return [
             'edit'   => Pages\EditGetCourse::route('/{record}/edit'),
-//            'list'   => ListOrders::route('/orders'),
+//            'list'   => ListOrders::route('/orders'), TODO отключил почему?
         ];
     }
 

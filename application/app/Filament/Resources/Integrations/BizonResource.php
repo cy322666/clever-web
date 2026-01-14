@@ -104,17 +104,17 @@ class BizonResource extends Resource
                             ->schema([
                                 Forms\Components\Select::make('status_id_form')
                                     ->label('Этап')
-                                    ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                    ->options(Status::getTriggerStatuses())
                                     ->searchable(),
 
-                                Forms\Components\Select::make('pipeline_id_form')
-                                    ->label('Воронка')
-                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                                    ->searchable(),
+//                                Forms\Components\Select::make('pipeline_id_form')
+//                                    ->label('Воронка')
+//                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+//                                    ->searchable(),
 
                                 Forms\Components\Select::make('responsible_user_id_form')
                                     ->label('Ответственный')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
                                     ->searchable(),
 
                                 Forms\Components\TextInput::make('tag_form')
@@ -132,24 +132,27 @@ class BizonResource extends Resource
                             ->schema([
                                     Forms\Components\Select::make('status_id_cold')
                                         ->label('Этап холодных')
-                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->options(Status::getTriggerStatuses())
                                         ->searchable(),
 
                                     Forms\Components\Select::make('status_id_soft')
                                         ->label('Этап теплых')
-                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->options(Status::getTriggerStatuses())
                                         ->searchable(),
 
                                     Forms\Components\Select::make('status_id_hot')
                                         ->label('Этап горячих')
-                                        ->options(Status::getWithoutUnsorted()->pluck('name', 'id'))
+                                        ->options(Status::getTriggerStatuses())
                                         ->searchable(),
 
                                     Forms\Components\TextInput::make('time_cold')
+                                        ->numeric()
                                         ->label('Время холодных'),
                                     Forms\Components\TextInput::make('time_soft')
+                                        ->numeric()
                                         ->label('Время теплых'),
                                     Forms\Components\TextInput::make('time_hot')
+                                        ->numeric()
                                         ->label('Время горячих'),
                                 ]),
 
@@ -162,13 +165,13 @@ class BizonResource extends Resource
 
                                 Forms\Components\Select::make('response_user_id')
                                     ->label('Ответственный по умолчанию')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
                                     ->searchable(),
 
-                                Forms\Components\Select::make('pipeline_id')
-                                    ->label('Вебинарная воронка')
-                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                                    ->searchable(),
+//                                Forms\Components\Select::make('pipeline_id')
+//                                    ->label('Вебинарная воронка')
+//                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+//                                    ->searchable(),
 
                                 Forms\Components\Radio::make('utms')
                                     ->label('Действия с метками')
@@ -177,6 +180,8 @@ class BizonResource extends Resource
                                         'rewrite' => 'Перезаписывать',
                                     ])
                                     ->required(),
+
+                                //TODO поля меток
                             ])
 
                     ])

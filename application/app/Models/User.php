@@ -142,18 +142,30 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(\App\Models\Integrations\Dadata\Setting::class);
     }
 
-    public function fields(): HasMany//amocrm TODO
-    {
-        return $this->hasMany(Field::class);
-    }
-
     public function amocrm_fields(): HasMany//amocrm TODO
     {
         return $this->hasMany(Field::class);
     }
 
+    public function amocrm_fields_contact(): HasMany
+    {
+        return $this->hasMany(Field::class)
+            ->where('entity_type', 'contacts');
+    }
+
+    public function amocrm_fields_lead(): HasMany
+    {
+        return $this->hasMany(Field::class)
+            ->where('entity_type', 'leads');
+    }
+
     public function activeLeadSetting(): HasOne
     {
         return $this->hasOne(\App\Models\Integrations\ActiveLead\Setting::class);
+    }
+
+    public function yclientsSetting(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\YClients\Setting::class);
     }
 }

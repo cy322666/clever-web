@@ -5,8 +5,6 @@ namespace App\Providers\Filament;
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Backup;
 use App\Filament\App\Pages\Dashboard;
-use App\Filament\App\Pages\Market;
-use App\Filament\Resources\Core\LogResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
@@ -24,7 +22,6 @@ use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Guava\FilamentKnowledgeBase\Plugins\KnowledgeBasePlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -60,7 +57,8 @@ class AppPanelProvider extends PanelProvider
 
                 FilamentSpatieLaravelBackupPlugin::make()
                     ->usingPage(Backup::class)
-                    ->authorize(fn (): bool => auth()->user()->is_root)
+                    ->authorize(fn (): bool => auth()->user()->is_root),
+
             ])
             ->pages([
                 Dashboard::class,
@@ -68,7 +66,7 @@ class AppPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\\Filament\\App\\Pages')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\\Filament\\App\\Widgets')
-//            ->databaseNotifications()
+            ->databaseNotifications()
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
 
                 return $builder->groups([

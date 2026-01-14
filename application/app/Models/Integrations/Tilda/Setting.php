@@ -22,8 +22,8 @@ class Setting extends Model
     public static string $description = "Интеграция нескольких форм/сайтов/настроек. Поиск и склейка дублей контакта. Возможность склеивать сделки...";
 
     public static array $cost = [
-        '6_month'  => '10.000 р',
-        '12_month' => '20.000 р',
+        '6_month'  => '6.000 р',
+        '12_month' => '10.000 р',
     ];
 
     protected $fillable = [

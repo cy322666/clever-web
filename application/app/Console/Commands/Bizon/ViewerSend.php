@@ -39,17 +39,13 @@ class ViewerSend extends Command
      */
     public function handle()
     {
-        $viewer  = Viewer::find($this->argument('viewer'));
-        $setting = Setting::find($this->argument('setting'));
-        $account = Account::find($this->argument('account'));
+        $viewer  = Viewer::query()->find($this->argument('viewer'));
+        $setting = Setting::query()->find($this->argument('setting'));
+        $account = Account::query()->find($this->argument('account'));
 
         $amoApi = (new Client($account))
             ->setDelay(0.2)
             ->initLogs(Env::get('APP_DEBUG'));
-
-        $pipelineId = Status::query()
-            ->find($setting->pipeline_id)
-            ?->pipeline_id;
 
         $statusId = Status::query()
             ->find($setting->{"status_id_$viewer->type"})
@@ -73,7 +69,7 @@ class ViewerSend extends Command
                 'Ответственный' => $responsibleId,
             ]);
         } else
-            $lead = Leads::search($contact, $amoApi, $pipelineId);
+            $lead = Leads::search($contact, $amoApi);
 
         if (empty($lead)) {
 

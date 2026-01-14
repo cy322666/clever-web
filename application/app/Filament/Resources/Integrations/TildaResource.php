@@ -12,6 +12,7 @@ use App\Models\Integrations\Tilda;
 use App\Models\Log;
 use App\Models\User;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
@@ -49,9 +50,26 @@ class TildaResource extends Resource
     {
         return $schema
             ->schema([
+
                 Section::make()
                     ->hiddenLabel()
                     ->schema([
+
+                        Section::make()
+                            ->hiddenLabel()
+                            ->schema([
+                                TextEntry::make('instruction')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('Интеграция не создает дубли и двигает сделку если уже есть активная. Работает с товарами'),
+
+                                TextEntry::make('instruction')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('1 - сперва хук, 2 - затем настройка, 3 - затем тестовая заявка. 4 - включить интеграцию. Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
+                            ]),
+
+
                         Forms\Components\Repeater::make('settings')
                             ->hiddenLabel()
                             ->schema([
@@ -69,19 +87,21 @@ class TildaResource extends Resource
                                     ->label('Название')
                                     ->hint('Для различения настроек форм'),
 
-                                Forms\Components\Select::make('pipeline_id')
-                                    ->label('Воронка')
-                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                                    ->required(),
+//                                Forms\Components\Select::make('pipeline_id')
+//                                    ->label('Воронка')
+//                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
+//                                    ->required(),
 
                                 Forms\Components\Select::make('status_id')
                                     ->label('Этап')
-                                    ->options(Status::getWithUser()->pluck('name', 'id'))
+                                    ->options(Status::getTriggerStatuses())
+                                    ->searchable()
                                     ->required(),
 
                                 Forms\Components\Select::make('responsible_user_id')
                                     ->label('Ответственный')
-                                    ->options(Staff::getWithUser()->pluck('name', 'id'))
+                                    ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
+                                    ->searchable()
                                     ->required(),
 
                                 Forms\Components\TextInput::make('phone')
@@ -114,6 +134,7 @@ class TildaResource extends Resource
 
                                 Forms\Components\Select::make('field_products')
                                     ->label('Поле для товаров')
+                                    ->searchable()
                                     ->options(Auth::user()->amocrm_fields()->pluck('name', 'id')),
 
                                 Forms\Components\Radio::make('utms')
@@ -134,6 +155,7 @@ class TildaResource extends Resource
 
                                         Forms\Components\Select::make('field_amo')
                                             ->label('Поле из amoCRM')
+                                            ->searchable()
                                             ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
                                             ->required(),
                                     ])
@@ -154,22 +176,37 @@ class TildaResource extends Resource
 
                 Section::make()
                     ->schema([
-                        TextEntry::make('link')
-                            ->label('Инструкция')
-                            ->color('primary')
-//                            ->markdown(),
-                            ->fontFamily(FontFamily::Mono)
-                            ->weight(FontWeight::ExtraBold),
 
-                        TextEntry::make('price6')
-                            ->money('EUR', divideBy: 100),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('https://youtu.be/b5aPWhK2oc8?si=nSGpU-XRSlTRScNQ')
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('price12')
-                            ->money('EUR', divideBy: 100),
+                        Section::make()
+                            ->schema([
 
-                        Forms\Components\Placeholder::make('updated_at')
-                            ->label('Обновлен')
-                            ->content(fn (?Tilda\Setting $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
+                            TextEntry::make('price6')
+                                ->label('Полгода')
+                                ->money('RU', divideBy: 100)
+                                ->size(TextSize::Medium)
+                                ->state(fn($model): string => $model::$cost['6_month']),
+
+                            TextEntry::make('price12')
+                                ->label('Год')
+                                ->money('RU', divideBy: 100)
+                                ->size(TextSize::Medium)
+                                ->state(fn($model): string => $model::$cost['12_month']),
+
+                            TextEntry::make('bonus')
+                                ->hiddenLabel()
+                                ->size(TextSize::Small)
+                                ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
+
+                            TextEntry::make('bonus2')
+                                ->hiddenLabel()
+                                ->size(TextSize::Small)
+                                ->state('Чтобы узнать больше напишите в чат ниже'),
+                        ])
                     ])
                     ->compact()
                     ->columnSpan(1),

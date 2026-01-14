@@ -18,7 +18,7 @@ class App extends Model
     const STATE_ACTIVE   = 1;
     const STATE_EXPIRES  = 3;
 
-    const STATE_CREATED_WORD  = 'Не настроена';
+    const STATE_CREATED_WORD  = '';
     const STATE_INACTIVE_WORD = 'Не активна';
     const STATE_ACTIVE_WORD   = 'Активна';
     const STATE_EXPIRES_WORD  = 'Закончилась';
@@ -32,6 +32,23 @@ class App extends Model
         'status',
         'installed_at',
     ];
+
+    public static function getTooltipText(string $appName): string
+    {
+        return match ($appName) {
+            'alfacrm' => 'Синхронизируйте клиентов и их посещения между amoCRM и АльфаСРМ',
+            'distribution' => 'Гибко настройте распределение сделок между менеджерами',
+            'getcourse' => 'Интегрируйте заявки и заказы из GetCourse с amoCRM',
+            'bizon' => 'Настройте отправку регистрвцикй и посещений из Бизон 365',
+            'tilda' => 'Отправляйте заявки с вашего сайта на Tilda в amoCRM без дублей',
+            'active-lead' => 'Настройте проверку активности клиента при создании сделки',
+            'data-info' => 'Поможет узнать часовой пояс клиента по номеру телефона',
+            'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
+            'docs' => 'Создавайте документы на основе ваших шаблонов',
+            'tables' => ' ',
+            'analytic' => ' ',
+        };
+    }
 
     public function getStatusLabel(): string
     {
@@ -51,37 +68,6 @@ class App extends Model
     public function getSettingModel()
     {
         return $this->resource_name::getModel()::query()->find($this->setting_id);
-    }
-
-    /**
-     * - при смене статуса по кнопке отправляет уведомление TODO сделать и себе в тг
-     *
-     * TODO не работает
-     * @return void
-     */
-    public function sendNotificationStatus() : void
-    {
-        if (!$this->status == App::STATE_INACTIVE) {
-
-            Notification::make()
-                ->title('Интеграция выключена')
-                ->danger()
-                ->send();
-
-        } elseif (!$this->status == App::STATE_ACTIVE) {
-
-            Notification::make()
-                ->title('Интеграция включена')
-                ->success()
-                ->send();
-
-        } elseif (!$this->status == App::STATE_EXPIRES) {
-
-            Notification::make()
-                ->title('Интеграция не оплачена')
-                ->warning()
-                ->send();
-        }
     }
 
     public static function isActiveWidget(Model $setting) : bool

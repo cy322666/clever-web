@@ -19,7 +19,7 @@
         "filament/filament": "^4.0",
         "filament/forms": "^4.0",
         "filament/infolists": "^4.3",
-        "filament/notifications": "^4.0",
+        "filament/notifications": "^4.3",
         "filament/tables": "^4.0",
         "filament/widgets": "^4.3",
         "guzzlehttp/guzzle": "^7.2",
@@ -35,7 +35,8 @@
         "shuvroroy/filament-spatie-laravel-backup": "^3.2",
         "stechstudio/filament-impersonate": "4.0.1",
         "tapp/filament-authentication-log": "^5.0",
-        "ufee/amoapi": "0.9.3.5"
+        "ufee/amoapi": "0.9.3.5",
+        "vgrish/yclients-sdk-php": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
