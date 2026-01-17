@@ -23,9 +23,20 @@ class Market extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => App::query()
-                ->where('user_id', auth()->id())
-            )
+            ->query(function () {
+
+                $noPublic = App::noPublicNames();
+
+                $app = App::query()
+                    ->where('user_id', auth()->id());
+
+                foreach ($noPublic as $name) {
+
+                    $app->where('name', '!=', $name);
+                }
+
+                return $app;
+            })
             ->columns([
                 Split::make([
 

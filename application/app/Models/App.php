@@ -33,6 +33,18 @@ class App extends Model
         'installed_at',
     ];
 
+    public static function noPublicNames(): array
+    {
+        return [
+            'marquiz',
+            'active-lead',
+            'docs',
+            'data-info',
+            'tables',
+            'analytic',
+        ];
+    }
+
     public static function getTooltipText(string $appName): string
     {
         return match ($appName) {

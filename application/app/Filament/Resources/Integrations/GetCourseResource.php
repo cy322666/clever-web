@@ -54,6 +54,23 @@ class GetCourseResource extends Resource
                     ->hiddenLabel()
                     ->schema([
 
+                        Section::make()
+                            ->label('Инструкция')
+                            ->schema([
+
+                                TextEntry::make('instruction_form')
+                                    ->label('Настройка форм')
+                                    ->bulleted()
+                                    ->size(TextSize::Small)
+                                    ->state(fn() => GetCourse\Setting::$instructionForm),
+
+                                TextEntry::make('instruction_order')
+                                    ->label('Настройка заказов')
+                                    ->bulleted()
+                                    ->size(TextSize::Small)
+                                    ->state(fn() => GetCourse\Setting::$instructionOrder),
+                            ]),
+
                         Forms\Components\Repeater::make('order_settings')
                             ->label('Заказы')
                             ->schema([
@@ -213,7 +230,8 @@ class GetCourseResource extends Resource
                             ->reorderable(false)
                             ->reorderableWithDragAndDrop(false)
                             ->addActionLabel('+ Добавить форму')
-                    ])->columnSpan(2),
+                    ])
+                    ->columnSpan(2),
 
                 Section::make()
                     ->schema([

@@ -16,17 +16,18 @@ class Account
 {
     public static function users(Client $amoApi, User $userModel): void
     {
-        Staff::query()
-            ->where('user_id', $userModel->id)
-            ->delete();
+//        Staff::query()
+//            ->where('user_id', $userModel->id)
+//            ->delete();
 
         $users = $amoApi->service->account->users;
 
         foreach ($users as $user) {
 
-            Staff::query()->create([
+            Staff::query()->updateOrCreate([
                 'user_id'  => $userModel->id,
                 'staff_id' => $user->id,
+            ], [
                 'group_id'   => $user->group->id,
                 'group_name' => $user->group->name,
                 'name'     => $user->name,
@@ -43,9 +44,9 @@ class Account
      */
     public static function statuses(Client $amoApi, User $user): void
     {
-        Status::query()
-            ->where('user_id', $user->id)
-            ->delete();
+//        Status::query()
+//            ->where('user_id', $user->id)
+//            ->delete();
 
         $pipelines = $amoApi->service ->ajax()
             ->get('/api/v4/leads/pipelines')
@@ -58,11 +59,11 @@ class Account
 
                 foreach ($pipeline->_embedded->statuses as $status) {
 
-                    //TODO del deleted
-                    Status::query()->create([
+                    Status::query()->updateOrCreate([
                         'user_id'      => $user->id,
                         'status_id'    => $status->id,
                         'pipeline_id'  => $pipeline->id,
+                    ], [
                         'name'         => $status->name,
                         'is_main'      => $pipeline->is_main,
                         'color'        => $status->color,
@@ -78,9 +79,9 @@ class Account
      */
     public static function fields(Client $amoApi, $user): void
     {
-        Field::query()
-            ->where('user_id', $user->id)
-            ->delete();
+//        Field::query()
+//            ->where('user_id', $user->id)
+//            ->delete();
 
         for($i = 1 ; ; $i++) {
 
@@ -94,9 +95,10 @@ class Account
 
                 foreach ($fields as $field) {
 
-                    Field::query()->create([
+                    Field::query()->updateOrCreate([
                         'user_id' => $user->id,
                         'field_id' => $field->id,
+                    ], [
                         'name' => $field->name,
                         'type' => $field->type,
                         'code' => $field->code,

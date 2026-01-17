@@ -2,16 +2,17 @@
 
 namespace App\Filament\Resources\Integrations\YClients\Pages;
 
-use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
 class EditYClients extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = YClientsResource::class;
 
     protected function getHeaderActions(): array
@@ -33,23 +34,12 @@ class EditYClients extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-//        if ($data['settings']) {
-//            $data['settings'] = json_decode($data['settings'], true);
+        $data['fields_contact'] = json_decode($data['fields_contact'], true);
+        $data['fields_lead'] = json_decode($data['fields_lead'], true);
 
-//            for($i = 0; count($data['settings']) !== $i; $i++) {
-
-                $data['fields_contact'] = json_decode($data['fields_contact'], true);
-                $data['fields_lead'] = json_decode($data['fields_lead'], true);
-
-                $data['link'] = \route('yclients.hook', [
-                    'user' => Auth::user()->uuid,
-                ]);
-
-//                $body = json_decode($data['bodies'], true)[$i] ?? [];
-
-//                $data['settings'][$i]['body'] = json_encode($body, JSON_UNESCAPED_UNICODE);
-//            }
-//        }
+        $data['link'] = \route('yclients.hook', [
+            'user' => Auth::user()->uuid,
+        ]);
 
         return $data;
     }

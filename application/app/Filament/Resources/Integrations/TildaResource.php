@@ -57,19 +57,20 @@ class TildaResource extends Resource
                     ->schema([
 
                         Section::make()
-                            ->hiddenLabel()
+                            ->label('Инструкция')
                             ->schema([
-                                TextEntry::make('instruction')
-                                    ->hiddenLabel()
-                                    ->size(TextSize::Small)
-                                    ->state('Интеграция не создает дубли и двигает сделку если уже есть активная. Работает с товарами'),
 
                                 TextEntry::make('instruction')
                                     ->hiddenLabel()
+                                    ->bulleted()
                                     ->size(TextSize::Small)
-                                    ->state('1 - сперва хук, 2 - затем настройка, 3 - затем тестовая заявка. 4 - включить интеграцию. Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
+                                    ->state(fn() => Tilda\Setting::$instruction),
+
+                                TextEntry::make('ps')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::ExtraSmall)
+                                    ->state(fn() => 'Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
                             ]),
-
 
                         Forms\Components\Repeater::make('settings')
                             ->hiddenLabel()

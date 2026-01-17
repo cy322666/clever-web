@@ -19,8 +19,15 @@ class Setting extends Model
 
     public static string $resource = AlfaResource::class;
 
-    //TODO лишнее?
     public static string $description = "Передача клиента в АльфаСРМ. Изменение этапа при проведении/отмене урока...";
+
+    public static array $instruction = [
+        'Заполните поля в секции доступов',
+        'Скопировать url из полей Вебхук',
+        'Вставить их в АльфаСРМ в разделе настроек',
+        'Сделать дополнительные настройки',
+        'Сохранить настройки, либо добавить еще одну настройку',
+    ];
 
     public const CREATED = 0;
     public const RECORD = 1;

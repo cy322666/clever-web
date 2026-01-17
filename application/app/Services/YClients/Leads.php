@@ -7,54 +7,6 @@ use Ufee\Amo\Models\Lead;
 
 abstract class Leads
 {
-    //TODO не нужно?
-//    public static function searchByStatus($contact, $client, int $pipeline_id, int $status_id) : ?array
-//    {
-//        $leads = [];
-//
-//        if($contact->leads) {
-//
-//            foreach ($contact->leads as $lead) {
-//
-//                if ($lead->status_id == $status_id && $lead->pipeline_id == $pipeline_id) {
-//
-//                    $lead = $client->service
-//                        ->leads()
-//                        ->find($lead->id);
-//
-//                    $leads = array_merge($leads, $lead);
-//                }
-//            }
-//        }
-//        return $leads;
-//    }
-
-    //TODO не нужно?
-//    public static function searchAll($contact, $client, int|array $pipelines = null)
-//    {
-//        $leads = [];
-//
-//        if($contact->leads) {
-//
-//            foreach ($contact->leads as $lead) {
-//
-//                if ($lead->status_id != 143 && $lead->status_id != 142) {
-//
-//                    if ($pipelines != null) {
-//
-//                        if (is_array($pipelines))
-//
-//                            if (in_array($lead->pipeline_id, $pipelines))
-//                                return $lead;
-//
-//                        elseif ($lead->pipeline_id == $pipelines)
-//                            return $lead;
-//                    }
-//                }
-//            }
-//        }
-//    }
-
     public static function search($contact, $client, int|array $pipelines = null) : bool|Lead
     {
          return $contact->leads->filter(function($lead) use ($client, $pipelines) {
@@ -80,10 +32,12 @@ abstract class Leads
         })?->first();
     }
 
-    public static function create($contact, object $objectStatus, Record $record)
+    public static function create($contact, object $objectStatus, Record $record): Lead
     {
         $lead = $contact->createLead();
 
+        $lead->name = 'Запись #'.$record->record_id;
+        $lead->sale = $record->cost;
         $lead->status_id   = $objectStatus->status_id;
         $lead->pipeline_id = $objectStatus->pipeline_id;
         $lead->save();
@@ -91,7 +45,7 @@ abstract class Leads
         return $lead;
     }
 
-    public static function update(Lead $lead, object $objectStatus, Record $record)
+    public static function update(Lead $lead, object $objectStatus, Record $record): Lead
     {
         $lead->sale = $record->cost;
         $lead->status_id   = $objectStatus->status_id;

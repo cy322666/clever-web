@@ -20,11 +20,6 @@ class FormResource extends Resource
 {
     protected static ?string $model = Form::class;
 
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->where('user_id', Auth::id());
-    }
-
     public static function table(Table $table): Table
     {
         return $table

@@ -32,11 +32,27 @@ class Field extends Model
             ->where('entity_type', 'leads');
     }
 
+    public static function getLeadSelectFields()
+    {
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('entity_type', 'leads')
+            ->pluck('name', 'id');
+    }
+
     public static function getContactFields(): Builder
     {
         return Field::query()
             ->where('user_id', Auth::id())
             ->where('entity_type', 'contacts');
+    }
+
+    public static function getContactSelectFields()
+    {
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('entity_type', 'contacts')
+            ->pluck('name', 'id');
     }
 
     public static function getCompanyFields(): Builder

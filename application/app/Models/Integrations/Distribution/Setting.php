@@ -18,7 +18,16 @@ class Setting extends Model
 
     public static string $resource = DistributionResource::class;
 
-    public static string $description = "Распределение...";
+    public static string $description = "Распределение сделок по графику или по очереди...";
+
+    public static array $instruction = [
+        'Создать одну настройку ниже и Сохранить',
+        'Скопировать url из поля Вебхук',
+        'Вставить ее на стороне amoCRM в нужно этапе воронки',
+        'Выбрать тип распределения и другие настройки',
+        'Настроить график если нужно',
+        'Сохранить настройки, либо добавить еще одну настройку',
+    ];
 
     public const STRATEGY_SCHEDULE = 'schedule';
     public const STRATEGY_ROTATION = 'rotation';

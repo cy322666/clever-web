@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Integrations\YClients\Schemas;
 
+use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\YClients\Setting;
 use Filament\Actions\Action;
@@ -39,11 +40,11 @@ class YClientsForm
                             ->schema([
                                 TextInput::make('partner_token')
                                     ->label('Токен партнера')
-                                    ->hint('123123'),
+                                    ->hint('См инструкцию'),
 
                                 TextInput::make('user_token')
                                     ->label('Токен пользователя')
-                                    ->hint('123123'),
+                                    ->hint('См инструкцию'),
 
 //                                TextInput::make('login')
 //                                    ->label('Логин')
@@ -53,9 +54,7 @@ class YClientsForm
 //                                    ->required(),
                             ]),
 
-                        //TODO соотношение полей
-
-                        Fieldset::make('Настройка amoCRM')
+                        Fieldset::make('Соотношение этапов amoCRM')
                             ->schema([
 
                                 Select::make('status_id_cancel')
@@ -96,7 +95,7 @@ class YClientsForm
 //                                    )->searchable(),
                             ]),
 
-                        Fieldset::make('Настройка amoCRM')
+                        Fieldset::make('Соотношение полей amoCRM')
                             ->schema([
                                 Repeater::make('fields_contact')
                                     ->label('Поля контакта')
@@ -110,10 +109,8 @@ class YClientsForm
                                         Select::make('field_amo')
                                             ->label('Поле из amoCRM')
                                             ->searchable()
-                                            ->options(Auth::user()->amocrm_fields_contact()->pluck('name', 'id')),
+                                            ->options(Field::getContactSelectFields()),
                                     ])
-//                                    ->columns()
-//                                    ->collapsible()
                                     ->defaultItems(1)
                                     ->reorderable(false)
                                     ->reorderableWithDragAndDrop(false)
@@ -131,7 +128,7 @@ class YClientsForm
                                         Select::make('field_amo')
                                             ->label('Поле из amoCRM')
                                             ->searchable()
-                                            ->options(Auth::user()->amocrm_fields_lead()->pluck('name', 'id')),
+                                            ->options(Field::getLeadSelectFields()),
                                     ])
 //                                    ->columns()
 //                                    ->collapsible()

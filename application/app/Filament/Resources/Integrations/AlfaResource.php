@@ -11,6 +11,7 @@ use App\Models\Integrations\Alfa\LeadStatus;
 use App\Models\Integrations\Alfa\Setting;
 use App\Models\Integrations\Alfa\Transaction;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
@@ -20,6 +21,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables\Table;
 use Livewire\Features\Placeholder;
 
@@ -31,7 +33,7 @@ class AlfaResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'АльфаСРМ';
 
-    protected static ?string $slug = 'settings/alfacrm';
+    protected static ?string $slug = 'integrations/alfacrm';
 
 //    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -41,20 +43,31 @@ class AlfaResource extends Resource
     {
         return
             $schema->schema([
-                Section::make('Основное')
+                Section::make('')
                    ->hiddenLabel()
                    ->schema([
+
+                       Section::make()
+                           ->label('')
+                           ->schema([
+
+                               TextEntry::make('Инструкция')
+                                   ->bulleted()
+                                   ->size(TextSize::Small)
+                                   ->state(fn() => Setting::$instruction),
+                           ]),
+
                        Fieldset::make('Доступы')
                            ->schema([
-                                TextInput::make('api_key')
-                                    ->label('Токен')
-                                    ->required(),
-                                TextInput::make('domain')
-                                    ->label('Домен')
-                                    ->required(),
+                               TextInput::make('api_key')
+                                   ->label('Токен')
+                                   ->required(),
+                               TextInput::make('domain')
+                                   ->label('Домен')
+                                   ->required(),
                                TextInput::make('email')
-                                    ->label('Email')
-                                    ->required(),
+                                   ->label('Email')
+                                   ->required(),
                            ]),
 
                        Fieldset::make('Ссылки')
@@ -126,21 +139,38 @@ class AlfaResource extends Resource
 
                 Section::make()
                     ->schema([
-                        TextEntry::make('link')
-                            ->label('Инструкция')
-                            ->color('primary')
-    //                            ->markdown(),
-                            ->fontFamily(FontFamily::Mono)
-                            ->weight(FontWeight::ExtraBold),
 
-                        TextEntry::make('price6')
-                            ->money('EUR', divideBy: 100),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('')
+                            ->disabled()
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('price12')
-                            ->money('EUR', divideBy: 100),
+                        Section::make()
+                            ->schema([
 
-                        TextEntry::make('updated_at')
-                            ->label('Обновлен')
+                                TextEntry::make('price6')
+                                    ->label('Полгода')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['6_month']),
+
+                                TextEntry::make('price12')
+                                    ->label('Год')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['12_month']),
+
+                                TextEntry::make('bonus')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
+
+                                TextEntry::make('bonus2')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                            ])
                     ])
                     ->compact()
                     ->columnSpan(1),

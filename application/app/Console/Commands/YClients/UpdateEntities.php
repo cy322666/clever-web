@@ -60,9 +60,9 @@ class UpdateEntities extends Command
         $accountId = $this->argument('account_id');
         $settingId = $this->argument('setting_id');
 
-        $record  = Record::findOrFail($recordId);
-        $account = Account::findOrFail($accountId);
-        $setting = Setting::findOrFail($settingId);
+        $record  = Record::query()->findOrFail($recordId);
+        $account = Account::query()->findOrFail($accountId);
+        $setting = Setting::query()->findOrFail($settingId);
 
         $amoApi = (new Client($account))->init();
 

@@ -44,9 +44,27 @@ class DistributionResource extends Resource
     {
         return $schema
             ->schema([
-                \Filament\Schemas\Components\Section::make('')
-                   ->hiddenLabel()
+
+                Section::make()
+                    ->hiddenLabel()
                     ->schema([
+
+                        Section::make()
+                            ->label('Инструкция')
+                            ->schema([
+
+                                TextEntry::make('instruction')
+                                    ->hiddenLabel()
+                                    ->bulleted()
+                                    ->size(TextSize::Small)
+                                    ->state(fn() => Distribution\Setting::$instruction),
+
+                                TextEntry::make('ps')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::ExtraSmall)
+                                    ->state(fn() => 'Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
+                            ]),
+
                         Repeater::make('settings')
                             ->label('')
                             ->hiddenLabel()
