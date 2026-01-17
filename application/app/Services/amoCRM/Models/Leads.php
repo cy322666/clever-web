@@ -1,8 +1,6 @@
 <?php
 
-
 namespace App\Services\amoCRM\Models;
-
 
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Log;
@@ -301,6 +299,11 @@ abstract class Leads
         }
 
         return $lead;
+    }
+
+    public static function get($amoapi, $id)
+    {
+        return $amoapi->service->leads()->find($id);
     }
 
     public static function getField(Lead $lead, string $fieldName)

@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Integrations\TableResource\Pages;
 
-use App\Console\Commands\Table\ParseExcel;
 use App\Filament\Resources\Integrations\TableResource;
 use App\Models\Integrations\Table\User;
 use Filament\Actions;

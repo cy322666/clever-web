@@ -9,6 +9,7 @@ use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Distribution;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Infolists\Components\TextEntry;
@@ -19,6 +20,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +30,8 @@ class DistributionResource extends Resource
     use TenantResource, SettingResource;
 
     protected static ?string $model = Distribution\Setting::class;
+
+    protected static ?string $slug = 'integrations/distribution';
 
     protected static ?string $recordTitleAttribute = 'Распределение';
 
@@ -40,11 +44,12 @@ class DistributionResource extends Resource
     {
         return $schema
             ->schema([
-                \Filament\Schemas\Components\Section::make('Настройки')
+                \Filament\Schemas\Components\Section::make('')
                    ->hiddenLabel()
                     ->schema([
                         Repeater::make('settings')
-                            ->label('Основное')
+                            ->label('')
+                            ->hiddenLabel()
                             ->schema([
 
                                 TextInput::make('link')
@@ -121,21 +126,38 @@ class DistributionResource extends Resource
 
                 Section::make()
                     ->schema([
-                        TextEntry::make('link')
-                            ->label('Инструкция')
-                            ->color('primary')
-//                            ->markdown(),
-                            ->fontFamily(FontFamily::Mono)
-                            ->weight(FontWeight::ExtraBold),
 
-                        TextEntry::make('price6')
-                            ->money('EUR', divideBy: 100),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('')
+                            ->disabled()
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('price12')
-                            ->money('EUR', divideBy: 100),
+                        Section::make()
+                            ->schema([
 
-                        TextEntry::make('updated_at')
-                            ->label('Обновлен')
+                                TextEntry::make('price6')
+                                    ->label('Полгода')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['6_month']),
+
+                                TextEntry::make('price12')
+                                    ->label('Год')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['12_month']),
+
+                                TextEntry::make('bonus')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
+
+                                TextEntry::make('bonus2')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                            ])
                     ])
                     ->compact()
                     ->columnSpan(1),

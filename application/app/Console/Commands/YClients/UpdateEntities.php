@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\YClients;
 
+use App\Models\Core\Account;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client;
@@ -20,7 +21,7 @@ class UpdateEntities extends Command
      *
      * @var string
      */
-    protected $signature = 'yc:update-entities {record} {account} {setting}';
+    protected $signature = 'yc:update-entities {record_id} {account_id} {setting_id}';
 
     /**
      * The console command description.
@@ -55,9 +56,15 @@ class UpdateEntities extends Command
      */
     public function handle()
     {
-        $record  = $this->argument('record');
-        $setting = $this->argument('setting');
-        $amoApi  = (new Client($this->argument('account')))->init();
+        $recordId  = $this->argument('record_id');
+        $accountId = $this->argument('account_id');
+        $settingId = $this->argument('setting_id');
+
+        $record  = Record::findOrFail($recordId);
+        $account = Account::findOrFail($accountId);
+        $setting = Setting::findOrFail($settingId);
+
+        $amoApi = (new Client($account))->init();
 
         if ($setting->fields_contact || $setting->fields_lead) {
 

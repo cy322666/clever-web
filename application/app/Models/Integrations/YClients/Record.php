@@ -3,6 +3,7 @@
 namespace App\Models\Integrations\YClients;
 
 use App\Models\amoCRM\Status;
+use App\Models\Core\Account;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Client\ConnectionException;
@@ -64,9 +65,9 @@ class Record extends Model
 
             foreach ($branches['companies'] as $branch) {
 
-                if ($branch->id == $this->company_id) {
+                if (($branch['id'] ?? null) == $this->company_id) {
 
-                    return $branch->title;
+                    return $branch['title'] ?? null;
                 }
             }
         }
@@ -82,9 +83,7 @@ class Record extends Model
             3 => $setting->status_id_delete,
         };
 
-        $object = Status::getObject($pStatusId);
-
-        return $object?->status_id;
+        return Status::getObject($pStatusId);
     }
 
     public static function sumCostServices(array $arrayRequest): int
@@ -103,21 +102,31 @@ class Record extends Model
 
     public static function buildCommentServices(array $arrayRequest): string
     {
-        $stringServices = '';
-
-        if(!empty($arrayRequest['services'][0])) {
-
-            foreach ($arrayRequest['services'] as $array) {
-
-                $stringServices .= $array['title'].' |';
-            }
-            $stringServices = trim($stringServices, ' |', );
+        if (empty($arrayRequest['services'][0])) {
+            return '';
         }
-        return $stringServices;
+
+        $titles = collect($arrayRequest['services'])
+            ->pluck('title')
+            ->filter()
+            ->map(fn($title) => '   ' . $title)
+            ->implode("\n");
+
+        return "\n" . $titles;
     }
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'client_id', 'client_id');
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'account_id', 'id');
+    }
+
+    public function setting(): BelongsTo
+    {
+        return $this->belongsTo(Setting::class, 'setting_id', 'id');
     }
 }

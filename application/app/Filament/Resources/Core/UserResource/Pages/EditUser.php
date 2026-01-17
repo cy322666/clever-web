@@ -14,6 +14,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\URL;
 
 class EditUser extends EditRecord
 {
+    use SyncAmoCRMPage;
+
     protected static string $resource = UserResource::class;
 
 //    protected static ?string $navigationLabel = 'Профиль';

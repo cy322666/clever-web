@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Core\AccountResource\Pages;
 
 use App\Filament\Resources\Core\AccountResource;
-use Filament\Pages\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListAccounts extends ListRecords
@@ -12,8 +11,6 @@ class ListAccounts extends ListRecords
 
     protected function getActions(): array
     {
-        return [
-            Actions\CreateAction::make(),
-        ];
+        return [];
     }
 }

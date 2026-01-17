@@ -1,0 +1,96 @@
+<?php
+
+namespace App\Filament\Resources\Integrations\GetCourseResource\Pages;
+
+use App\Filament\Resources\Integrations\GetCourseResource;
+use App\Jobs\GetCourse\OrderSend;
+use Filament\Actions;
+use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Columns\BooleanColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
+use App\Helpers\Traits\SettingResource;
+use App\Helpers\Traits\TenantResource;
+use App\Jobs\Tilda\FormSend;
+use App\Models\amoCRM\Staff;
+use App\Models\amoCRM\Status;
+use App\Models\Integrations\GetCourse;
+use App\Models\Integrations\Tilda\Form;
+use Filament\Forms;
+use Filament\Resources\Resource;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+
+class ListForms extends ListRecords
+{
+    protected static string $resource = GetCourseResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
+
+    protected static ?string $title = 'История заказов';
+
+    protected function getTableQuery(): ?Builder
+    {
+        return GetCourse\Form::query()->where('user_id', Auth::user()->id);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+
+                TextColumn::make('id')
+                    ->label('ID'),
+
+                TextColumn::make('user.email')
+                    ->label('Клиент')
+                    ->searchable()
+                    ->sortable()
+                    ->hidden(fn() => !Auth::user()->is_root),
+
+                TextColumn::make('created_at')
+                    ->label('Создан')
+                    ->dateTime()
+                    ->sortable(),
+
+                TextColumn::make('lead_id')
+                    ->url(fn(GetCourse\Form $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/leads/detail/'.$order->lead_id, true)
+                    ->label('Сделка'),
+
+                TextColumn::make('contact_id')
+                    ->url(fn(GetCourse\Form $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$order->lead_id, true)
+                    ->label('Контакт'),
+
+                BooleanColumn::make('status')
+                    ->label('Выгружен'),
+
+//                TextColumn::make('site')
+//                    ->label('Форма'),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->paginated([20, 40, 'all'])
+            ->poll('5s')
+            ->filters([])
+            ->actions([])
+            ->bulkActions([
+                Actions\BulkAction::make('dispatched')
+                    ->action(function (Collection $collection) {
+
+                        $collection->each(function (GetCourse\Form $form) {
+
+                            $user = $form->user;
+
+                            \App\Jobs\GetCourse\FormSend::dispatch($form, $user->account, $user->getcourse_settings);
+                        });
+                    })
+                    ->label('Выгрузить')
+            ])
+            ->emptyStateActions([]);
+    }
+}

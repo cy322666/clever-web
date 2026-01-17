@@ -38,12 +38,11 @@ class RecordSend implements ShouldQueue
     public function handle(): void
     {
         Artisan::call('yc:send-record', [
-            'record'  => $this->record,
-            'account' => $this->account,
-            'setting' => $this->setting,
+            'record_id'  => $this->record->id,
+            'account_id' => $this->account->id,
+            'setting_id' => $this->setting->id,
         ]);
 
-        dd('end');
         Artisan::call('yc:update-entities', [
             'record_id'  => $this->record->id,
             'account_id' => $this->account->id,

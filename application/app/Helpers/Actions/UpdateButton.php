@@ -9,90 +9,159 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Colors\Color;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 abstract class UpdateButton
 {
+    public static function getNotification(App $app)
+    {
+        return match ($app->status) {
+            App::STATE_CREATED => Notification::make()
+                ->title('Интеграция включена???')
+                ->success()
+                ->send(),
+            App::STATE_INACTIVE => Notification::make()
+                ->title('Интеграция выключена')
+                ->danger()
+                ->send(),
+            App::STATE_ACTIVE => Notification::make()
+                ->title('Интеграция включена')
+                ->success()
+                ->send(),
+            App::STATE_EXPIRES =>  Notification::make()
+                ->title('Для активации оплатите виджет')
+                ->warning()
+                ->send(),
+        };
+    }
+
     /*
      * кнопка включить/выключить
      *
      * record = setting
      */
-    public static function getAction(Model $record): Action
+    public static function activeUpdate(Model $record): Action
     {
-        //TODO тут есть что доработать
-        return Action::make('activeUpdate')
-            ->action(
-                function (Model $record) {
+        $app = $record->app;
 
-                    $app = $record->app;
+        //амо подключено
+        if (Auth::user()->account->active) {
 
-                    if ($record->status == App::STATE_CREATED && is_null($record->install_at))
-                        $app->installed_at = Carbon::now();
+            //если статус приложения активен
+            if ($app->status == App::STATE_ACTIVE) {
 
-                    // тут спокойно управляем кнопкой, приложение доступно юзеру
-                    if ($app->status == App::STATE_ACTIVE || $app->status == App::STATE_CREATED) {
+//                dump('active 2');
+                if (is_null($record->install_at)) {
 
-                        if ($record->active) {
+                    $app->installed_at = Carbon::now();
+                }
 
-                            $record->active = false;
+                //активен виджет - кнопка Выключить
+                return Action::make('active')
+                    ->color(Color::Red)
+                    ->action(function () use ($app) {
 
-                            Notification::make()
-                                ->title('Интеграция выключена')
-                                ->danger()
-                                ->send();
-                        }
+                        $app->status = App::STATE_INACTIVE;
+                        $app->save();
 
-                        if (!$record->active) {
+                        static::getNotification($app);
+                    })
+                    ->label('Выключить');
 
-                            $record->active = true;
+            } else {
+//                dump('else');
+                //не устанавливался
+                if ($app->status == App::STATE_CREATED) {
 
-                            Notification::make()
-                                ->title('Интеграция включена')
-                                ->success()
-                                ->send();
-                        }
+                    //кнопка Включить
+                    return Action::make('active')
+                        ->color(Color::Green)
+                        ->action(function () use ($app) {
+
+                            $app->status = App::STATE_ACTIVE;
+                            $app->save();
+
+                            static::getNotification($app);
+                        })
+                        ->label('Включить');
+
+                    //выключена
+                } elseif ($app->status == App::STATE_INACTIVE) {
+
+                    //если еще срок не вышел
+                    if (Carbon::now() < $app->expires_tariff_at) {
+
+                        //кнопка Включить
+                        return Action::make('active')
+                            ->color(Color::Green)
+                            ->action(function () use ($app) {
+
+                                $app->status = App::STATE_ACTIVE;
+                                $app->save();
+
+                                static::getNotification($app);
+                            })
+                            ->label('Включить');
+
+                    } else {
+                        //срок вышел
+                        //кнопка включить (но неактивная)
+                        return Action::make('active')
+                            ->color(Color::Green)
+                            ->label('Включить')
+                            ->action(function () use ($app) {
+
+                                static::getNotification($app);
+                            })
+                            ->disabled()
+                            ->tooltip('Для активации оплатите виджет');
                     }
 
-                    // тут недоступно
-                    if ($app->status == App::STATE_EXPIRES || $app->status == App::STATE_INACTIVE) {
+                    //если период вышел
+                } elseif ($app->status == App::STATE_EXPIRES) {
 
-                        if ($record->active) {
+                    //кнопка включить (но неактивная)
+                    return Action::make('active')
+                        ->color(Color::Green)
+                        ->label('Включить')
+                        ->action(function () use ($app) {
 
-                            $record->active = false;
+                            static::getNotification($app);
+                        })
+                        ->disabled()
+                        ->tooltip('Для активации оплатите виджет');
+                }
+            }
+        } else {
+            //не подключена амо
+            $button = Action::make('active')
+                ->color(Color::Green)
+                ->label('Включить')
+                ->action(function () use ($app) {
 
-                            Notification::make()
-                                ->title('Интеграция выключена')
-                                ->danger()
-                                ->send();
-                        }
-
-                        if (!$record->active) {
-
-                            Notification::make()
-                                ->title('Интеграция не оплачена')
-                                ->warning()
-                                ->body('Для оплаты обратитесь в чат ниже')
-                                ->send();
-                        }
-                    }
-
-                    $record->save();
-            })
-            ->color(fn() => $record->active ? Color::Red : Color::Green)
-            ->label(fn() => $record->active ? 'Выключить' : 'Включить');
+                    static::getNotification($app);
+                })
+                ->disabled()
+                ->tooltip('Для активации подключите amoCRM');
+        }
     }
 
     //кнопка для синхронизации с амо
-    public static function amoCRMSyncButton(Account $account): Action
+    public static function amoCRMSyncButton(Account $account, ?\Closure $callback = null): Action
     {
-        return Action::make('activeUpdate')
-            ->action('amocrmUpdate')
-            ->label('amoCRM')
-            ->icon('heroicon-o-arrow-path')
-            ->color(Color::Slate)
-            ->tooltip('Синхронизировать аккаунт amoCRM')
-            ->disabled(fn() => !$account->active);
+        if ($account->active)
+
+            return Action::make('amocrmSync')
+                ->action($callback ?? fn () => null)
+                ->label('amoCRM')
+                ->icon('heroicon-o-arrow-path')
+                ->color(Color::Slate)
+                ->tooltip('Синхронизировать аккаунт amoCRM')
+                ->disabled(fn() => !$account->active);
+
+        else
+            return static::amoCRMAuthButton($account);
+
     }
 
     public static function amoCRMAuthButton(Account $account): Action

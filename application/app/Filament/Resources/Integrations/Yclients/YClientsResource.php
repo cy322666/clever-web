@@ -24,7 +24,7 @@ class YClientsResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'YClients';
 
-    protected static ?string $slug = 'settings/yclients';
+//    protected static ?string $slug = 'integrations/yclients';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
@@ -38,6 +38,11 @@ class YClientsResource extends Resource
         return YClientsTable::configure($table);
     }
 
+    public static function getTransactions(): string
+    {
+        return YClients\Record::query()->count();
+    }
+
     public static function getRelations(): array
     {
         return [
@@ -49,7 +54,7 @@ class YClientsResource extends Resource
     {
         return [
 //            'index' => ListYClients::route('/'),
-//            'create' => CreateYClients::route('/create'),
+            'list' => ListYClients::route('/list'),
             'edit' => EditYClients::route('/{record}/edit'),
         ];
     }

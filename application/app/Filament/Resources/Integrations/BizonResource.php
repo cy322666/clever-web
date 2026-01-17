@@ -12,6 +12,7 @@ use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Bizon\Webinar;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -20,6 +21,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
@@ -30,7 +32,7 @@ class BizonResource extends Resource
 
     protected static ?string $model = Setting::class;
 
-    protected static ?string $slug = 'settings/bizon';
+    protected static ?string $slug = 'integrations/bizon';
 
     protected static bool $shouldRegisterNavigation = false;
 
@@ -46,7 +48,7 @@ class BizonResource extends Resource
         return $schema
             ->schema([
 
-                Section::make('Основное')
+                Section::make('')
                     ->hiddenLabel()
                     ->schema([
                         Fieldset::make('Доступы')
@@ -77,21 +79,37 @@ class BizonResource extends Resource
 
                 Section::make()
                     ->schema([
-                        TextEntry::make('link')
-                            ->label('Инструкция')
-                            ->color('primary')
-                            //                            ->markdown(),
-                            ->fontFamily(FontFamily::Mono)
-                            ->weight(FontWeight::ExtraBold),
 
-                        TextEntry::make('price6')
-                            ->money('EUR', divideBy: 100),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('https://youtu.be/5-0YZJTE6ww?si=kxKeglVIT--DqcFF')
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('price12')
-                            ->money('EUR', divideBy: 100),
+                        Section::make()
+                            ->schema([
 
-                        TextEntry::make('updated_at')
-                            ->label('Обновлен')
+                                TextEntry::make('price6')
+                                    ->label('Полгода')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['6_month']),
+
+                                TextEntry::make('price12')
+                                    ->label('Год')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['12_month']),
+
+                                TextEntry::make('bonus')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
+
+                                TextEntry::make('bonus2')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                            ])
                     ])
                     ->compact()
                     ->columnSpan(1),

@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Integrations\YClients\Pages;
 
+use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
+use App\Helpers\Actions\UpdateButton;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +17,17 @@ class EditYClients extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-//            DeleteAction::make(),
+            UpdateButton::activeUpdate($this->record),
+
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
+
+            Action::make('list')
+                ->label('История')
+                ->icon('heroicon-o-list-bullet')
+                ->url(YClientsResource::getUrl('list'))
         ];
     }
 

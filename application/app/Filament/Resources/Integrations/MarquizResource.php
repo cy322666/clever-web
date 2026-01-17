@@ -27,7 +27,7 @@ class MarquizResource extends Resource
 
     protected static ?string $model = Marquiz\Setting::class;
 
-    protected static ?string $slug = 'settings/marquiz';
+    protected static ?string $slug = 'integrations/marquiz';
 
     protected static bool $shouldRegisterNavigation = false;
 

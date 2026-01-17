@@ -36,7 +36,8 @@ class TildaResource extends Resource
 
     protected static ?string $model = Tilda\Setting::class;
 
-    protected static ?string $slug = 'settings/tilda';
+    protected static ?string $slug = 'integrations/tilda';
+
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'Тильда';

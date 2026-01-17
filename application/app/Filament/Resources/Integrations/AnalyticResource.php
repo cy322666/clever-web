@@ -25,7 +25,7 @@ class AnalyticResource extends Resource
 
     protected static ?string $model = Analytic\Setting::class;
 
-    protected static ?string $slug = 'settings/analytic';
+    protected static ?string $slug = 'integrations/analytic';
 
     protected static bool $shouldRegisterNavigation = false;
 

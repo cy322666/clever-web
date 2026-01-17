@@ -2,6 +2,7 @@
 
 namespace App\Services\YClients;
 
+use App\Models\Integrations\YClients\Record;
 use Ufee\Amo\Models\Lead;
 
 abstract class Leads
@@ -79,21 +80,22 @@ abstract class Leads
         })?->first();
     }
 
-    public static function create($contact, Lead $lead, int $statusId, int $pipelineId)
+    public static function create($contact, object $objectStatus, Record $record)
     {
         $lead = $contact->createLead();
 
-        $lead->status_id   = $statusId;
-        $lead->pipeline_id = $pipelineId;
+        $lead->status_id   = $objectStatus->status_id;
+        $lead->pipeline_id = $objectStatus->pipeline_id;
         $lead->save();
 
         return $lead;
     }
 
-    public static function update(Lead $lead, int $statusId, int $pipelineId)
+    public static function update(Lead $lead, object $objectStatus, Record $record)
     {
-        $lead->status_id   = $statusId;
-        $lead->pipeline_id = $pipelineId;
+        $lead->sale = $record->cost;
+        $lead->status_id   = $objectStatus->status_id;
+        $lead->pipeline_id = $objectStatus->pipeline_id;
         $lead->save();
 
         return $lead;

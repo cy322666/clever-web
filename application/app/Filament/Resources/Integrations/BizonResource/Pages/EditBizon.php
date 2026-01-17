@@ -19,14 +19,12 @@ class EditBizon extends EditRecord
     protected function getActions(): array
     {
         return [
-            UpdateButton::getAction($this->record),
+            UpdateButton::activeUpdate($this->record),
 
-            UpdateButton::amoCRMSyncButton(Auth::user()->account),
-
-            Action::make('instruction')
-                ->label('Инструкция')
-                ->url('https://youtu.be/5-0YZJTE6ww?si=kxKeglVIT--DqcFF')
-                ->openUrlInNewTab(),
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
 
             Action::make('list')
                 ->label('История')

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Integrations\YClients\Schemas;
 
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\YClients\Setting;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -13,6 +14,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Illuminate\Support\Facades\Auth;
 
 class YClientsForm
@@ -143,20 +145,38 @@ class YClientsForm
 
                 Section::make()
                     ->schema([
-                        TextEntry::make('link')
-                            ->label('Инструкция')
-                            ->color('primary')
-                            ->fontFamily(FontFamily::Mono)
-                            ->weight(FontWeight::ExtraBold),
 
-                        TextEntry::make('price6')
-                            ->money('EUR', divideBy: 100),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('')
+                            ->disabled()
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('price12')
-                            ->money('EUR', divideBy: 100),
+                        Section::make()
+                            ->schema([
 
-                        TextEntry::make('updated_at')
-                            ->label('Обновлен')
+                                TextEntry::make('price6')
+                                    ->label('Полгода')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['6_month']),
+
+                                TextEntry::make('price12')
+                                    ->label('Год')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['12_month']),
+
+                                TextEntry::make('bonus')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
+
+                                TextEntry::make('bonus2')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                            ])
                     ])
                     ->compact()
                     ->columnSpan(1),

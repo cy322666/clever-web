@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\Resources\Core\UserResource;
 use App\Helpers\Actions\UpdateButton;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account;
 use Filament\Actions\Action;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Request;
 
 class ViewUser extends ViewRecord
 {
+    use SyncAmoCRMPage;
     protected static string $resource = UserResource::class;
 
     protected static ?string $title = 'Аккаунт';
@@ -29,7 +31,10 @@ class ViewUser extends ViewRecord
         return [
             UpdateButton::amoCRMAuthButton($this->record->account),
 
-            UpdateButton::amoCRMSyncButton($this->record->account),
+            UpdateButton::amoCRMSyncButton(
+                $this->record->account,
+                fn () => $this->amocrmUpdate(),
+            ),
 
             Action::make('root')
                ->label('Монитор')

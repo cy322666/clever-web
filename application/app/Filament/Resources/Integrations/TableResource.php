@@ -26,7 +26,7 @@ class TableResource extends Resource
 
     protected static ?string $model = Table\Setting::class;
 
-    protected static ?string $slug = 'settings/table';
+    protected static ?string $slug = 'integrations/table';
 
     protected static bool $shouldRegisterNavigation = false;
 

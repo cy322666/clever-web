@@ -3,8 +3,11 @@
 namespace App\Filament\Resources\Integrations\AnalyticResource\Pages;
 
 use App\Filament\Resources\Integrations\AnalyticResource;
+use App\Filament\Resources\Integrations\Bizon\WebinarResource;
+use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,7 +20,22 @@ class EditAnalytic extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-//            Actions\DeleteAction::make(),
+            UpdateButton::activeUpdate($this->record),
+
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
+
+            Action::make('instruction')
+                ->label('Инструкция')
+                ->url('https://youtu.be/5-0YZJTE6ww?si=kxKeglVIT--DqcFF')
+                ->openUrlInNewTab(),
+
+            Action::make('list')
+                ->label('История')
+                ->icon('heroicon-o-list-bullet')
+                ->url(WebinarResource::getUrl())
         ];
     }
 

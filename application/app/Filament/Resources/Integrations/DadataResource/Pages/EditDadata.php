@@ -20,9 +20,12 @@ class EditDadata extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            UpdateButton::getAction($this->record),
+            UpdateButton::activeUpdate($this->record),
 
-            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
 
             Actions\Action::make('instruction')
                 ->label('Инструкция'),

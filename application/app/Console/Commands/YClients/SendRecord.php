@@ -6,10 +6,8 @@ use App\Models\Core\Account;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client;
-use App\Services\amoCRM\Models\Tags;
 use App\Services\YClients\Notes;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 use App\Services\YClients\Leads as ServiceLead;
 use App\Services\YClients\Contacts as ServiceContact;
 use Vgrish\Yclients\Yclients;
@@ -21,7 +19,7 @@ class SendRecord extends Command
      *
      * @var string
      */
-    protected $signature = 'yc:send-record {record} {account} {setting}';
+    protected $signature = 'yc:send-record {record_id} {account_id} {setting_id}';
 
     /**
      * The console command description.
@@ -38,12 +36,20 @@ class SendRecord extends Command
      */
     public function handle()
     {
-        $record  = $this->argument('record');
-        $account = $this->argument('account');
-        $setting = $this->argument('setting');
+        /** @var Record $record */
+        $record  = Record::query()->findOrFail($this->argument('record_id'));
+        /** @var Account $account */
+        $account = Account::query()->findOrFail($this->argument('account_id'));
+        /** @var Setting $setting */
+        $setting = Setting::query()->findOrFail($this->argument('setting_id'));
 
         $objectStatus = $record->getStatusId($setting);
-dd($objectStatus);
+
+        if (empty($objectStatus?->status_id) || empty($objectStatus?->pipeline_id)) {
+            // Некорректная настройка статусов/воронки – нет смысла продолжать
+            return self::FAILURE;
+        }
+
         $amoApi = (new Client($account))->init();
 
         $ycApi = Yclients::getInstance()
@@ -54,49 +60,51 @@ dd($objectStatus);
         $recordDouble = Record::query()
             ->where('record_id', $record->record_id)
             ->where('id', '!=', $record->id)
-            ->where('lead_id', '!=', null)
+            ->whereNotNull('lead_id')
             ->where('user_id', $setting->id)
             ->where('account_id', $account->id)
             ->first();
 
+        // Поиск/создание контакта в amoCRM
         if (!empty($record->client->contact_id)) {
 
             $contact = ServiceContact::get($amoApi, $record->client->contact_id);
 
-            if (!$contact)
-                $contact = ServiceContact::updateOrCreate($record->client);
+            if (!$contact) {
+                $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
+            }
         } else
             $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
 
-        if (!empty($recordDouble) && $recordDouble->lead_id)
+        // lead
 
+        if (!empty($recordDouble) && $recordDouble->lead_id)
+        
             $leadDouble = ServiceLead::get($amoApi, $recordDouble->lead_id);
 
-        //уже привязывали сделку к записи
+        // уже привязывали сделку к записи
         if (!empty($recordDouble) && !empty($leadDouble)) {
 
-            $lead = ServiceLead::get($amoApi, $recordDouble->lead_id);
+            $lead = $leadDouble;
 
-            if ($lead)
-                ServiceLead::update($record, $lead, $objectStatus->status_id);
-            else
-                //не нашли сделку к которой привязывались
-                $lead = ServiceLead::create($contact, $record, $objectStatus->status_id);
+            ServiceLead::update($lead, $objectStatus, $record);
 
         } else {
-            //поиск открытой сделки у контакта
-            $lead = ServiceLead::search($contact, $record);
+            // поиск открытой сделки у контакта в нужной воронке
+            $lead = ServiceLead::search($contact, $amoApi, $objectStatus->pipeline_id);
 
             if ($lead)
-                ServiceLead::update($lead, $objectStatus->status_id, $objectStatus->pipeline_id);
+                ServiceLead::update($lead, $objectStatus, $record);
             else
-                $lead = ServiceLead::create($contact, $record, $objectStatus->status_id);
+                $lead = ServiceLead::create($contact, $objectStatus, $record);
         }
 
         Notes::createNoteLead($ycApi, $record, $lead);
 
         $record->lead_id = $lead->id;
-        $record->status = 1;
+        $record->status  = 1;
         $record->save();
+
+        return self::SUCCESS;
     }
 }

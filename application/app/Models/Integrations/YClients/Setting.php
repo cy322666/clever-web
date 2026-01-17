@@ -2,6 +2,7 @@
 
 namespace App\Models\Integrations\YClients;
 
+use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Field;
 use App\Services\amoCRM\Models\Leads;
@@ -21,14 +22,16 @@ class Setting extends Model
     protected $table = 'yclients_settings';
 
     //TODO используется?
-    public const CREATED = 0;
-    public const RECORD = 1;
-    public const CAME = 2;
-    public const OMISSION = 3;
+    // public const CREATED = 0;
+    // public const RECORD = 1;
+    // public const CAME = 2;
+    // public const OMISSION = 3;
+
+    public static string $resource = YClientsResource::class;
 
     static array $cost = [
         '6_month'  => '6.000 р',
-        '12_month' => '10.000 р',
+        '12_month' => '12.000 р',
     ];
 
     protected $fillable = [
@@ -83,16 +86,19 @@ class Setting extends Model
 
         $clientYC = $client->query()
             ->client()
-            ->path('company_id', $client->company_id)
-            ->path('id', $client->client_id)
+            ->path('company_id', $record->company_id)
+            ->path('id', $record->client_id)
             ->get();
+
+            //TODO коммент не проставляется
 
         $categories = '';
 
         if (count($clientYC->object()->getCategories()) > 0) {
-            if (is_array($clientYC->object()->getCategories())) {
+            if (is_array($clientYC->object()->getCategories()) && count($clientYC->object()->getCategories())) {
                 foreach ($clientYC->object()->getCategories() as $category) {
-                    $categories .= $category->title . ', ';
+
+                    $categories .= $category['title'] ?? null . ', ';
                 }
                 $categories = str_replace(',', '', $categories);
             }
@@ -100,7 +106,7 @@ class Setting extends Model
 
         $fields['branch'] = $record->getBranchTitle($client);
 
-        $fields['branches'] = $client->query()->state()->getData();
+        // $fields['branches'] = $client->query()->state()->getData();
 
         $fields['categories'] = $categories;
 
@@ -126,24 +132,31 @@ class Setting extends Model
             $fieldName = Field::query()->find($field['field_amo'])?->name;
 
             if ($fieldName)
-
-                $contact = Contacts::setField($contact, $fieldName, $ycFields['field_yc']);
+                $contact = Contacts::setField($contact, $fieldName, $ycFields[$field['field_yc']] ?? null);
         }
         $contact->save();
+
+        return $contact;
     }
 
     public function YCSetLeadFields(Lead $lead, array $ycFields): Lead
     {
-        $body = json_decode($this->fields_contact, true);
+        $body = json_decode($this->fields_lead, true);
+
+        if (!$body) {
+            return $lead;
+        }
 
         foreach ($body as $field) {
 
             $fieldName = Field::query()->find($field['field_amo'])?->name;
 
-            if ($fieldName)
-
-                $lead = Leads::setField($lead, $fieldName, $ycFields['field_yc']);
+            if ($fieldName) {
+                $lead = Leads::setField($lead, $fieldName, $ycFields[$field['field_yc']] ?? null);
+            }
         }
         $lead->save();
+
+        return $lead;
     }
 }

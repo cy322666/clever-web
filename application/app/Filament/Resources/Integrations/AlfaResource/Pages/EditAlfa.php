@@ -22,15 +22,17 @@ class EditAlfa extends EditRecord
 
     protected static string $resource = AlfaResource::class;
 
+    protected static ?string $slug = 'settings';
+
     protected function getActions(): array
     {
         return [
-            UpdateButton::getAction($this->record),
+            UpdateButton::activeUpdate($this->record),
 
-            UpdateButton::amoCRMSyncButton(Auth::user()->account),
-
-            Actions\Action::make('instruction')
-                ->label('Инструкция'),
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
 
             Actions\Action::make('alfaUpdate')
                 ->label('AlfaCRM')

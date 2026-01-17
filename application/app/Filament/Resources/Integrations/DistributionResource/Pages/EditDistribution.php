@@ -21,14 +21,13 @@ class EditDistribution extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            UpdateButton::getAction($this->record),
 
-            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+            UpdateButton::activeUpdate($this->record),
 
-            Actions\Action::make('instruction')
-                ->label('Инструкция')
-                ->url('')
-                ->openUrlInNewTab(),
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
 
             Actions\Action::make('logs')
                 ->label('История')

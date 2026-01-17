@@ -21,18 +21,22 @@ class EditGetCourse extends EditRecord
     protected function getActions(): array
     {
         return [
-            UpdateButton::getAction($this->record),
+            UpdateButton::activeUpdate($this->record),
 
-            UpdateButton::amoCRMSyncButton(Auth::user()->account),
+            UpdateButton::amoCRMSyncButton(
+                Auth::user()->account,
+                fn () => $this->amocrmUpdate(),
+            ),
 
-            Action::make('instruction')
-                ->label('Инструкция')
-                ->url('')//TODO
-                ->openUrlInNewTab(),
+            Action::make('orders')
+                ->label('История заказов')
+                ->icon('heroicon-o-list-bullet')
+                ->url(GetCourseResource::getUrl('orders')),
 
-//            Actions\Action::make('orders')
-//                ->label('Заказы')
-//                ->url(FormResource\Pages\ListOrders::getUrl())
+            Action::make('forms')
+                ->label('История заявок')
+                ->icon('heroicon-o-list-bullet')
+                ->url(GetCourseResource::getUrl('forms')),
         ];
     }
 
