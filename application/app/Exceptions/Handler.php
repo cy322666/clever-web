@@ -30,15 +30,15 @@ class Handler extends ExceptionHandler
 
 //            if (Env::get('APP_ENV') == 'production') {
 
-                $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getMessage(), 0, 300));
-                $title = $e->getFile() . ' : ' . $e->getLine();
-
-                Telegram::send(
-                    '*Ошибка в коде!* ' . "\n" . "*Где:* $title" . "\n" . "*Текст:* $msg",
-                    env('TG_DEBUG_CHAT_ID'),
-                    env('TG_DEBUG_TOKEN'),
-                    []
-                );
+//                $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getMessage(), 0, 300));
+//                $title = $e->getFile() . ' : ' . $e->getLine();
+//
+//                Telegram::send(
+//                    '*Ошибка в коде!* ' . "\n" . "*Где:* $title" . "\n" . "*Текст:* $msg",
+//                    env('TG_DEBUG_CHAT_ID'),
+//                    env('TG_DEBUG_TOKEN'),
+//                    []
+//                );
 //            }
         });
     }
