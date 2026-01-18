@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b8994383ba69e2987c040b29d6d814d9",
+    "content-hash": "6b1140ee01cc27f4374f84b4449adcb7",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -10772,6 +10772,117 @@
                 "source": "https://github.com/ufee/amoapi/tree/0.9.3.5"
             },
             "time": "2023-06-26T10:52:08+00:00"
+        },
+        {
+            "name": "vgrish/yclients-openapi-php",
+            "version": "1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/vgrish/yclients-openapi-php.git",
+                "reference": "96e8bf1b5b87234b4c156e39076b2ce1fdb729f9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/vgrish/yclients-openapi-php/zipball/96e8bf1b5b87234b4c156e39076b2ce1fdb729f9",
+                "reference": "96e8bf1b5b87234b4c156e39076b2ce1fdb729f9",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "guzzlehttp/guzzle": "^7.3",
+                "guzzlehttp/psr7": "^1.7 || ^2.0",
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.5",
+                "squizlabs/php_codesniffer": "~2.6"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Vgrish\\YclientsOpenApi\\": "lib/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "unlicense"
+            ],
+            "authors": [
+                {
+                    "name": "Vgrish",
+                    "email": "vgrish@gmail.com"
+                }
+            ],
+            "description": "yclients-openapi-php package for YCLIENTS generated based on the openapi schema",
+            "homepage": "https://github.com/vgrish/yclients-openapi-php/",
+            "keywords": [
+                "api",
+                "openapi",
+                "rest",
+                "yclients"
+            ],
+            "support": {
+                "issues": "https://github.com/vgrish/yclients-openapi-php/issues",
+                "source": "https://github.com/vgrish/yclients-openapi-php/tree/1.0.1"
+            },
+            "time": "2024-08-04T10:12:43+00:00"
+        },
+        {
+            "name": "vgrish/yclients-sdk-php",
+            "version": "1.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/vgrish/yclients-sdk-php.git",
+                "reference": "2611436854906f1822de7666cae72a96250b9904"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/vgrish/yclients-sdk-php/zipball/2611436854906f1822de7666cae72a96250b9904",
+                "reference": "2611436854906f1822de7666cae72a96250b9904",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "php": ">=8.1",
+                "vgrish/yclients-openapi-php": "1.0.1"
+            },
+            "require-dev": {
+                "ergebnis/php-cs-fixer-config": "^6.33.0",
+                "friendsofphp/php-cs-fixer": "^3.5",
+                "jetbrains/phpstorm-attributes": "1.1",
+                "phpstan/phpstan": "^1.10"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Vgrish\\Yclients\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Vgrish",
+                    "email": "vgrish@gmail.com"
+                }
+            ],
+            "description": "yclients-sdk-php package for YCLIENTS",
+            "keywords": [
+                "api",
+                "openapi",
+                "rest",
+                "yclients"
+            ],
+            "support": {
+                "issues": "https://github.com/vgrish/yclients-sdk-php/issues",
+                "source": "https://github.com/vgrish/yclients-sdk-php/tree/1.0.3"
+            },
+            "time": "2024-08-05T10:56:07+00:00"
         },
         {
             "name": "vlucas/phpdotenv",
