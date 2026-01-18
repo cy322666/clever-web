@@ -1,26 +1,41 @@
-FROM ubuntu:20.04
+FROM php:8.2-fpm
 
-RUN apt-get update && apt-get install supervisor -y
+# system deps + supervisor
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor \
+    libpq-dev \
+    libpng-dev \
+    libzip-dev \
+    libxml2-dev \
+    libc-client2007e-dev \
+    libkrb5-dev \
+    snmp \
+    libsnmp-dev \
+    curl \
+    unzip \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN apt install lsb-release ca-certificates apt-transport-https software-properties-common -y
-RUN add-apt-repository ppa:ondrej/php
+# PHP extensions from source (official way for php:* images)
+RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+ && docker-php-ext-install -j$(nproc) \
+    pdo_pgsql \
+    gd \
+    curl \
+    imap \
+    xml \
+    zip \
+    mbstring
 
-RUN apt install php8.2 -y
-RUN apt install php8.2-pgsql -y \
-    php8.2-gd \
-    php8.2-fpm \
-    php8.2-curl \
-    php8.2-common \
-    php8.2-imap \
-    php8.2-redis \
-    php8.2-snmp \
-    php8.2-xml \
-    php8.2-zip \
-    php8.2-mbstring
+# Redis via PECL
+RUN pecl install redis \
+ && docker-php-ext-enable redis
 
+# snmp extension (needs libsnmp-dev installed above)
+RUN docker-php-ext-install snmp
+
+# supervisor config
 COPY files/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-#COPY files/worker.conf /etc/supervisor/conf.d/worker.conf
 
 EXPOSE 8008
 
-CMD ["/usr/bin/supervisord"]
+CMD ["/usr/bin/supervisord","-n"]
