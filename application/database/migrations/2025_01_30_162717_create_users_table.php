@@ -25,7 +25,7 @@ return new class extends Migration
 //            $table->foreignId('table_setting_id')->constrained('distribution_settings')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
 
-            $table->index(['table_setting_id', 'user_id']);
+//            $table->index(['table_setting_id', 'user_id']);
             $table->unique(['username', 'user_id']);
         });
     }
