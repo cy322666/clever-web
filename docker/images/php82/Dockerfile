@@ -54,7 +54,7 @@ RUN docker-php-ext-install gd mysqli pdo pdo_mysql -j5 gd mbstring mysqli pdo pd
 
 RUN chown -R www-data:www-data /var/www/html/
 
-COPY ./start.sh /
+#COPY ./start.sh /
 #RUN chmod +x /start.sh
 
 EXPOSE 8000
