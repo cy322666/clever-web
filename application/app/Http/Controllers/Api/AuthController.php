@@ -2,27 +2,25 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Filament\Resources\Core\UserResource;
+use App\Filament\Resources\Integrations\AlfaResource;
 use App\Http\Controllers\Controller;
+use App\Mail\SignUpWidget;
+use App\Models\App;
 use App\Models\User;
 use App\Services\amoCRM\Client;
-use Exception;
-use Filament\Facades\Filament;
-use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Contracts\View\Factory;
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     //обычная установка
     public function redirect(Request $request): RedirectResponse
     {
-        Log::info(__METHOD__, $request->toArray());
-
         $user = User::query()
             ->where('uuid', $request->state)
             ->first();
@@ -39,10 +37,9 @@ class AuthController extends Controller
 
         $amoApi = (new Client($account->refresh()));
 
-        if (!$amoApi->checkAuth()) {
+        if (!$amoApi->checkAuth())
 
             $amoApi->init();
-        }
 
         $account->active = $amoApi->auth;
         $account->save();
@@ -51,6 +48,60 @@ class AuthController extends Controller
             'record' => $user,
             'auth'   => $amoApi->auth,
         ]);
+    }
+
+    //переход через кнопку установить
+    //логиним и отправляем на страницу настроек
+    public function widget(Request $request)
+    {
+        $app = App::query()
+            ->where('name', $request->widget)
+            ->first();
+
+        $pass = Str::random(10);
+
+        $user = User::query()
+            ->where('email', $request->email)
+            ->first();
+
+        if (!$user) {
+
+            $user = User::query()
+                ->create([
+                    'name' => 'User '.$request->email,
+                    'email' => $request->email,
+                    'password' => Hash::make($pass),
+                ]);
+
+            //отправляем пароль на почту
+            Mail::to($user->email)->queue(new SignUpWidget($user, $pass));
+        }
+
+        $settingClassName = trim($app->resource_name::getModel());
+
+        // sleep(2);
+
+        $query = $settingClassName::query();
+
+        $record = $query
+            ->where('user_id', $user->id)
+            ->first();
+
+        // $redirectPath = $app->resource_name::getUrl('edit', ['record' => $record->id]);
+//filament.app.resources.settings.alfacrm.edit
+        // $redirectPath = route('filament.app.resources.integrations.'.$request->widget.'.settings.edit', ['record' => $record->id]);
+
+        $redirectPath = route('filament.app.resources.integrations.'.$request->widget.'.edit', ['record' => $record->id]);
+
+        $signedUrl = URL::temporarySignedRoute(
+            'auto.login',
+            now()->addMinutes(30),
+            [
+                'user' => $user->id,
+                'redirect' => $redirectPath,
+            ]);
+
+        return redirect()->away($signedUrl);
     }
 
     public function form(Request $request)

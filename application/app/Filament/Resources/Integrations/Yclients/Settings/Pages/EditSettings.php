@@ -14,18 +14,4 @@ class EditSettings extends EditRecord
     use SyncAmoCRMPage;
 
     protected static string $resource = SettingsResource::class;
-
-    protected function getHeaderActions(): array
-    {
-        return [
-//            UpdateButton::activeUpdate($this->record),
-//
-//            UpdateButton::amoCRMSyncButton(
-//                Auth::user()->account,
-//                fn () => $this->amocrmUpdate(),
-//            ),
-
-            //TODO синхр с ус
-        ];
-    }
 }

@@ -9,8 +9,6 @@ use App\Services\amoCRM\Models\Leads;
 use App\Services\amoCRM\Models\Contacts;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 use Vgrish\Yclients\Yclients;
@@ -62,7 +60,7 @@ class Setting extends Model
             'sms_check' => 'Поздравлять с ДР (флаг)',
             'sms_not' => 'Отправлять рассылку (флаг)',
             'categories' => 'Категории клиента (строка)',
-            'title' => 'Филиал (список/строка)',
+            'branch' => 'Филиал (список/строка)',
         ];
     }
 

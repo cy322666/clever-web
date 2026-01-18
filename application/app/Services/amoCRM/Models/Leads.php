@@ -295,7 +295,7 @@ abstract class Leads
 
         } catch (Throwable $e) {
 
-            Log::warning(__METHOD__.' '.$e->getMessage().' field_name: '.$fieldName.' value: '.$value);
+            Log::error(__METHOD__.' '.$e->getMessage().' field_name: '.$fieldName.' value: '.$value);
         }
 
         return $lead;

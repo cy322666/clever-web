@@ -56,16 +56,8 @@ class SendRecord extends Command
             ->setPartnerToken($setting->partner_token)
             ->setUserToken($setting->user_token);
 
-        //уже прокинутая в амо сделка
-        $recordDouble = Record::query()
-            ->where('record_id', $record->record_id)
-            ->where('id', '!=', $record->id)
-            ->whereNotNull('lead_id')
-            ->where('user_id', $setting->id)
-            ->where('account_id', $account->id)
-            ->first();
+        //CONTACT
 
-        // Поиск/создание контакта в amoCRM
         if (!empty($record->client->contact_id)) {
 
             $contact = ServiceContact::get($amoApi, $record->client->contact_id);
@@ -76,23 +68,31 @@ class SendRecord extends Command
         } else
             $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
 
-        // lead
+        // LEAD
 
-        if (!empty($recordDouble) && $recordDouble->lead_id)
-        
-            $leadDouble = ServiceLead::get($amoApi, $recordDouble->lead_id);
+        //уже прокинутая в амо сделка
+        $recordDouble = Record::query()
+            ->where('record_id', $record->record_id)
+            ->where('id', '!=', $record->id)
+            ->whereNotNull('lead_id')
+            ->where('user_id', $setting->id)
+            ->where('account_id', $account->id)
+            ->first();
 
-        // уже привязывали сделку к записи
-        if (!empty($recordDouble) && !empty($leadDouble)) {
+        if (!empty($recordDouble) && $recordDouble->lead_id) {
 
-            $lead = $leadDouble;
+            $lead = ServiceLead::get($amoApi, $recordDouble->lead_id);
 
-            ServiceLead::update($lead, $objectStatus, $record);
+            // уже привязывали сделку к записи
+            if ($lead)
+                ServiceLead::update($lead, $objectStatus, $record);
 
         } else {
             // поиск открытой сделки у контакта в нужной воронке
             $lead = ServiceLead::search($contact, $amoApi, $objectStatus->pipeline_id);
 
+            //тут может быть привязанная сделка к другой записи
+            //по-хорошему надо забирать коллекцию активных и в них искать не привязанную
             if ($lead)
                 ServiceLead::update($lead, $objectStatus, $record);
             else

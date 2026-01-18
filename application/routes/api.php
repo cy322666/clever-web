@@ -12,8 +12,6 @@ use App\Http\Controllers\Api\TildaController;
 use App\Http\Controllers\Api\YClientsController;
 use Illuminate\Support\Facades\Route;
 
-//TODO мидлвару на активность юзера и интеграции сделать
-
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
     Route::group(['prefix' => 'bizon', 'middleware' => ['integration.active:bizon']], function () {
@@ -70,6 +68,7 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
 Route::group(['prefix' => 'amocrm'], function () {
 
+    //TODO тут проверить что работает а что не юзается
     Route::post('secrets', [AuthController::class, 'secrets']);
 
     Route::get('redirect', [AuthController::class, 'redirect']);
@@ -80,6 +79,8 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::get('edtechindustry/redirect', [AuthController::class, 'redirect']);
 
     Route::post('edtechindustry/form', [AuthController::class, 'form']);
+
+    Route::get('widget', [AuthController::class, 'widget']);
 });
 
 //Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');

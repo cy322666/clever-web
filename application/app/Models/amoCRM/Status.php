@@ -89,8 +89,8 @@ class Status extends Model
             $array = explode('.', $pStatusId);
 
             return (object)[
-                'status_id'   => $array[0],
-                'pipeline_id' => $array[1],
+                'status_id'   => $array[1],
+                'pipeline_id' => $array[0],
             ];
 
         } else return
