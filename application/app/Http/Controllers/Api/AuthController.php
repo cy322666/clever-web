@@ -87,10 +87,6 @@ class AuthController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        // $redirectPath = $app->resource_name::getUrl('edit', ['record' => $record->id]);
-//filament.app.resources.settings.alfacrm.edit
-        // $redirectPath = route('filament.app.resources.integrations.'.$request->widget.'.settings.edit', ['record' => $record->id]);
-
         $redirectPath = route('filament.app.resources.integrations.'.$request->widget.'.edit', ['record' => $record->id]);
 
         $signedUrl = URL::temporarySignedRoute(
