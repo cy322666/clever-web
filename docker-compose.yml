@@ -1,48 +1,56 @@
 version: '3.5'
 
 services:
-    app:
-        build: ./docker/images/php82
-        volumes:
-            - ./application:/var/www/html
-            - ./docker/images/cron/files:/var/spool/cron/crontabs/
-        ports:
-            - "8080:8000"
-        depends_on:
-            - postgresql
-            - supervisor
-        working_dir: /var/www/html
-        networks:
-            default:
-                aliases:
-                    - app
-    postgresql:
-        image: postgres:14.1-alpine
-        ports:
-            - "5425:5432"
-        environment:
-            POSTGRES_USER: root
-            POSTGRES_PASSWORD: pQLkm8NOkS0gOBox
-            POSTGRES_DB: clever
-        volumes:
-            - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
-        command: [ "postgres", "-c", "config_file=/etc/postgresql.conf" ]
-        restart: always
-        networks:
-            default:
-                aliases:
-                    - postgresql
-    supervisor:
-        build: ./docker/images/supervisor
-        working_dir: /var/www/html
-        restart: unless-stopped
-        volumes:
-            - ./application:/var/www/html
-            - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
-        ports:
-            - "8007:8008"
-        networks:
-            default:
-                aliases:
-                    - supervisor
+  app:
+    build: ./docker/images/php82
+    volumes:
+      - ./application:/var/www/html
+      - ./docker/images/cron/files:/var/spool/cron/crontabs/
+    ports:
+      - "8080:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      supervisor:
+        condition: service_started
+    working_dir: /var/www/html
+    networks:
+      default:
+        aliases:
+          - app
 
+  postgresql:
+    image: postgres:14.1-alpine
+    ports:
+      - "5425:5432"
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: pQLkm8NOkS0gOBox
+      POSTGRES_DB: clever
+    volumes:
+      - ./docker/images/postgres/files/postgresql.conf:/etc/postgresql.conf
+    command: ["postgres", "-c", "config_file=/etc/postgresql.conf"]
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d clever"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      default:
+        aliases:
+          - postgresql
+
+  supervisor:
+    build: ./docker/images/supervisor
+    working_dir: /var/www/html
+    restart: unless-stopped
+    volumes:
+      - ./application:/var/www/html
+      - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
+    ports:
+      - "8007:8008"
+    networks:
+      default:
+        aliases:
+          - supervisor
