@@ -62,9 +62,8 @@ class SendRecord extends Command
 
             $contact = ServiceContact::get($amoApi, $record->client->contact_id);
 
-            if (!$contact) {
+            if (!$contact)
                 $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
-            }
         } else
             $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
 
