@@ -109,7 +109,7 @@ class AuthController extends Controller
     //установка виджета
     public function install(Request $request)
     {
-        Log::info(__METHOD__, $request->toArray());
+        Log::warning('install', $request->toArray());
     }
 
     //установка с ОР

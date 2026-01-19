@@ -69,17 +69,18 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 Route::group(['prefix' => 'amocrm'], function () {
 
     //TODO тут проверить что работает а что не юзается
-    Route::post('secrets', [AuthController::class, 'secrets']);
+//    Route::post('secrets', [AuthController::class, 'secrets']);
 
     Route::get('redirect', [AuthController::class, 'redirect']);
 
-    //хук с фронта об установке
+    //хук с фронта об установке, не приходит, че за установка?
     Route::post('install', [AuthController::class, 'install']);
 
     Route::get('edtechindustry/redirect', [AuthController::class, 'redirect']);
 
     Route::post('edtechindustry/form', [AuthController::class, 'form']);
 
+    //переходпо кнопке с виджета в амо
     Route::get('widget', [AuthController::class, 'widget']);
 });
 
