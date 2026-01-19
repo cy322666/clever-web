@@ -44,7 +44,7 @@ class AuthController extends Controller
         $account->active = $amoApi->auth;
         $account->save();
 
-        return redirect($request->redirect_uri)
+        return redirect($request->uri)
             ->with('data', [
                 'auth'   => $amoApi->auth,
             ]);
