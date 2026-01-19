@@ -3,6 +3,8 @@
 namespace App\Services\YClients;
 
 use App\Models\Integrations\YClients\Record;
+use Ufee\Amo\Base\Collections\Collection;
+use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
 abstract class Leads
@@ -30,6 +32,31 @@ abstract class Leads
                 return $lead;
             }
         })?->first();
+    }
+
+    public static function searchAll(Contact $contact, $client, int|array $pipelines = null): ?Collection
+    {
+        return $contact->leads->filter(function($lead) use ($client, $pipelines) {
+
+            if ($lead->status_id != 143 &&
+                $lead->status_id != 142) {
+
+                if($pipelines != null) {
+
+                    if (is_array($pipelines)) {
+
+                        if (in_array($lead->pipeline_id, $pipelines))
+
+                            return true;
+
+                    } elseif ($lead->pipeline_id == $pipelines)
+
+                        return true;
+                }
+
+                return $lead;
+            }
+        });
     }
 
     public static function create($contact, object $objectStatus, Record $record): Lead
