@@ -74,7 +74,6 @@ class SendRecord extends Command
             ->where('record_id', $record->record_id)
             ->where('id', '!=', $record->id)
             ->whereNotNull('lead_id')
-            ->where('user_id', $setting->id)
             ->where('account_id', $account->id)
             ->first();
 
@@ -88,11 +87,28 @@ class SendRecord extends Command
 
         } else {
             // поиск открытой сделки у контакта в нужной воронке
-            $lead = ServiceLead::search($contact, $amoApi, $objectStatus->pipeline_id);
+            $leadCollection = ServiceLead::searchAll($contact, $amoApi, $objectStatus->pipeline_id);
 
-            //тут может быть привязанная сделка к другой записи
-            //по-хорошему надо забирать коллекцию активных и в них искать не привязанную
-            if ($lead)
+            if ($leadCollection->count() > 0) {
+
+                foreach ($leadCollection as $lead) {
+
+                    $recordDouble = Record::query()
+                        ->where('lead_id', $lead->id)
+                        ->where('record_id', '!=', $record->record_id)
+                        ->first();
+
+                    //сделка не привязана к какой то записи
+                    if (!$recordDouble)
+
+                        break;
+
+                    //нет непривязанных сделок
+                    $lead = null;
+                }
+            }
+
+            if (!empty($lead))
                 ServiceLead::update($lead, $objectStatus, $record);
             else
                 $lead = ServiceLead::create($contact, $objectStatus, $record);
