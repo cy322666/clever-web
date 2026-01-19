@@ -21,6 +21,8 @@ class AuthController extends Controller
     //обычная установка
     public function redirect(Request $request): RedirectResponse
     {
+        Log::warning(__METHOD__, $request->toArray());
+
         $user = User::query()
             ->where('uuid', $request->state)
             ->first();
@@ -47,7 +49,7 @@ class AuthController extends Controller
         return redirect()
             ->to($request->uri)
             ->with([
-                'auth'   => $amoApi->auth,
+                'auth' => $amoApi->auth,
             ]);
     }
 

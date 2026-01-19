@@ -80,7 +80,7 @@ Route::group(['prefix' => 'amocrm'], function () {
 
     Route::post('edtechindustry/form', [AuthController::class, 'form']);
 
-    //переходпо кнопке с виджета в амо
+    //переход по кнопке с виджета в амо
     Route::get('widget', [AuthController::class, 'widget']);
 });
 
