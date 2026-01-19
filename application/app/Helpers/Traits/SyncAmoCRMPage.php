@@ -16,7 +16,9 @@ trait SyncAmoCRMPage
 
         if (!$account->active) {
 
-            Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
+            $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
+
+            Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id').'&redirect_uri='.urlencode($url));
 
         } else {
             $account->code = null;
