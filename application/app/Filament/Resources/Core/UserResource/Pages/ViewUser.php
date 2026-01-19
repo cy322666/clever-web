@@ -5,23 +5,17 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
-use App\Services\amoCRM\Client;
-use App\Services\amoCRM\Models\Account;
 use Filament\Actions\Action;
-use Filament\Infolists\Components\Section;
-use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Colors\Color;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
 
 class ViewUser extends ViewRecord
 {
     use SyncAmoCRMPage;
+
     protected static string $resource = UserResource::class;
 
     protected static ?string $title = 'Аккаунт';
