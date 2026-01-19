@@ -71,6 +71,8 @@ class Record extends Model
                 }
             }
         }
+
+        return null;
     }
 
     public function getStatusId(Setting $setting): ?object
