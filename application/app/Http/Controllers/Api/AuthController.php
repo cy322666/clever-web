@@ -44,7 +44,7 @@ class AuthController extends Controller
         $account->active = $amoApi->auth;
         $account->save();
 
-        return redirect()->route('filament.app.resources.core.users.view', [
+        return back()->with('data', [
             'record' => $user,
             'auth'   => $amoApi->auth,
         ]);
