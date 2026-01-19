@@ -6,9 +6,36 @@ use App\Services\amoCRM\Client;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Redirect;
 
 trait SyncAmoCRMPage
 {
+    public function amocrmAuth(): void
+    {
+        $account = Auth::user()->account;
+
+        if (!$account->active) {
+
+            Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
+
+        } else {
+            $account->code = null;
+            $account->access_token = null;
+            $account->subdomain = null;
+            $account->refresh_token = null;
+            $account->client_id = null;
+            $account->client_secret = null;
+            $account->zone = null;
+            $account->active = false;
+            $account->save();
+
+            Notification::make()
+                ->title('Авторизация отозвана')
+                ->warning()
+                ->send();
+        }
+    }
+
     public function amocrmUpdate(): void
     {
         $account = Auth::user()->account;

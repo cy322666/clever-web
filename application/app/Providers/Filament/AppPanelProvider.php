@@ -46,6 +46,7 @@ class AppPanelProvider extends PanelProvider
             ->path('panel')
             ->login()
             ->registration()
+            ->passwordReset()
 //            ->emailVerification()
 //            ->profile(UserResource\Pages\EditUser::class)//TODO
             ->colors([
