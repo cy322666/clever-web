@@ -2,8 +2,10 @@
 
 namespace App\Observers;
 
+use App\Mail\SignUpWidget;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Mail;
 use Ramsey\Uuid\Uuid;
 
 class UserObserver
@@ -17,15 +19,10 @@ class UserObserver
 
         $user->account()->create();
 
+        Mail::to($user->email)->queue(new SignUpWidget($user, null));
+
         /* создание моделей интеграции */
-        Artisan::call('install:alfa', ['user_id' => $user->id]);
-        Artisan::call('install:bizon', ['user_id' => $user->id]);
-        Artisan::call('install:getcourse', ['user_id' => $user->id]);
-        Artisan::call('install:tilda', ['user_id' => $user->id]);
-        Artisan::call('install:active-lead', ['user_id' => $user->id]);
-        Artisan::call('install:data-info', ['user_id' => $user->id]);
-        Artisan::call('install:doc', ['user_id' => $user->id]);
-        Artisan::call('install:distribution', ['user_id' => $user->id]);
+        Artisan::call('install:all', ['user_id' => $user->id]);
     }
 
     /**

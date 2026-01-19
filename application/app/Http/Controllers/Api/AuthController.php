@@ -21,17 +21,11 @@ class AuthController extends Controller
     //обычная установка
     public function redirect(Request $request): RedirectResponse
     {
-        Log::warning(__METHOD__.' request : ', $request->toArray());
-
         $user = User::query()
             ->where('uuid', $request->state)
             ->first();
 
-        Log::warning(__METHOD__.' user : ', $user->toArray());
-
         $account = $user->account;
-
-        Log::warning(__METHOD__.' account : ', $account->toArray());
 
         $account->code = $request->code;
         $account->zone = explode('.', $request->referer)[2];
