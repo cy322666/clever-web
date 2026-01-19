@@ -44,10 +44,10 @@ class AuthController extends Controller
         $account->active = $amoApi->auth;
         $account->save();
 
-        return back()->with('data', [
-            'record' => $user,
-            'auth'   => $amoApi->auth,
-        ]);
+        return redirect($request->redirect_uri)
+            ->with('data', [
+                'auth'   => $amoApi->auth,
+            ]);
     }
 
     //переход через кнопку установить
