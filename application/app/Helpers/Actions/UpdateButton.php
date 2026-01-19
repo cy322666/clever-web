@@ -134,7 +134,7 @@ abstract class UpdateButton
             }
         } else {
             //не подключена амо
-            $button = Action::make('active')
+            return Action::make('active')
                 ->color(Color::Green)
                 ->label('Включить')
                 ->action(function () use ($app) {
