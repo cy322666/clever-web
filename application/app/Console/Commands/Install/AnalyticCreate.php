@@ -42,7 +42,7 @@ class AnalyticCreate extends Command
                     'resource_name' => $this->resource,
                 ]);
 
-                dump(__METHOD__.' > migrate success user : '.$userId);
+
 
             } elseif (!\App\Models\Integrations\Analytic\Setting::query()
                 ->where('user_id', $userId)

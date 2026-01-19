@@ -49,7 +49,7 @@ class ActiveLead extends Command
                     'resource_name' => $this->resource,
                 ]);
 
-                dump(__METHOD__.' > migrate success user : '.$userId);
+                //
             }
         } else {
 

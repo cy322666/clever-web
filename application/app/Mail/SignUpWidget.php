@@ -12,8 +12,8 @@ class SignUpWidget extends Mailable
     use Queueable, SerializesModels;
 
     public string $pass;
-    
-    public function __construct(public User $user, string $pass)
+
+    public function __construct(public User $user, ?string $pass = null)
     {
         $this->pass = $pass;
     }
@@ -24,7 +24,7 @@ class SignUpWidget extends Mailable
             ->view('emails.signup_widget') // resources/views/emails/signup_widget.blade.php
             ->with([
                 'user' => $this->user,
-                'pass' => $this->pass,
+                'pass' => $this->pass ?? null,
             ]);
     }
 }

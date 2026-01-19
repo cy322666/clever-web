@@ -48,8 +48,6 @@ class BizonCreate extends Command
                     'setting_id'    => $setting->id,
                     'resource_name' => $this->resource,
                 ]);
-
-                dump(__METHOD__.' > migrate success user : '.$userId);
             }
         } else {
 

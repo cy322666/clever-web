@@ -56,8 +56,6 @@ class TableCreate extends Command
                     'resource_name' => $this->resource,
                 ]);
 
-                dump(__METHOD__.' > migrate success user : '.$userId);
-
             } elseif (!\App\Models\Integrations\Table\Setting::query()
                 ->where('user_id', $userId)
                 ->exists()) {
