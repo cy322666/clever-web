@@ -59,9 +59,11 @@ class Client
         return $this;
     }
 
+    //проверка ключей первый раз
     public function checkAuth(): bool
     {
-        if ($this->storage->model->code == null) {
+        if (!$this->storage->model->code ||
+            !$this->storage->model->access_token) {
 
             return false;
         }
@@ -69,17 +71,21 @@ class Client
         try {
             $this->service->account;
 
+            $this->auth = true;
+
             return true;
 
         } catch (Exception $e) {
 
-            Log::channel('amo_debug')->warning('fail check auth', [$e->getMessage()]);
+            Log::error(__METHOD__.' fail check auth', [$e->getMessage()]);
 
             return false;
         }
     }
 
     /**
+     *
+     *
      * @throws Exception
      */
     public function init(): Client
@@ -88,7 +94,7 @@ class Client
 
             $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
 
-            Log::channel('tokens')->info('refresh user : '.$this->user->email, $oauth);
+//            Log::channel('tokens')->info('refresh user : '.$this->user->email, $oauth);
 
         } else
             $oauth = $this->service->fetchAccessToken($this->storage->model->code);
