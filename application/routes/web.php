@@ -19,9 +19,10 @@ use Illuminate\Support\Facades\Route;
 
  Route::get('/', function (Request $request) {
 
-     Log::warning('install', $request->toArray());
-
-     return redirect(\route('filament.app.pages.dashboard'));
+     if ($request->uri)
+         return redirect($request->uri);
+     else
+        return redirect(\route('filament.app.pages.dashboard'));
  });
 
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
