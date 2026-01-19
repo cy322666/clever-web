@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Colors\Color;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Redirect;
 
 abstract class UpdateButton
 {
@@ -172,5 +173,31 @@ abstract class UpdateButton
             ->icon(fn() => $account->active ? 'heroicon-o-power' : 'heroicon-o-key')
             ->label(fn() => $account->active ? 'Отключить amoCRM' : 'Подключить amoCRM')
             ->tooltip(fn() => $account->active ? 'Отключить платформу от аккаунта amoCRM' : 'Подключить платформу к amoCRM');
+    }
+
+    public function amocrmAuth(): void
+    {
+        $account = Auth::user()->account;
+
+        if (!$account->active) {
+
+            Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id'));
+
+        } else {
+            $account->code = null;
+            $account->access_token = null;
+            $account->subdomain = null;
+            $account->refresh_token = null;
+            $account->client_id = null;
+            $account->client_secret = null;
+            $account->zone = null;
+            $account->active = false;
+            $account->save();
+
+            Notification::make()
+                ->title('Авторизация отозвана')
+                ->warning()
+                ->send();
+        }
     }
 }
