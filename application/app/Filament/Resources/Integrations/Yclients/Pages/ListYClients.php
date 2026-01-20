@@ -81,6 +81,7 @@ class ListYClients extends ListRecords
                 BooleanColumn::make('status')
                     ->label('Выгружен'),
             ])
+            ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
             ->poll('5s')
