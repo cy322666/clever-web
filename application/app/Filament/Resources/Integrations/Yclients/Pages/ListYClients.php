@@ -49,9 +49,11 @@ class ListYClients extends ListRecords
 
                 TextColumn::make('staff_name')
                     ->label('Специалист')
+                    ->hidden()
                     ->searchable(),
 
                 TextColumn::make('client.name')
+                    ->hidden()
                     ->label('Клиент'),
 
                 TextColumn::make('client_id')
@@ -73,6 +75,7 @@ class ListYClients extends ListRecords
                     ->state(fn(Record $record): string => $record->getEvent()),
 
                 TextColumn::make('title')
+                    ->hidden()
                     ->label('Название'),
 
                 TextColumn::make('cost')

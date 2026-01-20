@@ -53,14 +53,19 @@ class Setting extends Model
     public static function YCfieldsSelect(): array
     {
         return [
-            'sex' => 'Пол (список М/Ж)',
+            'sex' => 'Пол (список М/Ж/строка)',
             'birth_date' => 'Дата рождения (дата)',
             'discount' => 'Скидка (число)',
             'comment' => 'Комментарий (строка)',
-            'sms_check' => 'Поздравлять с ДР (флаг)',
-            'sms_not' => 'Отправлять рассылку (флаг)',
+            'sms_check' => 'Поздравлять с ДР (флаг/строка)',
+            'sms_not' => 'Отправлять рассылку (флаг/строка)',
             'categories' => 'Категории клиента (строка)',
             'branch' => 'Филиал (список/строка)',
+
+            'visits' => 'Кол-во визитов',
+            'staff' => 'Мастер',
+            'ltv' => 'Выручка',
+            'client_id' => 'ID клиента',
         ];
     }
 
@@ -74,7 +79,12 @@ class Setting extends Model
             'sms_check',
             'sms_not',
             'categories',
-            'title',
+            'branch',
+
+            'visits',
+            'staff',
+            'ltv',
+            'client_id',
         ];
     }
 
@@ -88,7 +98,7 @@ class Setting extends Model
             ->path('id', $record->client_id)
             ->get();
 
-            //TODO коммент не проставляется
+            //TODO коммент не проставляется?
 
         $categories = '';
 
@@ -115,6 +125,11 @@ class Setting extends Model
         };
 
         $fields['birth_date'] = $clientYC->object()->getBirthDate() ? $clientYC->object()->getBirthDate() : null;
+
+        $fields['visits'] = $clientYC->object()->getVisits();
+        $fields['staff'] = $record->staff_name;
+        $fields['ltv'] = $clientYC->object()->getPaid();
+        $fields['client_id'] = $record->client->client_id;
 
         return $fields;
     }
