@@ -65,7 +65,7 @@ class Record extends Model
 
             foreach ($branches['companies'] as $branch) {
 
-                if (($branch['id'] ?? null) == $this->company_id) {
+                if ($branch['id'] == $this->company_id) {
 
                     return $branch['title'] ?? null;
                 }

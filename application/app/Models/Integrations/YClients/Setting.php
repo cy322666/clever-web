@@ -98,8 +98,6 @@ class Setting extends Model
             ->path('id', $record->client_id)
             ->get();
 
-            //TODO коммент не проставляется?
-
         $categories = '';
 
         if (count($clientYC->object()->getCategories()) > 0) {
