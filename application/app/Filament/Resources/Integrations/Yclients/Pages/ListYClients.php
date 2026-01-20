@@ -67,19 +67,19 @@ class ListYClients extends ListRecords
                     ->url(fn(Record $order) => 'https://'.$order->account->subdomain.'.amocrm.ru/contacts/detail/'.$order->lead_id, true)
                     ->label('Контакт'),
 
-                BooleanColumn::make('status')
-                    ->label('Выгружен'),
-
-                TextColumn::make('attendance')
-                    ->label('Событие')
-                    ->state(fn(Record $record): string => $record->getEvent()),
-
                 TextColumn::make('title')
                     ->hidden()
                     ->label('Название'),
 
                 TextColumn::make('cost')
                     ->label('Стоимость'),
+
+                TextColumn::make('attendance')
+                    ->label('Событие')
+                    ->state(fn(Record $record): string => $record->getEvent()),
+
+                BooleanColumn::make('status')
+                    ->label('Выгружен'),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
