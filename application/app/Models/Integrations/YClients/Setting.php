@@ -9,6 +9,7 @@ use App\Services\amoCRM\Models\Leads;
 use App\Services\amoCRM\Models\Contacts;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Client\ConnectionException;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 use Vgrish\Yclients\Yclients;
@@ -88,6 +89,9 @@ class Setting extends Model
         ];
     }
 
+    /**
+     * @throws ConnectionException
+     */
     public static function YCGetFields(Yclients $client, Record $record): array
     {
         $fields = static::YCfields();
