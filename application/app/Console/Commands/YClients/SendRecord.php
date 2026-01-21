@@ -99,14 +99,13 @@ class SendRecord extends Command
                         ->first();
 
                     //сделка не привязана к какой то записи
-                    if (!$recordDouble)
+                    if (!$recordDouble && $recordDouble->pipeline_id == $objectStatus->pipeline_id)
 
                         break;
-
-                    //нет непривязанных сделок
-                    $lead = null;
                 }
-            }
+                $lead = null;
+            } else
+                $lead = null;
 
             if (!empty($lead))
                 ServiceLead::update($lead, $objectStatus, $record);
