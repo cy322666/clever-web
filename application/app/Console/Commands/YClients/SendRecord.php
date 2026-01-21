@@ -99,7 +99,7 @@ class SendRecord extends Command
                         ->first();
 
                     //сделка не привязана к какой то записи
-                    if (!$recordDouble && $recordDouble->pipeline_id == $objectStatus->pipeline_id)
+                    if (!$recordDouble)
 
                         break;
                 }
