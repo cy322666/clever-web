@@ -59,7 +59,7 @@ class Record extends Model
         ])->get('https://api.yclients.com/api/v1/groups');
 
         //сети -> сеть, внутри филиалы
-        foreach ($companies->json() as $branches) {
+        foreach ($companies->json()['data'] as $branches) {
 
             foreach ($branches['companies'] as $branch) {
 
