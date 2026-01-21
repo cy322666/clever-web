@@ -14,7 +14,7 @@ abstract class Contacts
             'Почта'   => $client->email,
         ], $amoApi);
 
-        $contact = $contact ? static::update($contact, $client) : static::create($client);
+        $contact = $contact ? static::update($contact, $client) : static::create($amoApi);
 
         $client->contact_id = $contact->id;
         $client->save();
@@ -22,7 +22,10 @@ abstract class Contacts
         return  $contact;
     }
 
-    public static function search($arrayFields, $client)
+    /**
+     * @throws \Exception
+     */
+    public static function search(array $arrayFields, \App\Services\amoCRM\Client $client)
     {
         $contacts = null;
 
@@ -41,14 +44,13 @@ abstract class Contacts
                     ->searchByEmail($arrayFields['Почта']);
         }
 
-        if ($contacts !== null && $contacts->first() !== null) {
+        if ($contacts !== null && $contacts->first() !== null)
             return $contacts->first();
-        }
 
         return null;
     }
 
-    public static function update($contact, $client)
+    public static function update(ContactModel $contact, Client $client)
     {
         $contact->name = $client->name;
         $contact->cf('Email')->setValue($client->email);
@@ -78,7 +80,7 @@ abstract class Contacts
 //        return $contact;
 //    }
 
-    public static function create(Client $amoApi)
+    public static function create(\App\Services\amoCRM\Client $amoApi)
     {
         $contact = $amoApi->service
             ->contacts()
