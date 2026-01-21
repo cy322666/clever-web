@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Vgrish\Yclients\Yclients;
 
 class Record extends Model
@@ -52,11 +53,15 @@ class Record extends Model
      */
     public function getBranchTitle(Yclients $client): ?string
     {
+        Log::warning(__METHOD__.' > '.'Bearer ' . $client->getPartnerToken().', User '.$client->getUserToken());
+
         $companies = Http::withHeaders([
             'Accept'        => 'Accept: application/vnd.api.v2+json',
             'Content-Type'  => 'application/json',
             'Authorization' => 'Bearer ' . $client->getPartnerToken().', User '.$client->getUserToken(),
         ])->get('https://api.yclients.com/api/v1/groups');
+
+        Log::warning(__METHOD__, [$companies->json()['data']]);
 
         //сети -> сеть, внутри филиалы
         foreach ($companies->json()['data'] as $branches) {
