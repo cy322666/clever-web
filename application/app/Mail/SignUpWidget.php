@@ -11,7 +11,7 @@ class SignUpWidget extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public string $pass;
+    public ?string $pass;
 
     public function __construct(public User $user, ?string $pass = null)
     {
