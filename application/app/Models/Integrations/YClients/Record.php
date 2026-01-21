@@ -58,10 +58,8 @@ class Record extends Model
             'Authorization' => 'Bearer ' . $client->getPartnerToken().', User '.$client->getUserToken(),
         ])->get('https://api.yclients.com/api/v1/groups');
 
-        $rawBranches = json_decode($companies->getBody()->getContents(), true)['data'];
-
         //сети -> сеть, внутри филиалы
-        foreach ($rawBranches as $branches) {
+        foreach ($companies->json() as $branches) {
 
             foreach ($branches['companies'] as $branch) {
 
