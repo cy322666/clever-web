@@ -10,6 +10,9 @@ use Vgrish\Yclients\Yclients;
 
 class Notes
 {
+    /**
+     * @throws ConnectionException
+     */
     public static function createNoteLead(Yclients $client, Record $record, LeadModel $lead): void
     {
         $note = $lead->createNote();
