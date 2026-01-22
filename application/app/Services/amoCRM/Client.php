@@ -97,7 +97,8 @@ class Client
             if ($expiredAt->isFuture()) {
 
                 $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
-            }
+            } else
+                $oauth = $this->storage->model->toArray();
 
 //            Log::channel('tokens')->info('refresh user : '.$this->user->email, $oauth);
 
