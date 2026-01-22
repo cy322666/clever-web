@@ -50,7 +50,7 @@ abstract class Contacts
         return null;
     }
 
-    public static function update(ContactModel $contact, Client $client)
+    public static function update($contact, Client $client)
     {
         $contact->name = $client->name;
         $contact->cf('Email')->setValue($client->email);
