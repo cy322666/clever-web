@@ -38,15 +38,16 @@ trait SyncAmoCRMPage
         }
     }
 
+    /**
+     * @throws \Exception
+     */
     public function amocrmUpdate(): void
     {
         $account = Auth::user()->account;
 
         $amoApi = new Client($account);
 
-        if (!$amoApi->auth)
-
-            $amoApi->init();
+        $amoApi->init();
 
         if ($amoApi->auth) {
 
