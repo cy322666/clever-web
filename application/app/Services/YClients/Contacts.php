@@ -60,26 +60,6 @@ abstract class Contacts
         return $contact;
     }
 
-    //TODO это в команде обновления
-//    public static function update($contact, $arrayFields = [])
-//    {
-//        if(key_exists('cf', $arrayFields)) {
-//
-//            foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
-//
-//                if(strpos($fieldsName, 'Дата')) {
-//
-//                    $contact->cf($fieldsName)->setData($fieldValue);
-//                }
-//                $contact->cf($fieldsName)->setValue($fieldValue);
-//            }
-//        }
-//
-//        $contact->save();
-//
-//        return $contact;
-//    }
-
     public static function create(\App\Services\amoCRM\Client $amoApi)
     {
         $contact = $amoApi->service

@@ -51,23 +51,7 @@ class Record extends Model
     /**
      * @throws ConnectionException
      */
-    public function getBranchTitle(Yclients $client): ?string
-    {
-        $companies = Http::withHeaders([
-            'Accept'        => 'Accept: application/vnd.api.v2+json',
-            'Content-Type'  => 'application/json',
-            'Authorization' => 'Bearer ' . $client->getPartnerToken().', User '.$client->getUserToken(),
-        ])->get('https://api.yclients.com/api/v1/companies?my=1');
 
-        foreach ($companies->json()['data'] as $branch) {
-
-            if ($branch['id'] == $this->company_id)
-
-                return $branch['title'] ?? null;
-        }
-
-        return null;
-    }
 
     public function getStatusId(Setting $setting): ?object
     {

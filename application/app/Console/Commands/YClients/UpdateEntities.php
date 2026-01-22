@@ -8,11 +8,8 @@ use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
-use App\Services\YClients\Contacts as ServiceContact;
-use App\Services\YClients\Leads as ServiceLead;
+use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Vgrish\Yclients\Yclients;
 
 class UpdateEntities extends Command
 {
@@ -68,9 +65,7 @@ class UpdateEntities extends Command
 
         if ($setting->fields_contact || $setting->fields_lead) {
 
-            $yc = Yclients::getInstance()
-                ->setPartnerToken($setting->partner_token)
-                ->setUserToken($setting->user_token);
+            $yc = new YClients($setting);
 
             //заполненные поля с ключами
             $arrayFields = Setting::YCGetFields($yc, $record);

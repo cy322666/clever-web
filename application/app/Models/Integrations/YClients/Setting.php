@@ -12,19 +12,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\ConnectionException;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
-use Vgrish\Yclients\Yclients;
 
 class Setting extends Model
 {
     use HasFactory, SettingRelation;
 
     protected $table = 'yclients_settings';
-
-    //TODO используется?
-    // public const CREATED = 0;
-    // public const RECORD = 1;
-    // public const CAME = 2;
-    // public const OMISSION = 3;
 
     public static string $resource = YClientsResource::class;
 
@@ -60,7 +53,7 @@ class Setting extends Model
             'comment' => 'Комментарий (строка)',
             'sms_check' => 'Поздравлять с ДР (флаг/строка)',
             'sms_not' => 'Отправлять рассылку (флаг/строка)',
-            'categories' => 'Категории клиента (строка)',
+//            'categories' => 'Категории клиента (строка)',
             'branch' => 'Филиал (список/строка)',
 
             'visits' => 'Кол-во визитов',
@@ -79,7 +72,7 @@ class Setting extends Model
             'comment',
             'sms_check',
             'sms_not',
-            'categories',
+//            'categories',
             'branch',
 
             'visits',
@@ -92,45 +85,41 @@ class Setting extends Model
     /**
      * @throws ConnectionException
      */
-    public static function YCGetFields(Yclients $client, Record $record): array
+    public static function YCGetFields(\App\Services\YClients\YClients $client, Record $record): array
     {
         $fields = static::YCfields();
 
-        $clientYC = $client->query()
-            ->client()
-            ->path('company_id', $record->company_id)
-            ->path('id', $record->client_id)
-            ->get();
+        $clientYC = $client->getClient($record->company_id, $record->client_id)->data;
 
-        $categories = '';
+//        $categories = '';
+//
+//        if (count($clientYC->object()->getCategories()) > 0) {
+//            if (is_array($clientYC->object()->getCategories()) && count($clientYC->object()->getCategories())) {
+//                foreach ($clientYC->object()->getCategories() as $category) {
+//
+//                    $categories .= $category['title'] ?? null . ', ';
+//                }
+//                $categories = str_replace(',', '', $categories);
+//            }
+//        }
 
-        if (count($clientYC->object()->getCategories()) > 0) {
-            if (is_array($clientYC->object()->getCategories()) && count($clientYC->object()->getCategories())) {
-                foreach ($clientYC->object()->getCategories() as $category) {
-
-                    $categories .= $category['title'] ?? null . ', ';
-                }
-                $categories = str_replace(',', '', $categories);
-            }
-        }
-
-        $fields['branch'] = $record->getBranchTitle($client);
+        $fields['branch'] = $client->getBranchTitle($record->company_id);
 
         // $fields['branches'] = $client->query()->state()->getData();
 
-        $fields['categories'] = $categories;
+//        $fields['categories'] = $categories;
 
-        $fields['sex'] = match ($clientYC->object()->getSex()) {
+        $fields['sex'] = match ($clientYC->sex) {
             'Женский' => 'Ж',
             'Мужской' => 'М',
             default => null,
         };
 
-        $fields['birth_date'] = $clientYC->object()->getBirthDate() ? $clientYC->object()->getBirthDate() : null;
+        $fields['birth_date'] = $clientYC->birth_date;
 
-        $fields['visits'] = $clientYC->object()->getVisits();
+        $fields['visits'] = $clientYC->visits;
         $fields['staff'] = $record->staff_name;
-        $fields['ltv'] = $clientYC->object()->getPaid();
+        $fields['ltv'] = $clientYC->paid;
         $fields['client_id'] = $record->client->client_id;
 
         return $fields;

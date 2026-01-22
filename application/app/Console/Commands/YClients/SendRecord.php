@@ -7,10 +7,10 @@ use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\YClients\Notes;
+use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
 use App\Services\YClients\Leads as ServiceLead;
 use App\Services\YClients\Contacts as ServiceContact;
-use Vgrish\Yclients\Yclients;
 
 class SendRecord extends Command
 {
@@ -52,9 +52,7 @@ class SendRecord extends Command
 
         $amoApi = (new Client($account))->init();
 
-        $ycApi = Yclients::getInstance()
-            ->setPartnerToken($setting->partner_token)
-            ->setUserToken($setting->user_token);
+        $ycApi = (new YClients($setting));
 
         //CONTACT
 
