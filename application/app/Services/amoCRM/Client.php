@@ -4,6 +4,7 @@ namespace App\Services\amoCRM;
 
 use App\Models\Core\Account;
 use App\Models\User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -46,10 +47,7 @@ class Client
             'zone'          => $this->storage->model->zone,
         ]);
 
-        if(!$this->checkAuth()) {
-
-            $this->init();
-        }
+        $this->init();
     }
 
     public function setDelay(int $second): static
@@ -92,7 +90,14 @@ class Client
     {
         if ($this->storage->model->refresh_token) {
 
-            $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
+            $createdAt = Carbon::parse($this->storage->model->created_at);
+
+            $expiredAt = $createdAt->addSeconds($this->storage->model->expires_in);
+
+            if ($expiredAt->isFuture()) {
+
+                $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
+            }
 
 //            Log::channel('tokens')->info('refresh user : '.$this->user->email, $oauth);
 
