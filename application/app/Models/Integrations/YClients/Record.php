@@ -53,26 +53,17 @@ class Record extends Model
      */
     public function getBranchTitle(Yclients $client): ?string
     {
-        Log::warning(__METHOD__.' > '.'Bearer ' . $client->getPartnerToken().', User '.$client->getUserToken());
-
         $companies = Http::withHeaders([
             'Accept'        => 'Accept: application/vnd.api.v2+json',
             'Content-Type'  => 'application/json',
             'Authorization' => 'Bearer ' . $client->getPartnerToken().', User '.$client->getUserToken(),
         ])->get('https://api.yclients.com/api/v1/companies?my=1');
 
-        Log::warning(__METHOD__, [$companies->json()['data']]);
+        foreach ($companies->json()['data'] as $branch) {
 
-        //сети -> сеть, внутри филиалы
-        foreach ($companies->json()['data'] as $branches) {
+            if ($branch['id'] == $this->company_id)
 
-            foreach ($branches['companies'] as $branch) {
-
-                if ($branch['id'] == $this->company_id) {
-
-                    return $branch['title'] ?? null;
-                }
-            }
+                return $branch['title'] ?? null;
         }
 
         return null;
