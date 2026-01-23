@@ -55,14 +55,24 @@ class AuthController extends Controller
     //логиним и отправляем на страницу настроек
     public function widget(Request $request)
     {
+        $query = html_entity_decode(urldecode($request->getQueryString()));
+
+        parse_str($query, $params);
+
+        $email  = $params['email']  ?? null;
+        $widget = $params['widget'] ?? null;
+
+        if (!$email || !$widget)
+            return;
+
         $app = App::query()
-            ->where('name', $request->widget)
+            ->where('name', $widget)
             ->first();
 
         $pass = Str::random(10);
 
         $user = User::query()
-            ->where('email', $request->email)
+            ->where('email', $email)
             ->first();
 
         if (!$user) {
