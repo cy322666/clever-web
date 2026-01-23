@@ -13,7 +13,7 @@ class All extends Command
      *
      * @var string
      */
-    protected $signature = 'app:all {user_id}';
+    protected $signature = 'install:all {user_id}';
 
     /**
      * The console command description.
