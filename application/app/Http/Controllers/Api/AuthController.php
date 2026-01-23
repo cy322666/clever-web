@@ -55,11 +55,15 @@ class AuthController extends Controller
     //логиним и отправляем на страницу настроек
     public function widget(Request $request)
     {
-        $query = html_entity_decode(urldecode($request->getQueryString()));
+        $query = $request->getQueryString(); // "amp;email=...%22&widget=tilda" или уже частично декод
+
+        $query = urldecode($query);          // %xx -> символы
+        $query = html_entity_decode($query); // &amp; -> &
+        $query = str_replace('amp;', '', $query); // ключ amp;email -> email
 
         parse_str($query, $params);
 
-        $email  = $params['email']  ?? null;
+        $email  = isset($params['email']) ? trim($params['email'], "\"' \t\n\r\0\x0B") : null;
         $widget = $params['widget'] ?? null;
 
         if (!$email || !$widget)
