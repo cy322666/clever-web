@@ -7,6 +7,9 @@ use Ufee\Amo\Models\Contact as ContactModel;
 
 abstract class Contacts
 {
+    /**
+     * @throws \Exception
+     */
     public static function updateOrCreate(Client $client, $amoApi): ContactModel
     {
         $contact = Contacts::search([
@@ -25,13 +28,13 @@ abstract class Contacts
     /**
      * @throws \Exception
      */
-    public static function search(array $arrayFields, \App\Services\amoCRM\Client $client)
+    public static function search(array $arrayFields, \App\Services\amoCRM\Client $amoApi)
     {
         $contacts = null;
 
         if(key_exists('Телефон', $arrayFields) && $arrayFields['Телефон'] !== null)
 
-            $contacts = $client->service
+            $contacts = $amoApi->service
                 ->contacts()
                 ->searchByPhone(self::clearPhone($arrayFields['Телефон']));
 
@@ -39,7 +42,7 @@ abstract class Contacts
 
             if(key_exists('Почта', $arrayFields) && $arrayFields['Почта'] !== null)
 
-                $contacts = $client->service
+                $contacts = $amoApi->service
                     ->contacts()
                     ->searchByEmail($arrayFields['Почта']);
         }
@@ -62,11 +65,9 @@ abstract class Contacts
 
     public static function create(\App\Services\amoCRM\Client $amoApi)
     {
-        $contact = $amoApi->service
+        return $amoApi->service
             ->contacts()
             ->create();
-
-        return static::update($contact, $amoApi);
     }
 
     public static function get($client, $id)
