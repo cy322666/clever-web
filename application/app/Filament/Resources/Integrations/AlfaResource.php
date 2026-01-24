@@ -92,17 +92,17 @@ class AlfaResource extends Resource
                        Fieldset::make('Настройки amoCRM')
                            ->schema([
 
-                               Select::make('status_record_1')
+                               Select::make('status_record')
                                    ->label('Статус записи')
                                    ->options(Status::getTriggerStatuses())
                                    ->searchable(),
 
-                               Select::make('status_came_1')
+                               Select::make('status_came')
                                    ->label('Статус пришедших')
                                    ->options(Status::getTriggerStatuses())
                                    ->searchable(),
 
-                               Select::make('status_omission_1')
+                               Select::make('status_omission')
                                    ->label('Статус отказавшихся')
                                    ->options(Status::getTriggerStatuses())
                                    ->searchable(),
@@ -113,17 +113,17 @@ class AlfaResource extends Resource
                        Fieldset::make('Настройка AlfaCRM')
                            ->schema([
 
-                               Select::make('stage_record_1')
+                               Select::make('stage_record')
                                    ->label('Этап записи')
                                    ->options(LeadStatus::getWithUser()->pluck('name', 'id') ?? [])
                                    ->searchable(),
 
-                               Select::make('stage_came_1')
+                               Select::make('stage_came')
                                    ->label('Этап пришедших')
                                    ->options(LeadStatus::getWithUser()->pluck('name', 'id') ?? [])
                                    ->searchable(),
 
-                               Select::make('stage_omission_1')
+                               Select::make('stage_omission')
                                    ->label('Этап отказавшихся')
                                    ->options(LeadStatus::getWithUser()->pluck('name', 'id') ?? [])
                                    ->searchable(),
