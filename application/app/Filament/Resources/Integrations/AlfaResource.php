@@ -75,13 +75,16 @@ class AlfaResource extends Resource
                                TextInput::make('link_record')
                                    ->label('Вебхук записи')
                                    ->copyable()
+                                   ->hint('Вставьте в воронку в этап записи')
                                    ->disabled(),
                                TextInput::make('link_came')
                                    ->label('Вебхук посещения')
+                                   ->hint('Вставьте в настройки АльфаСРМ')
                                    ->copyable()
                                    ->disabled(),
                                TextInput::make('link_omission')
                                    ->label('Вебхук отмены')
+                                   ->hint('Вставьте в настройки АльфаСРМ')
                                    ->copyable()
                                    ->disabled(),
                            ]),
