@@ -33,24 +33,16 @@ class AlfaCreate extends Command
 
         if ($userId) {
 
-            if (!App::query()
-                ->where('user_id', $userId)
-                ->where('name', $this->app)
-                ->exists()) {
+            $setting = Setting::query()
+                ->updateOrCreate(['user_id' => $userId]);
 
-                $setting = Setting::query()->create([
-                    'user_id' => $userId,
-                ]);
+            App::query()->updateOrCreate([
+                'user_id' => $userId,
+                'name' => $this->app,
+                'setting_id' => $setting->id,
+                'resource_name' => $this->resource,
+            ]);
 
-                App::query()->create([
-                    'name'          => $this->app,
-                    'user_id'       => $userId,
-                    'setting_id'    => $setting->id,
-                    'resource_name' => $this->resource,
-                ]);
-
-
-            }
         } else {
 
             $users = User::query()->get();
