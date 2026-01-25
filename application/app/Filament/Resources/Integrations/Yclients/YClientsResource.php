@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Integrations\YClients;
 
-use App\Filament\Resources\Integrations\YClients\Pages\CreateYClients;
 use App\Filament\Resources\Integrations\YClients\Pages\EditYClients;
 use App\Filament\Resources\Integrations\YClients\Pages\ListYClients;
 use App\Filament\Resources\Integrations\YClients\Schemas\YClientsForm;
@@ -15,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 class YClientsResource extends Resource
 {
@@ -64,7 +64,6 @@ class YClientsResource extends Resource
     public static function getPages(): array
     {
         return [
-//            'index' => ListYClients::route('/'),
             'list' => ListYClients::route('/list'),
             'edit' => EditYClients::route('/{record}/edit'),
         ];

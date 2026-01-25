@@ -28,19 +28,23 @@ class Status extends Model
     {
         return Status::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('is_archive', false)
             ->where('name', '!=', 'Неразобранное');
     }
 
     public static function getWithUser(): Builder
     {
-        return Status::query()->where('user_id', Auth::id());
+        return Status::query()
+            ->where('active', true)
+            ->where('user_id', Auth::id());
     }
 
     public static function getPipelines(): Builder
     {
         return static::getWithUser()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('is_archive', false)
             ->distinct('pipeline_id');
     }
@@ -48,6 +52,7 @@ class Status extends Model
     public static function getTriggerPipelines() : array
     {
         return Status::getPipelines()
+            ->where('active', true)
             ->get()
             ->pluck('pipeline_name', 'pipeline_id')
             ->toArray();
@@ -67,6 +72,7 @@ class Status extends Model
         foreach ($pipelines as $pipeline) {
 
             $statuses = Status::getWithoutUnsorted()
+                ->where('active', true)
                 ->where('pipeline_id', $pipeline->pipeline_id)
                 ->get()
                 ->sortBy('id')
