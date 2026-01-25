@@ -67,6 +67,7 @@ class Status extends Model
         $pipelineArrays = [];
 
         $pipelines = Status::getPipelines()
+            ->where('active', true)
             ->get();
 
         foreach ($pipelines as $pipeline) {
