@@ -168,4 +168,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasOne(\App\Models\Integrations\YClients\Setting::class);
     }
+
+    public function contactMergeSetting(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\ContactMerge\Setting::class);
+    }
 }

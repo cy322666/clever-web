@@ -40,5 +40,6 @@ class All extends Command
         Artisan::call('install:distribution', ['user_id' => $user->id]);
         Artisan::call('install:table', ['user_id' => $user->id]);
         Artisan::call('install:yclients', ['user_id' => $user->id]);
+        Artisan::call('install:contact-merge', ['user_id' => $user->id]);
     }
 }
