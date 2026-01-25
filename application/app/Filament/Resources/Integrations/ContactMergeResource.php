@@ -38,7 +38,7 @@ class ContactMergeResource extends Resource
                     ->schema([
                         Select::make('match_fields')
                             ->label('Поля для поиска дублей')
-                            ->options(self::contactFieldOptions())
+                            ->options(Field::getContactSelectFields())
                             ->multiple()
                             ->searchable()
                             ->required(),
@@ -64,7 +64,7 @@ class ContactMergeResource extends Resource
                             ->schema([
                                 Select::make('field_id')
                                     ->label('Поле')
-                                    ->options(self::contactFieldOptions())
+                                    ->options(Field::getContactSelectFields())
                                     ->searchable()
                                     ->required(),
 
@@ -102,10 +102,10 @@ class ContactMergeResource extends Resource
         return Record::query()->count();
     }
 
-    private static function contactFieldOptions(): array
-    {
-        $fields = Field::getContactSelectFields()->toArray();
-
-        return ['name' => 'Имя'] + $fields;
-    }
+//    private static function contactFieldOptions(): array
+//    {
+//        $fields = Field::getContactSelectFields()->toArray();
+//
+//        return ['name' => 'Имя'] + $fields;
+//    }
 }

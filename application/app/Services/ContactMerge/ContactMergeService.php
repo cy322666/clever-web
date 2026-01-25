@@ -5,6 +5,7 @@ namespace App\Services\ContactMerge;
 use App\Models\Integrations\ContactMerge\Record;
 use App\Models\Integrations\ContactMerge\Setting;
 use App\Services\amoCRM\Client;
+use App\Services\amoCRM\Models\Notes;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
@@ -21,54 +22,61 @@ class ContactMergeService
     {
         $contacts = $this->fetchContacts();
 
-        if (!$contacts) {
-            return 0;
-        }
+        if ($contacts) {
 
-        $groups = $this->groupContacts($contacts);
-        $mergedCount = 0;
+            $groups = $this->groupContacts($contacts);
 
-        foreach ($groups as $groupContacts) {
-            if (count($groupContacts) < 2) {
-                continue;
-            }
+            $mergedCount = 0;
 
-            $master = $this->selectMaster($groupContacts);
-            $duplicates = array_filter($groupContacts, fn (array $contact) => $contact['id'] !== $master['id']);
+            foreach ($groups as $groupContacts) {
 
-            foreach ($duplicates as $duplicate) {
-                $changes = $this->buildChanges($master, $duplicate);
-                $status = 'tagged';
-                $message = null;
+                if (count($groupContacts) < 2)
+                    continue;
 
-                if ($this->setting->auto_merge && $changes['payload']) {
-                    $status = $this->updateContact($master['id'], $changes['payload']) ? 'merged' : 'error';
+                //главный для склейки
+                $master = $this->selectMaster($groupContacts);
 
-                    if ($status === 'error') {
-                        $message = 'Не удалось обновить контакт.';
+                //все дубли по текущему правилу без мастера
+                $duplicates = array_filter($groupContacts, fn (array $contact) => $contact['id'] !== $master['id']);
+
+                foreach ($duplicates as $duplicate) {
+
+                    //если есть правила для склейки по полям
+                    if ($this->setting->merge_rules) {
+
+                        $changes = $this->buildChanges($master, $duplicate);
+
+                        if ($this->setting->auto_merge && $changes['payload'])
+                            $status = $this->updateContact($master['id'], $changes['payload']) ? 'merged' : 'error';
+
+//                            if ($status === 'error') {
+//                                $message = 'Не удалось обновить контакт.';
+//                            }
                     }
+
+                    //если тегаем контакты, но мастер контакт не тегаем
+                    if ($this->setting->tag) {}
+                        $this->tagContact($duplicate['id'], $this->setting->tag);
+
+                    Record::query()->create([
+                        'setting_id' => $this->setting->id,
+                        'user_id' => $this->setting->user_id,
+                        'master_contact_id' => $master['id'],
+                        'duplicate_contact_id' => $duplicate['id'],
+                        'match_fields' => $this->buildMatchFields($master),
+                        'changes' => $changes['changes'] ?? null,
+                        'status' => $status ?? true,
+                        'message' => $message ?? null,
+                    ]);
+
+                    //TODO примечание
+//                    Notes::addOne();
+
+                    $mergedCount++;
                 }
-
-                if ($this->setting->tag) {
-                    $this->tagContact($duplicate['id'], $this->setting->tag);
-                }
-
-                Record::query()->create([
-                    'setting_id' => $this->setting->id,
-                    'user_id' => $this->setting->user_id,
-                    'master_contact_id' => $master['id'],
-                    'duplicate_contact_id' => $duplicate['id'],
-                    'match_fields' => $this->buildMatchFields($master),
-                    'changes' => $changes['changes'],
-                    'status' => $status,
-                    'message' => $message,
-                ]);
-
-                $mergedCount++;
             }
         }
-
-        return $mergedCount;
+        return $mergedCount ?? 0;
     }
 
     private function fetchContacts(): array
@@ -78,27 +86,26 @@ class ContactMergeService
         $limit = 250;
 
         while (true) {
-            try {
+//            try {
                 $response = $this->amoApi->service->ajax()->get('/api/v4/contacts', [
                     'limit' => $limit,
                     'page' => $page,
                     'with' => 'custom_fields_values,tags',
                 ]);
-            } catch (\Throwable $exception) {
-                Log::warning(__METHOD__.' failed to load contacts', [
-                    'message' => $exception->getMessage(),
-                ]);
-                break;
-            }
+//            } catch (\Throwable $exception) {
+//                Log::warning(__METHOD__.' failed to load contacts', [
+//                    'message' => $exception->getMessage(),
+//                ]);
+//                break;
+//            }
 
             $batch = $response->_embedded->contacts ?? [];
 
-            if (!$batch) {
+            if ($batch) {
+                $contacts = array_merge($contacts, json_decode(json_encode($batch), true));
+                $page++;
+            } else
                 break;
-            }
-
-            $contacts = array_merge($contacts, json_decode(json_encode($batch), true));
-            $page++;
         }
 
         return $contacts;
@@ -106,52 +113,104 @@ class ContactMergeService
 
     private function groupContacts(array $contacts): array
     {
-        $groups = [];
+        $matchFields = $this->setting->match_fields ?? [];
 
-        foreach ($contacts as $contact) {
-            $key = $this->matchKey($contact);
+        if (!$matchFields) {
+            return [];
+        }
 
-            if (!$key) {
+        $parent = array_keys($contacts);
+        $keyedIndexes = [];
+        $eligible = [];
+
+        foreach ($contacts as $index => $contact) {
+            $keys = $this->matchKeys($contact, $matchFields);
+
+            if (!$keys) {
                 continue;
             }
 
-            $groups[$key][] = $contact;
+            $eligible[$index] = true;
+
+            foreach ($keys as $key) {
+                $keyedIndexes[$key][] = $index;
+            }
+        }
+
+        foreach ($keyedIndexes as $indexes) {
+            if (count($indexes) < 2) {
+                continue;
+            }
+
+            $first = $indexes[0];
+
+            foreach (array_slice($indexes, 1) as $index) {
+                $this->union($parent, $first, $index);
+            }
+        }
+
+        $groups = [];
+
+        foreach ($contacts as $index => $contact) {
+            if (!isset($eligible[$index])) {
+                continue;
+            }
+
+            $root = $this->find($parent, $index);
+            $groups[$root][] = $contact;
         }
 
         return $groups;
     }
 
-    private function matchKey(array $contact): ?string
+    private function matchKeys(array $contact, array $matchFields): array
     {
-        $matchFields = $this->setting->match_fields ?? [];
-
-        if (!$matchFields) {
-            return null;
-        }
-
-        $parts = [];
+        $keys = [];
 
         foreach ($matchFields as $fieldKey) {
             $values = $this->extractValues($contact, $fieldKey);
 
             if (!$values) {
-                return null;
+                continue;
             }
 
             $normalized = $this->normalizeValues($values);
-            $parts[] = implode(',', $normalized);
+
+            foreach ($normalized as $value) {
+                $keys[] = $fieldKey.':'.$value;
+            }
         }
 
-        return implode('|', $parts);
+        return array_values(array_unique($keys));
     }
 
+    private function find(array &$parent, int $index): int
+    {
+        if ($parent[$index] !== $index) {
+            $parent[$index] = $this->find($parent, $parent[$index]);
+        }
+
+        return $parent[$index];
+    }
+
+
+    private function union(array &$parent, int $a, int $b): void
+    {
+        $rootA = $this->find($parent, $a);
+        $rootB = $this->find($parent, $b);
+
+        if ($rootA !== $rootB) {
+            $parent[$rootB] = $rootA;
+        }
+    }
+
+    //TODO тут разные стратегии проверки?
     private function selectMaster(array $contacts): array
     {
         usort($contacts, fn (array $a, array $b) => $a['id'] <=> $b['id']);
 
-        if ($this->setting->master_strategy === Setting::STRATEGY_NEWEST) {
+        if ($this->setting->master_strategy === Setting::STRATEGY_NEWEST)
             return end($contacts);
-        }
 
         return reset($contacts);
     }
@@ -253,8 +312,10 @@ class ContactMergeService
 
         try {
             $this->amoApi->service->ajax()->patch('/api/v4/contacts', [$payload]);
+
         } catch (\Throwable $exception) {
-            Log::warning(__METHOD__.' failed to update contact', [
+
+            Log::error(__METHOD__.' failed to update contact', [
                 'contact_id' => $contactId,
                 'message' => $exception->getMessage(),
             ]);
@@ -274,30 +335,32 @@ class ContactMergeService
                 ],
             ]]);
         } catch (\Throwable $exception) {
-            Log::warning(__METHOD__.' failed to tag contact', [
+
+            Log::error(__METHOD__.' failed to tag contact', [
                 'contact_id' => $contactId,
                 'message' => $exception->getMessage(),
             ]);
         }
     }
 
-    private function buildMatchFields(array $contact): array
+    private function buildMatchFields(array $master): string
     {
         $data = [];
 
         foreach ($this->setting->match_fields ?? [] as $fieldKey) {
-            $data[$fieldKey] = $this->normalizeValues($this->extractValues($contact, $fieldKey));
+
+            $data[$fieldKey] = $this->extractValues($master, $fieldKey);
         }
 
-        return $data;
+        foreach ($data as $field => $value) {
+
+            return trim(implode(',', $value), ',');
+        }
     }
 
+    //
     private function extractValues(array $contact, string|int $fieldKey): array
     {
-        if ($fieldKey === 'name') {
-            return array_filter([$contact['name'] ?? null]);
-        }
-
         $fields = $this->mapCustomFields($contact);
         $values = $fields[$fieldKey] ?? [];
 

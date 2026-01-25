@@ -64,6 +64,11 @@ class ListContactMerge extends ListRecords
                         return 'Изменено полей: '.count($changes);
                     }),
 
+                TextColumn::make('match_fields')
+                    ->label('Совпадение')
+                    ->wrap()
+                    ->toggleable(),
+
                 TextColumn::make('message')
                     ->label('Сообщение')
                     ->toggleable(),

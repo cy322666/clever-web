@@ -32,6 +32,7 @@ class EditContactMerge extends EditRecord
                 ->icon('heroicon-o-play')
                 ->action(function () {
                     if (!$this->record->active) {
+
                         Notification::make()
                             ->title('Интеграция выключена')
                             ->warning()

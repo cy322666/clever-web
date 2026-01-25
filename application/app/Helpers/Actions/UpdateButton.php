@@ -50,10 +50,12 @@ abstract class UpdateButton
             //если статус приложения активен
             if ($app->status == App::STATE_ACTIVE) {
 
-//                dump('active 2');
                 if (is_null($record->install_at)) {
 
                     $app->installed_at = Carbon::now();
+
+                    $app->expires_tariff_at = Carbon::now()->addDays(14);
+                    $app->save();
                 }
 
                 //активен виджет - кнопка Выключить
@@ -81,6 +83,11 @@ abstract class UpdateButton
                             $app->status = App::STATE_ACTIVE;
                             $app->save();
 
+                            $setting = $app->getSettingModel();
+
+                            $setting->active = true;
+                            $setting->save();
+
                             static::getNotification($app);
                         })
                         ->label('Включить');
@@ -89,7 +96,7 @@ abstract class UpdateButton
                 } elseif ($app->status == App::STATE_INACTIVE) {
 
                     //если еще срок не вышел
-                    if (Carbon::now() < $app->expires_tariff_at) {
+                    if (Carbon::now() > $app->expires_tariff_at) {
 
                         //кнопка Включить
                         return Action::make('active')
@@ -98,6 +105,11 @@ abstract class UpdateButton
 
                                 $app->status = App::STATE_ACTIVE;
                                 $app->save();
+
+                                $setting = $app->getSettingModel();
+
+                                $setting->active = true;
+                                $setting->save();
 
                                 static::getNotification($app);
                             })

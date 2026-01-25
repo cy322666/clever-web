@@ -57,7 +57,7 @@ class Field extends Model
         return Field::query()
             ->where('user_id', Auth::id())
             ->where('entity_type', 'contacts')
-            ->pluck('name', 'id');
+            ->pluck('name', 'field_id');
     }
 
     public static function getCompanyFields(): Builder
