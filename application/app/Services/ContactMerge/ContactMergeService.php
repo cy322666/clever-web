@@ -6,20 +6,15 @@ use App\Models\Integrations\ContactMerge\Record;
 use App\Models\Integrations\ContactMerge\Setting;
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ContactMergeService
 {
-    private string $baseUrl;
-
     public function __construct(
         private readonly Setting $setting,
         private readonly Client $amoApi,
     )
     {
-        $zone = $this->amoApi->storage->model->zone ?? 'ru';
-        $this->baseUrl = 'https://'.$this->amoApi->account->subdomain.'.amocrm.'.$zone;
     }
 
     public function run(): int
@@ -83,28 +78,26 @@ class ContactMergeService
         $limit = 250;
 
         while (true) {
-            $response = $this->request()
-                ->get($this->baseUrl.'/api/v4/contacts', [
+            try {
+                $response = $this->amoApi->service->ajax()->get('/api/v4/contacts', [
                     'limit' => $limit,
                     'page' => $page,
                     'with' => 'custom_fields_values,tags',
                 ]);
-
-            if (!$response->ok()) {
+            } catch (\Throwable $exception) {
                 Log::warning(__METHOD__.' failed to load contacts', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'message' => $exception->getMessage(),
                 ]);
                 break;
             }
 
-            $batch = $response->json('_embedded.contacts', []);
+            $batch = $response->_embedded->contacts ?? [];
 
             if (!$batch) {
                 break;
             }
 
-            $contacts = array_merge($contacts, $batch);
+            $contacts = array_merge($contacts, json_decode(json_encode($batch), true));
             $page++;
         }
 
@@ -258,16 +251,13 @@ class ContactMergeService
     {
         $payload['id'] = $contactId;
 
-        $response = $this->request()
-            ->patch($this->baseUrl.'/api/v4/contacts', [$payload]);
-
-        if (!$response->ok()) {
+        try {
+            $this->amoApi->service->ajax()->patch('/api/v4/contacts', [$payload]);
+        } catch (\Throwable $exception) {
             Log::warning(__METHOD__.' failed to update contact', [
                 'contact_id' => $contactId,
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'message' => $exception->getMessage(),
             ]);
-
             return false;
         }
 
@@ -276,19 +266,17 @@ class ContactMergeService
 
     private function tagContact(int $contactId, string $tag): void
     {
-        $response = $this->request()
-            ->patch($this->baseUrl.'/api/v4/contacts', [[
+        try {
+            $this->amoApi->service->ajax()->patch('/api/v4/contacts', [[
                 'id' => $contactId,
                 'tags' => [
                     ['name' => $tag],
                 ],
             ]]);
-
-        if (!$response->ok()) {
+        } catch (\Throwable $exception) {
             Log::warning(__METHOD__.' failed to tag contact', [
                 'contact_id' => $contactId,
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'message' => $exception->getMessage(),
             ]);
         }
     }
@@ -370,11 +358,4 @@ class ContactMergeService
         return json_encode($currentValues) !== json_encode($nextValues);
     }
 
-    private function request()
-    {
-        return Http::withHeaders([
-            'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer '.$this->amoApi->account->access_token,
-        ]);
-    }
 }
