@@ -67,49 +67,55 @@ class SendRecord extends Command
 
         // LEAD
 
-        //уже прокинутая в амо сделка
-        $recordDouble = Record::query()
-            ->where('record_id', $record->record_id)
-            ->where('id', '!=', $record->id)
-            ->whereNotNull('lead_id')
-            ->where('account_id', $account->id)
-            ->first();
+        if ($record->lead_id)
 
-        if (!empty($recordDouble) && $recordDouble->lead_id) {
+            $lead = ServiceLead::get($amoApi, $record->lead_id);
 
-            $lead = ServiceLead::get($amoApi, $recordDouble->lead_id);
+        if (empty($lead)) {
 
-            // уже привязывали сделку к записи
-            if ($lead)
-                ServiceLead::update($lead, $objectStatus, $record);
+            //уже прокинутая в амо сделка
+            $recordDouble = Record::query()
+                ->where('record_id', $record->record_id)
+                ->where('id', '!=', $record->id)
+                ->whereNotNull('lead_id')
+                ->where('account_id', $account->id)
+                ->first();
 
-        } else {
-            // поиск открытой сделки у контакта в нужной воронке
-            $leadCollection = ServiceLead::searchAll($contact, $amoApi, $objectStatus->pipeline_id);
+            if (!empty($recordDouble) && $recordDouble->lead_id) {
 
-            if ($leadCollection->count() > 0) {
+                $lead = ServiceLead::get($amoApi, $recordDouble->lead_id);
 
-                foreach ($leadCollection as $lead) {
+                // уже привязывали сделку к записи
+                if ($lead)
+                    ServiceLead::update($lead, $objectStatus, $record);
 
-                    $recordDouble = Record::query()
-                        ->where('lead_id', $lead->id)
-                        ->where('record_id', '!=', $record->record_id)
-                        ->first();
+            } else {
+                // поиск открытой сделки у контакта в нужной воронке
+                $leadCollection = ServiceLead::searchAll($contact, $amoApi, $objectStatus->pipeline_id);
 
-                    //сделка не привязана к какой то записи
-                    if (!$recordDouble)
+                if ($leadCollection->count() > 0) {
 
-                        break;
-                }
-                $lead = null;
-            } else
-                $lead = null;
+                    foreach ($leadCollection as $lead) {
 
-            if (!empty($lead))
-                ServiceLead::update($lead, $objectStatus, $record);
-            else
-                $lead = ServiceLead::create($contact, $objectStatus, $record);
+                        $recordDouble = Record::query()
+                            ->where('lead_id', $lead->id)
+                            ->where('record_id', '!=', $record->record_id)
+                            ->first();
+
+                        //сделка не привязана к какой то записи
+                        if (!$recordDouble)
+
+                            break;
+                    }
+                } else
+                    $lead = null;
+            }
         }
+
+        if (!empty($lead))
+            ServiceLead::update($lead, $objectStatus, $record);
+        else
+            $lead = ServiceLead::create($contact, $objectStatus, $record);
 
         Notes::createNoteLead($ycApi, $record, $lead);
 

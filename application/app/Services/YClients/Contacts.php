@@ -17,7 +17,12 @@ abstract class Contacts
             'Почта'   => $client->email,
         ], $amoApi);
 
-        $contact = $contact ? static::update($contact, $client) : static::create($amoApi);
+        if (!$contact) {
+
+            $contact = static::create($amoApi);
+            $contact = static::update($contact, $client);
+        } else
+            $contact = static::update($contact, $client);
 
         $client->contact_id = $contact->id;
         $client->save();
@@ -65,9 +70,11 @@ abstract class Contacts
 
     public static function create(\App\Services\amoCRM\Client $amoApi)
     {
-        return $amoApi->service
-            ->contacts()
-            ->create();
+        $contact = $amoApi->service->contacts()->create();
+        $contact->name = 'Клиент YClients';
+        $contact->save();
+
+        return $contact;
     }
 
     public static function get($client, $id)
