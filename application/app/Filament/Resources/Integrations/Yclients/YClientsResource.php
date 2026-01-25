@@ -43,7 +43,7 @@ class YClientsResource extends Resource
         return YClients\Record::query()->count();
     }
 
-    public function clearTransactions(int $days = 7): bool
+    public static function clearTransactions(int $days = 7): bool
     {
         YClients\Record::query()
             ->where('created_at', '<', Carbon::now()
