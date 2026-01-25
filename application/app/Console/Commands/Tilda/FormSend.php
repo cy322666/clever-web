@@ -45,17 +45,9 @@ class FormSend extends Command
 
         $body = json_decode($form->body);
         $setting = json_decode($setting->settings, true)[$form->site];
-        $amoApi = (new Client($account))
-            ->setDelay(0.5);
-//            ->initLogs(Env::get('APP_DEBUG'));
+        $amoApi = (new Client($account))->setDelay(0.5);
 
-        $pipelineId = Status::query()
-            ->find($setting['pipeline_id'])
-            ?->pipeline_id;
-
-        $statusId = Status::query()
-            ->find($setting['status_id'] ?? null)
-            ?->status_id;
+        $objectStatus = Status::getObject($setting['status_id']);
 
         $responsibleId = Staff::query()
             ->find($setting['responsible_user_id'])
@@ -75,7 +67,7 @@ class FormSend extends Command
 
         } elseif ($setting['is_union'] == 'yes') {
 
-            $lead = Leads::search($contact, $amoApi, $pipelineId);
+            $lead = Leads::search($contact, $amoApi, $objectStatus->pipeline_id);
 
             if ($lead)
                 $responsibleId = $lead->responsible_user_id;
@@ -91,8 +83,8 @@ class FormSend extends Command
 
             $lead = Leads::createPrepare($contact, [
                 'responsible_user_id' => $responsibleId,
-                'pipeline_id' => $pipelineId,
-                'status_id' => $statusId,
+                'pipeline_id' => $objectStatus->pipeline_id,
+                'status_id' => $objectStatus->status_id,
             ], 'Новая заявка с Тильды');
         }
 
@@ -130,12 +122,13 @@ class FormSend extends Command
                         }
                     }
 
-                    $name .= "\n";
+//                    $name .= "\n";
 
                 } catch (\Throwable) {}
             }
 
-            $lead->cf($fieldProducts->name)->setValue($name);
+            if ($fieldProducts)
+                $lead->cf($fieldProducts->name)->setValue($name);
 
             if (isset($setting['fields']))
 

@@ -93,10 +93,11 @@ class Status extends Model
                 'pipeline_id' => $array[0],
             ];
 
-        } else return
-            (object)[
-                'status_id',
-                'pipeline_id',
-            ];
+        } else
+            return
+                (object)[
+                    'status_id',
+                    'pipeline_id',
+                ];
     }
 }

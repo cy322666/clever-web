@@ -25,6 +25,11 @@ class Field extends Model
         'user_id',
     ];
 
+    public static function getAllFields(): Builder
+    {
+        return Field::query()->where('user_id', Auth::id());
+    }
+
     public static function getLeadFields(): Builder
     {
         return Field::query()

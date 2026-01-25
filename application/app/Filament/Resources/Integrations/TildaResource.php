@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations;
 use App\Filament\Resources\Integrations\TildaResource\Pages;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
+use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Alfa\Transaction;
@@ -89,11 +90,6 @@ class TildaResource extends Resource
                                     ->label('Название')
                                     ->hint('Для различения настроек форм'),
 
-//                                Forms\Components\Select::make('pipeline_id')
-//                                    ->label('Воронка')
-//                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-//                                    ->required(),
-
                                 Forms\Components\Select::make('status_id')
                                     ->label('Этап')
                                     ->options(Status::getTriggerStatuses())
@@ -137,7 +133,7 @@ class TildaResource extends Resource
                                 Forms\Components\Select::make('field_products')
                                     ->label('Поле для товаров')
                                     ->searchable()
-                                    ->options(Auth::user()->amocrm_fields()->pluck('name', 'id')),
+                                    ->options(Field::getLeadSelectFields()),
 
                                 Forms\Components\Radio::make('utms')
                                     ->label('Действия с метками')
@@ -158,7 +154,7 @@ class TildaResource extends Resource
                                         Forms\Components\Select::make('field_amo')
                                             ->label('Поле из amoCRM')
                                             ->searchable()
-                                            ->options(Auth::user()->amocrm_fields()->pluck('name', 'id'))
+                                            ->options(Field::getLeadSelectFields())
                                             ->required(),
                                     ])
                                     ->columns()
