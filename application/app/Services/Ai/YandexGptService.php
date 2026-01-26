@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Http;
 
 class YandexGptService
 {
+    public string $apiKey;
+
     public function generate(string $prompt, string $transcript): string
     {
         $apiKey = config('services.yandex_gpt.api_key');

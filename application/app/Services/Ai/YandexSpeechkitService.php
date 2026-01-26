@@ -6,17 +6,14 @@ use Illuminate\Support\Facades\Http;
 
 class YandexSpeechkitService
 {
-    public function transcribeFromUrl(string $recordingUrl, ?string $format = null, ?int $sampleRate = null): ?string
-    {
-        $apiKey = config('services.yandex_speechkit.api_key');
-        $folderId = config('services.yandex_speechkit.folder_id');
-        $language = config('services.yandex_speechkit.language', 'ru-RU');
-        $defaultFormat = config('services.yandex_speechkit.format', 'oggopus');
-        $defaultSampleRate = config('services.yandex_speechkit.sample_rate', 48000);
+    public string $apiKey;
 
-        if (!$apiKey || !$folderId) {
-            return null;
-        }
+    public function transcribeFromUrl(string $recordingUrl): ?string
+    {
+        $folderId = config('services.yandex_speechkit.folder_id');//TODO
+        $language = 'ru-RU';
+        $defaultFormat = 'oggopus';
+        $defaultSampleRate = 48000;
 
         $audioResponse = Http::get($recordingUrl);
 
@@ -24,17 +21,17 @@ class YandexSpeechkitService
             return null;
         }
 
-        $audioFormat = $format ?: $defaultFormat;
-        $rate = $sampleRate ?: $defaultSampleRate;
-        $contentType = $this->resolveContentType($audioFormat);
+//        $audioFormat = $format ?: $defaultFormat;
+//        $rate = $sampleRate ?: $defaultSampleRate;
+        $contentType = $this->resolveContentType($defaultFormat);
 
-        $response = Http::withToken($apiKey)
+        $response = Http::withToken($this->apiKey)
             ->withBody($audioResponse->body(), $contentType)
             ->post('https://stt.api.cloud.yandex.net/speech/v1/stt:recognize', [
                 'folderId' => $folderId,
                 'lang' => $language,
-                'format' => $audioFormat,
-                'sampleRateHertz' => $rate,
+                'format' => $defaultFormat,
+                'sampleRateHertz' => $defaultSampleRate,
             ]);
 
         if (!$response->ok()) {

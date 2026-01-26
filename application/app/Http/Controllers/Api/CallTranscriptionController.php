@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\CallTranscription\RunSend;
 use App\Models\amoCRM\Field;
+use App\Models\Integrations\CallTranscription\Transaction;
 use App\Models\User;
 use App\Services\Ai\YandexGptService;
-use App\Services\Ai\YandexSpeechkitService;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Notes;
 use Illuminate\Http\Request;
@@ -14,26 +15,22 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CallTranscriptionController extends Controller
 {
-    public function hook(
-        User $user,
-        string $setting,
-        Request $request,
-        YandexGptService $ai,
-        YandexSpeechkitService $speechkit
-    ): Response
+    /**
+     * @throws \Exception
+     */
+    public function hook(User $user, Request $request, string $form)
     {
-        $data = $request->validate([
-            'entity_id' => ['required', 'integer'],
-            'entity_type' => ['nullable', 'in:leads,contacts'],
-            'transcript' => ['nullable', 'string'],
-            'recording_url' => ['nullable', 'url'],
-            'audio_format' => ['nullable', 'string'],
-            'sample_rate' => ['nullable', 'integer'],
-            'call_id' => ['nullable', 'string'],
-        ]);
+        $dataNote = $request->contacts['note'][0]['note'];
+
+        if ($dataNote['note_type'] != 11 && $dataNote['note_type'] != 10) {
+            return;
+        }
+
+        $noteText = json_decode($dataNote['text'], true);
 
         $settingsModel = $user->callTranscriptionSetting;
 
+        //TODO?
         if (!$settingsModel?->active) {
             return new Response(null, 403);
         }
@@ -41,81 +38,28 @@ class CallTranscriptionController extends Controller
         $settings = $settingsModel->settings ?? [];
 
         if (is_string($settings)) {
-            $settings = json_decode($settings, true) ?? [];
+            $settingBody = json_decode($settings, true)[$form] ?? [];
         }
 
-        $selectedSetting = is_numeric($setting) ? ($settings[(int) $setting] ?? null) : null;
-
-        if (!$selectedSetting) {
-            foreach ($settings as $item) {
-                if (($item['code'] ?? null) === $setting) {
-                    $selectedSetting = $item;
-                    break;
-                }
-            }
-        }
-
-        if (!$selectedSetting || ($selectedSetting['enabled'] ?? true) === false) {
+        if (empty($settingBody) || $settingBody === []) {
             return new Response(null, 404);
         }
 
-        $entityType = $data['entity_type'] ?? $selectedSetting['entity_type'] ?? 'leads';
-        $prompt = trim($selectedSetting['prompt'] ?? '');
-        $provider = $selectedSetting['ai_provider'] ?? 'yandex';
+        $transaction = Transaction::query()->create([
+            'lead_id' => $dataNote['element_type'] == 2 ? $dataNote['element_id'] : null,
+            'contact_id' => $dataNote['element_type'] == 1 ? $dataNote['element_id'] : null,
+            'duration' => $noteText['DURATION'],
+            'note_type' => $dataNote['note_type'],
+            'setting_id' => $settingsModel->id,
+            'form_setting_id' => $form,
+            'user_id' => $user->id,
+            'account_id' => $user->account->id,
+            'call_status' => $noteText['call_status'],
+            'url' => $noteText['LINK'],
+        ]);
 
-        if ($provider !== 'yandex') {
-            return new Response('Only Yandex GPT is supported right now', 422);
-        }
+        dd('ssss');
 
-        $transcript = $data['transcript'];
-
-        if (!$transcript && !empty($data['recording_url'])) {
-            $transcript = $speechkit->transcribeFromUrl(
-                $data['recording_url'],
-                $data['audio_format'] ?? null,
-                $data['sample_rate'] ?? null
-            );
-        }
-
-        if (!$transcript) {
-            return new Response('Transcript is missing', 422);
-        }
-
-        $result = $prompt ? $ai->generate($prompt, $transcript) : $transcript;
-
-        $amoApi = new Client($user->account);
-
-        $entity = $entityType === 'contacts'
-            ? $amoApi->service->contacts()->find($data['entity_id'])
-            : $amoApi->service->leads()->find($data['entity_id']);
-
-        if (!$entity) {
-            return new Response(null, 404);
-        }
-
-        if (($selectedSetting['result_destination'] ?? 'field') === 'note') {
-            $notePrefix = trim($selectedSetting['note_prefix'] ?? '');
-            $noteText = $notePrefix ? $notePrefix."\n".$result : $result;
-
-            Notes::addOne($entity, $noteText);
-        } else {
-            $field = Field::query()->find($selectedSetting['field_id'] ?? null);
-
-            if ($field) {
-                $entity->cf($field->name)->setValue($result);
-                $entity->save();
-            }
-        }
-
-        if (!empty($selectedSetting['salesbot_id']) && $entityType === 'leads') {
-            $amoApi->service->ajax()->post('/api/v4/leads/'.$data['entity_id'].'/actions/salesbot', [
-                'bot_id' => (int) $selectedSetting['salesbot_id'],
-            ]);
-        }
-
-        return new Response(json_encode([
-            'status' => 'ok',
-            'entity_id' => $data['entity_id'],
-        ]), 200, ['Content-Type' => 'application/json']);
+        RunSend::dispatch($transaction, $setting, $user->account);
     }
 }

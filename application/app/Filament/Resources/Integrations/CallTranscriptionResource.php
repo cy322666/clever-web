@@ -8,13 +8,13 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Field;
 use App\Models\Integrations\CallTranscription;
 use Filament\Forms;
-use Filament\Forms\Get;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
 
@@ -28,7 +28,7 @@ class CallTranscriptionResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'Транскрибация звонков';
+    protected static ?string $recordTitleAttribute = 'ИИ Контроль звонков';
 
     public static function getTransactions(): int
     {
@@ -64,10 +64,23 @@ class CallTranscriptionResource extends Resource
                                     ->label('Название настройки')
                                     ->required(),
 
-                                TextInput::make('code')
-                                    ->label('Ключ настройки')
-                                    ->helperText('Используется для маршрутизации вебхуков в amoCRM')
+                                TextInput::make('token')
+                                    ->label('Токен ИИ')
+                                    ->helperText('Тут инструкция как сделать либо напишите в чат')
                                     ->required(),
+
+                                TextInput::make('time_at')
+                                    ->label('От скольки сек обрабатывать')
+                                    ->numeric()
+                                    ->required(),
+
+                                TextInput::make('time_to')
+                                    ->label('До скольки сек обрабатывать')
+                                    ->numeric()
+                                    ->required(),
+
+                                //AQVN2sGpR7lKBdxs160BfGf1Wpv8oz1uoQMjG4Eu
+                                //ajeqo6kkfeaa0ne6pltd
 
                                 Forms\Components\Select::make('ai_provider')
                                     ->label('ИИ провайдер')
@@ -80,7 +93,7 @@ class CallTranscriptionResource extends Resource
 
                                 Textarea::make('prompt')
                                     ->label('Промпт')
-                                    ->rows(6)
+                                    ->rows(10)
                                     ->required(),
 
                                 Forms\Components\Radio::make('result_destination')
@@ -92,14 +105,14 @@ class CallTranscriptionResource extends Resource
                                     ->default('field')
                                     ->required(),
 
-                                Forms\Components\Select::make('entity_type')
-                                    ->label('Сущность')
-                                    ->options([
-                                        'leads' => 'Сделка',
-                                        'contacts' => 'Контакт',
-                                    ])
-                                    ->default('leads')
-                                    ->required(),
+//                                Forms\Components\Select::make('entity_type')
+//                                    ->label('Сущность')
+//                                    ->options([
+//                                        'leads' => 'Сделка',
+//                                        'contacts' => 'Контакт',
+//                                    ])
+//                                    ->default('leads')
+//                                    ->required(),
 
                                 Forms\Components\Select::make('field_id')
                                     ->label('Поле amoCRM')
@@ -110,18 +123,20 @@ class CallTranscriptionResource extends Resource
                                     ->required(fn(Get $get) => $get('result_destination') === 'field')
                                     ->visible(fn(Get $get) => $get('result_destination') === 'field'),
 
-                                TextInput::make('note_prefix')
-                                    ->label('Префикс для примечания')
-                                    ->helperText('Если указан, добавляется перед результатом')
-                                    ->visible(fn(Get $get) => $get('result_destination') === 'note'),
+//                                TextInput::make('note_prefix')
+//                                    ->label('Префикс для примечания')
+//                                    ->helperText('Если указан, добавляется перед результатом')
+//                                    ->visible(fn(Get $get) => $get('result_destination') === 'note'),
 
-                                TextInput::make('salesbot_id')
+                                Forms\Components\Select::make('salesbot_id')
                                     ->label('ID Salesbot')
-                                    ->helperText('Оставьте пустым, если запускать Salesbot не нужно'),
+                                    ->searchable()
+                                    ->options(fn(CallTranscription\Setting $setting) => $setting->getSelectSalesbots())
+                                    ->helperText('Выберете, если после обработки звонка нужно запустить бота'),
 
-                                Toggle::make('enabled')
-                                    ->label('Активировать настройку')
-                                    ->default(true),
+//                                Toggle::make('enabled')
+//                                    ->label('Активировать настройку')
+//                                    ->default(true),
                             ])
                             ->columns()
                             ->collapsible()
