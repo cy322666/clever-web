@@ -3,7 +3,6 @@
 namespace App\Filament\App\Pages;
 
 use App\Filament\App\Widgets\Market;
-use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 
 use Filament\Pages\Dashboard as BaseDashboard;

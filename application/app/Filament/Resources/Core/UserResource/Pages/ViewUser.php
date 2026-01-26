@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Core\UserResource\Pages;
 
+use App\Filament\Catalog\Widgets\Widgets\WidgetResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
+use App\Models\Widgets\WidgetCategory;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -35,6 +37,12 @@ class ViewUser extends ViewRecord
                ->url(UserResource::getUrl())
                ->color(Color::Gray)
                ->hidden(fn() => !Auth::user()->is_root),
+
+            Action::make('widgets')
+                ->label('Виджеты')
+                ->url(env('APP_URL') . '/catalog/widgets')
+                ->color(Color::Gray)
+                ->hidden(fn() => !Auth::user()->is_root),
         ];
     }
 
