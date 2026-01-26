@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ActiveLeadController;
 use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
+use App\Http\Controllers\Api\CallTranscriptionController;
 use App\Http\Controllers\Api\DadataController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\DocsController;
@@ -62,6 +63,10 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
     Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
         ->middleware(['integration.active:yclients'])
         ->name('yclients.hook');
+
+    Route::post('amocrm/call-transcription/{user:uuid}/{setting}', [CallTranscriptionController::class, 'hook'])
+        ->middleware(['integration.active:call-transcription'])
+        ->name('amocrm.call-transcription');
 });
 
 //amoCRM
@@ -85,5 +90,4 @@ Route::group(['prefix' => 'amocrm'], function () {
 });
 
 //Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
-
 

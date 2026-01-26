@@ -43,4 +43,9 @@ return [
         'local_storage_path'  => storage_path('app/public/'),
         'yandex_storage_path' => 'amoCRM/Documents/',
     ],
+    'yandex_gpt' => [
+        'api_key' => env('YANDEX_GPT_API_KEY'),
+        'folder_id' => env('YANDEX_GPT_FOLDER_ID'),
+        'model' => env('YANDEX_GPT_MODEL', 'yandexgpt'),
+    ],
 ];
