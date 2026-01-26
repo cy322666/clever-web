@@ -44,9 +44,25 @@ Route::get('/widgets', function () {
         ],
     ];
 
+    $schema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'ItemList',
+        'name' => 'Каталог виджетов',
+        'itemListElement' => collect($widgets)
+            ->values()
+            ->map(fn ($widget, $index) => [
+                '@type' => 'ListItem',
+                'position' => $index + 1,
+                'name' => $widget['name'],
+                'url' => url()->current() . '#' . $widget['slug'],
+            ])
+            ->all(),
+    ];
+
     return view('public.widgets.index', [
         'widgets' => $widgets,
         'updatedAt' => now()->toDateString(),
+        'schema' => $schema,
     ]);
 })->name('public.widgets.index');
 

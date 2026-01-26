@@ -194,22 +194,6 @@
         </footer>
     </main>
 
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            "name": "Каталог виджетов",
-            "itemListElement": [
-                @foreach ($widgets as $index => $widget)
-                    {
-                        "@type": "ListItem",
-                        "position": {{ $index + 1 }},
-                        "name": "{{ $widget['name'] }}",
-                        "url": "{{ url()->current() }}#{{ $widget['slug'] }}"
-                    }@if (! $loop->last),@endif
-                @endforeach
-            ]
-        }
-    </script>
+    <script type="application/ld+json">{!! json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 </body>
 </html>
