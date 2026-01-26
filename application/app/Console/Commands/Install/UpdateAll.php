@@ -37,5 +37,6 @@ class UpdateAll extends Command
         Artisan::call('install:table');
         Artisan::call('install:analytic');
         Artisan::call('install:yclients');
+        Artisan::call('install:call-transcription');
     }
 }
