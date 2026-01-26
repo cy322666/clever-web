@@ -92,10 +92,10 @@ class AlfaResource extends Resource
                        Fieldset::make('Настройки amoCRM')
                            ->schema([
 
-                               Select::make('status_record')
-                                   ->label('Статус записи')
-                                   ->options(Status::getTriggerStatuses())
-                                   ->searchable(),
+//                               Select::make('status_record')
+//                                   ->label('Статус записи')
+//                                   ->options(Status::getTriggerStatuses())
+//                                   ->searchable(),
 
                                Select::make('status_came')
                                    ->label('Статус пришедших')

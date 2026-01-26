@@ -33,6 +33,9 @@ class Setting extends Model
     public const RECORD = 1;
     public const CAME = 2;
     public const OMISSION = 3;
+    public const PAY = 4;
+    public const NO_PAY = 4;
+    public const ARCHIVE = 5;
 
     static array $cost = [
         '6_month'  => '6.000 р',
@@ -40,19 +43,12 @@ class Setting extends Model
     ];
 
     protected $fillable = [
-        'status_came_1',
-        'status_came_2',
-        'status_came_3',
-        'status_record_1',
-        'status_record_2',
-        'status_record_3',
-        'status_omission_1',
-        'status_omission_2',
-        'status_omission_3',
+        'status_came',
+        'status_omission',
 
-        'stage_record_1',
-        'stage_came_1',
-        'stage_omission_1',
+        'stage_record',
+        'stage_came',
+        'stage_omission',
 
         'active',
         'work_lead',
