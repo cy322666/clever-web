@@ -42,6 +42,7 @@ class App extends Model
             'data-info',
             'tables',
             'analytic',
+            'contact-merge',
         ];
     }
 
