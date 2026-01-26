@@ -27,6 +27,29 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
 
+Route::get('/widgets', function () {
+    $widgets = [
+        [
+            'name' => 'amoCRM OAuth Button',
+            'slug' => 'amocrm-oauth-button',
+            'summary' => 'Виджет для быстрого подключения аккаунта amoCRM через OAuth.',
+            'category' => 'CRM интеграции',
+            'repo_path' => 'app/Filament/Widgets/amoCRMButton.php',
+            'view_path' => 'resources/views/filament/app/widgets/amocrm-button.blade.php',
+            'features' => [
+                'Готовая кнопка авторизации amoCRM.',
+                'Настраиваемые данные приложения через config/services.php.',
+                'Подходит для встроенных панелей Filament.',
+            ],
+        ],
+    ];
+
+    return view('public.widgets.index', [
+        'widgets' => $widgets,
+        'updatedAt' => now()->toDateString(),
+    ]);
+})->name('public.widgets.index');
+
 Route::get('/auto-login/{user}', function (Request $request, User $user) {
 
     Auth::login($user);
@@ -34,4 +57,3 @@ Route::get('/auto-login/{user}', function (Request $request, User $user) {
     return redirect($request->redirect ?? env('APP_URL'));
 
 })->name('auto.login')->middleware('signed');
-
