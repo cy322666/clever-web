@@ -48,4 +48,11 @@ return [
         'folder_id' => env('YANDEX_GPT_FOLDER_ID'),
         'model' => env('YANDEX_GPT_MODEL', 'yandexgpt'),
     ],
+    'yandex_speechkit' => [
+        'api_key' => env('YANDEX_SPEECHKIT_API_KEY'),
+        'folder_id' => env('YANDEX_SPEECHKIT_FOLDER_ID'),
+        'language' => env('YANDEX_SPEECHKIT_LANGUAGE', 'ru-RU'),
+        'format' => env('YANDEX_SPEECHKIT_FORMAT', 'oggopus'),
+        'sample_rate' => env('YANDEX_SPEECHKIT_SAMPLE_RATE', 48000),
+    ],
 ];

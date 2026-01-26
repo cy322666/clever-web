@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\amoCRM\Field;
 use App\Models\User;
 use App\Services\Ai\YandexGptService;
+use App\Services\Ai\YandexSpeechkitService;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Notes;
 use Illuminate\Http\Request;
@@ -13,12 +14,21 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CallTranscriptionController extends Controller
 {
-    public function hook(User $user, string $setting, Request $request, YandexGptService $ai): Response
+    public function hook(
+        User $user,
+        string $setting,
+        Request $request,
+        YandexGptService $ai,
+        YandexSpeechkitService $speechkit
+    ): Response
     {
         $data = $request->validate([
             'entity_id' => ['required', 'integer'],
             'entity_type' => ['nullable', 'in:leads,contacts'],
-            'transcript' => ['required', 'string'],
+            'transcript' => ['nullable', 'string'],
+            'recording_url' => ['nullable', 'url'],
+            'audio_format' => ['nullable', 'string'],
+            'sample_rate' => ['nullable', 'integer'],
             'call_id' => ['nullable', 'string'],
         ]);
 
@@ -57,7 +67,21 @@ class CallTranscriptionController extends Controller
             return new Response('Only Yandex GPT is supported right now', 422);
         }
 
-        $result = $prompt ? $ai->generate($prompt, $data['transcript']) : $data['transcript'];
+        $transcript = $data['transcript'];
+
+        if (!$transcript && !empty($data['recording_url'])) {
+            $transcript = $speechkit->transcribeFromUrl(
+                $data['recording_url'],
+                $data['audio_format'] ?? null,
+                $data['sample_rate'] ?? null
+            );
+        }
+
+        if (!$transcript) {
+            return new Response('Transcript is missing', 422);
+        }
+
+        $result = $prompt ? $ai->generate($prompt, $transcript) : $transcript;
 
         $amoApi = new Client($user->account);
 
