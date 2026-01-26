@@ -46,6 +46,12 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
         Route::post('came/{user:uuid}', [AlfaCRMController::class, 'came'])->name('alfacrm.came');
 
         Route::post('omission/{user:uuid}', [AlfaCRMController::class, 'omission'])->name('alfacrm.omission');
+
+        Route::post('archive/{user:uuid}', [AlfaCRMController::class, 'archive'])->name('alfacrm.archive');
+
+        Route::post('pay/{user:uuid}', [AlfaCRMController::class, 'pay'])->name('alfacrm.pay');
+
+        Route::post('repeated/{user:uuid}', [AlfaCRMController::class, 'repeated'])->name('alfacrm.repeated');
     });
 
     Route::post('active-leads/{user:uuid}', [ActiveLeadController::class, 'hook'])

@@ -6,6 +6,7 @@ use App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -30,11 +31,13 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('email')
                             ->label('Почта')
                             ->disabled(),
-                        Forms\Components\TextInput::make('name')
-                            ->label('Логин')
-                            ->disabled(),
                         Forms\Components\TextInput::make('uuid')
                             ->label('Идентификатор')
+                            ->copyable()
+                            ->disabled(),
+                        TextEntry::make('subdomain')
+                            ->label('Субдомен')
+                            ->state(fn (?User $record): string => 'https://'.$record?->account?->subdomain.'amocrm.ru' ?? 'amoCRM не подключена')
                             ->disabled(),
                 ])->columnSpan([
                     'sm' => 2,

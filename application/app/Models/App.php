@@ -42,6 +42,7 @@ class App extends Model
             'data-info',
             'tables',
             'analytic',
+            'contact-merge',
         ];
     }
 
@@ -56,6 +57,7 @@ class App extends Model
             'active-lead' => 'Настройте проверку активности клиента при создании сделки',
             'data-info' => 'Поможет узнать часовой пояс клиента по номеру телефона',
             'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
+            'contact-merge' => 'Поиск и склейка дублей контактов в amoCRM с гибкими правилами объединения',
             'docs' => 'Создавайте документы на основе ваших шаблонов',
             'tables' => ' ',
             'analytic' => ' ',
