@@ -57,6 +57,15 @@ class YClientsForm
                         Fieldset::make('Соотношение этапов amoCRM')
                             ->schema([
 
+                                Select::make('pipelines')
+                                    ->label('Воронки')
+                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'pipeline_id'))
+                                    ->multiple()
+                                    ->helperText(
+                                        'Выберите воронки, которые будут использоваться для синхронизации с amoCRM'
+                                    )
+                                    ->searchable(),
+
                                 Select::make('status_id_cancel')
                                     ->label('Этап клиент не пришел')
                                     ->options(Status::getTriggerStatuses())

@@ -33,6 +33,7 @@ class Setting extends Model
         'status_id_came',
         'status_id_confirm',
         'status_id_delete',
+        'pipelines',
         'user_token',
         'partner_token',
         'login',
@@ -42,6 +43,10 @@ class Setting extends Model
         'account_id',
         'fields_contact',
         'fields_lead',
+    ];
+
+    protected $casts = [
+        'pipelines' => 'array',
     ];
 
     public static function YCfieldsSelect(): array
