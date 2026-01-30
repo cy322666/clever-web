@@ -43,6 +43,7 @@ class App extends Model
             'tables',
             'analytic',
             'contact-merge',
+//            'import-excel',
         ];
     }
 
@@ -62,6 +63,7 @@ class App extends Model
             'tables' => ' ',
             'analytic' => ' ',
             'call-transcription' => 'Транскрибация звонков с применением промпта, записью результата в поле или примечание и запуском Salesbot',
+            'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
         };
     }
 
