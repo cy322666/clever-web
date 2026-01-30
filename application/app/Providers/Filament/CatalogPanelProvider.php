@@ -2,8 +2,12 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Catalog\Widgets\CaseCards;
+use App\Filament\Catalog\Pages\CaseCatalog;
+use App\Filament\Catalog\Pages\CaseShow;
 use App\Filament\Catalog\Pages\WidgetCatalog;
-use App\Filament\Catalog\Widgets\WidgetShow;
+use App\Filament\Catalog\Pages\WidgetShow;
+use App\Filament\Catalog\Widgets\WidgetShow as WidgetShowWidget;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\VerifyCsrfToken;
 use Exception;
@@ -28,10 +32,14 @@ class CatalogPanelProvider extends PanelProvider
                 'primary' => '#FF4E36',
             ])
             ->pages([
+                CaseCatalog::class,
+                CaseShow::class,
                 WidgetCatalog::class,
+                WidgetShow::class,
             ])
             ->widgets([
-                WidgetShow::class,
+                CaseCards::class,
+                WidgetShowWidget::class,
             ])
             ->discoverPages(
                 in: app_path('Filament/Catalog/Pages'),

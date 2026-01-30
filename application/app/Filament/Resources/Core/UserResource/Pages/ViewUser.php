@@ -43,6 +43,12 @@ class ViewUser extends ViewRecord
                 ->url(env('APP_URL') . '/catalog/widgets')
                 ->color(Color::Gray)
                 ->hidden(fn() => !Auth::user()->is_root),
+
+            Action::make('cases')
+                ->label('Кейсы')
+                ->url(env('APP_URL') . '/catalog/cases')
+                ->color(Color::Gray)
+                ->hidden(fn() => !Auth::user()->is_root),
         ];
     }
 
