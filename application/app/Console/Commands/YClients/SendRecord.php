@@ -91,7 +91,7 @@ class SendRecord extends Command
 
             } else {
                 // поиск открытой сделки у контакта в нужной воронке
-                $leadCollection = ServiceLead::searchAll($contact, $amoApi, $objectStatus->pipeline_id);
+                $leadCollection = ServiceLead::searchAll($contact, $amoApi, $setting->pipelines);
 
                 if ($leadCollection->count() > 0) {
 

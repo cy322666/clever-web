@@ -173,7 +173,6 @@ abstract class UpdateButton
 
         else
             return static::amoCRMAuthButton($account);
-
     }
 
     public static function amoCRMAuthButton(Account $account): Action
