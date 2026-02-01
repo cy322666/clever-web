@@ -38,5 +38,6 @@ class UpdateAll extends Command
         Artisan::call('install:analytic');
         Artisan::call('install:yclients');
         Artisan::call('install:import-excel');
+        Artisan::call('install:call-transcription');
     }
 }

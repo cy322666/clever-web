@@ -34,14 +34,17 @@ class AlfaCreate extends Command
         if ($userId) {
 
             $setting = Setting::query()
-                ->updateOrCreate(['user_id' => $userId]);
+                ->where('user_id', $userId)
+                ->first();
 
-            App::query()->updateOrCreate([
-                'user_id' => $userId,
-                'name' => $this->app,
-                'setting_id' => $setting->id,
-                'resource_name' => $this->resource,
-            ]);
+            if (!$setting) {
+                App::query()->updateOrCreate([
+                    'user_id' => $userId,
+                    'name' => $this->app,
+                    'setting_id' => $setting->id,
+                    'resource_name' => $this->resource,
+                ]);
+            }
 
         } else {
 

@@ -4,7 +4,6 @@ namespace App\Console\Commands\Install;
 
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Models\App;
-use App\Models\Integrations\Tilda\Setting;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
