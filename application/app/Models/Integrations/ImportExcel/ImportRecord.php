@@ -19,6 +19,7 @@ class ImportRecord extends Model
         'import_id',
         'user_id',
         'filename',
+        'file_path',
         'total_rows',
         'processed_rows',
         'success_rows',

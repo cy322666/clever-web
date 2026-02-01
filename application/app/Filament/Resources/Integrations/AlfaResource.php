@@ -75,16 +75,36 @@ class AlfaResource extends Resource
                                TextInput::make('link_record')
                                    ->label('Вебхук записи')
                                    ->copyable()
-                                   ->hint('Вставьте в воронку в этап записи')
+//                                   ->hint('Вставьте в воронку в этап записи')
                                    ->disabled(),
+
                                TextInput::make('link_came')
                                    ->label('Вебхук посещения')
-                                   ->hint('Вставьте в настройки АльфаСРМ')
+//                                   ->hint('Вставьте в настройки АльфаСРМ')
                                    ->copyable()
                                    ->disabled(),
+
                                TextInput::make('link_omission')
                                    ->label('Вебхук отмены')
-                                   ->hint('Вставьте в настройки АльфаСРМ')
+//                                   ->hint('Вставьте в настройки АльфаСРМ')
+                                   ->copyable()
+                                   ->disabled(),
+
+                               TextInput::make('link_archive')
+                                   ->label('Вебхук удаления клиента')
+//                                   ->hint('Вставьте в настройки АльфаСРМ')
+                                   ->copyable()
+                                   ->disabled(),
+
+                               TextInput::make('link_pay')
+                                   ->label('Вебхук оплаты')
+//                                   ->hint('Вставьте в настройки АльфаСРМ')
+                                   ->copyable()
+                                   ->disabled(),
+
+                               TextInput::make('link_repeated')
+                                   ->label('Вебхук повторного посещения')
+//                                   ->hint('Вставьте в настройки АльфаСРМ')
                                    ->copyable()
                                    ->disabled(),
                            ]),
@@ -104,6 +124,21 @@ class AlfaResource extends Resource
 
                                Select::make('status_omission')
                                    ->label('Статус отказавшихся')
+                                   ->options(Status::getTriggerStatuses())
+                                   ->searchable(),
+
+                               Select::make('status_archive')
+                                   ->label('Статус удаленных клиентов')
+                                   ->options(Status::getTriggerStatuses())
+                                   ->searchable(),
+
+                               Select::make('status_pay')
+                                   ->label('Статус оплаченных')
+                                   ->options(Status::getTriggerStatuses())
+                                   ->searchable(),
+
+                               Select::make('status_repeated')
+                                   ->label('Статус повторных оплат')
                                    ->options(Status::getTriggerStatuses())
                                    ->searchable(),
                            ]),

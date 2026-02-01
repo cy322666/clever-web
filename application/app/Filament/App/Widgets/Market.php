@@ -17,6 +17,7 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Market extends TableWidget
 {
@@ -25,26 +26,28 @@ class Market extends TableWidget
         return $table
             ->query(function () {
 
-                $noPublic = App::noPublicNames();
-
                 $app = App::query()
                     ->where('user_id', auth()->id());
 
-                foreach ($noPublic as $name) {
+                if (env('APP_ENV') === 'production') {
+                    $noPublic = App::noPublicNames();
 
-                    $app->where('name', '!=', $name);
+                    foreach ($noPublic as $name) {
+                        $app->where('name', '!=', $name);
+                    }
                 }
 
                 return $app;
             })
             ->columns([
-                Split::make([
+                Stack::make([
+                    Split::make([
 
-                    TextColumn::make('name')
+                        TextColumn::make('title')
                         ->label('Название')
                         ->weight(FontWeight::Bold)
                         ->size(TextSize::Medium)
-                        ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
+//                        ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
                         ->state(fn(?App $app) => $app->resource_name::getRecordTitle()),
 
                     TextColumn::make('status')
@@ -63,11 +66,24 @@ class Market extends TableWidget
                             App::STATE_ACTIVE   => 'success',
                             App::STATE_EXPIRES  => 'danger',
                         }),
-                ])
+                    ]),
+
+//                     TextColumn::make('description')
+//                         ->label('')
+//                         ->size(TextSize::Small)
+//                         ->wrap()
+//                         ->extraAttributes(['class' => 'mt-3'])
+//                         ->state(
+//                             fn(?App $record) => Str::limit(
+//                                 trim(App::getTooltipText($record->name)),
+//                                 100,
+//                             )
+//                         ),
+                ])->space(3),
             ])
             ->contentGrid([
-                'md' => 2,
-                'xl' => 2,
+                'md' => 3,
+                'xl' => 3,
             ])
 //            ->groups([
 //                Group::make('status')

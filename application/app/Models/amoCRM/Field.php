@@ -45,6 +45,14 @@ class Field extends Model
             ->pluck('name', 'id');
     }
 
+    public static function getCompanySelectFields()
+    {
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('entity_type', 'companies')
+            ->pluck('name', 'id');
+    }
+
     public static function getContactFields(): Builder
     {
         return Field::query()

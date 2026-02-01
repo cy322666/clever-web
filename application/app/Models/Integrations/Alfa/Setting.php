@@ -43,6 +43,10 @@ class Setting extends Model
     ];
 
     protected $fillable = [
+        'status_pay',
+        'status_repeated',
+        'status_archive',
+
         'status_came',
         'status_omission',
 
@@ -86,18 +90,19 @@ class Setting extends Model
         return route('alfacrm.omission', ['user' => $this->user->uuid]);
     }
 
-    public function checkStatus(string $action, int $statusId): bool
+    public function getArchiveLink(): string
     {
-        $action = 'status_'.$action;
+        return route('alfacrm.archive', ['user' => $this->user->uuid]);
+    }
 
-        return match ($statusId) {
+    public function getPayLink(): string
+    {
+        return route('alfacrm.pay', ['user' => $this->user->uuid]);
+    }
 
-            $this->{$action.'_1'},
-            $this->{$action.'_3'},
-            $this->{$action.'_2'} => true,
-
-            default => false,
-        };
+    public function getRepeatedLink(): string
+    {
+        return route('alfacrm.repeated', ['user' => $this->user->uuid]);
     }
 
     public static function getFieldBranch(Lead $lead, ?Contact $contact, Setting $setting): string

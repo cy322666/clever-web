@@ -55,7 +55,11 @@ class EditAlfa extends EditRecord
         $data['link_came']     = $this->record->getCameLink();
         $data['link_omission'] = $this->record->getOmissionLink();
 
-        return parent::mutateFormDataBeforeFill($data);
+        $data['link_archive'] = $this->record->getArchiveLink();
+        $data['link_pay'] = $this->record->getPayLink();
+        $data['link_repeated'] = $this->record->getRepeatedLink();
+
+        return $data;
     }
 
     /**
