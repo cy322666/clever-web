@@ -38,6 +38,8 @@ class AlfaCreate extends Command
                 ->first();
 
             if (!$setting) {
+                $setting = Setting::query()->create(['user_id' => $userId]);
+
                 App::query()->updateOrCreate([
                     'user_id' => $userId,
                     'name' => $this->app,
