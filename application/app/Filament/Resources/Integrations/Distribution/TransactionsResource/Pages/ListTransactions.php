@@ -7,6 +7,7 @@ use App\Filament\Resources\Integrations\Distribution\TransactionsResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
 class ListTransactions extends ListRecords
@@ -24,5 +25,10 @@ class ListTransactions extends ListRecords
                 ->label('График')
                 ->url(ScheduleResource::getUrl())
         ];
+    }
+
+    public function table(Table $table): Table
+    {
+        return TransactionsResource::table($table);
     }
 }

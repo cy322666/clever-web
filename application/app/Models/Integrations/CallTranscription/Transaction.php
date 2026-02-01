@@ -29,6 +29,8 @@ class Transaction extends Model
         'call_status',
         'url',
         'status',
+        'text',
+        'result',
     ];
 
     public function user(): BelongsTo

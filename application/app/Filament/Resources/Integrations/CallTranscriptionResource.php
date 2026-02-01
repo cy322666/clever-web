@@ -128,11 +128,11 @@ class CallTranscriptionResource extends Resource
 //                                    ->helperText('Если указан, добавляется перед результатом')
 //                                    ->visible(fn(Get $get) => $get('result_destination') === 'note'),
 
-                                Forms\Components\Select::make('salesbot_id')
-                                    ->label('ID Salesbot')
-                                    ->searchable()
-                                    ->options(fn(CallTranscription\Setting $setting) => $setting->getSelectSalesbots())
-                                    ->helperText('Выберете, если после обработки звонка нужно запустить бота'),
+//                                Forms\Components\Select::make('salesbot_id')
+//                                    ->label('ID Salesbot')
+//                                    ->searchable()
+////                                    ->options(fn(CallTranscription\Setting $setting) => $setting->getSelectSalesbots())
+//                                    ->helperText('Выберете, если после обработки звонка нужно запустить бота'),
 
 //                                Toggle::make('enabled')
 //                                    ->label('Активировать настройку')
@@ -159,6 +159,7 @@ class CallTranscriptionResource extends Resource
     {
         return [
             'edit' => Pages\EditCallTranscription::route('/{record}/edit'),
+            'transactions' => Pages\ListTransactions::route('/transactions'),
         ];
     }
 

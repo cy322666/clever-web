@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\CallTranscriptionResource\Pages;
 use App\Filament\Resources\Integrations\CallTranscriptionResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
+use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,6 +24,11 @@ class EditCallTranscription extends EditRecord
                 Auth::user()->account,
                 fn () => $this->amocrmUpdate(),
             ),
+
+            Actions\Action::make('history')
+                ->label('История')
+                ->icon('heroicon-o-list-bullet')
+                ->url(CallTranscriptionResource::getUrl('transactions')),
         ];
     }
 

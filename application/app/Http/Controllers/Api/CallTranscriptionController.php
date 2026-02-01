@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\CallTranscription;
 use App\Jobs\CallTranscription\RunSend;
 use App\Models\amoCRM\Field;
 use App\Models\Integrations\CallTranscription\Transaction;
@@ -58,8 +59,6 @@ class CallTranscriptionController extends Controller
             'url' => $noteText['LINK'],
         ]);
 
-        dd('ssss');
-
-        RunSend::dispatch($transaction, $setting, $user->account);
+        CallTranscription::dispatch($transaction, $user->account);
     }
 }

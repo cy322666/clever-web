@@ -7,6 +7,7 @@ use App\Models\Core\Account;
 use App\Models\Integrations\CallTranscription\Setting;
 use App\Models\Integrations\CallTranscription\Transaction;
 use App\Models\Integrations\Dadata\Lead;
+use App\Services\Ai\IamTokenService;
 use App\Services\Ai\YandexGptService;
 use App\Services\Ai\YandexSpeechkitService;
 use App\Services\amoCRM\Client;
@@ -52,22 +53,41 @@ class CallSend extends Command
 
         $amoApi = new Client($account);
 
-        $ai = new YandexGptService();
-        $ai->apiKey = $setting->token;
+        $iamToken = app(IamTokenService::class)->getToken();
 
-        $speechkit = new YandexSpeechkitService;
-        $speechkit->apiKey = $setting->token;
+        $folderId = 'b1g3cek7i5mcra3e8mui';
 
-        $contact = $amoApi->service->contacts()->find($transaction->contact_id);
-
-//        $entityType = $data['entity_type'] ?? $selectedSetting['entity_type'] ?? 'leads';
-//        $prompt = trim($selectedSetting['prompt'] ?? '');
+        $speechkit = new YandexSpeechkitService($iamToken);
 
         $transcript = $speechkit->transcribeFromUrl($transaction->url);
-        dd($transcript);
-        $amoApi = (new Client($account))->init();
 
-        $result = $ai->generate($settingBody['prompt'], $transcript['transcript']);
+        $transcriptText = trim((string)$transcript);
+
+        if (!$transcriptText) {
+            Log::warning('Транскрипция пуста. Проверьте распознавание речи.');
+
+            return;
+        }
+
+        Log::warning('CallSend transcript debug', [
+            'len' => strlen($transcriptText),
+            'preview' => substr($transcriptText, 0, 200),
+        ]);
+
+        $ai = new YandexGptService();
+        $ai->iamToken = $iamToken;
+        $ai->folderId = $folderId;
+
+        // $amoApi = (new Client($account))->init();
+
+        // $contact = $amoApi->service->contacts()->find($transaction->contact_id);
+
+        $result = $ai->generate(trim($settingBody['prompt'] ?? ''), $transcriptText);
+
+        $transaction->text = $transcriptText;
+        $transaction->result = $result;
+        $transaction->save();
+
 
 //        $amoApi->service->leads()->find($data['entity_id']);
 
@@ -75,19 +95,24 @@ class CallSend extends Command
 //            return new Response(null, 404);
 //        }
 
-        if (($selectedSetting['result_destination'] ?? 'field') === 'note') {
-            $notePrefix = trim($selectedSetting['note_prefix'] ?? '');
-            $noteText = $notePrefix ? $notePrefix . "\n" . $result : $result;
+        // if (($selectedSetting['result_destination'] ?? 'field') === 'note') {
+        //     $notePrefix = trim($selectedSetting['note_prefix'] ?? '');
+        //     $noteText = $notePrefix ? $notePrefix . "\n" . $result : $result;
 
-            Notes::addOne($contact, $noteText);
-        } else {
-            $field = Field::query()->find($selectedSetting['field_id'] ?? null);
+        // if ($field) {
+        //     $contact->cf($field->name)->setValue($result);
+        //     $contact->save();
+        // }
 
-            if ($field) {
-                $contact->cf($field->name)->setValue($result);
-                $contact->save();
-            }
-        }
+        // Notes::addOne($contact, $noteText);
+        // } else {
+        //     $field = Field::query()->find($selectedSetting['field_id'] ?? null);
+
+        //     if ($field) {
+        //         $contact->cf($field->name)->setValue($result);
+        //         $contact->save();
+        //     }
+        // }
 
 
 //        if (!empty($selectedSetting['salesbot_id']) && $entityType === 'leads') {

@@ -11,7 +11,7 @@ COPY files/php/php.ini /usr/local/etc/php/conf.d/php.ini
 
 # SYS: Install required packages
 RUN apk --no-cache upgrade && \
-    apk --no-cache add bash git sudo openssh libxml2-dev postgresql-dev oniguruma-dev autoconf g++ make npm freetype-dev libjpeg-turbo-dev libpng-dev libzip-dev
+    apk --no-cache add bash git sudo openssh ffmpeg libxml2-dev postgresql-dev oniguruma-dev autoconf g++ make npm freetype-dev libjpeg-turbo-dev libpng-dev libzip-dev
 
 RUN apk add --no-cache postgresql-client libpq-dev
 

@@ -10,6 +10,7 @@
     "require": {
         "php": "^8.2",
         "ext-mbstring": "*",
+        "ext-openssl": "*",
         "arhitector/yandex": "^1.2",
         "aspose-cloud/aspose-words-cloud": "^23.10",
         "coolsam/flatpickr": "^5.0",
@@ -31,6 +32,7 @@
         "maatwebsite/excel": "^3.1",
         "novadaemon/filament-pretty-json": "^3.1",
         "phpoffice/phpword": "^1.1",
+        "phpseclib/phpseclib": "^3",
         "rappasoft/laravel-authentication-log": "^5.0",
         "shuvroroy/filament-spatie-laravel-backup": "^3.2",
         "stechstudio/filament-impersonate": "4.0.1",
