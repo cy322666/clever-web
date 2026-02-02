@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\CallTranscription;
 use App\Jobs\CallTranscription\RunSend;
 use App\Models\amoCRM\Field;
+use App\Models\Integrations\CallTranscription\Setting;
 use App\Models\Integrations\CallTranscription\Transaction;
 use App\Models\User;
 use App\Services\Ai\YandexGptService;
@@ -29,7 +30,9 @@ class CallTranscriptionController extends Controller
 
         $noteText = json_decode($dataNote['text'], true);
 
-        $settingsModel = $user->callTranscriptionSetting;
+        $settingsModel = Setting::query()
+            ->where('user_id', $user->id)
+            ->first();
 
         //TODO?
         if (!$settingsModel?->active) {
