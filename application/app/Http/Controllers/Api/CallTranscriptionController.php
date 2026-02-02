@@ -21,7 +21,7 @@ class CallTranscriptionController extends Controller
      */
     public function hook(User $user, Request $request, string $form)
     {
-        $dataNote = $request->contacts['note'][0]['note'];
+        $dataNote = $request->contacts['note'][0]['note'] ?? $request->leads['note'][0]['note'];
 
         if ($dataNote['note_type'] != 11 && $dataNote['note_type'] != 10) {
             return;
