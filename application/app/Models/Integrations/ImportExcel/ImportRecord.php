@@ -14,7 +14,9 @@ class ImportRecord extends Model
     const STATUS_PROCESSING = 'processing';
     const STATUS_COMPLETED = 'completed';
     const STATUS_FAILED = 'failed';
+
     protected $table = 'import_records';
+
     protected $fillable = [
         'import_id',
         'user_id',
@@ -36,6 +38,18 @@ class ImportRecord extends Model
         'row_data' => 'array',
     ];
 
+    //по столбцу записи в бд получаем значение
+    public function getValueForDefaultKey(?string $key)
+    {
+        if ($key) {
+            foreach ($this->row_data as $keyRow => $valueRow) {
+                if ($keyRow == $key) {
+                    return $valueRow;
+                }
+            }
+        }
+    }
+
     public function import(): BelongsTo
     {
         return $this->belongsTo(ImportSetting::class, 'import_id');
@@ -44,14 +58,5 @@ class ImportRecord extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function getProgressAttribute(): float
-    {
-        if ($this->total_rows == 0) {
-            return 0;
-        }
-
-        return ($this->processed_rows / $this->total_rows) * 100;
     }
 }

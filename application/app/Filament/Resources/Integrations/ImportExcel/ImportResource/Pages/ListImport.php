@@ -3,11 +3,16 @@
 namespace App\Filament\Resources\Integrations\ImportExcel\ImportResource\Pages;
 
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
+use App\Jobs\ImportExcel\ProcessImportRow;
 use App\Models\Integrations\ImportExcel\ImportRecord;
+use Filament\Actions\BulkAction as ActionsBulkAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class ListImport extends ListRecords
@@ -43,35 +48,55 @@ class ListImport extends ListRecords
                         default => 'В процессе',
                     }),
 
-//                Progress::make('progress')
-//                    ->label('Прогресс')
-//                    ->formatStateUsing(fn (ImportRecord $record): string =>
-//                        $record->processed_rows . ' / ' . $record->total_rows
-//                    ),
+                TextColumn::make('lead_id')
+                    ->label('Сделка')
+                    ->url(
+                        fn(ImportRecord $order
+                        ) => 'https://' . $order->user->account->subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id,
+                        true
+                    ),
 
-                TextColumn::make('success_rows')
-                    ->label('Успешно')
-                    ->badge()
-                    ->color('success'),
+                TextColumn::make('contact_id')
+                    ->label('Контакт')
+                    ->url(
+                        fn(ImportRecord $order
+                        ) => 'https://' . $order->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $order->contact_id,
+                        true
+                    ),
 
-                TextColumn::make('error_rows')
-                    ->label('Ошибок')
-                    ->badge()
-                    ->color('danger')
-                    ->visible(fn(?ImportRecord $record) => $record?->error_rows > 0),
+                TextColumn::make('company_id')
+                    ->label('Компания')
+                    ->url(
+                        fn(ImportRecord $order
+                        ) => 'https://' . $order->user->account->subdomain . '.amocrm.ru/companies/detail/' . $order->company_id,
+                        true
+                    ),
 
-                TextColumn::make('error_message')
-                    ->label('Ошибка')
-                    ->wrap()
-                    ->toggleable()
-                    ->visible(fn(?ImportRecord $record) => !empty($record->error_message)),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
             ->recordUrl(null)
             ->filters([])
-            ->actions([])
-            ->bulkActions([])
+            ->bulkActions([
+                ActionsBulkAction::make('run_export')
+                    ->label('Запустить выгрузку')
+                    ->icon('heroicon-o-play')
+                    ->action(function (Collection $records): void {
+                        $count = 0;
+                        foreach ($records as $record) {
+                            if ($record instanceof ImportRecord && $record->import_id && $record->row_data) {
+                                ProcessImportRow::dispatch($record->import_id, $record->id);
+                                $count++;
+                            }
+                        }
+                        Notification::make()
+                            ->title('Выгрузка запущена')
+                            ->body("В очередь добавлено записей: {$count}.")
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+            ])
             ->emptyStateActions([]);
     }
 

@@ -118,9 +118,13 @@ abstract class Leads
         });
     }
 
-    public static function create($contact, array $params, ?string $leadname)
+    public static function create($contact, array $params, ?string $leadname, $amoApi = null)
     {
-        $lead = $contact->createLead();
+        if ($contact) {
+            $lead = $contact->createLead();
+        } else {
+            $lead = $amoApi->service->leads()->create();
+        }
 
         $lead->name = $leadname;
 
@@ -136,7 +140,9 @@ abstract class Leads
         if(!empty($params['status_id']))
             $lead->status_id = $params['status_id'];
 
-        $lead->contacts_id = $contact->id;
+        if ($contact)
+            $lead->contacts_id = $contact->id;
+
         $lead->save();
 
         return $lead;
@@ -265,14 +271,6 @@ abstract class Leads
 
     public static function update(Lead $lead, array $params, array $fields): Lead
     {
-        if($fields) {
-
-            foreach ($fields as $key => $field) {
-
-                $lead->cf($key)->setValue($field);
-            }
-        }
-
         if(!empty($params['responsible_user_id']))
             $lead->responsible_user_id = $params['responsible_user_id'];
 
@@ -282,7 +280,17 @@ abstract class Leads
         if(!empty($params['sale']))
             $lead->sale = $params['sale'];
 
-//        $lead->updated_at = time();
+        if ($fields) {
+            foreach ($fields as $key => $field) {
+                try {
+                    $lead->cf($key)->setValue($field);
+                } catch (\Throwable $e) {
+                    dd($key, $field);
+                    dump($e->getMessage());
+                }
+            }
+        }
+
         $lead->save();
 
         return $lead;

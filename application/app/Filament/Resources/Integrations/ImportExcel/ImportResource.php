@@ -14,12 +14,15 @@ use App\Models\amoCRM\Status;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\FileUpload;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -37,7 +40,7 @@ class ImportResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowDownTray;
 
-    protected static ?string $recordTitleAttribute = 'Импорт в amoCRM';
+    protected static ?string $recordTitleAttribute = 'Импорт Excel';
 
     protected static ?string $navigationLabel = 'Импорт из Excel';
 
@@ -48,68 +51,36 @@ class ImportResource extends Resource
                 Section::make('Основные настройки')
                     ->schema([
 
-                        Forms\Components\Select::make('default_pipeline_id')
-                            ->label('Воронка по умолчанию')
-                            ->options(Status::getPipelines()->pluck('pipeline_name', 'id'))
-                            ->searchable()
-                            ->nullable(),
+                        Section::make('Стандартные параметры')
+                            ->schema([
+                                Forms\Components\Select::make('default_status_id')
+                                    ->label('Статус по умолчанию')
+                                    ->options(Status::getTriggerStatuses())
+                                    ->searchable()
+                                    ->nullable(),
 
-                        Forms\Components\Select::make('default_status_id')
-                            ->label('Статус по умолчанию')
-                            ->options(Status::getTriggerStatuses())
-                            ->searchable()
-                            ->nullable(),
+                                Forms\Components\Select::make('default_responsible_user_id')
+                                    ->label('Ответственный по умолчанию')
+                                    ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
+                                    ->searchable()
+                                    ->nullable(),
 
-                        Forms\Components\Select::make('default_responsible_user_id')
-                            ->label('Ответственный по умолчанию')
-                            ->options(Staff::getWithUser()->pluck('name', 'staff_id'))
-                            ->searchable()
-                            ->nullable(),
+                                Forms\Components\TextInput::make('default_sale')
+                                    ->label('Бюджет')
+                                    ->nullable(),
 
-                        Forms\Components\Select::make('special_field')
-                            ->label('Стандартное поле')
-                            ->options(function ($get) {
-                                $entityType = $get('entity_type');
+                                Forms\Components\TextInput::make('contact_name')
+                                    ->label('Название контакта')
+                                    ->nullable(),
 
-                                $leadFields = [
-                                    'name' => 'Название сделки',
-                                    'sale' => 'Сумма',
-                                    'status_id' => 'Статус',
-                                    'pipeline_id' => 'Воронка',
-                                    'responsible_user_id' => 'Ответственный',
-//                                            'created_at' => 'Дата создания',
-//                                            'closed_at' => 'Дата закрытия',
-                                ];
+                                Forms\Components\TextInput::make('company_name')
+                                    ->label('Название компании')
+                                    ->nullable(),
 
-                                $contactFields = [
-                                    'name' => 'Имя',
-                                    'phone' => 'Телефон',
-                                    'email' => 'Email',
-                                    'position' => 'Должность',
-                                    'responsible_user_id' => 'Ответственный',
-                                ];
-
-                                $companyFields = [
-                                    'name' => 'Название компании',
-                                    'responsible_user_id' => 'Ответственный',
-                                ];
-
-                                return match ($entityType) {
-                                    'lead' => $leadFields,
-                                    'contact' => $contactFields,
-                                    'company' => $companyFields,
-                                    default => [],
-                                };
-                            })
-                            ->searchable()
-                            ->reactive()
-                            ->helperText('Выберите стандартное поле или оставьте пустым для кастомного')
-                            ->nullable(),
-
-//                        Forms\Components\TextInput::make('default_lead_name')
-//                            ->label('Название сделки по умолчанию')
-//                            ->placeholder('Новая сделка из импорта')
-//                            ->nullable(),
+                                Forms\Components\TextInput::make('lead_name')
+                                    ->label('Название сделки')
+                                    ->nullable(),
+                            ])->columns(2),
 
                         Section::make('Поведение при дублях')
                             ->schema([
@@ -125,6 +96,12 @@ class ImportResource extends Resource
                                     ->helperText('Если контакт найден по телефону/email, обновить его данные')
                                     ->visible(fn($get) => $get('check_duplicates')),
 
+                                Forms\Components\Toggle::make('update_existing_company')
+                                    ->label('Обновлять существующие компании')
+                                    ->default(true)
+                                    ->helperText('Если контакт найден по телефону/email/inn, обновить его данные')
+                                    ->visible(fn($get) => $get('check_duplicates')),
+
                                 Forms\Components\Toggle::make('update_existing_leads')
                                     ->label('Обновлять существующие сделки')
                                     ->default(false)
@@ -138,70 +115,85 @@ class ImportResource extends Resource
 
                                 Forms\Components\TextInput::make('tag')
                                     ->label('Тег для сущностей')
-                                    ->helperText('Будет добавлен к контактам и сделкам после импорта')
                                     ->nullable(),
                             ]),
 //                            ->columns(1),
                         Section::make('Соотношение полей')
                             ->description('Настройте соответствие столбцов Excel и полей в amoCRM')
                             ->schema([
-                                Forms\Components\Repeater::make('fields_mapping')
-                                    ->label('Маппинг полей')
+                                Forms\Components\Repeater::make('fields_leads')
+                                    ->label('Поля сделки')
                                     ->schema([
                                         Forms\Components\TextInput::make('excel_column')
                                             ->label('Столбец Excel')
-                                            ->placeholder('Название столбца')
-                                            ->required()
-                                            ->helperText('Название столбца'),
-
-                                        Forms\Components\Select::make('entity_type')
-                                            ->label('Тип сущности')
-                                            ->options([
-                                                'lead' => 'Сделка',
-                                                'contact' => 'Контакт',
-                                                'company' => 'Компания',
-                                            ])
-                                            ->required()
-                                            ->native(false),
+                                            ->required(),
 
                                         Forms\Components\Select::make('field_id')
-                                            ->label('Кастомное поле в amoCRM')
-                                            ->options(function ($get) {
-                                                $entityType = $get('entity_type');
-                                                $specialField = $get('special_field');
-
-                                                // Если выбрано стандартное поле, не показываем кастомные
-                                                if ($specialField) {
-                                                    return [];
-                                                }
-
-                                                if (!$entityType) {
-                                                    return [];
-                                                }
-
-                                                $fieldType = match ($entityType) {
-                                                    'lead' => 'leads',
-                                                    'contact' => 'contacts',
-                                                    'company' => 'companies',
-//                                            default => null,
-                                                };
-
-                                                if (!$fieldType) {
-                                                    return [];
-                                                }
-
-                                                return Field::query()
-                                                    ->where('user_id', Auth::id())
-                                                    ->where('entity_type', $fieldType)
-                                                    ->pluck('name', 'id');
-                                            })
+                                            ->label('Поле в amoCRM')
+                                            ->options(Field::getLeadSelectFields())
                                             ->searchable()
                                             ->required(fn($get) => !$get('special_field'))
                                             ->reactive()
-                                            ->visible(fn($get) => !$get('special_field'))
-                                            ->helperText('Выберите поле amoCRM'),
+                                            ->visible(fn($get) => !$get('special_field')),
                                     ])
-                                    ->columns(4)
+                                    ->collapsible()
+                                    ->defaultItems(1)
+                                    ->reorderable(false)
+                                    ->addActionLabel('+ Добавить поле')
+                                    ->itemLabel(
+                                        fn(array $state): ?string => ($state['excel_column'] ?? 'Столбец') . ' → ' .
+                                            match ($state['entity_type'] ?? null) {
+                                                'lead' => 'Сделка',
+                                                'contact' => 'Контакт',
+                                                'company' => 'Компания',
+                                                default => '?'
+                                            } . ' (' . ($state['special_field'] ?? 'поле') . ')'
+                                    ),
+
+                                Forms\Components\Repeater::make('fields_contacts')
+                                    ->label('Поля контакта')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('excel_column')
+                                            ->label('Столбец Excel')
+                                            ->required(),
+
+                                        Forms\Components\Select::make('field_id')
+                                            ->label('Поле в amoCRM')
+                                            ->options(Field::getContactSelectFields())
+                                            ->searchable()
+                                            ->required(fn($get) => !$get('special_field'))
+                                            ->reactive()
+                                            ->visible(fn($get) => !$get('special_field')),
+                                    ])
+                                    ->collapsible()
+                                    ->defaultItems(1)
+                                    ->reorderable(false)
+                                    ->addActionLabel('+ Добавить поле')
+                                    ->itemLabel(
+                                        fn(array $state): ?string => ($state['excel_column'] ?? 'Столбец') . ' → ' .
+                                            match ($state['entity_type'] ?? null) {
+                                                'lead' => 'Сделка',
+                                                'contact' => 'Контакт',
+                                                'company' => 'Компания',
+                                                default => '?'
+                                            } . ' (' . ($state['special_field'] ?? 'поле') . ')'
+                                    ),
+
+                                Forms\Components\Repeater::make('fields_companies')
+                                    ->label('Поля компании')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('excel_column')
+                                            ->label('Столбец Excel')
+                                            ->required(),
+
+                                        Forms\Components\Select::make('field_id')
+                                            ->label('Поле в amoCRM')
+                                            ->options(Field::getCompanySelectFields())
+                                            ->searchable()
+                                            ->required(fn($get) => !$get('special_field'))
+                                            ->reactive()
+                                            ->visible(fn($get) => !$get('special_field')),
+                                    ])
                                     ->collapsible()
                                     ->defaultItems(1)
                                     ->reorderable(false)
@@ -220,25 +212,62 @@ class ImportResource extends Resource
                         Section::make('Загрузка файла')
                             ->description('Загрузите Excel файл для импорта данных в amoCRM')
                             ->schema([
-                                FileUpload::make('file')
+                                FileUpload::make('file_path')
                                     ->label('Excel файл')
-                                    ->acceptedFileTypes(
-                                        [
-                                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                            'application/vnd.ms-excel'
-                                        ]
-                                    )
-                                    ->directory('imports/amocrm')
+                                    ->acceptedFileTypes([
+                                        'application/vnd.ms-excel',
+                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                        'text/csv'
+                                    ])
+                                    ->disk('local')
+                                    ->directory('imports')
                                     ->visibility('private')
-                                    ->required()
+//                                    ->storeFileNamesIn('original_filename')
                                     ->helperText('Поддерживаются файлы .xlsx и .xls'),
                             ]),
 
-                    ]),
-//                    ->columns(2),
+                    ])
+                    ->columnSpan(2),
 
+                Section::make()
+                    ->schema([
 
-            ]);
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('')
+                            ->disabled()
+                            ->openUrlInNewTab(),
+
+                        Section::make()
+                            ->schema([
+
+                                TextEntry::make('price6')
+                                    ->label('Полгода')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['6_month']),
+
+                                TextEntry::make('price12')
+                                    ->label('Год')
+                                    ->money('RU', divideBy: 100)
+                                    ->size(TextSize::Medium)
+                                    ->state(fn($model): string => $model::$cost['12_month']),
+
+                                TextEntry::make('bonus')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
+
+                                TextEntry::make('bonus2')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::Small)
+                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                            ])
+                    ])
+                    ->compact()
+                    ->columnSpan(1),
+
+            ])->columns(3);
     }
 
     public static function table(Table $table): Table

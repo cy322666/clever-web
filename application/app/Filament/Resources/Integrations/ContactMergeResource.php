@@ -27,7 +27,7 @@ class ContactMergeResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'Склейка контактов';
+    protected static ?string $recordTitleAttribute = 'Автосклейка';
 
     public static function form(Schema $schema): Schema
     {

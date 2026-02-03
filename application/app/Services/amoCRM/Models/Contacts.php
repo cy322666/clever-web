@@ -65,6 +65,17 @@ abstract class Contacts extends Client
                 }
             }
 
+            if (($contacts == null || !$contacts->first()) &&
+                key_exists('Телефон', $arrayFields)) {
+                $phone = $arrayFields['Телефон'];
+
+                if ($phone && strlen($phone) > 9) {
+                    $contacts = $amoApi->service
+                        ->contacts()
+                        ->searchByPhone(substr($phone, -10));
+                }
+            }
+
             if(($contacts == null || !$contacts->first()) &&
                 key_exists('Почта', $arrayFields)) {
 

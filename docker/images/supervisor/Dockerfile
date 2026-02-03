@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libpng-dev \
     libzip-dev \
+    openssl \
+    libssl-dev \
+    ffmpeg \
     libxml2-dev \
     libonig-dev \
     libkrb5-dev \
@@ -13,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     snmp libsnmp-dev \
  && rm -rf /var/lib/apt/lists/*
 
+RUN docker-php-ext-install opcache
 RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
  && docker-php-ext-install -j"$(nproc)" \
     pdo_pgsql \

@@ -5,13 +5,16 @@ namespace App\Filament\Resources\Integrations\ImportExcel\ImportResource\Pages;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
-use App\Imports\amoCRM\ExcelImport;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
+use App\Services\ImportExcel\ExcelImport;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 
 class EditImport extends EditRecord
@@ -22,7 +25,6 @@ class EditImport extends EditRecord
 
     public function import(): void
     {
-        $data = $this->form->getState();
         $setting = ImportSetting::query()
             ->where('user_id', Auth::id())
             ->first();
@@ -36,7 +38,7 @@ class EditImport extends EditRecord
             return;
         }
 
-        if (!$data['file']) {
+        if (!$setting->file_path) {
             Notification::make()
                 ->title('Ошибка')
                 ->body('Выберите файл для импорта')
@@ -46,22 +48,45 @@ class EditImport extends EditRecord
         }
 
         try {
-            $filePath = storage_path('app/' . $data['file']);
-            $filename = basename($data['file']);
+            // Обработка файла: может быть строка (уже сохранённый) или TemporaryUploadedFile
+            // if (is_array($fileData)) {
+            //     $fileData = reset($fileData); // берём первый элемент массива
+            // }
+
+//            if ($fileData instanceof TemporaryUploadedFile) {
+//                // Файл ещё временный - сохраняем его
+//                $originalName = $fileData->getClientOriginalName();
+//                $storedPath = $fileData->store('imports', 'local');
+//                $filePath = Storage::disk('local')->path($storedPath);
+//                $filename = $originalName;
+//            } elseif (is_string($fileData)) {
+//                // Уже сохранённый путь
+            // $filePath = Storage::disk('local')->path($fileData);
+//                $filename = explode('/', $setting->file_path)[0];//imports/01KGDH1YCSMM987E00KWWTQSEZ.xlsx
+            // $storedPath = $fileData;
+//            } else {
+//                throw new \RuntimeException('Неверный формат файла');
+//            }
+
+//            if (!file_exists($filePath)) {
+//                throw new \RuntimeException('Файл не найден: ' . $filePath);
+//            }
 
             // Создаём запись импорта
-            $importRecord = ImportRecord::create([
-                'import_id' => $setting->id,
-                'user_id' => Auth::id(),
-                'filename' => $filename,
-                'status' => ImportRecord::STATUS_PROCESSING,
-                'total_rows' => 0,
-                'processed_rows' => 0,
-                'success_rows' => 0,
-                'error_rows' => 0,
-            ]);
+//            $importRecord = ImportRecord::query()
+//                ->create([
+//                    'import_id' => $setting->id,
+//                    'user_id' => Auth::id(),
+//                    'filename' => $filename,
+//                    'file_path' => $setting->file_path,
+//                    'status' => ImportRecord::STATUS_PROCESSING,
+//                    'total_rows' => 0,
+//                    'processed_rows' => 0,
+//                    'success_rows' => 0,
+//                    'error_rows' => 0,
+//                ]);
 
-            Excel::import(new ExcelImport($setting, $importRecord), $filePath);
+            Excel::import(new ExcelImport($setting), Storage::disk('local')->path($setting->file_path));
 
             Notification::make()
                 ->title('Импорт запущен')
@@ -70,6 +95,7 @@ class EditImport extends EditRecord
                 ->send();
 
             $this->redirect(ImportResource::getUrl('list'));
+
         } catch (\Exception $e) {
             if (isset($importRecord)) {
                 $importRecord->update([
@@ -108,25 +134,33 @@ class EditImport extends EditRecord
 
             Action::make('import')
                 ->label('Начать импорт')
-                ->submit('import')
+                ->action(fn() => $this->import())
                 ->color('primary'),
         ];
     }
 
-    protected function mutateFormDataBeforeFill(array $data): array
-    {
-        if (isset($data['fields_mapping']) && is_string($data['fields_mapping'])) {
-            $data['fields_mapping'] = json_decode($data['fields_mapping'], true) ?? [];
-        }
-
-        return $data;
-    }
+//    protected function mutateFormDataBeforeFill(array $data): array
+//    {
+////        if (isset($data['fields_mapping']) && is_string($data['fields_mapping'])) {
+////            $data['fields_mapping'] = json_decode($data['fields_mapping'], true) ?? [];
+////        }
+//
+//        $data['fields_leads'] = json_decode($data['fields_leads'], true) ?? [];
+//        $data['fields_contacts'] = json_decode($data['fields_contacts'], true) ?? [];
+//        $data['fields_companies'] = json_decode($data['fields_companies'], true) ?? [];
+//
+//        return $data;
+//    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if (isset($data['fields_mapping']) && is_array($data['fields_mapping'])) {
-            $data['fields_mapping'] = json_encode($data['fields_mapping'], JSON_UNESCAPED_UNICODE);
-        }
+//        if (isset($data['fields_mapping']) && is_array($data['fields_mapping'])) {
+//            $data['fields_mapping'] = json_encode($data['fields_mapping'], JSON_UNESCAPED_UNICODE);
+//        }
+//dd($data);
+//        $data['fields_leads'] = json_encode($data['fields_leads'], JSON_UNESCAPED_UNICODE);
+//        $data['fields_contacts'] = json_encode($data['fields_contacts'], JSON_UNESCAPED_UNICODE);
+//        $data['fields_companies'] = json_encode($data['fields_companies'], JSON_UNESCAPED_UNICODE);
 
         return $data;
     }
