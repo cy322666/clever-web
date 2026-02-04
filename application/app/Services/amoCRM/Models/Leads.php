@@ -126,7 +126,7 @@ abstract class Leads
             $lead = $amoApi->service->leads()->create();
         }
 
-        $lead->name = $leadname;
+        $lead->name = $leadname ?? 'Новая сделка';
 
         if(!empty($params['sale']))
             $lead->sale = $params['sale'];
