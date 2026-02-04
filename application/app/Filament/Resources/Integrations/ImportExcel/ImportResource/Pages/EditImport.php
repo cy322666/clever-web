@@ -97,12 +97,12 @@ class EditImport extends EditRecord
             $this->redirect(ImportResource::getUrl('list'));
 
         } catch (\Exception $e) {
-            if (isset($importRecord)) {
-                $importRecord->update([
-                    'status' => ImportRecord::STATUS_FAILED,
-                    'error_message' => $e->getMessage(),
-                ]);
-            }
+
+//            if (isset($importRecord))
+//                $importRecord->update([
+//                    'status' => ImportRecord::STATUS_FAILED,
+//                    'error_message' => $e->getMessage(),
+//                ]);
 
             Notification::make()
                 ->title('Ошибка импорта')
