@@ -217,13 +217,18 @@ class ImportResource extends Resource
                                     ->acceptedFileTypes([
                                         'application/vnd.ms-excel',
                                         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                        'text/csv'
+                                        'text/csv',
+                                        'application/csv',
+                                        'application/octet-stream',
+                                        'application/zip',
                                     ])
+                                    ->maxSize(10240)
                                     ->disk('local')
                                     ->directory('imports')
-                                    ->visibility('private')
+                                    ->preserveFilenames()
+//                                    ->visibility('private')
 //                                    ->storeFileNamesIn('original_filename')
-                                    ->helperText('Поддерживаются файлы .xlsx и .xls'),
+                                    ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
                     ])
