@@ -97,7 +97,6 @@ class EditImport extends EditRecord
             $this->redirect(ImportResource::getUrl('list'));
 
         } catch (\Exception $e) {
-
 //            if (isset($importRecord))
 //                $importRecord->update([
 //                    'status' => ImportRecord::STATUS_FAILED,
