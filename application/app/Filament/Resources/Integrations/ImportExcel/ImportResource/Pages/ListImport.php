@@ -42,6 +42,7 @@ class ListImport extends ListRecords
                         ImportRecord::STATUS_FAILED => 'danger',
                         default => 'warning',
                     })
+                    ->sortable()
                     ->formatStateUsing(fn(string $state) => match ($state) {
                         ImportRecord::STATUS_COMPLETED => 'Завершен',
                         ImportRecord::STATUS_FAILED => 'Ошибка',
