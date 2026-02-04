@@ -32,6 +32,10 @@ class ImportSetting extends Model
         '12_month' => '12.000 р',
     ];
 
+    protected $casts = [
+        'row_data' => 'array',
+    ];
+
     protected $fillable = [
         'active',
         'default_status_id',
