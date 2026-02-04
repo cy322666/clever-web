@@ -32,10 +32,6 @@ class ImportSetting extends Model
         '12_month' => '12.000 р',
     ];
 
-    protected $casts = [
-        'row_data' => 'array',
-    ];
-
     protected $fillable = [
         'active',
         'default_status_id',
@@ -60,6 +56,7 @@ class ImportSetting extends Model
         'user_id',
     ];
     protected $casts = [
+        'row_data' => 'array',
         'fields_leads' => 'array',
         'fields_contacts' => 'array',
         'fields_companies' => 'array',
