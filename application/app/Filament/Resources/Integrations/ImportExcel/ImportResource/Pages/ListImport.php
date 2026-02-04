@@ -72,6 +72,14 @@ class ListImport extends ListRecords
                         true
                     ),
 
+                TextColumn::make('row_data')
+                    ->label('Строка')
+                    ->formatStateUsing(fn($state) => collect($state)
+                        ->filter()
+                        ->keys()
+                        ->implode(', ')
+                    )
+
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
