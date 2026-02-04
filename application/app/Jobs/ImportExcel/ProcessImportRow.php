@@ -24,11 +24,15 @@ class ProcessImportRow implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public Account $account;
+
     public function __construct(
         public int $settingId,
         public int $recordId,
     ) {
         $this->onQueue('import_excel');
+
+        $this->account = ImportSetting::query()->find($settingId)->user->account;
     }
 
     public function tags(): array
