@@ -30,6 +30,8 @@ class ExcelImport implements ToCollection, WithHeadingRow
 
         $userId = $this->setting->user->id;
 
+        $filename = explode('.', explode('/', $this->setting->file_path)[1])[1] ?? $this->setting->file_path;
+
         foreach ($rows as $row) {
             $rowData = is_array($row) ? $row : (is_object($row) && method_exists($row, 'toArray') ? $row->toArray(
             ) : (array)$row);
@@ -38,7 +40,7 @@ class ExcelImport implements ToCollection, WithHeadingRow
                 ->create([
                     'import_id' => $this->setting->id,
                     'user_id' => $userId,
-                    'file_path' => $this->setting->file_path,
+                    'filename' => $filename,
                     'status' => ImportRecord::STATUS_PROCESSING,
                     'row_data' => $rowData,
                 ]);
