@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Jobs\Call;
 
 use App\Models\Core\Account;
 use App\Models\Integrations\CallTranscription\Setting;

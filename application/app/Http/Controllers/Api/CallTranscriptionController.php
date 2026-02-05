@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\CallTranscription;
+use App\Jobs\Call\CallTranscription;
 use App\Models\amoCRM\Field;
 use App\Models\Integrations\CallTranscription\Setting;
 use App\Models\Integrations\CallTranscription\Transaction;
