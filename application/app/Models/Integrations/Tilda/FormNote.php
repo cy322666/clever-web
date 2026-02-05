@@ -35,12 +35,16 @@ abstract class FormNote
     }
 
 
-    public static function products(array $products): string
+    public static function products(array|string $products): string
     {
         $note = [
             "Информация о товарах",
             '----------------------',
         ];
+
+        if (is_string($products)) {
+            $products = json_decode($products, true);
+        }
 
         $value = '';
 
@@ -55,8 +59,7 @@ abstract class FormNote
                     $note = array_merge($note, ['- '.$key.' : '.$value]);
 
                 } catch (\Throwable $e) {
-
-                    Log::warning($e->getMessage(), [$key, $value]);
+                    Log::error($e->getMessage(), [$key, $value]);
                 }
             }
 
