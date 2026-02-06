@@ -59,7 +59,7 @@ abstract class FormNote
                     $note = array_merge($note, ['- '.$key.' : '.$value]);
 
                 } catch (\Throwable $e) {
-                    Log::error($e->getMessage(), [$key, $value]);
+                    Log::error($e->getMessage() . ' :' . json_encode([$key, $value]));
                 }
             }
 
