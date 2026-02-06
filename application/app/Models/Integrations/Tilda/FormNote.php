@@ -65,8 +65,8 @@ abstract class FormNote
                         // variant : {}
                         //}]
                         foreach ($value as $option) {
-                            $option = str_replace(['\u0026quot;', '&quot;'], '"', $option->option);
-                            $variant = str_replace(['\u0026quot;', '&quot;'], '"', $value->variant);
+                            $option = str_replace(['\u0026quot;', '&quot;'], '"', $option->option ?? '');
+                            $variant = str_replace(['\u0026quot;', '&quot;'], '"', $option->variant ?? '');
 
                             $note = array_merge($note, ['- ' . $option . ' : ' . $variant]);
                         }
