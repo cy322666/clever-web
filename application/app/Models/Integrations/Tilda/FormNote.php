@@ -53,11 +53,24 @@ abstract class FormNote
             foreach ((array)$product as $key => $value) {
 
                 try {
+                    if (is_string($value)) {
+                        $value = str_replace(['\u0026quot;', '&quot;'], '"', $value);
 
-                    $value = str_replace(['\u0026quot;', '&quot;'], '"', $value);
+                        $note = array_merge($note, ['- ' . $key . ' : ' . $value]);
+                    }
 
-                    $note = array_merge($note, ['- '.$key.' : '.$value]);
+                    if (is_array($value)) {
+                        //[{
+                        // option : {}
+                        // variant : {}
+                        //}]
+                        foreach ($value as $option) {
+                            $option = str_replace(['\u0026quot;', '&quot;'], '"', $option['option']);
+                            $variant = str_replace(['\u0026quot;', '&quot;'], '"', $value['variant']);
 
+                            $note = array_merge($note, ['- ' . $option . ' : ' . $variant]);
+                        }
+                    }
                 } catch (\Throwable $e) {
                     Log::error($e->getMessage() . ' :' . json_encode([$key, $value]));
                 }
