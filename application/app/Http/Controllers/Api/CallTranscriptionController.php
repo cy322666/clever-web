@@ -44,7 +44,7 @@ class CallTranscriptionController extends Controller
             $settingBody = json_decode($settings, true)[$form] ?? [];
         }
 
-        if (empty($settingBody) || $settingBody === []) {
+        if (empty($settingBody) || $settingBody === [] || empty($noteText['LINK'])) {
             return new Response(null, 404);
         }
 
