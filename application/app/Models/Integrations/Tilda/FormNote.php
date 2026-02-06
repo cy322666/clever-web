@@ -72,7 +72,11 @@ abstract class FormNote
                         }
                     }
                 } catch (\Throwable $e) {
-                    Log::error($e->getMessage() . ' :' . json_encode([$key, $value]));
+                    Log::error(
+                        $e->getMessage() . ' ' . $e->getFile() . ' ' . $e->getLine() . ' : ' . json_encode(
+                            [$key, $value]
+                        )
+                    );
                 }
             }
 
