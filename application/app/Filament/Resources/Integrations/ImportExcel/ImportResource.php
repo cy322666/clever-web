@@ -215,6 +215,11 @@ class ImportResource extends Resource
                         Section::make('Загрузка файла')
                             ->description('Загрузите Excel файл для импорта данных в amoCRM')
                             ->schema([
+
+                                PrettyJsonField::make('headers')
+                                    ->label('Заголовки')
+                                    ->disabled(),
+
                                 FileUpload::make('file_path')
                                     ->label('Excel файл')
                                     ->acceptedFileTypes([
@@ -231,7 +236,6 @@ class ImportResource extends Resource
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
-
                                             $headings = (new HeadingRowImport())->toArray($state);
 
                                             $set('headers', json_encode($headings));
@@ -240,10 +244,6 @@ class ImportResource extends Resource
                                     ->live()
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
-
-                        PrettyJsonField::make('headers')//TODO
-                            ->label('Заголовки')
-                            ->disabled(),
 
                     ])
                     ->columnSpan(2),
