@@ -49,9 +49,8 @@ class SendRow extends Command
         $importRecord = ImportRecord::query()->find($this->argument('record_id'));
         $setting = ImportSetting::query()->find($this->argument('setting_id'));
 
-        if (!$importRecord || !$setting) {
+        if (!$importRecord || !$setting)
             return;
-        }
 
         $this->row = $importRecord->row_data ?? [];
 
@@ -70,15 +69,13 @@ class SendRow extends Command
         $objectStatus = Status::getObject($setting->default_status_id);
 
         $lead = Leads::create(null, [
-            'responsible_user_id' => $importRecord->default_responsible_user_id,
+            'responsible_user_id' => $setting->default_responsible_user_id,
             'pipeline_id' => $objectStatus->pipeline_id,
             'status_id' => $objectStatus->status_id,
             'sale' => $leadSale,
         ], $leadName, $amoApi);
 
-        $leadDefaultArray = ['sale' => $leadSale];
-
-        $lead = Leads::update($lead, $leadDefaultArray, $rowDataLeads ?: []);
+        $lead = Leads::update($lead, [], $rowDataLeads ?: []);
 
         Tags::add($lead, $setting->tag);
 
@@ -107,11 +104,11 @@ class SendRow extends Command
         }
 
         if ($rowDataCompanies) {
+
             $company = Companies::search($rowDataCompanies, $amoApi);
 
-            if (!$company) {
+            if (!$company)
                 $company = Companies::create($amoApi, $companyName);
-            }
 
             $company = Companies::update(
                 $company,
@@ -122,6 +119,7 @@ class SendRow extends Command
             );
 
             $importRecord->company->id;
+            $importRecord->save();
 
             $company->attachTag($setting->tag);
             $company->save();

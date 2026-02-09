@@ -42,7 +42,7 @@ class Field extends Model
         return Field::query()
             ->where('user_id', Auth::id())
             ->where('entity_type', 'leads')
-            ->pluck('name', 'id');
+            ->pluck('name', 'field_id');
     }
 
     public static function getCompanySelectFields()
@@ -50,7 +50,7 @@ class Field extends Model
         return Field::query()
             ->where('user_id', Auth::id())
             ->where('entity_type', 'companies')
-            ->pluck('name', 'id');
+            ->pluck('name', 'field_id');
     }
 
     public static function getContactFields(): Builder
