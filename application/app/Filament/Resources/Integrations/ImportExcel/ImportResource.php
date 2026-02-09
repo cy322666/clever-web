@@ -232,7 +232,7 @@ class ImportResource extends Resource
                                     ])
                                     ->maxSize(10240)
                                     ->disk('exports')
-                                    ->directory('imports')
+//                                    ->directory('imports')
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
