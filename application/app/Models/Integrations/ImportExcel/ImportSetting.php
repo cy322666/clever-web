@@ -54,8 +54,10 @@ class ImportSetting extends Model
         'link_contact_to_company',
         'tag',
         'user_id',
+        'headers',
     ];
     protected $casts = [
+        'headers' => 'array',
         'row_data' => 'array',
         'fields_leads' => 'array',
         'fields_contacts' => 'array',

@@ -11,6 +11,7 @@ use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
+use App\Services\ImportExcel\ExcelImport;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -19,12 +20,16 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\HeadingRowImport;
+use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 class ImportResource extends Resource
 {
@@ -195,16 +200,16 @@ class ImportResource extends Resource
                                     ->collapsible()
                                     ->defaultItems(1)
                                     ->reorderable(false)
-                                    ->addActionLabel('+ Добавить поле')
-                                    ->itemLabel(
-                                        fn(array $state): ?string => ($state['excel_column'] ?? 'Столбец') . ' → ' .
-                                            match ($state['entity_type'] ?? null) {
-                                                'lead' => 'Сделка',
-                                                'contact' => 'Контакт',
-                                                'company' => 'Компания',
-                                                default => '?'
-                                            } . ' (' . ($state['special_field'] ?? 'поле') . ')'
-                                    ),
+                                    ->addActionLabel('+ Добавить поле'),
+//                                    ->itemLabel(
+//                                        fn(array $state): ?string => ($state['excel_column'] ?? 'Столбец') . ' → ' .
+//                                            match ($state['entity_type'] ?? null) {
+//                                                'lead' => 'Сделка',
+//                                                'contact' => 'Контакт',
+//                                                'company' => 'Компания',
+//                                                default => '?'
+//                                            } . ' (' . ($state['special_field'] ?? 'поле') . ')'
+//                                    ),
                             ]),
 
                         Section::make('Загрузка файла')
@@ -224,10 +229,21 @@ class ImportResource extends Resource
                                     ->disk('local')
                                     ->directory('imports')
                                     ->preserveFilenames()
-//                                    ->visibility('private')
-//                                    ->storeFileNamesIn('original_filename')
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        if ($state) {
+
+                                            $headings = (new HeadingRowImport())->toArray($state);
+
+                                            $set('headers', json_encode($headings));
+                                        }
+                                    })
+                                    ->live()
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
+
+                        PrettyJsonField::make('headers')//TODO
+                            ->label('Заголовки')
+                            ->disabled(),
 
                     ])
                     ->columnSpan(2),

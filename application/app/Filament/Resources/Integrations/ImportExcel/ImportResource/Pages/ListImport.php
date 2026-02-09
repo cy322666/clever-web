@@ -79,9 +79,9 @@ class ListImport extends ListRecords
 
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([20, 40, 'all'])
+            ->paginated([50, 'all'])
             ->recordUrl(null)
-            ->poll(3)
+            ->poll(5)
             ->filters([])
             ->bulkActions([
                 ActionsBulkAction::make('run_export')
