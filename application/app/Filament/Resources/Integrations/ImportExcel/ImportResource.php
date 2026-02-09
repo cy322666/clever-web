@@ -231,7 +231,7 @@ class ImportResource extends Resource
                                         'application/zip',
                                     ])
                                     ->maxSize(10240)
-                                    ->disk('local')
+                                    ->disk('exports')
                                     ->directory('imports')
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set) {
