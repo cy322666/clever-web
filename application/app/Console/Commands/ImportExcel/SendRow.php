@@ -115,7 +115,7 @@ class SendRow extends Command
                 $company,
                 $rowDataCompanies + [
                     'Имя' => $companyName,
-                    'Ответственный' => $importRecord->default_responsible_user_id,
+                    'Ответственный' => $setting->default_responsible_user_id,
                 ]
             );
 

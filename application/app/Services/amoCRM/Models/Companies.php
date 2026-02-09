@@ -116,6 +116,10 @@ abstract class Companies extends Client
             }
         }
 
+        if (key_exists('Телефон', $arrayFields)) {
+            $company->cf('Телефон')->setValue($arrayFields['Телефон']);
+        }
+
         if (key_exists('Почта', $arrayFields)) {
             $company->cf('Email')->setValue($arrayFields['Почта']);
         }
