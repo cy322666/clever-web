@@ -49,8 +49,9 @@ class SendRow extends Command
         $importRecord = ImportRecord::query()->find($this->argument('record_id'));
         $setting = ImportSetting::query()->find($this->argument('setting_id'));
 
-        if (!$importRecord || !$setting)
+        if (!$importRecord || !$setting) {
             return;
+        }
 
         $this->row = $importRecord->row_data ?? [];
 
@@ -118,7 +119,7 @@ class SendRow extends Command
                 ]
             );
 
-            $importRecord->company->id;
+            $importRecord->company_id = $company->id;
             $importRecord->save();
 
             $company->attachTag($setting->tag);
