@@ -120,8 +120,8 @@ abstract class Companies extends Client
             $company->cf('Email')->setValue($arrayFields['Почта']);
         }
 
-        if (key_exists('', $arrayFields)) {
-            $company->cf('Email')->setValue($arrayFields['Почта']);
+        if (key_exists('Email', $arrayFields)) {
+            $company->cf('Email')->setValue($arrayFields['Email']);
         }
 
         if (key_exists('Ответственный', $arrayFields)) {
