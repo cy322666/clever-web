@@ -105,18 +105,10 @@ class ListImport extends ListRecords
 
                 ActionsBulkAction::make('delete')
                     ->label('Отменить выгрузку')
-//                    ->icon('heroicon-o-play')
                     ->action(function (Collection $records): void {
-                        $count = 0;
                         foreach ($records as $record) {
-
                             $record->delete();
                         }
-                        Notification::make()
-                            ->title('Удаление запущено')
-                            ->body("Удалено записей : {$count}.")
-                            ->success()
-                            ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
             ])
