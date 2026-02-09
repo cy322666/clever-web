@@ -235,10 +235,23 @@ class ImportResource extends Resource
 //                                    ->directory('imports')
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set) {
-                                        if ($state) {
-                                            $headings = (new HeadingRowImport())->toArray($state);
 
-                                            $set('headers', json_encode($headings));
+                                        if (!$state) return;
+
+                                        // 1. Получаем путь к временному файлу (Livewire хранит их на диске 'local' по умолчанию)
+                                        // $state в данном случае — это строка пути 'livewire-tmp/имя_файла'
+                                        $filePath = Storage::disk('local')->path($state);
+
+                                        try {
+                                            // 2. Читаем заголовки, передавая полный системный путь
+                                            $headings = (new HeadingRowImport)->toArray($filePath);
+
+                                            // 3. Сохраняем в JSON (обычно возвращается массив массивов для каждого листа)
+                                            // Берем первый лист [0]
+                                            $set('headers', json_encode($headings[0] ?? []));
+                                        } catch (\Exception $e) {
+                                            // На случай, если файл битый или формат не тот
+                                            $set('headers', json_encode(['error' => 'Не удалось прочитать файл']));
                                         }
                                     })
                                     ->live()
