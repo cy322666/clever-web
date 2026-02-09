@@ -235,8 +235,9 @@ class ImportResource extends Resource
 //                                    ->directory('imports')
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set) {
-
-                                        if (!$state) return;
+                                        if (!$state) {
+                                            return;
+                                        }
 
                                         // 1. Получаем путь к временному файлу (Livewire хранит их на диске 'local' по умолчанию)
                                         // $state в данном случае — это строка пути 'livewire-tmp/имя_файла'
