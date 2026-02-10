@@ -64,6 +64,7 @@ return [
     */
 
     'temporary_file_upload' => [
+        'max_upload_time' => 120,
         'disk' => null,        // использует дефолтный (local)
         'middleware' => null,  // попробуй поставить null, если стоит 'auth'
         'preview_mimes' => [
