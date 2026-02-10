@@ -75,6 +75,9 @@ class ListImport extends ListRecords
 
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')
+                    ->wrap()
+                    ->lineClamp(2)        // 👈 по умолчанию свернуто (2 строки)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (ImportRecord $record) {
                         $data = $record->row_data;
 
