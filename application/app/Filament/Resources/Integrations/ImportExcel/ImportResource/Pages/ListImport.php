@@ -73,9 +73,16 @@ class ListImport extends ListRecords
                         true
                     ),
 
-                TextColumn::make('row_data')
-                    ->label('Строка')
-                    ->formatStateUsing(fn(ImportRecord $order) => json_encode($order->row_data, JSON_UNESCAPED_UNICODE))
+                TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
+                ->label('Строка')
+                    ->state(function (ImportRecord $record) {
+                        $arr = json_decode($record->row_data ?? '', true);
+                        return $arr['name'] ?? '—';
+                    })
+
+//                TextColumn::make('row_data')
+//                    ->label('Строка')
+//                    ->formatStateUsing(fn(ImportRecord $order) => json_encode($order->row_data, JSON_UNESCAPED_UNICODE))
 
             ])
             ->defaultSort('created_at', 'desc')
