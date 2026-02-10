@@ -106,52 +106,99 @@ abstract class Companies extends Client
 
     public static function update($company, $arrayFields = [], $zone = 'ru')
     {
-        if (key_exists('Телефоны', $arrayFields)) {
+        /* -------------------------
+         * ТЕЛЕФОНЫ
+         * ------------------------- */
+        $phones = [];
+
+        // множественные телефоны
+        if (!empty($arrayFields['Телефоны']) && is_array($arrayFields['Телефоны'])) {
             foreach ($arrayFields['Телефоны'] as $phone) {
-                if ($zone == 'ru') {
-                    $company->cf('Телефон')->setValue($phone);
-                } else {
-                    $company->cf('Phone')->setValue($phone);
+                if (!empty($phone)) {
+                    $phones[] = [
+                        'value' => $phone,
+                        'enum_code' => 'WORK',
+                    ];
                 }
             }
         }
 
-        if (key_exists('Телефон', $arrayFields)) {
-            $company->cf('Телефон')->setValue($arrayFields['Телефон']);
+        // одиночный телефон
+        if (!empty($arrayFields['Телефон'])) {
+            $phones[] = [
+                'value' => $arrayFields['Телефон'],
+                'enum_code' => 'WORK',
+            ];
         }
 
-        if (key_exists('Почта', $arrayFields)) {
-            $company->cf('Email')->setValue($arrayFields['Почта']);
+        if (!empty($phones)) {
+            $fieldName = ($zone === 'ru') ? 'Телефон' : 'Phone';
+            $company->cf($fieldName)->setValues($phones);
         }
 
-        if (key_exists('Email', $arrayFields)) {
-            $company->cf('Email')->setValue($arrayFields['Email']);
-        }
+        /* -------------------------
+         * EMAIL
+         * ------------------------- */
+        $emails = [];
 
-        if (key_exists('Emails', $arrayFields) && is_array($arrayFields['Emails'])) {
+        // множественные email
+        if (!empty($arrayFields['Emails']) && is_array($arrayFields['Emails'])) {
             foreach ($arrayFields['Emails'] as $email) {
-                if ($email !== null && $email !== '') {
-                    $company->cf('Email')->setValue($email);
+                if (!empty($email)) {
+                    $emails[] = [
+                        'value' => $email,
+                        'enum_code' => 'WORK',
+                    ];
                 }
             }
         }
 
-        if (key_exists('Ответственный', $arrayFields)) {
+        // одиночный email
+        if (!empty($arrayFields['Email'])) {
+            $emails[] = [
+                'value' => $arrayFields['Email'],
+                'enum_code' => 'WORK',
+            ];
+        }
+
+        if (!empty($arrayFields['Почта'])) {
+            $emails[] = [
+                'value' => $arrayFields['Почта'],
+                'enum_code' => 'WORK',
+            ];
+        }
+
+        if (!empty($emails)) {
+            $company->cf('Email')->setValues($emails);
+        }
+
+        /* -------------------------
+         * ОТВЕТСТВЕННЫЙ
+         * ------------------------- */
+        if (!empty($arrayFields['Ответственный'])) {
             $company->responsible_user_id = $arrayFields['Ответственный'];
         }
 
-        if (key_exists('Имя', $arrayFields)) {
+        /* -------------------------
+         * ИМЯ КОМПАНИИ
+         * ------------------------- */
+        if (!empty($arrayFields['Имя'])) {
             $company->name = $arrayFields['Имя'];
         }
 
-        if (key_exists('cf', $arrayFields)) {
+        /* -------------------------
+         * ПРОЧИЕ CUSTOM FIELDS
+         * ------------------------- */
+        if (!empty($arrayFields['cf']) && is_array($arrayFields['cf'])) {
             foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
-                if (strpos($fieldsName, 'Дата') == true) {
+                if (strpos($fieldsName, 'Дата') !== false) {
                     $company->cf($fieldsName)->setData($fieldValue);
+                } else {
+                    $company->cf($fieldsName)->setValue($fieldValue);
                 }
-                $company->cf($fieldsName)->setValue($fieldValue);
             }
         }
+
         $company->save();
 
         return $company;
