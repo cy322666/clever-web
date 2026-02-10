@@ -30,7 +30,7 @@ class ExcelImport implements ToCollection, WithHeadingRow
 
         $userId = $this->setting->user->id;
 
-        $filename = explode('.', explode('/', $this->setting->file_path)[1])[0] ?? $this->setting->file_path;
+        $filename = explode('.', $this->setting->file_path)[0];
 
         foreach ($rows as $row) {
             $rowData = is_array($row) ? $row : (is_object($row) && method_exists($row, 'toArray') ? $row->toArray(

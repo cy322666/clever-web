@@ -48,8 +48,8 @@ class EditImport extends EditRecord
         }
 
 //        try {
-            // Обработка файла: может быть строка (уже сохранённый) или TemporaryUploadedFile
-            // if (is_array($fileData)) {
+        // Обработка файла: может быть строка (уже сохранённый) или TemporaryUploadedFile
+        // if (is_array($fileData)) {
             //     $fileData = reset($fileData); // берём первый элемент массива
             // }
 
@@ -86,15 +86,15 @@ class EditImport extends EditRecord
 //                    'error_rows' => 0,
 //                ]);
 
-            Excel::import(new ExcelImport($setting), Storage::disk('exports')->path($setting->file_path));
+        Excel::import(new ExcelImport($setting), Storage::disk('exports')->path($setting->file_path));
 
-            Notification::make()
-                ->title('Импорт запущен')
-                ->body('Данные импортируются в фоновом режиме. Проверьте результаты через некоторое время.')
-                ->success()
-                ->send();
+        Notification::make()
+            ->title('Импорт запущен')
+            ->body('Данные импортируются в фоновом режиме. Проверьте результаты через некоторое время.')
+            ->success()
+            ->send();
 
-            $this->redirect(ImportResource::getUrl('list'));
+        $this->redirect(ImportResource::getUrl('list'));
 
 //        } catch (\Exception $e) {
 ////            if (isset($importRecord))
