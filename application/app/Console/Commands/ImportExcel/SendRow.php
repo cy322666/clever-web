@@ -136,20 +136,44 @@ class SendRow extends Command
 
     protected function prepareRowData(array $mapping): bool|array
     {
-        if (count($mapping) > 0) {
-            foreach ($mapping as $map) {
-                $value = $this->row[$map['excel_column']] ?? null; //заголовок столбца
+        $data = [];
+        $multiPhoneNames = ['Телефон', 'Phone'];
+        $multiEmailNames = ['Почта', 'Email', 'E-mail'];
 
-                $field = Field::query()
-                    ->where('field_id', $map['field_id'])
-                    ->first();
+        if (count($mapping) === 0) {
+            return false;
+        }
 
-                if ($field) {
-                    $data[$field->name] = $value;
-                }
+        foreach ($mapping as $map) {
+            $value = $this->row[$map['excel_column']] ?? null;
+            if ($value !== null && $value !== '') {
+                $value = trim((string)$value);
+            }
+            if ($value === '') {
+                continue;
+            }
+
+            $field = Field::query()
+                ->where('field_id', $map['field_id'])
+                ->first();
+
+            if (!$field) {
+                continue;
+            }
+
+            $name = $field->name;
+
+            if (in_array($name, $multiPhoneNames, true)) {
+                $data['Телефоны'] = $data['Телефоны'] ?? [];
+                $data['Телефоны'][] = $value;
+            } elseif (in_array($name, $multiEmailNames, true)) {
+                $data['Emails'] = $data['Emails'] ?? [];
+                $data['Emails'][] = $value;
+            } else {
+                $data[$name] = $value;
             }
         }
 
-        return $data ?? false;
+        return $data ?: false;
     }
 }

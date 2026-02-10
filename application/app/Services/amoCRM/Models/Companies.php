@@ -128,6 +128,14 @@ abstract class Companies extends Client
             $company->cf('Email')->setValue($arrayFields['Email']);
         }
 
+        if (key_exists('Emails', $arrayFields) && is_array($arrayFields['Emails'])) {
+            foreach ($arrayFields['Emails'] as $email) {
+                if ($email !== null && $email !== '') {
+                    $company->cf('Email')->setValue($email);
+                }
+            }
+        }
+
         if (key_exists('Ответственный', $arrayFields)) {
             $company->responsible_user_id = $arrayFields['Ответственный'];
         }

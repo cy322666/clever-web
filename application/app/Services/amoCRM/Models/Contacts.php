@@ -27,13 +27,13 @@ abstract class Contacts extends Client
         }
 
         if (empty($resp->object()->_embedded->contacts[0]->id) && key_exists('Почта', $arrayFields)) {
-
-            if ($arrayFields['Почта'])
-
+            $email = is_array($arrayFields['Почта']) ? ($arrayFields['Почта'][0] ?? null) : $arrayFields['Почта'];
+            if ($email) {
                 $resp = Http::withHeaders([
                     'Content-Type' => 'application/json',
                     'Authorization' => 'Bearer ' . $amoApi->account->access_token,
-                ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query='.$arrayFields['Почта']);
+                ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $email);
+            }
         }
 
         if (!empty($resp->object()->_embedded->contacts[0]->id))
@@ -76,17 +76,16 @@ abstract class Contacts extends Client
                 }
             }
 
-            if(($contacts == null || !$contacts->first()) &&
-                key_exists('Почта', $arrayFields)) {
-
-                if ($arrayFields['Почта'])
-
+            if (($contacts === null || !$contacts->first()) && key_exists('Почта', $arrayFields)) {
+                $email = is_array($arrayFields['Почта']) ? ($arrayFields['Почта'][0] ?? null) : $arrayFields['Почта'];
+                if ($email) {
                     $contacts = $amoApi->service
                         ->contacts()
-                        ->searchByEmail($arrayFields['Почта']);
+                        ->searchByEmail($email);
+                }
             }
 
-            if($contacts !== null && $contacts->first())
+            if ($contacts !== null && $contacts->first())
 
                 return $contacts->first();
             else
@@ -109,28 +108,38 @@ abstract class Contacts extends Client
     public static function update(Contact $contact, $arrayFields = [], $zone = 'ru')
     {
         if(key_exists('Телефоны', $arrayFields)) {
-
             foreach ($arrayFields['Телефоны'] as $phone) {
-
-                if ($zone == 'ru')
+                if ($zone == 'ru') {
                     $contact->cf('Телефон')->setValue($phone);
-                else
+                } else {
                     $contact->cf('Phone')->setValue($phone);
+                }
             }
         }
 
-        if(key_exists('Почта', $arrayFields)) {
-
-            $contact->cf('Email')->setValue($arrayFields['Почта']);
+        if (key_exists('Почта', $arrayFields)) {
+            $emails = $arrayFields['Почта'];
+            $emails = is_array($emails) ? $emails : [$emails];
+            foreach ($emails as $email) {
+                if ($email !== null && $email !== '') {
+                    $contact->cf('Email')->setValue($email);
+                }
+            }
         }
 
-        if(key_exists('Ответственный', $arrayFields)) {
+        if (key_exists('Emails', $arrayFields) && is_array($arrayFields['Emails'])) {
+            foreach ($arrayFields['Emails'] as $email) {
+                if ($email !== null && $email !== '') {
+                    $contact->cf('Email')->setValue($email);
+                }
+            }
+        }
 
+        if (key_exists('Ответственный', $arrayFields)) {
             $contact->responsible_user_id = $arrayFields['Ответственный'];
         }
 
-        if(key_exists('Имя', $arrayFields)) {
-
+        if (key_exists('Имя', $arrayFields)) {
             $contact->name = $arrayFields['Имя'];
         }
 
