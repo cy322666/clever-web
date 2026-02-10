@@ -75,7 +75,7 @@ class ListImport extends ListRecords
 
                 TextColumn::make('row_data')
                     ->label('Строка')
-                    ->formatStateUsing(fn($state) => json_encode($state, JSON_UNESCAPED_UNICODE))
+                    ->formatStateUsing(fn(ImportRecord $order) => json_encode($order->row_data, JSON_UNESCAPED_UNICODE))
 
             ])
             ->defaultSort('created_at', 'desc')
