@@ -44,6 +44,8 @@ class ExcelImport implements ToCollection, WithHeadingRow
                     'status' => ImportRecord::STATUS_PROCESSING,
                     'row_data' => $rowData,
                 ]);
+            //TODO не стартует пока, пусть так
+
             // ProcessImportRow::dispatch($this->setting->id, $import->id);
         }
 
