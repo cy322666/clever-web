@@ -86,7 +86,7 @@ class EditImport extends EditRecord
 //                    'error_rows' => 0,
 //                ]);
 
-            Excel::import(new ExcelImport($setting), Storage::disk('local')->path($setting->file_path));
+            Excel::import(new ExcelImport($setting), Storage::disk('exports')->path($setting->file_path));
 
             Notification::make()
                 ->title('Импорт запущен')
