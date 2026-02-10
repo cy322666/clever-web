@@ -85,11 +85,11 @@ abstract class Contacts extends Client
                 }
             }
 
-            if ($contacts !== null && $contacts->first())
-
+            if ($contacts !== null && $contacts->first()) {
                 return $contacts->first();
-            else
+            } else {
                 return null;
+            }
 
         } else
             return self::searchCom($arrayFields, $amoApi);
@@ -108,6 +108,7 @@ abstract class Contacts extends Client
     public static function update(Contact $contact, $arrayFields = [], $zone = 'ru')
     {
         if(key_exists('Телефоны', $arrayFields)) {
+
             foreach ($arrayFields['Телефоны'] as $phone) {
                 if ($zone == 'ru') {
                     $contact->cf('Телефон')->setValue($phone);
@@ -143,11 +144,9 @@ abstract class Contacts extends Client
             $contact->name = $arrayFields['Имя'];
         }
 
-        if(key_exists('cf', $arrayFields)) {
-
+        if (key_exists('cf', $arrayFields)) {
             foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
-
-                if(strpos($fieldsName, 'Дата') == true) {
+                if (strpos($fieldsName, 'Дата') == true) {
 
                     $contact->cf($fieldsName)->setData($fieldValue);
                 }
