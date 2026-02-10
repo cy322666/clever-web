@@ -106,102 +106,139 @@ abstract class Companies extends Client
 
     public static function update($company, $arrayFields = [], $zone = 'ru')
     {
-        /* -------------------------
+        $customFieldsValues = $company->custom_fields_values ?? [];
+
+        /* =======================
          * ТЕЛЕФОНЫ
-         * ------------------------- */
+         * ======================= */
         $phones = [];
 
-        // множественные телефоны
         if (!empty($arrayFields['Телефоны']) && is_array($arrayFields['Телефоны'])) {
             foreach ($arrayFields['Телефоны'] as $phone) {
                 if (!empty($phone)) {
-                    $phones[] = [
-                        'value' => $phone,
-                        'enum_code' => 'WORK',
-                    ];
+                    $phones[] = $phone;
                 }
             }
         }
 
-        // одиночный телефон
         if (!empty($arrayFields['Телефон'])) {
-            $phones[] = [
-                'value' => $arrayFields['Телефон'],
-                'enum_code' => 'WORK',
-            ];
+            $phones[] = $arrayFields['Телефон'];
         }
+
+        $phones = array_values(array_unique($phones));
 
         if (!empty($phones)) {
             $fieldName = ($zone === 'ru') ? 'Телефон' : 'Phone';
-            $company->cf($fieldName)->setValues($phones);
+            $field = $company->cf($fieldName);
+            $fieldId = $field->getId();
+
+            $customFieldsValues = self::replaceCustomField(
+                $customFieldsValues,
+                $fieldId,
+                array_map(fn($phone) => [
+                    'value' => $phone,
+                    'enum_code' => 'WORK',
+                ], $phones)
+            );
         }
 
-        /* -------------------------
+        /* =======================
          * EMAIL
-         * ------------------------- */
+         * ======================= */
         $emails = [];
 
-        // множественные email
         if (!empty($arrayFields['Emails']) && is_array($arrayFields['Emails'])) {
             foreach ($arrayFields['Emails'] as $email) {
                 if (!empty($email)) {
-                    $emails[] = [
-                        'value' => $email,
-                        'enum_code' => 'WORK',
-                    ];
+                    $emails[] = $email;
                 }
             }
         }
 
-        // одиночный email
         if (!empty($arrayFields['Email'])) {
-            $emails[] = [
-                'value' => $arrayFields['Email'],
-                'enum_code' => 'WORK',
-            ];
+            $emails[] = $arrayFields['Email'];
         }
 
         if (!empty($arrayFields['Почта'])) {
-            $emails[] = [
-                'value' => $arrayFields['Почта'],
-                'enum_code' => 'WORK',
-            ];
+            $emails[] = $arrayFields['Почта'];
         }
+
+        $emails = array_values(array_unique($emails));
 
         if (!empty($emails)) {
-            $company->cf('Email')->setValues($emails);
+            $field = $company->cf('Email');
+            $fieldId = $field->getId();
+
+            $customFieldsValues = self::replaceCustomField(
+                $customFieldsValues,
+                $fieldId,
+                array_map(fn($email) => [
+                    'value' => $email,
+                    'enum_code' => 'WORK',
+                ], $emails)
+            );
         }
 
-        /* -------------------------
+        /* =======================
          * ОТВЕТСТВЕННЫЙ
-         * ------------------------- */
+         * ======================= */
         if (!empty($arrayFields['Ответственный'])) {
             $company->responsible_user_id = $arrayFields['Ответственный'];
         }
 
-        /* -------------------------
+        /* =======================
          * ИМЯ КОМПАНИИ
-         * ------------------------- */
+         * ======================= */
         if (!empty($arrayFields['Имя'])) {
             $company->name = $arrayFields['Имя'];
         }
 
-        /* -------------------------
+        /* =======================
          * ПРОЧИЕ CUSTOM FIELDS
-         * ------------------------- */
+         * ======================= */
         if (!empty($arrayFields['cf']) && is_array($arrayFields['cf'])) {
-            foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
-                if (strpos($fieldsName, 'Дата') !== false) {
-                    $company->cf($fieldsName)->setData($fieldValue);
+            foreach ($arrayFields['cf'] as $fieldName => $fieldValue) {
+                if (strpos($fieldName, 'Дата') !== false) {
+                    $company->cf($fieldName)->setData($fieldValue);
                 } else {
-                    $company->cf($fieldsName)->setValue($fieldValue);
+                    $company->cf($fieldName)->setValue($fieldValue);
                 }
             }
         }
 
+        // применяем custom_fields_values ОДИН РАЗ
+        $company->custom_fields_values = $customFieldsValues;
+
         $company->save();
 
         return $company;
+    }
+
+    private static function replaceCustomField(array $cfv, int $fieldId, array $values): array
+    {
+        $result = [];
+        $replaced = false;
+
+        foreach ($cfv as $item) {
+            if (($item['field_id'] ?? null) === $fieldId) {
+                $result[] = [
+                    'field_id' => $fieldId,
+                    'values' => $values,
+                ];
+                $replaced = true;
+            } else {
+                $result[] = $item;
+            }
+        }
+
+        if (!$replaced) {
+            $result[] = [
+                'field_id' => $fieldId,
+                'values' => $values,
+            ];
+        }
+
+        return $result;
     }
 
     public static function clearPhone(?string $phone): ?string
