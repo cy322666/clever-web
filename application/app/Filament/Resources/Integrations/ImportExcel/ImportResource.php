@@ -255,7 +255,7 @@ class ImportResource extends Resource
                                             $set('headers', json_encode(['error' => 'Не удалось прочитать файл']));
                                         }
                                     })
-                                    ->live()
+//                                    ->live()
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
