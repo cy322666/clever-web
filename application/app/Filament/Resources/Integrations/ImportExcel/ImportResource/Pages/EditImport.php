@@ -47,7 +47,7 @@ class EditImport extends EditRecord
             return;
         }
 
-        try {
+//        try {
             // Обработка файла: может быть строка (уже сохранённый) или TemporaryUploadedFile
             // if (is_array($fileData)) {
             //     $fileData = reset($fileData); // берём первый элемент массива
@@ -96,19 +96,19 @@ class EditImport extends EditRecord
 
             $this->redirect(ImportResource::getUrl('list'));
 
-        } catch (\Exception $e) {
-//            if (isset($importRecord))
-//                $importRecord->update([
-//                    'status' => ImportRecord::STATUS_FAILED,
-//                    'error_message' => $e->getMessage(),
-//                ]);
-
-            Notification::make()
-                ->title('Ошибка импорта')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-        }
+//        } catch (\Exception $e) {
+////            if (isset($importRecord))
+////                $importRecord->update([
+////                    'status' => ImportRecord::STATUS_FAILED,
+////                    'error_message' => $e->getMessage(),
+////                ]);
+//
+//            Notification::make()
+//                ->title('Ошибка импорта')
+//                ->body($e->getMessage())
+//                ->danger()
+//                ->send();
+//        }
     }
 
     protected function getActions(): array
