@@ -104,6 +104,56 @@ abstract class Companies extends Client
         return $company;
     }
 
+    private static function setMultiCf($entity, string $fieldName, array $values, ?string $enum = null): void
+    {
+        $values = array_values(
+            array_filter(
+                array_map(
+                    fn($v) => is_string($v) ? trim($v) : $v,
+                    $values
+                ),
+                fn($v) => $v !== null && $v !== ''
+            )
+        );
+
+        if (!$values) {
+            return;
+        }
+
+        $cf = $entity->cf($fieldName);
+
+        // 1) первое значение задаём через setValue (ufee это точно умеет)
+        if ($enum !== null) {
+            // некоторые версии поддерживают 2й аргумент enum
+            try {
+                $cf->setValue($values[0], $enum);
+            } catch (\Throwable $e) {
+                $cf->setValue($values[0]);
+            }
+        } else {
+            $cf->setValue($values[0]);
+        }
+
+        // 2) остальные добавляем через addValue/add
+        for ($i = 1; $i < count($values); $i++) {
+            $val = $values[$i];
+
+            if (method_exists($cf, 'addValue')) {
+                $enum !== null ? $cf->addValue($val, $enum) : $cf->addValue($val);
+                continue;
+            }
+
+            if (method_exists($cf, 'add')) {
+                $enum !== null ? $cf->add($val, $enum) : $cf->add($val);
+                continue;
+            }
+
+            // Если нет addValue/add — значит твоя версия ufee физически не умеет мультизначные через fluent API
+            // Тогда только последнее значение останется (лучше так, чем падать)
+            $cf->setValue($val);
+        }
+    }
+
     public static function update($company, $arrayFields = [], $zone = 'ru')
     {
         /* =======================
@@ -114,18 +164,20 @@ abstract class Companies extends Client
         if (!empty($arrayFields['Телефоны']) && is_array($arrayFields['Телефоны'])) {
             foreach ($arrayFields['Телефоны'] as $phone) {
                 if (!empty($phone)) {
-                    $phones[] = ['value' => $phone];
+                    $phones[] = $phone;
                 }
             }
         }
 
         if (!empty($arrayFields['Телефон'])) {
-            $phones[] = ['value' => $arrayFields['Телефон']];
+            $phones[] = $arrayFields['Телефон'];
         }
 
+        $phones = array_values(array_unique($phones));
+
         if (!empty($phones)) {
-            $fieldName = ($zone === 'ru') ? 'Телефон' : 'Phone';
-            $company->cf($fieldName)->setValue($phones);
+            $phoneField = ($zone === 'ru') ? 'Телефон' : 'Phone';
+            self::setMultiCf($company, $phoneField, $phones, 'WORK');
         }
 
         /* =======================
@@ -135,22 +187,22 @@ abstract class Companies extends Client
 
         if (!empty($arrayFields['Emails']) && is_array($arrayFields['Emails'])) {
             foreach ($arrayFields['Emails'] as $email) {
-                if (!empty($email)) {
-                    $emails[] = ['value' => $email];
-                }
+                if (!empty($email)) $emails[] = $email;
             }
         }
 
         if (!empty($arrayFields['Email'])) {
-            $emails[] = ['value' => $arrayFields['Email']];
+            $emails[] = $arrayFields['Email'];
         }
 
         if (!empty($arrayFields['Почта'])) {
-            $emails[] = ['value' => $arrayFields['Почта']];
+            $emails[] = $arrayFields['Почта'];
         }
 
+        $emails = array_values(array_unique($emails));
+
         if (!empty($emails)) {
-            $company->cf('Email')->setValue($emails);
+            self::setMultiCf($company, 'Email', $emails, 'WORK');
         }
 
         /* =======================
@@ -165,11 +217,11 @@ abstract class Companies extends Client
         }
 
         if (!empty($arrayFields['cf']) && is_array($arrayFields['cf'])) {
-            foreach ($arrayFields['cf'] as $fieldName => $fieldValue) {
-                if (strpos($fieldName, 'Дата') !== false) {
-                    $company->cf($fieldName)->setData($fieldValue);
+            foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
+                if (strpos($fieldsName, 'Дата') !== false) {
+                    $company->cf($fieldsName)->setData($fieldValue);
                 } else {
-                    $company->cf($fieldName)->setValue($fieldValue);
+                    $company->cf($fieldsName)->setValue($fieldValue);
                 }
             }
         }
