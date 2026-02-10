@@ -35,7 +35,7 @@ class ExcelImport implements ToCollection, WithHeadingRow
         foreach ($rows as $row) {
             $rowData = is_array($row) ? $row : (is_object($row) && method_exists($row, 'toArray') ? $row->toArray(
             ) : (array)$row);
-
+//TODO тут проверка на null во всех ключах
             $import = ImportRecord::query()
                 ->create([
                     'import_id' => $this->setting->id,
