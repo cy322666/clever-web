@@ -75,7 +75,16 @@ class ListImport extends ListRecords
 
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')
-                    ->state(fn(ImportRecord $record) => $record->row_data ?? '—')
+                    ->state(function (ImportRecord $record) {
+                        $data = $record->row_data;
+
+                        if (is_array($data)) {
+                            return json_encode($data, JSON_UNESCAPED_UNICODE);
+                        }
+
+                        return (string)$data;
+                    })
+                    ->wrap()
 
 //                TextColumn::make('row_data')
 //                    ->label('Строка')
