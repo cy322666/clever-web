@@ -260,12 +260,16 @@ abstract class Companies extends Client
             $company->name = $arrayFields['Имя'];
         }
 
-        if (!empty($arrayFields['cf']) && is_array($arrayFields['cf'])) {
-            foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
-                if (strpos($fieldsName, 'Дата') !== false) {
-                    $company->cf($fieldsName)->setData($fieldValue);
-                } else {
-                    $company->cf($fieldsName)->setValue($fieldValue);
+        if (!empty($arrayFields) && is_array($arrayFields)) {
+            foreach ($arrayFields as $fieldsName => $fieldValue) {
+                try {
+                    if (strpos($fieldsName, 'Дата') !== false) {
+                        $company->cf($fieldsName)->setData($fieldValue);
+                    } else {
+                        $company->cf($fieldsName)->setValue($fieldValue);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error(__METHOD__ . ' ' . $e->getMessage());
                 }
             }
         }
