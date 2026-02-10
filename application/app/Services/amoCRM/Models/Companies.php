@@ -294,7 +294,7 @@ abstract class Companies extends Client
             ->companies()
             ->create();
 
-        $company->name = !$name ? 'Неизвестно' : $name;
+        $company->name = $name ?: 'Неизвестно';
 
         $company->save();
 
