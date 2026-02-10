@@ -15,47 +15,91 @@ abstract class Companies extends Client
      */
     public static function search($arrayFields, Client $amoApi, $zone = 'ru')
     {
-        $companies = null;
-
-        if ($zone == 'ru') {
-            if (key_exists('Телефоны', $arrayFields)) {
-                foreach ($arrayFields['Телефоны'] as $phone) {
-                    if ($phone && strlen($phone) > 9) {
-                        $contacts = $amoApi->service
-                            ->companies()
-                            ->searchByPhone(substr($phone, -10));
-                    }
-                }
-            }
-
-            if (($companies == null || !$companies->first()) &&
-                key_exists('Телефон', $arrayFields)) {
-                $phone = $arrayFields['Телефон'];
-
-                if ($phone && strlen($phone) > 9) {
-                    $companies = $amoApi->service
-                        ->companies()
-                        ->searchByPhone(substr($phone, -10));
-                }
-            }
-
-            if (($companies == null || !$companies->first()) &&
-                key_exists('Почта', $arrayFields)) {
-                if ($arrayFields['Почта']) {
-                    $companies = $amoApi->service
-                        ->companies()
-                        ->searchByEmail($arrayFields['Почта']);
-                }
-            }
-
-            if ($companies !== null && $companies->first()) {
-                return $companies->first();
-            } else {
-                return null;
-            }
-        } else {
+        if ($zone !== 'ru') {
             return self::searchCom($arrayFields, $amoApi);
         }
+
+        /* =======================
+         * СОБИРАЕМ ТЕЛЕФОНЫ
+         * ======================= */
+        $phones = [];
+
+        if (!empty($arrayFields['Телефоны']) && is_array($arrayFields['Телефоны'])) {
+            foreach ($arrayFields['Телефоны'] as $phone) {
+                if ($phone && strlen($phone) > 9) {
+                    $phones[] = $phone;
+                }
+            }
+        }
+
+        if (!empty($arrayFields['Телефон']) && strlen($arrayFields['Телефон']) > 9) {
+            $phones[] = $arrayFields['Телефон'];
+        }
+
+        // нормализуем + убираем дубли
+        $phones = array_values(
+            array_unique(
+                array_map(
+                    fn($p) => substr(preg_replace('/\D+/', '', $p), -10),
+                    $phones
+                )
+            )
+        );
+
+        /* =======================
+         * ИЩЕМ ПО ТЕЛЕФОНАМ
+         * ======================= */
+        foreach ($phones as $phone) {
+            if (strlen($phone) === 10) {
+                $companies = $amoApi->service
+                    ->companies()
+                    ->searchByPhone($phone);
+
+                if ($companies && $companies->first()) {
+                    return $companies->first();
+                }
+            }
+        }
+
+        /* =======================
+         * СОБИРАЕМ EMAIL
+         * ======================= */
+        $emails = [];
+
+        if (!empty($arrayFields['Emails']) && is_array($arrayFields['Emails'])) {
+            foreach ($arrayFields['Emails'] as $email) {
+                if (!empty($email)) {
+                    $emails[] = $email;
+                }
+            }
+        }
+
+        if (!empty($arrayFields['Email'])) {
+            $emails[] = $arrayFields['Email'];
+        }
+
+        if (!empty($arrayFields['Почта'])) {
+            $emails[] = $arrayFields['Почта'];
+        }
+
+        $emails = array_values(array_unique($emails));
+
+        /* =======================
+         * ИЩЕМ ПО EMAIL
+         * ======================= */
+        foreach ($emails as $email) {
+            if ($email) {
+                $companies = $amoApi->service
+                    ->companies()
+                    ->searchByEmail($email);
+
+                if ($companies && $companies->first()) {
+                    return $companies->first();
+                }
+            }
+        }
+
+        return null;
     }
 
     public static function searchCom($arrayFields, Client $amoApi)
