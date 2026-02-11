@@ -55,83 +55,92 @@ class SendRow extends Command
 
         $this->row = $importRecord->row_data ?? [];
 
-        $amoApi = new Client($setting->user->account);
+        try {
+            $amoApi = new Client($setting->user->account);
 
-        $contactName = $importRecord->getValueForDefaultKey($setting->contact_name);
-        $companyName = $importRecord->getValueForDefaultKey($setting->company_name);
+            $contactName = $importRecord->getValueForDefaultKey($setting->contact_name);
+            $companyName = $importRecord->getValueForDefaultKey($setting->company_name);
 
-        $rowDataLeads = $this->prepareRowData($setting->fields_leads);
-        $rowDataContacts = $this->prepareRowData($setting->fields_contacts);
-        $rowDataCompanies = $this->prepareRowData($setting->fields_companies);
+            $rowDataLeads = $this->prepareRowData($setting->fields_leads);
+            $rowDataContacts = $this->prepareRowData($setting->fields_contacts);
+            $rowDataCompanies = $this->prepareRowData($setting->fields_companies);
 
-        $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
-        $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
+            $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
+            $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
 
-        $objectStatus = Status::getObject($setting->default_status_id);
+            $objectStatus = Status::getObject($setting->default_status_id);
 
-        $lead = Leads::create(null, [
-            'responsible_user_id' => $setting->default_responsible_user_id,
-            'pipeline_id' => $objectStatus->pipeline_id,
-            'status_id' => $objectStatus->status_id,
-            'sale' => $leadSale,
-        ], $leadName, $amoApi);
+            $lead = Leads::create(null, [
+                'responsible_user_id' => $setting->default_responsible_user_id,
+                'pipeline_id' => $objectStatus->pipeline_id,
+                'status_id' => $objectStatus->status_id,
+                'sale' => $leadSale,
+            ], $leadName, $amoApi);
 
-        $lead = Leads::update($lead, [], $rowDataLeads ?: []);
+            $lead = Leads::update($lead, [], $rowDataLeads ?: []);
 
-        Tags::add($lead, $setting->tag);
+            Tags::add($lead, $setting->tag);
 
-        if ($rowDataContacts) {
-            $contact = Contacts::search($rowDataContacts, $amoApi);
+            if ($rowDataContacts) {
+                $contact = Contacts::search($rowDataContacts, $amoApi);
 
-            if (!$contact) {
-                $contact = Contacts::create($amoApi, $contactName);
+                if (!$contact) {
+                    $contact = Contacts::create($amoApi, $contactName);
+                }
+
+                $contact = Contacts::update(
+                    $contact,
+                    $rowDataContacts + [
+                        'Имя' => $contactName,
+                        'Ответственный' => $importRecord->default_responsible_user_id,
+                    ]
+                );
+
+                $importRecord->contact_id = $contact->id;
+
+                $contact->attachTag($setting->tag);
+                $contact->save();
+
+                $lead->attachContact($contact);
+                $lead->save();
             }
 
-            $contact = Contacts::update(
-                $contact,
-                $rowDataContacts + [
-                    'Имя' => $contactName,
-                    'Ответственный' => $importRecord->default_responsible_user_id,
-                ]
-            );
+            if ($rowDataCompanies) {
+                $company = Companies::search($rowDataCompanies, $amoApi);
 
-            $importRecord->contact_id = $contact->id;
+                if (!$company) {
+                    $company = Companies::create($amoApi, $companyName);
+                }
 
-            $contact->attachTag($setting->tag);
-            $contact->save();
+                $company = Companies::update(
+                    $company,
+                    $rowDataCompanies + [
+                        'Имя' => $companyName,
+                        'Ответственный' => $setting->default_responsible_user_id,
+                    ]
+                );
 
-            $lead->attachContact($contact);
-            $lead->save();
-        }
+                $importRecord->company_id = $company->id;
+                $importRecord->save();
 
-        if ($rowDataCompanies) {
+                $company->attachTag($setting->tag);
+                $company->save();
 
-            $company = Companies::search($rowDataCompanies, $amoApi);
+                $lead->attachCompany($company);
+                $lead->save();
+            }
 
-            if (!$company)
-                $company = Companies::create($amoApi, $companyName);
-
-            $company = Companies::update(
-                $company,
-                $rowDataCompanies + [
-                    'Имя' => $companyName,
-                    'Ответственный' => $setting->default_responsible_user_id,
-                ]
-            );
-
-            $importRecord->company_id = $company->id;
+            $importRecord->lead_id = $lead->id;
+            $importRecord->status = ImportRecord::STATUS_COMPLETED;
             $importRecord->save();
-
-            $company->attachTag($setting->tag);
-            $company->save();
-
-            $lead->attachCompany($company);
-            $lead->save();
+        } catch (\Throwable $e) {
+            $importRecord->lead_id = !empty($lead) ? $lead->id : null;
+            $importRecord->contact_id = !empty($contact) ? $contact->id : null;
+            $importRecord->company_id = !empty($company) ? $company->id : null;
+            $importRecord->error_message = $e->getMessage();
+            $importRecord->status = ImportRecord::STATUS_FAILED;
+            $importRecord->save();
         }
-
-        $importRecord->lead_id = $lead->id;
-        $importRecord->status = ImportRecord::STATUS_COMPLETED;
-        $importRecord->save();
     }
 
     protected function prepareRowData(array $mapping): bool|array
