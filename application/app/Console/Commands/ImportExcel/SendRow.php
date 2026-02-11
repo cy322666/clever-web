@@ -107,7 +107,7 @@ class SendRow extends Command
         if ($rowDataCompanies) {
 
             $company = Companies::search($rowDataCompanies, $amoApi);
-//            Log::debug(__METHOD__, $company ? $company->toArray() : $company);
+            Log::debug(__METHOD__, [$company]);
             if (!$company)
                 $company = Companies::create($amoApi, $companyName);
 //            Log::debug(__METHOD__, $company ? $company->toArray() : $company);
