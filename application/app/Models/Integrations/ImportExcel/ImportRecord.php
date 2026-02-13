@@ -32,6 +32,8 @@ class ImportRecord extends Model
         'contact_id',
         'lead_id',
         'company_id',
+        'searched_contact',
+        'searched_company',
     ];
 
     protected $casts = [

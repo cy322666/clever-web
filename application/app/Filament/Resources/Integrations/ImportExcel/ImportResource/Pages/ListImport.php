@@ -9,6 +9,7 @@ use Filament\Actions\BulkAction as ActionsBulkAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Actions\BulkAction;
+use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -87,11 +88,13 @@ class ListImport extends ListRecords
 
                         return (string)$data;
                     })
-                    ->wrap()
+                    ->wrap(),
 
-//                TextColumn::make('row_data')
-//                    ->label('Строка')
-//                    ->formatStateUsing(fn(ImportRecord $order) => json_encode($order->row_data, JSON_UNESCAPED_UNICODE))
+                BooleanColumn::make('searched_contact')
+                    ->label('Найден контакт'),
+
+                BooleanColumn::make('searched_company')
+                    ->label('Найдена компания'),
 
             ])
             ->defaultSort('created_at', 'desc')

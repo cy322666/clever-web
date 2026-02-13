@@ -86,6 +86,8 @@ class SendRow extends Command
 
                 if (!$contact) {
                     $contact = Contacts::create($amoApi, $contactName);
+                } else {
+                    $importRecord->searched_contact = true;
                 }
 
                 $contact = Contacts::update(
@@ -110,7 +112,8 @@ class SendRow extends Command
 
                 if (!$company) {
                     $company = Companies::create($amoApi, $companyName);
-                }
+                } else
+                    $importRecord->searched_company = true;
 
                 $company = Companies::update(
                     $company,
