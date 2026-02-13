@@ -29,15 +29,19 @@ class CheckActiveIntegration
         }
 
         if (!$user) {
-            return new Response(null, 403);
+            return new Response('user no found', 403);
         }
 
         $app = $user->apps()
             ->where('name', $appName)
             ->first();
 
-        if (!$app || $app->status !== App::STATE_ACTIVE) {
-            return new Response(null, 403);
+        if (!$app) {
+            return new Response('app no found', 403);
+        }
+
+        if ($app->status !== App::STATE_ACTIVE) {
+            return new Response('app no active', 403);
         }
 
         return $next($request);
