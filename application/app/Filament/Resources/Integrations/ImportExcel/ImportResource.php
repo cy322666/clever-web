@@ -102,14 +102,14 @@ class ImportResource extends Resource
                                 Forms\Components\Toggle::make('update_existing_company')
                                     ->label('Обновлять существующие компании')
                                     ->default(true)
-                                    ->helperText('Если контакт найден по телефону/email/inn, обновить его данные')
+                                    ->helperText('Если контакт найден по телефону/email, обновить его данные')
                                     ->visible(fn($get) => $get('check_duplicates')),
 
-                                Forms\Components\Toggle::make('update_existing_leads')
-                                    ->label('Обновлять существующие сделки')
-                                    ->default(false)
-                                    ->helperText('Если сделка найдена, обновить её данные')
-                                    ->visible(fn($get) => $get('check_duplicates')),
+//                                Forms\Components\Toggle::make('update_existing_leads')
+//                                    ->label('Обновлять существующие сделки')
+//                                    ->default(false)
+//                                    ->helperText('Если сделка найдена, обновить её данные')
+//                                    ->visible(fn($get) => $get('check_duplicates')),
 
 //                        Forms\Components\Toggle::make('link_contact_to_company')
 //                            ->label('Связывать контакт с компанией')
