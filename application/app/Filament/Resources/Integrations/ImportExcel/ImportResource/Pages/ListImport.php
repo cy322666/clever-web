@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Integrations\ImportExcel\ImportResource\Pages;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Jobs\ImportExcel\ProcessImportRow;
 use App\Models\Integrations\ImportExcel\ImportRecord;
+use App\Models\Integrations\ImportExcel\ImportSetting;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction as ActionsBulkAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -144,7 +146,20 @@ class ListImport extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            //TODO кнопка отправить все
+            Action::make('import')
+                ->label('Выгрузить все')
+                ->action(function (ImportSetting $setting) {
+
+                    $records = ImportRecord::query()
+                        ->where('')
+                        ->get();
+
+                    foreach ($records as $record) {
+
+                        ProcessImportRow::dispatch($this->setting->id, $setting->id);
+                    }
+                })
+                ->color('primary'),
         ];
     }
 }

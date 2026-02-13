@@ -77,7 +77,7 @@ class EditImport extends EditRecord
 //                ->create([
 //                    'import_id' => $setting->id,
 //                    'user_id' => Auth::id(),
-//                    'filename' => $filename,
+//                    'filename' => $setting->file_path,
 //                    'file_path' => $setting->file_path,
 //                    'status' => ImportRecord::STATUS_PROCESSING,
 //                    'total_rows' => 0,
@@ -95,6 +95,7 @@ class EditImport extends EditRecord
                 ->send();
 
             $this->redirect(ImportResource::getUrl('list'));
+
         } catch (\Exception $e) {
 //            if (isset($importRecord))
 //                $importRecord->update([
@@ -119,11 +120,6 @@ class EditImport extends EditRecord
                 Auth::user()->account,
                 fn() => $this->amocrmUpdate(),
             ),
-
-//            Action::make('import')
-//                ->label('Импорт из Excel')
-//                ->icon('heroicon-o-arrow-down-tray')
-//                ->url(ImportResource::getUrl('import')),
 
             Action::make('list')
                 ->label('История импорта')

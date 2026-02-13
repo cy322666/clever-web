@@ -33,33 +33,27 @@ class ExcelImport implements ToCollection, WithHeadingRow
         $filename = explode('.', $this->setting->file_path)[0];
 
         foreach ($rows as $row) {
-            $rowData = is_array($row) ? $row : (is_object($row) && method_exists($row, 'toArray') ? $row->toArray(
-            ) : (array)$row);
-//TODO тут проверка на null во всех ключах
-            $import = ImportRecord::query()
-                ->create([
-                    'import_id' => $this->setting->id,
-                    'user_id' => $userId,
-                    'filename' => $filename,
-                    'status' => ImportRecord::STATUS_PROCESSING,
-                    'row_data' => $rowData,
-                ]);
-            //TODO не стартует пока, пусть так
 
-            // ProcessImportRow::dispatch($this->setting->id, $import->id);
+            $rowData = is_array($row) ? $row : (is_object($row) && method_exists($row, 'toArray') ? $row->toArray() : (array)$row);
+
+            foreach ($rowData as $key => $value) {
+
+                //проверка на null во всех ключах
+                if ($value !== null) {
+
+                    $import = ImportRecord::query()
+                        ->create([
+                            'import_id' => $this->setting->id,
+                            'user_id' => $userId,
+                            'filename' => $filename,
+                            'status' => ImportRecord::STATUS_PROCESSING,
+                            'row_data' => $rowData,
+                        ]);
+
+                    continue 2;
+                }
+            }
         }
-
-        // Обновляем общее количество строк
-//        if ($this->importRecord) {
-//            $this->importRecord->update([
-//                'total_rows' => $totalRows,
-//            ]);
-//        }
-
-//        foreach ($rows as $row) {
-//            // Отправляем каждую строку в очередь для обработки
-//
-//        }
     }
 
     public function headingRow(): int
