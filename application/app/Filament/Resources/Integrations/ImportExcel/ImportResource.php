@@ -68,7 +68,10 @@ class ImportResource extends Resource
                                 TextEntry::make('ps')
                                     ->hiddenLabel()
                                     ->size(TextSize::ExtraSmall)
-                                    ->state(fn() => 'Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
+                                    ->state(
+                                        fn(
+                                        ) => 'Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'
+                                    ),
                             ]),
 
                         Section::make('Стандартные параметры')
@@ -271,7 +274,6 @@ class ImportResource extends Resource
                                             $set('headers', $headers);
 
                                             $setting->headers = $headers;
-
                                         } catch (\Exception $e) {
                                             // На случай, если файл битый или формат не тот
                                             $set('headers', json_encode(['error' => 'Не удалось прочитать файл']));
