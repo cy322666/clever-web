@@ -51,8 +51,25 @@ class ImportResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('Основные настройки')
+                Section::make()
+                    ->hiddenLabel()
                     ->schema([
+
+                        Section::make()
+                            ->label('Инструкция')
+                            ->schema([
+
+                                TextEntry::make('instruction')
+                                    ->hiddenLabel()
+                                    ->bulleted()
+                                    ->size(TextSize::Small)
+                                    ->state(fn() => ImportSetting::$instruction),
+
+                                TextEntry::make('ps')
+                                    ->hiddenLabel()
+                                    ->size(TextSize::ExtraSmall)
+                                    ->state(fn() => 'Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
+                            ]),
 
                         Section::make('Стандартные параметры')
                             ->schema([
@@ -234,7 +251,7 @@ class ImportResource extends Resource
                                     ->disk('exports')
 //                                    ->directory('imports')
                                     ->preserveFilenames()
-                                    ->afterStateUpdated(function ($state, Set $set) {
+                                    ->afterStateUpdated(function ($state, Set $set, ImportSetting $setting) {
                                         if (!$state) {
                                             return;
                                         }
@@ -247,9 +264,14 @@ class ImportResource extends Resource
                                             // 2. Читаем заголовки, передавая полный системный путь
                                             $headings = (new HeadingRowImport)->toArray($filePath);
 
+                                            $headers = json_encode($headings[0] ?? []);
+
                                             // 3. Сохраняем в JSON (обычно возвращается массив массивов для каждого листа)
                                             // Берем первый лист [0]
-                                            $set('headers', json_encode($headings[0] ?? []));
+                                            $set('headers', $headers);
+
+                                            $setting->headers = $headers;
+
                                         } catch (\Exception $e) {
                                             // На случай, если файл битый или формат не тот
                                             $set('headers', json_encode(['error' => 'Не удалось прочитать файл']));

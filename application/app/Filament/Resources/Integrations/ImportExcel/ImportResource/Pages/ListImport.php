@@ -140,4 +140,11 @@ class ListImport extends ListRecords
             ->where('user_id', Auth::id())
             ->with('import');
     }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            //TODO кнопка отправить все
+        ];
+    }
 }
