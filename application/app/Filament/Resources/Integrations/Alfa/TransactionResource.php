@@ -58,14 +58,17 @@ class TransactionResource extends Resource
                     ->label('Событие')
                     ->badge()
                     ->color(fn (Transaction $transaction) => match ((int)$transaction->status) {
-                        Setting::RECORD => 'gray',
-                        Setting::CAME => 'success',
-                        Setting::OMISSION => 'danger',
+                        Setting::RECORD, Setting::NO_PAY => 'gray',
+                        Setting::CAME, Setting::PAY => 'success',
+                        Setting::OMISSION, Setting::ARCHIVE => 'danger',
                     })
                     ->state(fn(Transaction $transaction) => match ((int)$transaction->status) {
                         Setting::RECORD => 'записан',
                         Setting::CAME => 'пришел',
                         Setting::OMISSION => 'не пришел',
+                        Setting::PAY => 'оплачен',
+                        Setting::NO_PAY => 'не оплачен',
+                        Setting::ARCHIVE => 'удален',
                         default => '-',
                     }),
             ])
