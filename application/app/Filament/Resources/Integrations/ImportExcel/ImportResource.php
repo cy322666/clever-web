@@ -257,18 +257,30 @@ class ImportResource extends Resource
                                         }
 
                                         try {
-                                            // $state содержит путь к временному файлу, например: /tmp/phpnMCbii
-                                            $tempFilePath = $state;
+                                            // В Filament, после загрузки файл уже сохранен на диск 'exports'
+                                            // и $state содержит путь к сохраненному файлу (например: imports/filename.xlsx)
 
-                                            logger('Temp file path: ' . $tempFilePath);
-                                            logger('File exists: ' . (file_exists($tempFilePath) ? 'YES' : 'NO'));
+                                            logger('State value: ' . print_r($state, true));
 
-                                            if (!file_exists($tempFilePath)) {
-                                                throw new \Exception("Временный файл не существует: {$tempFilePath}");
+                                            // Получаем полный путь к сохраненному файлу
+                                            $savedFilePath = Storage::disk('exports')->path($state);
+
+                                            logger('Saved file path: ' . $savedFilePath);
+                                            logger('File exists: ' . (file_exists($savedFilePath) ? 'YES' : 'NO'));
+
+                                            if (!file_exists($savedFilePath)) {
+                                                // Пробуем другой вариант пути
+                                                $savedFilePath = storage_path('app/exports/' . $state);
+                                                logger('Alternative path: ' . $savedFilePath);
+                                                logger('Exists: ' . (file_exists($savedFilePath) ? 'YES' : 'NO'));
                                             }
 
-                                            // Читаем заголовки из временного файла
-                                            $headings = (new HeadingRowImport)->toArray($tempFilePath);
+                                            if (!file_exists($savedFilePath)) {
+                                                throw new \Exception("Сохраненный файл не найден: {$state}");
+                                            }
+
+                                            // Читаем заголовки из сохраненного файла
+                                            $headings = (new HeadingRowImport)->toArray($savedFilePath);
 
                                             // Берем первый лист
                                             $headers = $headings[0] ?? [];
@@ -276,12 +288,12 @@ class ImportResource extends Resource
                                             // Фильтруем пустые значения
                                             $headers = array_values(array_filter($headers));
 
-                                            // Сохраняем заголовки в JSON
+                                            // Сохраняем заголовки
                                             $headersJson = json_encode($headers, JSON_UNESCAPED_UNICODE);
                                             $set('headers', $headersJson);
                                             $setting->headers = $headersJson;
 
-                                            // Уведомление
+                                            // Уведомление об успехе
                                             Notification::make()
                                                 ->success()
                                                 ->title('Файл загружен')
@@ -298,7 +310,11 @@ class ImportResource extends Resource
                                                 ->body($errorMessage)
                                                 ->send();
 
-                                            logger('Excel error: ' . $e->getMessage());
+                                            logger('Excel headers error', [
+                                                'message' => $e->getMessage(),
+                                                'state' => $state,
+                                                'trace' => $e->getTraceAsString()
+                                            ]);
                                         }
                                     })
                                     ->live()
