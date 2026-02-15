@@ -26,9 +26,7 @@ use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Livewire\TemporaryUploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
 use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
@@ -235,59 +233,98 @@ class ImportResource extends Resource
                             ]),
 
                         Section::make('Загрузка файла')
+                            ->description('Загрузите Excel файл для импорта данных в amoCRM')
                             ->schema([
 
                                 PrettyJsonField::make('headers')
                                     ->label('Заголовки')
                                     ->disabled(),
 
-                        FileUpload::make('file_path')
-                            ->label('Excel файл')
-                            ->acceptedFileTypes([
-                                'application/vnd.ms-excel',
-                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                'text/csv',
-                                'application/csv',
-                            ])
-                            ->maxSize(10240)
-                            ->disk('exports')
-                            ->preserveFilenames()
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                if (!$state) {
-                                    return;
-                                }
+                                FileUpload::make('file_path')
+                                    ->label('Excel файл')
+                                    ->acceptedFileTypes([
+                                        'application/vnd.ms-excel',
+                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                        'text/csv',
+                                        'application/csv',
+                                        'application/octet-stream',
+                                        'application/zip',
+                                    ])
+                                    ->maxSize(10240)
+                                    ->disk('exports') // Файл сохраняется сюда
+                                    ->preserveFilenames()
+                                    ->afterStateUpdated(function ($state, Set $set, ImportSetting $setting) {
+                                        if (!$state) {
+                                            return;
+                                        }
 
-                                try {
-                                    // Получаем путь к файлу
-                                    if ($state instanceof TemporaryUploadedFile) {
-                                        // Сохраняем файл на диск exports
-                                        $path = $state->store('imports', 'exports');
-                                        $fullPath = Storage::disk('exports')->path($path);
-                                    } elseif (is_string($state)) {
-                                        // Файл уже сохранен
-                                        $fullPath = Storage::disk('exports')->path($state);
-                                    } else {
-                                        throw new \Exception('Неизвестный тип файла');
-                                    }
+                                        try {
+                                            // Ваш код работает, но headers не читаются
+                                            // Проблема: $state содержит 'imports/filename.xlsx' (строка)
 
-                                    if (!file_exists($fullPath)) {
-                                        throw new \Exception("Файл не найден по пути: {$fullPath}");
-                                    }
+                                            // СПОСОБ 1: Читаем временный файл (как у вас было)
+                                            $tempFilePath = Storage::disk('local')->path($state);
 
-                                    // Читаем заголовки
-                                    $headings = (new HeadingRowImport)->toArray($fullPath);
-                                    $headers = array_filter($headings[0] ?? []);
+                                            // Проверяем существует ли временный файл
+                                            if (file_exists($tempFilePath)) {
+                                                // Читаем из временного файла
+                                                $headings = (new HeadingRowImport)->toArray($tempFilePath);
+                                                $headers = $headings[0] ?? [];
 
-                                    // Сохраняем в формате JSON
-                                    $set('headers', json_encode($headers, JSON_UNESCAPED_UNICODE));
+                                                logger('Read from temp file: ' . $tempFilePath);
+                                            }
+                                            // СПОСОБ 2: Если временный файл уже удален, читаем из exports
+                                            else {
+                                                // Получаем путь к сохраненному файлу на диске exports
+                                                $savedFilePath = Storage::disk('exports')->path($state);
 
-                                } catch (\Exception $e) {
-                                    $set('headers', json_encode(['error' => $e->getMessage()]));
-                                    Log::error('Excel import error: ' . $e->getMessage());
-                                }
-                            })
-                            ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
+                                                if (!file_exists($savedFilePath)) {
+                                                    throw new \Exception("Файл не найден ни во временной директории, ни в exports");
+                                                }
 
+                                                // Читаем из сохраненного файла
+                                                $headings = (new HeadingRowImport)->toArray($savedFilePath);
+                                                $headers = $headings[0] ?? [];
+
+                                                logger('Read from exports file: ' . $savedFilePath);
+                                            }
+
+                                            // Фильтруем пустые значения и преобразуем в JSON
+                                            $headers = array_filter($headers);
+                                            $headersJson = json_encode(array_values($headers), JSON_UNESCAPED_UNICODE);
+
+                                            // Сохраняем заголовки
+                                            $set('headers', $headersJson);
+                                            $setting->headers = $headersJson;
+
+                                            // Уведомление об успехе
+                                            Notification::make()
+                                                ->success()
+                                                ->title('Файл загружен')
+                                                ->body('Найдено заголовков: ' . count($headers))
+                                                ->send();
+
+                                        } catch (\Exception $e) {
+                                            $errorMessage = 'Ошибка чтения файла: ' . $e->getMessage();
+                                            $set('headers', json_encode(['error' => $errorMessage]));
+
+                                            Notification::make()
+                                                ->danger()
+                                                ->title('Ошибка')
+                                                ->body($errorMessage)
+                                                ->send();
+
+                                            // Логируем для отладки
+                                            logger('Excel headers error', [
+                                                'message' => $e->getMessage(),
+                                                'state' => $state,
+                                                'temp_path' => $tempFilePath ?? null,
+                                                'saved_path' => $savedFilePath ?? null
+                                            ]);
+                                        }
+                                    })
+                                    ->live() // Важно! Без live() событие может не срабатывать
+                                    ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
                     ])
