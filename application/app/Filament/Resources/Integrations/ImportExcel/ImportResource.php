@@ -242,12 +242,7 @@ class ImportResource extends Resource
 
                                 FileUpload::make('file_path')
                                     ->label('Excel файл')
-                                    ->acceptedFileTypes([
-                                        'application/vnd.ms-excel',
-                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                        'text/csv',
-                                        'application/csv',
-                                    ])
+                                    ->acceptedFileTypes([...])
                                     ->maxSize(10240)
                                     ->disk('exports')
                                     ->preserveFilenames()
@@ -257,33 +252,24 @@ class ImportResource extends Resource
                                         }
 
                                         try {
-                                            // Получаем имя файла (строку)
-                                            $fileName = is_string($state) ? $state : $state->getClientOriginalName();
+                                            // ВАШ РАБОЧИЙ КОД, но с правильным путем
+                                            $filePath = Storage::disk('local')->path($state);
 
-                                            // Путь к временному файлу (как в вашем рабочем коде)
-                                            $tempFilePath = Storage::disk('local')->path($fileName);
-
-                                            // Проверяем временный файл
-                                            if (!file_exists($tempFilePath)) {
-                                                // Если не нашли во временных, пробуем в exports
-                                                $tempFilePath = Storage::disk('exports')->path($fileName);
+                                            // Если файл не существует, пробуем добавить папку livewire-tmp
+                                            if (!file_exists($filePath)) {
+                                                $filePath = storage_path('app/livewire-tmp/' . $state);
                                             }
 
-                                            if (!file_exists($tempFilePath)) {
-                                                throw new \Exception("Файл не найден: {$fileName}");
+                                            if (!file_exists($filePath)) {
+                                                throw new \Exception("Файл не найден: {$state}");
                                             }
 
                                             // Читаем заголовки
-                                            $headings = (new HeadingRowImport)->toArray($tempFilePath);
-                                            $headers = $headings[0] ?? [];
+                                            $headings = (new HeadingRowImport)->toArray($filePath);
+                                            $headers = array_filter($headings[0] ?? []);
 
-                                            // Очищаем от пустых значений и преобразуем в JSON
-                                            $headers = array_values(array_filter($headers));
-                                            $headersJson = json_encode($headers, JSON_UNESCAPED_UNICODE);
-
-                                            // Сохраняем
-                                            $set('headers', $headersJson);
-                                            $setting->headers = $headersJson;
+                                            $set('headers', json_encode(array_values($headers), JSON_UNESCAPED_UNICODE));
+                                            $setting->headers = json_encode(array_values($headers), JSON_UNESCAPED_UNICODE);
 
                                         } catch (\Exception $e) {
                                             $set('headers', json_encode(['error' => $e->getMessage()]));
