@@ -258,42 +258,44 @@ class ImportResource extends Resource
                                             return;
                                         }
 
-                                        // ВАЖНО: Используем ТОТ ЖЕ диск, что и для загрузки
-                                        $filePath = Storage::disk('exports')->path($state);
+                                        // Отладка - посмотрим все возможные пути
+                                        logger('State value: ' . $state);
+                                        logger('Local disk path: ' . Storage::disk('local')->path($state));
+                                        logger('Exports disk path: ' . Storage::disk('exports')->path($state));
+                                        logger('Public disk path: ' . Storage::disk('public')->path($state));
 
+                                        // Проверим существование на разных дисках
+                                        logger('Exists on local: ' . (Storage::disk('local')->exists($state) ? 'yes' : 'no'));
+                                        logger('Exists on exports: ' . (Storage::disk('exports')->exists($state) ? 'yes' : 'no'));
+                                        logger('Exists on public: ' . (Storage::disk('public')->exists($state) ? 'yes' : 'no'));
+
+                                        // Попробуем найти файл
                                         try {
-                                            // Добавим проверку существования файла
-                                            if (!Storage::disk('exports')->exists($state)) {
-                                                throw new \Exception('Файл не найден на диске exports');
+                                            // Скорее всего файл на диске 'local' в папке livewire-tmp
+                                            if (Storage::disk('local')->exists($state)) {
+                                                $filePath = Storage::disk('local')->path($state);
+                                                logger('Found file on local disk: ' . $filePath);
+
+                                                // Читаем файл
+                                                $extension = pathinfo($state, PATHINFO_EXTENSION);
+                                                $readerType = match(strtolower($extension)) {
+                                                    'xlsx' => \Maatwebsite\Excel\Excel::XLSX,
+                                                    'xls' => \Maatwebsite\Excel\Excel::XLS,
+                                                    'csv' => \Maatwebsite\Excel\Excel::CSV,
+                                                    default => null
+                                                };
+
+                                                $headings = (new HeadingRowImport)->toArray($filePath, null, $readerType);
+                                                $headers = array_filter($headings[0] ?? []);
+                                                $set('headers', json_encode($headers));
+                                                $setting->headers = json_encode($headers);
+                                            } else {
+                                                throw new \Exception('Файл не найден ни на одном диске');
                                             }
-
-                                            // Явно указываем тип файла через расширение
-                                            $extension = pathinfo($state, PATHINFO_EXTENSION);
-                                            $readerType = match(strtolower($extension)) {
-                                                'xlsx' => \Maatwebsite\Excel\Excel::XLSX,
-                                                'xls' => \Maatwebsite\Excel\Excel::XLS,
-                                                'csv' => \Maatwebsite\Excel\Excel::CSV,
-                                                default => null
-                                            };
-
-                                            // Передаем readerType если определили
-                                            $headings = (new HeadingRowImport)->toArray($filePath, null, $readerType);
-
-                                            // Берем первый лист и очищаем от пустых значений
-                                            $headers = array_filter($headings[0] ?? []);
-                                            $headers = json_encode($headers);
-
-                                            $set('headers', $headers);
-                                            $setting->headers = $headers;
-
                                         } catch (\Exception $e) {
-                                            $set('headers', json_encode(['error' => 'Не удалось прочитать файл: ' . $e->getMessage()]));
-
+                                            $set('headers', json_encode(['error' => 'Ошибка: ' . $e->getMessage()]));
                                             Log::error('Excel Import Error', [
                                                 'message' => $e->getMessage(),
-                                                'file' => $e->getFile(),
-                                                'line' => $e->getLine(),
-                                                'path' => $filePath,
                                                 'state' => $state
                                             ]);
                                         }
