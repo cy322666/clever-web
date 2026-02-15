@@ -26,6 +26,7 @@ use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
@@ -233,7 +234,6 @@ class ImportResource extends Resource
                             ]),
 
                         Section::make('Загрузка файла')
-                            ->description('Загрузите Excel файл для импорта данных в amoCRM')
                             ->schema([
 
                                 PrettyJsonField::make('headers')
@@ -252,7 +252,6 @@ class ImportResource extends Resource
                                     ])
                                     ->maxSize(10240)
                                     ->disk('exports')
-//                                    ->directory('imports')
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set, ImportSetting $setting) {
                                         if (!$state) {
@@ -277,6 +276,8 @@ class ImportResource extends Resource
                                         } catch (\Exception $e) {
                                             // На случай, если файл битый или формат не тот
                                             $set('headers', json_encode(['error' => 'Не удалось прочитать файл']));
+
+                                            Log::error(__METHOD__, [$e->getMessage().' '.$e->getFile().' '.$e->getLine()]);
                                         }
                                     })
 //                                    ->live()
