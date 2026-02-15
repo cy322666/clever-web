@@ -95,7 +95,6 @@ class EditImport extends EditRecord
                 ->send();
 
             $this->redirect(ImportResource::getUrl('list'));
-
         } catch (\Exception $e) {
 //            if (isset($importRecord))
 //                $importRecord->update([

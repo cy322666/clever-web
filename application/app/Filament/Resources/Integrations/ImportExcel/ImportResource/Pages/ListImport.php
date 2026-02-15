@@ -149,13 +149,11 @@ class ListImport extends ListRecords
             Action::make('import')
                 ->label('Выгрузить все')
                 ->action(function (ImportSetting $setting) {
-
                     $records = ImportRecord::query()
                         ->where('')
                         ->get();
 
                     foreach ($records as $record) {
-
                         ProcessImportRow::dispatch($this->setting->id, $setting->id);
                     }
                 })
