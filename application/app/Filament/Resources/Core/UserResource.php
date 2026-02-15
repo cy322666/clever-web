@@ -37,7 +37,10 @@ class UserResource extends Resource
                             ->disabled(),
                         TextEntry::make('subdomain')
                             ->label('Субдомен')
-                            ->state(fn (?User $record): string => 'https://'.$record?->account?->subdomain.'amocrm.ru' ?? 'amoCRM не подключена')
+                            ->state(
+                                fn(?User $record
+                                ): string => 'https://' . $record?->account?->subdomain . '.amocrm.ru' ?? 'amoCRM не подключена'
+                            )
                             ->disabled(),
                 ])->columnSpan([
                     'sm' => 2,
