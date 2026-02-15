@@ -253,52 +253,58 @@ class ImportResource extends Resource
                                     ->maxSize(10240)
                                     ->disk('exports') // Файл сохраняется на диск 'exports'
                                     ->preserveFilenames()
-                                    ->afterStateUpdated(function ($state, Set $set, ImportSetting $setting) {
+                                    ->afterStateUpdated(function ($state, Set $set) {
                                         if (!$state) {
                                             return;
                                         }
 
-                                        // Отладка - посмотрим все возможные пути
-                                        logger('State value: ' . $state);
-                                        logger('Local disk path: ' . Storage::disk('local')->path($state));
-                                        logger('Exports disk path: ' . Storage::disk('exports')->path($state));
-                                        logger('Public disk path: ' . Storage::disk('public')->path($state));
+                                        // ОТЛАДКА - посмотрим что в $state
+                                        logger('========== DEBUG INFO ==========');
+                                        logger('$state value: ' . print_r($state, true));
+                                        logger('$state type: ' . gettype($state));
 
-                                        // Проверим существование на разных дисках
-                                        logger('Exists on local: ' . (Storage::disk('local')->exists($state) ? 'yes' : 'no'));
-                                        logger('Exists on exports: ' . (Storage::disk('exports')->exists($state) ? 'yes' : 'no'));
-                                        logger('Exists on public: ' . (Storage::disk('public')->exists($state) ? 'yes' : 'no'));
+                                        // Проверим все возможные диски
+                                        $disks = ['local', 'public', 'exports', 'private'];
 
-                                        // Попробуем найти файл
-                                        try {
-                                            // Скорее всего файл на диске 'local' в папке livewire-tmp
-                                            if (Storage::disk('local')->exists($state)) {
-                                                $filePath = Storage::disk('local')->path($state);
-                                                logger('Found file on local disk: ' . $filePath);
+                                        foreach ($disks as $disk) {
+                                            $diskInstance = Storage::disk($disk);
+                                            logger("Disk {$disk} root: " . $diskInstance->path(''));
 
-                                                // Читаем файл
-                                                $extension = pathinfo($state, PATHINFO_EXTENSION);
-                                                $readerType = match(strtolower($extension)) {
-                                                    'xlsx' => \Maatwebsite\Excel\Excel::XLSX,
-                                                    'xls' => \Maatwebsite\Excel\Excel::XLS,
-                                                    'csv' => \Maatwebsite\Excel\Excel::CSV,
-                                                    default => null
-                                                };
+                                            // Проверим существование файла как есть
+                                            $exists = $diskInstance->exists($state) ? 'YES' : 'NO';
+                                            logger("File '{$state}' exists on {$disk} disk: {$exists}");
 
-                                                $headings = (new HeadingRowImport)->toArray($filePath, null, $readerType);
-                                                $headers = array_filter($headings[0] ?? []);
-                                                $set('headers', json_encode($headers));
-                                                $setting->headers = json_encode($headers);
-                                            } else {
-                                                throw new \Exception('Файл не найден ни на одном диске');
+                                            // Если файл не найден, проверим в разных директориях
+                                            $directories = ['', 'livewire-tmp/', 'tmp/', 'uploads/', 'imports/'];
+                                            foreach ($directories as $dir) {
+                                                $path = $dir . $state;
+                                                if ($diskInstance->exists($path)) {
+                                                    $fullPath = $diskInstance->path($path);
+                                                    logger("FOUND on {$disk} disk at: {$path}");
+                                                    logger("Full path: {$fullPath}");
+                                                }
                                             }
-                                        } catch (\Exception $e) {
-                                            $set('headers', json_encode(['error' => 'Ошибка: ' . $e->getMessage()]));
-                                            Log::error('Excel Import Error', [
-                                                'message' => $e->getMessage(),
-                                                'state' => $state
-                                            ]);
                                         }
+
+                                        // Проверим прямые пути на сервере
+                                        $directPaths = [
+                                            storage_path("app/livewire-tmp/{$state}"),
+                                            storage_path("app/public/{$state}"),
+                                            storage_path("app/exports/{$state}"),
+                                            storage_path("app/{$state}"),
+                                            "/tmp/{$state}",
+                                            sys_get_temp_dir() . "/{$state}"
+                                        ];
+
+                                        foreach ($directPaths as $path) {
+                                            if (file_exists($path)) {
+                                                logger("FILE EXISTS at direct path: {$path}");
+                                            }
+                                        }
+
+                                        logger('========== END DEBUG ==========');
+
+                                        $set('headers', json_encode(['debug' => 'Check logs for debug info']));
                                     })
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
