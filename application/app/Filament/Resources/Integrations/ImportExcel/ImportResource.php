@@ -242,7 +242,7 @@ class ImportResource extends Resource
 
                                 FileUpload::make('file_path')
                                     ->label('Excel файл')
-                                    ->acceptedFileTypes([...])
+//                                    ->acceptedFileTypes([...])
                                     ->maxSize(10240)
                                     ->disk('exports')
                                     ->preserveFilenames()
@@ -268,9 +268,14 @@ class ImportResource extends Resource
                                             $headings = (new HeadingRowImport)->toArray($filePath);
                                             $headers = array_filter($headings[0] ?? []);
 
-                                            $set('headers', json_encode(array_values($headers), JSON_UNESCAPED_UNICODE));
-                                            $setting->headers = json_encode(array_values($headers), JSON_UNESCAPED_UNICODE);
-
+                                            $set(
+                                                'headers',
+                                                json_encode(array_values($headers), JSON_UNESCAPED_UNICODE)
+                                            );
+                                            $setting->headers = json_encode(
+                                                array_values($headers),
+                                                JSON_UNESCAPED_UNICODE
+                                            );
                                         } catch (\Exception $e) {
                                             $set('headers', json_encode(['error' => $e->getMessage()]));
                                         }
