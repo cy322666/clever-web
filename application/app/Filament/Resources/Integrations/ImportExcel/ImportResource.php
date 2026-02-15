@@ -242,7 +242,12 @@ class ImportResource extends Resource
 
                                 FileUpload::make('file_path')
                                     ->label('Excel файл')
-//                                    ->acceptedFileTypes([...])
+                                    ->acceptedFileTypes([
+                                        'application/vnd.ms-excel',
+                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                        'text/csv',
+                                        'application/csv',
+                                    ])
                                     ->maxSize(10240)
                                     ->disk('exports')
                                     ->preserveFilenames()
@@ -252,32 +257,48 @@ class ImportResource extends Resource
                                         }
 
                                         try {
-                                            // ВАШ РАБОЧИЙ КОД, но с правильным путем
-                                            $filePath = Storage::disk('local')->path($state);
+                                            // $state содержит путь к временному файлу, например: /tmp/phpnMCbii
+                                            $tempFilePath = $state;
 
-                                            // Если файл не существует, пробуем добавить папку livewire-tmp
-                                            if (!file_exists($filePath)) {
-                                                $filePath = storage_path('app/livewire-tmp/' . $state);
+                                            logger('Temp file path: ' . $tempFilePath);
+                                            logger('File exists: ' . (file_exists($tempFilePath) ? 'YES' : 'NO'));
+
+                                            if (!file_exists($tempFilePath)) {
+                                                throw new \Exception("Временный файл не существует: {$tempFilePath}");
                                             }
 
-                                            if (!file_exists($filePath)) {
-                                                throw new \Exception("Файл не найден: {$state}");
-                                            }
+                                            // Читаем заголовки из временного файла
+                                            $headings = (new HeadingRowImport)->toArray($tempFilePath);
 
-                                            // Читаем заголовки
-                                            $headings = (new HeadingRowImport)->toArray($filePath);
-                                            $headers = array_filter($headings[0] ?? []);
+                                            // Берем первый лист
+                                            $headers = $headings[0] ?? [];
 
-                                            $set(
-                                                'headers',
-                                                json_encode(array_values($headers), JSON_UNESCAPED_UNICODE)
-                                            );
-                                            $setting->headers = json_encode(
-                                                array_values($headers),
-                                                JSON_UNESCAPED_UNICODE
-                                            );
+                                            // Фильтруем пустые значения
+                                            $headers = array_values(array_filter($headers));
+
+                                            // Сохраняем заголовки в JSON
+                                            $headersJson = json_encode($headers, JSON_UNESCAPED_UNICODE);
+                                            $set('headers', $headersJson);
+                                            $setting->headers = $headersJson;
+
+                                            // Уведомление
+                                            Notification::make()
+                                                ->success()
+                                                ->title('Файл загружен')
+                                                ->body('Найдено заголовков: ' . count($headers))
+                                                ->send();
+
                                         } catch (\Exception $e) {
-                                            $set('headers', json_encode(['error' => $e->getMessage()]));
+                                            $errorMessage = 'Ошибка чтения файла: ' . $e->getMessage();
+                                            $set('headers', json_encode(['error' => $errorMessage]));
+
+                                            Notification::make()
+                                                ->danger()
+                                                ->title('Ошибка')
+                                                ->body($errorMessage)
+                                                ->send();
+
+                                            logger('Excel error: ' . $e->getMessage());
                                         }
                                     })
                                     ->live()
