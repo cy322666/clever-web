@@ -34,11 +34,11 @@ class Setting extends Model
     public const CAME = 2;
     public const OMISSION = 3;
     public const PAY = 4;
-    public const NO_PAY = 4;
-    public const ARCHIVE = 5;
+    public const NO_PAY = 5;
+    public const ARCHIVE = 6;
 
     static array $cost = [
-        '6_month'  => '6.000 р',
+        '6_month' => '6.000 р',
         '12_month' => '12.000 р',
     ];
 
