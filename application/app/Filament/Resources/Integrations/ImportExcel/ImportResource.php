@@ -236,9 +236,9 @@ class ImportResource extends Resource
                             ->description('Загрузите Excel файл для импорта данных в amoCRM')
                             ->schema([
 
-                                PrettyJsonField::make('headers')
-                                    ->label('Заголовки')
-                                    ->disabled(),
+//                                PrettyJsonField::make('headers')
+//                                    ->label('Заголовки')
+//                                    ->disabled(),
 
                                 FileUpload::make('file_path')
                                     ->label('Excel файл')
@@ -251,32 +251,7 @@ class ImportResource extends Resource
                                     ->maxSize(10240)
                                     ->disk('exports')
                                     ->preserveFilenames()
-                                    ->afterStateUpdated(function ($state, Set $set, ImportSetting $setting) {
-                                        if (!$state) {
-                                            return;
-                                        }
-
-                                        try {
-                                            // Твой рабочий код, который работал
-                                            $filePath = Storage::disk('local')->path($state);
-
-                                            if (!file_exists($filePath)) {
-                                                throw new \Exception("Файл не найден");
-                                            }
-
-                                            // Просто читаем заголовки
-                                            $headings = (new HeadingRowImport)->toArray($filePath);
-                                            $headers = $headings[0] ?? [];
-
-                                            // Сохраняем как есть
-                                            $headersJson = json_encode($headers);
-                                            $set('headers', $headersJson);
-                                            $setting->headers = $headersJson;
-
-                                        } catch (\Exception $e) {
-                                            $set('headers', json_encode(['error' => 'Ошибка чтения файла']));
-                                        }
-                                    })
+                                    ->live()
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
