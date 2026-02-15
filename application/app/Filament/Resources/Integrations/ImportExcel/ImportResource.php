@@ -251,36 +251,53 @@ class ImportResource extends Resource
                                         'application/zip',
                                     ])
                                     ->maxSize(10240)
-                                    ->disk('exports')
+                                    ->disk('exports') // Файл сохраняется на диск 'exports'
                                     ->preserveFilenames()
                                     ->afterStateUpdated(function ($state, Set $set, ImportSetting $setting) {
                                         if (!$state) {
                                             return;
                                         }
 
-                                        // 1. Получаем путь к временному файлу (Livewire хранит их на диске 'local' по умолчанию)
-                                        // $state в данном случае — это строка пути 'livewire-tmp/имя_файла'
-                                        $filePath = Storage::disk('local')->path($state);
+                                        // ВАЖНО: Используем ТОТ ЖЕ диск, что и для загрузки
+                                        $filePath = Storage::disk('exports')->path($state);
 
                                         try {
-                                            // 2. Читаем заголовки, передавая полный системный путь
-                                            $headings = (new HeadingRowImport)->toArray($filePath);
+                                            // Добавим проверку существования файла
+                                            if (!Storage::disk('exports')->exists($state)) {
+                                                throw new \Exception('Файл не найден на диске exports');
+                                            }
 
-                                            $headers = json_encode($headings[0] ?? []);
+                                            // Явно указываем тип файла через расширение
+                                            $extension = pathinfo($state, PATHINFO_EXTENSION);
+                                            $readerType = match(strtolower($extension)) {
+                                                'xlsx' => \Maatwebsite\Excel\Excel::XLSX,
+                                                'xls' => \Maatwebsite\Excel\Excel::XLS,
+                                                'csv' => \Maatwebsite\Excel\Excel::CSV,
+                                                default => null
+                                            };
 
-                                            // 3. Сохраняем в JSON (обычно возвращается массив массивов для каждого листа)
-                                            // Берем первый лист [0]
+                                            // Передаем readerType если определили
+                                            $headings = (new HeadingRowImport)->toArray($filePath, null, $readerType);
+
+                                            // Берем первый лист и очищаем от пустых значений
+                                            $headers = array_filter($headings[0] ?? []);
+                                            $headers = json_encode($headers);
+
                                             $set('headers', $headers);
-
                                             $setting->headers = $headers;
-                                        } catch (\Exception $e) {
-                                            // На случай, если файл битый или формат не тот
-                                            $set('headers', json_encode(['error' => 'Не удалось прочитать файл']));
 
-                                            Log::error(__METHOD__, [$e->getMessage().' '.$e->getFile().' '.$e->getLine()]);
+                                        } catch (\Exception $e) {
+                                            $set('headers', json_encode(['error' => 'Не удалось прочитать файл: ' . $e->getMessage()]));
+
+                                            Log::error('Excel Import Error', [
+                                                'message' => $e->getMessage(),
+                                                'file' => $e->getFile(),
+                                                'line' => $e->getLine(),
+                                                'path' => $filePath,
+                                                'state' => $state
+                                            ]);
                                         }
                                     })
-//                                    ->live()
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
