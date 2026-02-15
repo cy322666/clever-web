@@ -256,136 +256,37 @@ class ImportResource extends Resource
                                             return;
                                         }
 
-                                        // ДИАГНОСТИКА - узнаем что в $state
-                                        $debugInfo = [
-                                            'state_raw' => $state,
-                                            'state_type' => gettype($state),
-                                            'state_string' => is_string($state) ? $state : 'not string',
-                                            'state_object_class' => is_object($state) ? get_class($state) : 'not object',
-                                        ];
-
-                                        // Логируем в отдельный файл для удобства
-                                        file_put_contents(
-                                            storage_path('logs/excel_debug.txt'),
-                                            '=== ' . date('Y-m-d H:i:s') . " ===\n" .
-                                            print_r($debugInfo, true) . "\n",
-                                            FILE_APPEND
-                                        );
-
                                         try {
-                                            $filePath = null;
-                                            $foundIn = null;
+                                            // Получаем имя файла (строку)
+                                            $fileName = is_string($state) ? $state : $state->getClientOriginalName();
 
-                                            // СЛУЧАЙ 1: Если $state - объект с методом getRealPath (TemporaryUploadedFile)
-                                            if (is_object($state) && method_exists($state, 'getRealPath')) {
-                                                $filePath = $state->getRealPath();
-                                                $foundIn = 'object->getRealPath()';
-                                                logger("Case 1: Found in object, path: " . $filePath);
+                                            // Путь к временному файлу (как в вашем рабочем коде)
+                                            $tempFilePath = Storage::disk('local')->path($fileName);
+
+                                            // Проверяем временный файл
+                                            if (!file_exists($tempFilePath)) {
+                                                // Если не нашли во временных, пробуем в exports
+                                                $tempFilePath = Storage::disk('exports')->path($fileName);
                                             }
 
-                                            // СЛУЧАЙ 2: Если $state - строка
-                                            elseif (is_string($state)) {
-                                                $possibleLocations = [
-                                                    // 1. Прямой путь на local диске (ваш оригинальный вариант)
-                                                    'local_direct' => Storage::disk('local')->path($state),
-
-                                                    // 2. Local диск с папкой livewire-tmp
-                                                    'local_livewire' => Storage::disk('local')->path('livewire-tmp/' . $state),
-
-                                                    // 3. Exports диск
-                                                    'exports_direct' => Storage::disk('exports')->path($state),
-
-                                                    // 4. Exports диск с папкой imports
-                                                    'exports_imports' => Storage::disk('exports')->path('imports/' . $state),
-
-                                                    // 5. Прямые пути в storage
-                                                    'storage_app' => storage_path('app/' . $state),
-                                                    'storage_exports' => storage_path('app/exports/' . $state),
-                                                    'storage_exports_imports' => storage_path('app/exports/imports/' . $state),
-                                                    'storage_livewire' => storage_path('app/livewire-tmp/' . $state),
-                                                    'storage_public' => storage_path('app/public/' . $state),
-
-                                                    // 6. Системная временная директория
-                                                    'sys_temp' => sys_get_temp_dir() . '/' . $state,
-                                                    'sys_temp_livewire' => sys_get_temp_dir() . '/livewire-tmp/' . $state,
-                                                ];
-
-                                                // Проверяем каждый путь
-                                                foreach ($possibleLocations as $location => $path) {
-                                                    $exists = file_exists($path);
-                                                    logger("Checking {$location}: {$path} - " . ($exists ? 'FOUND' : 'not found'));
-
-                                                    if ($exists) {
-                                                        $filePath = $path;
-                                                        $foundIn = $location;
-                                                        break;
-                                                    }
-                                                }
-                                            }
-
-                                            // Если не нашли, пробуем найти любой файл с похожим именем
-                                            if (!$filePath && is_string($state)) {
-                                                $fileName = basename($state);
-                                                logger("Searching for filename: {$fileName}");
-
-                                                // Рекурсивный поиск в директориях storage
-                                                $directories = [
-                                                    storage_path('app/livewire-tmp'),
-                                                    storage_path('app/exports'),
-                                                    storage_path('app/exports/imports'),
-                                                    storage_path('app/public'),
-                                                    sys_get_temp_dir(),
-                                                ];
-
-                                                foreach ($directories as $dir) {
-                                                    if (is_dir($dir)) {
-                                                        $files = scandir($dir);
-                                                        foreach ($files as $file) {
-                                                            if (str_contains($file, $fileName) || str_contains($fileName, $file)) {
-                                                                $potentialPath = $dir . '/' . $file;
-                                                                logger("Potential match found: {$potentialPath}");
-                                                                if (file_exists($potentialPath)) {
-                                                                    $filePath = $potentialPath;
-                                                                    $foundIn = 'scandir_match';
-                                                                    break 2;
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Сохраняем диагностическую информацию
-                                            file_put_contents(
-                                                storage_path('logs/excel_debug.txt'),
-                                                "Found in: {$foundIn}\nPath: {$filePath}\n" .
-                                                "File exists: " . ($filePath && file_exists($filePath) ? 'YES' : 'NO') . "\n\n",
-                                                FILE_APPEND
-                                            );
-
-                                            if (!$filePath || !file_exists($filePath)) {
-                                                throw new \Exception("Файл не найден. Проверьте storage/logs/excel_debug.txt");
+                                            if (!file_exists($tempFilePath)) {
+                                                throw new \Exception("Файл не найден: {$fileName}");
                                             }
 
                                             // Читаем заголовки
-                                            $headings = (new HeadingRowImport)->toArray($filePath);
-                                            $headers = array_filter($headings[0] ?? []);
+                                            $headings = (new HeadingRowImport)->toArray($tempFilePath);
+                                            $headers = $headings[0] ?? [];
 
-                                            $headersJson = json_encode(array_values($headers), JSON_UNESCAPED_UNICODE);
+                                            // Очищаем от пустых значений и преобразуем в JSON
+                                            $headers = array_values(array_filter($headers));
+                                            $headersJson = json_encode($headers, JSON_UNESCAPED_UNICODE);
+
+                                            // Сохраняем
                                             $set('headers', $headersJson);
                                             $setting->headers = $headersJson;
 
                                         } catch (\Exception $e) {
-                                            $errorMessage = 'Ошибка: ' . $e->getMessage();
-                                            $set('headers', json_encode(['error' => $errorMessage]));
-
-                                            // Дополнительная информация об ошибке
-                                            file_put_contents(
-                                                storage_path('logs/excel_debug.txt'),
-                                                "ERROR: " . $e->getMessage() . "\n" .
-                                                "Trace: " . $e->getTraceAsString() . "\n\n",
-                                                FILE_APPEND
-                                            );
+                                            $set('headers', json_encode(['error' => $e->getMessage()]));
                                         }
                                     })
                                     ->live()
