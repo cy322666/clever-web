@@ -257,67 +257,26 @@ class ImportResource extends Resource
                                         }
 
                                         try {
-                                            // В Filament, после загрузки файл уже сохранен на диск 'exports'
-                                            // и $state содержит путь к сохраненному файлу (например: imports/filename.xlsx)
+                                            // Твой рабочий код, который работал
+                                            $filePath = Storage::disk('local')->path($state);
 
-                                            logger('State value: ' . print_r($state, true));
-
-                                            // Получаем полный путь к сохраненному файлу
-                                            $savedFilePath = Storage::disk('exports')->path($state);
-
-                                            logger('Saved file path: ' . $savedFilePath);
-                                            logger('File exists: ' . (file_exists($savedFilePath) ? 'YES' : 'NO'));
-
-                                            if (!file_exists($savedFilePath)) {
-                                                // Пробуем другой вариант пути
-                                                $savedFilePath = storage_path('app/exports/' . $state);
-                                                logger('Alternative path: ' . $savedFilePath);
-                                                logger('Exists: ' . (file_exists($savedFilePath) ? 'YES' : 'NO'));
+                                            if (!file_exists($filePath)) {
+                                                throw new \Exception("Файл не найден");
                                             }
 
-                                            if (!file_exists($savedFilePath)) {
-                                                throw new \Exception("Сохраненный файл не найден: {$state}");
-                                            }
-
-                                            // Читаем заголовки из сохраненного файла
-                                            $headings = (new HeadingRowImport)->toArray($savedFilePath);
-
-                                            // Берем первый лист
+                                            // Просто читаем заголовки
+                                            $headings = (new HeadingRowImport)->toArray($filePath);
                                             $headers = $headings[0] ?? [];
 
-                                            // Фильтруем пустые значения
-                                            $headers = array_values(array_filter($headers));
-
-                                            // Сохраняем заголовки
-                                            $headersJson = json_encode($headers, JSON_UNESCAPED_UNICODE);
+                                            // Сохраняем как есть
+                                            $headersJson = json_encode($headers);
                                             $set('headers', $headersJson);
                                             $setting->headers = $headersJson;
 
-                                            // Уведомление об успехе
-                                            Notification::make()
-                                                ->success()
-                                                ->title('Файл загружен')
-                                                ->body('Найдено заголовков: ' . count($headers))
-                                                ->send();
-
                                         } catch (\Exception $e) {
-                                            $errorMessage = 'Ошибка чтения файла: ' . $e->getMessage();
-                                            $set('headers', json_encode(['error' => $errorMessage]));
-
-                                            Notification::make()
-                                                ->danger()
-                                                ->title('Ошибка')
-                                                ->body($errorMessage)
-                                                ->send();
-
-                                            logger('Excel headers error', [
-                                                'message' => $e->getMessage(),
-                                                'state' => $state,
-                                                'trace' => $e->getTraceAsString()
-                                            ]);
+                                            $set('headers', json_encode(['error' => 'Ошибка чтения файла']));
                                         }
                                     })
-                                    ->live()
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
