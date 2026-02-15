@@ -28,6 +28,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Livewire\TemporaryUploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
 use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
@@ -240,73 +241,53 @@ class ImportResource extends Resource
                                     ->label('Заголовки')
                                     ->disabled(),
 
-                                FileUpload::make('file_path')
-                                    ->label('Excel файл')
-                                    ->acceptedFileTypes([
-                                        'application/vnd.ms-excel',
-                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                        'text/csv',
-                                        'application/csv',
-                                        'application/octet-stream',
-                                        'application/zip',
-                                    ])
-                                    ->maxSize(10240)
-                                    ->disk('exports') // Файл сохраняется на диск 'exports'
-                                    ->preserveFilenames()
-                                    ->afterStateUpdated(function ($state, Set $set) {
-                                        if (!$state) {
-                                            return;
-                                        }
+                        FileUpload::make('file_path')
+                            ->label('Excel файл')
+                            ->acceptedFileTypes([
+                                'application/vnd.ms-excel',
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'text/csv',
+                                'application/csv',
+                            ])
+                            ->maxSize(10240)
+                            ->disk('exports')
+                            ->preserveFilenames()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if (!$state) {
+                                    return;
+                                }
 
-                                        // ОТЛАДКА - посмотрим что в $state
-                                        logger('========== DEBUG INFO ==========');
-                                        logger('$state value: ' . print_r($state, true));
-                                        logger('$state type: ' . gettype($state));
+                                try {
+                                    // Получаем путь к файлу
+                                    if ($state instanceof TemporaryUploadedFile) {
+                                        // Сохраняем файл на диск exports
+                                        $path = $state->store('imports', 'exports');
+                                        $fullPath = Storage::disk('exports')->path($path);
+                                    } elseif (is_string($state)) {
+                                        // Файл уже сохранен
+                                        $fullPath = Storage::disk('exports')->path($state);
+                                    } else {
+                                        throw new \Exception('Неизвестный тип файла');
+                                    }
 
-                                        // Проверим все возможные диски
-                                        $disks = ['local', 'public', 'exports', 'private'];
+                                    if (!file_exists($fullPath)) {
+                                        throw new \Exception("Файл не найден по пути: {$fullPath}");
+                                    }
 
-                                        foreach ($disks as $disk) {
-                                            $diskInstance = Storage::disk($disk);
-                                            logger("Disk {$disk} root: " . $diskInstance->path(''));
+                                    // Читаем заголовки
+                                    $headings = (new HeadingRowImport)->toArray($fullPath);
+                                    $headers = array_filter($headings[0] ?? []);
 
-                                            // Проверим существование файла как есть
-                                            $exists = $diskInstance->exists($state) ? 'YES' : 'NO';
-                                            logger("File '{$state}' exists on {$disk} disk: {$exists}");
+                                    // Сохраняем в формате JSON
+                                    $set('headers', json_encode($headers, JSON_UNESCAPED_UNICODE));
 
-                                            // Если файл не найден, проверим в разных директориях
-                                            $directories = ['', 'livewire-tmp/', 'tmp/', 'uploads/', 'imports/'];
-                                            foreach ($directories as $dir) {
-                                                $path = $dir . $state;
-                                                if ($diskInstance->exists($path)) {
-                                                    $fullPath = $diskInstance->path($path);
-                                                    logger("FOUND on {$disk} disk at: {$path}");
-                                                    logger("Full path: {$fullPath}");
-                                                }
-                                            }
-                                        }
+                                } catch (\Exception $e) {
+                                    $set('headers', json_encode(['error' => $e->getMessage()]));
+                                    Log::error('Excel import error: ' . $e->getMessage());
+                                }
+                            })
+                            ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
 
-                                        // Проверим прямые пути на сервере
-                                        $directPaths = [
-                                            storage_path("app/livewire-tmp/{$state}"),
-                                            storage_path("app/public/{$state}"),
-                                            storage_path("app/exports/{$state}"),
-                                            storage_path("app/{$state}"),
-                                            "/tmp/{$state}",
-                                            sys_get_temp_dir() . "/{$state}"
-                                        ];
-
-                                        foreach ($directPaths as $path) {
-                                            if (file_exists($path)) {
-                                                logger("FILE EXISTS at direct path: {$path}");
-                                            }
-                                        }
-
-                                        logger('========== END DEBUG ==========');
-
-                                        $set('headers', json_encode(['debug' => 'Check logs for debug info']));
-                                    })
-                                    ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
                     ])
