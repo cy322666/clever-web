@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Jobs\ImportExcel\ProcessImportRow;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction as ActionsBulkAction;
 use Filament\Notifications\Notification;
@@ -36,7 +37,7 @@ class ListImport extends ListRecords
 
                 TextColumn::make('filename')
                     ->label('Файл')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->searchable(),
 
                 TextColumn::make('status')
@@ -81,7 +82,7 @@ class ListImport extends ListRecords
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')
 //                    ->lineClamp(2)        // 👈 по умолчанию свернуто (2 строки)
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->state(function (ImportRecord $record) {
                         $data = $record->row_data;
 
@@ -151,14 +152,28 @@ class ListImport extends ListRecords
         return [
             Action::make('import')
                 ->label('Выгрузить все')
-                ->action(function (ImportSetting $setting) {
+                ->action(function () {
+                    $setting = ImportSetting::query()
+                        ->where('user_id', Auth::user()->id)
+                        ->first();
+
                     $records = ImportRecord::query()
-                        ->where('')
+                        ->where('user_id', Auth::user()->id)
+                        ->where('status', '!=', 'completed')
                         ->get();
 
                     foreach ($records as $record) {
-                        ProcessImportRow::dispatch($this->setting->id, $setting->id);
+                        ProcessImportRow::dispatch($setting->id, $record);
                     }
+                })
+                ->color('primary'),
+
+            Action::make('import')
+                ->label('Отменить все')
+                ->action(function () {
+                    ImportRecord::query()
+                        ->where('user_id', Auth::user()->id)
+                        ->delete();
                 })
                 ->color('primary'),
         ];
