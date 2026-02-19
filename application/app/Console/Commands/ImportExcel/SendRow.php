@@ -103,7 +103,7 @@ class SendRow extends Command
                 $contact->attachTag($setting->tag);
                 $contact->save();
 
-                $lead->attachContact($contact);
+                $lead->attachContact($contact->id);
                 $lead->save();
             }
 
@@ -129,7 +129,7 @@ class SendRow extends Command
                 $company->attachTag($setting->tag);
                 $company->save();
 
-                $lead->attachCompany($company);
+                $lead->attachCompany($company->id);
                 $lead->save();
             }
 
