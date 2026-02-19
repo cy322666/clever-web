@@ -88,11 +88,11 @@ class EditImport extends EditRecord
 
             Excel::import(new ExcelImport($setting), Storage::disk('exports')->path($setting->file_path));
 
-            Notification::make()
-                ->title('Импорт запущен')
-                ->body('Данные импортируются в фоновом режиме. Проверьте результаты через некоторое время.')
-                ->success()
-                ->send();
+//            Notification::make()
+//                ->title('Импорт запущен')
+//                ->body('Данные импортируются в фоновом режиме. Проверьте результаты через некоторое время.')
+//                ->success()
+//                ->send();
 
             $this->redirect(ImportResource::getUrl('list'));
         } catch (\Exception $e) {
