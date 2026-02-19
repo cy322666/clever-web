@@ -150,7 +150,7 @@ class ListImport extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('import')
+            Action::make('import_all')
                 ->label('Выгрузить все')
                 ->action(function () {
                     $setting = ImportSetting::query()
@@ -174,7 +174,7 @@ class ListImport extends ListRecords
                 })
                 ->color('primary'),
 
-            Action::make('import')
+            Action::make('cancel_all')
                 ->label('Отменить все')
                 ->action(function () {
                     ImportRecord::query()
