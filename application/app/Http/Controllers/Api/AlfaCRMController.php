@@ -117,13 +117,13 @@ class AlfaCRMController extends Controller
 
     public function archive(User $user, Request $request)
     {
-        if (!empty($request->customer_ids[0])) {
+        if ($request->entity == 'Customer') {
 
             $transaction = Transaction::query()
                 ->create([
                     'alfa_branch_id' => $request->branch_id,
-                    'alfa_client_id' => $lesson->customer_ids[0] ?? null,
-                    'alfa_lesson_id' => $request->entity_id,
+                    'alfa_client_id' => $request->entity_id,
+//                    'alfa_lesson_id' => $request->entity_id,
                     'user_id' => $user->id,
                     'comment' => 'archive',
                     'status'  => Setting::ARCHIVE,
