@@ -118,7 +118,6 @@ class AlfaCRMController extends Controller
     public function archive(User $user, Request $request)
     {
         if ($request->entity == 'Customer') {
-
             $transaction = Transaction::query()
                 ->create([
                     'alfa_branch_id' => $request->branch_id,
@@ -126,10 +125,10 @@ class AlfaCRMController extends Controller
 //                    'alfa_lesson_id' => $request->entity_id,
                     'user_id' => $user->id,
                     'comment' => 'archive',
-                    'status'  => Setting::ARCHIVE,
+                    'status' => Setting::ARCHIVE,
                 ]);
 
-            ArchiveLead::dispatch($user->alfacrm_setting, $transaction, $user->account);
+            ArchiveLead::dispatch($user->alfacrm_settings, $transaction, $user->account);
         }
     }
 
