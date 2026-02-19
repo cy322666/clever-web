@@ -69,8 +69,8 @@ class ArchiveLead implements ShouldQueue
     public function handle()
     {
         Artisan::call('app:alfacrm-archive-send', [
-            'transaction_id' => $this->setting->id,
-            'setting_id' => $this->transaction->id,
+            'transaction_id' => $this->transaction->id,
+            'setting_id' => $this->setting->id,
             'account_id' => $this->account->id,
         ]);
     }
