@@ -31,10 +31,12 @@ class ListImport extends ListRecords
                 TextColumn::make('created_at')
                     ->label('Дата импорта')
                     ->dateTime('d.m.Y H:i')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
 
                 TextColumn::make('filename')
                     ->label('Файл')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->searchable(),
 
                 TextColumn::make('status')
@@ -78,7 +80,6 @@ class ListImport extends ListRecords
 
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')
-                    ->wrap()
 //                    ->lineClamp(2)        // 👈 по умолчанию свернуто (2 строки)
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (ImportRecord $record) {
@@ -93,9 +94,11 @@ class ListImport extends ListRecords
                     ->wrap(),
 
                 BooleanColumn::make('searched_contact')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->label('Найден контакт'),
 
                 BooleanColumn::make('searched_company')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->label('Найдена компания'),
 
             ])
