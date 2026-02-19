@@ -165,6 +165,12 @@ class ListImport extends ListRecords
                     foreach ($records as $record) {
                         ProcessImportRow::dispatch($setting->id, $record);
                     }
+
+                    Notification::make()
+                        ->title('Импорт запущен')
+                        ->body('Данные импортируются в фоновом режиме. Проверьте результаты через некоторое время')
+                        ->success()
+                        ->send();
                 })
                 ->color('primary'),
 
@@ -174,6 +180,12 @@ class ListImport extends ListRecords
                     ImportRecord::query()
                         ->where('user_id', Auth::user()->id)
                         ->delete();
+
+                    Notification::make()
+                        ->title('Все записи отменены')
+                        ->body('Все записи импорта удалены. Чтобы выгрузить новые вернитесь на страницу настроек')
+                        ->success()
+                        ->send();
                 })
                 ->color('primary'),
         ];
