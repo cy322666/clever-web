@@ -2,7 +2,7 @@
 
 namespace App\Observers;
 
-use App\Mail\SignUpWidget;
+use App\Mail\SignUp;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
@@ -19,7 +19,7 @@ class UserObserver
 
         $user->account()->create();
 
-        Mail::to($user->email)->queue(new SignUpWidget($user, null));
+        Mail::to($user->email)->queue(new SignUp($user, null));
 
         /* создание моделей интеграции */
         Artisan::call('install:all', ['user_id' => $user->id]);

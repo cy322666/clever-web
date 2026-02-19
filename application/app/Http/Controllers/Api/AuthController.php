@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Http\Controllers\Controller;
+use App\Mail\SignUp;
 use App\Mail\SignUpWidget;
 use App\Models\App;
 use App\Models\User;
@@ -43,6 +44,8 @@ class AuthController extends Controller
 
         $account->active = $amoApi->auth;
         $account->save();
+
+        Mail::to($user->email)->queue(new SignUp($user));
 
         return redirect()
             ->to($request->uri)
