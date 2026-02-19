@@ -163,7 +163,7 @@ class ListImport extends ListRecords
                         ->get();
 
                     foreach ($records as $record) {
-                        ProcessImportRow::dispatch($setting->id, $record);
+                        ProcessImportRow::dispatch($setting->id, $record->id);
                     }
 
                     Notification::make()
