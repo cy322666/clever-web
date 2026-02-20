@@ -38,9 +38,9 @@ class AuthController extends Controller
 
         $amoApi = (new Client($account->refresh()));
 
-        if (!$amoApi->checkAuth())
-
+        if (!$amoApi->checkAuth()) {
             $amoApi->init();
+        }
 
         $account->active = $amoApi->auth;
         $account->save();

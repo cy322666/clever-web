@@ -171,8 +171,8 @@ abstract class UpdateButton
                 ->tooltip('Синхронизировать аккаунт amoCRM')
                 ->disabled(fn() => !$account->active);
 
-        else
-            return static::amoCRMAuthButton($account);
+//        else
+//            return static::amoCRMAuthButton($account);
     }
 
     public static function amoCRMAuthButton(Account $account): Action

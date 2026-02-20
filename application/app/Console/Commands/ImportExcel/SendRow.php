@@ -108,7 +108,6 @@ class SendRow extends Command
             }
 
             if ($rowDataCompanies) {
-
                 $company = Companies::search($rowDataCompanies, $amoApi);
 
                 if (!$company) {
