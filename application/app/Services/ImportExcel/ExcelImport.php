@@ -6,13 +6,14 @@ use App\Jobs\ImportExcel\ProcessImportRow;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
 use Carbon\Carbon;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Imports\HeadingRowFormatter;
 
-class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
+class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading//, ShouldQueue
 {
     public function __construct(
         public ImportSetting $setting,
@@ -30,6 +31,10 @@ class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
 
     public function collection(Collection $rows): void
     {
+        //TODO костыль
+        set_time_limit(600); // Увеличить время выполнения скрипта до 10 минут
+        ini_set('memory_limit', '512M');
+
         $userId = $this->setting->user->id;
         $filename = explode('.', $this->setting->file_path)[0];
         $dataToInsert = [];
