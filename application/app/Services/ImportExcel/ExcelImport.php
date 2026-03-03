@@ -11,9 +11,10 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Imports\HeadingRowFormatter;
 
-class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading//, ShouldQueue
+class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading, WithMultipleSheets//, ShouldQueue
 {
     public function __construct(
         public ImportSetting $setting,
@@ -27,6 +28,14 @@ class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading//, S
     public function chunkSize(): int
     {
         return 200; // Файл будет читаться кусками по 200 строк
+    }
+
+    // ГОВОРИМ ЧИТАТЬ ТОЛЬКО ПЕРВЫЙ ЛИСТ
+    public function sheets(): array
+    {
+        return [
+            0 => $this, // Индекс 0 — это первая страница. Остальные игнорируются.
+        ];
     }
 
     public function collection(Collection $rows): void
