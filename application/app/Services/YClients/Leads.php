@@ -54,7 +54,7 @@ abstract class Leads
                         return true;
                 }
 
-                return $lead;
+                return false;
             }
         });
     }
