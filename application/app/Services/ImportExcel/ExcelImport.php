@@ -33,24 +33,27 @@ class ExcelImport implements ToCollection, WithHeadingRow
         $filename = explode('.', $this->setting->file_path)[0];
 
         foreach ($rows as $row) {
-            $rowData = is_array($row) ? $row : (is_object($row) && method_exists($row, 'toArray') ? $row->toArray(
-            ) : (array)$row);
+            $rowData = is_array($row)
+                ? $row
+                : (is_object($row) && method_exists($row, 'toArray')
+                    ? $row->toArray()
+                    : (array)$row);
 
-            foreach ($rowData as $key => $value) {
-                //проверка на null во всех ключах
-                if ($value !== null) {
-                    $import = ImportRecord::query()
-                        ->create([
-                            'import_id' => $this->setting->id,
-                            'user_id' => $userId,
-                            'filename' => $filename,
-                            'status' => ImportRecord::STATUS_PROCESSING,
-                            'row_data' => $rowData,
-                        ]);
+            $hasData = collect($rowData)
+                ->filter(fn($value) => !is_null($value) && $value !== '')
+                ->isNotEmpty();
 
-                    continue 2;
-                }
+            if (!$hasData) {
+                continue;
             }
+
+            ImportRecord::query()->create([
+                'import_id' => $this->setting->id,
+                'user_id' => $userId,
+                'filename' => $filename,
+                'status' => ImportRecord::STATUS_PROCESSING,
+                'row_data' => $rowData,
+            ]);
         }
     }
 
