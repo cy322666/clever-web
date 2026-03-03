@@ -104,7 +104,7 @@ class ListImport extends ListRecords
 
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([50, 'all'])
+            ->paginated([50, 100, 150])
             ->recordUrl(null)
             ->poll(5)
             ->filters([])
