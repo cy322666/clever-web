@@ -8,10 +8,11 @@ use App\Models\Integrations\ImportExcel\ImportSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Imports\HeadingRowFormatter;
 
-class ExcelImport implements ToCollection, WithHeadingRow
+class ExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
     public function __construct(
         public ImportSetting $setting,
@@ -22,38 +23,43 @@ class ExcelImport implements ToCollection, WithHeadingRow
         HeadingRowFormatter::default(HeadingRowFormatter::FORMATTER_NONE);
     }
 
+    public function chunkSize(): int
+    {
+        return 200; // Файл будет читаться кусками по 200 строк
+    }
+
     public function collection(Collection $rows): void
     {
-//        $totalRows = $rows->count();
-
-//        $importId = $this->setting->id.Carbon::now()->timestamp;
-
         $userId = $this->setting->user->id;
-
         $filename = explode('.', $this->setting->file_path)[0];
+        $dataToInsert = [];
 
         foreach ($rows as $row) {
-            $rowData = is_array($row)
-                ? $row
-                : (is_object($row) && method_exists($row, 'toArray')
-                    ? $row->toArray()
-                    : (array)$row);
+            $rowData = $row instanceof Collection ? $row->toArray() : (array)$row;
 
-            $hasData = collect($rowData)
-                ->filter(fn($value) => !is_null($value) && $value !== '')
-                ->isNotEmpty();
-
-            if (!$hasData) {
+            if (collect($rowData)->filter(fn($val) => !is_null($val) && $val !== '')->isEmpty()) {
                 continue;
             }
 
-            ImportRecord::query()->create([
+            $dataToInsert[] = [
                 'import_id' => $this->setting->id,
                 'user_id' => $userId,
                 'filename' => $filename,
                 'status' => ImportRecord::STATUS_PROCESSING,
-                'row_data' => $rowData,
-            ]);
+                'row_data' => json_encode($rowData), // Важно, если в БД тип json
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            // Чтобы не переполнить память даже массивом, вставляем пачками по 500 строк
+            if (count($dataToInsert) >= 200) {
+                ImportRecord::query()->insert($dataToInsert);
+                $dataToInsert = [];
+            }
+        }
+
+        if (!empty($dataToInsert)) {
+            ImportRecord::query()->insert($dataToInsert);
         }
     }
 
