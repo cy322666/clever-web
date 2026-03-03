@@ -14,6 +14,7 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -107,7 +108,13 @@ class ListImport extends ListRecords
             ->paginated([50, 100, 150])
             ->recordUrl(null)
             ->poll(5)
-            ->filters([])
+            ->filters([
+                SelectFilter::make('status')->options([
+                    ImportRecord::STATUS_PROCESSING => 'Ждет выгрузки',
+                    ImportRecord::STATUS_COMPLETED => 'Успешно выгружен',
+                    ImportRecord::STATUS_FAILED => 'Ошибка выгрузки',
+                ])
+            ])
             ->bulkActions([
                 ActionsBulkAction::make('run_export')
                     ->label('Запустить выгрузку')
