@@ -161,18 +161,17 @@ abstract class UpdateButton
     //кнопка для синхронизации с амо
     public static function amoCRMSyncButton(Account $account, ?\Closure $callback = null): Action
     {
-        if ($account->active)
-
+        if ($account->active) {
             return Action::make('amocrmSync')
-                ->action($callback ?? fn () => null)
+                ->action($callback ?? fn() => null)
                 ->label('amoCRM')
                 ->icon('heroicon-o-arrow-path')
                 ->color(Color::Slate)
                 ->tooltip('Синхронизировать аккаунт amoCRM')
                 ->disabled(fn() => !$account->active);
-
-//        else
-//            return static::amoCRMAuthButton($account);
+        } else {
+            return static::amoCRMAuthButton($account);
+        }
     }
 
     public static function amoCRMAuthButton(Account $account): Action
