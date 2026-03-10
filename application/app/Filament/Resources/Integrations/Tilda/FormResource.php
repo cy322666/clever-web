@@ -44,14 +44,26 @@ class FormResource extends Resource
                     ->label('Сделка'),
 
                 Tables\Columns\TextColumn::make('contact_id')
-                    ->url(fn(Form $form) => 'https://'.$form->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$form->lead_id, true)
+                    ->url(
+                        fn(Form $form
+                        ) => 'https://' . $form->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $form->lead_id,
+                        true
+                    )
                     ->label('Контакт'),
 
                 Tables\Columns\BooleanColumn::make('status')
                     ->label('Выгружен'),
 
-                 Tables\Columns\TextColumn::make('site')
-                     ->label('Форма'),
+                Tables\Columns\TextColumn::make('site')
+                    ->label('Форма'),
+
+                Tables\Columns\TextColumn::make('body')
+                    ->formatStateUsing(function ($state) {
+                        return json_encode(json_decode($state), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                    })
+                    ->fontFamily('mono')
+                    ->wrap()
+                    ->toggledHiddenByDefault(true),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
