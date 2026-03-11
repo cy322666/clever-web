@@ -111,12 +111,11 @@ class Form extends Model
 
             $fieldName = Field::query()->find($field['field_amo'])?->name;
 
-            if ($field['field_form'] == 'quantity' && !empty($body->payment->products) && is_array($body->payment->products)) {
-
+            if ($fieldName && $field['field_form'] == 'quantity' && !empty($body->payment->products) && is_array(
+                    $body->payment->products
+                )) {
                 $lead = Leads::setField($lead, $fieldName, count($body->payment->products));
-
             } elseif (!empty($field['field_form']) && !empty($body->{$field['field_form']})) {
-
                 $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
             }
         }
