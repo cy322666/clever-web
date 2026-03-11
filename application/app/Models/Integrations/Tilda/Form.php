@@ -131,9 +131,9 @@ class Form extends Model
 
             $fieldName = Field::query()->find($field['field_amo'])?->name;
 
-            if (!empty($field['field_form']) && !empty($body->{$field['field_form']}))
-
+            if ($fieldName && !empty($field['field_form']) && !empty($body->{$field['field_form']})) {
                 $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
+            }
         }
 
         return $lead;
