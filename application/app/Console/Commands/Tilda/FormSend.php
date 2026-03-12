@@ -126,7 +126,7 @@ class FormSend extends Command
             if ($fieldProducts) {
                 $lead->cf($fieldProducts->name)->setValue($name);
 
-                $lead = $form->setQuantity($lead, $fields, count($body->payment->products));
+                $lead = $form->setQuantity($lead, $setting['fields'], count($body->payment->products));
             }
 
             if (isset($setting['fields'])) {

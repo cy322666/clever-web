@@ -107,7 +107,7 @@ class Form extends Model
         $body = json_decode($this->body);
 
         foreach ($fields as $field) {
-            if ($body->{$field['field_form']} == 'quantity') {
+            if ($field['field_form'] == 'quantity') {
                 $fieldName = Field::query()
                     ->where('field_id', $field['field_amo'])
                     ->first()
