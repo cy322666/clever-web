@@ -113,7 +113,7 @@ class Form extends Model
                 ->first()
                 ?->name;
 
-            if ($fieldName) {
+            if ($fieldName && !empty($body->{$field['field_form']})) {
                 $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
             }
         }
