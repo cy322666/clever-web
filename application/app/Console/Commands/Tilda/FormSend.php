@@ -110,28 +110,28 @@ class FormSend extends Command
             $name = null;
 
             foreach ($body->payment->products as $product) {
+
                 try {
                     $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
 
                     if (!empty($product->options) && count($product->options) > 0) {
-
                         foreach ($product->options as $option) {
-
-                            $name .=  ' '.$option->variant.' ';
+                            $name .= ' ' . $option->variant . ' ';
                         }
                     }
-
-//                    $name .= "\n";
-
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             }
 
-            if ($fieldProducts)
+            if ($fieldProducts) {
                 $lead->cf($fieldProducts->name)->setValue($name);
 
-            if (isset($setting['fields']))
+                $lead = $form->setQuantity($lead, $fields, count($body->payment->products));
+            }
 
+            if (isset($setting['fields'])) {
                 $lead = $form->setCustomFieldsProduct($lead, $setting['fields']);
+            }
 
             $lead->sale = $amount;
         }

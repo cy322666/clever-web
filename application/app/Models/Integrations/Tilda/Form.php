@@ -94,7 +94,6 @@ class Form extends Model
             $value = !empty($setting[$key]) && !empty($body->{$setting[$key]}) ? $body->{$setting[$key]} : null;
 
             if (!$value) {
-
                 $keySetting = strtolower($setting[$key]);
 
                 $value = !empty($keySetting) && !empty($body->{$keySetting}) ? $body->{$keySetting} : null;
@@ -103,7 +102,27 @@ class Form extends Model
         return $value;
     }
 
-    public function setCustomFields(Lead $lead, $fields) : Lead
+    public function setQuantity(Lead $lead, $fields, int $count): Lead
+    {
+        $body = json_decode($this->body);
+
+        foreach ($fields as $field) {
+            if ($body->{$field['field_form']} == 'quantity') {
+                $fieldName = Field::query()
+                    ->where('field_id', $field['field_amo'])
+                    ->first()
+                    ?->name;
+
+                if ($fieldName) {
+                    $lead->cf($fieldName)->setValue($count);
+                }
+            }
+        }
+
+        return $lead;
+    }
+
+    public function setCustomFields(Lead $lead, $fields): Lead
     {
         $body = json_decode($this->body);
 
