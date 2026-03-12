@@ -113,7 +113,17 @@ class Form extends Model
                 ->first()
                 ?->name;
 
-            if ($fieldName && !empty($body->{$field['field_form']})) {
+            if (!empty($body->{$field['field_form']})) {
+                $value = $body->{$field['field_form']};
+            } elseif (!empty($body->payment->{$field['field_form']})) {
+                $value = $body->payment->{$field['field_form']};
+            }
+
+            if (empty($value)) {
+                $value = null;
+            }
+
+            if ($fieldName && $value) {
                 $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
             }
         }
