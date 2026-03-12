@@ -108,8 +108,10 @@ class Form extends Model
         $body = json_decode($this->body);
 
         foreach ($fields as $field) {
-
-            $fieldName = Field::query()->find($field['field_amo'])?->name;
+            $fieldName = Field::query()
+                ->where('field_id', $field['field_amo'])
+                ->first()
+                ?->name;
 
             if ($fieldName && $field['field_form'] == 'quantity' && !empty($body->payment->products) && is_array(
                     $body->payment->products
