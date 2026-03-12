@@ -124,7 +124,7 @@ class Form extends Model
             }
 
             if ($fieldName && $value) {
-                $lead = Leads::setField($lead, $fieldName, $body->{$field['field_form']});
+                $lead = Leads::setField($lead, $fieldName, $value);
             }
         }
 
