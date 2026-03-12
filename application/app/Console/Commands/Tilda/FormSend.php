@@ -100,18 +100,17 @@ class FormSend extends Command
 
         if (!empty($setting['products']) && $setting['products'] == 'yes' &&
             !empty($body->payment) && !empty($body->payment->products)) {
-
             //поле для заполнения продуктами
-            $fieldProducts = Field::query()->find($setting['field_products']);
+            $fieldProducts = Field::query()
+                ->where('field_id', $setting['field_products'])
+                ->first();
 
             $amount = $body->payment->amount;
 
             $name = null;
 
             foreach ($body->payment->products as $product) {
-
                 try {
-
                     $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
 
                     if (!empty($product->options) && count($product->options) > 0) {
