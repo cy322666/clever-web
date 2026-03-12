@@ -52,6 +52,7 @@ class FormResource extends Resource
                     ->label('Контакт'),
 
                 Tables\Columns\BooleanColumn::make('status')
+                    ->sortable()
                     ->label('Выгружен'),
 
                 Tables\Columns\TextColumn::make('site')
@@ -61,6 +62,7 @@ class FormResource extends Resource
                     ->formatStateUsing(function ($state) {
                         return json_encode(json_decode($state), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
                     })
+                    ->toggleable()
                     ->fontFamily('mono')
                     ->wrap()
                     ->toggledHiddenByDefault(true),

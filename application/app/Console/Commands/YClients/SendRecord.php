@@ -117,7 +117,7 @@ class SendRecord extends Command
         else
             $lead = ServiceLead::create($contact, $objectStatus, $record);
 
-        Notes::createNoteLead($ycApi, $record, $lead);
+        Notes::createNoteLead($ycApi, $record, $lead, $amoApi);
 
         $record->lead_id = $lead->id;
         $record->status  = 1;
