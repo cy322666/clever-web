@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\ActiveLeadController;
 use App\Http\Controllers\Api\AlfaCRMController;
+use App\Http\Controllers\Api\AssistantAnalyticsController;
+use App\Http\Controllers\Api\AssistantLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\CallTranscriptionController;
@@ -73,6 +75,47 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
     Route::post('amocrm/call-transcription/{user:uuid}/{setting}', [CallTranscriptionController::class, 'hook'])
         ->middleware(['integration.active:call-transcription'])
         ->name('amocrm.call-transcription');
+
+
+    //AI
+
+    Route::group([
+        'prefix' => 'assistant/{user:uuid}',
+//        'middleware' => ['integration.active:assistant', 'assistant.auth'],
+    ], function () {
+        Route::get('department-summary', [AssistantAnalyticsController::class, 'departmentSummary'])
+            ->name('assistant.department-summary');
+
+        Route::get('manager-summary', [AssistantAnalyticsController::class, 'managerSummary'])
+            ->name('assistant.manager-summary');
+
+        Route::get('risky-deals', [AssistantAnalyticsController::class, 'riskyDeals'])
+            ->name('assistant.risky-deals');
+
+        Route::get('deal-context/{deal}', [AssistantAnalyticsController::class, 'dealContext'])
+            ->name('assistant.deal-context');
+
+        Route::get('unprocessed-leads', [AssistantAnalyticsController::class, 'unprocessedLeads'])
+            ->name('assistant.unprocessed-leads');
+
+        Route::get('overdue-tasks', [AssistantAnalyticsController::class, 'overdueTasks'])
+            ->name('assistant.overdue-tasks');
+
+        Route::get('deals-without-next-task', [AssistantAnalyticsController::class, 'dealsWithoutNextTask'])
+            ->name('assistant.deals-without-next-task');
+
+        Route::get('conversion-delta', [AssistantAnalyticsController::class, 'conversionDelta'])
+            ->name('assistant.conversion-delta');
+
+        Route::get('daily-summary', [AssistantAnalyticsController::class, 'dailySummary'])
+            ->name('assistant.daily-summary');
+
+        Route::get('weekly-summary', [AssistantAnalyticsController::class, 'weeklySummary'])
+            ->name('assistant.weekly-summary');
+
+        Route::post('logs', [AssistantLogController::class, 'store'])
+            ->name('assistant.logs.store');
+    });
 });
 
 //amoCRM
@@ -96,4 +139,3 @@ Route::group(['prefix' => 'amocrm'], function () {
 });
 
 //Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
-

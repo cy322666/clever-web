@@ -35,7 +35,7 @@ class CheckActiveIntegration
         $app = $user->apps()
             ->where('name', $appName)
             ->first();
-
+        dd($app);
         if (!$app) {
             return new Response('app no found', 403);
         }

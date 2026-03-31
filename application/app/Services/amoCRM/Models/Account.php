@@ -74,11 +74,15 @@ class Account
                         'pipeline_id' => $pipelineId,
                         'status_id'   => $statusId,
                     ], [
-                        'name'          => (string) ($status->name ?? ''),
-                        'is_main'       => (bool) ($pipeline->is_main ?? false),
-                        'color'         => (string) ($status->color ?? ''),
-                        'pipeline_name' => (string) ($pipeline->name ?? ''),
-                        'active'        => true,
+                        'name' => (string)($status->name ?? ''),
+                        'sort' => (int)($status->sort ?? 0),
+                        'is_main' => (bool)($pipeline->is_main ?? false),
+                        'is_closed' => in_array($statusId, [142, 143], true),
+                        'is_won' => $statusId === 142,
+                        'is_lost' => $statusId === 143,
+                        'color' => (string)($status->color ?? ''),
+                        'pipeline_name' => (string)($pipeline->name ?? ''),
+                        'active' => true,
                     ]);
                 }
             }

@@ -168,4 +168,14 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasOne(\App\Models\Integrations\YClients\Setting::class);
     }
+
+    public function assistant_settings(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\Assistant\Setting::class);
+    }
+
+    public function amo_data_settings(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\AmoData\Setting::class);
+    }
 }

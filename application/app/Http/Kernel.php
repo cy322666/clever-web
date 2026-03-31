@@ -3,6 +3,7 @@
 namespace App\Http;
 
 use App\Http\Middleware\Api\CheckActiveIntegration;
+use App\Http\Middleware\Api\CheckAssistantToken;
 use App\Http\Middleware\Api\CheckActiveUser;
 use App\Http\Middleware\Api\InputCountUser;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
@@ -71,6 +72,7 @@ class Kernel extends HttpKernel
         'user.active' => CheckActiveUser::class,
         'user.inputs' => InputCountUser::class,
         'integration.active' => CheckActiveIntegration::class,
+        'assistant.auth' => CheckAssistantToken::class,
 //        'bizon' => BizonAuthenticate::class,
 
 //        'input' => LogInput::class,

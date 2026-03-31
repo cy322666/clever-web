@@ -41,6 +41,7 @@ All routes below are defined under middleware `user.active` and `user.inputs` un
 | POST | `/api/alfacrm/omission/{user:uuid}` | `alfacrm.omission` |
 
 ### ActiveLead, Dadata, Docs, YClients
+
 | Method | Path | Name |
 | --- | --- | --- |
 | POST | `/api/active-leads/{user:uuid}` | `active-leads.hook` |
@@ -48,7 +49,26 @@ All routes below are defined under middleware `user.active` and `user.inputs` un
 | POST | `/api/docs/{user:uuid}/{doc}` | `doc.hook` |
 | POST | `/api/yclients/hook/{user:uuid}` | `yclients.hook` |
 
+### Assistant
+
+Assistant routes are protected by `integration.active:assistant` and `assistant.auth`.
+
+| Method | Path | Name |
+| --- | --- | --- |
+| GET | `/api/assistant/{user:uuid}/department-summary` | `assistant.department-summary` |
+| GET | `/api/assistant/{user:uuid}/manager-summary` | `assistant.manager-summary` |
+| GET | `/api/assistant/{user:uuid}/risky-deals` | `assistant.risky-deals` |
+| GET | `/api/assistant/{user:uuid}/deal-context/{deal}` | `assistant.deal-context` |
+| GET | `/api/assistant/{user:uuid}/unprocessed-leads` | `assistant.unprocessed-leads` |
+| GET | `/api/assistant/{user:uuid}/overdue-tasks` | `assistant.overdue-tasks` |
+| GET | `/api/assistant/{user:uuid}/deals-without-next-task` | `assistant.deals-without-next-task` |
+| GET | `/api/assistant/{user:uuid}/conversion-delta` | `assistant.conversion-delta` |
+| GET | `/api/assistant/{user:uuid}/daily-summary` | `assistant.daily-summary` |
+| GET | `/api/assistant/{user:uuid}/weekly-summary` | `assistant.weekly-summary` |
+| POST | `/api/assistant/{user:uuid}/logs` | `assistant.logs.store` |
+
 ### amoCRM
+
 amoCRM routes are not inside the `user.active` / `user.inputs` group.
 
 | Method | Path | Purpose |

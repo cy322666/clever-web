@@ -17,7 +17,11 @@ class Status extends Model
         'pipeline_id',
         'pipeline_name',
         'color',
+        'sort',
         'is_main',
+        'is_closed',
+        'is_won',
+        'is_lost',
     ];
 
     protected $table = 'amocrm_statuses';

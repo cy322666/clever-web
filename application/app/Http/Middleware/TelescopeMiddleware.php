@@ -11,22 +11,12 @@ class TelescopeMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (app()->environment('local')) {
+        $user = $request->user();
 
+        if ($user && $user->is_root) {
             return $next($request);
         }
 
-        $user = $request->user();
-
-        if ($user) {
-
-            if ($user->is_root ||
-            in_array($user->email, [])) {
-
-                return $next($request);
-            }
-        }
-
-        return $next($request);//TODO
+        abort(403);
     }
 }

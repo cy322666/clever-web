@@ -37,6 +37,24 @@ class Test extends Command
      */
     public function handle()
     {
+        $amoApi = (new Client(Account::query()->find(3)));
+
+        $sb = $amoApi->service->salesbots()->get()->toArray();
+
+        dd($sb);
+        $sb = $amoApi->service->salesbots()->start();
+
+        dd($sb);
+
+        $companies = Http::withHeaders([
+            'Accept' => 'Accept: application/vnd.api.v2+json',
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer s24a9wcs8cjhda2nm8b7, User 852522b6ac29c99fed1e44e970d41a51',
+        ])->get('https://api.yclients.com/api/v1/companies?my=1');
+
+
+        dd($companies->json());
+
         $forms = Form::query()
             ->where('user_id', 68)
             ->where('id', '>', 49753)

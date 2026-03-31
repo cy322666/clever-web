@@ -118,7 +118,6 @@ class AlfaCRMController extends Controller
     public function archive(User $user, Request $request)
     {
         if ($request->entity == 'Customer') {
-
             $transaction = Transaction::query()
                 ->create([
                     'alfa_branch_id' => $request->branch_id,

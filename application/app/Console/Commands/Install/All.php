@@ -41,5 +41,7 @@ class All extends Command
         Artisan::call('install:table', ['user_id' => $user->id]);
         Artisan::call('install:yclients', ['user_id' => $user->id]);
         Artisan::call('install:import-excel', ['user_id' => $user->id]);
+        Artisan::call('install:assistant', ['user_id' => $user->id]);
+        Artisan::call('install:amo-data', ['user_id' => $user->id]);
     }
 }

@@ -43,6 +43,7 @@ class App extends Model
             'tables',
             'analytic',
             'contact-merge',
+            'amo-data',
 //            'import-excel',
         ];
     }
@@ -62,6 +63,8 @@ class App extends Model
             'docs' => 'Создавайте документы на основе ваших шаблонов',
             'tables' => ' ',
             'analytic' => ' ',
+            'amo-data' => 'Локальный сбор сделок и задач из amoCRM для аналитики и AI',
+            'assistant' => 'AI ассистент руководителя по данным amoCRM: чат, сводки, риски и summary payload-ы для n8n',
             'call-transcription' => 'Транскрибация звонков с применением промпта, записью результата в поле или примечание и запуском Salesbot',
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
         };
