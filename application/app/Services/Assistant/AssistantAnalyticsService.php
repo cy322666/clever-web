@@ -2,8 +2,10 @@
 
 namespace App\Services\Assistant;
 
+use App\Models\amoCRM\Lead;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\amoCRM\Task;
 use App\Models\Integrations\Assistant\Setting;
 use App\Models\User;
 use Carbon\Carbon;
@@ -15,16 +17,13 @@ class AssistantAnalyticsService
     private const WON_STATUS_ID = 142;
     private const LOST_STATUS_ID = 143;
 
-    public function __construct(private readonly AssistantAmoApiService $amo)
+    public function __construct()
     {
     }
 
-    /**
-     * @throws \Exception
-     */
     public static function forUser(User $user): self
     {
-        return new self(AssistantAmoApiService::forUser($user));
+        return new self();
     }
 
     public function managerSummary(User $user, Setting $setting, int $managerId, int $limit = 10): array
@@ -57,16 +56,24 @@ class AssistantAnalyticsService
     {
         $statusMap = $this->statusMap($user);
         $staffMap = $this->staffMap($user);
-        $lead = $this->normalizeLead($this->amo->getLead($dealId), $statusMap, $staffMap);
-        $tasks = collect(
-            $this->amo->getTasks([
-                'filter[entity_type]' => 'leads',
-                'filter[entity_id]' => $dealId,
-            ])
-        )
-            ->map(fn(array $task) => $this->normalizeTask($task, $staffMap))
+
+        $taskRows = Task::query()
+            ->where('user_id', $user->id)
+            ->where('entity_type', 'leads')
+            ->where('entity_id', $dealId)
+            ->get();
+
+        $leadRow = Lead::query()
+            ->where('user_id', $user->id)
+            ->where('amo_id', $dealId)
+            ->firstOrFail();
+
+        $tasks = $taskRows
+            ->map(fn(Task $task) => $this->normalizeTaskRow($task, $staffMap))
             ->sortBy('complete_till_at')
             ->values();
+
+        $lead = $this->normalizeLeadRow($leadRow, $statusMap, $staffMap, $taskRows);
 
         return [
             'deal' => $this->appendRiskContext($lead, $setting),
@@ -132,22 +139,28 @@ class AssistantAnalyticsService
             function () use ($user, $setting) {
                 $statusMap = $this->statusMap($user);
                 $staffMap = $this->staffMap($user);
+                $taskRows = Task::query()
+                    ->where('user_id', $user->id)
+                    ->get();
 
-                $leads = collect(
-                    $this->amo->getLeads([
-                        'with' => 'contacts,tags',
-                    ])
-                )
-                    ->map(fn(array $lead) => $this->normalizeLead($lead, $statusMap, $staffMap))
+                $tasksByLead = $taskRows
+                    ->where('entity_type', 'leads')
+                    ->groupBy('entity_id');
+
+                $leads = Lead::query()
+                    ->where('user_id', $user->id)
+                    ->get()
+                    ->map(fn(Lead $lead) => $this->normalizeLeadRow(
+                        $lead,
+                        $statusMap,
+                        $staffMap,
+                        $tasksByLead->get($lead->amo_id, collect())
+                    ))
                     ->values()
                     ->all();
 
-                $tasks = collect(
-                    $this->amo->getTasks([
-                        'filter[is_completed]' => 0,
-                    ])
-                )
-                    ->map(fn(array $task) => $this->normalizeTask($task, $staffMap))
+                $tasks = $taskRows
+                    ->map(fn(Task $task) => $this->normalizeTaskRow($task, $staffMap))
                     ->values()
                     ->all();
 
@@ -184,26 +197,31 @@ class AssistantAnalyticsService
             ->keyBy('staff_id');
     }
 
-    private function normalizeLead(array $lead, Collection $statusMap, Collection $staffMap): array
-    {
-        $responsibleUserId = (int)($lead['responsible_user_id'] ?? 0);
-        $statusKey = (int)($lead['pipeline_id'] ?? 0) . ':' . (int)($lead['status_id'] ?? 0);
+    private function normalizeLeadRow(
+        Lead $lead,
+        Collection $statusMap,
+        Collection $staffMap,
+        iterable $taskRows
+    ): array {
+        $responsibleUserId = (int)($lead->responsible_user_id ?? 0);
+        $statusKey = (int)($lead->pipeline_id ?? 0) . ':' . (int)($lead->status_id ?? 0);
         /** @var Status|null $status */
         $status = $statusMap->get($statusKey);
         /** @var Staff|null $staff */
         $staff = $staffMap->get($responsibleUserId);
-        $closestTaskAt = $this->timestamp($lead['closest_task_at'] ?? null);
-        $createdAt = $this->timestamp($lead['created_at'] ?? null);
-        $updatedAt = $this->timestamp($lead['updated_at'] ?? null);
-        $closedAt = $this->timestamp($lead['closed_at'] ?? null);
+        $createdAt = $this->modelTimestamp($lead->amo_created_at);
+        $updatedAt = $this->modelTimestamp($lead->amo_updated_at);
+        $closedAt = $this->modelTimestamp($lead->closed_at);
+        $nextTaskAt = $this->nextTaskTimestamp($taskRows);
+        $payload = $lead->payload ?? [];
 
         return [
-            'id' => (int)($lead['id'] ?? 0),
-            'name' => (string)($lead['name'] ?? ''),
-            'price' => (int)($lead['price'] ?? 0),
-            'pipeline_id' => (int)($lead['pipeline_id'] ?? 0),
+            'id' => (int)$lead->amo_id,
+            'name' => (string)($lead->name ?? ''),
+            'price' => (int)($lead->price ?? 0),
+            'pipeline_id' => (int)($lead->pipeline_id ?? 0),
             'pipeline_name' => $status?->pipeline_name,
-            'status_id' => (int)($lead['status_id'] ?? 0),
+            'status_id' => (int)($lead->status_id ?? 0),
             'status_name' => $status?->name,
             'responsible_user_id' => $responsibleUserId,
             'responsible_name' => $staff?->name,
@@ -213,21 +231,21 @@ class AssistantAnalyticsService
             'created_at_timestamp' => $createdAt,
             'updated_at_timestamp' => $updatedAt,
             'closed_at_timestamp' => $closedAt,
-            'closest_task_at' => $this->formatTimestamp($closestTaskAt),
-            'closest_task_at_timestamp' => $closestTaskAt,
-            'has_next_task' => $closestTaskAt !== null,
-            'is_overdue_by_task' => $closestTaskAt !== null && $closestTaskAt < time(),
-            'is_won' => (int)($lead['status_id'] ?? 0) === self::WON_STATUS_ID,
-            'is_lost' => (int)($lead['status_id'] ?? 0) === self::LOST_STATUS_ID,
-            'is_closed' => in_array((int)($lead['status_id'] ?? 0), [self::WON_STATUS_ID, self::LOST_STATUS_ID], true),
-            'contacts' => collect(data_get($lead, '_embedded.contacts', []))
+            'closest_task_at' => $this->formatTimestamp($nextTaskAt),
+            'closest_task_at_timestamp' => $nextTaskAt,
+            'has_next_task' => $nextTaskAt !== null,
+            'is_overdue_by_task' => $nextTaskAt !== null && $nextTaskAt < time(),
+            'is_won' => (bool)$lead->is_won,
+            'is_lost' => (bool)$lead->is_lost,
+            'is_closed' => (bool)$lead->is_closed,
+            'contacts' => collect(data_get($payload, '_embedded.contacts', []))
                 ->map(fn(array $contact) => [
                     'id' => (int)($contact['id'] ?? 0),
                     'name' => $contact['name'] ?? null,
                 ])
                 ->values()
                 ->all(),
-            'tags' => collect(data_get($lead, '_embedded.tags', []))
+            'tags' => collect(data_get($payload, '_embedded.tags', []))
                 ->pluck('name')
                 ->filter()
                 ->values()
@@ -253,25 +271,50 @@ class AssistantAnalyticsService
         return Carbon::createFromTimestamp($timestamp)->toDateTimeString();
     }
 
-    private function normalizeTask(array $task, Collection $staffMap): array
+    private function normalizeTaskRow(Task $task, Collection $staffMap): array
     {
-        $completeTillAt = $this->timestamp($task['complete_till'] ?? null);
-        $responsibleUserId = (int)($task['responsible_user_id'] ?? 0);
+        $completeTillAt = $this->modelTimestamp($task->complete_till);
+        $responsibleUserId = (int)($task->responsible_user_id ?? 0);
         /** @var Staff|null $staff */
         $staff = $staffMap->get($responsibleUserId);
 
         return [
-            'id' => (int)($task['id'] ?? 0),
-            'entity_id' => (int)($task['entity_id'] ?? 0),
-            'entity_type' => $task['entity_type'] ?? null,
+            'id' => (int)$task->amo_id,
+            'entity_id' => (int)($task->entity_id ?? 0),
+            'entity_type' => $task->entity_type ?? null,
             'responsible_user_id' => $responsibleUserId,
             'responsible_name' => $staff?->name,
-            'text' => (string)($task['text'] ?? ''),
+            'text' => (string)($task->text ?? ''),
             'complete_till_at' => $this->formatTimestamp($completeTillAt),
             'complete_till_at_timestamp' => $completeTillAt,
-            'is_completed' => (bool)($task['is_completed'] ?? false),
-            'is_overdue' => $completeTillAt !== null && $completeTillAt < time() && !($task['is_completed'] ?? false),
+            'is_completed' => (bool)$task->is_completed,
+            'is_overdue' => $completeTillAt !== null && $completeTillAt < time() && !(bool)$task->is_completed,
         ];
+    }
+
+    private function nextTaskTimestamp(iterable $taskRows): ?int
+    {
+        $timestamps = collect($taskRows)
+            ->filter(fn(Task $task) => !(bool)$task->is_completed)
+            ->map(fn(Task $task) => $this->modelTimestamp($task->complete_till))
+            ->filter()
+            ->sort()
+            ->values();
+
+        return $timestamps->first();
+    }
+
+    private function modelTimestamp(mixed $value): ?int
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value->timestamp;
+        }
+
+        return Carbon::parse($value)->timestamp;
     }
 
     private function collectRiskyDeals(Collection $activeDeals, Setting $setting): Collection
