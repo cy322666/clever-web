@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 class RunSync implements ShouldQueue
 {
@@ -56,5 +57,31 @@ class RunSync implements ShouldQueue
         }
 
         $service->periodic($setting);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        $setting = Setting::query()->find($this->settingId);
+
+        if (!$setting) {
+            return;
+        }
+
+        $message = $exception?->getMessage() ?? 'Выгрузка завершилась с ошибкой.';
+
+        $setting->forceFill([
+            'sync_status' => 'failed',
+            'last_error' => $message,
+        ])->save();
+
+        $setting->runs()
+            ->where('status', 'running')
+            ->latest('id')
+            ->first()
+            ?->forceFill([
+                'status' => 'failed',
+                'finished_at' => now(),
+                'error' => $message,
+            ])->save();
     }
 }
