@@ -8,6 +8,7 @@ use App\Models\Integrations\CallTranscription\Setting;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 
 class CallTranscriptionCreate extends Command
 {
@@ -40,15 +41,19 @@ class CallTranscriptionCreate extends Command
                 return;
             }
 
+            $attributes = [
+                'user_id' => $userId,
+            ];
+
+            if (Schema::hasColumn('call_transcription_settings', 'account_id')) {
+                $attributes['account_id'] = $user->account->id;
+            }
+
             if (!App::query()
                 ->where('user_id', $userId)
                 ->where('name', $this->app)
                 ->exists()) {
-
-                $setting = Setting::query()->create([
-                    'user_id' => $userId,
-                    'account_id' => $user->account->id,
-                ]);
+                $setting = Setting::query()->create($attributes);
 
                 App::query()->create([
                     'name' => $this->app,
@@ -59,10 +64,7 @@ class CallTranscriptionCreate extends Command
             } elseif (!Setting::query()
                 ->where('user_id', $userId)
                 ->exists()) {
-                Setting::query()->create([
-                    'user_id' => $userId,
-                    'account_id' => $user->account->id,
-                ]);
+                Setting::query()->create($attributes);
             }
         } else {
             $users = User::query()->get();
