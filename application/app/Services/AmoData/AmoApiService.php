@@ -38,6 +38,26 @@ class AmoApiService
         return $this->paginate('/api/v4/leads', $query, '_embedded.leads', $limit);
     }
 
+    public function getLeadsPage(?Carbon $updatedFrom = null, int $page = 1, int $limit = 50): array
+    {
+        $query = [
+            'page' => $page,
+            'limit' => $limit,
+        ];
+
+        if ($updatedFrom) {
+            $query['filter'] = [
+                'updated_at' => [
+                    'from' => $updatedFrom->timestamp,
+                ],
+            ];
+        }
+
+        $response = $this->request('/api/v4/leads', $query);
+
+        return data_get($response, '_embedded.leads', []);
+    }
+
     public function syncLeads(?Carbon $updatedFrom, callable $callback, int $limit = 50): int
     {
         $query = [];
@@ -158,6 +178,26 @@ class AmoApiService
         }
 
         return $this->paginate('/api/v4/tasks', $query, '_embedded.tasks', $limit);
+    }
+
+    public function getTasksPage(?Carbon $updatedFrom = null, int $page = 1, int $limit = 50): array
+    {
+        $query = [
+            'page' => $page,
+            'limit' => $limit,
+        ];
+
+        if ($updatedFrom) {
+            $query['filter'] = [
+                'updated_at' => [
+                    'from' => $updatedFrom->timestamp,
+                ],
+            ];
+        }
+
+        $response = $this->request('/api/v4/tasks', $query);
+
+        return data_get($response, '_embedded.tasks', []);
     }
 
     public function syncTasks(?Carbon $updatedFrom, callable $callback, int $limit = 50): int

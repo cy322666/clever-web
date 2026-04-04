@@ -2,11 +2,14 @@
 
 namespace App\Services\AmoData;
 
+use App\Jobs\AmoData\SyncLeadPage;
+use App\Jobs\AmoData\SyncTaskPage;
 use App\Models\Integrations\AmoData\Setting;
 use App\Models\Integrations\AmoData\SyncRun;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account as AccountSync;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class AmoDataSyncService
@@ -22,13 +25,13 @@ class AmoDataSyncService
      */
     public function initial(Setting $setting): SyncRun
     {
-        return $this->sync($setting, 'initial', true);
+        return $this->start($setting, 'initial', true);
     }
 
     /**
      * @throws \Exception
      */
-    private function sync(Setting $setting, string $type, bool $initial): SyncRun
+    private function start(Setting $setting, string $type, bool $initial): SyncRun
     {
         $user = $setting->user;
         $account = $user->account;
@@ -40,6 +43,12 @@ class AmoDataSyncService
             'type' => $type,
             'status' => 'running',
             'started_at' => $startedAt,
+            'meta' => [
+                'leads_done' => !data_get($setting->settings, 'sync_deals', true),
+                'tasks_done' => !data_get($setting->settings, 'sync_tasks', true),
+                'initial' => $initial,
+                'type' => $type,
+            ],
         ]);
 
         $setting->forceFill([
@@ -54,77 +63,18 @@ class AmoDataSyncService
             AccountSync::users($amoApi, $user);
             AccountSync::statuses($amoApi, $user);
             AccountSync::fields($amoApi, $user);
-
-            $api = new AmoApiService($amoApi);
-            $storePayloads = (bool)data_get($setting->settings, 'store_payloads', false);
-
-            $leadResult = [
-                'synced' => 0,
-                'events' => 0,
-            ];
-            $taskResult = [
-                'synced' => 0,
-                'events' => 0,
-            ];
-
-            $leadItemsCount = 0;
-            $taskItemsCount = 0;
+            $updatedFromLeads = $initial ? null : $setting->leads_synced_at;
+            $updatedFromTasks = $initial ? null : $setting->tasks_synced_at;
 
             if (data_get($setting->settings, 'sync_deals', true)) {
-                $leadItemsCount = $api->syncLeads(
-                    $initial ? null : $setting->leads_synced_at,
-                    function (array $items) use ($user, $account, &$leadResult, $storePayloads) {
-                        $result = $this->leadSync()->sync($user, $account, $items, $storePayloads);
-                        $leadResult['synced'] += $result['synced'];
-                        $leadResult['events'] += $result['events'];
-                    }
-                );
+                SyncLeadPage::dispatch($setting->id, $run->id, 1, $updatedFromLeads?->timestamp);
             }
 
             if (data_get($setting->settings, 'sync_tasks', true)) {
-                $taskItemsCount = $api->syncTasks(
-                    $initial ? null : $setting->tasks_synced_at,
-                    function (array $items) use ($user, $account, &$taskResult, $storePayloads) {
-                        $result = $this->taskSync()->sync($user, $account, $items, $storePayloads);
-                        $taskResult['synced'] += $result['synced'];
-                        $taskResult['events'] += $result['events'];
-                    }
-                );
+                SyncTaskPage::dispatch($setting->id, $run->id, 1, $updatedFromTasks?->timestamp);
             }
 
-            $finishedAt = now();
-
-            $run->forceFill([
-                'status' => 'success',
-                'finished_at' => $finishedAt,
-                'leads_synced' => $leadResult['synced'],
-                'tasks_synced' => $taskResult['synced'],
-                'events_created' => $leadResult['events'] + $taskResult['events'],
-                'meta' => [
-                    'lead_items' => $leadItemsCount,
-                    'task_items' => $taskItemsCount,
-                ],
-            ])->save();
-
-            $setting->forceFill([
-                'sync_status' => 'success',
-                'initial_synced_at' => $setting->initial_synced_at ?? $finishedAt,
-                'last_successful_sync_at' => $finishedAt,
-                'leads_synced_at' => data_get(
-                    $setting->settings,
-                    'sync_deals',
-                    true
-                ) ? $startedAt : $setting->leads_synced_at,
-                'tasks_synced_at' => data_get(
-                    $setting->settings,
-                    'sync_tasks',
-                    true
-                ) ? $startedAt : $setting->tasks_synced_at,
-                'last_leads_count' => $leadResult['synced'],
-                'last_tasks_count' => $taskResult['synced'],
-                'last_events_count' => $leadResult['events'] + $taskResult['events'],
-                'last_error' => null,
-            ])->save();
+            $this->completeIfReady($setting->fresh(), $run->fresh());
 
             return $run->fresh();
         } catch (Throwable $e) {
@@ -158,7 +108,7 @@ class AmoDataSyncService
      */
     public function periodic(Setting $setting): SyncRun
     {
-        return $this->sync($setting, 'periodic', false);
+        return $this->start($setting, 'periodic', false);
     }
 
     public function isDue(Setting $setting): bool
@@ -175,5 +125,164 @@ class AmoDataSyncService
             ->copy()
             ->addMinutes($setting->syncIntervalMinutes())
             ->isPast();
+    }
+
+    public function processLeadPage(Setting $setting, SyncRun $run, array $items, int $page, int $limit = 50): void
+    {
+        $result = $this->leadSync()->sync(
+            $setting->user,
+            $setting->user->account,
+            $items,
+            (bool)data_get($setting->settings, 'store_payloads', false),
+        );
+
+        $this->advanceRun($setting, $run, [
+            'lead_items' => count($items),
+            'leads_synced' => $result['synced'],
+            'events_created' => $result['events'],
+            'lead_page' => $page,
+            'leads_done' => count($items) < $limit,
+        ]);
+    }
+
+    public function processTaskPage(Setting $setting, SyncRun $run, array $items, int $page, int $limit = 50): void
+    {
+        $result = $this->taskSync()->sync(
+            $setting->user,
+            $setting->user->account,
+            $items,
+            (bool)data_get($setting->settings, 'store_payloads', false),
+        );
+
+        $this->advanceRun($setting, $run, [
+            'task_items' => count($items),
+            'tasks_synced' => $result['synced'],
+            'events_created' => $result['events'],
+            'task_page' => $page,
+            'tasks_done' => count($items) < $limit,
+        ]);
+    }
+
+    public function completeIfReady(Setting $setting, SyncRun $run): void
+    {
+        DB::transaction(function () use ($setting, $run) {
+            /** @var SyncRun|null $lockedRun */
+            $lockedRun = SyncRun::query()
+                ->whereKey($run->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$lockedRun || $lockedRun->status !== 'running') {
+                return;
+            }
+
+            $meta = $lockedRun->meta ?? [];
+
+            if (!data_get($meta, 'leads_done', false) || !data_get($meta, 'tasks_done', false)) {
+                return;
+            }
+
+            $finishedAt = now();
+
+            $lockedRun->forceFill([
+                'status' => 'success',
+                'finished_at' => $finishedAt,
+                'meta' => $meta,
+            ])->save();
+
+            $setting->forceFill([
+                'sync_status' => 'success',
+                'initial_synced_at' => $setting->initial_synced_at ?? $finishedAt,
+                'last_successful_sync_at' => $finishedAt,
+                'leads_synced_at' => data_get(
+                    $setting->settings,
+                    'sync_deals',
+                    true
+                ) ? $lockedRun->started_at : $setting->leads_synced_at,
+                'tasks_synced_at' => data_get(
+                    $setting->settings,
+                    'sync_tasks',
+                    true
+                ) ? $lockedRun->started_at : $setting->tasks_synced_at,
+                'last_leads_count' => $lockedRun->leads_synced,
+                'last_tasks_count' => $lockedRun->tasks_synced,
+                'last_events_count' => $lockedRun->events_created,
+                'last_error' => null,
+            ])->save();
+        });
+    }
+
+    public function failRun(Setting $setting, SyncRun $run, string $message): void
+    {
+        DB::transaction(function () use ($setting, $run, $message) {
+            $lockedRun = SyncRun::query()
+                ->whereKey($run->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedRun && $lockedRun->status === 'running') {
+                $lockedRun->forceFill([
+                    'status' => 'failed',
+                    'finished_at' => now(),
+                    'error' => $message,
+                ])->save();
+            }
+
+            $setting->forceFill([
+                'sync_status' => 'failed',
+                'last_error' => $message,
+            ])->save();
+        });
+    }
+
+    private function advanceRun(Setting $setting, SyncRun $run, array $payload): void
+    {
+        DB::transaction(function () use ($setting, $run, $payload) {
+            /** @var SyncRun|null $lockedRun */
+            $lockedRun = SyncRun::query()
+                ->whereKey($run->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$lockedRun || $lockedRun->status !== 'running') {
+                return;
+            }
+
+            $meta = $lockedRun->meta ?? [];
+            $meta['lead_items'] = (int)data_get($meta, 'lead_items', 0) + (int)data_get($payload, 'lead_items', 0);
+            $meta['task_items'] = (int)data_get($meta, 'task_items', 0) + (int)data_get($payload, 'task_items', 0);
+
+            if (array_key_exists('lead_page', $payload)) {
+                $meta['lead_page'] = $payload['lead_page'];
+            }
+
+            if (array_key_exists('task_page', $payload)) {
+                $meta['task_page'] = $payload['task_page'];
+            }
+
+            if (array_key_exists('leads_done', $payload)) {
+                $meta['leads_done'] = (bool)$payload['leads_done'];
+            }
+
+            if (array_key_exists('tasks_done', $payload)) {
+                $meta['tasks_done'] = (bool)$payload['tasks_done'];
+            }
+
+            $lockedRun->forceFill([
+                'leads_synced' => $lockedRun->leads_synced + (int)data_get($payload, 'leads_synced', 0),
+                'tasks_synced' => $lockedRun->tasks_synced + (int)data_get($payload, 'tasks_synced', 0),
+                'events_created' => $lockedRun->events_created + (int)data_get($payload, 'events_created', 0),
+                'meta' => $meta,
+            ])->save();
+
+            $setting->forceFill([
+                'last_leads_count' => $lockedRun->leads_synced,
+                'last_tasks_count' => $lockedRun->tasks_synced,
+                'last_events_count' => $lockedRun->events_created,
+                'last_error' => null,
+            ])->save();
+        });
+
+        $this->completeIfReady($setting->fresh(), $run->fresh());
     }
 }
