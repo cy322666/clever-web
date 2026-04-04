@@ -4,6 +4,7 @@ namespace App\Services\Assistant;
 
 use App\Models\User;
 use App\Services\amoCRM\Client;
+use Illuminate\Http\Client\Response;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -31,7 +32,12 @@ class AssistantAmoApiService
 
     private function request(string $path, array $query = []): array
     {
-        $response = $this->http()->get($this->url($path), $query);
+        $response = $this->sendRequest($path, $query);
+
+        if ($response->status() === 401) {
+            $this->amoApi->refreshAccessToken();
+            $response = $this->sendRequest($path, $query);
+        }
 
         if (!$response->successful()) {
             throw new RuntimeException(
@@ -44,10 +50,17 @@ class AssistantAmoApiService
 
     private function http(): PendingRequest
     {
+        $this->amoApi->ensureAccessToken();
+
         return Http::acceptJson()
             ->timeout(45)
             ->retry(2, 300)
             ->withToken($this->amoApi->account->access_token);
+    }
+
+    private function sendRequest(string $path, array $query = []): Response
+    {
+        return $this->http()->get($this->url($path), $query);
     }
 
     private function url(string $path): string

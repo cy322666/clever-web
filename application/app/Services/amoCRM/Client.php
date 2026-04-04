@@ -6,7 +6,6 @@ use App\Models\Core\Account;
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Ufee\Amo\Base\Models\QueryModel;
 use Ufee\Amo\Oauthapi;
@@ -88,34 +87,29 @@ class Client
      */
     public function init(): Client
     {
-        if ($this->storage->model->refresh_token) {
-
-            $createdAt = Carbon::parse($this->storage->model->created_at);
-
-            $expiredAt = $createdAt->addSeconds($this->storage->model->expires_in);
-
-            if ($expiredAt->isFuture()) {
-
-                $oauth = $this->service->refreshAccessToken($this->storage->model->refresh_token);
-            } else
-                $oauth = $this->storage->model->toArray();
-
-//            Log::channel('tokens')->info('refresh user : '.$this->user->email, $oauth);
-
-        } else
-            $oauth = $this->service->fetchAccessToken($this->storage->model->code);
-
-        $this->storage->setOauthData($this->service, [
-            'token_type'    => 'Bearer',
-            'expires_in'    => $oauth['expires_in'],
-            'access_token'  => $oauth['access_token'],
-            'refresh_token' => $oauth['refresh_token'],
-            'created_at'    => $oauth['created_at'] ?? time(),
-        ]);
+        $this->syncOauthData();
 
         $this->auth = true;
 
         return $this;
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function ensureAccessToken(bool $forceRefresh = false): static
+    {
+        $this->syncOauthData($forceRefresh);
+
+        return $this;
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function refreshAccessToken(): static
+    {
+        return $this->ensureAccessToken(true);
     }
 
     public function initCache(int $time = 3600) : Client
@@ -180,6 +174,90 @@ class Client
     private static function trimUrl(string $url): string
     {
         return strlen($url) > 250 ? mb_strimwidth($url, 0, 200, "...") : $url;
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function syncOauthData(bool $forceRefresh = false): void
+    {
+        if (!$this->storage->model->refresh_token && !$this->storage->model->code) {
+            throw new Exception('Incorrect amoCRM oauth data');
+        }
+
+        if ($forceRefresh) {
+            $oauth = $this->refreshOauthPayload();
+            $this->persistOauthData($oauth);
+
+            return;
+        }
+
+        if (!$this->storage->model->access_token) {
+            $oauth = $this->issueInitialOauthPayload();
+            $this->persistOauthData($oauth);
+
+            return;
+        }
+
+        if ($this->tokenExpiresAt()?->subMinute()->isPast()) {
+            $oauth = $this->refreshOauthPayload();
+            $this->persistOauthData($oauth);
+
+            return;
+        }
+
+        $this->auth = true;
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function refreshOauthPayload(): array
+    {
+        if (!$this->storage->model->refresh_token) {
+            return $this->issueInitialOauthPayload();
+        }
+
+        return $this->service->refreshAccessToken($this->storage->model->refresh_token);
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function issueInitialOauthPayload(): array
+    {
+        if (!$this->storage->model->code) {
+            throw new Exception('Incorrect amoCRM oauth data');
+        }
+
+        return $this->service->fetchAccessToken($this->storage->model->code);
+    }
+
+    private function persistOauthData(array $oauth): void
+    {
+        $this->storage->setOauthData($this->service, [
+            'token_type' => 'Bearer',
+            'expires_in' => $oauth['expires_in'],
+            'access_token' => $oauth['access_token'],
+            'refresh_token' => $oauth['refresh_token'],
+            'created_at' => $oauth['created_at'] ?? time(),
+        ]);
+
+        $this->account->refresh();
+        $this->auth = true;
+    }
+
+    private function tokenExpiresAt(): ?Carbon
+    {
+        if (!$this->storage->model->created_at || !$this->storage->model->expires_in) {
+            return null;
+        }
+
+        $createdAt = is_numeric($this->storage->model->created_at)
+            ? Carbon::createFromTimestamp((int)$this->storage->model->created_at)
+            : Carbon::parse($this->storage->model->created_at);
+
+        return $createdAt->copy()->addSeconds((int)$this->storage->model->expires_in);
     }
 
 }
