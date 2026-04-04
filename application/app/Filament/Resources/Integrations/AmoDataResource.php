@@ -24,7 +24,7 @@ class AmoDataResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $recordTitleAttribute = 'amoCRM Data';
+    protected static ?string $recordTitleAttribute = 'Данные amoCRM';
 
     public static function getTransactions(): int
     {
@@ -51,7 +51,7 @@ class AmoDataResource extends Resource
                         Section::make('Настройки синхронизации')
                             ->schema([
                                 Toggle::make('active')
-                                    ->label('Включить sync')
+                                    ->label('Включить выгрузку')
                                     ->default(false),
 
                                 Toggle::make('settings.sync_deals')
@@ -63,11 +63,11 @@ class AmoDataResource extends Resource
                                     ->default(true),
 
                                 Toggle::make('settings.store_payloads')
-                                    ->label('Хранить raw payload')
+                                    ->label('Хранить исходный ответ amoCRM')
                                     ->default(true),
 
                                 TextInput::make('settings.sync_interval_minutes')
-                                    ->label('Интервал periodic sync (мин)')
+                                    ->label('Интервал плановой выгрузки (мин)')
                                     ->numeric()
                                     ->default(30)
                                     ->minValue(15),
@@ -82,7 +82,7 @@ class AmoDataResource extends Resource
                                     ->disabled(),
 
                                 TextInput::make('initial_synced_at')
-                                    ->label('Initial sync')
+                                    ->label('Первая выгрузка')
                                     ->disabled(),
 
                                 TextInput::make('last_attempt_at')
@@ -90,19 +90,19 @@ class AmoDataResource extends Resource
                                     ->disabled(),
 
                                 TextInput::make('last_successful_sync_at')
-                                    ->label('Последний успешный sync')
+                                    ->label('Последняя успешная выгрузка')
                                     ->disabled(),
 
                                 TextInput::make('last_leads_count')
-                                    ->label('Последний batch deals')
+                                    ->label('Последняя выгрузка сделок')
                                     ->disabled(),
 
                                 TextInput::make('last_tasks_count')
-                                    ->label('Последний batch tasks')
+                                    ->label('Последняя выгрузка задач')
                                     ->disabled(),
 
                                 TextInput::make('last_events_count')
-                                    ->label('Последний batch events')
+                                    ->label('Последняя выгрузка событий')
                                     ->disabled(),
 
                                 TextInput::make('last_error')

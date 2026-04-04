@@ -35,12 +35,12 @@ class EditAmoData extends EditRecord
             ),
 
             Action::make('initialSync')
-                ->label('Initial sync')
+                ->label('Первая выгрузка')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(function () {
                     if (Config::get('queue.default') === 'sync' && !App::environment('local')) {
                         Notification::make()
-                            ->title('Очередь настроена в sync, initial sync через UI отключен')
+                            ->title('Очередь работает в синхронном режиме, первая выгрузка через интерфейс отключена')
                             ->danger()
                             ->send();
 
@@ -50,18 +50,18 @@ class EditAmoData extends EditRecord
                     RunSync::dispatch($this->record->id, 'initial');
 
                     Notification::make()
-                        ->title('Initial sync поставлен в очередь')
+                        ->title('Первая выгрузка поставлена в очередь')
                         ->success()
                         ->send();
                 }),
 
             Action::make('periodicSync')
-                ->label('Periodic sync')
+                ->label('Плановая выгрузка')
                 ->icon('heroicon-o-arrow-path')
                 ->action(function () {
                     if (Config::get('queue.default') === 'sync' && !App::environment('local')) {
                         Notification::make()
-                            ->title('Очередь настроена в sync, periodic sync через UI отключен')
+                            ->title('Очередь работает в синхронном режиме, плановая выгрузка через интерфейс отключена')
                             ->danger()
                             ->send();
 
@@ -71,7 +71,7 @@ class EditAmoData extends EditRecord
                     RunSync::dispatch($this->record->id, 'periodic');
 
                     Notification::make()
-                        ->title('Periodic sync поставлен в очередь')
+                        ->title('Плановая выгрузка поставлена в очередь')
                         ->success()
                         ->send();
                 }),
@@ -83,7 +83,7 @@ class EditAmoData extends EditRecord
                 ->requiresConfirmation()
                 ->modalHeading('Стереть выгруженные данные?')
                 ->modalDescription(
-                    'Будут удалены только локальные deals, tasks, events и sync history текущего клиента. Справочники amoCRM и настройки модуля останутся.'
+                    'Будут удалены только локальные сделки, задачи, события и история выгрузок текущего клиента. Справочники amoCRM и настройки модуля останутся.'
                 )
                 ->action(function () {
                     $userId = $this->record->user_id;
@@ -118,7 +118,7 @@ class EditAmoData extends EditRecord
                     Notification::make()
                         ->title('Выгруженные данные удалены')
                         ->body(
-                            "Deals: {$deleted['leads']}, tasks: {$deleted['tasks']}, events: {$deleted['events']}, sync runs: {$deleted['runs']}"
+                            "Сделки: {$deleted['leads']}, задачи: {$deleted['tasks']}, события: {$deleted['events']}, запуски выгрузки: {$deleted['runs']}"
                         )
                         ->success()
                         ->send();
