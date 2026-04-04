@@ -55,4 +55,9 @@ return [
         'format' => env('YANDEX_SPEECHKIT_FORMAT', 'oggopus'),
         'sample_rate' => env('YANDEX_SPEECHKIT_SAMPLE_RATE', 48000),
     ],
+
+    'telegram' => [
+        'token' => env('TELEGRAM_ALERTS_TOKEN', env('TG_DEBUG_TOKEN')),
+        'chat_id' => env('TELEGRAM_ALERTS_CHAT_ID', env('TG_DEBUG_CHAT_ID')),
+    ],
 ];

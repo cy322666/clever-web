@@ -10,12 +10,24 @@ class Telegram
     /**
      * @throws GuzzleException
      */
-    public static function send(string $msg = 'empty', string $chatId, string $token, ?array $keyboard, bool $isMarkdown = true)
+    public static function send(
+        string $msg,
+        string $chatId,
+        string $token,
+        ?array $keyboard = [],
+        bool $isMarkdown = true
+    ): void
     {
+        if (blank($chatId) || blank($token)) {
+            return;
+        }
+
         if (strlen($msg) >= 4095) {
 
             $msg = substr($msg, 0, 50);
         }
+
+        $keyboard ??= [];
 
         $body = [
             "chat_id" => $chatId,
@@ -32,7 +44,10 @@ class Telegram
             $body = array_merge($body, ['reply_markup' => json_encode(['inline_keyboard' => [[$keyboard]]])]);
         }
 
-        (new Client())->get('https://api.telegram.org/bot' . $token . '/sendMessage', [
+        (new Client([
+            'timeout' => 5,
+            'connect_timeout' => 3,
+        ]))->get('https://api.telegram.org/bot' . $token . '/sendMessage', [
             'query' => $body
         ]);
     }
