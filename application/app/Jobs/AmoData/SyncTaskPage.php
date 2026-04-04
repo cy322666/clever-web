@@ -40,7 +40,7 @@ class SyncTaskPage implements ShouldQueue
         }
 
         $api = new AmoApiService(new Client($setting->user->account));
-        $limit = 50;
+        $limit = AmoApiService::PAGE_LIMIT;
         $items = $api->getTasksPage(
             $this->updatedFrom ? Carbon::createFromTimestamp($this->updatedFrom) : null,
             $this->page,

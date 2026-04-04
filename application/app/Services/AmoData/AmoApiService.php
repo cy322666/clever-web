@@ -11,6 +11,8 @@ use RuntimeException;
 
 class AmoApiService
 {
+    public const PAGE_LIMIT = 50;
+
     public function __construct(private readonly Client $amoApi)
     {
     }
@@ -23,7 +25,7 @@ class AmoApiService
         return new self(new Client($user->account));
     }
 
-    public function getLeads(?Carbon $updatedFrom = null, int $limit = 50): array
+    public function getLeads(?Carbon $updatedFrom = null, int $limit = self::PAGE_LIMIT): array
     {
         $query = [];
 
@@ -38,7 +40,7 @@ class AmoApiService
         return $this->paginate('/api/v4/leads', $query, '_embedded.leads', $limit);
     }
 
-    public function getLeadsPage(?Carbon $updatedFrom = null, int $page = 1, int $limit = 50): array
+    public function getLeadsPage(?Carbon $updatedFrom = null, int $page = 1, int $limit = self::PAGE_LIMIT): array
     {
         $query = [
             'page' => $page,
@@ -58,7 +60,7 @@ class AmoApiService
         return data_get($response, '_embedded.leads', []);
     }
 
-    public function syncLeads(?Carbon $updatedFrom, callable $callback, int $limit = 50): int
+    public function syncLeads(?Carbon $updatedFrom, callable $callback, int $limit = self::PAGE_LIMIT): int
     {
         $query = [];
 
@@ -73,11 +75,11 @@ class AmoApiService
         return $this->paginateEach('/api/v4/leads', $query, '_embedded.leads', $callback, $limit);
     }
 
-    private function paginate(string $path, array $query, string $embeddedKey, int $limit = 50): array
+    private function paginate(string $path, array $query, string $embeddedKey, int $limit = self::PAGE_LIMIT): array
     {
         $items = [];
 
-        for ($page = 1; $page <= 200; $page++) {
+        for ($page = 1; $page <= 2000; $page++) {
             $response = $this->request(
                 $path,
                 array_merge($query, [
@@ -107,11 +109,11 @@ class AmoApiService
         array $query,
         string $embeddedKey,
         callable $callback,
-        int $limit = 50,
+        int $limit = self::PAGE_LIMIT,
     ): int {
         $processed = 0;
 
-        for ($page = 1; $page <= 200; $page++) {
+        for ($page = 1; $page <= 2000; $page++) {
             $response = $this->request(
                 $path,
                 array_merge($query, [
@@ -165,7 +167,7 @@ class AmoApiService
         return 'https://' . $this->amoApi->account->subdomain . '.amocrm.' . $zone . $path;
     }
 
-    public function getTasks(?Carbon $updatedFrom = null, int $limit = 50): array
+    public function getTasks(?Carbon $updatedFrom = null, int $limit = self::PAGE_LIMIT): array
     {
         $query = [];
 
@@ -180,7 +182,7 @@ class AmoApiService
         return $this->paginate('/api/v4/tasks', $query, '_embedded.tasks', $limit);
     }
 
-    public function getTasksPage(?Carbon $updatedFrom = null, int $page = 1, int $limit = 50): array
+    public function getTasksPage(?Carbon $updatedFrom = null, int $page = 1, int $limit = self::PAGE_LIMIT): array
     {
         $query = [
             'page' => $page,
@@ -200,7 +202,7 @@ class AmoApiService
         return data_get($response, '_embedded.tasks', []);
     }
 
-    public function syncTasks(?Carbon $updatedFrom, callable $callback, int $limit = 50): int
+    public function syncTasks(?Carbon $updatedFrom, callable $callback, int $limit = self::PAGE_LIMIT): int
     {
         $query = [];
 

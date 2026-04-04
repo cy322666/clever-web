@@ -4,18 +4,15 @@ namespace App\Jobs\AmoData;
 
 use App\Models\Integrations\AmoData\Setting;
 use App\Models\Integrations\AmoData\SyncRun;
-use App\Services\AmoData\AmoApiService;
 use App\Services\AmoData\AmoDataSyncService;
-use App\Services\amoCRM\Client;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
 use Throwable;
 
-class SyncLeadPage implements ShouldQueue
+class SyncReferences implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -24,12 +21,13 @@ class SyncLeadPage implements ShouldQueue
     public function __construct(
         public int $settingId,
         public int $runId,
-        public int $page = 1,
-        public ?int $updatedFrom = null,
     ) {
         $this->onQueue('amo_data');
     }
 
+    /**
+     * @throws \Exception
+     */
     public function handle(AmoDataSyncService $service): void
     {
         $setting = Setting::query()->with('user.account')->find($this->settingId);
@@ -39,19 +37,7 @@ class SyncLeadPage implements ShouldQueue
             return;
         }
 
-        $api = new AmoApiService(new Client($setting->user->account));
-        $limit = AmoApiService::PAGE_LIMIT;
-        $items = $api->getLeadsPage(
-            $this->updatedFrom ? Carbon::createFromTimestamp($this->updatedFrom) : null,
-            $this->page,
-            $limit,
-        );
-
-        $service->processLeadPage($setting, $run, $items, $this->page, $limit);
-
-        if (count($items) === $limit) {
-            self::dispatch($this->settingId, $this->runId, $this->page + 1, $this->updatedFrom);
-        }
+        $service->processReferences($setting, $run);
     }
 
     public function failed(?Throwable $exception): void
@@ -66,7 +52,7 @@ class SyncLeadPage implements ShouldQueue
         app(AmoDataSyncService::class)->failRun(
             $setting,
             $run,
-            $exception?->getMessage() ?? 'Выгрузка сделок завершилась с ошибкой.',
+            $exception?->getMessage() ?? 'Синхронизация справочников завершилась с ошибкой.',
         );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\AmoData;
 
+use App\Jobs\AmoData\SyncReferences;
 use App\Jobs\AmoData\SyncLeadPage;
 use App\Jobs\AmoData\SyncTaskPage;
 use App\Models\Integrations\AmoData\Setting;
@@ -44,6 +45,7 @@ class AmoDataSyncService
             'status' => 'running',
             'started_at' => $startedAt,
             'meta' => [
+                'refs_done' => false,
                 'leads_done' => !data_get($setting->settings, 'sync_deals', true),
                 'tasks_done' => !data_get($setting->settings, 'sync_tasks', true),
                 'initial' => $initial,
@@ -58,13 +60,10 @@ class AmoDataSyncService
         ])->save();
 
         try {
-            $amoApi = new Client($account);
-
-            AccountSync::users($amoApi, $user);
-            AccountSync::statuses($amoApi, $user);
-            AccountSync::fields($amoApi, $user);
             $updatedFromLeads = $initial ? null : $setting->leads_synced_at;
             $updatedFromTasks = $initial ? null : $setting->tasks_synced_at;
+
+            SyncReferences::dispatch($setting->id, $run->id);
 
             if (data_get($setting->settings, 'sync_deals', true)) {
                 SyncLeadPage::dispatch($setting->id, $run->id, 1, $updatedFromLeads?->timestamp);
@@ -74,20 +73,9 @@ class AmoDataSyncService
                 SyncTaskPage::dispatch($setting->id, $run->id, 1, $updatedFromTasks?->timestamp);
             }
 
-            $this->completeIfReady($setting->fresh(), $run->fresh());
-
             return $run->fresh();
         } catch (Throwable $e) {
-            $run->forceFill([
-                'status' => 'failed',
-                'finished_at' => now(),
-                'error' => $e->getMessage(),
-            ])->save();
-
-            $setting->forceFill([
-                'sync_status' => 'failed',
-                'last_error' => $e->getMessage(),
-            ])->save();
+            $this->failRun($setting, $run, $e->getMessage());
 
             throw $e;
         }
@@ -163,6 +151,22 @@ class AmoDataSyncService
         ]);
     }
 
+    /**
+     * @throws \Exception
+     */
+    public function processReferences(Setting $setting, SyncRun $run): void
+    {
+        $amoApi = new Client($setting->user->account);
+
+        AccountSync::users($amoApi, $setting->user);
+        AccountSync::statuses($amoApi, $setting->user);
+        AccountSync::fields($amoApi, $setting->user);
+
+        $this->advanceRun($setting, $run, [
+            'refs_done' => true,
+        ]);
+    }
+
     public function completeIfReady(Setting $setting, SyncRun $run): void
     {
         DB::transaction(function () use ($setting, $run) {
@@ -178,7 +182,9 @@ class AmoDataSyncService
 
             $meta = $lockedRun->meta ?? [];
 
-            if (!data_get($meta, 'leads_done', false) || !data_get($meta, 'tasks_done', false)) {
+            if (!data_get($meta, 'refs_done', false)
+                || !data_get($meta, 'leads_done', false)
+                || !data_get($meta, 'tasks_done', false)) {
                 return;
             }
 
@@ -266,6 +272,10 @@ class AmoDataSyncService
 
             if (array_key_exists('tasks_done', $payload)) {
                 $meta['tasks_done'] = (bool)$payload['tasks_done'];
+            }
+
+            if (array_key_exists('refs_done', $payload)) {
+                $meta['refs_done'] = (bool)$payload['refs_done'];
             }
 
             $lockedRun->forceFill([

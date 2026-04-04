@@ -39,11 +39,10 @@ class Sync extends Command
 
         $this->info(
             sprintf(
-                'amo-data sync finished: status=%s leads=%d tasks=%d events=%d',
+                'amo-data sync started: run_id=%d status=%s type=%s',
+                $run->id,
                 $run->status,
-                $run->leads_synced,
-                $run->tasks_synced,
-                $run->events_created,
+                $run->type,
             )
         );
 
