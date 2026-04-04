@@ -175,3 +175,23 @@ sudo ufw deny 3100/tcp
 sudo ufw deny 9115/tcp
 sudo ufw deny 9187/tcp
 ```
+
+## Мониторинг очередей в приложении
+
+Добавлены команды:
+
+- `app:monitor-queue-health` — проверка новых `failed_jobs` и зависших jobs c отправкой алертов (TG/mail).
+- `app:queue-backfill-failed` — backfill `failed_jobs` -> `queue_monitors`, чтобы UI очередей показывал исторические
+  падения.
+- `app:smoke` — post-deploy smoke checks (БД, таблицы очередей, роуты, heartbeat).
+
+Планировщик (`app/Console/Kernel.php`):
+
+- `app:monitor-queue-health` — каждую минуту
+- `app:queue-backfill-failed --limit=1000` — каждую минуту
+
+UI для операторов:
+
+- `/panel/queue-monitors` — монитор `queue_monitors`
+- `/panel/failed-jobs` — оперативная работа с `failed_jobs` (retry/delete) + операционные метрики синхронизации
+- `/panel/app-stats` — дополнительно виджет метрик очередей, которые не дублируются в Grafana

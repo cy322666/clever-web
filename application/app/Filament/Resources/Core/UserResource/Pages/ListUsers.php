@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Backup;
+use App\Filament\App\Pages\FailedJobs;
 use App\Filament\Resources\Core\UserResource;
 use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
@@ -19,15 +20,10 @@ class ListUsers extends ListRecords
     {
         $actions = [];
 
-        if (Route::has('telescope')) {
-            $actions[] = Action::make('telescope')
-                ->label('Телескоп')
-                ->url(fn(): string => route('telescope'))
-                ->openUrlInNewTab()
-                ->color(Color::Blue);
-        }
-
-        if (Route::has('filament.app.resources.queue-monitors.index')) {
+        if (
+            config('features.panel_actions.queues', true)
+            && Route::has('filament.app.resources.queue-monitors.index')
+        ) {
             $actions[] = Action::make('queues')
                 ->label('Очереди')
                 ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
@@ -35,38 +31,42 @@ class ListUsers extends ListRecords
                 ->color(Color::Green);
         }
 
-        return array_merge($actions, [
+        if (
+            config('features.panel_actions.failed_jobs', true)
+            && config('features.queues.failed_jobs_page', true)
+            && Route::has('filament.app.pages.failed-jobs')
+        ) {
+            $actions[] = Action::make('failed_jobs')
+                ->label('Ошибки очереди')
+                ->url(fn(): string => FailedJobs::getUrl())
+                ->openUrlInNewTab()
+                ->color('danger');
+        }
 
-//            Action::make('horizon')
-//                ->label('Горизонт')
-//                ->url(route('horizon.index'))
-//                ->openUrlInNewTab()
-//                ->color(Color::Fuchsia),
-
-//            Actions\Action::make('totem')
-//                ->label('Тотем')
-//                ->url(route('totem.dashboard'))
-//                ->openUrlInNewTab()
-//                ->color(Color::Green),
-//
-            Action::make('auths')
+        if (config('features.panel_actions.auth_logs', true)) {
+            $actions[] = Action::make('auths')
                 ->label('Авторизации')
                 ->url(env('APP_URL') . '/panel/authentication-logs')
                 ->openUrlInNewTab()
-                ->color(Color::Green),
+                ->color(Color::Green);
+        }
 
-            Action::make('apps')
+        if (config('features.panel_actions.apps_stats', true)) {
+            $actions[] = Action::make('apps')
                 ->label('Приложения')
                 ->url(AppStats::getUrl())
                 ->openUrlInNewTab()
-                ->color(Color::Green),
+                ->color(Color::Green);
+        }
 
-            Action::make('backups')
+        if (config('features.panel_actions.backups', true)) {
+            $actions[] = Action::make('backups')
                 ->label('Бэкапы')
                 ->url(Backup::getUrl())
                 ->openUrlInNewTab()
-                ->color(Color::Green),
+                ->color(Color::Green);
+        }
 
-        ]);
+        return $actions;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Console\Commands\Core;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -17,6 +18,7 @@ class QueueBackfillFailed extends Command
     {
         $limit = max(1, (int)$this->option('limit'));
         $dryRun = (bool)$this->option('dry-run');
+        $startedAt = now()->timestamp;
 
         $failedConnection = (string)(config('queue.failed.database') ?? config('database.default'));
         $monitorConnection = (string)(config('filament-jobs-monitor.connection') ?? config('database.default'));
@@ -24,12 +26,14 @@ class QueueBackfillFailed extends Command
 
         if (!Schema::connection($failedConnection)->hasTable($failedTable)) {
             $this->error("Table {$failedTable} not found on connection {$failedConnection}");
+            $this->storeTelemetry($startedAt, 0, 0);
 
             return self::FAILURE;
         }
 
         if (!Schema::connection($monitorConnection)->hasTable('queue_monitors')) {
             $this->error("Table queue_monitors not found on connection {$monitorConnection}");
+            $this->storeTelemetry($startedAt, 0, 0);
 
             return self::FAILURE;
         }
@@ -42,6 +46,7 @@ class QueueBackfillFailed extends Command
 
         if ($failedRows->isEmpty()) {
             $this->info('No failed jobs found for backfill.');
+            $this->storeTelemetry($startedAt, 0, 0);
 
             return self::SUCCESS;
         }
@@ -107,6 +112,7 @@ class QueueBackfillFailed extends Command
 
         if ($dryRun || count($insertRows) === 0) {
             $this->line($dryRun ? 'Dry-run mode: nothing was written.' : 'Nothing to write.');
+            $this->storeTelemetry($startedAt, $failedRows->count(), 0);
 
             return self::SUCCESS;
         }
@@ -118,7 +124,15 @@ class QueueBackfillFailed extends Command
         }
 
         $this->info('Backfill completed. Inserted: ' . count($insertRows));
+        $this->storeTelemetry($startedAt, $failedRows->count(), count($insertRows));
 
         return self::SUCCESS;
+    }
+
+    private function storeTelemetry(int $startedAt, int $scanned, int $inserted): void
+    {
+        Cache::forever('monitoring:queue:backfill:last_run', $startedAt);
+        Cache::forever('monitoring:queue:backfill:last_scanned', $scanned);
+        Cache::forever('monitoring:queue:backfill:last_inserted', $inserted);
     }
 }

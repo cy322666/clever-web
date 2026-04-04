@@ -15,6 +15,14 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:monitor-heartbeat')
             ->everyMinute();
 
+        $schedule->command('app:monitor-queue-health')
+            ->everyMinute()
+            ->withoutOverlapping();
+
+        $schedule->command('app:queue-backfill-failed --limit=1000')
+            ->everyMinute()
+            ->withoutOverlapping();
+
         $schedule->command('telescope:prune')
             ->dailyAt('00:00');
 

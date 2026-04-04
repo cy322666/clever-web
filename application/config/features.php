@@ -2,7 +2,6 @@
 
 return [
     'panel_actions' => [
-        'telescope' => (bool)env('FEATURE_TELESCOPE_ACTION', true),
         'queues' => (bool)env('FEATURE_QUEUES_ACTION', true),
         'failed_jobs' => (bool)env('FEATURE_FAILED_JOBS_ACTION', true),
         'auth_logs' => (bool)env('FEATURE_AUTH_LOGS_ACTION', true),

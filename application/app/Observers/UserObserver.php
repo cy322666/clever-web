@@ -2,9 +2,9 @@
 
 namespace App\Observers;
 
+use App\Jobs\Core\InstallUserIntegrations;
 use App\Mail\SignUp;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
 use Ramsey\Uuid\Uuid;
 
@@ -22,7 +22,7 @@ class UserObserver
         Mail::to($user->email)->queue(new SignUp($user, null));
 
         /* создание моделей интеграции */
-        Artisan::call('install:all', ['user_id' => $user->id]);
+        InstallUserIntegrations::dispatch($user->id);
     }
 
     /**

@@ -199,7 +199,6 @@
       <path value="$PROJECT_DIR$/application/vendor/composer" />
       <path value="$PROJECT_DIR$/application/vendor/psr/event-dispatcher" />
       <path value="$PROJECT_DIR$/application/vendor/psr/cache" />
-      <path value="$PROJECT_DIR$/application/vendor/laravel/telescope" />
       <path value="$PROJECT_DIR$/../quantum/vendor/fzaninotto/faker" />
       <path value="$PROJECT_DIR$/../quantum/vendor/dragonmantank/cron-expression" />
       <path value="$PROJECT_DIR$/../quantum/vendor/tijsverkoyen/css-to-inline-styles" />

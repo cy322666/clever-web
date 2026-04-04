@@ -16,19 +16,23 @@ class QueueHealthCheck extends Command
 
     public function handle(): int
     {
-        $this->checkNewFailedJobs();
-        $this->checkStuckJobs();
+        $newFailedCount = $this->checkNewFailedJobs();
+        $stuckCount = $this->checkStuckJobs();
+
+        Cache::forever('monitoring:queue:health:last_run', now()->timestamp);
+        Cache::forever('monitoring:queue:health:last_new_failed', $newFailedCount);
+        Cache::forever('monitoring:queue:health:last_stuck', $stuckCount);
 
         return self::SUCCESS;
     }
 
-    private function checkNewFailedJobs(): void
+    private function checkNewFailedJobs(): int
     {
         $failedConnection = (string)(config('queue.failed.database') ?? config('database.default'));
         $failedTable = (string)config('queue.failed.table', 'failed_jobs');
 
         if (!Schema::connection($failedConnection)->hasTable($failedTable)) {
-            return;
+            return 0;
         }
 
         $maxId = (int)DB::connection($failedConnection)
@@ -36,7 +40,7 @@ class QueueHealthCheck extends Command
             ->max('id');
 
         if ($maxId <= 0) {
-            return;
+            return 0;
         }
 
         $cacheKey = 'monitoring:queue:last_failed_job_id';
@@ -45,11 +49,11 @@ class QueueHealthCheck extends Command
         if ($lastSeenId === 0) {
             Cache::forever($cacheKey, $maxId);
 
-            return;
+            return 0;
         }
 
         if ($maxId <= $lastSeenId) {
-            return;
+            return 0;
         }
 
         $newFailedQuery = DB::connection($failedConnection)
@@ -82,12 +86,14 @@ class QueueHealthCheck extends Command
         );
 
         Cache::forever($cacheKey, $maxId);
+
+        return $newFailedCount;
     }
 
-    private function checkStuckJobs(): void
+    private function checkStuckJobs(): int
     {
         if (!Schema::hasTable('jobs')) {
-            return;
+            return 0;
         }
 
         $stuckAfter = (int)($this->option('stuck-after') ?: config('alerts.queue.stuck_after_seconds', 900));
@@ -102,7 +108,7 @@ class QueueHealthCheck extends Command
         $stuckCount = (int)$stuckQuery->count();
 
         if ($stuckCount <= 0) {
-            return;
+            return 0;
         }
 
         $oldestReservedAt = (int)DB::table('jobs')
@@ -125,5 +131,7 @@ class QueueHealthCheck extends Command
             dedupeKey: 'queue:stuck:' . intdiv(now()->timestamp, 300) . ':' . $stuckCount,
             ttlSeconds: 300,
         );
+
+        return $stuckCount;
     }
 }

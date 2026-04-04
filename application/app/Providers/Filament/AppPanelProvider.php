@@ -62,7 +62,10 @@ class AppPanelProvider extends PanelProvider
                     ->authorize(fn (): bool => auth()->user()->is_root),
 
                 FilamentJobsMonitorPlugin::make()
-                    ->enableNavigation(fn(): bool => auth()->check() && auth()->user()->is_root),
+                    ->enableNavigation(
+                        fn(): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
+                            )->user()->is_root
+                    ),
 
             ])
             ->pages([

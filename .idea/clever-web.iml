@@ -213,7 +213,6 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/sail" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/sanctum" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/serializable-closure" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/telescope" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/tinker" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/league/commonmark" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/league/config" />

@@ -28,7 +28,6 @@
         "hflabs/dadata": "^22.3",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "4.x-dev",
-        "laravel/telescope": "^5.16",
         "laravel/tinker": "^2.8",
         "maatwebsite/excel": "^3.1",
         "novadaemon/filament-pretty-json": "^3.1",
