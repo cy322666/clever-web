@@ -2,22 +2,14 @@
 
 namespace App\Listeners;
 
-use App\Services\Telegram;
+use App\Services\Core\AlertService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Log;
 
 class SendTelegramRegistrationNotification
 {
     public function handle(Registered $event): void
     {
-        $chatId = (string)config('services.telegram.chat_id');
-        $token = (string)config('services.telegram.token');
-
-        if (blank($chatId) || blank($token)) {
-            return;
-        }
-
         $user = $event->user;
 
         if (!$user) {
@@ -40,13 +32,12 @@ class SendTelegramRegistrationNotification
             'URL: ' . config('app.url'),
         ]);
 
-        try {
-            Telegram::send($message, $chatId, $token, [], false);
-        } catch (\Throwable $e) {
-            Log::warning('Telegram registration notification failed', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        AlertService::info(
+            title: 'Новая регистрация',
+            message: $message,
+            context: ['user_id' => $user->id],
+            dedupeKey: 'registration:' . $user->id,
+            ttlSeconds: 86400,
+        );
     }
 }
