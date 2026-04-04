@@ -32,7 +32,7 @@ if [ "$HAS_TELEGRAM" -eq 1 ]; then
       - bot_token: "${ALERTMANAGER_TELEGRAM_BOT_TOKEN}"
         chat_id: ${ALERTMANAGER_TELEGRAM_CHAT_ID}
         parse_mode: "HTML"
-        message: '{{ .Status }}: {{ .CommonLabels.alertname }} - {{ .CommonAnnotations.summary }}'
+        message: '{{ if eq .Status "firing" }}<b>Тревога</b>{{ else }}<b>Восстановлено</b>{{ end }}: {{ if eq .CommonLabels.alertname "AppUnavailable" }}Приложение недоступно{{ else if eq .CommonLabels.alertname "AppMetricsScrapeFailed" }}Метрики приложения недоступны{{ else if eq .CommonLabels.alertname "SchedulerHeartbeatStale" }}Задержка heartbeat планировщика{{ else if eq .CommonLabels.alertname "FailedJobsDetected" }}Обнаружены упавшие задачи{{ else if eq .CommonLabels.alertname "QueueBacklogHigh" }}Переполнена очередь задач{{ else if eq .CommonLabels.alertname "QueueOldestJobTooOld" }}Слишком старые задачи в очереди{{ else if eq .CommonLabels.alertname "MetricsCollectionError" }}Ошибка сбора метрик приложения{{ else if eq .CommonLabels.alertname "PostgresExporterDown" }}Недоступен Postgres exporter{{ else if eq .CommonLabels.alertname "DbSlowQueriesBurst" }}Всплеск медленных запросов к БД{{ else }}{{ .CommonLabels.alertname }}{{ end }}{{ if .CommonLabels.severity }} [{{ if eq .CommonLabels.severity "critical" }}критично{{ else if eq .CommonLabels.severity "warning" }}предупреждение{{ else }}{{ .CommonLabels.severity }}{{ end }}]{{ end }}{{ if .CommonLabels.instance }}\nИнстанс: <code>{{ .CommonLabels.instance }}</code>{{ end }}'
         send_resolved: true
 EOF
 fi
