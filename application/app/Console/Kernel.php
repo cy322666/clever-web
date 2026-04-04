@@ -4,7 +4,6 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
-use Illuminate\Support\Facades\Log;
 
 class Kernel extends ConsoleKernel
 {
@@ -13,6 +12,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        $schedule->command('app:monitor-heartbeat')
+            ->everyMinute();
+
         $schedule->command('telescope:prune')
             ->dailyAt('00:00');
 
@@ -20,7 +22,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:check-date-expire')
             ->dailyAt('01:00');
 
-        $schedule->command('app:clear-month-log')
+        $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 
         $schedule->command('backup:run --db-name=' . env('DB_CONNECTION') . ' --only-db')

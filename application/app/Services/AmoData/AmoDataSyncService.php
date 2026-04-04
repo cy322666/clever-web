@@ -5,12 +5,14 @@ namespace App\Services\AmoData;
 use App\Jobs\AmoData\SyncReferences;
 use App\Jobs\AmoData\SyncLeadPage;
 use App\Jobs\AmoData\SyncTaskPage;
+use App\Mail\AmoDataSyncFinished;
 use App\Models\Integrations\AmoData\Setting;
 use App\Models\Integrations\AmoData\SyncRun;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account as AccountSync;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class AmoDataSyncService
@@ -176,7 +178,9 @@ class AmoDataSyncService
 
     public function completeIfReady(Setting $setting, SyncRun $run): void
     {
-        DB::transaction(function () use ($setting, $run) {
+        $notify = false;
+
+        DB::transaction(function () use ($setting, $run, &$notify) {
             /** @var SyncRun|null $lockedRun */
             $lockedRun = SyncRun::query()
                 ->whereKey($run->id)
@@ -222,12 +226,20 @@ class AmoDataSyncService
                 'last_events_count' => $lockedRun->events_created,
                 'last_error' => null,
             ])->save();
+
+            $notify = true;
         });
+
+        if ($notify) {
+            $this->sendCompletionMail($setting->fresh(), $run->fresh());
+        }
     }
 
     public function failRun(Setting $setting, SyncRun $run, string $message): void
     {
-        DB::transaction(function () use ($setting, $run, $message) {
+        $notify = false;
+
+        DB::transaction(function () use ($setting, $run, $message, &$notify) {
             $lockedRun = SyncRun::query()
                 ->whereKey($run->id)
                 ->lockForUpdate()
@@ -239,6 +251,8 @@ class AmoDataSyncService
                     'finished_at' => now(),
                     'error' => $message,
                 ])->save();
+
+                $notify = true;
             }
 
             $setting->forceFill([
@@ -246,6 +260,10 @@ class AmoDataSyncService
                 'last_error' => $message,
             ])->save();
         });
+
+        if ($notify) {
+            $this->sendCompletionMail($setting->fresh(), $run->fresh());
+        }
     }
 
     private function advanceRun(Setting $setting, SyncRun $run, array $payload): void
@@ -301,5 +319,14 @@ class AmoDataSyncService
         });
 
         $this->completeIfReady($setting->fresh(), $run->fresh());
+    }
+
+    private function sendCompletionMail(Setting $setting, SyncRun $run): void
+    {
+        if (!$setting->user?->email) {
+            return;
+        }
+
+        Mail::to($setting->user->email)->queue(new AmoDataSyncFinished($setting, $run));
     }
 }

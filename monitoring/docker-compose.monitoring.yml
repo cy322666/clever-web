@@ -1,0 +1,111 @@
+services:
+  app:
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:-change-me-metrics-token}
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:-change-me-metrics-token}
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.tmpl:ro
+      - ./monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - -c
+      - >
+        sed "s|__METRICS_TOKEN__|$${METRICS_TOKEN}|g" /etc/prometheus/prometheus.yml.tmpl > /etc/prometheus/prometheus.yml &&
+        /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    depends_on:
+      - alertmanager
+      - blackbox
+      - postgres-exporter
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - /etc/alertmanager/entrypoint.sh
+    environment:
+      ALERTMANAGER_TELEGRAM_BOT_TOKEN: ${ALERTMANAGER_TELEGRAM_BOT_TOKEN:-}
+      ALERTMANAGER_TELEGRAM_CHAT_ID: ${ALERTMANAGER_TELEGRAM_CHAT_ID:-}
+      ALERTMANAGER_SLACK_WEBHOOK_URL: ${ALERTMANAGER_SLACK_WEBHOOK_URL:-}
+      ALERTMANAGER_SLACK_CHANNEL: ${ALERTMANAGER_SLACK_CHANNEL:-#alerts}
+    volumes:
+      - ./monitoring/alertmanager/entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    ports:
+      - "9115:9115"
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DSN:-postgresql://root:pQLkm8NOkS0gOBox@postgresql:5432/clever?sslmode=disable}
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    ports:
+      - "9187:9187"
+
+  loki:
+    image: grafana/loki:2.9.8
+    restart: unless-stopped
+    user: "0"
+    command: -config.file=/etc/loki/local-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./application/storage/logs:/var/www/html/storage/logs:ro
+      - promtail_positions:/tmp
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  loki_data:
+  promtail_positions:
+  grafana_data:

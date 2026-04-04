@@ -1,0 +1,299 @@
+{
+  "name": "Assistant Chat Memory + Laravel Tools (n8n 1.117)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assistant-chat-memory",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2a4b467e-6932-49aa-92b4-6e77bdbba3f7",
+      "name": "Chat In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1040,
+        260
+      ],
+      "webhookId": "assistant-chat-memory"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $input.first().json.body ?? $input.first().json; const sqlEscape = (v) => String(v ?? '').replace(/'/g, \"''\"); const threadId = src.thread_id ?? src.session_id ?? src.chat_id ?? src.user_uuid; if (!threadId) throw new Error('thread_id or user_uuid is required'); if (!src.user_uuid) throw new Error('user_uuid is required'); const message = src.message ?? src.text ?? src.query ?? ''; if (!message) throw new Error('message is required'); return [{ json: { thread_id: String(threadId), thread_id_sql: sqlEscape(threadId), user_uuid: String(src.user_uuid), user_uuid_sql: sqlEscape(src.user_uuid), message: String(message), message_sql: sqlEscape(message), channel: String(src.channel ?? 'n8n'), channel_sql: sqlEscape(src.channel ?? 'n8n'), base_url: String(src.base_url ?? 'https://app.clevercrm.pro'), assistant_token: String(src.assistant_token ?? 'PASTE_ASSISTANT_TOKEN'), llm_base_url: String(src.llm_base_url ?? 'https://api.deepseek.com'), llm_model: String(src.llm_model ?? 'deepseek-chat'), llm_api_key: String(src.llm_api_key ?? 'PASTE_LLM_API_KEY'), recent_limit: Number(src.recent_limit ?? 12) } }];"
+      },
+      "id": "8e91b130-a194-46aa-8b81-4a9a0f2e0c2f",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upsert_thread AS ( INSERT INTO ai_threads (thread_id, user_uuid, channel, summary, created_at, updated_at) VALUES ('{{$('Normalize Input').first().json.thread_id_sql}}', '{{$('Normalize Input').first().json.user_uuid_sql}}', '{{$('Normalize Input').first().json.channel_sql}}', '', NOW(), NOW()) ON CONFLICT (thread_id) DO UPDATE SET updated_at = NOW(), user_uuid = EXCLUDED.user_uuid, channel = EXCLUDED.channel RETURNING thread_id ), insert_user_message AS ( INSERT INTO ai_messages (thread_id, role, content, created_at) VALUES ('{{$('Normalize Input').first().json.thread_id_sql}}', 'user', '{{$('Normalize Input').first().json.message_sql}}', NOW()) RETURNING id ) SELECT COALESCE((SELECT summary FROM ai_threads WHERE thread_id = '{{$('Normalize Input').first().json.thread_id_sql}}'), '') AS summary, COALESCE(( SELECT json_agg(row_to_json(x) ORDER BY x.created_at) FROM ( SELECT role, content, created_at FROM ai_messages WHERE thread_id = '{{$('Normalize Input').first().json.thread_id_sql}}' ORDER BY created_at DESC LIMIT {{$('Normalize Input').first().json.recent_limit}} ) x ), '[]'::json) AS recent_messages;",
+        "options": {}
+      },
+      "id": "18be10c7-e9c0-4888-b473-d0a9d8418aa7",
+      "name": "Load Conversation Context",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -560,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $('Normalize Input').first().json.message.toLowerCase(); let tool = 'weekly-summary'; let path = '/weekly-summary?limit=10'; const dealMatch = $('Normalize Input').first().json.message.match(/\\b\\d{6,}\\b/); if ((/сделк|deal/.test(text)) && dealMatch) { tool = 'deal-context'; path = `/deal-context/${dealMatch[0]}`; } else if (/daily|сегодня|день|сутк/.test(text)) { tool = 'daily-summary'; path = '/daily-summary?limit=10'; } else if (/недел|weekly/.test(text)) { tool = 'weekly-summary'; path = '/weekly-summary?limit=10'; } else if (/просроч|overdue/.test(text)) { tool = 'overdue-tasks'; path = '/overdue-tasks?limit=10'; } else if (/риск|risk/.test(text)) { tool = 'risky-deals'; path = '/risky-deals?limit=10'; } else if (/без задач|next task/.test(text)) { tool = 'deals-without-next-task'; path = '/deals-without-next-task?limit=10'; } else if (/необработ|unprocessed/.test(text)) { tool = 'unprocessed-leads'; path = '/unprocessed-leads?limit=10'; } return [{ json: { tool_name: tool, tool_path: path } }];"
+      },
+      "id": "8fda06b4-c63f-42a6-bb3f-db96555f4f68",
+      "name": "Route Tool",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Normalize Input').first().json.base_url + '/api/assistant/' + $('Normalize Input').first().json.user_uuid + $('Route Tool').first().json.tool_path }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Assistant-Token",
+              "value": "={{ $('Normalize Input').first().json.assistant_token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "40c214dd-d99c-4915-9437-a2c302f0ff4d",
+      "name": "Fetch Laravel Tool",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Normalize Input').first().json; const ctx = $('Load Conversation Context').first().json; const route = $('Route Tool').first().json; const rawRecent = ctx.recent_messages; let recent = []; if (Array.isArray(rawRecent)) { recent = rawRecent; } else if (typeof rawRecent === 'string' && rawRecent) { try { recent = JSON.parse(rawRecent); } catch (e) { recent = []; } } const recentText = recent.slice(-input.recent_limit).map((m) => `${m.role}: ${m.content}`).join('\\n'); const toolPayload = $input.first().json.data ?? $input.first().json; const prompt = [ 'Ты AI-ассистент руководителя отдела продаж.', 'Используй только факты из CRM payload и контекст диалога.', 'Если данных недостаточно, прямо скажи об этом.', '', 'Краткая память диалога:', ctx.summary || 'Пока пусто.', '', 'Последние сообщения:', recentText || 'Пока пусто.', '', `Текущий вопрос: ${input.message}`, '', `Источник данных: ${route.tool_name}`, 'CRM facts:', JSON.stringify(toolPayload, null, 2), '', 'Верни короткий ответ по-русски, без JSON и без markdown-кода.' ].join('\\n'); return [{ json: { thread_id: input.thread_id, user_uuid: input.user_uuid, llm_base_url: input.llm_base_url, llm_model: input.llm_model, llm_api_key: input.llm_api_key, tool_name: route.tool_name, tool_payload: toolPayload, final_prompt: prompt } }];"
+      },
+      "id": "603ad356-7f1d-4ec4-a248-7bf3943ea273",
+      "name": "Build Chat Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Build Chat Prompt').first().json.llm_base_url + '/chat/completions' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Build Chat Prompt').first().json.llm_api_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { model: $('Build Chat Prompt').first().json.llm_model, temperature: 0.2, messages: [ { role: 'system', content: 'Ты AI-ассистент руководителя отдела продаж. Отвечай по-русски кратко и по делу.' }, { role: 'user', content: $('Build Chat Prompt').first().json.final_prompt } ] } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "3f71ed3a-e783-4c14-9043-e5271f7f5782",
+      "name": "LLM Answer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sqlEscape = (v) => String(v ?? '').replace(/'/g, \"''\"); const response = $input.first().json; const assistantText = response.choices?.[0]?.message?.content ?? 'LLM did not return a message.'; return [{ json: { assistant_text: assistantText, assistant_text_sql: sqlEscape(assistantText) } }];"
+      },
+      "id": "224719c5-d8fd-420b-a991-e5fc62600448",
+      "name": "Extract Assistant Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH insert_assistant AS ( INSERT INTO ai_messages (thread_id, role, content, created_at, meta) VALUES ('{{$('Normalize Input').first().json.thread_id_sql}}', 'assistant', '{{$('Extract Assistant Message').first().json.assistant_text_sql}}', NOW(), json_build_object('tool', '{{$('Route Tool').first().json.tool_name}}')) RETURNING id ), update_thread AS ( UPDATE ai_threads SET updated_at = NOW() WHERE thread_id = '{{$('Normalize Input').first().json.thread_id_sql}}' RETURNING thread_id ) SELECT 'ok' AS status;",
+        "options": {}
+      },
+      "id": "f7fd1cc8-bd6f-4c49-ae6b-5b68a870bba3",
+      "name": "Save Assistant Output",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        900,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { thread_id: $('Normalize Input').first().json.thread_id, text: $('Extract Assistant Message').first().json.assistant_text, tool: $('Route Tool').first().json.tool_name, tool_payload: $('Fetch Laravel Tool').first().json.data ?? $('Fetch Laravel Tool').first().json } }}",
+        "options": {}
+      },
+      "id": "d3d3665b-3535-4cf4-bbe6-246719b9fec7",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1140,
+        260
+      ]
+    }
+  ],
+  "connections": {
+    "Chat In": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Load Conversation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Conversation Context": {
+      "main": [
+        [
+          {
+            "node": "Route Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Tool": {
+      "main": [
+        [
+          {
+            "node": "Fetch Laravel Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Laravel Tool": {
+      "main": [
+        [
+          {
+            "node": "Build Chat Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chat Prompt": {
+      "main": [
+        [
+          {
+            "node": "LLM Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Answer": {
+      "main": [
+        [
+          {
+            "node": "Extract Assistant Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Assistant Message": {
+      "main": [
+        [
+          {
+            "node": "Save Assistant Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Assistant Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

@@ -26,3 +26,7 @@ npm run dev
 
 ## Repository layout
 See the detailed structure in [`docs/STRUCTURE.md`](docs/STRUCTURE.md), system-level documentation in [`docs/CODEBASE.md`](docs/CODEBASE.md), and the route catalog in [`docs/ROUTES.md`](docs/ROUTES.md).
+
+## Monitoring
+
+Monitoring stack and setup instructions are documented in [`docs/MONITORING.md`](docs/MONITORING.md).

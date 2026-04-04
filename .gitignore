@@ -1,1 +1,3 @@
 node_modules
+monitoring/.env.monitoring
+monitoring/.env.monitoring.local

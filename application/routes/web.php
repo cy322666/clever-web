@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\System\HealthController;
+use App\Http\Controllers\System\MetricsController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +29,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
 
+Route::get('/up', HealthController::class)->name('up');
+Route::get('/metrics', MetricsController::class)->name('metrics');
+
 Route::get('/auto-login/{user}', function (Request $request, User $user) {
 
     Auth::login($user);
@@ -34,4 +39,3 @@ Route::get('/auto-login/{user}', function (Request $request, User $user) {
     return redirect($request->redirect ?? env('APP_URL'));
 
 })->name('auto.login')->middleware('signed');
-
