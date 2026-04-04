@@ -57,16 +57,39 @@ class AmoDataSyncService
 
             $api = new AmoApiService($amoApi);
 
-            $leadItems = data_get($setting->settings, 'sync_deals', true)
-                ? $api->getLeads($initial ? null : $setting->leads_synced_at)
-                : [];
+            $leadResult = [
+                'synced' => 0,
+                'events' => 0,
+            ];
+            $taskResult = [
+                'synced' => 0,
+                'events' => 0,
+            ];
 
-            $taskItems = data_get($setting->settings, 'sync_tasks', true)
-                ? $api->getTasks($initial ? null : $setting->tasks_synced_at)
-                : [];
+            $leadItemsCount = 0;
+            $taskItemsCount = 0;
 
-            $leadResult = $this->leadSync()->sync($user, $account, $leadItems);
-            $taskResult = $this->taskSync()->sync($user, $account, $taskItems);
+            if (data_get($setting->settings, 'sync_deals', true)) {
+                $leadItemsCount = $api->syncLeads(
+                    $initial ? null : $setting->leads_synced_at,
+                    function (array $items) use ($user, $account, &$leadResult) {
+                        $result = $this->leadSync()->sync($user, $account, $items);
+                        $leadResult['synced'] += $result['synced'];
+                        $leadResult['events'] += $result['events'];
+                    }
+                );
+            }
+
+            if (data_get($setting->settings, 'sync_tasks', true)) {
+                $taskItemsCount = $api->syncTasks(
+                    $initial ? null : $setting->tasks_synced_at,
+                    function (array $items) use ($user, $account, &$taskResult) {
+                        $result = $this->taskSync()->sync($user, $account, $items);
+                        $taskResult['synced'] += $result['synced'];
+                        $taskResult['events'] += $result['events'];
+                    }
+                );
+            }
 
             $finishedAt = now();
 
@@ -77,8 +100,8 @@ class AmoDataSyncService
                 'tasks_synced' => $taskResult['synced'],
                 'events_created' => $leadResult['events'] + $taskResult['events'],
                 'meta' => [
-                    'lead_items' => count($leadItems),
-                    'task_items' => count($taskItems),
+                    'lead_items' => $leadItemsCount,
+                    'task_items' => $taskItemsCount,
                 ],
             ])->save();
 

@@ -38,6 +38,21 @@ class AmoApiService
         return $this->paginate('/api/v4/leads', $query, '_embedded.leads', $limit);
     }
 
+    public function syncLeads(?Carbon $updatedFrom, callable $callback, int $limit = 250): int
+    {
+        $query = [];
+
+        if ($updatedFrom) {
+            $query['filter'] = [
+                'updated_at' => [
+                    'from' => $updatedFrom->timestamp,
+                ],
+            ];
+        }
+
+        return $this->paginateEach('/api/v4/leads', $query, '_embedded.leads', $callback, $limit);
+    }
+
     private function paginate(string $path, array $query, string $embeddedKey, int $limit = 250): array
     {
         $items = [];
@@ -65,6 +80,41 @@ class AmoApiService
         }
 
         return $items;
+    }
+
+    private function paginateEach(
+        string $path,
+        array $query,
+        string $embeddedKey,
+        callable $callback,
+        int $limit = 250,
+    ): int {
+        $processed = 0;
+
+        for ($page = 1; $page <= 200; $page++) {
+            $response = $this->request(
+                $path,
+                array_merge($query, [
+                    'page' => $page,
+                    'limit' => $limit,
+                ])
+            );
+
+            $pageItems = data_get($response, $embeddedKey, []);
+
+            if (!is_array($pageItems) || $pageItems === []) {
+                break;
+            }
+
+            $callback($pageItems);
+            $processed += count($pageItems);
+
+            if (count($pageItems) < $limit) {
+                break;
+            }
+        }
+
+        return $processed;
     }
 
     private function request(string $path, array $query = []): array
@@ -108,5 +158,20 @@ class AmoApiService
         }
 
         return $this->paginate('/api/v4/tasks', $query, '_embedded.tasks', $limit);
+    }
+
+    public function syncTasks(?Carbon $updatedFrom, callable $callback, int $limit = 250): int
+    {
+        $query = [];
+
+        if ($updatedFrom) {
+            $query['filter'] = [
+                'updated_at' => [
+                    'from' => $updatedFrom->timestamp,
+                ],
+            ];
+        }
+
+        return $this->paginateEach('/api/v4/tasks', $query, '_embedded.tasks', $callback, $limit);
     }
 }
