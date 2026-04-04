@@ -24,30 +24,9 @@ class RotationStrategy extends BaseStrategy
             return null;
         }
 
-        $lastTransaction = $this->transactions->first();
+        $staffId = $this->pickNextStaffByCursor($staffs);
+        Log::debug(__METHOD__ . ' user_id ' . $this->transaction->user_id, ['staff_id' => $staffId]);
 
-        Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, [
-            'last trans' => $lastTransaction->id ?? null,
-            'last trans resp' => $lastTransaction->staff_amocrm_id ?? null]);
-
-        if ($lastTransaction) {
-            Log::debug(__METHOD__ . ' user_id ' . $this->transaction->user_id, ['count staff ' . count($staffs)]);
-
-            foreach ($staffs as $key => $staffId) {
-
-                if ($lastTransaction->staff_amocrm_id == $staffId) {
-
-                    Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, [$lastTransaction->staff_amocrm_id.' == '.$staffId]);
-
-                    $staffId = end($staffs) == $staffId ? $staffs[0] : $staffs[++$key];
-
-                    Log::debug(__METHOD__.' user_id '.$this->transaction->user_id, ['staff_id' => $staffId]);
-
-                    return $staffId;
-                }
-            }
-        }
-
-        return (int)$staffs[0];
+        return $staffId;
     }
 }

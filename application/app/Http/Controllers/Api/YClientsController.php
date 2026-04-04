@@ -36,11 +36,11 @@ class YClientsController extends Controller
         Client::query()
             ->updateOrCreate([
                 'client_id'  => $request->data['client']['id'] ?? exit,
+                'company_id' => $request->company_id,
                 'user_id' => $user->id,
                 'setting_id'   => $setting->id,
                 'account_id'   => $account->id,
             ],[
-                'company_id' => $request->company_id,
                 'name'  => $request->data['client']['name'],
                 'phone' => $request->data['client']['phone'],
                 'email' => $request->data['client']['email'],

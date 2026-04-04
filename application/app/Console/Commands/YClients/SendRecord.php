@@ -56,17 +56,31 @@ class SendRecord extends Command
 
         $ycApi = (new YClients($setting));
         $lead = null;
+        $client = $record->scopedClient();
+
+        if (!$client) {
+            Log::error('YClients client not found for record in scoped lookup.', [
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'client_id' => $record->client_id,
+                'company_id' => $record->company_id,
+                'account_id' => $record->account_id,
+                'setting_id' => $record->setting_id,
+                'user_id' => $record->user_id,
+            ]);
+
+            return self::FAILURE;
+        }
 
         //CONTACT
 
-        if (!empty($record->client->contact_id)) {
-
-            $contact = ServiceContact::get($amoApi, $record->client->contact_id);
+        if (!empty($client->contact_id)) {
+            $contact = ServiceContact::get($amoApi, $client->contact_id);
 
             if (!$contact)
-                $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
+                $contact = ServiceContact::updateOrCreate($client, $amoApi);
         } else
-            $contact = ServiceContact::updateOrCreate($record->client, $amoApi);
+            $contact = ServiceContact::updateOrCreate($client, $amoApi);
 
         // LEAD
 
@@ -103,6 +117,7 @@ class SendRecord extends Command
                         $recordDouble = Record::query()
                             ->where('lead_id', $lead->id)
                             ->where('record_id', '!=', $record->record_id)
+                            ->where('account_id', $account->id)
                             ->first();
 
                         //сделка не привязана к какой то записи

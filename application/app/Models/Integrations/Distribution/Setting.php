@@ -40,6 +40,7 @@ class Setting extends Model
 
     protected $fillable = [
         'settings',
+        'cursors',
         'active',
         'user_id',
     ];

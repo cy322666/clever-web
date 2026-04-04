@@ -285,8 +285,7 @@ abstract class Leads
                 try {
                     $lead->cf($key)->setValue($field);
                 } catch (\Throwable $e) {
-                    dd($key, $field);
-                    dump($e->getMessage());
+                    Log::error(__METHOD__ . ' ' . $e->getMessage() . ' field_name: ' . $key . ' value: ' . $field);
                 }
             }
         }

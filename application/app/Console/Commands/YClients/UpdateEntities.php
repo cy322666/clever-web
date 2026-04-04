@@ -60,6 +60,11 @@ class UpdateEntities extends Command
         $record  = Record::query()->findOrFail($recordId);
         $account = Account::query()->findOrFail($accountId);
         $setting = Setting::query()->findOrFail($settingId);
+        $client = $record->scopedClient();
+
+        if (!$client) {
+            return self::FAILURE;
+        }
 
         $amoApi = (new Client($account))->init();
 
@@ -71,10 +76,11 @@ class UpdateEntities extends Command
             $arrayFields = Setting::YCGetFields($yc, $record);
 
             if ($setting->fields_contact) {
+                $contact = Contacts::get($amoApi, $client->contact_id);
 
-                $contact = Contacts::get($amoApi, $record->client->contact_id);
-
-                $setting->YCSetContactFields($contact, $arrayFields);
+                if ($contact) {
+                    $setting->YCSetContactFields($contact, $arrayFields);
+                }
             }
 
             if ($setting->fields_lead) {

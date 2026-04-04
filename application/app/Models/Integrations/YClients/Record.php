@@ -104,6 +104,17 @@ class Record extends Model
         return $this->belongsTo(Client::class, 'client_id', 'client_id');
     }
 
+    public function scopedClient(): ?Client
+    {
+        return Client::query()
+            ->where('client_id', $this->client_id)
+            ->where('company_id', $this->company_id)
+            ->where('account_id', $this->account_id)
+            ->where('setting_id', $this->setting_id)
+            ->where('user_id', $this->user_id)
+            ->first();
+    }
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'account_id', 'id');

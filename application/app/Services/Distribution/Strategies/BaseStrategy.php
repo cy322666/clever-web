@@ -6,10 +6,12 @@ use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
 use App\Models\User;
+use App\Services\Distribution\ScheduleEvaluator;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Leads;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Ufee\Amo\Base\Services\Model;
 use Ufee\Amo\Models\Lead;
@@ -21,6 +23,8 @@ class BaseStrategy
     public Transaction $transaction;
 
     public ?array $template = [];
+    public ?int $templateIndex = null;
+    public ?string $queueUuid = null;
     public ?array $staffs = [];
 
     //те по кому распределяем после проверок
@@ -40,7 +44,9 @@ class BaseStrategy
         $this->setting = $setting;
         $this->transaction = $transaction;
 
-        $this->template = json_decode($this->setting->settings, true)[$this->transaction->template] ?? [];
+        $settings = json_decode($this->setting->settings ?? '[]', true);
+        $settings = is_array($settings) ? $settings : [];
+        [$this->template, $this->templateIndex, $this->queueUuid] = $this->resolveTemplate($settings);
 
         $this->type = $this->transaction->type;
         $this->staffs = $this->template['staffs'] ?? [];
@@ -56,8 +62,15 @@ class BaseStrategy
             ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
             ->where('user_id', $this->transaction->user_id)
             ->where('status', true)
-            ->where('template', $this->transaction->template)
             ->where('id', '<', $this->transaction->id)
+            ->when(
+                !empty($this->queueUuid),
+                fn($query) => $query->where('queue_uuid', $this->queueUuid),
+                fn($query) => $query->when(
+                    $this->templateIndex !== null,
+                    fn($inner) => $inner->where('template', $this->templateIndex)
+                )
+            )
             ->orderBy('id', 'DESC');
 
         $this->transactions = $query->get();
@@ -80,36 +93,19 @@ class BaseStrategy
             $this->activeStaff = [];
 
             //отбираем только тех, кто работает по графику сейчас
-            foreach ($this->staffs as $staff) {
-
-                $staff = Staff::query()->where('staff_id', $staff)->first();
+            foreach ($this->staffs as $staffId) {
+                $staff = Staff::query()->where('staff_id', $staffId)->first();
                 if (!$staff) {
                     continue;
                 }
 
-                $schedulers = $staff->schedule->settings ?? null;
-
-                if ($schedulers) {
-
-                    $schedulers = json_decode($schedulers);
-
-                    Log::info(__METHOD__.' staff_id => '.$staff->id, $schedulers);
-
-                    foreach ($schedulers as $scheduler) {
-
-                        if ($scheduler->type == 'work') {
-
-                            $at = Carbon::parse($scheduler->at);
-                            $to = Carbon::parse($scheduler->to);
-
-                            if ($now > $at && $now < $to) {
-
-                                Log::info(__METHOD__.' staff_id => '.$staff->id.' is work');
-
-                                $this->activeStaff[] = $staff->staff_id;
-                            }
-                        }
-                    }
+                if (ScheduleEvaluator::isWorkingNow(
+                    $staff->schedule->settings ?? null,
+                    $now,
+                    $this->resolveTimezone()
+                )) {
+                    Log::info(__METHOD__ . ' staff_id => ' . $staff->id . ' is work');
+                    $this->activeStaff[] = $staff->staff_id;
                 }
             }
 
@@ -172,7 +168,14 @@ class BaseStrategy
     //проверяет открытые сделки
     public function checkActiveGetStaff(Client $amoApi, Transaction $transaction) : bool|int
     {
-        if (!$transaction->contact_id) {
+        $contactId = $transaction->contact_id;
+
+        if (!$contactId) {
+            $lead = $amoApi->service->leads()->find($transaction->lead_id);
+            $contactId = $lead->contact->id ?? null;
+        }
+
+        if (!$contactId) {
             return false;
         }
 
@@ -180,7 +183,7 @@ class BaseStrategy
             return false;
         }
 
-        $contact = $amoApi->service->contacts()->find($transaction->contact_id);
+        $contact = $amoApi->service->contacts()->find($contactId);
         if (!$contact) {
             return false;
         }
@@ -201,6 +204,85 @@ class BaseStrategy
         }
 
         return false;
+    }
+
+    protected function pickNextStaffByCursor(array $staffs): ?int
+    {
+        $staffs = array_values(array_unique(array_map('intval', $staffs)));
+        if (count($staffs) === 0) {
+            return null;
+        }
+
+        $cursorKey = $this->queueUuid ?: ('legacy:' . ($this->templateIndex ?? $this->transaction->template ?? '0'));
+
+        return DB::transaction(function () use ($cursorKey, $staffs): int {
+            /** @var Setting|null $lockedSetting */
+            $lockedSetting = Setting::query()
+                ->whereKey($this->setting->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$lockedSetting) {
+                return $staffs[0];
+            }
+
+            $cursors = json_decode($lockedSetting->cursors ?? '[]', true);
+            $cursors = is_array($cursors) ? $cursors : [];
+
+            $lastStaffId = isset($cursors[$cursorKey]['last_staff_id'])
+                ? (int)$cursors[$cursorKey]['last_staff_id']
+                : null;
+
+            $lastPosition = $lastStaffId !== null
+                ? array_search($lastStaffId, $staffs, true)
+                : false;
+
+            $nextStaffId = $lastPosition === false
+                ? $staffs[0]
+                : $staffs[($lastPosition + 1) % count($staffs)];
+
+            $cursors[$cursorKey] = [
+                'last_staff_id' => $nextStaffId,
+                'updated_at' => Carbon::now()->toDateTimeString(),
+            ];
+
+            $lockedSetting->cursors = json_encode($cursors, JSON_UNESCAPED_UNICODE);
+            $lockedSetting->save();
+
+            $this->setting = $lockedSetting;
+
+            return (int)$nextStaffId;
+        });
+    }
+
+    protected function resolveTemplate(array $settings): array
+    {
+        $queueUuid = $this->transaction->queue_uuid ?? null;
+        if (is_string($queueUuid) && $queueUuid !== '') {
+            foreach ($settings as $index => $queue) {
+                if (!is_array($queue)) {
+                    continue;
+                }
+
+                if (($queue['queue_uuid'] ?? null) === $queueUuid) {
+                    return [$queue, (int)$index, $queueUuid];
+                }
+            }
+        }
+
+        $templateIndex = is_numeric($this->transaction->template)
+            ? (int)$this->transaction->template
+            : null;
+
+        if ($templateIndex !== null && array_key_exists($templateIndex, $settings) && is_array(
+                $settings[$templateIndex]
+            )) {
+            $queue = $settings[$templateIndex];
+
+            return [$queue, $templateIndex, $queue['queue_uuid'] ?? null];
+        }
+
+        return [[], null, null];
     }
 
     protected function resolveTimezone(): string

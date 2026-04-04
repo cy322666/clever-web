@@ -12,6 +12,8 @@ abstract class Contacts extends Client
 {
     public static function searchCom($arrayFields, Client $amoApi)
     {
+        $resp = null;
+
         if(key_exists('Телефоны', $arrayFields)) {
 
             foreach ($arrayFields['Телефоны'] as $phone) {
@@ -26,17 +28,43 @@ abstract class Contacts extends Client
             }
         }
 
-        if (empty($resp->object()->_embedded->contacts[0]->id) && key_exists('Почта', $arrayFields)) {
+        $emailCandidates = [];
+
+        if (key_exists('Почта', $arrayFields)) {
             $email = is_array($arrayFields['Почта']) ? ($arrayFields['Почта'][0] ?? null) : $arrayFields['Почта'];
             if ($email) {
+                $emailCandidates[] = $email;
+            }
+        }
+
+        if (key_exists('Email', $arrayFields) && $arrayFields['Email']) {
+            $emailCandidates[] = $arrayFields['Email'];
+        }
+
+        if (key_exists('Emails', $arrayFields) && is_array($arrayFields['Emails'])) {
+            foreach ($arrayFields['Emails'] as $email) {
+                if ($email) {
+                    $emailCandidates[] = $email;
+                }
+            }
+        }
+
+        $emailCandidates = array_values(array_unique($emailCandidates));
+
+        if ((empty(data_get($resp?->object(), '_embedded.contacts.0.id'))) && $emailCandidates) {
+            foreach ($emailCandidates as $email) {
                 $resp = Http::withHeaders([
                     'Content-Type' => 'application/json',
                     'Authorization' => 'Bearer ' . $amoApi->account->access_token,
                 ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $email);
+
+                if (!empty(data_get($resp->object(), '_embedded.contacts.0.id'))) {
+                    break;
+                }
             }
         }
 
-        if (!empty($resp->object()->_embedded->contacts[0]->id))
+        if (!empty(data_get($resp?->object(), '_embedded.contacts.0.id')))
 
             return $amoApi->service->contacts()->find($resp->object()->_embedded->contacts[0]->id);
         else
@@ -76,12 +104,38 @@ abstract class Contacts extends Client
                 }
             }
 
-            if (($contacts === null || !$contacts->first()) && key_exists('Почта', $arrayFields)) {
+            $emailCandidates = [];
+
+            if (key_exists('Почта', $arrayFields)) {
                 $email = is_array($arrayFields['Почта']) ? ($arrayFields['Почта'][0] ?? null) : $arrayFields['Почта'];
                 if ($email) {
+                    $emailCandidates[] = $email;
+                }
+            }
+
+            if (key_exists('Email', $arrayFields) && $arrayFields['Email']) {
+                $emailCandidates[] = $arrayFields['Email'];
+            }
+
+            if (key_exists('Emails', $arrayFields) && is_array($arrayFields['Emails'])) {
+                foreach ($arrayFields['Emails'] as $email) {
+                    if ($email) {
+                        $emailCandidates[] = $email;
+                    }
+                }
+            }
+
+            $emailCandidates = array_values(array_unique($emailCandidates));
+
+            if (($contacts === null || !$contacts->first()) && $emailCandidates) {
+                foreach ($emailCandidates as $email) {
                     $contacts = $amoApi->service
                         ->contacts()
                         ->searchByEmail($email);
+
+                    if ($contacts && $contacts->first()) {
+                        break;
+                    }
                 }
             }
 

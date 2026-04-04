@@ -1,0 +1,180 @@
+name: CI + Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: clever_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d clever_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    defaults:
+      run:
+        working-directory: application
+
+    env:
+      APP_ENV: testing
+      APP_DEBUG: true
+      APP_URL: http://localhost
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: clever_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      CACHE_DRIVER: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      MAIL_MAILER: array
+      TELESCOPE_ENABLED: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, pdo_pgsql, bcmath, pcntl, exif
+          coverage: none
+
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare Laravel Environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run Migrations
+        run: php artisan migrate --force
+
+      - name: Run Test Suite
+        run: php artisan test --stop-on-failure
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs:
+      - ci-tests
+    environment:
+      name: production
+
+    steps:
+      - name: Deploy via SSH with rollback
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          PROJECT_PATH: ${{ secrets.PROD_PROJECT_PATH }}
+          COMPOSE_FILES: ${{ secrets.PROD_COMPOSE_FILES }}
+          APP_HEALTHCHECK_URL: ${{ secrets.PROD_APP_URL }}
+          AUTO_MIGRATE: ${{ secrets.PROD_AUTO_MIGRATE }}
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || '22' }}
+          fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          script_stop: true
+          envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE
+          script: |
+            set -Eeuo pipefail
+
+            if [ -z "${PROJECT_PATH:-}" ]; then
+              echo "PROJECT_PATH is empty (set PROD_PROJECT_PATH secret)."
+              exit 1
+            fi
+
+            COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml -f monitoring/docker-compose.monitoring.prod.yml}"
+            AUTO_MIGRATE="${AUTO_MIGRATE:-true}"
+
+            compose_cmd() {
+              # shellcheck disable=SC2086
+              docker compose ${COMPOSE_FILES} "$@"
+            }
+
+            cd "$PROJECT_PATH"
+
+            CURRENT_COMMIT=""
+
+            rollback() {
+              local exit_code=$?
+              trap - ERR
+
+              echo "Deployment failed, starting code rollback..."
+
+              if [ -n "$CURRENT_COMMIT" ]; then
+                echo "Reverting code to ${CURRENT_COMMIT}"
+                git checkout --force "$CURRENT_COMMIT"
+              fi
+
+              compose_cmd up -d --build postgresql app supervisor
+              compose_cmd exec -T app php artisan optimize:clear || true
+              compose_cmd exec -T app php artisan optimize || true
+              if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
+                curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null || true
+              fi
+              echo "Rollback completed."
+              exit "$exit_code"
+            }
+
+            trap rollback ERR
+
+            git fetch origin "$DEPLOY_BRANCH" --prune
+
+            if ! git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null; then
+              git fetch origin "$DEPLOY_SHA"
+            fi
+
+            CURRENT_COMMIT="$(git rev-parse HEAD)"
+            echo "Current commit: $CURRENT_COMMIT"
+            echo "Target commit:  $DEPLOY_SHA"
+
+            git checkout --force "$DEPLOY_SHA"
+
+            compose_cmd up -d --build postgresql app supervisor
+
+            compose_cmd exec -T app php artisan optimize:clear
+
+            if [ "$AUTO_MIGRATE" = "true" ]; then
+              compose_cmd exec -T app php artisan migrate --force
+            else
+              echo "AUTO_MIGRATE=false, skipping migrations."
+            fi
+
+            compose_cmd exec -T app php artisan optimize
+            compose_cmd exec -T app php artisan app:smoke --strict
+
+            if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
+              curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null
+            fi
+
+            trap - ERR
+            echo "Deploy successful on ${DEPLOY_SHA}"

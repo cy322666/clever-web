@@ -122,7 +122,12 @@ class ListImport extends ListRecords
                     ->action(function (Collection $records): void {
                         $count = 0;
                         foreach ($records as $record) {
-                            if ($record instanceof ImportRecord && $record->import_id && $record->row_data) {
+                            if (
+                                $record instanceof ImportRecord
+                                && $record->import_id
+                                && $record->row_data
+                                && $record->status !== ImportRecord::STATUS_COMPLETED
+                            ) {
                                 ProcessImportRow::dispatch($record->import_id, $record->id);
                                 $count++;
                             }
@@ -166,7 +171,8 @@ class ListImport extends ListRecords
 
                     $records = ImportRecord::query()
                         ->where('user_id', Auth::user()->id)
-                        ->where('status', '!=', 'completed')
+                        ->where('status', '!=', ImportRecord::STATUS_COMPLETED)
+                        ->whereNotNull('row_data')
                         ->get();
 
                     foreach ($records as $record) {

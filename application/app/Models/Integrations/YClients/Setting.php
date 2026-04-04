@@ -125,7 +125,7 @@ class Setting extends Model
         $fields['visits'] = $clientYC->visits;
         $fields['staff'] = $record->staff_name;
         $fields['ltv'] = $clientYC->paid;
-        $fields['client_id'] = $record->client->client_id;
+        $fields['client_id'] = $record->client_id;
 
         return $fields;
     }

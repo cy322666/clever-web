@@ -127,6 +127,7 @@ class Form extends Model
         $body = json_decode($this->body);
 
         foreach ($fields as $field) {
+            $value = null;
             $fieldName = null;
 
             $fieldName = Field::query()
@@ -136,7 +137,7 @@ class Form extends Model
 
             if (!empty($body->{$field['field_form']})) {
                 $value = $body->{$field['field_form']};
-            } elseif (!empty($body->payment->{$field['field_form']})) {
+            } elseif (!empty($body->payment) && !empty($body->payment->{$field['field_form']})) {
                 $value = $body->payment->{$field['field_form']};
             }
 

@@ -19,6 +19,7 @@ class Transaction extends Model
 
     protected $fillable = [
         'body',
+        'event_key',
         'status',
         'lead_id',
         'contact_id',
@@ -30,6 +31,7 @@ class Transaction extends Model
         'staff_amocrm_id',
         'schedule',
         'template',
+        'queue_uuid',
     ];
 
     public function matchStrategy()

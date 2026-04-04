@@ -55,7 +55,6 @@ class ResponsibleSend extends Command
 
         if (!$staffId)
              $staffId = $strategy
-                ->setTransactions()
                 ->sliceSchedule()
                 ->getStaffId();
 

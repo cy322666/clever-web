@@ -46,7 +46,7 @@ class FormResource extends Resource
                 Tables\Columns\TextColumn::make('contact_id')
                     ->url(
                         fn(Form $form
-                        ) => 'https://' . $form->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $form->lead_id,
+                        ) => 'https://' . $form->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $form->contact_id,
                         true
                     )
                     ->label('Контакт'),

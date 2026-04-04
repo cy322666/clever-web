@@ -12,8 +12,11 @@ use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Hidden;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -24,6 +27,7 @@ use Filament\Support\Enums\TextSize;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class DistributionResource extends Resource
 {
@@ -73,7 +77,47 @@ class DistributionResource extends Resource
                                 TextInput::make('link')
                                     ->label('Вебхук ссылка')
                                     ->copyable()
-                                    ->disabled(),
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->default(function (Get $get, Set $set): string {
+                                        $queueUuid = $get('queue_uuid');
+                                        if (!is_string($queueUuid) || $queueUuid === '') {
+                                            $queueUuid = (string)Str::uuid();
+                                            $set('queue_uuid', $queueUuid);
+                                        }
+
+                                        $userUuid = Auth::user()?->uuid;
+                                        if (!$userUuid) {
+                                            return '';
+                                        }
+
+                                        return route('distribution.hook', [
+                                            'user' => $userUuid,
+                                            'template' => $queueUuid,
+                                        ]);
+                                    })
+                                    ->afterStateHydrated(function (Set $set, Get $get): void {
+                                        $queueUuid = $get('queue_uuid');
+                                        if (!is_string($queueUuid) || $queueUuid === '') {
+                                            $queueUuid = (string)Str::uuid();
+                                            $set('queue_uuid', $queueUuid);
+                                        }
+
+                                        $userUuid = Auth::user()?->uuid;
+                                        if (!$userUuid) {
+                                            $set('link', '');
+
+                                            return;
+                                        }
+
+                                        $set('link', route('distribution.hook', [
+                                            'user' => $userUuid,
+                                            'template' => $queueUuid,
+                                        ]));
+                                    }),
+
+                                Hidden::make('queue_uuid')
+                                    ->default(fn() => (string)Str::uuid()),
 
                                 TextInput::make('name')
                                     ->label('Название')

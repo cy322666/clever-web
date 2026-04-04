@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands\ImportExcel;
 
-use App\Jobs\ImportExcel\ProcessImportRow;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ImportExcel\ImportRecord;
@@ -13,9 +12,7 @@ use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\amoCRM\Models\Tags;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
-use Ufee\Amo\Models\Contact;
-use Ufee\Amo\Models\Lead;
+use Illuminate\Support\Facades\Cache;
 
 class SendRow extends Command
 {
@@ -49,13 +46,19 @@ class SendRow extends Command
         $importRecord = ImportRecord::query()->find($this->argument('record_id'));
         $setting = ImportSetting::query()->find($this->argument('setting_id'));
 
-        if (!$importRecord || !$setting) {
+        if (!$importRecord || !$setting || $importRecord->status === ImportRecord::STATUS_COMPLETED) {
             return;
         }
 
-        $this->row = $importRecord->row_data ?? [];
+        $lock = Cache::lock("import-excel:record:{$importRecord->id}", 120);
+
+        if (!$lock->get()) {
+            return;
+        }
 
         try {
+            $this->row = $importRecord->row_data ?? [];
+
             $amoApi = new Client($setting->user->account);
 
             $contactName = $importRecord->getValueForDefaultKey($setting->contact_name);
@@ -94,7 +97,7 @@ class SendRow extends Command
                     $contact,
                     $rowDataContacts + [
                         'Имя' => $contactName,
-                        'Ответственный' => $importRecord->default_responsible_user_id,
+                        'Ответственный' => $setting->default_responsible_user_id,
                     ]
                 );
 
@@ -143,6 +146,8 @@ class SendRow extends Command
             $importRecord->error_message = $e->getMessage();
             $importRecord->status = ImportRecord::STATUS_FAILED;
             $importRecord->save();
+        } finally {
+            optional($lock)->release();
         }
     }
 

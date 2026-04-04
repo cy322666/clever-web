@@ -13,54 +13,35 @@ use Ufee\Amo\Models\Lead;
 
 abstract class Leads
 {
-    public static function search($contact, $client, int|array $pipelines = null) : bool|Lead
+    public static function search($contact, $client, int|array|null $pipelines = null): bool|Lead
     {
          return $contact->leads->filter(function($lead) use ($client, $pipelines) {
-
-            if ($lead->status_id != 143 &&
-                $lead->status_id != 142) {
-
-                if($pipelines != null) {
-
-                    if (is_array($pipelines)) {
-
-                        if (in_array($lead->pipeline_id, $pipelines))
-
-                            return true;
-
-                    } elseif ($lead->pipeline_id == $pipelines)
-
-                        return true;
-                }
-
-                return $lead;
-            }
+             return self::isLeadAllowedForSync($lead, $pipelines);
         })?->first();
     }
 
-    public static function searchAll(Contact $contact, $client, int|array $pipelines = null): ?Collection
+    public static function searchAll(Contact $contact, $client, int|array|null $pipelines = null): ?Collection
     {
         return $contact->leads->filter(function($lead) use ($client, $pipelines) {
-
-            if ($lead->status_id != 143 &&
-                $lead->status_id != 142) {
-
-                if($pipelines != null) {
-
-                    if (is_array($pipelines)) {
-
-                        if (in_array($lead->pipeline_id, $pipelines))
-
-                            return true;
-
-                    } elseif ($lead->pipeline_id == $pipelines)
-
-                        return true;
-                }
-
-                return false;
-            }
+            return self::isLeadAllowedForSync($lead, $pipelines);
         });
+    }
+
+    public static function isLeadAllowedForSync(object $lead, int|array|null $pipelines = null): bool
+    {
+        if ((int)$lead->status_id === 143 || (int)$lead->status_id === 142) {
+            return false;
+        }
+
+        if ($pipelines === null) {
+            return true;
+        }
+
+        if (is_array($pipelines)) {
+            return in_array((int)$lead->pipeline_id, array_map('intval', $pipelines), true);
+        }
+
+        return (int)$lead->pipeline_id === (int)$pipelines;
     }
 
     public static function create($contact, object $objectStatus, Record $record): Lead

@@ -39,19 +39,40 @@ class FormSend extends Command
      */
     public function handle()
     {
-        $form    = Form::find($this->argument('form'));
+        $form = Form::find($this->argument('form'));
         $account = Account::find($this->argument('account'));
-        $setting = Setting::find($this->argument('setting'));
+        $settingModel = Setting::find($this->argument('setting'));
+
+        if (!$form || !$account || !$settingModel) {
+            $this->error('Tilda form send: form/account/setting not found');
+            return self::FAILURE;
+        }
 
         $body = json_decode($form->body);
-        $setting = json_decode($setting->settings, true)[$form->site];
+        $settingsBySite = json_decode($settingModel->settings, true);
+        $setting = is_array($settingsBySite) ? ($settingsBySite[$form->site] ?? null) : null;
+
+        if (!$body || !is_array($setting)) {
+            $this->error('Tilda form send: invalid form body or missing site settings');
+            return self::FAILURE;
+        }
+
         $amoApi = (new Client($account))->setDelay(0.5);
 
-        $objectStatus = Status::getObject($setting['status_id']);
+        $objectStatus = !empty($setting['status_id'])
+            ? Status::getObject($setting['status_id'])
+            : null;
+
+        if (!$objectStatus) {
+            $this->error('Tilda form send: status not configured');
+            return self::FAILURE;
+        }
 
         $responsibleId = Staff::query()
-            ->find($setting['responsible_user_id'])
+            ->find($setting['responsible_user_id'] ?? null)
             ?->staff_id;
+
+        $lead = null;
 
         $phone = Form::getValueForKey('phone', $body, $setting);
         $phone = Contacts::clearPhone($phone);

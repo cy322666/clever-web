@@ -11,6 +11,7 @@ use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class EditDistribution extends EditRecord
 {
@@ -43,17 +44,46 @@ class EditDistribution extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data) : array
     {
-        if ($data['settings']) {
-            $data['settings'] = json_decode($data['settings'], true);
+        if (!empty($data['settings'])) {
+            $settings = is_string($data['settings'])
+                ? json_decode($data['settings'], true)
+                : (array)$data['settings'];
 
-            for($i = 0; count($data['settings']) !== $i; $i++) {
+            $settings = is_array($settings) ? $settings : [];
 
-                $data['settings'][$i]['link'] = \route('distribution.hook', [
+            foreach ($settings as $index => &$setting) {
+                $setting = is_array($setting) ? $setting : [];
+                $queueUuid = $setting['queue_uuid'] ?? null;
+                if (!is_string($queueUuid) || $queueUuid === '') {
+                    $queueUuid = (string)Str::uuid();
+                }
+                $setting['queue_uuid'] = $queueUuid;
+                $setting['link'] = route('distribution.hook', [
                     'user' => Auth::user()->uuid,
-                    'template' => $i,
+                    'template' => $queueUuid,
                 ]);
             }
+            unset($setting);
+
+            $data['settings'] = $settings;
         }
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $settings = $data['settings'] ?? [];
+        $settings = is_array($settings) ? $settings : [];
+
+        foreach ($settings as &$setting) {
+            $setting = is_array($setting) ? $setting : [];
+            $setting['queue_uuid'] = $setting['queue_uuid'] ?? (string)Str::uuid();
+            unset($setting['link']);
+        }
+        unset($setting);
+
+        $data['settings'] = json_encode(array_values($settings), JSON_UNESCAPED_UNICODE);
 
         return $data;
     }

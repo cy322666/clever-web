@@ -18,7 +18,7 @@ class ListTransactions extends ListRecords
     {
         return [
             Actions\Action::make('logs')
-                ->label('Шаблоны')
+                ->label('Настройки')
                 ->url(DistributionResource::getUrl('edit', ['record' => Auth::user()->distribution_settings->id])),
 
             Actions\Action::make('schedule')
