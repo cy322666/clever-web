@@ -1,9 +1,14 @@
 create table if not exists ai_threads
 (
-    thread_id
-    text
+    id
+    bigserial
     primary
     key,
+    thread_id
+    text
+    not
+    null
+    unique,
     user_uuid
     uuid
     not
@@ -39,15 +44,16 @@ create table if not exists ai_messages
     bigserial
     primary
     key,
-    thread_id
-    text
+    thread_ref_id
+    bigint
     not
     null
     references
     ai_threads
 (
-    thread_id
+    id
 ) on delete cascade,
+    thread_id text not null,
     role text not null check
 (
     role
@@ -59,7 +65,13 @@ create table if not exists ai_messages
 )),
     content text not null,
     meta jsonb null,
+    message_at timestamp
+  without time zone null,
     created_at timestamp
+  without time zone not null default now
+(
+),
+    updated_at timestamp
   without time zone not null default now
 (
 )

@@ -46,10 +46,10 @@ class CheckDateExpire extends Command
 
                 //активные
 
-                $diffDays = Carbon::parse($app->expires_tariff_at)->diffInDays(Carbon::now());
+                $expiresAt = Carbon::parse($app->expires_tariff_at)->startOfDay();
 
                 //истекшие
-                if ($diffDays > 0) {
+                if ($expiresAt->lt(Carbon::now()->startOfDay())) {
 
                     $setting = $app->getSettingModel();
                     $setting->active = false;

@@ -327,6 +327,10 @@ class AmoDataSyncService
             return;
         }
 
-        Mail::to($setting->user->email)->queue(new AmoDataSyncFinished($setting, $run));
+        // SMTP can be temporarily unavailable in production.
+        // Use failover mailer to avoid failing sync flow and queue worker.
+        Mail::mailer('failover')
+            ->to($setting->user->email)
+            ->queue(new AmoDataSyncFinished($setting, $run));
     }
 }
