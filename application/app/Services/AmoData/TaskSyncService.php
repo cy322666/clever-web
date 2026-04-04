@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
 
 class TaskSyncService
 {
-    public function sync(User $user, Account $account, array $items): array
+    public function sync(User $user, Account $account, array $items, bool $storePayloads = false): array
     {
         if ($items === []) {
             return [
@@ -43,7 +43,7 @@ class TaskSyncService
         $events = 0;
 
         foreach ($items as $item) {
-            $attributes = $this->normalize($user, $account, $item, $staffs);
+            $attributes = $this->normalize($user, $account, $item, $staffs, $storePayloads);
             $current = $existing->get($attributes['amo_id']);
 
             $task = Task::query()->updateOrCreate([
@@ -66,6 +66,7 @@ class TaskSyncService
         Account $account,
         array $item,
         Collection $staffs,
+        bool $storePayloads,
     ): array {
         $responsibleId = $this->int($item['responsible_user_id'] ?? null);
         /** @var Staff|null $staff */
@@ -90,7 +91,7 @@ class TaskSyncService
             'amo_updated_at' => $updatedAt,
             'completed_at' => $this->timestamp($item['completed_at'] ?? null)
                 ?? ($completed ? $updatedAt : null),
-            'payload' => $item,
+            'payload' => $storePayloads ? $item : null,
         ];
     }
 

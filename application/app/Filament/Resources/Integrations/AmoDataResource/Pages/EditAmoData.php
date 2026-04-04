@@ -153,7 +153,7 @@ class EditAmoData extends EditRecord
             'sync_interval_minutes' => 30,
             'sync_deals' => true,
             'sync_tasks' => true,
-            'store_payloads' => true,
+            'store_payloads' => false,
         ], $settings);
     }
 

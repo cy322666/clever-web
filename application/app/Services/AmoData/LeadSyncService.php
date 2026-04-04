@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
 
 class LeadSyncService
 {
-    public function sync(User $user, Account $account, array $items): array
+    public function sync(User $user, Account $account, array $items, bool $storePayloads = false): array
     {
         if ($items === []) {
             return [
@@ -49,7 +49,7 @@ class LeadSyncService
         $events = 0;
 
         foreach ($items as $item) {
-            $attributes = $this->normalize($user, $account, $item, $statuses, $staffs);
+            $attributes = $this->normalize($user, $account, $item, $statuses, $staffs, $storePayloads);
             $current = $existing->get($attributes['amo_id']);
 
             $lead = Lead::query()->updateOrCreate([
@@ -73,6 +73,7 @@ class LeadSyncService
         array $item,
         Collection $statuses,
         Collection $staffs,
+        bool $storePayloads,
     ): array {
         $pipelineId = $this->int($item['pipeline_id'] ?? null);
         $statusId = $this->int($item['status_id'] ?? null);
@@ -106,7 +107,7 @@ class LeadSyncService
             'is_closed' => $isClosed,
             'is_won' => $isWon,
             'is_lost' => $isLost,
-            'payload' => $item,
+            'payload' => $storePayloads ? $item : null,
         ];
     }
 

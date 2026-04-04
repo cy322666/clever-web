@@ -23,7 +23,7 @@ class AmoApiService
         return new self(new Client($user->account));
     }
 
-    public function getLeads(?Carbon $updatedFrom = null, int $limit = 250): array
+    public function getLeads(?Carbon $updatedFrom = null, int $limit = 50): array
     {
         $query = [];
 
@@ -38,7 +38,7 @@ class AmoApiService
         return $this->paginate('/api/v4/leads', $query, '_embedded.leads', $limit);
     }
 
-    public function syncLeads(?Carbon $updatedFrom, callable $callback, int $limit = 250): int
+    public function syncLeads(?Carbon $updatedFrom, callable $callback, int $limit = 50): int
     {
         $query = [];
 
@@ -53,7 +53,7 @@ class AmoApiService
         return $this->paginateEach('/api/v4/leads', $query, '_embedded.leads', $callback, $limit);
     }
 
-    private function paginate(string $path, array $query, string $embeddedKey, int $limit = 250): array
+    private function paginate(string $path, array $query, string $embeddedKey, int $limit = 50): array
     {
         $items = [];
 
@@ -87,7 +87,7 @@ class AmoApiService
         array $query,
         string $embeddedKey,
         callable $callback,
-        int $limit = 250,
+        int $limit = 50,
     ): int {
         $processed = 0;
 
@@ -145,7 +145,7 @@ class AmoApiService
         return 'https://' . $this->amoApi->account->subdomain . '.amocrm.' . $zone . $path;
     }
 
-    public function getTasks(?Carbon $updatedFrom = null, int $limit = 250): array
+    public function getTasks(?Carbon $updatedFrom = null, int $limit = 50): array
     {
         $query = [];
 
@@ -160,7 +160,7 @@ class AmoApiService
         return $this->paginate('/api/v4/tasks', $query, '_embedded.tasks', $limit);
     }
 
-    public function syncTasks(?Carbon $updatedFrom, callable $callback, int $limit = 250): int
+    public function syncTasks(?Carbon $updatedFrom, callable $callback, int $limit = 50): int
     {
         $query = [];
 

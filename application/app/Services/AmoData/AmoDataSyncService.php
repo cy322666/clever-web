@@ -56,6 +56,7 @@ class AmoDataSyncService
             AccountSync::fields($amoApi, $user);
 
             $api = new AmoApiService($amoApi);
+            $storePayloads = (bool)data_get($setting->settings, 'store_payloads', false);
 
             $leadResult = [
                 'synced' => 0,
@@ -72,8 +73,8 @@ class AmoDataSyncService
             if (data_get($setting->settings, 'sync_deals', true)) {
                 $leadItemsCount = $api->syncLeads(
                     $initial ? null : $setting->leads_synced_at,
-                    function (array $items) use ($user, $account, &$leadResult) {
-                        $result = $this->leadSync()->sync($user, $account, $items);
+                    function (array $items) use ($user, $account, &$leadResult, $storePayloads) {
+                        $result = $this->leadSync()->sync($user, $account, $items, $storePayloads);
                         $leadResult['synced'] += $result['synced'];
                         $leadResult['events'] += $result['events'];
                     }
@@ -83,8 +84,8 @@ class AmoDataSyncService
             if (data_get($setting->settings, 'sync_tasks', true)) {
                 $taskItemsCount = $api->syncTasks(
                     $initial ? null : $setting->tasks_synced_at,
-                    function (array $items) use ($user, $account, &$taskResult) {
-                        $result = $this->taskSync()->sync($user, $account, $items);
+                    function (array $items) use ($user, $account, &$taskResult, $storePayloads) {
+                        $result = $this->taskSync()->sync($user, $account, $items, $storePayloads);
                         $taskResult['synced'] += $result['synced'];
                         $taskResult['events'] += $result['events'];
                     }

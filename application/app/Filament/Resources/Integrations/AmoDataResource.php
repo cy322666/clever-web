@@ -64,7 +64,7 @@ class AmoDataResource extends Resource
 
                                 Toggle::make('settings.store_payloads')
                                     ->label('Хранить исходный ответ amoCRM')
-                                    ->default(true),
+                                    ->default(false),
 
                                 TextInput::make('settings.sync_interval_minutes')
                                     ->label('Интервал плановой выгрузки (мин)')
