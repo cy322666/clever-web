@@ -9,8 +9,10 @@ use App\Services\amoCRM\Client;
 use App\Services\YClients\Notes;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use App\Services\YClients\Leads as ServiceLead;
 use App\Services\YClients\Contacts as ServiceContact;
+use Throwable;
 
 class SendRecord extends Command
 {
@@ -53,6 +55,7 @@ class SendRecord extends Command
         $amoApi = (new Client($account))->init();
 
         $ycApi = (new YClients($setting));
+        $lead = null;
 
         //CONTACT
 
@@ -112,15 +115,34 @@ class SendRecord extends Command
             }
         }
 
-        if (!empty($lead))
-            ServiceLead::update($lead, $objectStatus, $record);
-        else
-            $lead = ServiceLead::create($contact, $objectStatus, $record);
+        try {
+            if (!empty($lead)) {
+                ServiceLead::update($lead, $objectStatus, $record);
+            } else {
+                $lead = ServiceLead::create($contact, $objectStatus, $record);
+            }
+        } catch (Throwable $e) {
+            Log::error('YClients lead sync failed during save()', [
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'account_id' => $account->id,
+                'setting_id' => $setting->id,
+                'lead_id' => $lead?->id ?? $record->lead_id,
+                'attendance' => $record->attendance,
+                'cost' => $record->cost,
+                'status_id' => $objectStatus->status_id ?? null,
+                'pipeline_id' => $objectStatus->pipeline_id ?? null,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
+            throw $e;
+        }
 
         Notes::createNoteLead($ycApi, $record, $lead, $amoApi);
 
         $record->lead_id = $lead->id;
-        $record->status  = 1;
+        $record->status = Record::STATUS_SUCCESS;
         $record->save();
 
         return self::SUCCESS;

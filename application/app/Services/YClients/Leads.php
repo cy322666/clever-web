@@ -3,6 +3,7 @@
 namespace App\Services\YClients;
 
 use App\Models\Integrations\YClients\Record;
+use InvalidArgumentException;
 use Ufee\Amo\Base\Collections\Collection;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
@@ -61,12 +62,19 @@ abstract class Leads
 
     public static function create($contact, object $objectStatus, Record $record): Lead
     {
+        $statusId = (int)($objectStatus->status_id ?? 0);
+        $pipelineId = (int)($objectStatus->pipeline_id ?? 0);
+
+        if ($statusId <= 0 || $pipelineId <= 0) {
+            throw new InvalidArgumentException('Invalid amoCRM status/pipeline mapping for YClients lead create.');
+        }
+
         $lead = $contact->createLead();
 
         $lead->name = 'Запись #'.$record->record_id;
         $lead->sale = $record->cost;
-        $lead->status_id   = $objectStatus->status_id;
-        $lead->pipeline_id = $objectStatus->pipeline_id;
+        $lead->status_id = $statusId;
+        $lead->pipeline_id = $pipelineId;
         $lead->save();
 
         return $lead;
@@ -74,9 +82,16 @@ abstract class Leads
 
     public static function update(Lead $lead, object $objectStatus, Record $record): Lead
     {
+        $statusId = (int)($objectStatus->status_id ?? 0);
+        $pipelineId = (int)($objectStatus->pipeline_id ?? 0);
+
+        if ($statusId <= 0 || $pipelineId <= 0) {
+            throw new InvalidArgumentException('Invalid amoCRM status/pipeline mapping for YClients lead update.');
+        }
+
         $lead->sale = $record->cost;
-        $lead->status_id   = $objectStatus->status_id;
-        $lead->pipeline_id = $objectStatus->pipeline_id;
+        $lead->status_id = $statusId;
+        $lead->pipeline_id = $pipelineId;
         $lead->save();
 
         return $lead;

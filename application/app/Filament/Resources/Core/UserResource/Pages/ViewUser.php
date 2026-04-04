@@ -24,13 +24,8 @@ class ViewUser extends ViewRecord
 
     protected function getActions(): array
     {
-        return [
+        $actions = [
             UpdateButton::amoCRMAuthButton($this->record->account),
-
-            UpdateButton::amoCRMSyncButton(
-                $this->record->account,
-                fn () => $this->amocrmUpdate(),
-            ),
 
             Action::make('root')
                ->label('Монитор')
@@ -50,6 +45,15 @@ class ViewUser extends ViewRecord
                 ->color(Color::Gray)
                 ->hidden(fn() => !Auth::user()->is_root),
         ];
+
+        if ($this->record->account->active) {
+            $actions[] = UpdateButton::amoCRMSyncButton(
+                $this->record->account,
+                fn() => $this->amocrmUpdate(),
+            );
+        }
+
+        return $actions;
     }
 
     public function mount(int|string $record): void

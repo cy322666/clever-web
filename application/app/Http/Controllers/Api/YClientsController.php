@@ -64,7 +64,7 @@ class YClientsController extends Controller
                 'comment'    => $request->data['comment'],
                 'seance_length' => $request->data['length'],
                 'attendance' => $request->data['attendance'],
-                'status' => 0,
+                'status' => Record::STATUS_PENDING,
             ]);
 
         RecordSend::dispatch($record, $account, $setting);

@@ -79,7 +79,8 @@ class ListYClients extends ListRecords
                     ->state(fn(Record $record): string => $record->getEvent()),
 
                 BooleanColumn::make('status')
-                    ->label('Выгружен'),
+                    ->label('Выгружен')
+                    ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
             ])
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')

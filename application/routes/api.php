@@ -18,10 +18,9 @@ use Illuminate\Support\Facades\Route;
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
     Route::group(['prefix' => 'bizon', 'middleware' => ['integration.active:bizon']], function () {
+        Route::post('hook/{user:uuid}', [BizonController::class, 'hook'])->name('bizon.hook');
 
-        Route::post('hook/{user:uuid}', [BizonController::class, 'hook'])->middleware(['bizon'])->name('bizon.hook');
-
-        Route::post('form/{user:uuid}', [BizonController::class, 'form'])->middleware(['bizon'])->name('bizon.form');
+        Route::post('form/{user:uuid}', [BizonController::class, 'form'])->name('bizon.form');
     });
 
     Route::group(['prefix' => 'getcourse', 'middleware' => ['integration.active:getcourse']], function () {
