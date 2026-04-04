@@ -127,6 +127,8 @@ class Form extends Model
         $body = json_decode($this->body);
 
         foreach ($fields as $field) {
+            $fieldName = null;
+
             $fieldName = Field::query()
                 ->where('field_id', $field['field_amo'])
                 ->first()
@@ -138,11 +140,7 @@ class Form extends Model
                 $value = $body->payment->{$field['field_form']};
             }
 
-            if (empty($value)) {
-                $value = null;
-            }
-
-            if ($fieldName && $value) {
+            if ($fieldName && !empty($value) && $value) {
                 $lead = Leads::setField($lead, $fieldName, $value);
             }
         }
