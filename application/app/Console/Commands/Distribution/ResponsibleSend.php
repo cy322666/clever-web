@@ -59,7 +59,14 @@ class ResponsibleSend extends Command
                 ->sliceSchedule()
                 ->getStaffId();
 
+        if (!$staffId) {
+            return;
+        }
+
         $lead = $strategy->changeResponsible($amoApi, $staffId);
+        if (!$lead) {
+            return;
+        }
 
         $staff = Staff::query()
             ->where('user_id', $user->id)
@@ -68,8 +75,8 @@ class ResponsibleSend extends Command
 
         $transaction->contact_id = $lead->contact->id ?? null;
         $transaction->status = true;
-        $transaction->staff_id = $staff->id;
-        $transaction->staff_name = $staff->name;
+        $transaction->staff_id = $staff->id ?? null;
+        $transaction->staff_name = $staff->name ?? null;
         $transaction->staff_amocrm_id = $staffId;
         $transaction->save();
     }

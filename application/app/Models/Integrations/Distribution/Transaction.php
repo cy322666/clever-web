@@ -4,6 +4,7 @@ namespace App\Models\Integrations\Distribution;
 
 use App\Models\User;
 use App\Services\Distribution\Strategies\BaseStrategy;
+use App\Services\Distribution\Strategies\RandomStrategy;
 use App\Services\Distribution\Strategies\RotationStrategy;
 use App\Services\Distribution\Strategies\ScheduleStrategy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,7 +37,7 @@ class Transaction extends Model
         return match ($this->type) {
             Setting::STRATEGY_SCHEDULE => new ScheduleStrategy(),
             Setting::STRATEGY_ROTATION => new RotationStrategy(),
-            Setting::STRATEGY_RANDOM   => new RotationStrategy(),//
+            Setting::STRATEGY_RANDOM => new RandomStrategy(),
         };
     }
 

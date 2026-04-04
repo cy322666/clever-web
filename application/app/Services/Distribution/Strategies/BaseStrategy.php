@@ -48,9 +48,9 @@ class BaseStrategy
         return $this;
     }
 
-    public function setTransactions(Carbon $dateAt = null): static
+    public function setTransactions(?Carbon $dateAt = null): static
     {
-        $dateAt = $dateAt !== null ? $dateAt : Carbon::now()->timezone('Europe/Moscow');
+        $dateAt = $dateAt !== null ? $dateAt : Carbon::now()->timezone($this->resolveTimezone());
 
         $query = Transaction::query()
             ->where('created_at', '>', $dateAt->format('Y-m-d').' 00:00:00')
@@ -69,17 +69,23 @@ class BaseStrategy
 
     public function sliceSchedule()
     {
+        $this->activeStaff = array_values($this->staffs ?? []);
+
         //по графику?
         if ($this->transaction->schedule) {
 
             Log::debug(__METHOD__.' ДО отбора по рабочему графику  : ', [$this->staffs]);
 
-            $now = Carbon::now()->timezone('Europe/Moscow');
+            $now = Carbon::now()->timezone($this->resolveTimezone());
+            $this->activeStaff = [];
 
             //отбираем только тех, кто работает по графику сейчас
             foreach ($this->staffs as $staff) {
 
                 $staff = Staff::query()->where('staff_id', $staff)->first();
+                if (!$staff) {
+                    continue;
+                }
 
                 $schedulers = $staff->schedule->settings ?? null;
 
@@ -166,28 +172,39 @@ class BaseStrategy
     //проверяет открытые сделки
     public function checkActiveGetStaff(Client $amoApi, Transaction $transaction) : bool|int
     {
-        if ($transaction->contact_id) {
+        if (!$transaction->contact_id) {
+            return false;
+        }
 
-            if (array_key_exists('check_active', $this->template) && $this->template['check_active'] == 'yes')
+        if (($this->template['check_active'] ?? 'no') !== 'yes') {
+            return false;
+        }
 
-            $contact = $amoApi->service->contacts()->find($transaction->contact_id);
+        $contact = $amoApi->service->contacts()->find($transaction->contact_id);
+        if (!$contact) {
+            return false;
+        }
 
-            if ($contact)
+        $leads = Leads::searchActiveLeads($contact);
+        if (count($leads) <= 1) {
+            return false;
+        }
 
-                $leads = Leads::searchActiveLeads($contact);
+        foreach ($leads as $lead) {
+            if ($lead->id === $transaction->lead_id) {
+                continue;
+            }
 
-                if (count($leads) > 1)
-
-                    foreach ($leads as $lead) {
-
-                        if ($lead->id !== $transaction->lead_id)
-
-                            if (in_array($this->staffs, $lead->responsible_user_id))
-
-                                return $lead->responsible_user_id;
-                    }
+            if (in_array($lead->responsible_user_id, $this->staffs, true)) {
+                return (int)$lead->responsible_user_id;
+            }
         }
 
         return false;
+    }
+
+    protected function resolveTimezone(): string
+    {
+        return (string)(config('app.timezone') ?: 'Europe/Moscow');
     }
 }

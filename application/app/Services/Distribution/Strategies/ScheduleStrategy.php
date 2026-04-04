@@ -17,32 +17,39 @@ class ScheduleStrategy extends BaseStrategy
     // берем последнего и делаем +1
     public function getStaffId() : ?int
     {
+        $staffs = array_values($this->staffs ?? []);
+        if (count($staffs) === 0) {
+            return null;
+        }
+
         $lastTransaction = $this->transactions->first();
 
         //есть на кого распределять и есть на что ориентироваться (last)
-        if ($lastTransaction && count($this->staffs) > 0) {
-
-            foreach ($this->staffs as $key => $staffId) {
+        if ($lastTransaction) {
+            foreach ($staffs as $key => $staffId) {
 
                 if ($lastTransaction->staff_amocrm_id == $staffId) {
-
-                    return end($this->staffs) == $staffId ? $this->staffs[0] : $this->staffs[++$key];
+                    return end($staffs) == $staffId ? $staffs[0] : $staffs[++$key];
                 }
             }
         }
 
-        return $this->staffs[0];
+        return $staffs[0];
     }
 
     public function sliceSchedule()
     {
-        $now = Carbon::now()->timezone('Europe/Moscow');
-        $isWork = false;
+        $now = Carbon::now()->timezone(config('app.timezone') ?: 'Europe/Moscow');
+        $filteredStaffs = [];
 
         //отбираем только тех, кто работает по графику сейчас
         foreach ($this->staffs as $staffId) {
+            $isWork = false;
 
             $staff = Staff::query()->where('staff_id', $staffId)->first();
+            if (!$staff) {
+                continue;
+            }
 
             //коллекция объектов из рабочих периодов сотрудника
             $schedulers = $staff->schedule->settings ?? null;
@@ -90,9 +97,12 @@ class ScheduleStrategy extends BaseStrategy
                 }
             }
 
-            if (!$isWork)
-                unset($this->staffs[$staff->staff_id]);
+            if ($isWork) {
+                $filteredStaffs[] = $staffId;
+            }
         }
+
+        $this->staffs = $filteredStaffs;
 
         return $this;
     }

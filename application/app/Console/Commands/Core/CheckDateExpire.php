@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Core;
 
+use App\Mail\AppSubscriptionExpired;
 use App\Mail\AppStatusDailySyncReport;
 use App\Models\App;
 use Carbon\Carbon;
@@ -24,7 +25,8 @@ class CheckDateExpire extends Command
         $stats = [
             'processed' => 0,
             'updated' => 0,
-            'emails' => 0,
+            'summary_emails' => 0,
+            'expired_emails' => 0,
             'errors' => 0,
         ];
 
@@ -49,6 +51,31 @@ class CheckDateExpire extends Command
                         $user = $app->user;
                         if (!$user?->email) {
                             continue;
+                        }
+
+                        if (!$dryRun && !empty($changes['notify_subscription_expired'])) {
+                            try {
+                                Mail::mailer('failover')
+                                    ->to($user->email)
+                                    ->queue(
+                                        new AppSubscriptionExpired(
+                                            user: $user,
+                                            appName: $changes['app_name'],
+                                            appId: (int)$changes['app_id'],
+                                            expiresAt: $changes['expires_after'],
+                                        )
+                                    );
+
+                                $stats['expired_emails']++;
+                            } catch (Throwable $e) {
+                                $stats['errors']++;
+                                Log::error('app:check-date-expire expired email failed', [
+                                    'app_id' => $app->id,
+                                    'user_id' => $user->id,
+                                    'email' => $user->email,
+                                    'error' => $e->getMessage(),
+                                ]);
+                            }
                         }
 
                         $changesByUser[$user->id] ??= [
@@ -81,7 +108,7 @@ class CheckDateExpire extends Command
                             )
                         );
 
-                    $stats['emails']++;
+                    $stats['summary_emails']++;
                 } catch (Throwable $e) {
                     $stats['errors']++;
                     Log::error('app:check-date-expire email failed', [
@@ -96,7 +123,8 @@ class CheckDateExpire extends Command
         $this->info('Синхронизация apps завершена.');
         $this->line('Обработано: ' . $stats['processed']);
         $this->line('Обновлено: ' . $stats['updated']);
-        $this->line('Писем в очередь: ' . $stats['emails']);
+        $this->line('Писем в очередь (сводка): ' . $stats['summary_emails']);
+        $this->line('Писем в очередь (истечение): ' . $stats['expired_emails']);
         $this->line('Ошибок: ' . $stats['errors']);
 
         return self::SUCCESS;
@@ -181,6 +209,7 @@ class CheckDateExpire extends Command
             'expires_before' => $expiresBefore,
             'expires_after' => $app->expires_tariff_at,
             'changes' => $changes,
+            'notify_subscription_expired' => $statusBefore !== App::STATE_EXPIRES && (int)$app->status === App::STATE_EXPIRES,
         ];
     }
 

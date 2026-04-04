@@ -60,7 +60,11 @@ class TransactionsResource extends Resource
                     ->label('Сделка'),
 
                 Tables\Columns\TextColumn::make('contact_id')
-                    ->url(fn(Transaction $transaction) => 'https://'.$transaction->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$transaction->lead_id, true)
+                    ->url(
+                        fn(Transaction $transaction
+                        ) => 'https://' . $transaction->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $transaction->contact_id,
+                        true
+                    )
                     ->label('Контакт'),
 
                 Tables\Columns\BooleanColumn::make('status')
