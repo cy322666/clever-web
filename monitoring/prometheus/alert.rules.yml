@@ -7,8 +7,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "App endpoint is unavailable"
-          description: "Blackbox probe to /up failed for more than 1 minute."
+          summary: "Приложение недоступно"
+          description: "Проверка Blackbox endpoint /up не проходит более 1 минуты."
 
       - alert: AppMetricsScrapeFailed
         expr: up{job="app_metrics"} == 0
@@ -16,8 +16,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "App metrics are not scrapeable"
-          description: "Prometheus cannot scrape /metrics for more than 2 minutes."
+          summary: "Метрики приложения недоступны"
+          description: "Prometheus не может собрать /metrics более 2 минут."
 
       - alert: SchedulerHeartbeatStale
         expr: clever_scheduler_heartbeat_age_seconds > 180
@@ -25,8 +25,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Scheduler heartbeat is stale"
-          description: "No scheduler heartbeat for over 3 minutes."
+          summary: "Задержка heartbeat планировщика"
+          description: "Heartbeat планировщика не обновлялся более 3 минут."
 
       - alert: FailedJobsDetected
         expr: clever_queue_failed_jobs_total > 0
@@ -34,8 +34,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Failed jobs detected"
-          description: "There are failed jobs in failed_jobs table for at least 5 minutes."
+          summary: "Обнаружены упавшие задачи"
+          description: "В таблице failed_jobs есть записи минимум 5 минут."
 
       - alert: QueueBacklogHigh
         expr: clever_queue_jobs_total > 200
@@ -43,8 +43,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Queue backlog is high"
-          description: "Queued jobs exceed 200 for more than 10 minutes."
+          summary: "Переполнена очередь задач"
+          description: "Количество задач в очереди превышает 200 более 10 минут."
 
       - alert: QueueOldestJobTooOld
         expr: clever_queue_oldest_job_age_seconds > 900
@@ -52,8 +52,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Oldest queue job is too old"
-          description: "Oldest waiting job age is over 15 minutes."
+          summary: "Слишком старые задачи в очереди"
+          description: "Возраст самой старой ожидающей задачи превышает 15 минут."
 
       - alert: MetricsCollectionError
         expr: clever_metrics_up == 0
@@ -61,8 +61,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Application metrics collection has errors"
-          description: "The app metrics endpoint reports collection errors."
+          summary: "Ошибка сбора метрик приложения"
+          description: "Endpoint /metrics сообщает об ошибках сбора метрик."
 
       - alert: PostgresExporterDown
         expr: up{job="postgres_exporter"} == 0
@@ -70,8 +70,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Postgres exporter is down"
-          description: "Prometheus cannot scrape postgres-exporter for over 2 minutes."
+          summary: "Недоступен Postgres exporter"
+          description: "Prometheus не может собрать метрики postgres-exporter более 2 минут."
 
       - alert: DbSlowQueriesBurst
         expr: increase(clever_db_slow_queries_total[10m]) > 10
@@ -79,5 +79,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Burst of slow DB queries"
-          description: "More than 10 slow DB queries were detected in the last 10 minutes."
+          summary: "Всплеск медленных запросов к БД"
+          description: "За последние 10 минут обнаружено более 10 медленных SQL-запросов."
