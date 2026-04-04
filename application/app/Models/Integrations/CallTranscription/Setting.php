@@ -29,5 +29,6 @@ class Setting extends Model
         'settings',
         'active',
         'user_id',
+        'account_id',
     ];
 }

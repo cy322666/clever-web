@@ -32,6 +32,14 @@ class CallTranscriptionCreate extends Command
         $userId = $this->argument('user_id');
 
         if ($userId) {
+            $user = User::query()
+                ->with('account')
+                ->find($userId);
+
+            if (!$user?->account) {
+                return;
+            }
+
             if (!App::query()
                 ->where('user_id', $userId)
                 ->where('name', $this->app)
@@ -39,6 +47,7 @@ class CallTranscriptionCreate extends Command
 
                 $setting = Setting::query()->create([
                     'user_id' => $userId,
+                    'account_id' => $user->account->id,
                 ]);
 
                 App::query()->create([
@@ -46,6 +55,13 @@ class CallTranscriptionCreate extends Command
                     'user_id' => $userId,
                     'setting_id' => $setting->id,
                     'resource_name' => $this->resource,
+                ]);
+            } elseif (!Setting::query()
+                ->where('user_id', $userId)
+                ->exists()) {
+                Setting::query()->create([
+                    'user_id' => $userId,
+                    'account_id' => $user->account->id,
                 ]);
             }
         } else {

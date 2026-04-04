@@ -112,11 +112,6 @@ class Market extends TableWidget
             ])
             ->heading(false)
             ->striped();
-//            ->header(view('tables.header', [
-//                'heading' => 'Clients',
-//            ]))
-//            ->description('Manage your clients here.')
-//            ->heading();//TODO
 
     }
 

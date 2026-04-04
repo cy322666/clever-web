@@ -5,10 +5,12 @@ namespace App\Filament\Resources\Integrations\AmoDataResource\Pages;
 use App\Filament\Resources\Integrations\AmoDataResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
+use App\Jobs\AmoData\RunSync;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Auth;
 
 class EditAmoData extends EditRecord
@@ -31,13 +33,19 @@ class EditAmoData extends EditRecord
                 ->label('Initial sync')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(function () {
-                    Artisan::call('app:amo-data-sync', [
-                        'user_id' => Auth::id(),
-                        '--initial' => true,
-                    ]);
+                    if (Config::get('queue.default') === 'sync' && !App::environment('local')) {
+                        Notification::make()
+                            ->title('Очередь настроена в sync, initial sync через UI отключен')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    RunSync::dispatch($this->record->id, 'initial');
 
                     Notification::make()
-                        ->title('Initial sync завершен')
+                        ->title('Initial sync поставлен в очередь')
                         ->success()
                         ->send();
                 }),
@@ -46,12 +54,19 @@ class EditAmoData extends EditRecord
                 ->label('Periodic sync')
                 ->icon('heroicon-o-arrow-path')
                 ->action(function () {
-                    Artisan::call('app:amo-data-sync', [
-                        'user_id' => Auth::id(),
-                    ]);
+                    if (Config::get('queue.default') === 'sync' && !App::environment('local')) {
+                        Notification::make()
+                            ->title('Очередь настроена в sync, periodic sync через UI отключен')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    RunSync::dispatch($this->record->id, 'periodic');
 
                     Notification::make()
-                        ->title('Periodic sync завершен')
+                        ->title('Periodic sync поставлен в очередь')
                         ->success()
                         ->send();
                 }),

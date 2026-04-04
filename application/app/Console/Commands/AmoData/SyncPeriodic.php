@@ -2,10 +2,11 @@
 
 namespace App\Console\Commands\AmoData;
 
+use App\Jobs\AmoData\RunSync;
 use App\Models\Integrations\AmoData\Setting;
 use App\Services\AmoData\AmoDataSyncService;
 use Illuminate\Console\Command;
-use Throwable;
+use Illuminate\Support\Facades\Config;
 
 class SyncPeriodic extends Command
 {
@@ -18,6 +19,12 @@ class SyncPeriodic extends Command
      */
     public function handle(AmoDataSyncService $service): int
     {
+        if (Config::get('queue.default') === 'sync') {
+            $this->warn('QUEUE_CONNECTION=sync. Periodic amo-data sync dispatch skipped.');
+
+            return self::SUCCESS;
+        }
+
         $settings = Setting::query()
             ->where('active', true)
             ->with('user.account')
@@ -28,11 +35,7 @@ class SyncPeriodic extends Command
                 continue;
             }
 
-            try {
-                $service->periodic($setting);
-            } catch (Throwable $e) {
-                $this->error('amo-data periodic sync failed for user ' . $setting->user_id . ': ' . $e->getMessage());
-            }
+            RunSync::dispatch($setting->id, 'periodic');
         }
 
         return self::SUCCESS;

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="blackclever.hosting" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="blackclever.hosting">
+      <paths name="hub.blackclever.ru">
         <serverdata>
           <mappings>
             <mapping deploy="/platform" local="$PROJECT_DIR$/application" web="/" />
