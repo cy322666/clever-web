@@ -36,7 +36,6 @@ class App extends Model
     public static function noPublicNames(): array
     {
         return [
-            'marquiz',
             'active-lead',
             'docs',
             'data-info',

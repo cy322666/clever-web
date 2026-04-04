@@ -8,6 +8,7 @@ use App\Filament\Resources\Core\App\AppResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Models\amoCRM\Staff;
 use App\Services\amoCRM\Client;
+use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Colors\Color;
@@ -54,6 +55,12 @@ class ListUsers extends ListRecords
             Action::make('backups')
                 ->label('Бэкапы')
                 ->url(Backup::getUrl())
+                ->openUrlInNewTab()
+                ->color(Color::Green),
+
+            Action::make('queues')
+                ->label('Очереди')
+                ->url(QueueMonitorResource::getUrl())
                 ->openUrlInNewTab()
                 ->color(Color::Green),
 

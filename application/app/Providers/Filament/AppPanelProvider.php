@@ -12,6 +12,7 @@ use App\Filament\Resources\Integrations\Dadata\InfoResource;
 use App\Filament\Resources\Integrations\DocResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Models\User;
+use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -59,6 +60,9 @@ class AppPanelProvider extends PanelProvider
                 FilamentSpatieLaravelBackupPlugin::make()
                     ->usingPage(Backup::class)
                     ->authorize(fn (): bool => auth()->user()->is_root),
+
+                FilamentJobsMonitorPlugin::make()
+                    ->enableNavigation(fn(): bool => auth()->check() && auth()->user()->is_root),
 
             ])
             ->pages([

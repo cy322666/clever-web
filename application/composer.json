@@ -14,6 +14,7 @@
         "arhitector/yandex": "^1.2",
         "aspose-cloud/aspose-words-cloud": "^23.10",
         "coolsam/flatpickr": "^5.0",
+        "croustibat/filament-jobs-monitor": "^3.3",
         "doctrine/dbal": "3.6.6",
         "dompdf/dompdf": "^2.0",
         "filament/actions": "^4.0",
