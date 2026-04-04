@@ -15,6 +15,8 @@ use Throwable;
 
 class AmoDataSyncService
 {
+    private const INITIAL_SYNC_DAYS = 90;
+
     public function __construct(
         private readonly ?LeadSyncService $leadSyncService = null,
         private readonly ?TaskSyncService $taskSyncService = null,
@@ -60,8 +62,8 @@ class AmoDataSyncService
         ])->save();
 
         try {
-            $updatedFromLeads = $initial ? null : $setting->leads_synced_at;
-            $updatedFromTasks = $initial ? null : $setting->tasks_synced_at;
+            $updatedFromLeads = $initial ? $this->initialSyncCutoff() : $setting->leads_synced_at;
+            $updatedFromTasks = $initial ? $this->initialSyncCutoff() : $setting->tasks_synced_at;
 
             SyncReferences::dispatch($setting->id, $run->id);
 
@@ -89,6 +91,11 @@ class AmoDataSyncService
     private function taskSync(): TaskSyncService
     {
         return $this->taskSyncService ?? new TaskSyncService();
+    }
+
+    private function initialSyncCutoff(): Carbon
+    {
+        return now()->subDays(self::INITIAL_SYNC_DAYS);
     }
 
     /**
