@@ -34,6 +34,11 @@ class EditAmoData extends EditRecord
                 fn() => $this->amocrmUpdate(),
             ),
 
+            Action::make('history')
+                ->label('История выгрузок')
+                ->icon('heroicon-o-list-bullet')
+                ->url(AmoDataResource::getUrl('runs')),
+
             Action::make('initialSync')
                 ->label('Первая выгрузка')
                 ->icon('heroicon-o-arrow-down-tray')

@@ -124,6 +124,7 @@ class AmoDataResource extends Resource
     {
         return [
             'edit' => Pages\EditAmoData::route('/{record}/edit'),
+            'runs' => Pages\ListSyncRuns::route('/runs'),
         ];
     }
 }
