@@ -98,3 +98,80 @@ docker compose --env-file monitoring/.env.monitoring -f docker-compose.yml -f mo
 
 - Telescope выключен в production по умолчанию.
 - При необходимости разово включается переменной `TELESCOPE_ENABLED=true`.
+
+## Production: Нормальная схема (subdomains + Nginx)
+
+В репозитории есть:
+
+- `monitoring/docker-compose.monitoring.prod.yml` — публикует сервисы только на `127.0.0.1`.
+- `monitoring/nginx/clevercrm.pro.conf.example` — готовый шаблон reverse proxy под:
+    - `app.clevercrm.pro`
+    - `grafana.clevercrm.pro`
+    - `prometheus.clevercrm.pro` (Basic Auth)
+    - `alerts.clevercrm.pro` (Basic Auth)
+
+### 1) DNS
+
+Создайте A-записи на IP прод-сервера:
+
+- `app.clevercrm.pro`
+- `grafana.clevercrm.pro`
+- `prometheus.clevercrm.pro`
+- `alerts.clevercrm.pro`
+
+### 2) Запуск compose в production-режиме
+
+```bash
+docker compose \
+  --env-file monitoring/.env.monitoring \
+  -f docker-compose.yml \
+  -f monitoring/docker-compose.monitoring.prod.yml \
+  up -d --build
+```
+
+### 3) Nginx + Basic Auth для monitoring
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nginx apache2-utils certbot python3-certbot-nginx
+
+sudo cp monitoring/nginx/clevercrm.pro.conf.example /etc/nginx/sites-available/clevercrm.pro
+sudo ln -s /etc/nginx/sites-available/clevercrm.pro /etc/nginx/sites-enabled/clevercrm.pro
+
+sudo htpasswd -c /etc/nginx/.htpasswd-monitoring monitoring
+
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 4) TLS сертификаты
+
+```bash
+sudo certbot --nginx \
+  -d app.clevercrm.pro \
+  -d grafana.clevercrm.pro \
+  -d prometheus.clevercrm.pro \
+  -d alerts.clevercrm.pro
+```
+
+После этого рабочие URL:
+
+- `https://app.clevercrm.pro`
+- `https://grafana.clevercrm.pro`
+- `https://prometheus.clevercrm.pro` (Basic Auth)
+- `https://alerts.clevercrm.pro` (Basic Auth)
+
+### 5) Закрыть прямой доступ к служебным портам (рекомендуется)
+
+Если на сервере включен UFW:
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw deny 3000/tcp
+sudo ufw deny 9090/tcp
+sudo ufw deny 9093/tcp
+sudo ufw deny 3100/tcp
+sudo ufw deny 9115/tcp
+sudo ufw deny 9187/tcp
+```
