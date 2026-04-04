@@ -75,6 +75,7 @@ class AmoDataResource extends Resource
                             ->columns(2),
 
                         Section::make('Состояние')
+                            ->poll('5s')
                             ->schema([
                                 TextInput::make('sync_status')
                                     ->label('Статус')
