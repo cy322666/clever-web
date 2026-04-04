@@ -193,5 +193,4 @@ sudo ufw deny 9187/tcp
 UI для операторов:
 
 - `/panel/queue-monitors` — монитор `queue_monitors`
-- `/panel/failed-jobs` — оперативная работа с `failed_jobs` (retry/delete) + операционные метрики синхронизации
 - `/panel/app-stats` — дополнительно виджет метрик очередей, которые не дублируются в Grafana

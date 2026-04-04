@@ -90,7 +90,7 @@ class SendRecord extends Command
 
                 // уже привязывали сделку к записи
                 if ($lead)
-                    ServiceLead::update($lead, $objectStatus, $record);
+                    $lead = ServiceLead::update($lead, $objectStatus, $record);
 
             } else {
                 // поиск открытой сделки у контакта в нужной воронке
@@ -117,7 +117,7 @@ class SendRecord extends Command
 
         try {
             if (!empty($lead)) {
-                ServiceLead::update($lead, $objectStatus, $record);
+                $lead = ServiceLead::update($lead, $objectStatus, $record);
             } else {
                 $lead = ServiceLead::create($contact, $objectStatus, $record);
             }

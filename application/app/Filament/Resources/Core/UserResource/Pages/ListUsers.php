@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Backup;
-use App\Filament\App\Pages\FailedJobs;
 use App\Filament\Resources\Core\UserResource;
 use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
@@ -29,18 +28,6 @@ class ListUsers extends ListRecords
                 ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
                 ->openUrlInNewTab()
                 ->color(Color::Green);
-        }
-
-        if (
-            config('features.panel_actions.failed_jobs', true)
-            && config('features.queues.failed_jobs_page', true)
-            && Route::has('filament.app.pages.failed-jobs')
-        ) {
-            $actions[] = Action::make('failed_jobs')
-                ->label('Ошибки очереди')
-                ->url(fn(): string => FailedJobs::getUrl())
-                ->openUrlInNewTab()
-                ->color('danger');
         }
 
         if (config('features.panel_actions.auth_logs', true)) {

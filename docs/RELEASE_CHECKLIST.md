@@ -45,8 +45,7 @@ php artisan app:monitor-queue-health --sample=3
 
 4. Проверить UI:
 
-- `/panel/core/users` (кнопки "Очереди" и "Ошибки очереди")
+- `/panel/core/users` (кнопка "Очереди")
 - `/panel/queue-monitors`
-- `/panel/failed-jobs`
 
 5. Сделать тестовую регистрацию и убедиться, что пришёл alert в TG/mail.

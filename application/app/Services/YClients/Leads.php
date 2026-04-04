@@ -4,6 +4,9 @@ namespace App\Services\YClients;
 
 use App\Models\Integrations\YClients\Record;
 use InvalidArgumentException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
 use Ufee\Amo\Base\Collections\Collection;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
@@ -89,12 +92,64 @@ abstract class Leads
             throw new InvalidArgumentException('Invalid amoCRM status/pipeline mapping for YClients lead update.');
         }
 
+        self::fillLeadForUpdate($lead, $statusId, $pipelineId, $record);
+
+        try {
+            $lead->save();
+
+            return $lead;
+        } catch (Throwable $exception) {
+            if (!self::isAmoLastModifiedConflict($exception)) {
+                throw $exception;
+            }
+
+            $freshLead = self::reloadLead($lead);
+
+            if (!$freshLead) {
+                throw $exception;
+            }
+
+            Log::warning('amoCRM lead update conflict, retrying with fresh lead state', [
+                'lead_id' => $lead->id,
+                'record_id' => $record->record_id,
+            ]);
+
+            self::fillLeadForUpdate($freshLead, $statusId, $pipelineId, $record);
+            $freshLead->save();
+
+            return $freshLead;
+        }
+    }
+
+    private static function fillLeadForUpdate(Lead $lead, int $statusId, int $pipelineId, Record $record): void
+    {
         $lead->sale = $record->cost;
         $lead->status_id = $statusId;
         $lead->pipeline_id = $pipelineId;
-        $lead->save();
+    }
 
-        return $lead;
+    private static function isAmoLastModifiedConflict(Throwable $exception): bool
+    {
+        return Str::contains(
+            $exception->getMessage(),
+            'Last modified date is older than in.',
+            true
+        );
+    }
+
+    private static function reloadLead(Lead $lead): ?Lead
+    {
+        if (!$lead->id) {
+            return null;
+        }
+
+        try {
+            $freshLead = $lead->service->find($lead->id);
+
+            return $freshLead instanceof Lead ? $freshLead : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     public static function get($client, $id) : ?Lead
