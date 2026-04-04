@@ -1,4 +1,3 @@
-<x-filament::page>
-    <!-- Вставляем Livewire компонент -->
-    @livewire($widget)  <!-- Вставляем Livewire компонент динамически -->
-</x-filament::page>
+<x-filament-panels::page>
+    {{ $this->content }}
+</x-filament-panels::page>

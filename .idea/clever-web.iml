@@ -340,6 +340,7 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/temporary-directory" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/vgrish/yclients-openapi-php" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/vgrish/yclients-sdk-php" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/croustibat/filament-jobs-monitor" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

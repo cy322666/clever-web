@@ -4,15 +4,12 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Backup;
-use App\Filament\Resources\Core\App\AppResource;
 use App\Filament\Resources\Core\UserResource;
-use App\Models\amoCRM\Staff;
-use App\Services\amoCRM\Client;
 use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Colors\Color;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 class ListUsers extends ListRecords
 {
@@ -20,13 +17,25 @@ class ListUsers extends ListRecords
 
     protected function getActions(): array
     {
-        return [
+        $actions = [];
 
-            Action::make('telescope')
+        if (Route::has('telescope')) {
+            $actions[] = Action::make('telescope')
                 ->label('Телескоп')
-                ->url(route('telescope'))
+                ->url(fn(): string => route('telescope'))
                 ->openUrlInNewTab()
-                ->color(Color::Blue),
+                ->color(Color::Blue);
+        }
+
+        if (Route::has('filament.app.resources.queue-monitors.index')) {
+            $actions[] = Action::make('queues')
+                ->label('Очереди')
+                ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
+                ->openUrlInNewTab()
+                ->color(Color::Green);
+        }
+
+        return array_merge($actions, [
 
 //            Action::make('horizon')
 //                ->label('Горизонт')
@@ -58,12 +67,6 @@ class ListUsers extends ListRecords
                 ->openUrlInNewTab()
                 ->color(Color::Green),
 
-            Action::make('queues')
-                ->label('Очереди')
-                ->url(QueueMonitorResource::getUrl())
-                ->openUrlInNewTab()
-                ->color(Color::Green),
-
-        ];
+        ]);
     }
 }

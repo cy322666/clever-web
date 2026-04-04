@@ -322,6 +322,7 @@
       <path value="$PROJECT_DIR$/application/vendor/spatie/db-dumper" />
       <path value="$PROJECT_DIR$/application/vendor/vgrish/yclients-openapi-php" />
       <path value="$PROJECT_DIR$/application/vendor/vgrish/yclients-sdk-php" />
+      <path value="$PROJECT_DIR$/application/vendor/croustibat/filament-jobs-monitor" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">
