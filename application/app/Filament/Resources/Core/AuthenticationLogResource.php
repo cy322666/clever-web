@@ -18,6 +18,8 @@ use Tapp\FilamentAuthenticationLog\Resources\AuthenticationLogResource as BaseAu
 
 class AuthenticationLogResource extends BaseAuthenticationLogResource
 {
+    protected static ?string $slug = 'authentication-logs';
+
     public static function table(Table $table): Table
     {
         return $table
