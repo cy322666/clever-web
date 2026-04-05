@@ -44,7 +44,7 @@ return [
         ],
         'docs' => [
             'resource' => DocResource::class,
-            'public' => true,
+            'public' => false,
         ],
         'distribution' => [
             'resource' => DistributionResource::class,

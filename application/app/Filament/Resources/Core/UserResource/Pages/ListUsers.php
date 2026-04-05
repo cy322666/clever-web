@@ -10,11 +10,17 @@ use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Colors\Color;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 class ListUsers extends ListRecords
 {
     protected static string $resource = UserResource::class;
+
+    public function mountCanAuthorizeResourceAccess(): void
+    {
+        abort_unless(Auth::check() && (bool)Auth::user()?->is_root, 403);
+    }
 
     protected function getActions(): array
     {

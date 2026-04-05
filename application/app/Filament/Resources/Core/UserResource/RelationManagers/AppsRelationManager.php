@@ -3,22 +3,26 @@
 namespace App\Filament\Resources\Core\UserResource\RelationManagers;
 
 use App\Models\App;
+use App\Services\Integrations\IntegrationProvisioningService;
 use Exception;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class AppsRelationManager extends RelationManager
 {
     protected static string $relationship = 'apps';
 
-    protected static ?string $title = 'Интеграции';
+    protected static ?string $title = 'Виджеты клиента';
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -118,6 +122,51 @@ SQL,
                         ->url(function (Model $record) {
                             return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
                         }),
+                    Action::make('extend')
+                        ->label('Продлить')
+                        ->icon('heroicon-o-calendar-days')
+                        ->color('success')
+                        ->visible(fn(): bool => (bool)auth()->user()?->is_root)
+                        ->form([
+                            TextInput::make('days')
+                                ->label('Дней продления')
+                                ->numeric()
+                                ->default(30)
+                                ->minValue(1)
+                                ->maxValue(3650)
+                                ->required(),
+                        ])
+                        ->action(function (App $record, array $data): void {
+                            $days = max(1, (int)($data['days'] ?? 30));
+                            $updated = $this->extendAndActivate($record, $days);
+
+                            Notification::make()
+                                ->title('Виджет продлён')
+                                ->body(
+                                    sprintf(
+                                        '%s до %s',
+                                        $this->appTitle($updated),
+                                        self::parseDate($updated->expires_tariff_at)?->format('d.m.Y') ?? 'без даты',
+                                    )
+                                )
+                                ->success()
+                                ->send();
+                        }),
+                    Action::make('deactivate')
+                        ->label('Отключить')
+                        ->icon('heroicon-o-no-symbol')
+                        ->color('danger')
+                        ->visible(fn(): bool => (bool)auth()->user()?->is_root)
+                        ->requiresConfirmation()
+                        ->action(function (App $record): void {
+                            $this->deactivate($record);
+
+                            Notification::make()
+                                ->title('Виджет отключён')
+                                ->body($this->appTitle($record))
+                                ->warning()
+                                ->send();
+                        }),
                 ])
                     ->label('Действия')
                     ->icon('heroicon-o-cog-6-tooth')
@@ -128,6 +177,68 @@ SQL,
             ->emptyStateHeading('Нет подключенных интеграций')
             ->emptyStateDescription('Перейдите в магазин')
             ->emptyStateIcon('heroicon-o-exclamation-triangle');
+    }
+
+    private function extendAndActivate(App $app, int $days): App
+    {
+        $today = now()->startOfDay();
+        $baseDate = $today;
+        $currentExpires = self::parseDate($app->expires_tariff_at)?->startOfDay();
+
+        if ($currentExpires && $currentExpires->gte($today)) {
+            $baseDate = $currentExpires;
+        }
+
+        $app->expires_tariff_at = $baseDate->copy()->addDays($days)->toDateString();
+        $app->status = App::STATE_ACTIVE;
+        $app->installed_at = $app->installed_at ?: now();
+        $app->save();
+
+        $this->syncSettingActive($app, true);
+
+        return $app->refresh();
+    }
+
+    private function deactivate(App $app): void
+    {
+        $app->status = App::STATE_INACTIVE;
+        $app->save();
+
+        $this->syncSettingActive($app, false);
+    }
+
+    private function syncSettingActive(App $app, bool $isActive): void
+    {
+        try {
+            $app = app(IntegrationProvisioningService::class)->ensureSettingForApp($app);
+            $setting = $app->getSettingModel();
+        } catch (Throwable) {
+            return;
+        }
+
+        if (!$setting || !Schema::hasColumn($setting->getTable(), 'active')) {
+            return;
+        }
+
+        if ((bool)$setting->active === $isActive) {
+            return;
+        }
+
+        $setting->active = $isActive;
+        $setting->save();
+    }
+
+    private function appTitle(App $app): string
+    {
+        try {
+            if (is_string($app->resource_name) && class_exists($app->resource_name)) {
+                return (string)$app->resource_name::getRecordTitle($app);
+            }
+        } catch (Throwable) {
+            // fallback ниже
+        }
+
+        return (string)($app->name ?: ('App #' . $app->id));
     }
 
     private static function effectiveStatus(App $app): int

@@ -19,7 +19,7 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && (bool)auth()->user()?->is_root;
+        return auth()->check();
     }
 
     public static function canCreate(): bool
@@ -34,7 +34,7 @@ class UserResource extends Resource
         }
 
         return auth()->check()
-            && ((bool)auth()->user()?->is_root || auth()->id() === $record->id);
+            && ((bool)auth()->user()?->is_root || (int)auth()->id() === (int)$record->id);
     }
 
     public static function canEdit(Model $record): bool
@@ -44,7 +44,7 @@ class UserResource extends Resource
         }
 
         return auth()->check()
-            && ((bool)auth()->user()?->is_root || auth()->id() === $record->id);
+            && ((bool)auth()->user()?->is_root || (int)auth()->id() === (int)$record->id);
     }
 
     public static function canDelete(Model $record): bool
@@ -104,7 +104,11 @@ class UserResource extends Resource
             ->filters([])
             ->paginated([10, 30, 'all'])
             ->actions([
-//                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('widgets')
+                    ->label('Виджеты')
+                    ->icon('heroicon-o-puzzle-piece')
+                    ->visible(fn(): bool => auth()->check() && (bool)auth()->user()?->is_root)
+                    ->url(fn(User $user): string => Pages\ViewUser::getUrl(['record' => $user->id])),
                 Impersonate::make()
                     ->hiddenLabel()
                     ->hidden(fn(): bool => !auth()->check() || !(bool)auth()->user()?->is_root)
