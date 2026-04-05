@@ -44,7 +44,7 @@ class Companies extends Command
             }
 
         } catch (\Throwable $e) {
-            dump($e->getMessage());
+            $this->error('Ошибка при загрузке компаний: ' . $e->getMessage());
             logger()->error('Ошибка при загрузке компаний: ' . $e->getMessage());
         }
     }

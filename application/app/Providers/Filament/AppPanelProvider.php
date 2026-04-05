@@ -11,7 +11,6 @@ use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Dadata\InfoResource;
 use App\Filament\Resources\Integrations\DocResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
-use App\Models\User;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
 use Filament\Http\Middleware\Authenticate;
@@ -84,7 +83,7 @@ class AppPanelProvider extends PanelProvider
                             NavigationItem::make('Home')
                                 ->label('Аккаунт')
                                 ->icon('heroicon-o-home')
-                                ->url(fn (): string => UserResource::getUrl('view', ['record' => User::first()])),
+                                ->url(fn(): string => UserResource::getUrl('view', ['record' => Auth::id()])),
 
                             NavigationItem::make('Market')
                                 ->label('Магазин')

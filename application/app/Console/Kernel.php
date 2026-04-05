@@ -23,9 +23,6 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping();
 
-        $schedule->command('telescope:prune')
-            ->dailyAt('00:00');
-
         $schedule->command('app:check-date-expire')
             ->dailyAt('01:00');
 

@@ -4,14 +4,19 @@ namespace App\Http\Controllers\System;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class HealthController extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
+        if (!$request->user() || !(bool)$request->user()->is_root) {
+            abort(403);
+        }
+
         $checks = [
             'app' => 'ok',
             'db' => 'ok',

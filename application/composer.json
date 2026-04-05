@@ -51,6 +51,7 @@
     },
     "autoload": {
         "psr-4": {
+            "Ufee\\Amo\\Base\\Models\\": "app/Overrides/Ufee/Amo/Base/Models/",
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"

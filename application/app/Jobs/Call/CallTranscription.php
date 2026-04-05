@@ -17,9 +17,9 @@ class CallTranscription implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        Transaction $transaction,
-        Account $account,
-        Setting $setting,
+        public Transaction $transaction,
+        public Account $account,
+        public Setting $setting,
     ) {
     }
 
@@ -29,9 +29,9 @@ class CallTranscription implements ShouldQueue
     public function handle(): void
     {
         Artisan::call('app:call-send', [
-            'transaction' => $this->transaction->id,
-            'account' => $this->account->id,
-            'setting' => $this->setting->id,
+            'transaction_id' => $this->transaction->id,
+            'account_id' => $this->account->id,
+            'setting_id' => $this->setting->id,
         ]);
     }
 }

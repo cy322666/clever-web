@@ -8,6 +8,7 @@ use App\Mail\SignUp;
 use App\Mail\SignUpWidget;
 use App\Models\App;
 use App\Models\User;
+use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\amoCRM\Client;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,8 +48,13 @@ class AuthController extends Controller
 
         Mail::to($user->email)->queue(new SignUp($user));
 
+        $redirectPath = $this->sanitizeRelativeRedirect(
+            $request->input('uri'),
+            route('filament.app.pages.dashboard', [], false)
+        );
+
         return redirect()
-            ->to($request->uri)
+            ->to($redirectPath)
             ->with([
                 'auth' => $amoApi->auth,
             ]);
@@ -56,7 +62,7 @@ class AuthController extends Controller
 
     //переход через кнопку установить
     //логиним и отправляем на страницу настроек
-    public function widget(Request $request)
+    public function widget(Request $request, IntegrationProvisioningService $provisioning): RedirectResponse
     {
         $query = $request->getQueryString(); // "amp;email=...%22&widget=tilda" или уже частично декод
 
@@ -66,54 +72,68 @@ class AuthController extends Controller
 
         parse_str($query, $params);
 
-        $email  = isset($params['email']) ? trim($params['email'], "\"' \t\n\r\0\x0B") : null;
-        $widget = $params['widget'] ?? null;
+        $email = isset($params['email']) ? trim($params['email'], "\"' \t\n\r\0\x0B") : null;
+        $widget = (string)($params['widget'] ?? '');
+        $widget = Str::of($widget)->lower()->trim()->toString();
 
-        if (!$email || !$widget)
-            return;
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^[a-z0-9\-]+$/', $widget)) {
+            abort(422, 'Invalid widget install payload.');
+        }
 
-        $app = App::query()
-            ->where('name', $widget)
-            ->first();
+        $resourceClass = (string)data_get(config("integrations.definitions.{$widget}"), 'resource', '');
+        if ($resourceClass === '') {
+            $resourceClass = (string)App::query()
+                ->where('name', $widget)
+                ->whereNotNull('resource_name')
+                ->value('resource_name');
+        }
 
-        $pass = Str::random(10);
+        if ($resourceClass === '' || !class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+            abort(404, 'Widget integration is not supported.');
+        }
 
         $user = User::query()
             ->where('email', $email)
             ->first();
 
-        if (!$user) {
-
-            $user = User::query()
-                ->create([
-                    'name' => 'User '.$email,
-                    'email' => $email,
-                    'password' => Hash::make($pass),
-                ]);
-
-            //отправляем пароль на почту
-            Mail::to($user->email)->queue(new SignUpWidget($user, $pass));
+        // Existing account: do not auto-login from external widget callback.
+        if ($user) {
+            return redirect()->to(route('filament.app.auth.login'));
         }
 
-        $settingClassName = trim($app->resource_name::getModel());
+        $pass = Str::random(10);
+        $user = User::query()
+            ->create([
+                'name' => 'User ' . $email,
+                'email' => $email,
+                'password' => Hash::make($pass),
+            ]);
 
-        // sleep(2);
+        // Отправляем пароль на почту.
+        Mail::to($user->email)->queue(new SignUpWidget($user, $pass));
 
-        $query = $settingClassName::query();
-
-        $record = $query
+        $provisioning->syncCatalogForUser($user);
+        $app = App::query()
             ->where('user_id', $user->id)
+            ->where('name', $widget)
             ->first();
 
-        $redirectPath = route('filament.app.resources.integrations.'.$request->widget.'.edit', ['record' => $record->id]);
+        if ($app) {
+            $provisioning->ensureSettingForApp($app);
+        }
+
+        $redirectPath = $app
+            ? route('integrations.open', ['app' => $app->id])
+            : route('filament.app.pages.dashboard');
 
         $signedUrl = URL::temporarySignedRoute(
             'auto.login',
-            now()->addMinutes(30),
+            now()->addMinutes(10),
             [
                 'user' => $user->id,
                 'redirect' => $redirectPath,
-            ]);
+            ]
+        );
 
         return redirect()->away($signedUrl);
     }
@@ -133,39 +153,27 @@ class AuthController extends Controller
     public function edtechindustry(Request $request)
     {
         Log::info(__METHOD__, $request->toArray());
-
-        exit();
-        //TODO создаем а не находим
-        $user = User::query()
-            ->where('uuid', $request->state)
-            ->first();
-
-        sleep(2);//observer работает
-
-        $account = $user->account;
-
-        $account->code = $request->code;
-        $account->zone = explode('.', $request->referer)[2];
-        $account->client_id = $request->client_id;
-        $account->subdomain = explode('.', $request->referer)[0];
-        $account->redirect_uri  = config('services.amocrm.redirect_uri');
-        $account->client_secret = config('services.amocrm.client_secret');
-        $account->save();
-
-        $amoApi = (new Client($account->refresh()));
-
-        if (!$amoApi->checkAuth()) {
-
-            $amoApi->init();
-        }
-
-        $account->active = $amoApi->auth;
-        $account->save();
+        return response()->json(['ok' => true], 202);
     }
 
     public function off(Request $request)
     {
         Log::info(__METHOD__, $request->toArray());
+    }
+
+    private function sanitizeRelativeRedirect(mixed $redirect, string $fallback): string
+    {
+        $path = trim((string)$redirect);
+
+        if ($path === '') {
+            return $fallback;
+        }
+
+        if (!str_starts_with($path, '/') || str_starts_with($path, '//')) {
+            return $fallback;
+        }
+
+        return $path;
     }
 }
 //TODO пуши в телегу

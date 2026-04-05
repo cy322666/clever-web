@@ -4,7 +4,6 @@ namespace App\Console\Commands\Install;
 
 use App\Filament\Resources\Integrations\AnalyticResource;
 use App\Models\App;
-use App\Models\Integrations\Bizon\Setting;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -52,7 +51,7 @@ class AnalyticCreate extends Command
                     'user_id' => $userId,
                 ]);
 
-                dump(__METHOD__.' > setting create success user : '.$userId);
+                $this->info(__METHOD__ . ' > setting create success user : ' . $userId);
             }
         } else {
 

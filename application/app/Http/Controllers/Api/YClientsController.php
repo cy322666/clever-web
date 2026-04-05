@@ -4,38 +4,51 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\YClients\RecordSend;
-use App\Models\Integrations\Tilda\Form;
 use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Record;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class YClientsController extends Controller
 {
-    public function hook(User $user, Request $request)
+    public function hook(User $user, Request $request): JsonResponse
     {
-        if ($request->post('resource')) {
-
-            match ($request->post('resource')) {
-
-                'record' => static::record($user, $request),
-
-                default  => exit,
-
-            };
+        if (!$request->post('resource')) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'resource is required',
+            ], 422);
         }
+
+        return match ($request->post('resource')) {
+            'record' => static::record($user, $request),
+            default => response()->json([
+                'ok' => false,
+                'message' => 'unsupported resource',
+            ], 422),
+        };
     }
 
-    public static function record(User $user, Request $request)
+    public static function record(User $user, Request $request): JsonResponse
     {
         $setting = $user->yclientsSetting;
 
         $account = $user->account;
 
+        $clientId = data_get($request->data, 'client.id');
+
+        if (!$clientId) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'client.id is required',
+            ], 422);
+        }
+
         Client::query()
             ->updateOrCreate([
-                'client_id'  => $request->data['client']['id'] ?? exit,
+                'client_id' => $clientId,
                 'company_id' => $request->company_id,
                 'user_id' => $user->id,
                 'setting_id'   => $setting->id,
@@ -68,5 +81,10 @@ class YClientsController extends Controller
             ]);
 
         RecordSend::dispatch($record, $account, $setting);
+
+        return response()->json([
+            'ok' => true,
+            'record_id' => $record->id,
+        ], 201);
     }
 }

@@ -49,8 +49,7 @@ abstract class UpdateButton
 
             //если статус приложения активен
             if ($app->status == App::STATE_ACTIVE) {
-
-                if (is_null($record->install_at)) {
+                if (is_null($app->installed_at)) {
 
                     $app->installed_at = Carbon::now();
 
@@ -94,9 +93,11 @@ abstract class UpdateButton
 
                     //выключена
                 } elseif ($app->status == App::STATE_INACTIVE) {
+                    //если срок не вышел или еще не был назначен
+                    $notExpired = empty($app->expires_tariff_at)
+                        || Carbon::now()->lte(Carbon::parse($app->expires_tariff_at));
 
-                    //если еще срок не вышел
-                    if (Carbon::now() > $app->expires_tariff_at) {
+                    if ($notExpired) {
 
                         //кнопка Включить
                         return Action::make('active')

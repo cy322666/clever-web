@@ -3,18 +3,38 @@
 namespace App\Filament\Resources\Core;
 
 use App\Filament\Resources\Core\AccountResource\Pages;
-use App\Filament\Resources\Core\UserResource;
 use App\Models\Core\Account;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Illuminate\Database\Eloquent\Model;
 
 class AccountResource extends Resource
 {
     protected static ?string $model = Account::class;
 
 //    protected static ?string $navigationIcon = 'heroicon-o-collection';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && (bool)auth()->user()?->is_root;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->check() && (bool)auth()->user()?->is_root;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->check() && (bool)auth()->user()?->is_root;
+    }
 
     public static function form(Schema $form): Schema
     {

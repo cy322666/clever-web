@@ -134,7 +134,8 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::post('edtechindustry/form', [AuthController::class, 'form']);
 
     //переход по кнопке с виджета в амо
-    Route::get('widget', [AuthController::class, 'widget']);
+    Route::get('widget', [AuthController::class, 'widget'])
+        ->middleware('throttle:10,1');
 });
 
 //Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');

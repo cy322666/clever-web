@@ -39,26 +39,47 @@ class CallTranscriptionController extends Controller
         }
 
         $settings = $settingsModel->settings ?? [];
+        $settings = is_string($settings) ? json_decode($settings, true) : $settings;
+        $settings = is_array($settings) ? $settings : [];
 
-        if (is_string($settings)) {
-            $settingBody = json_decode($settings, true)[$form] ?? [];
+        $settingBody = $settings[$form] ?? [];
+        $duration = isset($noteText['DURATION']) && is_numeric($noteText['DURATION'])
+            ? (int)$noteText['DURATION']
+            : null;
+        $recordingUrl = $noteText['LINK'] ?? null;
+
+        if (empty($settingBody) || $settingBody === [] || empty($recordingUrl)) {
+            return new Response(null, 404);
         }
 
-        if (empty($settingBody) || $settingBody === [] || empty($noteText['LINK'])) {
-            return new Response(null, 404);
+        $timeAt = isset($settingBody['time_at']) && is_numeric($settingBody['time_at'])
+            ? (int)$settingBody['time_at']
+            : null;
+        $timeTo = isset($settingBody['time_to']) && is_numeric($settingBody['time_to'])
+            ? (int)$settingBody['time_to']
+            : null;
+
+        if ($duration !== null) {
+            if ($timeAt !== null && $duration < $timeAt) {
+                return new Response(null, 204);
+            }
+
+            if ($timeTo !== null && $duration > $timeTo) {
+                return new Response(null, 204);
+            }
         }
 
         $transaction = Transaction::query()->create([
             'lead_id' => $dataNote['element_type'] == 2 ? $dataNote['element_id'] : null,
             'contact_id' => $dataNote['element_type'] == 1 ? $dataNote['element_id'] : null,
-            'duration' => $noteText['DURATION'],
+            'duration' => $duration,
             'note_type' => $dataNote['note_type'],
             'setting_id' => $settingsModel->id,
             'form_setting_id' => $form,
             'user_id' => $user->id,
             'account_id' => $user->account->id,
-            'call_status' => $noteText['call_status'],
-            'url' => $noteText['LINK'],
+            'call_status' => $noteText['call_status'] ?? null,
+            'url' => $recordingUrl,
         ]);
 
         CallTranscription::dispatch($transaction, $user->account, $settingsModel);

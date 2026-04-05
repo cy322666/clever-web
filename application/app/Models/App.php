@@ -35,15 +35,11 @@ class App extends Model
 
     public static function noPublicNames(): array
     {
-        return [
-            'active-lead',
-            'docs',
-            'data-info',
-            'analytic',
-            'contact-merge',
-            'amo-data',
-//            'import-excel',
-        ];
+        return collect(config('integrations.definitions', []))
+            ->filter(fn(array $definition): bool => (bool)($definition['public'] ?? true) === false)
+            ->keys()
+            ->values()
+            ->all();
     }
 
     public static function getTooltipText(string $appName): string
@@ -64,6 +60,7 @@ class App extends Model
             'assistant' => 'AI ассистент руководителя по данным amoCRM: чат, сводки, риски и summary payload-ы для n8n',
             'call-transcription' => 'Транскрибация звонков с применением промпта, записью результата в поле или примечание и запуском Salesbot',
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
+            default => '',
         };
     }
 

@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands\Install;
 
+use App\Models\App;
+use App\Models\User;
+use App\Services\Integrations\IntegrationProvisioningService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 
 class UpdateAll extends Command
 {
@@ -24,21 +26,21 @@ class UpdateAll extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(IntegrationProvisioningService $service)
     {
-        Artisan::call('install:bizon');
-        Artisan::call('install:alfa');
-        Artisan::call('install:getcourse');
-        Artisan::call('install:tilda');
-        Artisan::call('install:active-lead');
-        Artisan::call('install:data-info');
-        Artisan::call('install:doc');
-        Artisan::call('install:distribution');
-        Artisan::call('install:analytic');
-        Artisan::call('install:yclients');
-        Artisan::call('install:import-excel');
-//        Artisan::call('install:call-transcription');
-        Artisan::call('install:assistant');
-        Artisan::call('install:amo-data');
+        User::query()->select(['id'])->chunkById(200, function ($users) use ($service): void {
+            foreach ($users as $user) {
+                $service->syncCatalogForUser($user);
+
+                App::query()
+                    ->where('user_id', $user->id)
+                    ->get()
+                    ->each(fn(App $app) => $service->ensureSettingForApp($app));
+            }
+        });
+
+        $this->info('Integrations update completed.');
+
+        return self::SUCCESS;
     }
 }

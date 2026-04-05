@@ -2,9 +2,10 @@
 
 namespace App\Console\Commands\Install;
 
+use App\Models\App;
 use App\Models\User;
+use App\Services\Integrations\IntegrationProvisioningService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 
 class All extends Command
 {
@@ -25,22 +26,22 @@ class All extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(IntegrationProvisioningService $service)
     {
         $user = User::query()->find($this->argument('user_id'));
+        if (!$user) {
+            $this->error('User not found.');
 
-        /* создание моделей интеграции */
-        Artisan::call('install:alfa', ['user_id' => $user->id]);
-        Artisan::call('install:bizon', ['user_id' => $user->id]);
-        Artisan::call('install:getcourse', ['user_id' => $user->id]);
-        Artisan::call('install:tilda', ['user_id' => $user->id]);
-        Artisan::call('install:active-lead', ['user_id' => $user->id]);
-        Artisan::call('install:data-info', ['user_id' => $user->id]);
-        Artisan::call('install:doc', ['user_id' => $user->id]);
-        Artisan::call('install:distribution', ['user_id' => $user->id]);
-        Artisan::call('install:yclients', ['user_id' => $user->id]);
-        Artisan::call('install:import-excel', ['user_id' => $user->id]);
-        Artisan::call('install:assistant', ['user_id' => $user->id]);
-        Artisan::call('install:amo-data', ['user_id' => $user->id]);
+            return self::FAILURE;
+        }
+
+        $service->syncCatalogForUser($user);
+
+        App::query()
+            ->where('user_id', $user->id)
+            ->get()
+            ->each(fn(App $app) => $service->ensureSettingForApp($app));
+
+        return self::SUCCESS;
     }
 }

@@ -6,6 +6,7 @@ use App\Models\amoCRM\Field;
 use App\Models\Integrations\Docs\Setting;
 use Carbon\Carbon;
 use Ramsey\Uuid\Uuid;
+use Illuminate\Support\Facades\Log;
 
 abstract class FormatService
 {
@@ -59,8 +60,10 @@ abstract class FormatService
                 return $entities[$field->entity_type]->customFields->byId($field->field_id)->getValue();
 
         } catch (\Throwable $e) {
-
-            dump($e->getMessage(), $field ?? null, $fieldId);
+            Log::warning('FormatService::getValue failed', [
+                'error' => $e->getMessage(),
+                'field_id' => $fieldId,
+            ]);
         }
 
         return null;

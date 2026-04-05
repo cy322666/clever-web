@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use STS\FilamentImpersonate\Actions\Impersonate;
@@ -21,6 +22,41 @@ use Tapp\FilamentAuthenticationLog\RelationManagers\AuthenticationLogsRelationMa
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && (bool)auth()->user()?->is_root;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        if (!$record instanceof User) {
+            return false;
+        }
+
+        return auth()->check()
+            && ((bool)auth()->user()?->is_root || auth()->id() === $record->id);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        if (!$record instanceof User) {
+            return false;
+        }
+
+        return auth()->check()
+            && ((bool)auth()->user()?->is_root || auth()->id() === $record->id);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->check() && (bool)auth()->user()?->is_root;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -111,6 +147,7 @@ class UserResource extends Resource
 //                Tables\Actions\EditAction::make(),
                 Impersonate::make()
                     ->hiddenLabel()
+                    ->hidden(fn(): bool => !auth()->check() || !(bool)auth()->user()?->is_root)
                     ->openUrlInNewTab()
                     ->redirectTo(route('filament.app.resources.core.users.view', ['record' => Auth::id()]))
             ])

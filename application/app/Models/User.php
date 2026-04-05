@@ -58,7 +58,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return $panel->getId() === 'app' && (bool)$this->active;
     }
 
     public function canImpersonate()
@@ -68,7 +68,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canBeImpersonated(): bool
     {
-        return true;
+        return !$this->is_root;
     }
 
     //TODO упростить

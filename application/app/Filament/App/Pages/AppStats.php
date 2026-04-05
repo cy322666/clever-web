@@ -14,6 +14,11 @@ class AppStats extends Page
 
     protected ?string $subheading = 'Воронка подключений, состояние интеграций и операционная нагрузка';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (bool)auth()->user()?->is_root;
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [

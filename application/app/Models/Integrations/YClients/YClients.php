@@ -475,8 +475,8 @@ class YClients
 
         curl_setopt($ch, CURLOPT_URL, 'https://api.yclients.com/api/v1/loyalty/certificates?company_id='.$company_id.'&phone='.$phone);
         curl_setopt($ch, CURLOPT_FAILONERROR, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         //curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
         curl_setopt($ch, CURLOPT_HEADER, false);
@@ -492,8 +492,7 @@ class YClients
         curl_close($ch);
 
         if ($errno) {
-            print_r($errno);
-            //throw new YclientsException('Запрос произвести не удалось: ' . $error, $errno);
+            throw new \RuntimeException('YClients request failed: ' . $error, $errno);
         }
 
         return json_decode($response, true);
@@ -1523,8 +1522,8 @@ class YClients
 
         curl_setopt($ch, CURLOPT_URL, self::URL . '/' . $url);
         curl_setopt($ch, CURLOPT_FAILONERROR, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
         curl_setopt($ch, CURLOPT_HEADER, false);
@@ -1540,8 +1539,7 @@ class YClients
         curl_close($ch);
 
         if ($errno) {
-            print_r($errno);
-            //throw new YclientsException('Запрос произвести не удалось: ' . $error, $errno);
+            throw new \RuntimeException('YClients request failed: ' . $error, $errno);
         }
 
         return json_decode($response, true);

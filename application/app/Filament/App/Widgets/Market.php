@@ -43,7 +43,7 @@ class Market extends TableWidget
                         ->size(TextSize::Medium)
                             ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
                             ->limit(28)
-                        ->state(fn(?App $app) => $app->resource_name::getRecordTitle()),
+                            ->state(fn(?App $app) => self::safeRecordTitle($app)),
 
                     TextColumn::make('status')
                         ->label('Статус')
@@ -84,7 +84,7 @@ class Market extends TableWidget
 //            ->defaultGroup('status')
             ->paginated(false)
             ->recordUrl(
-                fn (App $app) => $app->resource_name::getSlug().'/'.$app->setting_id.'/edit'
+                fn(App $app): string => route('integrations.open', ['app' => $app->id])
             )
             ->filters([
                 //
@@ -150,5 +150,19 @@ class Market extends TableWidget
             App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
             default => App::STATE_EXPIRES_WORD,
         };
+    }
+
+    private static function safeRecordTitle(?App $app): string
+    {
+        if (!$app) {
+            return '';
+        }
+
+        $resourceClass = (string)$app->resource_name;
+        if (class_exists($resourceClass) && method_exists($resourceClass, 'getRecordTitle')) {
+            return (string)$resourceClass::getRecordTitle();
+        }
+
+        return (string)$app->name;
     }
 }

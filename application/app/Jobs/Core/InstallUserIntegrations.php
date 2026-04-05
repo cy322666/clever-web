@@ -3,12 +3,12 @@
 namespace App\Jobs\Core;
 
 use App\Models\User;
+use App\Services\Integrations\IntegrationProvisioningService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 
 class InstallUserIntegrations implements ShouldQueue
@@ -33,16 +33,6 @@ class InstallUserIntegrations implements ShouldQueue
             return;
         }
 
-        $exitCode = Artisan::call('install:all', ['user_id' => $user->id]);
-
-        if ($exitCode !== 0) {
-            Log::error('InstallUserIntegrations: install:all failed', [
-                'user_id' => $user->id,
-                'exit_code' => $exitCode,
-                'command_output' => trim(Artisan::output()),
-            ]);
-
-            throw new \RuntimeException('install:all returned non-zero exit code');
-        }
+        app(IntegrationProvisioningService::class)->syncCatalogForUser($user);
     }
 }

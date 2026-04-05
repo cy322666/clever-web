@@ -76,7 +76,12 @@ jobs:
         run: php artisan migrate --force
 
       - name: Run Test Suite
-        run: php artisan test --stop-on-failure
+        run: |
+          if php artisan test --help >/dev/null 2>&1; then
+            php artisan test --stop-on-failure
+          else
+            ./vendor/bin/phpunit --stop-on-failure
+          fi
 
   deploy:
     name: Deploy to Production
