@@ -2,14 +2,10 @@
 
 namespace App\Filament\Resources\Core\UserResource\RelationManagers;
 
-use App\Models\amoCRM\Status;
-use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Auth;
 
 class StatusesRelationManager extends RelationManager
 {
@@ -19,12 +15,12 @@ class StatusesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected function getTableQuery(?bool $archive = false): Builder|Relation|null
+    protected function getTableQuery(): Builder|Relation|null
     {
-        return Auth::user()
+        return $this->getOwnerRecord()
             ->amocrm_statuses()
             ->where('name', '!=', 'Неразобранное')
-            ->where('is_archive', $archive)
+            ->where('is_archive', false)
             ->getQuery();
     }
 

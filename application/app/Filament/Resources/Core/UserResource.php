@@ -6,15 +6,11 @@ use App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Resources\RelationManagers\RelationGroup;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use STS\FilamentImpersonate\Actions\Impersonate;
 use Tapp\FilamentAuthenticationLog\RelationManagers\AuthenticationLogsRelationManager;
@@ -62,7 +58,7 @@ class UserResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('Основная информация')
+                Section::make('Технические данные')
                     ->schema([
                         Forms\Components\TextInput::make('email')
                             ->label('Почта')
@@ -71,18 +67,9 @@ class UserResource extends Resource
                             ->label('Идентификатор')
                             ->copyable()
                             ->disabled(),
-                        TextEntry::make('subdomain')
+                        Forms\Components\Placeholder::make('subdomain')
                             ->label('Субдомен')
-                            ->state(
-                                fn(?User $record
-                                ): string => 'https://' . $record?->account?->subdomain . '.amocrm.ru' ?? 'amoCRM не подключена'
-                            )
-                            ->disabled(),
-                ])->columnSpan([
-                    'sm' => 2,
-                ]),
-                Section::make()
-                    ->schema([
+                            ->content(fn(?User $record): string => self::resolveSubdomainState($record)),
                         Forms\Components\Placeholder::make('created_at')
                             ->label('Создан')
                             ->content(fn (?User $record): string => $record ? $record->created_at->diffForHumans() : '-'),
@@ -90,9 +77,12 @@ class UserResource extends Resource
                             ->label('Обновлен')
                             ->content(fn (?User $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
                     ])
-                    ->columnSpan(1),
+                    ->columns([
+                        'sm' => 2,
+                    ])
+                    ->columnSpanFull(),
             ])->columns([
-                'sm' => 3,
+                'sm' => 1,
                 'lg' => null,
             ]);
     }
@@ -162,6 +152,7 @@ class UserResource extends Resource
             RelationManagers\AppsRelationManager::class,
             RelationManagers\StaffsRelationManager::class,
             RelationManagers\StatusesRelationManager::class,
+            AuthenticationLogsRelationManager::class,
         ];
     }
 
@@ -172,5 +163,16 @@ class UserResource extends Resource
             'edit'   => Pages\EditUser::route('/{record}/edit'),
             'view'   => Pages\ViewUser::route('/{record}'),
         ];
+    }
+
+    private static function resolveSubdomainState(?User $record): string
+    {
+        $subdomain = $record?->account?->subdomain;
+
+        if (blank($subdomain)) {
+            return 'amoCRM не подключена';
+        }
+
+        return 'https://' . $subdomain . '.amocrm.ru';
     }
 }

@@ -79,4 +79,9 @@ return [
             'public' => true,
         ],
     ],
+
+    'amo_auth_alert' => [
+        // repeat alert window to avoid spamming when oauth stays broken
+        'cooldown_minutes' => (int)env('AMO_AUTH_ALERT_COOLDOWN_MINUTES', 360),
+    ],
 ];

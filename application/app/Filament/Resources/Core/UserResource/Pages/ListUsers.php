@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Core\UserResource\Pages;
 
+use App\Filament\App\Pages\ApiRequests;
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Backup;
 use App\Filament\Resources\Core\UserResource;
@@ -28,6 +29,17 @@ class ListUsers extends ListRecords
                 ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
                 ->openUrlInNewTab()
                 ->color(Color::Green);
+        }
+
+        if (
+            config('features.panel_actions.api_requests', true)
+            && Route::has('filament.app.pages.api-requests')
+        ) {
+            $actions[] = Action::make('api_requests')
+                ->label('Api запросы')
+                ->url(fn(): string => ApiRequests::getUrl())
+                ->openUrlInNewTab()
+                ->color(Color::Blue);
         }
 
         if (config('features.panel_actions.auth_logs', true)) {

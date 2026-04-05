@@ -6,7 +6,9 @@ use App\Models\Core\Account;
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 use Ufee\Amo\Base\Models\QueryModel;
 use Ufee\Amo\Oauthapi;
 
@@ -69,12 +71,14 @@ class Client
             $this->service->account;
 
             $this->auth = true;
+            $this->clearAuthFailureThrottle();
 
             return true;
 
         } catch (Exception $e) {
 
             Log::error(__METHOD__.' fail check auth', [$e->getMessage()]);
+            $this->notifyAuthFailure($e, 'check_auth');
 
             return false;
         }
@@ -181,32 +185,44 @@ class Client
      */
     private function syncOauthData(bool $forceRefresh = false): void
     {
-        if (!$this->storage->model->refresh_token && !$this->storage->model->code) {
-            throw new Exception('Incorrect amoCRM oauth data');
+        try {
+            if (!$this->storage->model->refresh_token && !$this->storage->model->code) {
+                throw new Exception('Incorrect amoCRM oauth data');
+            }
+
+            if ($forceRefresh) {
+                $oauth = $this->refreshOauthPayload();
+                $this->persistOauthData($oauth);
+
+                return;
+            }
+
+            if (!$this->storage->model->access_token) {
+                $oauth = $this->issueInitialOauthPayload();
+                $this->persistOauthData($oauth);
+
+                return;
+            }
+
+            if ($this->tokenExpiresAt()?->subMinute()->isPast()) {
+                $oauth = $this->refreshOauthPayload();
+                $this->persistOauthData($oauth);
+
+                return;
+            }
+
+            $this->auth = true;
+            $this->clearAuthFailureThrottle();
+        } catch (Throwable $e) {
+            $this->auth = false;
+            $this->notifyAuthFailure($e, $forceRefresh ? 'force_refresh' : 'sync_oauth');
+
+            if ($e instanceof Exception) {
+                throw $e;
+            }
+
+            throw new Exception($e->getMessage(), (int)$e->getCode(), $e);
         }
-
-        if ($forceRefresh) {
-            $oauth = $this->refreshOauthPayload();
-            $this->persistOauthData($oauth);
-
-            return;
-        }
-
-        if (!$this->storage->model->access_token) {
-            $oauth = $this->issueInitialOauthPayload();
-            $this->persistOauthData($oauth);
-
-            return;
-        }
-
-        if ($this->tokenExpiresAt()?->subMinute()->isPast()) {
-            $oauth = $this->refreshOauthPayload();
-            $this->persistOauthData($oauth);
-
-            return;
-        }
-
-        $this->auth = true;
     }
 
     /**
@@ -245,6 +261,7 @@ class Client
 
         $this->account->refresh();
         $this->auth = true;
+        $this->clearAuthFailureThrottle();
     }
 
     private function tokenExpiresAt(): ?Carbon
@@ -258,6 +275,33 @@ class Client
             : Carbon::parse($this->storage->model->created_at);
 
         return $createdAt->copy()->addSeconds((int)$this->storage->model->expires_in);
+    }
+
+    private function notifyAuthFailure(Throwable $e, string $context): void
+    {
+        try {
+            App::make(AmoAuthFailureNotifier::class)->notify($this->account, $e, $context);
+        } catch (Throwable $notifyError) {
+            Log::warning('amoCRM auth failure notify failed (ignored)', [
+                'account_id' => $this->account->id,
+                'user_id' => $this->account->user_id,
+                'context' => $context,
+                'error' => $notifyError->getMessage(),
+            ]);
+        }
+    }
+
+    private function clearAuthFailureThrottle(): void
+    {
+        try {
+            App::make(AmoAuthFailureNotifier::class)->clearThrottle($this->account);
+        } catch (Throwable $e) {
+            Log::warning('amoCRM auth failure throttle clear failed (ignored)', [
+                'account_id' => $this->account->id,
+                'user_id' => $this->account->user_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
 }

@@ -6,7 +6,6 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Facades\Auth;
 
 class StaffsRelationManager extends RelationManager
 {
@@ -18,7 +17,9 @@ class StaffsRelationManager extends RelationManager
 
     protected function getTableQuery(): Builder|Relation|null
     {
-        return Auth::user()->amocrm_staffs()->getQuery();
+        return $this->getOwnerRecord()
+            ->amocrm_staffs()
+            ->getQuery();
     }
 
     public function table(Tables\Table $table): Tables\Table

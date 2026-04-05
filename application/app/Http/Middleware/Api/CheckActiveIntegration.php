@@ -4,6 +4,7 @@ namespace App\Http\Middleware\Api;
 
 use App\Models\App;
 use App\Models\User;
+use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,7 +21,7 @@ class CheckActiveIntegration
      */
     public function handle(Request $request, Closure $next, string $appName): Response
     {
-        $user = $request->user ?? $request->route('user');
+        $user = $request->route('user') ?? $request->user;
 
         if (is_string($user)) {
             $user = User::query()
@@ -40,10 +41,29 @@ class CheckActiveIntegration
             return new Response('app no found', 403);
         }
 
-        if ($app->status !== App::STATE_ACTIVE) {
+        if (!$this->isAppActiveAndPaid($app)) {
             return new Response('app no active', 403);
         }
 
         return $next($request);
+    }
+
+    private function isAppActiveAndPaid(App $app): bool
+    {
+        if ((int)$app->status !== App::STATE_ACTIVE) {
+            return false;
+        }
+
+        if (blank($app->expires_tariff_at)) {
+            return true;
+        }
+
+        try {
+            $expiresAt = Carbon::parse($app->expires_tariff_at)->startOfDay();
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return !$expiresAt->lt(now()->startOfDay());
     }
 }

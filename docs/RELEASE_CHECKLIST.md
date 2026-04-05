@@ -47,5 +47,6 @@ php artisan app:monitor-queue-health --sample=3
 
 - `/panel/core/users` (кнопка "Очереди")
 - `/panel/queue-monitors`
+- `/panel/api-requests` (последние API запросы)
 
 5. Сделать тестовую регистрацию и убедиться, что пришёл alert в TG/mail.

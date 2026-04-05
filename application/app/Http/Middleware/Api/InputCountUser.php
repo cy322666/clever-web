@@ -18,17 +18,26 @@ class InputCountUser
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user;
+        $user = $request->route('user') ?? $request->user;
 
         if (is_string($user)) {
             $user = User::query()
-                ->where('uuid', $request->user)
-                ->firstOrFail();
+                ->where('uuid', $user)
+                ->first();
         }
 
-        $user->count_inputs += 1;
-        $user->save();
+        $response = $next($request);
 
-        return $next($request);
+        if (!$user instanceof User) {
+            return $response;
+        }
+
+        if ($response->getStatusCode() >= 400) {
+            return $response;
+        }
+
+        $user->increment('count_inputs');
+
+        return $response;
     }
 }

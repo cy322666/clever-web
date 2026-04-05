@@ -193,4 +193,5 @@ sudo ufw deny 9187/tcp
 UI для операторов:
 
 - `/panel/queue-monitors` — монитор `queue_monitors`
+- `/panel/api-requests` — список входящих API запросов (по умолчанию за 24 часа)
 - `/panel/app-stats` — дополнительно виджет метрик очередей, которые не дублируются в Grafana

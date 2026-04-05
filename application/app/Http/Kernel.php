@@ -6,6 +6,7 @@ use App\Http\Middleware\Api\CheckActiveIntegration;
 use App\Http\Middleware\Api\CheckAssistantToken;
 use App\Http\Middleware\Api\CheckActiveUser;
 use App\Http\Middleware\Api\InputCountUser;
+use App\Http\Middleware\Api\StoreApiRequest;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -44,6 +45,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            StoreApiRequest::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
