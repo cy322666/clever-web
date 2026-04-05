@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Core;
 use App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource\RelationManagers;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -104,7 +105,7 @@ class UserResource extends Resource
             ->filters([])
             ->paginated([10, 30, 'all'])
             ->actions([
-                Tables\Actions\Action::make('widgets')
+                Action::make('widgets')
                     ->label('Виджеты')
                     ->icon('heroicon-o-puzzle-piece')
                     ->visible(fn(): bool => auth()->check() && (bool)auth()->user()?->is_root)
