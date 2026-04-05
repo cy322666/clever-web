@@ -6,13 +6,17 @@ use App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use App\Services\Core\UserDeleteService;
 use STS\FilamentImpersonate\Actions\Impersonate;
 use Tapp\FilamentAuthenticationLog\RelationManagers\AuthenticationLogsRelationManager;
+use Throwable;
 
 class UserResource extends Resource
 {
@@ -64,8 +68,7 @@ class UserResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->label('ID')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Название')
@@ -73,7 +76,15 @@ class UserResource extends Resource
 
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
-                    ->searchable(),
+                    ->searchable(
+                        ['email'],
+                        function (Builder $query, string $search): Builder {
+                            $term = strtolower(trim($search));
+
+                            return $query->whereRaw('LOWER(email) LIKE ?', ['%' . $term . '%']);
+                        }
+                    )
+                    ->forceSearchCaseInsensitive(),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Создан')
@@ -103,13 +114,45 @@ class UserResource extends Resource
                     }),
             ])
             ->filters([])
-            ->paginated([10, 30, 'all'])
+            ->searchPlaceholder('Поиск по email')
+            ->defaultSort('id', 'desc')
+            ->paginated(false)
             ->actions([
                 Action::make('widgets')
                     ->label('Виджеты')
                     ->icon('heroicon-o-puzzle-piece')
                     ->visible(fn(): bool => auth()->check() && (bool)auth()->user()?->is_root)
                     ->url(fn(User $user): string => Pages\ViewUser::getUrl(['record' => $user->id])),
+                Action::make('delete_user')
+                    ->label('Удалить')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Удалить пользователя?')
+                    ->modalDescription('Будут удалены пользователь, установки, транзакции и связанные данные.')
+                    ->visible(
+                        fn(User $user): bool => auth()->check()
+                            && (bool)auth()->user()?->is_root
+                            && !(bool)$user->is_root
+                            && (int)auth()->id() !== (int)$user->id
+                    )
+                    ->action(function (User $user): void {
+                        try {
+                            $stats = app(UserDeleteService::class)->delete($user, auth()->user());
+
+                            Notification::make()
+                                ->title('Пользователь удален')
+                                ->body('Удалено записей: ' . array_sum($stats))
+                                ->success()
+                                ->send();
+                        } catch (Throwable $e) {
+                            Notification::make()
+                                ->title('Удаление не выполнено')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 Impersonate::make()
                     ->hiddenLabel()
                     ->hidden(fn(): bool => !auth()->check() || !(bool)auth()->user()?->is_root)
