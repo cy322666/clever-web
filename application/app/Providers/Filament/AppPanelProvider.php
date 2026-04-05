@@ -43,6 +43,7 @@ class AppPanelProvider extends PanelProvider
     {
         return $panel
             ->id('app')
+            ->default()
             ->path('panel')
             ->login()
             ->registration()
