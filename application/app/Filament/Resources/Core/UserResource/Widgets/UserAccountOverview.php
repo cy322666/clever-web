@@ -72,7 +72,7 @@ class UserAccountOverview extends StatsOverviewWidget
                 ->color($amoConnected ? 'success' : 'danger'),
 
             Stat::make('Установленные интеграции', (string)$apps->count())
-                ->description('Без черновиков')
+                ->description('Только установленные')
                 ->descriptionIcon('heroicon-o-squares-2x2')
                 ->color('info'),
 
