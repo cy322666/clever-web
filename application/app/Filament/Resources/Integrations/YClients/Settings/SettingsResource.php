@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Filament\Resources\Integrations\Yclients\Settings;
+namespace App\Filament\Resources\Integrations\YClients\Settings;
 
-use App\Filament\Resources\Integrations\Yclients\Settings\Pages\CreateSettings;
-use App\Filament\Resources\Integrations\Yclients\Settings\Pages\EditSettings;
-use App\Filament\Resources\Integrations\Yclients\Settings\Pages\ListSettings;
-use App\Filament\Resources\Integrations\Yclients\Settings\Schemas\SettingsForm;
-use App\Filament\Resources\Integrations\Yclients\Settings\Tables\SettingsTable;
+use App\Filament\Resources\Integrations\YClients\Settings\Pages\CreateSettings;
+use App\Filament\Resources\Integrations\YClients\Settings\Pages\EditSettings;
+use App\Filament\Resources\Integrations\YClients\Settings\Pages\ListSettings;
+use App\Filament\Resources\Integrations\YClients\Settings\Schemas\SettingsForm;
+use App\Filament\Resources\Integrations\YClients\Settings\Tables\SettingsTable;
 use App\Models\Integrations\YClients\Setting;
 use BackedEnum;
 use Filament\Resources\Resource;

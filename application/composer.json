@@ -55,7 +55,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "exclude-from-classmap": [
+            "vendor/ufee/amoapi/src/Base/Models/ApiModel.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

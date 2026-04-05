@@ -12,6 +12,7 @@ use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Account as AccountSync;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -327,10 +328,20 @@ class AmoDataSyncService
             return;
         }
 
-        // SMTP can be temporarily unavailable in production.
-        // Use failover mailer to avoid failing sync flow and queue worker.
-        Mail::mailer('failover')
-            ->to($setting->user->email)
-            ->queue(new AmoDataSyncFinished($setting, $run));
+        // Mail delivery must never fail amo-data sync jobs.
+        // Queue through failover and swallow transport/queue errors.
+        try {
+            Mail::mailer('failover')
+                ->to($setting->user->email)
+                ->queue(new AmoDataSyncFinished($setting, $run));
+        } catch (Throwable $e) {
+            Log::warning('amo-data completion email failed (ignored)', [
+                'setting_id' => $setting->id,
+                'run_id' => $run->id,
+                'user_id' => $setting->user_id,
+                'email' => $setting->user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

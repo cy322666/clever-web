@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\Integrations\Yclients\Settings\Tables;
+namespace App\Filament\Resources\Integrations\YClients\Settings\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;

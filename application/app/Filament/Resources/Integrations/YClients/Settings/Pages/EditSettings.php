@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\Integrations\Yclients\Settings\Pages;
+namespace App\Filament\Resources\Integrations\YClients\Settings\Pages;
 
-use App\Filament\Resources\Integrations\Yclients\Settings\SettingsResource;
+use App\Filament\Resources\Integrations\YClients\Settings\SettingsResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions\DeleteAction;

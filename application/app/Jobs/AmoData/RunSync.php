@@ -50,6 +50,10 @@ class RunSync implements ShouldQueue
             return;
         }
 
+        if ($this->type === 'periodic' && !$setting->active) {
+            return;
+        }
+
         if ($this->type === 'initial') {
             $service->initial($setting);
 
