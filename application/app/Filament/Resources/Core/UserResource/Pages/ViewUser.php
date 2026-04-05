@@ -22,6 +22,11 @@ class ViewUser extends ViewRecord
 
     protected static ?string $title = 'Аккаунт';
 
+    public function mountCanAuthorizeResourceAccess(): void
+    {
+        abort_unless(Auth::check(), 403);
+    }
+
     protected function getActions(): array
     {
         $account = $this->record->account;
@@ -67,8 +72,9 @@ class ViewUser extends ViewRecord
     public function mount(int|string $record): void
     {
         if (!Auth::user()?->is_root && Auth::id() !== (int)$record) {
-
             $this->redirect(UserResource::getUrl('view', ['record' => Auth::id()]));
+
+            return;
         }
 
         parent::mount($record);

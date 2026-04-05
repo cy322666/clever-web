@@ -5,9 +5,7 @@ namespace App\Filament\Resources\Core;
 use App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\Resources\Core\UserResource\RelationManagers;
 use App\Models\User;
-use Filament\Forms;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Illuminate\Database\Eloquent\Model;
@@ -56,35 +54,7 @@ class UserResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->schema([
-                Section::make('Технические данные')
-                    ->schema([
-                        Forms\Components\TextInput::make('email')
-                            ->label('Почта')
-                            ->disabled(),
-                        Forms\Components\TextInput::make('uuid')
-                            ->label('Идентификатор')
-                            ->copyable()
-                            ->disabled(),
-                        Forms\Components\Placeholder::make('subdomain')
-                            ->label('Субдомен')
-                            ->content(fn(?User $record): string => self::resolveSubdomainState($record)),
-                        Forms\Components\Placeholder::make('created_at')
-                            ->label('Создан')
-                            ->content(fn (?User $record): string => $record ? $record->created_at->diffForHumans() : '-'),
-                        Forms\Components\Placeholder::make('updated_at')
-                            ->label('Обновлен')
-                            ->content(fn (?User $record): string => $record ? $record->updated_at->diffForHumans() : '-'),
-                    ])
-                    ->columns([
-                        'sm' => 2,
-                    ])
-                    ->columnSpanFull(),
-            ])->columns([
-                'sm' => 1,
-                'lg' => null,
-            ]);
+        return $schema->schema([]);
     }
 
     public static function table(Tables\Table $table): Tables\Table
@@ -163,16 +133,5 @@ class UserResource extends Resource
             'edit'   => Pages\EditUser::route('/{record}/edit'),
             'view'   => Pages\ViewUser::route('/{record}'),
         ];
-    }
-
-    private static function resolveSubdomainState(?User $record): string
-    {
-        $subdomain = $record?->account?->subdomain;
-
-        if (blank($subdomain)) {
-            return 'amoCRM не подключена';
-        }
-
-        return 'https://' . $subdomain . '.amocrm.ru';
     }
 }
