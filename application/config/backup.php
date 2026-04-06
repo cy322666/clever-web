@@ -118,8 +118,7 @@ return [
              * The disk names on which the backups will be stored.
              */
             'disks' => [
-                env('APP_ENV', 'local'),
-//                'production',
+                env('BACKUP_DISK', 'local'),
             ],
         ],
 
