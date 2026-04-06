@@ -157,7 +157,7 @@ class ApiModel extends Model
                 throw $exception;
             }
 
-            if ($this->retryUpdateWithFreshUpdatedAt()) {
+            if ($this->retryUpdateWithFreshUpdatedAt(3)) {
                 return true;
             }
 
@@ -170,48 +170,60 @@ class ApiModel extends Model
         return stripos($exception->getMessage(), 'Last modified date is older than in') !== false;
     }
 
-    private function retryUpdateWithFreshUpdatedAt(): bool
+    private function retryUpdateWithFreshUpdatedAt(int $maxAttempts = 3): bool
     {
         if (!$this->id || !method_exists($this->service, 'find') || !method_exists($this->service, 'updateRaw')) {
             return false;
         }
 
-        $raw = $this->getChangedRawApiData();
+        $maxAttempts = max(1, $maxAttempts);
 
-        if (empty($raw)) {
-            return false;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $raw = $this->getChangedRawApiData();
+
+            if (empty($raw)) {
+                return false;
+            }
+
+            $freshModel = $this->service->find($this->id);
+            if (!$freshModel || !isset($freshModel->updated_at)) {
+                return false;
+            }
+
+            $raw['id'] = $this->id;
+            $raw['updated_at'] = $freshModel->updated_at;
+
+            try {
+                $updatedRows = $this->service->updateRaw([$raw]);
+            } catch (Throwable $e) {
+                if ($this->isLastModifiedConflict($e) && $attempt < $maxAttempts) {
+                    usleep(200000 * $attempt);
+                    continue;
+                }
+
+                return false;
+            }
+
+            if (!$updatedRows || !method_exists($updatedRows, 'find')) {
+                return false;
+            }
+
+            $updatedRaw = $updatedRows->find('id', $this->id)->first();
+            if (!$updatedRaw) {
+                return false;
+            }
+
+            $this->setId($updatedRaw->id ?? $this->id);
+            if (isset($updatedRaw->query_hash)) {
+                $this->setQueryHash($updatedRaw->query_hash);
+            }
+
+            $this->saved();
+
+            return true;
         }
 
-        $freshModel = $this->service->find($this->id);
-        if (!$freshModel || !isset($freshModel->updated_at)) {
-            return false;
-        }
-
-        $raw['id'] = $this->id;
-        $raw['updated_at'] = $freshModel->updated_at;
-
-        try {
-            $updatedRows = $this->service->updateRaw([$raw]);
-        } catch (Throwable) {
-            return false;
-        }
-        if (!$updatedRows || !method_exists($updatedRows, 'find')) {
-            return false;
-        }
-
-        $updatedRaw = $updatedRows->find('id', $this->id)->first();
-        if (!$updatedRaw) {
-            return false;
-        }
-
-        $this->setId($updatedRaw->id ?? $this->id);
-        if (isset($updatedRaw->query_hash)) {
-            $this->setQueryHash($updatedRaw->query_hash);
-        }
-
-        $this->saved();
-
-        return true;
+        return false;
     }
 
     /**
