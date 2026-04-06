@@ -41,8 +41,7 @@ class HealthController extends Controller
         }
 
         $ok = $checks['app'] === 'ok'
-            && $checks['db'] === 'ok'
-            && $checks['scheduler'] !== 'fail';
+            && $checks['db'] === 'ok';
 
         $payload = [
             'status' => $ok ? 'ok' : 'fail',
@@ -51,6 +50,10 @@ class HealthController extends Controller
             'scheduler_age_seconds' => $schedulerAgeSeconds,
             'app_env' => app()->environment(),
         ];
+
+        if ($checks['scheduler'] === 'fail') {
+            $payload['warning'] = 'scheduler_heartbeat_stale';
+        }
 
         if ($dbError) {
             $payload['db_error'] = $dbError;
