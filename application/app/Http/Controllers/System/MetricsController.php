@@ -111,14 +111,14 @@ class MetricsController extends Controller
 
     private function isAuthorized(Request $request): bool
     {
-        $token = (string)env('METRICS_TOKEN', '');
+        $token = trim((string)env('METRICS_TOKEN', (string)getenv('METRICS_TOKEN')));
 
         if ($token === '') {
             return app()->environment('local');
         }
 
-        $bearer = (string)$request->bearerToken();
-        $queryToken = (string)$request->query('token', '');
+        $bearer = trim((string)$request->bearerToken());
+        $queryToken = trim((string)$request->query('token', ''));
 
         return hash_equals($token, $bearer) || hash_equals($token, $queryToken);
     }
