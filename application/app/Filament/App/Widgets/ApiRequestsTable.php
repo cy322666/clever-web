@@ -49,7 +49,8 @@ class ApiRequestsTable extends TableWidget
                     ->label('Путь')
                     ->searchable()
                     ->limit(70)
-                    ->tooltip(fn(string $state): string => $state),
+                    ->tooltip(fn(string $state): string => $state)
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('status_code')
                     ->label('Статус')
