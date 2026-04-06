@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ApiRequestsTable extends TableWidget
 {
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $pollingInterval = '5s';
     protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
