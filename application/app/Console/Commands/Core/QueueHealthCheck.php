@@ -47,9 +47,26 @@ class QueueHealthCheck extends Command
         $lastSeenId = (int)Cache::get($cacheKey, 0);
 
         if ($lastSeenId === 0) {
+            $initialCount = (int)DB::connection($failedConnection)
+                ->table($failedTable)
+                ->count();
+
+            if ($initialCount > 0) {
+                AlertService::critical(
+                    title: 'Очередь: обнаружены existing failed jobs',
+                    message: "В таблице {$failedTable} уже есть {$initialCount} failed jobs.",
+                    context: [
+                        'max_id' => $maxId,
+                        'connection' => $failedConnection,
+                    ],
+                    dedupeKey: 'queue:failed:bootstrap:max_id:' . $maxId,
+                    ttlSeconds: 3600,
+                );
+            }
+
             Cache::forever($cacheKey, $maxId);
 
-            return 0;
+            return $initialCount;
         }
 
         if ($maxId <= $lastSeenId) {

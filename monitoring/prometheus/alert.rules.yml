@@ -32,7 +32,7 @@ groups:
         expr: clever_queue_failed_jobs_total > 0
         for: 5m
         labels:
-          severity: warning
+          severity: critical
         annotations:
           summary: "Обнаружены упавшие задачи"
           description: "В таблице failed_jobs есть записи минимум 5 минут."

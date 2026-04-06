@@ -12,6 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        $dbConnection = config('database.default', 'pgsql');
+
         $schedule->command('app:monitor-heartbeat')
             ->everyMinute();
 
@@ -29,7 +31,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 
-        $schedule->command('backup:run --db-name=' . env('DB_CONNECTION') . ' --only-db')
+        $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
             ->dailyAt('00:00');
 
         $schedule->command('app:amo-data-sync-periodic')

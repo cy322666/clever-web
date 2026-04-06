@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Listeners\SendFailedJobAlert;
 use App\Listeners\SendTelegramRegistrationNotification;
 use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Queue\Events\JobFailed;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -18,6 +20,9 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         Registered::class => [
             SendTelegramRegistrationNotification::class,
+        ],
+        JobFailed::class => [
+            SendFailedJobAlert::class,
         ],
     ];
 
