@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\System\HealthController;
 use App\Http\Controllers\System\IntegrationOpenController;
 use App\Http\Controllers\System\MetricsController;
 use App\Models\User;
@@ -32,7 +31,7 @@ Route::get('/', function (Request $request) {
 
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
 
-Route::get('/up', HealthController::class)
+Route::get('/up', fn() => response('OK', 200))
     ->name('up');
 Route::get('/metrics', MetricsController::class)->name('metrics');
 Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
