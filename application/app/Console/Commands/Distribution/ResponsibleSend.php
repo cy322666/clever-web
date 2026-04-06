@@ -10,7 +10,6 @@ use App\Models\Integrations\Tilda\Setting;
 use App\Models\User;
 use App\Services\amoCRM\Client;
 use Illuminate\Console\Command;
-use Illuminate\Support\Env;
 
 class ResponsibleSend extends Command
 {
@@ -43,7 +42,7 @@ class ResponsibleSend extends Command
 
         $amoApi = (new Client($account))
             ->setDelay(0.5)
-            ->initLogs(Env::get('APP_DEBUG'));
+            ->initLogs(config('app.debug', false));
 
         /** @var Transaction $transaction */
         $strategy = $transaction->matchStrategy();

@@ -123,8 +123,14 @@ class Client
         \Ufee\Amo\Services\Account::setCacheTime($time);
     }
 
-    public function initLogs(bool $debug = true): Client
+    public function initLogs(mixed $debug = true): Client
     {
+        if (is_string($debug)) {
+            $debug = filter_var($debug, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+        } else {
+            $debug = (bool)$debug;
+        }
+
         return $this;
 
         if (!$debug) return $this;
