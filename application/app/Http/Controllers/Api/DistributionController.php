@@ -7,6 +7,7 @@ use App\Jobs\Distribution\ResponsibleSend;
 use App\Models\Integrations\Distribution\Transaction;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DistributionController extends Controller
 {
@@ -25,8 +26,16 @@ class DistributionController extends Controller
 
         [$settingTemplate, $templateIndex, $queueUuid] = $this->resolveTemplate($settings, $template);
         if ($settingTemplate === null) {
+            Log::warning('Distribution webhook: queue template not found', [
+                'user_id' => $user->id,
+                'distribution_setting_id' => $setting->id,
+                'template_param' => $template,
+                'settings_count' => is_array($settings) ? count($settings) : 0,
+            ]);
+
             return response()->json([
                 'ok' => false,
+                'code' => 'queue_template_not_found',
                 'message' => 'Queue template not found',
             ], 422);
         }
@@ -34,8 +43,17 @@ class DistributionController extends Controller
         $payload = $this->resolvePayload($request);
         $leadId = $this->resolveLeadId($payload);
         if ($leadId === null) {
+            Log::warning('Distribution webhook: lead id is required', [
+                'user_id' => $user->id,
+                'distribution_setting_id' => $setting->id,
+                'template_param' => $template,
+                'payload_keys' => array_keys($payload),
+                'leads_type' => gettype($payload['leads'] ?? null),
+            ]);
+
             return response()->json([
                 'ok' => false,
+                'code' => 'lead_id_required',
                 'message' => 'Lead id is required',
             ], 422);
         }
@@ -100,6 +118,11 @@ class DistributionController extends Controller
     {
         $payload = $request->toArray();
         if (is_array($payload) && !empty($payload)) {
+            $normalized = $this->normalizePayload($payload);
+            if (!empty($normalized)) {
+                return $normalized;
+            }
+
             return $payload;
         }
 
@@ -110,16 +133,51 @@ class DistributionController extends Controller
 
         $decodedJson = json_decode($rawBody, true);
         if (is_array($decodedJson)) {
-            return $decodedJson;
+            return $this->normalizePayload($decodedJson);
         }
 
         $parsed = [];
         parse_str($rawBody, $parsed);
         if (is_array($parsed) && !empty($parsed)) {
-            return $parsed;
+            return $this->normalizePayload($parsed);
         }
 
         return [];
+    }
+
+    private function normalizePayload(array $payload): array
+    {
+        if (isset($payload['leads']) && is_string($payload['leads'])) {
+            $decodedLeads = json_decode($payload['leads'], true);
+            if (is_array($decodedLeads)) {
+                $payload['leads'] = $decodedLeads;
+            } else {
+                $parsedLeads = [];
+                parse_str($payload['leads'], $parsedLeads);
+                if (!empty($parsedLeads)) {
+                    $payload['leads'] = $parsedLeads;
+                }
+            }
+        }
+
+        foreach (['payload', 'data', 'request', 'body'] as $wrapperKey) {
+            if (!isset($payload[$wrapperKey]) || !is_string($payload[$wrapperKey])) {
+                continue;
+            }
+
+            $decodedWrapped = json_decode($payload[$wrapperKey], true);
+            if (is_array($decodedWrapped)) {
+                return $decodedWrapped;
+            }
+
+            $parsedWrapped = [];
+            parse_str($payload[$wrapperKey], $parsedWrapped);
+            if (!empty($parsedWrapped)) {
+                return $parsedWrapped;
+            }
+        }
+
+        return $payload;
     }
 
     private function findNumericIdRecursively(mixed $node): ?int
@@ -129,7 +187,7 @@ class DistributionController extends Controller
         }
 
         foreach ($node as $key => $value) {
-            if ($key === 'id' && is_numeric($value)) {
+            if (in_array((string)$key, ['id', 'lead_id'], true) && is_numeric($value)) {
                 return (int)$value;
             }
 
@@ -161,6 +219,24 @@ class DistributionController extends Controller
             if (($queue['queue_uuid'] ?? null) === $template) {
                 return [$queue, (int)$index, $template];
             }
+        }
+
+        $normalizedQueues = [];
+        foreach ($settings as $index => $queue) {
+            if (!is_array($queue)) {
+                continue;
+            }
+
+            $normalizedQueues[] = [
+                'index' => (int)$index,
+                'queue' => $queue,
+            ];
+        }
+
+        if (count($normalizedQueues) === 1) {
+            $single = $normalizedQueues[0];
+
+            return [$single['queue'], $single['index'], $single['queue']['queue_uuid'] ?? null];
         }
 
         return [null, null, null];
