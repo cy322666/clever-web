@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Observers\QueueMonitorObserver;
+use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Events\QueryExecuted;
@@ -33,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        QueueMonitor::observe(QueueMonitorObserver::class);
+
         FilamentAsset::register([
             Js::make('amochat', resource_path('js/amochat.js')),
         ]);
