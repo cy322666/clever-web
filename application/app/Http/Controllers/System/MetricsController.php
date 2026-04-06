@@ -111,6 +111,11 @@ class MetricsController extends Controller
 
     private function isAuthorized(Request $request): bool
     {
+        $ip = (string)$request->ip();
+        if ($this->isPrivateOrLoopbackIp($ip)) {
+            return true;
+        }
+
         $token = trim((string)env('METRICS_TOKEN', (string)getenv('METRICS_TOKEN')));
 
         if ($token === '') {
@@ -121,6 +126,23 @@ class MetricsController extends Controller
         $queryToken = trim((string)$request->query('token', ''));
 
         return hash_equals($token, $bearer) || hash_equals($token, $queryToken);
+    }
+
+    private function isPrivateOrLoopbackIp(string $ip): bool
+    {
+        if ($ip === '') {
+            return false;
+        }
+
+        if (in_array($ip, ['127.0.0.1', '::1'], true)) {
+            return true;
+        }
+
+        return filter_var(
+                $ip,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+            ) === false;
     }
 
     private function escapeLabel(string $value): string
