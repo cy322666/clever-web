@@ -54,12 +54,6 @@ class ViewUser extends ViewRecord
             Action::make('root')
                 ->label('Монитор')
                 ->url(UserResource::getUrl()),
-            Action::make('widgets')
-                ->label('Виджеты')
-                ->url(url('/catalog/widgets')),
-            Action::make('cases')
-                ->label('Кейсы')
-                ->url(url('/catalog/cases')),
         ])
             ->label('Навигация')
             ->icon('heroicon-o-ellipsis-horizontal')

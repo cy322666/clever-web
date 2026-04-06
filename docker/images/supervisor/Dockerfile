@@ -3,6 +3,7 @@ FROM php:8.2-fpm-bullseye
 RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     curl unzip \
+    postgresql-client \
     libpq-dev \
     libpng-dev \
     libzip-dev \

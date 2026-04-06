@@ -18,11 +18,6 @@ class ViewCompanyCase extends ViewRecord
                 ->label('Редактировать')
                 ->url(fn () => CompanyCaseResource::getUrl('edit', ['record' => $this->record]))
                 ->color(Color::Gray),
-            Action::make('public')
-                ->label('Посмотреть')
-                ->url(fn () => url('/catalog/cases/' . $this->record->slug))
-                ->openUrlInNewTab()
-                ->color(Color::Gray),
         ];
     }
 }

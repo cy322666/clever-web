@@ -4,110 +4,129 @@ namespace App\Filament\App\Widgets;
 
 use App\Models\App;
 use Carbon\Carbon;
-use Filament\Actions\BulkActionGroup;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 class Market extends TableWidget
 {
+    use InteractsWithPageFilters;
+
     public function table(Table $table): Table
     {
         return $table
-            ->query(function () {
-
-                $app = App::query()
-                    ->where('user_id', auth()->id());
-
-                if (env('APP_ENV') === 'production') {
-                    $noPublic = App::noPublicNames();
-
-                    foreach ($noPublic as $name) {
-                        $app->where('name', '!=', $name);
-                    }
-                }
-
-                return $app;
-            })
+            ->query(fn(): Builder => $this->getFilteredQuery())
             ->columns([
                 Stack::make([
                     Split::make([
-
                         TextColumn::make('title')
-                        ->label('Название')
-                        ->weight(FontWeight::Bold)
-                        ->size(TextSize::Medium)
+                            ->label('Название')
+                            ->weight(FontWeight::Bold)
+                            ->size(TextSize::Medium)
                             ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
                             ->limit(28)
                             ->state(fn(?App $app) => self::safeRecordTitle($app)),
 
-                    TextColumn::make('status')
-                        ->label('Статус')
-                        ->alignRight()
-                        ->badge()
-                        ->state(fn(App $app): string => self::statusBadgeText($app))
-                        ->color(fn(App $app): string => match (self::effectiveStatus($app)) {
-                            App::STATE_CREATED  => 'gray',
-                            App::STATE_INACTIVE => 'warning',
-                            App::STATE_ACTIVE   => 'success',
-                            App::STATE_EXPIRES  => 'danger',
-                        }),
+                        TextColumn::make('status')
+                            ->label('Статус')
+                            ->alignRight()
+                            ->badge()
+                            ->state(fn(App $app): string => self::statusBadgeText($app))
+                            ->color(fn(App $app): string => match (self::effectiveStatus($app)) {
+                                App::STATE_CREATED => 'gray',
+                                App::STATE_INACTIVE => 'warning',
+                                App::STATE_ACTIVE => 'success',
+                                App::STATE_EXPIRES => 'danger',
+                            }),
                     ]),
 
-//                     TextColumn::make('description')
-//                         ->label('')
-//                         ->size(TextSize::Small)
-//                         ->wrap()
-//                         ->extraAttributes(['class' => 'mt-3'])
-//                         ->state(
-//                             fn(?App $record) => Str::limit(
-//                                 trim(App::getTooltipText($record->name)),
-//                                 100,
-//                             )
-//                         ),
+                    TextColumn::make('excerpt')
+                        ->label('')
+                        ->color('gray')
+                        ->size(TextSize::Small)
+                        ->wrap()
+                        ->extraAttributes(['class' => 'mt-3'])
+                        ->state(
+                            fn(?App $record) => filled($record)
+                                ? Str::limit(trim(App::getTooltipText($record->name)), 160)
+                                : null
+                        )
+                        ->visible(fn(?App $record) => filled(trim((string)App::getTooltipText($record?->name ?? '')))),
                 ])->space(3),
             ])
             ->contentGrid([
-                'md' => 3,
+                'md' => 2,
                 'xl' => 3,
             ])
-//            ->groups([
-//                Group::make('status')
-//                    ->label('Статус')
-//                    ->getTitleFromRecordUsing(fn (App $app): string => ucfirst($app->getStatusLabel())),
-//            ])
-//            ->groupingSettingsHidden()
-//            ->defaultGroup('status')
             ->paginated(false)
             ->recordUrl(
                 fn(App $app): string => route('integrations.open', ['app' => $app->id])
             )
-            ->filters([
-                //
-            ])
-            ->headerActions([
-                //
-            ])
-            ->recordActions([
-                //
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    //
-                ]),
-            ])
             ->heading(false)
             ->striped(false);
-
     }
 
     public function getColumnSpan(): int | string | array
     {
         return 2;
+    }
+
+    protected function getFilteredQuery(): Builder
+    {
+        $query = App::query()
+            ->where('user_id', auth()->id());
+
+        if (app()->environment('production')) {
+            $query->whereNotIn('name', App::noPublicNames());
+        }
+
+        $status = (string)($this->pageFilters['status'] ?? 'all');
+        if ($status !== '' && $status !== 'all') {
+            $query->where('status', (int)$status);
+        }
+
+        $search = trim((string)($this->pageFilters['q'] ?? ''));
+        if ($search !== '') {
+            $query->where(function (Builder $builder) use ($search): void {
+                $builder->where('name', 'like', '%' . $search . '%');
+
+                $matchedByMeta = $this->matchedAppNamesByMeta($search);
+                if (!empty($matchedByMeta)) {
+                    $builder->orWhereIn('name', $matchedByMeta);
+                }
+            });
+        }
+
+        return $query->orderBy('name');
+    }
+
+    private function matchedAppNamesByMeta(string $search): array
+    {
+        $search = Str::lower(trim($search));
+        if ($search === '') {
+            return [];
+        }
+
+        return App::query()
+            ->where('user_id', auth()->id())
+            ->get(['name', 'resource_name'])
+            ->filter(function (App $app) use ($search): bool {
+                $title = Str::lower(self::safeRecordTitle($app));
+                $tooltip = Str::lower(App::getTooltipText($app->name));
+
+                return Str::contains($title . ' ' . $tooltip, $search);
+            })
+            ->pluck('name')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private static function effectiveStatus(App $app): int
@@ -140,9 +159,7 @@ class Market extends TableWidget
                 ->startOfDay()
                 ->diffInDays(now()->startOfDay());
 
-            return $daysAgo === 0
-                ? 'Заканчивается сегодня'
-                : 'Просрочено на ' . $daysAgo . ' дн.';
+            return $daysAgo . ' дн.';
         }
 
         return match ($status) {

@@ -328,6 +328,10 @@ class AmoDataSyncService
             return;
         }
 
+        if ($run->status === 'success' && $run->type !== 'initial') {
+            return;
+        }
+
         // Mail delivery must never fail amo-data sync jobs.
         // Queue through failover and swallow transport/queue errors.
         try {
