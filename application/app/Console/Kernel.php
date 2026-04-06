@@ -31,6 +31,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 
+        $schedule->command('app:api-requests-prune --days=' . (int)env('API_REQUESTS_RETENTION_DAYS', 30))
+            ->dailyAt('03:00')
+            ->withoutOverlapping();
+
         $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
             ->dailyAt('00:00');
 

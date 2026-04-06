@@ -3,6 +3,7 @@
 namespace App\Filament\App\Widgets;
 
 use App\Models\Core\ApiRequest;
+use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -25,6 +26,12 @@ class ApiRequestsTable extends TableWidget
                     ->label('Время')
                     ->dateTime('d.m.Y H:i:s')
                     ->sortable(),
+
+                TextColumn::make('route_name')
+                    ->label('Route')
+                    ->placeholder('—')
+                    ->limit(50)
+                    ->tooltip(fn(?string $state): string => $state ?: '—'),
 
                 TextColumn::make('method')
                     ->label('Метод')
@@ -56,17 +63,33 @@ class ApiRequestsTable extends TableWidget
                     ->alignCenter()
                     ->sortable(),
 
-                TextColumn::make('user_uuid')
-                    ->label('User UUID')
-                    ->copyable()
-                    ->toggleable(),
+                TextColumn::make('user_email')
+                    ->label('Почта')
+                    ->state(function (ApiRequest $record): string {
+                        if (blank($record->user_uuid)) {
+                            return '—';
+                        }
+
+                        static $emailsByUuid = [];
+
+                        if (array_key_exists($record->user_uuid, $emailsByUuid)) {
+                            return $emailsByUuid[$record->user_uuid];
+                        }
+
+                        $emailsByUuid[$record->user_uuid] = (string)(User::query()
+                            ->where('uuid', $record->user_uuid)
+                            ->value('email') ?: '—');
+
+                        return $emailsByUuid[$record->user_uuid];
+                    }),
 
                 TextColumn::make('ip_address')
                     ->label('IP')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('route_name')
-                    ->label('Route')
+                TextColumn::make('user_uuid')
+                    ->label('User UUID (debug)')
+                    ->copyable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('payload')
