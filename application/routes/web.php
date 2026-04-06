@@ -33,8 +33,7 @@ Route::get('/', function (Request $request) {
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
 
 Route::get('/up', HealthController::class)
-    ->name('up')
-    ->middleware('auth');
+    ->name('up');
 Route::get('/metrics', MetricsController::class)->name('metrics');
 Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
     ->name('integrations.open')

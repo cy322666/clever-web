@@ -13,7 +13,7 @@ class HealthController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        if (!$request->user() || !(bool)$request->user()->is_root) {
+        if (!$this->isAuthorized($request)) {
             abort(403);
         }
 
@@ -57,5 +57,23 @@ class HealthController extends Controller
         }
 
         return response()->json($payload, $ok ? 200 : 503);
+    }
+
+    private function isAuthorized(Request $request): bool
+    {
+        if ($request->user() && (bool)$request->user()->is_root) {
+            return true;
+        }
+
+        $token = (string)env('METRICS_TOKEN', '');
+
+        if ($token === '') {
+            return app()->environment('local');
+        }
+
+        $bearer = (string)$request->bearerToken();
+        $queryToken = (string)$request->query('token', '');
+
+        return hash_equals($token, $bearer) || hash_equals($token, $queryToken);
     }
 }
