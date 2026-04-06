@@ -44,9 +44,23 @@ class ListTransactions extends ListRecords
                     ->state(fn(Transaction $transaction) => $transaction->note_type == 11 ? 'Исходящий' : 'Входящий')
                     ->badge(),
 
-//                Tables\Columns\TextColumn::make('status')
-//                    ->label('Статус обработки')
-//                    ->badge(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Статус')
+                    ->badge()
+                    ->formatStateUsing(function (?int $state): string {
+                        return match ($state) {
+                            1 => 'Успех',
+                            2 => 'Ошибка',
+                            default => 'В очереди',
+                        };
+                    })
+                    ->color(function (?int $state): string {
+                        return match ($state) {
+                            1 => 'success',
+                            2 => 'danger',
+                            default => 'gray',
+                        };
+                    }),
 
                 Tables\Columns\TextColumn::make('text')
                     ->label('Текст')

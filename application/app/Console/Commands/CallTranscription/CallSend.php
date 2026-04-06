@@ -2,29 +2,22 @@
 
 namespace App\Console\Commands\CallTranscription;
 
-use App\Models\amoCRM\Field;
 use App\Models\Core\Account;
 use App\Models\Integrations\CallTranscription\Setting;
 use App\Models\Integrations\CallTranscription\Transaction;
-use App\Models\Integrations\Dadata\Lead;
+use App\Services\Ai\DeepSeekService;
 use App\Services\Ai\IamTokenService;
 use App\Services\Ai\YandexGptService;
 use App\Services\Ai\YandexSpeechkitService;
-use App\Services\amoCRM\Client;
-use App\Services\amoCRM\Models\Contacts;
-use App\Services\amoCRM\Models\Leads;
-use App\Services\amoCRM\Models\Notes;
-use Dadata\DadataClient;
-use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Support\Env;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\HttpFoundation\Response;
-use Ufee\Amo\Models\Contact;
+use Throwable;
 
 class CallSend extends Command
 {
+    private const STATUS_SUCCESS = 1;
+    private const STATUS_FAILED = 2;
+
     /**
      * The name and signature of the console command.
      *
@@ -39,86 +32,111 @@ class CallSend extends Command
      */
     protected $description = 'Command description';
 
-    /**
-     * Execute the console command.
-     * @throws Exception
-     */
-    public function handle()
+    public function handle(): void
     {
         $transaction = Transaction::query()->find($this->argument('transaction_id'));
         $account = Account::query()->find($this->argument('account_id'));
         $setting = Setting::query()->find($this->argument('setting_id'));
 
-        $settingBody = json_decode($setting->settings, true)[$transaction->form_setting_id];
-
-        $amoApi = new Client($account);
-
-        $iamToken = app(IamTokenService::class)->getToken();
-
-        $folderId = 'b1g3cek7i5mcra3e8mui';
-
-        $speechkit = new YandexSpeechkitService($iamToken);
-
-        $transcript = $speechkit->transcribeFromUrl($transaction->url);
-
-        $transcriptText = trim((string)$transcript);
-
-        if (!$transcriptText) {
-            Log::warning('Транскрипция пуста. Проверьте распознавание речи.');
+        if (!$transaction || !$account || !$setting) {
+            Log::warning('CallSend skipped: transaction/account/setting not found', [
+                'transaction_id' => $this->argument('transaction_id'),
+                'account_id' => $this->argument('account_id'),
+                'setting_id' => $this->argument('setting_id'),
+            ]);
 
             return;
         }
 
-        Log::warning('CallSend transcript debug', [
-            'len' => strlen($transcriptText),
-            'preview' => substr($transcriptText, 0, 200),
-        ]);
+        $settings = json_decode((string)$setting->settings, true);
+        $settings = is_array($settings) ? $settings : [];
+        $settingBody = $settings[$transaction->form_setting_id] ?? [];
+
+        if (!is_array($settingBody) || $settingBody === []) {
+            $this->markFailed($transaction, 'Настройка формы не найдена.');
+            Log::warning('CallSend failed: setting body not found', [
+                'transaction_id' => $transaction->id,
+                'setting_id' => $setting->id,
+                'form_setting_id' => $transaction->form_setting_id,
+            ]);
+
+            return;
+        }
+
+        $provider = (string)($settingBody['ai_provider'] ?? 'yandex');
+        $aiToken = trim((string)($settingBody['token'] ?? ''));
+        $yandexFolderId = trim((string)($settingBody['folder_id'] ?? config('services.yandex_gpt.folder_id', '')));
+
+        if ($aiToken === '') {
+            $tokenType = $provider === 'deepseek' ? 'API key DeepSeek' : 'IAM token Yandex';
+            $this->markFailed($transaction, 'Не указан ' . $tokenType . ' в настройке.');
+            return;
+        }
+
+        if (!in_array($provider, ['yandex', 'deepseek'], true)) {
+            $this->markFailed($transaction, 'Неизвестный провайдер ИИ: ' . $provider);
+            return;
+        }
+
+        if ($provider === 'yandex' && $yandexFolderId === '') {
+            $this->markFailed($transaction, 'Не указан Yandex Folder ID в настройке.');
+            return;
+        }
+
+        try {
+            $speechkitIamToken = app(IamTokenService::class)->getToken();
+            $speechkit = new YandexSpeechkitService($speechkitIamToken);
+            $transcript = $speechkit->transcribeFromUrl($transaction->url);
+            $transcriptText = trim((string)$transcript);
+
+            if ($transcriptText === '') {
+                $this->markFailed($transaction, 'Транскрипция пуста. Проверьте запись звонка.');
+                return;
+            }
+
+            $prompt = trim((string)($settingBody['prompt'] ?? ''));
+            $result = $this->generateByProvider($provider, $prompt, $transcriptText, $aiToken, $yandexFolderId);
+
+            $transaction->text = $transcriptText;
+            $transaction->result = $result;
+            $transaction->status = self::STATUS_SUCCESS;
+            $transaction->save();
+        } catch (Throwable $e) {
+            $this->markFailed($transaction, $e->getMessage());
+            Log::error('CallSend failed', [
+                'transaction_id' => $transaction->id,
+                'provider' => $provider,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+        }
+
+
+    }
+
+    private function generateByProvider(
+        string $provider,
+        string $prompt,
+        string $transcriptText,
+        string $aiToken,
+        string $yandexFolderId
+    ): string
+    {
+        if ($provider === 'deepseek') {
+            return app(DeepSeekService::class)->generate($prompt, $transcriptText, $aiToken, true);
+        }
 
         $ai = new YandexGptService();
-        $ai->iamToken = $iamToken;
-        $ai->folderId = $folderId;
+        $ai->iamToken = $aiToken;
+        $ai->folderId = $yandexFolderId;
 
-        // $amoApi = (new Client($account))->init();
+        return $ai->generate($prompt, $transcriptText, true);
+    }
 
-        // $contact = $amoApi->service->contacts()->find($transaction->contact_id);
-
-        $result = $ai->generate(trim($settingBody['prompt'] ?? ''), $transcriptText);
-
-        $transaction->text = $transcriptText;
-        $transaction->result = $result;
+    private function markFailed(Transaction $transaction, string $message): void
+    {
+        $transaction->status = self::STATUS_FAILED;
+        $transaction->result = 'Ошибка: ' . trim($message);
         $transaction->save();
-
-
-//        $amoApi->service->leads()->find($data['entity_id']);
-
-//        if (!$entity) {
-//            return new Response(null, 404);
-//        }
-
-        // if (($selectedSetting['result_destination'] ?? 'field') === 'note') {
-        //     $notePrefix = trim($selectedSetting['note_prefix'] ?? '');
-        //     $noteText = $notePrefix ? $notePrefix . "\n" . $result : $result;
-
-        // if ($field) {
-        //     $contact->cf($field->name)->setValue($result);
-        //     $contact->save();
-        // }
-
-        // Notes::addOne($contact, $noteText);
-        // } else {
-        //     $field = Field::query()->find($selectedSetting['field_id'] ?? null);
-
-        //     if ($field) {
-        //         $contact->cf($field->name)->setValue($result);
-        //         $contact->save();
-        //     }
-        // }
-
-
-//        if (!empty($selectedSetting['salesbot_id']) && $entityType === 'leads') {
-//            $amoApi->service->ajax()->post('/api/v4/leads/'.$data['entity_id'].'/actions/salesbot', [
-//                'bot_id' => (int) $selectedSetting['salesbot_id'],
-//            ]);
-//        }
     }
 }

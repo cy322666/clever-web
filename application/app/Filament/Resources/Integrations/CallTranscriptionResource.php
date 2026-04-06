@@ -66,8 +66,14 @@ class CallTranscriptionResource extends Resource
 
                                 TextInput::make('token')
                                     ->label('Токен ИИ')
-                                    ->helperText('Тут инструкция как сделать либо напишите в чат')
+                                    ->helperText('Yandex: IAM token. DeepSeek: API key')
                                     ->required(),
+
+                                TextInput::make('folder_id')
+                                    ->label('Yandex Folder ID')
+                                    ->helperText('Обязательно для Yandex GPT')
+                                    ->required(fn(Get $get) => $get('ai_provider') === 'yandex')
+                                    ->visible(fn(Get $get) => $get('ai_provider') === 'yandex'),
 
                                 TextInput::make('time_at')
                                     ->label('От скольки сек обрабатывать')
@@ -86,10 +92,10 @@ class CallTranscriptionResource extends Resource
                                     ->label('ИИ провайдер')
                                     ->options([
                                         'yandex' => 'Yandex GPT',
-                                        'deepseek' => 'DeepSeek (скоро)',
+                                        'deepseek' => 'DeepSeek',
                                     ])
                                     ->default('yandex')
-                                    ->helperText('Пока доступен только Yandex GPT'),
+                                    ->helperText('Выберите провайдера генерации результата'),
 
                                 Textarea::make('prompt')
                                     ->label('Промпт')

@@ -3,15 +3,20 @@
 namespace App\Services\Ai;
 
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 class YandexGptService
 {
     public string $iamToken;
     public string $folderId;
 
-    public function generate(string $prompt, string $transcript): string
+    public function generate(string $prompt, string $transcript, bool $strict = false): string
     {
         if (!$this->iamToken || !$this->folderId) {
+            if ($strict) {
+                throw new RuntimeException('Не задан IAM token или folderId для Yandex GPT.');
+            }
+
             return $transcript;
         }
 
@@ -41,9 +46,24 @@ class YandexGptService
             ])
             ->post('https://llm.api.cloud.yandex.net/foundationModels/v1/completion', $payload);
 
-        if (!$result->ok())
-            return $transcript;
+        if (!$result->ok()) {
+            if ($strict) {
+                throw new RuntimeException('Yandex GPT error: ' . $result->status() . ' ' . $result->body());
+            }
 
-        return $result->json('result.alternatives.0.message.text', $transcript);
+            return $transcript;
+        }
+
+        $responseText = $result->json('result.alternatives.0.message.text');
+
+        if (!is_string($responseText) || trim($responseText) === '') {
+            if ($strict) {
+                throw new RuntimeException('Yandex GPT вернул пустой ответ.');
+            }
+
+            return $transcript;
+        }
+
+        return $responseText;
     }
 }
