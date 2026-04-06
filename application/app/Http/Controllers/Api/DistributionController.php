@@ -31,7 +31,8 @@ class DistributionController extends Controller
             ], 422);
         }
 
-        $leadId = $this->resolveLeadId($request->toArray());
+        $payload = $this->resolvePayload($request);
+        $leadId = $this->resolveLeadId($payload);
         if ($leadId === null) {
             return response()->json([
                 'ok' => false,
@@ -39,7 +40,6 @@ class DistributionController extends Controller
             ], 422);
         }
 
-        $payload = $request->toArray();
         $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $eventKey = hash('sha256', implode('|', [
             (string)$user->id,
@@ -93,20 +93,49 @@ class DistributionController extends Controller
             return null;
         }
 
-        foreach ($leadsPayload as $eventPayload) {
-            if (!is_array($eventPayload)) {
-                continue;
+        return $this->findNumericIdRecursively($leadsPayload);
+    }
+
+    private function resolvePayload(Request $request): array
+    {
+        $payload = $request->toArray();
+        if (is_array($payload) && !empty($payload)) {
+            return $payload;
+        }
+
+        $rawBody = trim((string)$request->getContent());
+        if ($rawBody === '') {
+            return [];
+        }
+
+        $decodedJson = json_decode($rawBody, true);
+        if (is_array($decodedJson)) {
+            return $decodedJson;
+        }
+
+        $parsed = [];
+        parse_str($rawBody, $parsed);
+        if (is_array($parsed) && !empty($parsed)) {
+            return $parsed;
+        }
+
+        return [];
+    }
+
+    private function findNumericIdRecursively(mixed $node): ?int
+    {
+        if (!is_array($node)) {
+            return null;
+        }
+
+        foreach ($node as $key => $value) {
+            if ($key === 'id' && is_numeric($value)) {
+                return (int)$value;
             }
 
-            foreach ($eventPayload as $item) {
-                if (!is_array($item)) {
-                    continue;
-                }
-
-                $candidateLeadId = $item['id'] ?? null;
-                if (is_numeric($candidateLeadId)) {
-                    return (int)$candidateLeadId;
-                }
+            $found = $this->findNumericIdRecursively($value);
+            if ($found !== null) {
+                return $found;
             }
         }
 
