@@ -1,9 +1,17 @@
 FROM php:8.2-fpm-bullseye
 
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
-    curl unzip \
-    postgresql-client \
+    unzip \
+    postgresql-client-14 \
     libpq-dev \
     libpng-dev \
     libzip-dev \
