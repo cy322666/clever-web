@@ -79,13 +79,38 @@ class DistributionController extends Controller
     {
         $leadId = $payload['leads']['status'][0]['id']
             ?? $payload['leads']['add'][0]['id']
+            ?? $payload['leads']['update'][0]['id']
+            ?? $payload['leads']['restore'][0]['id']
+            ?? $payload['leads']['responsible'][0]['id']
             ?? null;
 
-        if (!is_numeric($leadId)) {
+        if (is_numeric($leadId)) {
+            return (int)$leadId;
+        }
+
+        $leadsPayload = $payload['leads'] ?? null;
+        if (!is_array($leadsPayload)) {
             return null;
         }
 
-        return (int)$leadId;
+        foreach ($leadsPayload as $eventPayload) {
+            if (!is_array($eventPayload)) {
+                continue;
+            }
+
+            foreach ($eventPayload as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $candidateLeadId = $item['id'] ?? null;
+                if (is_numeric($candidateLeadId)) {
+                    return (int)$candidateLeadId;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function resolveTemplate(array $settings, string $template): array

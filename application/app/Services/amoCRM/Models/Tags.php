@@ -8,12 +8,22 @@ class Tags
 {
     public static function add($lead, $tagname)
     {
-        if(is_array($tagname))
+        $hasTag = false;
+
+        if (is_array($tagname) && !empty($tagname)) {
             $lead->attachTags($tagname);
+            $hasTag = true;
+        }
 
-        if(is_string($tagname))
+        if (is_string($tagname) && trim($tagname) !== '') {
             $lead->attachTag($tagname);
+            $hasTag = true;
+        }
 
-        $lead->save();
+        if ($hasTag) {
+            $lead->save();
+        }
+
+        return $lead;
     }
 }

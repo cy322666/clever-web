@@ -15,7 +15,7 @@ use App\Services\amoCRM\Models\Leads;
 use App\Services\amoCRM\Models\Notes;
 use App\Services\amoCRM\Models\Tags;
 use Illuminate\Console\Command;
-use Illuminate\Support\Env;
+use Throwable;
 
 class FormSend extends Command
 {
@@ -90,15 +90,22 @@ class FormSend extends Command
 
             $lead = Leads::search($contact, $amoApi, $objectStatus->pipeline_id);
 
-            if ($lead)
-                $responsibleId = $lead->responsible_user_id;
+            if ($lead) {
+                $lead = $amoApi->service->leads()->find($lead->id);
+
+                if ($lead) {
+                    $responsibleId = $lead->responsible_user_id;
+                }
+            }
         }
 
-        $contact = Contacts::update($contact, [
+        $contactFields = [
             'Телефоны' => [$phone],
             'Почта'    => Form::getValueForKey('email', $body, $setting),
             'Ответственный' => $responsibleId,
-        ]);
+        ];
+
+        $contact = $this->updateContactWithRetry($contact, $contactFields, $amoApi);
 
         if (empty($lead)) {
 
@@ -109,55 +116,61 @@ class FormSend extends Command
             ], 'Новая заявка с Тильды');
         }
 
-        if ($setting['utms'] == 'rewrite')
-
-            $lead = Leads::setRewriteUtms($lead, $form->parseCookies());
-        else
-            $lead = Leads::setUtms($lead, $form->parseCookies());
-
-        if (isset($setting['fields']))
-
-            $lead = $form->setCustomFields($lead, $setting['fields']);
-
-        if (!empty($setting['products']) && $setting['products'] == 'yes' &&
-            !empty($body->payment) && !empty($body->payment->products)) {
-            //поле для заполнения продуктами
-            $fieldProducts = Field::query()
-                ->where('field_id', $setting['field_products'])
-                ->first();
-
-            $amount = $body->payment->amount;
-
-            $name = null;
-
-            foreach ($body->payment->products as $product) {
-
-                try {
-                    $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
-
-                    if (!empty($product->options) && count($product->options) > 0) {
-                        foreach ($product->options as $option) {
-                            $name .= ' ' . $option->variant . ' ';
-                        }
-                    }
-                } catch (\Throwable) {
-                }
-            }
-
-            if ($fieldProducts) {
-                $lead->cf($fieldProducts->name)->setValue($name);
-
-                $lead = $form->setQuantity($lead, $setting['fields'], count($body->payment->products));
+        $applyLeadChanges = function ($currentLead) use ($setting, $form, $body) {
+            if (($setting['utms'] ?? 'merge') == 'rewrite') {
+                $currentLead = Leads::setRewriteUtms($currentLead, $form->parseCookies());
+            } else {
+                $currentLead = Leads::setUtms($currentLead, $form->parseCookies());
             }
 
             if (isset($setting['fields'])) {
-                $lead = $form->setCustomFieldsProduct($lead, $setting['fields']);
+                $currentLead = $form->setCustomFields($currentLead, $setting['fields']);
             }
 
-            $lead->sale = $amount;
-        }
+            if (!empty($setting['products']) && $setting['products'] == 'yes' &&
+                !empty($body->payment) && !empty($body->payment->products)) {
+                $fieldProducts = Field::query()
+                    ->where('field_id', $setting['field_products'] ?? null)
+                    ->first();
 
-        $lead->save();
+                $amount = $body->payment->amount;
+                $name = null;
+
+                foreach ($body->payment->products as $product) {
+                    try {
+                        $name .= str_replace(['\u0026quot;', '&quot;'], '"', $product->name);
+
+                        if (!empty($product->options) && count($product->options) > 0) {
+                            foreach ($product->options as $option) {
+                                $name .= ' ' . $option->variant . ' ';
+                            }
+                        }
+                    } catch (Throwable) {
+                    }
+                }
+
+                if ($fieldProducts) {
+                    $currentLead->cf($fieldProducts->name)->setValue($name);
+                    $currentLead = $form->setQuantity(
+                        $currentLead,
+                        $setting['fields'] ?? [],
+                        count($body->payment->products)
+                    );
+                }
+
+                if (isset($setting['fields'])) {
+                    $currentLead = $form->setCustomFieldsProduct($currentLead, $setting['fields']);
+                }
+
+                $currentLead->sale = $amount;
+            }
+
+            return $currentLead;
+        };
+
+        $lead = $applyLeadChanges($lead);
+
+        $lead = $this->saveLeadWithRetry($lead, $amoApi, $applyLeadChanges);
 
         $lead = $amoApi->service->leads()->find($lead->id);
 
@@ -170,12 +183,93 @@ class FormSend extends Command
 
         $lead = $amoApi->service->leads()->find($lead->id);
 
-        Tags::add($lead, $setting['tag'] ?? null);
-        Tags::add($lead, 'tilda');
+        $lead = $this->addTagWithRetry($lead, $setting['tag'] ?? null, $amoApi);
+        $lead = $this->addTagWithRetry($lead, 'tilda', $amoApi);
 
         $form->contact_id = $contact->id;
         $form->lead_id = $lead->id;
         $form->status = 1;
         $form->save();
+
+        return self::SUCCESS;
+    }
+
+    private function updateContactWithRetry($contact, array $fields, Client $amoApi)
+    {
+        try {
+            return Contacts::update($contact, $fields);
+        } catch (Throwable $e) {
+            if (!$this->isStaleUpdateError($e) || empty($contact?->id)) {
+                throw $e;
+            }
+
+            $this->warn('Tilda form send: contact stale update conflict, retrying');
+            usleep(300000);
+
+            $freshContact = $amoApi->service->contacts()->find($contact->id);
+
+            if (!$freshContact) {
+                throw $e;
+            }
+
+            return Contacts::update($freshContact, $fields);
+        }
+    }
+
+    private function saveLeadWithRetry($lead, Client $amoApi, ?callable $reapply = null)
+    {
+        try {
+            $lead->save();
+
+            return $lead;
+        } catch (Throwable $e) {
+            if (!$this->isStaleUpdateError($e) || empty($lead?->id)) {
+                throw $e;
+            }
+
+            $this->warn('Tilda form send: lead stale update conflict, retrying');
+            usleep(300000);
+
+            $freshLead = $amoApi->service->leads()->find($lead->id);
+
+            if (!$freshLead) {
+                throw $e;
+            }
+
+            if ($reapply) {
+                $freshLead = $reapply($freshLead);
+            }
+
+            $freshLead->save();
+
+            return $freshLead;
+        }
+    }
+
+    private function addTagWithRetry($lead, $tag, Client $amoApi)
+    {
+        try {
+            return Tags::add($lead, $tag);
+        } catch (Throwable $e) {
+            if (!$this->isStaleUpdateError($e) || empty($lead?->id)) {
+                throw $e;
+            }
+
+            $this->warn('Tilda form send: tag stale update conflict, retrying');
+            usleep(300000);
+
+            $freshLead = $amoApi->service->leads()->find($lead->id);
+
+            if (!$freshLead) {
+                throw $e;
+            }
+
+            return Tags::add($freshLead, $tag);
+        }
+    }
+
+    private function isStaleUpdateError(Throwable $e): bool
+    {
+        return str_contains($e->getMessage(), 'Last modified date is older than in database');
     }
 }
