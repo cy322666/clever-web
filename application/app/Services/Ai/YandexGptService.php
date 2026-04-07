@@ -22,9 +22,10 @@ class YandexGptService
 
         $finalPrompt = $prompt !== '' ? $prompt : 'Составь краткое резюме разговора с менеджером для клиента чтобы отправить ему после разговора. Если общения не было, то оставь сообщение Не получилсь с вами связаться';
         $finalPrompt .= "\n\nТранскрипция звонка:\n" . $transcript;
+        $model = (string)config('services.yandex_gpt.model', 'yandexgpt');
 
         $payload = [
-            'modelUri' => "gpt://{$this->folderId}/yandexgpt/latest",
+            'modelUri' => "gpt://{$this->folderId}/{$model}/latest",
             'completionOptions' => [
                 'stream' => false,
                 'temperature' => 0.5,

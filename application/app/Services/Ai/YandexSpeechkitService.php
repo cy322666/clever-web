@@ -18,8 +18,12 @@ class YandexSpeechkitService
      */
     public function transcribeFromUrl(string $recordingUrl): ?string
     {
-        $folderId = 'b1g3cek7i5mcra3e8mui';
-        $language = 'ru-RU';
+        $folderId = trim((string)config('services.yandex_speechkit.folder_id', ''));
+        $language = (string)config('services.yandex_speechkit.language', 'ru-RU');
+
+        if ($folderId === '') {
+            throw new \RuntimeException('Yandex SpeechKit folder_id is not configured');
+        }
 
         // 1) Download
         $audioResponse = Http::timeout(30)->get($recordingUrl);
