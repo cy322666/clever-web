@@ -2,10 +2,9 @@
 
 namespace App\Exceptions;
 
-use App\Services\Telegram;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Illuminate\Support\Env;
-use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -24,22 +23,54 @@ class Handler extends ExceptionHandler
     /**
      * Register the exception handling callbacks for the application.
      */
-    public function register()
+    public function register(): void
     {
-        $this->reportable(function (Throwable $e) {
+        $this->renderable(function (QueryException $e, $request) {
+            if (!$this->isDbConnectionRefused($e)) {
+                return null;
+            }
 
-//            if (Env::get('APP_ENV') == 'production') {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Service temporarily unavailable',
+                ], Response::HTTP_SERVICE_UNAVAILABLE);
+            }
 
-//                $msg = str_replace(['*', '_', '&', '@'], '', substr($e->getMessage(), 0, 300));
-//                $title = $e->getFile() . ' : ' . $e->getLine();
-//
-//                Telegram::send(
-//                    '*Ошибка в коде!* ' . "\n" . "*Где:* $title" . "\n" . "*Текст:* $msg",
-//                    env('TG_DEBUG_CHAT_ID'),
-//                    env('TG_DEBUG_TOKEN'),
-//                    []
-//                );
-//            }
+            return response('Service temporarily unavailable', Response::HTTP_SERVICE_UNAVAILABLE);
         });
+    }
+
+    public function report(Throwable $e): void
+    {
+        if ($this->isTelescopeStorageFailure($e)) {
+            return;
+        }
+
+        parent::report($e);
+    }
+
+    private function isDbConnectionRefused(Throwable $e): bool
+    {
+        if (!$e instanceof QueryException) {
+            return false;
+        }
+
+        $message = mb_strtolower($e->getMessage());
+
+        return str_contains($message, 'sqlstate[hy000] [2002]')
+            || str_contains($message, 'connection refused')
+            || str_contains($message, 'no route to host');
+    }
+
+    private function isTelescopeStorageFailure(Throwable $e): bool
+    {
+        if (!$e instanceof QueryException) {
+            return false;
+        }
+
+        $message = mb_strtolower($e->getMessage());
+
+        return str_contains($message, 'telescope_entries')
+            || str_contains($message, 'telescope_entries_tags');
     }
 }

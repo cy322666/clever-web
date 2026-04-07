@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Studio\Totem\Totem;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -50,7 +51,27 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        $this->disableTelescopeWhenNotEnabled();
         $this->registerSlowQueryMonitoring();
+    }
+
+    private function disableTelescopeWhenNotEnabled(): void
+    {
+        if ((bool)env('TELESCOPE_ENABLED', false)) {
+            return;
+        }
+
+        if (!class_exists(\Laravel\Telescope\Telescope::class)) {
+            return;
+        }
+
+        try {
+            \Laravel\Telescope\Telescope::stopRecording();
+        } catch (Throwable $e) {
+            Log::warning('Failed to disable Telescope recording.', [
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function registerSlowQueryMonitoring(): void
