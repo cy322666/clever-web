@@ -15,6 +15,7 @@ use App\Services\amoCRM\Client;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -229,6 +230,17 @@ class AuthController extends Controller
                 'zone' => $account->zone,
                 'active' => $account->active,
             ]);
+
+            try {
+                Artisan::call('app:sync', ['account' => $account->id]);
+            } catch (Throwable $syncError) {
+                Log::warning('amocrm.redirect sync failed', [
+                    'user_id' => $user->id,
+                    'widget' => $widget,
+                    'account_id' => $account->id,
+                    'error' => $syncError->getMessage(),
+                ]);
+            }
 
             $this->sendOauthResultNotification(
                 $user,

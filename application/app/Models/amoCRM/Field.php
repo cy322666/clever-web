@@ -27,13 +27,16 @@ class Field extends Model
 
     public static function getAllFields(): Builder
     {
-        return Field::query()->where('user_id', Auth::id());
+        return Field::query()
+            ->where('user_id', Auth::id())
+            ->where('active', true);
     }
 
     public static function getLeadFields(): Builder
     {
         return Field::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('entity_type', 'leads');
     }
 
@@ -41,6 +44,7 @@ class Field extends Model
     {
         return Field::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('entity_type', 'leads')
             ->pluck('name', 'field_id');
     }
@@ -49,6 +53,7 @@ class Field extends Model
     {
         return Field::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('entity_type', 'companies')
             ->pluck('name', 'field_id');
     }
@@ -57,6 +62,7 @@ class Field extends Model
     {
         return Field::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('entity_type', 'contacts');
     }
 
@@ -64,6 +70,7 @@ class Field extends Model
     {
         return Field::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('entity_type', 'contacts')
             ->pluck('name', 'field_id');
     }
@@ -72,6 +79,7 @@ class Field extends Model
     {
         return Field::query()
             ->where('user_id', Auth::id())
+            ->where('active', true)
             ->where('entity_type', 'companies');
     }
 }
