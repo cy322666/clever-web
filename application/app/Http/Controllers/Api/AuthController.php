@@ -137,6 +137,15 @@ class AuthController extends Controller
             $account->active = $amoApi->auth;
             $account->save();
 
+            Log::info('amocrm.redirect success', [
+                'user_id' => $user->id,
+                'widget' => $widget,
+                'account_id' => $account->id,
+                'subdomain' => $account->subdomain,
+                'zone' => $account->zone,
+                'active' => $account->active,
+            ]);
+
             $this->sendOauthResultNotification(
                 $user,
                 $widget,
