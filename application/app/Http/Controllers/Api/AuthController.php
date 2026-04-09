@@ -89,28 +89,38 @@ class AuthController extends Controller
 
             $amoDomain = $this->extractAmoDomainParts((string)$request->input('referer', ''));
             $primaryUserDomain = $this->getUserPrimaryAmoDomain($user);
-            $parsedSubdomain = $amoDomain['subdomain'];
-
-            if ($this->isWidgetServiceSubdomain($parsedSubdomain)) {
-                $parsedSubdomain = null;
-            }
+            $parsedSubdomain = $amoDomain['subdomain'] ? Str::lower((string)$amoDomain['subdomain']) : null;
 
             $accountSubdomain = $account->subdomain ? Str::lower((string)$account->subdomain) : null;
-            if ($this->isWidgetServiceSubdomain($accountSubdomain)) {
-                $accountSubdomain = null;
-            }
 
             if (!filled($account->refresh_token) && !filled($account->access_token)) {
                 // For first connect do not trust stale subdomain in widget slot.
                 $accountSubdomain = null;
             }
 
-            $subdomain = $primaryUserDomain['subdomain']
-                ?? $parsedSubdomain
+            if (
+                $parsedSubdomain
+                && $primaryUserDomain['subdomain']
+                && $parsedSubdomain !== $primaryUserDomain['subdomain']
+            ) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    sprintf(
+                        'Код авторизации выдан для другого аккаунта amoCRM (%s), ожидается %s.',
+                        $parsedSubdomain,
+                        $primaryUserDomain['subdomain']
+                    ),
+                    422,
+                    $fallbackRedirect
+                );
+            }
+
+            $subdomain = $parsedSubdomain
+                ?? $primaryUserDomain['subdomain']
                 ?? $accountSubdomain;
-            $zone = $primaryUserDomain['zone']
-                ?? ($account->zone ? Str::lower((string)$account->zone) : null)
-                ?? $amoDomain['zone'];
+            $zone = ($amoDomain['zone'] ? Str::lower((string)$amoDomain['zone']) : null)
+                ?? $primaryUserDomain['zone']
+                ?? ($account->zone ? Str::lower((string)$account->zone) : null);
 
             if (!$subdomain) {
                 return $this->oauthErrorRedirect(
@@ -121,31 +131,72 @@ class AuthController extends Controller
                 );
             }
 
-            if ($subdomain && !$primaryUserDomain['subdomain']) {
-                $subdomainValidationError = $this->validateAmoSubdomainUniqueness($user, $subdomain);
+            $candidateSubdomains = array_values(array_unique(array_filter([
+                $parsedSubdomain,
+                $primaryUserDomain['subdomain'],
+                $accountSubdomain,
+            ])));
 
+            $amoApi = null;
+            $exchangeErrors = [];
+
+            foreach ($candidateSubdomains as $candidateSubdomain) {
+                $subdomainValidationError = $this->validateAmoSubdomainUniqueness($user, $candidateSubdomain);
                 if ($subdomainValidationError !== null) {
-                    return $this->oauthErrorRedirect($request, $subdomainValidationError, 422, $fallbackRedirect);
+                    $exchangeErrors[] = $candidateSubdomain . ': ' . $subdomainValidationError;
+                    continue;
+                }
+
+                $account->code = (string)$request->input('code', '');
+                $account->widget = $widget;
+                $account->zone = $zone ?? $account->zone;
+                $account->client_id = $resolvedClientId;
+                $account->subdomain = $candidateSubdomain;
+                $account->redirect_uri = (string)$oauthConfig['redirect_uri'];
+                $account->client_secret = (string)$oauthConfig['client_secret'];
+                $account->save();
+
+                Log::info('amocrm.redirect exchange start', [
+                    'user_id' => $user->id,
+                    'widget' => $widget,
+                    'account_id' => $account->id,
+                    'selected_subdomain' => $account->subdomain,
+                    'selected_zone' => $account->zone,
+                    'referer' => (string)$request->input('referer', ''),
+                    'parsed_subdomain' => $parsedSubdomain,
+                    'primary_user_subdomain' => $primaryUserDomain['subdomain'],
+                    'account_subdomain' => $accountSubdomain,
+                    'candidates' => $candidateSubdomains,
+                ]);
+
+                try {
+                    $amoApi = (new Client($account->refresh()));
+
+                    if (!$amoApi->checkAuth()) {
+                        $amoApi->init();
+                    }
+
+                    $account->active = $amoApi->auth;
+                    $account->save();
+
+                    if ($amoApi->auth) {
+                        break;
+                    }
+
+                    $exchangeErrors[] = $candidateSubdomain . ': auth=false';
+                } catch (Throwable $exchangeException) {
+                    $exchangeErrors[] = $candidateSubdomain . ': ' . $exchangeException->getMessage();
                 }
             }
 
-            $account->code = (string)$request->input('code', '');
-            $account->widget = $widget;
-            $account->zone = $zone ?? $account->zone;
-            $account->client_id = $resolvedClientId;
-            $account->subdomain = $subdomain ?? $account->subdomain;
-            $account->redirect_uri = (string)$oauthConfig['redirect_uri'];
-            $account->client_secret = (string)$oauthConfig['client_secret'];
-            $account->save();
-
-            $amoApi = (new Client($account->refresh()));
-
-            if (!$amoApi->checkAuth()) {
-                $amoApi->init();
+            if (!$amoApi || !$amoApi->auth) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Не удалось завершить подключение amoCRM. ' . implode(' | ', array_slice($exchangeErrors, 0, 3)),
+                    422,
+                    $fallbackRedirect
+                );
             }
-
-            $account->active = $amoApi->auth;
-            $account->save();
 
             Log::info('amocrm.redirect success', [
                 'user_id' => $user->id,
@@ -569,10 +620,6 @@ class AuthController extends Controller
         foreach ($accounts as $account) {
             $subdomain = Str::lower((string)$account->subdomain);
 
-            if ($this->isWidgetServiceSubdomain($subdomain)) {
-                continue;
-            }
-
             return [
                 'subdomain' => $subdomain !== '' ? $subdomain : null,
                 'zone' => $account->zone ? Str::lower((string)$account->zone) : null,
@@ -583,18 +630,6 @@ class AuthController extends Controller
             'subdomain' => null,
             'zone' => null,
         ];
-    }
-
-    private function isWidgetServiceSubdomain(?string $subdomain): bool
-    {
-        $value = Str::lower(trim((string)$subdomain));
-
-        if ($value === '') {
-            return false;
-        }
-
-        return str_starts_with($value, 'widget')
-            || in_array($value, ['www', 'app', 'oauth', 'auth'], true);
     }
 
     private function appendQuery(string $path, array $params): string
