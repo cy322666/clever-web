@@ -100,9 +100,14 @@ class AuthController extends Controller
                 $accountSubdomain = null;
             }
 
+            if (!filled($account->refresh_token) && !filled($account->access_token)) {
+                // For first connect do not trust stale subdomain in widget slot.
+                $accountSubdomain = null;
+            }
+
             $subdomain = $primaryUserDomain['subdomain']
-                ?? $accountSubdomain
-                ?? $parsedSubdomain;
+                ?? $parsedSubdomain
+                ?? $accountSubdomain;
             $zone = $primaryUserDomain['zone']
                 ?? ($account->zone ? Str::lower((string)$account->zone) : null)
                 ?? $amoDomain['zone'];
@@ -556,6 +561,7 @@ class AuthController extends Controller
             ->where('user_id', $user->id)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')
+            ->orderByRaw("CASE WHEN widget = ? OR widget IS NULL THEN 0 ELSE 1 END", [Account::DEFAULT_WIDGET])
             ->orderByDesc('active')
             ->orderByDesc('id')
             ->get();
