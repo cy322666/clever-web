@@ -31,6 +31,13 @@ trait SettingRelation
         /** @var App|null $app */
         $app = $this->relationLoaded('app') ? $this->getRelation('app') : $this->app()->first();
 
+        if (!$app && isset($this->user_id)) {
+            $app = App::query()
+                ->where('user_id', $this->user_id)
+                ->where('resource_name', static::$resource)
+                ->first();
+        }
+
         return Account::normalizeWidget($app?->name);
     }
 

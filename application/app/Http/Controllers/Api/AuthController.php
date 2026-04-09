@@ -136,6 +136,10 @@ class AuthController extends Controller
                 ->to($redirectPath)
                 ->with([
                     'auth' => $amoApi->auth,
+                    'amocrm_auth' => $amoApi->auth ? 'success' : 'error',
+                    'amocrm_auth_message' => $amoApi->auth
+                        ? 'amoCRM успешно подключена.'
+                        : 'Подключение amoCRM не завершено.',
                 ]);
         } catch (Throwable $e) {
             if ($e instanceof HttpExceptionInterface) {
@@ -397,11 +401,6 @@ class AuthController extends Controller
     ): RedirectResponse {
         $fallbackPath = $fallback ?: route('filament.app.pages.dashboard', [], false);
         $redirectPath = $this->sanitizeRelativeRedirect($request->input('uri'), $fallbackPath);
-        $query = http_build_query([
-            'amocrm_auth' => 'error',
-            'amocrm_auth_status' => $status,
-            'amocrm_auth_message' => $message,
-        ]);
 
         Log::warning('amocrm.redirect failed', [
             'status' => $status,
@@ -414,7 +413,13 @@ class AuthController extends Controller
             'exception' => $e?->getMessage(),
         ]);
 
-        return redirect()->to($redirectPath . (str_contains($redirectPath, '?') ? '&' : '?') . $query);
+        return redirect()
+            ->to($redirectPath)
+            ->with([
+                'amocrm_auth' => 'error',
+                'amocrm_auth_status' => $status,
+                'amocrm_auth_message' => $message,
+            ]);
     }
 
     private function decodeOauthState(string $state): array

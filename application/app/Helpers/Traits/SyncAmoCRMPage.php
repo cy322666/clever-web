@@ -13,13 +13,27 @@ trait SyncAmoCRMPage
 {
     public function mountSyncAmoCRMPage(): void
     {
-        if ((string)request()->query('amocrm_auth', '') !== 'error') {
+        $authState = (string)(session('amocrm_auth') ?? request()->query('amocrm_auth', ''));
+
+        if ($authState === '') {
             return;
         }
 
-        $message = trim((string)request()->query('amocrm_auth_message', ''));
+        $message = trim((string)(session('amocrm_auth_message') ?? request()->query('amocrm_auth_message', '')));
         if ($message === '') {
-            $message = 'Не удалось подключить amoCRM.';
+            $message = $authState === 'success'
+                ? 'amoCRM успешно подключена.'
+                : 'Не удалось подключить amoCRM.';
+        }
+
+        if ($authState === 'success') {
+            Notification::make()
+                ->title('amoCRM подключена')
+                ->body($message)
+                ->success()
+                ->send();
+
+            return;
         }
 
         Notification::make()
