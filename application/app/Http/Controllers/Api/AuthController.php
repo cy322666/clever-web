@@ -103,16 +103,39 @@ class AuthController extends Controller
                 && $primaryUserDomain['subdomain']
                 && $parsedSubdomain !== $primaryUserDomain['subdomain']
             ) {
-                return $this->oauthErrorRedirect(
-                    $request,
-                    sprintf(
-                        'Код авторизации выдан для другого аккаунта amoCRM (%s), ожидается %s.',
-                        $parsedSubdomain,
-                        $primaryUserDomain['subdomain']
-                    ),
-                    422,
-                    $fallbackRedirect
-                );
+                $ownershipError = $this->validateAmoSubdomainUniqueness($user, $parsedSubdomain);
+
+                if ($ownershipError !== null) {
+                    return $this->oauthErrorRedirect(
+                        $request,
+                        $ownershipError,
+                        422,
+                        $fallbackRedirect
+                    );
+                }
+
+                $normalizedZone = ($amoDomain['zone'] ? Str::lower((string)$amoDomain['zone']) : null)
+                    ?? $primaryUserDomain['zone']
+                    ?? ($account->zone ? Str::lower((string)$account->zone) : null)
+                    ?? 'ru';
+
+                $this->switchUserAmoDomain($user, $parsedSubdomain, $normalizedZone);
+
+                Log::warning('amocrm.domain switched from callback', [
+                    'user_id' => $user->id,
+                    'from' => $primaryUserDomain['subdomain'],
+                    'to' => $parsedSubdomain,
+                    'zone' => $normalizedZone,
+                    'widget' => $widget,
+                ]);
+
+                $primaryUserDomain = [
+                    'subdomain' => $parsedSubdomain,
+                    'zone' => $normalizedZone,
+                ];
+
+                $account->refresh();
+                $accountSubdomain = $parsedSubdomain;
             }
 
             $subdomain = $parsedSubdomain
@@ -630,6 +653,20 @@ class AuthController extends Controller
             'subdomain' => null,
             'zone' => null,
         ];
+    }
+
+    private function switchUserAmoDomain(User $user, string $subdomain, string $zone): void
+    {
+        Account::query()
+            ->where('user_id', $user->id)
+            ->update([
+                'subdomain' => $subdomain,
+                'zone' => $zone,
+                'code' => null,
+                'access_token' => null,
+                'refresh_token' => null,
+                'active' => false,
+            ]);
     }
 
     private function appendQuery(string $path, array $params): string
