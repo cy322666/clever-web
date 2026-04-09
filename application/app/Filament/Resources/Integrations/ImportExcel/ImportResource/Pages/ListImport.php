@@ -167,7 +167,21 @@ class ListImport extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        $setting = ImportSetting::query()
+            ->where('user_id', Auth::id())
+            ->first();
+
         return [
+            Action::make('settings')
+                ->label('Настройки')
+                ->icon('heroicon-o-cog-6-tooth')
+                ->url(
+                    $setting
+                        ? ImportResource::getUrl('edit', ['record' => $setting])
+                        : ImportResource::getUrl('list')
+                )
+                ->color('gray'),
+
             Action::make('import_all')
                 ->label('Выгрузить все')
                 ->action(function () {
