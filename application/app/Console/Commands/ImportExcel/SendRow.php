@@ -59,7 +59,13 @@ class SendRow extends Command
         try {
             $this->row = $importRecord->row_data ?? [];
 
-            $amoApi = new Client($setting->user->account);
+            $amoAccount = $setting->amoAccount(false, 'import-excel');
+
+            if (!$amoAccount || !$amoAccount->active) {
+                throw new \RuntimeException('amoCRM аккаунт для import-excel не подключен или не активен.');
+            }
+
+            $amoApi = new Client($amoAccount);
 
             $contactName = $importRecord->getValueForDefaultKey($setting->contact_name);
             $companyName = $importRecord->getValueForDefaultKey($setting->company_name);
