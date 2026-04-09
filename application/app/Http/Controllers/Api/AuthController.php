@@ -88,10 +88,21 @@ class AuthController extends Controller
             }
 
             $amoDomain = $this->extractAmoDomainParts((string)$request->input('referer', ''));
-            $subdomain = $amoDomain['subdomain'];
-            $zone = $amoDomain['zone'];
+            $primaryUserDomain = $this->getUserPrimaryAmoDomain($user);
+            $parsedSubdomain = $amoDomain['subdomain'];
 
-            if (!$subdomain && empty($account->subdomain)) {
+            if ($this->isWidgetServiceSubdomain($parsedSubdomain)) {
+                $parsedSubdomain = null;
+            }
+
+            $subdomain = $primaryUserDomain['subdomain']
+                ?? ($account->subdomain ? Str::lower((string)$account->subdomain) : null)
+                ?? $parsedSubdomain;
+            $zone = $primaryUserDomain['zone']
+                ?? ($account->zone ? Str::lower((string)$account->zone) : null)
+                ?? $amoDomain['zone'];
+
+            if (!$subdomain) {
                 return $this->oauthErrorRedirect(
                     $request,
                     'Не удалось определить домен amoCRM.',
@@ -100,7 +111,7 @@ class AuthController extends Controller
                 );
             }
 
-            if ($subdomain) {
+            if ($subdomain && !$primaryUserDomain['subdomain']) {
                 $subdomainValidationError = $this->validateAmoSubdomainUniqueness($user, $subdomain);
 
                 if ($subdomainValidationError !== null) {
@@ -395,6 +406,33 @@ class AuthController extends Controller
             return $fallback;
         }
 
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            $parsed = parse_url($path);
+            $host = isset($parsed['host']) ? Str::lower((string)$parsed['host']) : '';
+            $appHost = Str::lower((string)(parse_url((string)config('app.url'), PHP_URL_HOST) ?? ''));
+            $requestHost = Str::lower((string)request()->getHost());
+
+            if ($host !== '' && ($host === $appHost || $host === $requestHost)) {
+                $relative = (string)($parsed['path'] ?? '/');
+                $query = (string)($parsed['query'] ?? '');
+                $fragment = (string)($parsed['fragment'] ?? '');
+
+                if (!str_starts_with($relative, '/')) {
+                    $relative = '/' . ltrim($relative, '/');
+                }
+
+                if ($query !== '') {
+                    $relative .= '?' . $query;
+                }
+
+                if ($fragment !== '') {
+                    $relative .= '#' . $fragment;
+                }
+
+                return $relative;
+            }
+        }
+
         if (!str_starts_with($path, '/') || str_starts_with($path, '//')) {
             return $fallback;
         }
@@ -496,6 +534,34 @@ class AuthController extends Controller
             'user' => $user instanceof User ? $user : null,
             'widget' => $widget,
         ];
+    }
+
+    private function getUserPrimaryAmoDomain(User $user): array
+    {
+        $account = Account::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->orderByDesc('active')
+            ->orderByDesc('id')
+            ->first();
+
+        return [
+            'subdomain' => $account?->subdomain ? Str::lower((string)$account->subdomain) : null,
+            'zone' => $account?->zone ? Str::lower((string)$account->zone) : null,
+        ];
+    }
+
+    private function isWidgetServiceSubdomain(?string $subdomain): bool
+    {
+        $value = Str::lower(trim((string)$subdomain));
+
+        if ($value === '') {
+            return false;
+        }
+
+        return str_starts_with($value, 'widget')
+            || in_array($value, ['www', 'app', 'oauth', 'auth'], true);
     }
 
     private function appendQuery(string $path, array $params): string
