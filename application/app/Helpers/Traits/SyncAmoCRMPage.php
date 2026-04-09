@@ -78,7 +78,7 @@ trait SyncAmoCRMPage
 
             Redirect::to(
                 'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
-                . '&mode=popup&client_id=' . urlencode($clientId)
+                . '&client_id=' . urlencode($clientId)
                 . '&uri=' . urlencode($url)
             );
 

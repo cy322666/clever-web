@@ -143,14 +143,14 @@ class AuthController extends Controller
             );
 
             return redirect()
-                ->to($redirectPath)
-                ->with([
-                    'auth' => $amoApi->auth,
+                ->to(
+                    $this->appendQuery($redirectPath, [
                     'amocrm_auth' => $amoApi->auth ? 'success' : 'error',
                     'amocrm_auth_message' => $amoApi->auth
                         ? 'amoCRM успешно подключена.'
                         : 'Подключение amoCRM не завершено.',
-                ]);
+                    ])
+                );
         } catch (Throwable $e) {
             if ($e instanceof HttpExceptionInterface) {
                 return $this->oauthErrorRedirect(
@@ -432,12 +432,13 @@ class AuthController extends Controller
         );
 
         return redirect()
-            ->to($redirectPath)
-            ->with([
+            ->to(
+                $this->appendQuery($redirectPath, [
                 'amocrm_auth' => 'error',
                 'amocrm_auth_status' => $status,
                 'amocrm_auth_message' => $message,
-            ]);
+                ])
+            );
     }
 
     private function sendOauthResultNotification(?User $user, string $widget, bool $success, string $message): void
@@ -495,6 +496,16 @@ class AuthController extends Controller
             'user' => $user instanceof User ? $user : null,
             'widget' => $widget,
         ];
+    }
+
+    private function appendQuery(string $path, array $params): string
+    {
+        $query = http_build_query(array_filter($params, static fn($value) => $value !== null && $value !== ''));
+        if ($query === '') {
+            return $path;
+        }
+
+        return $path . (str_contains($path, '?') ? '&' : '?') . $query;
     }
 
     private function decodeOauthState(string $state): array
