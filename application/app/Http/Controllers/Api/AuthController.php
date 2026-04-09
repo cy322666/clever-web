@@ -787,17 +787,6 @@ class AuthController extends Controller
             return null;
         }
 
-        $userHasDifferentSubdomain = Account::query()
-            ->where('user_id', $user->id)
-            ->whereNotNull('subdomain')
-            ->where('subdomain', '<>', '')
-            ->whereRaw('LOWER(subdomain) <> ?', [$subdomain])
-            ->exists();
-
-        if ($userHasDifferentSubdomain) {
-            return 'У аккаунта платформы может быть только один amoCRM домен.';
-        }
-
         $subdomainBelongsToAnotherUser = Account::query()
             ->where('user_id', '<>', $user->id)
             ->whereNotNull('subdomain')
