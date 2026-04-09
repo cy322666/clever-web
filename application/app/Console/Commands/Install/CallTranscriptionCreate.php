@@ -34,10 +34,12 @@ class CallTranscriptionCreate extends Command
 
         if ($userId) {
             $user = User::query()
-                ->with('account')
+                ->with('accounts')
                 ->find($userId);
 
-            if (!$user?->account) {
+            $account = $user?->resolveAmoAccountForWidget('call-transcription', true);
+
+            if (!$account) {
                 return;
             }
 
@@ -46,7 +48,7 @@ class CallTranscriptionCreate extends Command
             ];
 
             if (Schema::hasColumn('call_transcription_settings', 'account_id')) {
-                $attributes['account_id'] = $user->account->id;
+                $attributes['account_id'] = $account->id;
             }
 
             if (!App::query()

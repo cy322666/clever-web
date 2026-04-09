@@ -15,8 +15,6 @@ class UserAccountOverview extends StatsOverviewWidget
 
     protected int|string|array $columnSpan = 'full';
 
-    protected ?string $heading = 'Операционная сводка';
-
     protected function getStats(): array
     {
         if (!$this->record) {
@@ -58,16 +56,24 @@ class UserAccountOverview extends StatsOverviewWidget
             }
         }
 
-        $amoConnected = (bool)$this->record?->account?->active;
-        $subdomain = $this->record?->account?->subdomain;
+        $activeAmoAccounts = $this->record
+            ->accounts()
+            ->where('active', true)
+            ->get(['subdomain']);
+
+        $amoConnected = $activeAmoAccounts->isNotEmpty();
+        $subdomain = $activeAmoAccounts->pluck('subdomain')->filter()->first();
+        $amoDescription = $amoConnected
+            ? (
+            $activeAmoAccounts->count() > 1
+                ? 'Подключений: ' . $activeAmoAccounts->count()
+                : ((filled($subdomain) ? $subdomain . '.amocrm.ru' : 'Аккаунт подключен'))
+            )
+            : 'Требуется авторизация';
 
         return [
             Stat::make('amoCRM', $amoConnected ? 'Подключена' : 'Не подключена')
-                ->description(
-                    $amoConnected && filled($subdomain)
-                        ? $subdomain . '.amocrm.ru'
-                        : 'Требуется авторизация'
-                )
+                ->description($amoDescription)
                 ->descriptionIcon($amoConnected ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-triangle')
                 ->color($amoConnected ? 'success' : 'danger'),
 
@@ -82,12 +88,11 @@ class UserAccountOverview extends StatsOverviewWidget
                 ->color('success'),
 
             Stat::make('Просроченные', (string)$expired)
-                ->description('Нужны продление/переподключение')
+                ->description('Нужно продление/переподключение')
                 ->descriptionIcon('heroicon-o-exclamation-triangle')
                 ->color($expired > 0 ? 'danger' : 'gray'),
 
-            Stat::make('Истекают за 7 дней', (string)$expiringSoon)
-                ->description('Рекомендуется предупредить клиента')
+            Stat::make('Истекают через 7 дней', (string)$expiringSoon)
                 ->descriptionIcon('heroicon-o-clock')
                 ->color($expiringSoon > 0 ? 'warning' : 'gray'),
         ];

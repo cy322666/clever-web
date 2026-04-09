@@ -108,6 +108,7 @@ class WebinarResource extends Resource
 
                             $user    = $webinar->user;
                             $setting = $user->bizon_settings;
+                            $account = $setting?->amoAccount(false, 'bizon');
 
                             $viewers = $webinar
                                 ->viewers()
@@ -117,8 +118,9 @@ class WebinarResource extends Resource
                             $delay = 0;
 
                             foreach ($viewers as $viewer) {
-
-                                ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
+                                if ($setting && $account) {
+                                    ViewerSend::dispatch($viewer, $setting, $account)->delay(++$delay);
+                                }
                             }
                         });
                     })
@@ -131,14 +133,16 @@ class WebinarResource extends Resource
 
                             $user    = $webinar->user;
                             $setting = $user->bizon_settings;
+                            $account = $setting?->amoAccount(false, 'bizon');
 
                             $viewers = $webinar->viewers;
 
                             $delay = 0;
 
                             foreach ($viewers as $viewer) {
-
-                                ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
+                                if ($setting && $account) {
+                                    ViewerSend::dispatch($viewer, $setting, $account)->delay(++$delay);
+                                }
                             }
                         });
                     })

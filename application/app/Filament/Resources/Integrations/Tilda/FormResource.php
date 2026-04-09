@@ -40,15 +40,23 @@ class FormResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('lead_id')
-                    ->url(fn(Form $form) => 'https://'.$form->user->account->subdomain.'.amocrm.ru/leads/detail/'.$form->lead_id, true)
+                    ->url(function (Form $form): string {
+                        $subdomain = $form->user?->resolveAmoAccountForWidget('tilda')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $form->lead_id
+                            : '#';
+                    }, true)
                     ->label('Сделка'),
 
                 Tables\Columns\TextColumn::make('contact_id')
-                    ->url(
-                        fn(Form $form
-                        ) => 'https://' . $form->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $form->contact_id,
-                        true
-                    )
+                    ->url(function (Form $form): string {
+                        $subdomain = $form->user?->resolveAmoAccountForWidget('tilda')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $form->contact_id
+                            : '#';
+                    }, true)
                     ->label('Контакт'),
 
                 Tables\Columns\BooleanColumn::make('status')
@@ -80,10 +88,13 @@ class FormResource extends Resource
 
                             $user    = $form->user;
                             $setting = $user->tilda_settings;
+                            $account = $setting?->amoAccount(false, 'tilda');
 
                             sleep(2);
 
-                            FormSend::dispatch($form, $user->account, $setting);
+                            if ($setting && $account) {
+                                FormSend::dispatch($form, $account, $setting);
+                            }
                         });
                     })
                     ->label('Выгрузить')

@@ -157,7 +157,7 @@ class ApiModel extends Model
                 throw $exception;
             }
 
-            if ($this->retryUpdateWithFreshUpdatedAt(3)) {
+            if ($this->retryUpdateWithFreshUpdatedAt(5)) {
                 return true;
             }
 
@@ -170,31 +170,27 @@ class ApiModel extends Model
         return stripos($exception->getMessage(), 'Last modified date is older than in') !== false;
     }
 
-    private function retryUpdateWithFreshUpdatedAt(int $maxAttempts = 3): bool
+    private function retryUpdateWithFreshUpdatedAt(int $maxAttempts = 5): bool
     {
-        if (!$this->id || !method_exists($this->service, 'find') || !method_exists($this->service, 'updateRaw')) {
+        if (!$this->id || !method_exists($this->service, 'find') || !method_exists($this->service, 'update')) {
             return false;
         }
 
         $maxAttempts = max(1, $maxAttempts);
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            $raw = $this->getChangedRawApiData();
-
-            if (empty($raw)) {
-                return false;
-            }
-
             $freshModel = $this->service->find($this->id);
             if (!$freshModel || !isset($freshModel->updated_at)) {
                 return false;
             }
 
-            $raw['id'] = $this->id;
-            $raw['updated_at'] = $freshModel->updated_at;
+            // Rebase optimistic-lock marker to latest entity version in amoCRM.
+            $this->updated_at = $freshModel->updated_at;
 
             try {
-                $updatedRows = $this->service->updateRaw([$raw]);
+                if ($this->service->update($this)) {
+                    return true;
+                }
             } catch (Throwable $e) {
                 if ($this->isLastModifiedConflict($e) && $attempt < $maxAttempts) {
                     usleep(200000 * $attempt);
@@ -204,23 +200,10 @@ class ApiModel extends Model
                 return false;
             }
 
-            if (!$updatedRows || !method_exists($updatedRows, 'find')) {
-                return false;
+            if ($attempt < $maxAttempts) {
+                usleep(200000 * $attempt);
+                continue;
             }
-
-            $updatedRaw = $updatedRows->find('id', $this->id)->first();
-            if (!$updatedRaw) {
-                return false;
-            }
-
-            $this->setId($updatedRaw->id ?? $this->id);
-            if (isset($updatedRaw->query_hash)) {
-                $this->setQueryHash($updatedRaw->query_hash);
-            }
-
-            $this->saved();
-
-            return true;
         }
 
         return false;

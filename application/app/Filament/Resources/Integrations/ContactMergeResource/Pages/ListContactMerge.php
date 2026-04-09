@@ -84,7 +84,7 @@ class ListContactMerge extends ListRecords
 
     private function contactUrl(Record $record, int $contactId): string
     {
-        $account = $record->setting?->user?->account;
+        $account = $record->setting?->amoAccount(false, 'contact-merge');
         $zone = $account?->zone ?? 'ru';
 
         if (!$account?->subdomain) {

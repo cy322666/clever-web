@@ -125,6 +125,8 @@ Route::group(['prefix' => 'amocrm'], function () {
 //    Route::post('secrets', [AuthController::class, 'secrets']);
 
     Route::get('redirect', [AuthController::class, 'redirect']);
+    Route::match(['get', 'post'], 'off', [AuthController::class, 'off'])
+        ->name('amocrm.off');
 
     //хук с фронта об установке, не приходит, че за установка?
     Route::post('install', [AuthController::class, 'install']);

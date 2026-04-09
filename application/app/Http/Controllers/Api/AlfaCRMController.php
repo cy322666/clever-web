@@ -27,6 +27,13 @@ class AlfaCRMController extends Controller
 {
     public function record(User $user, Request $request)
     {
+        $setting = $user->alfacrm_settings;
+        $account = $setting?->amoAccount(false, 'alfacrm');
+
+        if (!$setting || !$account) {
+            return;
+        }
+
         if ($request->leads) {
 
             $data = $request->leads['status'][0] ?? $request->leads['add'][0];
@@ -40,7 +47,7 @@ class AlfaCRMController extends Controller
                 'alfa_branch_id' => $user->alfacrm_settings->branch_id,
             ]);
 
-            RecordWithLead::dispatch($transaction, $user->alfacrm_settings, $user->account);
+            RecordWithLead::dispatch($transaction, $setting, $account);
         }
     }
 
@@ -50,6 +57,11 @@ class AlfaCRMController extends Controller
     public function came(User $user, Request $request)
     {
         $setting = $user->alfacrm_settings ;
+        $account = $setting?->amoAccount(false, 'alfacrm');
+
+        if (!$setting || !$account) {
+            return;
+        }
 
         $alfaApi = (new alfaApi($setting))
             ->setBranch($request->branch_id)
@@ -74,7 +86,7 @@ class AlfaCRMController extends Controller
                 'alfa_client_id' => $lesson->customer_ids[0] ?? null,
             ]);
 
-            CameWithoutLead::dispatch($transaction, $setting, $user->account);
+            CameWithoutLead::dispatch($transaction, $setting, $account);
         }
 //        }
     }
@@ -85,6 +97,11 @@ class AlfaCRMController extends Controller
     public function omission(User $user, Request $request)
     {
         $setting = $user->alfacrm_settings;
+        $account = $setting?->amoAccount(false, 'alfacrm');
+
+        if (!$setting || !$account) {
+            return;
+        }
 
         $alfaApi  = (new alfaApi($setting))
             ->setBranch($request->branch_id)
@@ -110,13 +127,20 @@ class AlfaCRMController extends Controller
                     'status'  => Setting::OMISSION,
                 ]);
 
-            OmissionWithoutLead::dispatch($transaction, $setting, $user->account);
+            OmissionWithoutLead::dispatch($transaction, $setting, $account);
         }
 //        }
     }
 
     public function archive(User $user, Request $request)
     {
+        $setting = $user->alfacrm_settings;
+        $account = $setting?->amoAccount(false, 'alfacrm');
+
+        if (!$setting || !$account) {
+            return;
+        }
+
         if ($request->entity == 'Customer') {
             $transaction = Transaction::query()
                 ->create([
@@ -128,7 +152,7 @@ class AlfaCRMController extends Controller
                     'status' => Setting::ARCHIVE,
                 ]);
 
-            ArchiveLead::dispatch($user->alfacrm_settings, $transaction, $user->account);
+            ArchiveLead::dispatch($setting, $transaction, $account);
         }
     }
 
@@ -138,6 +162,13 @@ class AlfaCRMController extends Controller
      */
     public function pay(User $user, Request $request)
     {
+        $setting = $user->alfacrm_settings;
+        $account = $setting?->amoAccount(false, 'alfacrm');
+
+        if (!$setting || !$account) {
+            return;
+        }
+
         $model = Transaction::query()
             ->where('alfa_client_id', $request->fields_new['customer_id'])
             ->first();
@@ -153,7 +184,7 @@ class AlfaCRMController extends Controller
                 'status' => Setting::PAY,
             ]);
 
-        Pay::dispatch($user->alfacrm_settings, $model, $user->account);
+        Pay::dispatch($setting, $model, $account);
     }
 
     public function repeated()

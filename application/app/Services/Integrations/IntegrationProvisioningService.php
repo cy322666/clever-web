@@ -77,8 +77,13 @@ class IntegrationProvisioningService
         $table = $settingModel->getTable();
 
         $query = $settingModelClass::query()->where('user_id', $user->id);
-        if (Schema::hasColumn($table, 'account_id') && $user->account?->id) {
-            $query->where('account_id', $user->account->id);
+        $amoAccount = null;
+        if (Schema::hasColumn($table, 'account_id')) {
+            $amoAccount = $user->resolveAmoAccountForWidget((string)$app->name, true);
+        }
+
+        if (Schema::hasColumn($table, 'account_id') && $amoAccount?->id) {
+            $query->where('account_id', $amoAccount->id);
         }
 
         $setting = $query->first();
@@ -87,7 +92,7 @@ class IntegrationProvisioningService
             $payload = ['user_id' => $user->id];
 
             if (Schema::hasColumn($table, 'account_id')) {
-                $payload['account_id'] = $user->account?->id;
+                $payload['account_id'] = $amoAccount?->id;
             }
 
             $setting = $settingModelClass::query()->create($payload);

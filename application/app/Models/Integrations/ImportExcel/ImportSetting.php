@@ -31,8 +31,9 @@ class ImportSetting extends Model
     ];
 
     static array $cost = [
-        '6_month' => '6.000 р',//TODO сколько стоит
-        '12_month' => '12.000 р',
+        '1_month' => '2 990 ₽',
+        '6_month' => '14 900 ₽',
+        '12_month' => '24 900 ₽',
     ];
 
     protected $fillable = [

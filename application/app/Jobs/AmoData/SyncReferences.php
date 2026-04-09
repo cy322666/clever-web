@@ -30,10 +30,11 @@ class SyncReferences implements ShouldQueue
      */
     public function handle(AmoDataSyncService $service): void
     {
-        $setting = Setting::query()->with('user.account')->find($this->settingId);
+        $setting = Setting::query()->find($this->settingId);
         $run = SyncRun::query()->find($this->runId);
+        $account = $setting?->amoAccount(false, 'amo-data');
 
-        if (!$setting || !$run || !$setting->user?->account?->active || $run->status !== 'running') {
+        if (!$setting || !$run || !$account?->active || $run->status !== 'running') {
             return;
         }
 

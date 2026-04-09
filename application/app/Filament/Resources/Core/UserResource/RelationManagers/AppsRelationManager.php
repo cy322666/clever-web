@@ -22,7 +22,7 @@ class AppsRelationManager extends RelationManager
 {
     protected static string $relationship = 'apps';
 
-    protected static ?string $title = 'Виджеты клиента';
+    protected static ?string $title = 'Виджеты';
 
     protected static ?string $recordTitleAttribute = 'name';
 

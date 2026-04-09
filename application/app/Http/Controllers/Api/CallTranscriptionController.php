@@ -38,6 +38,11 @@ class CallTranscriptionController extends Controller
             return new Response(null, 403);
         }
 
+        $account = $settingsModel->amoAccount(false, 'call-transcription');
+        if (!$account) {
+            return new Response('amoCRM account not configured', 422);
+        }
+
         $settings = $settingsModel->settings ?? [];
         $settings = is_string($settings) ? json_decode($settings, true) : $settings;
         $settings = is_array($settings) ? $settings : [];
@@ -77,11 +82,11 @@ class CallTranscriptionController extends Controller
             'setting_id' => $settingsModel->id,
             'form_setting_id' => $form,
             'user_id' => $user->id,
-            'account_id' => $user->account->id,
+            'account_id' => $account->id,
             'call_status' => $noteText['call_status'] ?? null,
             'url' => $recordingUrl,
         ]);
 
-        CallTranscription::dispatch($transaction, $user->account, $settingsModel);
+        CallTranscription::dispatch($transaction, $account, $settingsModel);
     }
 }

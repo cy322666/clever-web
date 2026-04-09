@@ -28,6 +28,11 @@ class DocsController extends Controller
     {
         return;
 
+        $account = $user->doc_settings?->amoAccount(false, 'docs');
+        if (!$account) {
+            return;
+        }
+
         $doc = Doc::query()->create([
             'user_id' => $user->id,
             'lead_id' => $request->leads['add'][0]['id'] ?? $request->leads['status'][0]['id'],
@@ -37,7 +42,7 @@ class DocsController extends Controller
 
         Artisan::call('app:doc-generate', [
             'doc' => $doc->id,
-            'account' => $user->account->id,
+            'account' => $account->id,
             'setting' => $user->doc_settings->id,
         ]);
     }

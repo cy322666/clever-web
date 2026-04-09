@@ -24,15 +24,16 @@ class RunSync implements ShouldQueue
 
     public function tags(): array
     {
-        $setting = Setting::query()->with('user.account')->find($this->settingId);
+        $setting = Setting::query()->find($this->settingId);
+        $account = $setting?->amoAccount(false, 'amo-data');
 
-        if (!$setting?->user?->account?->subdomain) {
+        if (!$account?->subdomain) {
             return ['amo-data'];
         }
 
         return [
             'amo-data',
-            'client:' . $setting->user->account->subdomain,
+            'client:' . $account->subdomain,
             'type:' . $this->type,
         ];
     }
@@ -43,10 +44,10 @@ class RunSync implements ShouldQueue
     public function handle(AmoDataSyncService $service): void
     {
         $setting = Setting::query()
-            ->with('user.account')
             ->find($this->settingId);
+        $account = $setting?->amoAccount(false, 'amo-data');
 
-        if (!$setting || !$setting->user?->account?->active) {
+        if (!$setting || !$account?->active) {
             return;
         }
 

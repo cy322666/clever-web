@@ -21,8 +21,12 @@ class BizonController extends Controller
     public function form(User $user, Request $request)
     {
         $form = Form::query()->create([]);
+        $setting = $user->bizon_settings;
+        $account = $setting?->amoAccount(false, 'bizon');
 
-        FormSend::dispatch($form, $user->bizon_settings, $user->account);
+        if ($setting && $account) {
+            FormSend::dispatch($form, $setting, $account);
+        }
     }
 
     /**
@@ -32,8 +36,11 @@ class BizonController extends Controller
     public function hook(User $user, Request $request)
     {
         $setting = $user->bizon_settings;
+        $account = $setting?->amoAccount(false, 'bizon');
 
-        if (!App::isActiveWidget($setting)) return;
+        if (!$setting || !$account || !App::isActiveWidget($setting)) {
+            return;
+        }
 
         $webinar = $user->webinars()->create($request->toArray());
 
@@ -75,7 +82,7 @@ class BizonController extends Controller
 
             $viewer = $webinar->setViewer($userKey, $userArray, $setting, $commentariesTS);
 
-            ViewerSend::dispatch($viewer, $setting, $user->account)->delay(++$delay);
+            ViewerSend::dispatch($viewer, $setting, $account)->delay(++$delay);
         }
     }
 }

@@ -43,9 +43,12 @@ abstract class UpdateButton
     public static function activeUpdate(Model $record): Action
     {
         $app = $record->app;
+        $account = method_exists($record, 'amoAccount')
+            ? $record->amoAccount(false, (string)($app?->name ?? ''))
+            : Auth::user()?->resolveAmoAccountForWidget((string)($app?->name ?? Account::DEFAULT_WIDGET), false);
 
         //амо подключено
-        if (Auth::user()->account->active) {
+        if ((bool)$account?->active) {
 
             //если статус приложения активен
             if ($app->status == App::STATE_ACTIVE) {
@@ -160,8 +163,17 @@ abstract class UpdateButton
     }
 
     //кнопка для синхронизации с амо
-    public static function amoCRMSyncButton(Account $account, ?\Closure $callback = null): Action
+    public static function amoCRMSyncButton(?Account $account, ?\Closure $callback = null): Action
     {
+        if (!$account) {
+            return Action::make('amocrmMissing')
+                ->label('Подключить amoCRM')
+                ->icon('heroicon-o-key')
+                ->color(Color::Gray)
+                ->disabled()
+                ->tooltip('Не удалось определить amoCRM аккаунт для этого виджета');
+        }
+
         if ($account->active) {
             return Action::make('amocrmSync')
                 ->action($callback ?? fn() => null)
@@ -175,8 +187,17 @@ abstract class UpdateButton
         }
     }
 
-    public static function amoCRMAuthButton(Account $account): Action
+    public static function amoCRMAuthButton(?Account $account): Action
     {
+        if (!$account) {
+            return Action::make('amocrmAuth')
+                ->label('Подключить amoCRM')
+                ->icon('heroicon-o-key')
+                ->color(Color::Gray)
+                ->disabled()
+                ->tooltip('Не удалось определить amoCRM аккаунт для этого виджета');
+        }
+
         return Action::make('amocrmAuth')
             ->action('amocrmAuth')
             ->color(fn() => $account->active ? Color::Red : Color::Green)

@@ -60,11 +60,23 @@ class ListForms extends ListRecords
                     ->sortable(),
 
                 TextColumn::make('lead_id')
-                    ->url(fn(GetCourse\Form $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/leads/detail/'.$order->lead_id, true)
+                    ->url(function (GetCourse\Form $order): string {
+                        $subdomain = $order->user?->resolveAmoAccountForWidget('getcourse')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id
+                            : '#';
+                    }, true)
                     ->label('Сделка'),
 
                 TextColumn::make('contact_id')
-                    ->url(fn(GetCourse\Form $order) => 'https://'.$order->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$order->lead_id, true)
+                    ->url(function (GetCourse\Form $order): string {
+                        $subdomain = $order->user?->resolveAmoAccountForWidget('getcourse')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $order->lead_id
+                            : '#';
+                    }, true)
                     ->label('Контакт'),
 
                 BooleanColumn::make('status')
@@ -85,8 +97,12 @@ class ListForms extends ListRecords
                         $collection->each(function (GetCourse\Form $form) {
 
                             $user = $form->user;
+                            $setting = $user->getcourse_settings;
+                            $account = $setting?->amoAccount(false, 'getcourse');
 
-                            \App\Jobs\GetCourse\FormSend::dispatch($form, $user->account, $user->getcourse_settings);
+                            if ($setting && $account) {
+                                \App\Jobs\GetCourse\FormSend::dispatch($form, $account, $setting);
+                            }
                         });
                     })
                     ->label('Выгрузить')

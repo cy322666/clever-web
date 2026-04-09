@@ -17,6 +17,8 @@ class Account extends Model
 {
     use HasFactory;
 
+    public const DEFAULT_WIDGET = 'default';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -34,6 +36,7 @@ class Account extends Model
         'redirect_uri',
         'endpoint',
         'expires_tariff',
+        'widget',
     ];
 
     protected $guarded = [];
@@ -51,5 +54,12 @@ class Account extends Model
     public function statuses(): HasMany
     {
         return $this->hasMany(Status::class);
+    }
+
+    public static function normalizeWidget(?string $widget): string
+    {
+        $normalized = mb_strtolower(trim((string)$widget));
+
+        return $normalized !== '' ? $normalized : self::DEFAULT_WIDGET;
     }
 }

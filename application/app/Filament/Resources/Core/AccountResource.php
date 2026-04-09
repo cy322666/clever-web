@@ -63,6 +63,11 @@ class AccountResource extends Resource
                 Tables\Columns\TextColumn::make('subdomain')
                     ->label('Поддомен'),
 
+                Tables\Columns\TextColumn::make('widget')
+                    ->label('Виджет')
+                    ->badge()
+                    ->color('gray'),
+
 //                Tables\Columns\TextColumn::make('access_token')
 //                    ->label('Токен'),
 

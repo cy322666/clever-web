@@ -30,10 +30,9 @@ class ProcessImportRow implements ShouldQueue, ShouldBeUnique
         $this->onQueue('import_excel');
 
         $setting = ImportSetting::query()
-            ->with('user.account')
             ->find($settingId);
 
-        $this->account = $setting?->user?->account;
+        $this->account = $setting?->amoAccount(false, 'import-excel');
     }
 
     public function tags(): array

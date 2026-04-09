@@ -40,7 +40,6 @@ class AppStatsOverview extends StatsOverviewWidget
                 ->color('danger'),
 
             Stat::make('Истекают за 7 дней', $this->formatNumber($totals['integrations_expiring_soon']))
-                ->description('Рекомендуется предупредить клиентов')
                 ->descriptionIcon('heroicon-o-clock')
                 ->color('warning'),
 

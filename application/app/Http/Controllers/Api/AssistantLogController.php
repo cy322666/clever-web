@@ -28,6 +28,7 @@ class AssistantLogController extends Controller
         }
 
         try {
+            $account = $setting->amoAccount(false, 'assistant');
             $log = $this->logService->store($setting, $user, $request->validated());
 
             return response()->json([
@@ -41,7 +42,7 @@ class AssistantLogController extends Controller
                 'meta' => [
                     'generated_at' => now()->toDateTimeString(),
                     'user_id' => $user->id,
-                    'account_id' => $user->account?->id,
+                    'account_id' => $account?->id,
                     'contract' => 'assistant.v1',
                 ],
             ], 201);

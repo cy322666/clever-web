@@ -10,6 +10,7 @@ use App\Models\Integrations\Alfa\Branch;
 use App\Models\Integrations\Alfa\LeadStatus;
 use App\Models\Integrations\Alfa\Setting;
 use App\Models\Integrations\Alfa\Transaction;
+use App\Support\Integrations\PricingView;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
@@ -186,28 +187,10 @@ class AlfaResource extends Resource
 
                         Section::make()
                             ->schema([
-
-                                TextEntry::make('price6')
-                                    ->label('Полгода')
-                                    ->money('RU', divideBy: 100)
-                                    ->size(TextSize::Medium)
-                                    ->state(fn($model): string => $model::$cost['6_month']),
-
-                                TextEntry::make('price12')
-                                    ->label('Год')
-                                    ->money('RU', divideBy: 100)
-                                    ->size(TextSize::Medium)
-                                    ->state(fn($model): string => $model::$cost['12_month']),
-
-                                TextEntry::make('bonus')
+                                TextEntry::make('pricing')
                                     ->hiddenLabel()
-                                    ->size(TextSize::Small)
-                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
-
-                                TextEntry::make('bonus2')
-                                    ->hiddenLabel()
-                                    ->size(TextSize::Small)
-                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                                    ->html()
+                                    ->state(fn($model) => PricingView::sidebarHtml($model::$cost)),
                             ])
                     ])
                     ->compact()

@@ -11,6 +11,7 @@ use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
+use App\Support\Integrations\PricingView;
 use App\Services\ImportExcel\ExcelImport;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -262,35 +263,16 @@ class ImportResource extends Resource
                     ->schema([
 
                         Action::make('instruction')
-                            ->label('Видео инструкция')
-                            ->url('')
-                            ->disabled()
+                            ->label('Инструкция')
+                            ->url('https://clevercrm.pro/widgets/widget-excel')
                             ->openUrlInNewTab(),
 
                         Section::make()
                             ->schema([
-
-                                TextEntry::make('price6')
-                                    ->label('Полгода')
-                                    ->money('RU', divideBy: 100)
-                                    ->size(TextSize::Medium)
-                                    ->state(fn($model): string => $model::$cost['6_month']),
-
-                                TextEntry::make('price12')
-                                    ->label('Год')
-                                    ->money('RU', divideBy: 100)
-                                    ->size(TextSize::Medium)
-                                    ->state(fn($model): string => $model::$cost['12_month']),
-
-                                TextEntry::make('bonus')
+                                TextEntry::make('pricing')
                                     ->hiddenLabel()
-                                    ->size(TextSize::Small)
-                                    ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
-
-                                TextEntry::make('bonus2')
-                                    ->hiddenLabel()
-                                    ->size(TextSize::Small)
-                                    ->state('Чтобы узнать больше напишите в чат ниже'),
+                                    ->html()
+                                    ->state(fn($model) => PricingView::sidebarHtml($model::$cost)),
                             ])
                     ])
                     ->compact()

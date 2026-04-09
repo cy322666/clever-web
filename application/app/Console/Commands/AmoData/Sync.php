@@ -27,7 +27,7 @@ class Sync extends Command
             return self::FAILURE;
         }
 
-        if (!$setting->user?->account?->active) {
+        if (!$setting->amoAccount(false, 'amo-data')?->active) {
             $this->error('amoCRM account is not active');
 
             return self::FAILURE;

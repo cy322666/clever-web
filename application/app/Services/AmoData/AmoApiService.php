@@ -21,9 +21,15 @@ class AmoApiService
     /**
      * @throws \Exception
      */
-    public static function forUser(User $user): self
+    public static function forUser(User $user, string $widget = 'default'): self
     {
-        return new self(new Client($user->account));
+        $account = $user->resolveAmoAccountForWidget($widget, false);
+
+        if (!$account) {
+            throw new RuntimeException('amoCRM account is not configured');
+        }
+
+        return new self(new Client($account));
     }
 
     public function getLeads(?Carbon $updatedFrom = null, int $limit = self::PAGE_LIMIT): array

@@ -15,6 +15,13 @@ class GetCourseController extends Controller
 {
     public function order(User $user, Request $request, string $template)
     {
+        $setting = $user->getcourse_settings;
+        $account = $setting?->amoAccount(false, 'getcourse');
+
+        if (!$setting || !$account) {
+            return;
+        }
+
         $cost  = explode('.', $request->cost_money)[0] ?: 0;
         $payed = explode('.', $request->payed_money)[0] ?: 0;
         $left  = explode('.', $request->left_cost_money)[0] ?: 0;
@@ -37,13 +44,20 @@ class GetCourseController extends Controller
 
         OrderSend::dispatch(
             $order,
-            $user->account,
-            $user->getcourse_settings,
+            $account,
+            $setting,
         );
     }
 
     public function form(User $user, Request $request, string $form)
     {
+        $setting = $user->getcourse_settings;
+        $account = $setting?->amoAccount(false, 'getcourse');
+
+        if (!$setting || !$account) {
+            return;
+        }
+
         $form = Form::query()->create([
             'form'    => $form,
             'user_id' => $user->id,
@@ -60,8 +74,8 @@ class GetCourseController extends Controller
 
         FormSend::dispatch(
             $form,
-            $user->account,
-            $user->getcourse_settings,
+            $account,
+            $setting,
         );
     }
 }

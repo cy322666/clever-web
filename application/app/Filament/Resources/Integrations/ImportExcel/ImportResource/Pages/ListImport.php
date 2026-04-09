@@ -58,27 +58,33 @@ class ListImport extends ListRecords
 
                 TextColumn::make('lead_id')
                     ->label('Сделка')
-                    ->url(
-                        fn(ImportRecord $order
-                        ) => 'https://' . $order->user->account->subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id,
-                        true
-                    ),
+                    ->url(function (ImportRecord $order): string {
+                        $subdomain = $order->user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id
+                            : '#';
+                    }, true),
 
                 TextColumn::make('contact_id')
                     ->label('Контакт')
-                    ->url(
-                        fn(ImportRecord $order
-                        ) => 'https://' . $order->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $order->contact_id,
-                        true
-                    ),
+                    ->url(function (ImportRecord $order): string {
+                        $subdomain = $order->user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $order->contact_id
+                            : '#';
+                    }, true),
 
                 TextColumn::make('company_id')
                     ->label('Компания')
-                    ->url(
-                        fn(ImportRecord $order
-                        ) => 'https://' . $order->user->account->subdomain . '.amocrm.ru/companies/detail/' . $order->company_id,
-                        true
-                    ),
+                    ->url(function (ImportRecord $order): string {
+                        $subdomain = $order->user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/companies/detail/' . $order->company_id
+                            : '#';
+                    }, true),
 
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')

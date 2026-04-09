@@ -12,11 +12,18 @@ class DadataController extends Controller
 {
     public function hook(User $user, Request $request)
     {
+        $setting = $user->dataSetting;
+        $account = $setting?->amoAccount(false, 'data-info');
+
+        if (!$setting || !$account) {
+            return;
+        }
+
         $data = Lead::query()->create([
             'user_id' => $user->id,
             'lead_id' => $request->leads['add'][0]['id'] ?? $request->leads['status'][0]['id']
         ]);
 
-        InfoLead::dispatch($data, $user->dataSetting, $user->account);
+        InfoLead::dispatch($data, $setting, $account);
     }
 }

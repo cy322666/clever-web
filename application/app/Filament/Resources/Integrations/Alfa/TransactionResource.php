@@ -37,11 +37,23 @@ class TransactionResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('amo_lead_id')
-                    ->url(fn(Transaction $transaction) => 'https://'.$transaction->user->account->subdomain.'.amocrm.ru/leads/detail/'.$transaction->amo_lead_id, true)
+                    ->url(function (Transaction $transaction): string {
+                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('alfacrm')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $transaction->amo_lead_id
+                            : '#';
+                    }, true)
                     ->label('Сделка'),
 
                 Tables\Columns\TextColumn::make('amo_contact_id')
-                    ->url(fn(Transaction $transaction) => 'https://'.$transaction->user->account->subdomain.'.amocrm.ru/contacts/detail/'.$transaction->amo_contact_id, true)
+                    ->url(function (Transaction $transaction): string {
+                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('alfacrm')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $transaction->amo_contact_id
+                            : '#';
+                    }, true)
                     ->label('Контакт'),
 
                 Tables\Columns\TextColumn::make('alfa_client_id')

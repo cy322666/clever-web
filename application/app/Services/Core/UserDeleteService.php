@@ -22,9 +22,9 @@ class UserDeleteService
 
         $userId = (int)$user->id;
         $userUuid = (string)($user->uuid ?? '');
-        $accountId = (int)($user->account?->id ?? 0);
+        $accountIds = $user->accounts()->pluck('id')->map(fn($id) => (int)$id)->all();
 
-        return DB::transaction(function () use ($user, $userId, $userUuid, $accountId): array {
+        return DB::transaction(function () use ($user, $userId, $userUuid, $accountIds): array {
             $stats = [];
 
             $authLogTable = (string)config('authentication-log.table_name', 'authentication_log');
@@ -52,7 +52,7 @@ class UserDeleteService
             }
 
             $stats['feedback'] = $this->deleteByUserIdVariants('feedback', $userId);
-            $stats['call_transactions'] = $this->deleteCallTransactions($userId, $accountId);
+            $stats['call_transactions'] = $this->deleteCallTransactions($userId, $accountIds);
             $stats['trigger_events'] = $this->deleteRows('trigger_events', [
                 'user_id' => $userId,
             ]);
@@ -98,7 +98,7 @@ class UserDeleteService
             ->delete();
     }
 
-    private function deleteCallTransactions(int $userId, int $accountId): int
+    private function deleteCallTransactions(int $userId, array $accountIds): int
     {
         if (!Schema::hasTable('call_transactions')) {
             return 0;
@@ -116,11 +116,11 @@ class UserDeleteService
             $query->where('user_id', $userId);
         }
 
-        if ($hasAccountId && $accountId > 0) {
+        if ($hasAccountId && $accountIds !== []) {
             if ($hasUserId) {
-                $query->orWhere('account_id', $accountId);
+                $query->orWhereIn('account_id', $accountIds);
             } else {
-                $query->where('account_id', $accountId);
+                $query->whereIn('account_id', $accountIds);
             }
         }
 

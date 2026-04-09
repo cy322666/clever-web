@@ -29,11 +29,13 @@ class ListTransactions extends ListRecords
 
                 Tables\Columns\TextColumn::make('contact_id')
                     ->label('Контакт')
-                    ->url(
-                        fn(Transaction $transaction
-                        ) => 'https://' . $transaction->user->account->subdomain . '.amocrm.ru/contacts/detail/' . $transaction->contact_id,
-                        true
-                    ),
+                    ->url(function (Transaction $transaction): string {
+                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('call-transcription')?->subdomain;
+
+                        return $subdomain
+                            ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $transaction->contact_id
+                            : '#';
+                    }, true),
 
                 Tables\Columns\TextColumn::make('duration')
                     ->label('Длит')

@@ -2,6 +2,7 @@
 
 namespace App\Helpers\Traits;
 
+use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Artisan;
@@ -12,13 +13,30 @@ trait SyncAmoCRMPage
 {
     public function amocrmAuth(): void
     {
-        $account = Auth::user()->account;
+        $user = Auth::user();
+        $widget = $this->resolveAmoWidgetKey();
+        $account = $user?->resolveAmoAccountForWidget($widget, true);
+
+        if (!$user || !$account) {
+            Notification::make()
+                ->title('Не удалось определить amoCRM аккаунт')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         if (!$account->active) {
 
             $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
+            $state = $this->encodeOauthState($user->uuid, $widget);
+            $clientId = $this->resolveOauthClientId($widget, $account);
 
-            Redirect::to('https://www.amocrm.ru/oauth/?state='.Auth::user()->uuid.'&mode=popup&client_id='.config('services.amocrm.client_id').'&uri='.urlencode($url));
+            Redirect::to(
+                'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
+                . '&mode=popup&client_id=' . urlencode($clientId)
+                . '&uri=' . urlencode($url)
+            );
 
         } else {
             $account->code = null;
@@ -43,7 +61,16 @@ trait SyncAmoCRMPage
      */
     public function amocrmUpdate(): void
     {
-        $account = Auth::user()->account;
+        $account = Auth::user()?->resolveAmoAccountForWidget($this->resolveAmoWidgetKey(), false);
+
+        if (!$account) {
+            Notification::make()
+                ->title('amoCRM аккаунт не найден')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         $amoApi = new Client($account);
 
@@ -62,5 +89,50 @@ trait SyncAmoCRMPage
                 ->title('Ошибка авторизации')
                 ->danger()
                 ->send();
+    }
+
+    protected function resolveAmoWidgetKey(): string
+    {
+        if (method_exists($this, 'getAmoWidgetKey')) {
+            $widget = (string)$this->getAmoWidgetKey();
+
+            if ($widget !== '') {
+                return Account::normalizeWidget($widget);
+            }
+        }
+
+        if (property_exists($this, 'record') && $this->record && method_exists($this->record, 'amoWidget')) {
+            return $this->record->amoWidget();
+        }
+
+        return Account::DEFAULT_WIDGET;
+    }
+
+    protected function resolveOauthClientId(string $widget, Account $account): string
+    {
+        $configWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
+        if ($configWidgetClientId !== '') {
+            return $configWidgetClientId;
+        }
+
+        if ((string)$account->client_id !== '') {
+            return (string)$account->client_id;
+        }
+
+        return (string)config('services.amocrm.client_id');
+    }
+
+    protected function encodeOauthState(string $userUuid, string $widget): string
+    {
+        $payload = json_encode([
+            'user_uuid' => $userUuid,
+            'widget' => $widget,
+        ], JSON_UNESCAPED_UNICODE);
+
+        if ($payload === false) {
+            return $userUuid;
+        }
+
+        return rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
     }
 }

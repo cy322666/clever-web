@@ -12,6 +12,7 @@ use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Tilda;
 use App\Models\Log;
 use App\Models\User;
+use App\Support\Integrations\PricingView;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -182,28 +183,10 @@ class TildaResource extends Resource
 
                         Section::make()
                             ->schema([
-
-                            TextEntry::make('price6')
-                                ->label('Полгода')
-                                ->money('RU', divideBy: 100)
-                                ->size(TextSize::Medium)
-                                ->state(fn($model): string => $model::$cost['6_month']),
-
-                            TextEntry::make('price12')
-                                ->label('Год')
-                                ->money('RU', divideBy: 100)
-                                ->size(TextSize::Medium)
-                                ->state(fn($model): string => $model::$cost['12_month']),
-
-                            TextEntry::make('bonus')
-                                ->hiddenLabel()
-                                ->size(TextSize::Small)
-                                ->state('*Бесплатно при продлении лицензий через интегратора Clever'),
-
-                            TextEntry::make('bonus2')
-                                ->hiddenLabel()
-                                ->size(TextSize::Small)
-                                ->state('Чтобы узнать больше напишите в чат ниже'),
+                                TextEntry::make('pricing')
+                                    ->hiddenLabel()
+                                    ->html()
+                                    ->state(fn($model) => PricingView::sidebarHtml($model::$cost)),
                         ])
                     ])
                     ->compact()

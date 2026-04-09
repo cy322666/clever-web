@@ -34,8 +34,14 @@ class YClientsController extends Controller
     public static function record(User $user, Request $request): JsonResponse
     {
         $setting = $user->yclientsSetting;
+        $account = $setting?->amoAccount(false, 'yclients');
 
-        $account = $user->account;
+        if (!$setting || !$account) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'amoCRM account is not configured for yclients',
+            ], 422);
+        }
 
         $clientId = data_get($request->data, 'client.id');
 

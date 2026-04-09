@@ -23,7 +23,7 @@ class EditContactMerge extends EditRecord
             UpdateButton::activeUpdate($this->record),
 
             UpdateButton::amoCRMSyncButton(
-                Auth::user()->account,
+                $this->record->amoAccount(true),
                 fn () => $this->amocrmUpdate(),
             ),
 
@@ -41,7 +41,17 @@ class EditContactMerge extends EditRecord
                         return;
                     }
 
-                    RunMerge::dispatch($this->record, Auth::user()->account);
+                    $account = $this->record->amoAccount(false, 'contact-merge');
+                    if (!$account) {
+                        Notification::make()
+                            ->title('amoCRM аккаунт не подключен')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    RunMerge::dispatch($this->record, $account);
 
                     Notification::make()
                         ->title('Склейка запущена')

@@ -14,6 +14,7 @@ class TildaController extends Controller
     public function hook(User $user, string $site, Request $request)
     {
         $setting = $user->tilda_settings;
+        $account = $setting?->amoAccount(false, 'tilda');
 
         $bodies  = json_decode($setting->bodies, true);
         $data    = $request->toArray();
@@ -39,8 +40,8 @@ class TildaController extends Controller
             'status'  => false,
         ]);
 
-        if ($user->tilda_settings->active)
+        if ($user->tilda_settings->active && $account)
 
-            FormSend::dispatch($form, $user->account, $setting);
+            FormSend::dispatch($form, $account, $setting);
     }
 }

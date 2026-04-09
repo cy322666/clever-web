@@ -32,14 +32,15 @@ class SyncLeadPage implements ShouldQueue
 
     public function handle(AmoDataSyncService $service): void
     {
-        $setting = Setting::query()->with('user.account')->find($this->settingId);
+        $setting = Setting::query()->find($this->settingId);
         $run = SyncRun::query()->find($this->runId);
+        $account = $setting?->amoAccount(false, 'amo-data');
 
-        if (!$setting || !$run || !$setting->user?->account?->active || $run->status !== 'running') {
+        if (!$setting || !$run || !$account?->active || $run->status !== 'running') {
             return;
         }
 
-        $api = new AmoApiService(new Client($setting->user->account));
+        $api = new AmoApiService(new Client($account));
         $limit = AmoApiService::PAGE_LIMIT;
         $items = $api->getLeadsPage(
             $this->updatedFrom ? Carbon::createFromTimestamp($this->updatedFrom) : null,

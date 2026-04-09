@@ -4,20 +4,12 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Core\UserResource\Widgets\UserAccountOverview;
-use App\Helpers\Actions\UpdateButton;
-use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Request;
 
 class ViewUser extends ViewRecord
 {
-    use SyncAmoCRMPage;
-
     protected static string $resource = UserResource::class;
 
     protected static ?string $title = 'Аккаунт';
@@ -29,38 +21,13 @@ class ViewUser extends ViewRecord
 
     protected function getActions(): array
     {
-        $account = $this->record->account;
-
-        $actions = [];
-
-        if ($account) {
-            $actions[] = UpdateButton::amoCRMAuthButton($account);
-        } else {
-            $actions[] = Action::make('amocrmMissing')
-                ->label('amoCRM не инициализирована')
-                ->tooltip('Для пользователя не создана запись account')
-                ->color(Color::Gray)
-                ->disabled();
-        }
-
-        if ((bool)$account?->active) {
-            $actions[] = UpdateButton::amoCRMSyncButton(
-                $account,
-                fn() => $this->amocrmUpdate(),
-            );
-        }
-
-        $actions[] = ActionGroup::make([
+        return [
             Action::make('root')
                 ->label('Монитор')
-                ->url(UserResource::getUrl()),
-        ])
-            ->label('Навигация')
-            ->icon('heroicon-o-ellipsis-horizontal')
-            ->color(Color::Gray)
-            ->hidden(fn() => !Auth::user()->is_root);
-
-        return $actions;
+                ->icon('heroicon-o-chart-bar-square')
+                ->url(UserResource::getUrl())
+                ->hidden(fn() => !Auth::user()->is_root),
+        ];
     }
 
     public function mount(int|string $record): void
@@ -72,20 +39,6 @@ class ViewUser extends ViewRecord
         }
 
         parent::mount($record);
-
-        $auth = Request::get('auth');
-
-        if ($auth === '0')
-            Notification::make()
-                ->title('amoCRM не подключена. Подключите или обратитесь в чат поддержки')
-                ->warning()
-                ->send();
-
-        if ($auth === '1')
-            Notification::make()
-                ->title('amoCRM успешно подключена')
-                ->success()
-                ->send();
     }
 
     protected function getHeaderWidgets(): array

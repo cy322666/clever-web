@@ -44,9 +44,11 @@ class AssistantAnalyticsController extends Controller
             $service = AssistantAnalyticsService::forUser($user);
             $data = $callback($service, $setting);
 
+            $account = $setting->amoAccount(false, 'assistant');
+
             $response = [
                 'data' => $data,
-                'meta' => $this->meta($user),
+                'meta' => $this->meta($user, $account?->id),
             ];
 
             $this->logService->logEndpoint(
@@ -90,12 +92,12 @@ class AssistantAnalyticsController extends Controller
             ->first();
     }
 
-    private function meta(User $user): array
+    private function meta(User $user, ?int $accountId = null): array
     {
         return [
             'generated_at' => now()->toDateTimeString(),
             'user_id' => $user->id,
-            'account_id' => $user->account?->id,
+            'account_id' => $accountId,
             'contract' => 'assistant.v1',
         ];
     }

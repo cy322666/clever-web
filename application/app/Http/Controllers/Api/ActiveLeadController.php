@@ -13,6 +13,8 @@ class ActiveLeadController extends Controller
     public function hook(User $user, Request $request)
     {
         $data = $request->toArray()['leads']['status'][0] ?? $request->toArray()['leads']['add'][0];
+        $setting = $user->activeLeadSetting;
+        $account = $setting?->amoAccount(false, 'active-lead');
 
         if (!Lead::query()
             ->where('user_id', $user->id)
@@ -26,7 +28,9 @@ class ActiveLeadController extends Controller
                 'pipeline_id' => $data['pipeline_id'],
             ]);
 
-            CheckLead::dispatch($model, $user->activeLeadSetting, $user->account);
+            if ($setting && $account) {
+                CheckLead::dispatch($model, $setting, $account);
+            }
         }
     }
 }

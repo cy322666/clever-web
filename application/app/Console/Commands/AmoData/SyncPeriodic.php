@@ -27,11 +27,10 @@ class SyncPeriodic extends Command
 
         $settings = Setting::query()
             ->where('active', true)
-            ->with('user.account')
             ->get();
 
         foreach ($settings as $setting) {
-            if (!$setting->user?->account?->active || !$service->isDue($setting)) {
+            if (!$setting->amoAccount(false, 'amo-data')?->active || !$service->isDue($setting)) {
                 continue;
             }
 

@@ -33,10 +33,12 @@ class AssistantLogService
 
     public function store(Setting $setting, User $user, array $payload): AssistantLog
     {
+        $account = $setting->amoAccount(false, 'assistant');
+
         return AssistantLog::query()->create([
             'assistant_setting_id' => $setting->id,
             'user_id' => $user->id,
-            'account_id' => $user->account?->id,
+            'account_id' => $account?->id,
             'source' => $payload['source'] ?? 'api',
             'status' => $payload['status'] ?? 'success',
             'endpoint' => $payload['endpoint'] ?? null,

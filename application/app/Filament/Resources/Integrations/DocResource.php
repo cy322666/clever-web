@@ -59,7 +59,10 @@ class DocResource extends Resource
 
                                 Forms\Components\FileUpload::make('template')
                                     ->label('Шаблон')
-                                    ->directory(fn() => 'docs/templates/'.Auth::user()->account->subdomain)
+                                    ->directory(fn() => 'docs/templates/' . (
+                                            Auth::user()?->resolveAmoAccountForWidget('docs')?->subdomain
+                                            ?? 'default'
+                                        ))
                                     ->visibility('public')
                                     ->getUploadedFileNameForStorageUsing(
                                         fn (TemporaryUploadedFile $file): string => (string) str($file->getClientOriginalName())

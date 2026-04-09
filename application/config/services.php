@@ -38,6 +38,13 @@ return [
         'description'  => env('AMO_DESCRIPTION'),
         'redirect_uri' => env('AMO_REDIRECT_URI'),
         'secrets_uri'  => env('AMO_SECRETS_URI'),
+        'widgets' => [
+            // Optional per-widget oauth credentials.
+            'import-excel' => [
+                'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
+                'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
+            ],
+        ],
     ],
     'yandex' => [
         'local_storage_path'  => storage_path('app/public/'),

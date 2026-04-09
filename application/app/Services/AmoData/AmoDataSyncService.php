@@ -40,7 +40,12 @@ class AmoDataSyncService
     private function start(Setting $setting, string $type, bool $initial): SyncRun
     {
         $user = $setting->user;
-        $account = $user->account;
+        $account = $setting->amoAccount(false, 'amo-data');
+
+        if (!$user || !$account) {
+            throw new \RuntimeException('amo-data account not configured');
+        }
+
         $startedAt = now();
 
         $run = $setting->runs()->create([
@@ -127,9 +132,14 @@ class AmoDataSyncService
 
     public function processLeadPage(Setting $setting, SyncRun $run, array $items, int $page, int $limit = 50): void
     {
+        $account = $setting->amoAccount(false, 'amo-data');
+        if (!$account) {
+            throw new \RuntimeException('amo-data account not configured');
+        }
+
         $result = $this->leadSync()->sync(
             $setting->user,
-            $setting->user->account,
+            $account,
             $items,
             (bool)data_get($setting->settings, 'store_payloads', false),
         );
@@ -145,9 +155,14 @@ class AmoDataSyncService
 
     public function processTaskPage(Setting $setting, SyncRun $run, array $items, int $page, int $limit = 50): void
     {
+        $account = $setting->amoAccount(false, 'amo-data');
+        if (!$account) {
+            throw new \RuntimeException('amo-data account not configured');
+        }
+
         $result = $this->taskSync()->sync(
             $setting->user,
-            $setting->user->account,
+            $account,
             $items,
             (bool)data_get($setting->settings, 'store_payloads', false),
         );
@@ -166,7 +181,12 @@ class AmoDataSyncService
      */
     public function processReferences(Setting $setting, SyncRun $run): void
     {
-        $amoApi = new Client($setting->user->account);
+        $account = $setting->amoAccount(false, 'amo-data');
+        if (!$account) {
+            throw new \RuntimeException('amo-data account not configured');
+        }
+
+        $amoApi = new Client($account);
 
         AccountSync::users($amoApi, $setting->user);
         AccountSync::statuses($amoApi, $setting->user);

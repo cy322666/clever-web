@@ -109,7 +109,17 @@ class User extends Authenticatable implements FilamentUser
 
     public function account(): HasOne
     {
-        return $this->hasOne(Account::class);
+        return $this->hasOne(Account::class)
+            ->where(function ($query) {
+                $query->where('widget', Account::DEFAULT_WIDGET)
+                    ->orWhereNull('widget');
+            })
+            ->latest('id');
+    }
+
+    public function accounts(): HasMany
+    {
+        return $this->hasMany(Account::class);
     }
 
     public function webinars(): HasMany
@@ -177,5 +187,47 @@ class User extends Authenticatable implements FilamentUser
     public function amo_data_settings(): HasOne
     {
         return $this->hasOne(\App\Models\Integrations\AmoData\Setting::class);
+    }
+
+    public function resolveAmoAccountForWidget(?string $widget, bool $createIfMissing = false): ?Account
+    {
+        $widget = Account::normalizeWidget($widget);
+
+        $specific = $this->accounts()
+            ->where('widget', $widget)
+            ->first();
+
+        if ($specific) {
+            return $specific;
+        }
+
+        $default = $this->accounts()
+            ->where(function ($query) {
+                $query->where('widget', Account::DEFAULT_WIDGET)
+                    ->orWhereNull('widget');
+            })
+            ->latest('id')
+            ->first();
+
+        if (!$createIfMissing || $widget === Account::DEFAULT_WIDGET) {
+            return $default;
+        }
+
+        $payload = [
+            'user_id' => $this->id,
+            'widget' => $widget,
+        ];
+
+        if ($default) {
+            $payload = array_merge($payload, [
+                'subdomain' => $default->subdomain,
+                'client_id' => $default->client_id,
+                'client_secret' => $default->client_secret,
+                'redirect_uri' => $default->redirect_uri,
+                'zone' => $default->zone,
+            ]);
+        }
+
+        return Account::query()->create($payload);
     }
 }

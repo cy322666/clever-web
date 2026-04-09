@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Http\Controllers\Controller;
+use App\Mail\AmoDisconnected;
 use App\Mail\SignUp;
 use App\Mail\SignUpWidget;
 use App\Models\App;
+use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\amoCRM\Client;
@@ -17,24 +19,46 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AuthController extends Controller
 {
     //обычная установка
     public function redirect(Request $request): RedirectResponse
     {
+        $oauthState = $this->decodeOauthState((string)$request->state);
+
         $user = User::query()
-            ->where('uuid', $request->state)
+            ->where('uuid', $oauthState['user_uuid'])
             ->first();
 
-        $account = $user->account;
+        abort_unless($user instanceof User, 404, 'User not found');
+
+        $widget = Account::normalizeWidget((string)($oauthState['widget'] ?? Account::DEFAULT_WIDGET));
+        $account = $user->resolveAmoAccountForWidget($widget, true);
+
+        abort_unless($account instanceof Account, 422, 'Account slot not found');
+
+        $oauthConfig = $this->resolveOauthConfigForWidget($widget);
+        $amoDomain = $this->extractAmoDomainParts((string)$request->referer);
+        $subdomain = $amoDomain['subdomain'];
+        $zone = $amoDomain['zone'];
+
+        if (!$subdomain && empty($account->subdomain)) {
+            abort(422, 'Не удалось определить домен amoCRM.');
+        }
+
+        if ($subdomain) {
+            $this->validateAmoSubdomainUniqueness($user, $subdomain);
+        }
 
         $account->code = $request->code;
-        $account->zone = explode('.', $request->referer)[2];
+        $account->widget = $widget;
+        $account->zone = $zone ?? $account->zone;
         $account->client_id = $request->client_id;
-        $account->subdomain = explode('.', $request->referer)[0];
-        $account->redirect_uri  = config('services.amocrm.redirect_uri');
-        $account->client_secret = config('services.amocrm.client_secret');
+        $account->subdomain = $subdomain ?? $account->subdomain;
+        $account->redirect_uri = $oauthConfig['redirect_uri'];
+        $account->client_secret = $oauthConfig['client_secret'];
         $account->save();
 
         $amoApi = (new Client($account->refresh()));
@@ -158,7 +182,121 @@ class AuthController extends Controller
 
     public function off(Request $request)
     {
-        Log::info(__METHOD__, $request->toArray());
+        $payload = $request->all();
+        $flat = $this->flattenPayload($payload);
+
+        $clientId = $this->firstFilledValue($flat, [
+            'client_id',
+            'client.id',
+            'account.client_id',
+            'account.id',
+        ]);
+
+        $referer = (string)($this->firstFilledValue($flat, ['referer', 'account.referer']) ?? '');
+        if ($referer === '') {
+            $referer = (string)$request->header('referer', '');
+        }
+
+        $subdomain = $this->extractAmoDomainParts($referer)['subdomain']
+            ?? $this->normalizeSubdomain(
+                (string)($this->firstFilledValue($flat, [
+                    'subdomain',
+                    'account.subdomain',
+                    'account.domain',
+                    'domain',
+                ]) ?? '')
+            );
+
+        $accountsQuery = Account::query();
+
+        if ($clientId !== null && $clientId !== '') {
+            $accountsQuery->where('client_id', $clientId);
+        }
+
+        if ($subdomain !== null && $subdomain !== '') {
+            $accountsQuery->whereRaw('LOWER(subdomain) = ?', [Str::lower($subdomain)]);
+        }
+
+        if (($clientId === null || $clientId === '') && ($subdomain === null || $subdomain === '')) {
+            Log::warning('amocrm.off: account matcher is missing', [
+                'payload' => $payload,
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'updated' => 0,
+                'reason' => 'No client_id/subdomain in payload',
+            ]);
+        }
+
+        $accounts = $accountsQuery
+            ->with('user:id,name,email')
+            ->get();
+
+        $mailPayloadByUser = [];
+
+        foreach ($accounts as $account) {
+            $user = $account->user;
+            if ($user && filled($user->email)) {
+                $userId = (int)$user->id;
+
+                if (!isset($mailPayloadByUser[$userId])) {
+                    $mailPayloadByUser[$userId] = [
+                        'user' => $user,
+                        'widgets' => [],
+                        'subdomains' => [],
+                    ];
+                }
+
+                $mailPayloadByUser[$userId]['widgets'][] = Account::normalizeWidget((string)$account->widget);
+                if (filled($account->subdomain)) {
+                    $mailPayloadByUser[$userId]['subdomains'][] = Str::lower((string)$account->subdomain);
+                }
+            }
+
+            $account->code = null;
+            $account->access_token = null;
+            $account->refresh_token = null;
+            $account->subdomain = null;
+            $account->active = false;
+            $account->save();
+        }
+
+        $mailsQueued = 0;
+        foreach ($mailPayloadByUser as $payload) {
+            $widgets = array_values(array_unique($payload['widgets']));
+            $subdomains = array_values(array_unique($payload['subdomains']));
+
+            try {
+                Mail::to($payload['user']->email)->queue(
+                    new AmoDisconnected(
+                        user: $payload['user'],
+                        widgets: $widgets,
+                        subdomains: $subdomains,
+                    )
+                );
+                $mailsQueued++;
+            } catch (Throwable $e) {
+                Log::warning('amocrm.off: failed to queue disconnect email', [
+                    'user_id' => $payload['user']->id ?? null,
+                    'email' => $payload['user']->email ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('amocrm.off processed', [
+            'client_id' => $clientId,
+            'subdomain' => $subdomain,
+            'updated' => $accounts->count(),
+            'mail_queued' => $mailsQueued,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'updated' => $accounts->count(),
+            'mail_queued' => $mailsQueued,
+        ]);
     }
 
     private function sanitizeRelativeRedirect(mixed $redirect, string $fallback): string
@@ -174,6 +312,197 @@ class AuthController extends Controller
         }
 
         return $path;
+    }
+
+    private function decodeOauthState(string $state): array
+    {
+        $state = trim($state);
+
+        if ($state === '') {
+            abort(422, 'Invalid oauth state.');
+        }
+
+        $normalized = strtr($state, '-_', '+/');
+        $padding = strlen($normalized) % 4;
+        if ($padding > 0) {
+            $normalized .= str_repeat('=', 4 - $padding);
+        }
+
+        $decoded = base64_decode($normalized, true);
+
+        if ($decoded !== false) {
+            $payload = json_decode($decoded, true);
+
+            if (is_array($payload) && !empty($payload['user_uuid'])) {
+                return [
+                    'user_uuid' => (string)$payload['user_uuid'],
+                    'widget' => Account::normalizeWidget((string)($payload['widget'] ?? Account::DEFAULT_WIDGET)),
+                ];
+            }
+        }
+
+        if (str_contains($state, '|')) {
+            [$uuid, $widget] = array_pad(explode('|', $state, 2), 2, '');
+
+            if ($uuid !== '') {
+                return [
+                    'user_uuid' => $uuid,
+                    'widget' => Account::normalizeWidget($widget),
+                ];
+            }
+        }
+
+        return [
+            'user_uuid' => $state,
+            'widget' => Account::DEFAULT_WIDGET,
+        ];
+    }
+
+    private function resolveOauthConfigForWidget(string $widget): array
+    {
+        $prefix = 'services.amocrm.widgets.' . $widget . '.';
+
+        $clientSecret = (string)config($prefix . 'client_secret', '');
+        $redirectUri = (string)config($prefix . 'redirect_uri', '');
+
+        return [
+            'client_secret' => $clientSecret !== ''
+                ? $clientSecret
+                : (string)config('services.amocrm.client_secret'),
+            'redirect_uri' => $redirectUri !== ''
+                ? $redirectUri
+                : (string)config('services.amocrm.redirect_uri'),
+        ];
+    }
+
+    private function extractAmoDomainParts(string $referer): array
+    {
+        $referer = trim($referer);
+
+        if ($referer === '') {
+            return ['subdomain' => null, 'zone' => null];
+        }
+
+        $host = parse_url($referer, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            $host = parse_url('https://' . ltrim($referer, '/'), PHP_URL_HOST);
+        }
+
+        if (!is_string($host) || $host === '') {
+            return ['subdomain' => null, 'zone' => null];
+        }
+
+        $parts = array_values(array_filter(explode('.', Str::lower($host))));
+        if (count($parts) < 2) {
+            return ['subdomain' => null, 'zone' => null];
+        }
+
+        $subdomain = $parts[0] ?? null;
+        $zone = end($parts) ?: null;
+
+        if (!is_string($subdomain) || !preg_match('/^[a-z0-9-]+$/', $subdomain)) {
+            $subdomain = null;
+        }
+
+        if (!is_string($zone) || !preg_match('/^[a-z]{2,10}$/', $zone)) {
+            $zone = null;
+        }
+
+        return [
+            'subdomain' => $subdomain,
+            'zone' => $zone,
+        ];
+    }
+
+    private function validateAmoSubdomainUniqueness(User $user, string $subdomain): void
+    {
+        $subdomain = Str::lower(trim($subdomain));
+
+        if ($subdomain === '') {
+            return;
+        }
+
+        $userHasDifferentSubdomain = Account::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->whereRaw('LOWER(subdomain) <> ?', [$subdomain])
+            ->exists();
+
+        if ($userHasDifferentSubdomain) {
+            abort(422, 'У аккаунта платформы может быть только один amoCRM домен.');
+        }
+
+        $subdomainBelongsToAnotherUser = Account::query()
+            ->where('user_id', '<>', $user->id)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->whereRaw('LOWER(subdomain) = ?', [$subdomain])
+            ->exists();
+
+        if ($subdomainBelongsToAnotherUser) {
+            abort(422, 'Этот amoCRM домен уже подключен к другому аккаунту платформы.');
+        }
+    }
+
+    private function flattenPayload(array $payload, string $prefix = ''): array
+    {
+        $flat = [];
+
+        foreach ($payload as $key => $value) {
+            $path = $prefix === '' ? (string)$key : $prefix . '.' . $key;
+
+            if (is_array($value)) {
+                $flat += $this->flattenPayload($value, $path);
+                continue;
+            }
+
+            $flat[$path] = $value;
+            $flat[(string)$key] = $value;
+        }
+
+        return $flat;
+    }
+
+    private function firstFilledValue(array $flat, array $keys): mixed
+    {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $flat)) {
+                continue;
+            }
+
+            $value = $flat[$key];
+
+            if (is_string($value)) {
+                $value = trim($value);
+            }
+
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeSubdomain(string $value): ?string
+    {
+        $value = Str::lower(trim($value));
+
+        if ($value === '') {
+            return null;
+        }
+
+        $value = preg_replace('/^https?:\/\//', '', $value);
+        $value = preg_replace('/\.amocrm\..*$/', '', (string)$value);
+        $value = explode('/', (string)$value)[0] ?? '';
+        $value = explode(':', (string)$value)[0] ?? '';
+
+        if (!preg_match('/^[a-z0-9-]+$/', (string)$value)) {
+            return null;
+        }
+
+        return (string)$value;
     }
 }
 //TODO пуши в телегу

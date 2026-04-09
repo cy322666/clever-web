@@ -67,7 +67,7 @@ class EditImport extends EditRecord
             UpdateButton::activeUpdate($this->record),
 
             UpdateButton::amoCRMSyncButton(
-                Auth::user()->account,
+                $this->record->amoAccount(true),
                 fn() => $this->amocrmUpdate(),
             ),
 

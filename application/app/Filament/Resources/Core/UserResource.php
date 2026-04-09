@@ -168,8 +168,6 @@ class UserResource extends Resource
     {
         return [
             RelationManagers\AppsRelationManager::class,
-            RelationManagers\StaffsRelationManager::class,
-            RelationManagers\StatusesRelationManager::class,
             AuthenticationLogsRelationManager::class,
         ];
     }

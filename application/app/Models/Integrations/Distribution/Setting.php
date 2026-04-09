@@ -34,8 +34,9 @@ class Setting extends Model
     public const STRATEGY_RANDOM = 'random';
 
     public static array $cost = [
-        '6_month'  => '10.000 р',
-        '12_month' => '20.000 р',
+        '1_month' => '2 990 ₽',
+        '6_month' => '14 900 ₽',
+        '12_month' => '24 900 ₽',
     ];
 
     protected $fillable = [
