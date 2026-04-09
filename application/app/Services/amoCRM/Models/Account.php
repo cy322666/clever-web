@@ -16,12 +16,12 @@ class Account
     {
         $users = $amoApi->service->account->users;
 
-        $seenStaffIds = [];
+        DB::transaction(function () use ($users, $userModel) {
+            Staff::query()
+                ->where('user_id', $userModel->id)
+                ->update(['active' => false]);
 
-        DB::transaction(function () use ($users, $userModel, &$seenStaffIds) {
             foreach ($users as $user) {
-                $seenStaffIds[] = (int) $user->id;
-
                 Staff::query()->updateOrCreate([
                     'user_id'  => $userModel->id,
                     'staff_id' => (int) $user->id,
@@ -35,12 +35,6 @@ class Account
                     'admin'      => (bool) ($user->is_admin ?? false),
                 ]);
             }
-
-            // Всё, чего нет в API — деактивируем
-            Staff::query()
-                ->where('user_id', $userModel->id)
-                ->whereNotIn('staff_id', $seenStaffIds ?: [-1])
-                ->update(['active' => false]);
         });
     }
 
@@ -54,10 +48,11 @@ class Account
             ->_embedded
             ->pipelines;
 
-        // Ключ статуса: pipeline_id + status_id
-        $seenPairs = []; // ["{pipelineId}:{statusId}", ...]
+        DB::transaction(function () use ($pipelines, $user) {
+            Status::query()
+                ->where('user_id', $user->id)
+                ->update(['active' => false]);
 
-        DB::transaction(function () use ($pipelines, $user, &$seenPairs) {
             foreach ($pipelines as $pipeline) {
                 if ($pipeline->is_archive) {
                     continue;
@@ -66,8 +61,6 @@ class Account
                 foreach ($pipeline->_embedded->statuses as $status) {
                     $pipelineId = (int) $pipeline->id;
                     $statusId   = (int) $status->id;
-
-                    $seenPairs[] = $pipelineId . ':' . $statusId;
 
                     Status::query()->updateOrCreate([
                         'user_id'     => $user->id,
@@ -86,15 +79,6 @@ class Account
                     ]);
                 }
             }
-
-            // Деактивация отсутствующих.
-            // Важно: whereNotIn по паре колонок нельзя напрямую,
-            // поэтому делаем через concat key. (Под Postgres/MySQL работает)
-            // Если хочешь совсем железобетон — сделаем через временную таблицу/CTE.
-            Status::query()
-                ->where('user_id', $user->id)
-                ->whereRaw("(pipeline_id::text || ':' || status_id::text) NOT IN (" . self::placeholders(count($seenPairs)) . ")", $seenPairs ?: ['-1:-1'])
-                ->update(['active' => false]);
         });
     }
 
@@ -104,6 +88,10 @@ class Account
     public static function fields(Client $amoApi, User $user): void
     {
         DB::transaction(function () use ($amoApi, $user) {
+            Field::query()
+                ->where('user_id', $user->id)
+                ->update(['active' => false]);
+
             // Собираем все поля по 3 сущностям
             $allFields = [];
 
@@ -133,15 +121,11 @@ class Account
                 $allFields[] = $field;
             }
 
-            // Апсерт + список увиденных
-            $seenFieldKeys = []; // entity_type:field_id
-
+            // Апсерт актуальных полей
+            
             foreach ($allFields as $field) {
                 $fieldId     = (int) $field->id;
                 $entityType  = (string) ($field->entity_type ?? ''); // важен для уникальности
-                $key         = $entityType . ':' . $fieldId;
-
-                $seenFieldKeys[] = $key;
 
                 Field::query()->updateOrCreate([
                     'user_id'      => $user->id,
@@ -157,20 +141,6 @@ class Account
                     'active'      => true,
                 ]);
             }
-
-            // Деактивируем то, чего нет в amo
-            Field::query()
-                ->where('user_id', $user->id)
-                ->whereRaw("(entity_type || ':' || field_id::text) NOT IN (" . self::placeholders(count($seenFieldKeys)) . ")", $seenFieldKeys ?: ['-1:-1'])
-                ->update(['active' => false]);
         });
-    }
-
-    private static function placeholders(int $count): string
-    {
-        if ($count <= 0) {
-            return '?';
-        }
-        return implode(',', array_fill(0, $count, '?'));
     }
 }

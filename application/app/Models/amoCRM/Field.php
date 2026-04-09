@@ -23,6 +23,7 @@ class Field extends Model
         'entity_type',
         'enums',
         'user_id',
+        'active',
     ];
 
     public static function getAllFields(): Builder

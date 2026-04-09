@@ -28,7 +28,9 @@ class Staff extends Model
 
     public static function getWithUser(): Builder
     {
-        return Staff::query()->where('user_id', Auth::id());
+        return Staff::query()
+            ->where('user_id', Auth::id())
+            ->where('active', true);
     }
 
     /**

@@ -22,6 +22,7 @@ class Status extends Model
         'is_closed',
         'is_won',
         'is_lost',
+        'active',
     ];
 
     protected $table = 'amocrm_statuses';
