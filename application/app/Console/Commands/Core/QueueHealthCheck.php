@@ -137,6 +137,8 @@ class QueueHealthCheck extends Command
             ? max(0, now()->timestamp - $oldestReservedAt)
             : null;
 
+        $releasedCount = $this->autoHealStuckJobs($stuckAfter);
+
         AlertService::warning(
             title: 'Очередь: зависшие jobs',
             message: "Найдено {$stuckCount} зависших jobs (reserved_at старше {$stuckAfter} сек).",
@@ -144,11 +146,66 @@ class QueueHealthCheck extends Command
                 'stuck_count' => $stuckCount,
                 'oldest_age_seconds' => $oldestAge,
                 'threshold_seconds' => $stuckAfter,
+                'auto_heal_released' => $releasedCount,
             ],
             dedupeKey: 'queue:stuck:' . intdiv(now()->timestamp, 300) . ':' . $stuckCount,
             ttlSeconds: 300,
         );
 
         return $stuckCount;
+    }
+
+    private function autoHealStuckJobs(int $stuckAfter): int
+    {
+        if (!(bool)config('alerts.queue.auto_heal.enabled', false)) {
+            return 0;
+        }
+
+        $releaseAfter = (int)config('alerts.queue.auto_heal.release_after_seconds', 1800);
+        $releaseAfter = max($stuckAfter + 60, $releaseAfter);
+        $threshold = now()->timestamp - $releaseAfter;
+
+        $maxReleases = max(1, (int)config('alerts.queue.auto_heal.max_releases_per_run', 100));
+        $excludeQueues = array_values(array_filter((array)config('alerts.queue.auto_heal.exclude_queues', [])));
+
+        $query = DB::table('jobs')
+            ->whereNotNull('reserved_at')
+            ->where('reserved_at', '<', $threshold);
+
+        if (!empty($excludeQueues)) {
+            $query->whereNotIn('queue', $excludeQueues);
+        }
+
+        $stuckRows = $query
+            ->orderBy('reserved_at')
+            ->limit($maxReleases)
+            ->get(['id', 'queue', 'reserved_at']);
+
+        if ($stuckRows->isEmpty()) {
+            return 0;
+        }
+
+        $releasedIds = $stuckRows->pluck('id')->map(static fn($id) => (int)$id)->all();
+
+        DB::table('jobs')
+            ->whereIn('id', $releasedIds)
+            ->update([
+                'reserved_at' => null,
+                'available_at' => now()->timestamp,
+            ]);
+
+        AlertService::warning(
+            title: 'Очередь: auto-heal выполнен',
+            message: 'Зависшие jobs возвращены в очередь.',
+            context: [
+                'released_count' => count($releasedIds),
+                'release_after_seconds' => $releaseAfter,
+                'excluded_queues' => $excludeQueues,
+            ],
+            dedupeKey: 'queue:auto-heal:' . intdiv(now()->timestamp, 300) . ':' . count($releasedIds),
+            ttlSeconds: 300,
+        );
+
+        return count($releasedIds);
     }
 }

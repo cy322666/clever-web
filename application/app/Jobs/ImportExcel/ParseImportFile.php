@@ -19,7 +19,7 @@ class ParseImportFile implements ShouldQueue, ShouldBeUnique
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 180;
-    public int $tries = 2;
+    public int $tries = 1;
     public int $uniqueFor = 600;
 
     public function __construct(
@@ -57,4 +57,3 @@ class ParseImportFile implements ShouldQueue, ShouldBeUnique
         Excel::import(new ExcelImport($setting), $path);
     }
 }
-

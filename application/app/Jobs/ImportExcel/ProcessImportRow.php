@@ -18,7 +18,7 @@ class ProcessImportRow implements ShouldQueue, ShouldBeUnique
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 30;
-    public int $tries = 2;
+    public int $tries = 1;
     public int $uniqueFor = 900;
 
     public ?Account $account = null;
