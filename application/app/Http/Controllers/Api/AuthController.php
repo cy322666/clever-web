@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class AuthController extends Controller
@@ -26,69 +27,135 @@ class AuthController extends Controller
     //обычная установка
     public function redirect(Request $request): RedirectResponse
     {
-        $oauthState = $this->decodeOauthState((string)$request->state);
+        $fallbackRedirect = route('filament.app.pages.dashboard', [], false);
 
-        $user = User::query()
-            ->where('uuid', $oauthState['user_uuid'])
-            ->first();
+        try {
+            $oauthState = $this->decodeOauthState((string)$request->state);
 
-        abort_unless($user instanceof User, 404, 'User not found');
+            $user = User::query()
+                ->where('uuid', $oauthState['user_uuid'])
+                ->first();
 
-        $widget = Account::normalizeWidget((string)($oauthState['widget'] ?? Account::DEFAULT_WIDGET));
-        $account = $user->resolveAmoAccountForWidget($widget, true);
+            if (!$user instanceof User) {
+                return $this->oauthErrorRedirect($request, 'Пользователь не найден.', 404, $fallbackRedirect);
+            }
 
-        abort_unless($account instanceof Account, 422, 'Account slot not found');
+            $widget = Account::normalizeWidget((string)($oauthState['widget'] ?? Account::DEFAULT_WIDGET));
+            $account = $user->resolveAmoAccountForWidget($widget, true);
 
-        $expectedWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
-        $incomingClientId = (string)$request->client_id;
+            if (!$account instanceof Account) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Слот amoCRM для виджета не найден.',
+                    422,
+                    $fallbackRedirect
+                );
+            }
 
-        if ($widget !== Account::DEFAULT_WIDGET && $expectedWidgetClientId !== '' && $incomingClientId !== '' && $incomingClientId !== $expectedWidgetClientId) {
-            abort(422, 'OAuth client_id does not match widget configuration.');
+            $expectedWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
+            $incomingClientId = trim((string)$request->input('client_id', ''));
+            $resolvedClientId = $incomingClientId !== ''
+                ? $incomingClientId
+                : ($expectedWidgetClientId !== '' ? $expectedWidgetClientId : (string)$account->client_id);
+
+            if ($widget !== Account::DEFAULT_WIDGET && $expectedWidgetClientId !== '' && $incomingClientId !== '' && $incomingClientId !== $expectedWidgetClientId) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Подключение выполнено через другой amoCRM widget. Откройте подключение заново из нужной интеграции.',
+                    422,
+                    $fallbackRedirect
+                );
+            }
+
+            if ($resolvedClientId === '') {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Не настроен client_id для выбранного виджета.',
+                    422,
+                    $fallbackRedirect
+                );
+            }
+
+            $oauthConfig = $this->resolveOauthConfigForWidget($widget);
+            if ((string)$oauthConfig['client_secret'] === '') {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Не настроен client_secret для выбранного виджета.',
+                    422,
+                    $fallbackRedirect
+                );
+            }
+
+            $amoDomain = $this->extractAmoDomainParts((string)$request->input('referer', ''));
+            $subdomain = $amoDomain['subdomain'];
+            $zone = $amoDomain['zone'];
+
+            if (!$subdomain && empty($account->subdomain)) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Не удалось определить домен amoCRM.',
+                    422,
+                    $fallbackRedirect
+                );
+            }
+
+            if ($subdomain) {
+                $subdomainValidationError = $this->validateAmoSubdomainUniqueness($user, $subdomain);
+
+                if ($subdomainValidationError !== null) {
+                    return $this->oauthErrorRedirect($request, $subdomainValidationError, 422, $fallbackRedirect);
+                }
+            }
+
+            $account->code = (string)$request->input('code', '');
+            $account->widget = $widget;
+            $account->zone = $zone ?? $account->zone;
+            $account->client_id = $resolvedClientId;
+            $account->subdomain = $subdomain ?? $account->subdomain;
+            $account->redirect_uri = (string)$oauthConfig['redirect_uri'];
+            $account->client_secret = (string)$oauthConfig['client_secret'];
+            $account->save();
+
+            $amoApi = (new Client($account->refresh()));
+
+            if (!$amoApi->checkAuth()) {
+                $amoApi->init();
+            }
+
+            $account->active = $amoApi->auth;
+            $account->save();
+
+            Mail::to($user->email)->queue(new SignUp($user));
+
+            $redirectPath = $this->sanitizeRelativeRedirect(
+                $request->input('uri'),
+                $fallbackRedirect
+            );
+
+            return redirect()
+                ->to($redirectPath)
+                ->with([
+                    'auth' => $amoApi->auth,
+                ]);
+        } catch (Throwable $e) {
+            if ($e instanceof HttpExceptionInterface) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    $e->getMessage() !== '' ? $e->getMessage() : 'Не удалось завершить подключение amoCRM.',
+                    $e->getStatusCode(),
+                    $fallbackRedirect,
+                    $e
+                );
+            }
+
+            return $this->oauthErrorRedirect(
+                $request,
+                'Не удалось завершить подключение amoCRM. Попробуйте еще раз.',
+                500,
+                $fallbackRedirect,
+                $e
+            );
         }
-
-        $oauthConfig = $this->resolveOauthConfigForWidget($widget);
-        $amoDomain = $this->extractAmoDomainParts((string)$request->referer);
-        $subdomain = $amoDomain['subdomain'];
-        $zone = $amoDomain['zone'];
-
-        if (!$subdomain && empty($account->subdomain)) {
-            abort(422, 'Не удалось определить домен amoCRM.');
-        }
-
-        if ($subdomain) {
-            $this->validateAmoSubdomainUniqueness($user, $subdomain);
-        }
-
-        $account->code = $request->code;
-        $account->widget = $widget;
-        $account->zone = $zone ?? $account->zone;
-        $account->client_id = $incomingClientId;
-        $account->subdomain = $subdomain ?? $account->subdomain;
-        $account->redirect_uri = $oauthConfig['redirect_uri'];
-        $account->client_secret = $oauthConfig['client_secret'];
-        $account->save();
-
-        $amoApi = (new Client($account->refresh()));
-
-        if (!$amoApi->checkAuth()) {
-            $amoApi->init();
-        }
-
-        $account->active = $amoApi->auth;
-        $account->save();
-
-        Mail::to($user->email)->queue(new SignUp($user));
-
-        $redirectPath = $this->sanitizeRelativeRedirect(
-            $request->input('uri'),
-            route('filament.app.pages.dashboard', [], false)
-        );
-
-        return redirect()
-            ->to($redirectPath)
-            ->with([
-                'auth' => $amoApi->auth,
-            ]);
     }
 
     //переход через кнопку установить
@@ -321,6 +388,35 @@ class AuthController extends Controller
         return $path;
     }
 
+    private function oauthErrorRedirect(
+        Request $request,
+        string $message,
+        int $status = 422,
+        ?string $fallback = null,
+        ?Throwable $e = null,
+    ): RedirectResponse {
+        $fallbackPath = $fallback ?: route('filament.app.pages.dashboard', [], false);
+        $redirectPath = $this->sanitizeRelativeRedirect($request->input('uri'), $fallbackPath);
+        $query = http_build_query([
+            'amocrm_auth' => 'error',
+            'amocrm_auth_status' => $status,
+            'amocrm_auth_message' => $message,
+        ]);
+
+        Log::warning('amocrm.redirect failed', [
+            'status' => $status,
+            'message' => $message,
+            'user_uuid' => $request->input('state'),
+            'uri' => $request->input('uri'),
+            'safe_uri' => $redirectPath,
+            'client_id' => $request->input('client_id'),
+            'referer' => $request->input('referer'),
+            'exception' => $e?->getMessage(),
+        ]);
+
+        return redirect()->to($redirectPath . (str_contains($redirectPath, '?') ? '&' : '?') . $query);
+    }
+
     private function decodeOauthState(string $state): array
     {
         $state = trim($state);
@@ -421,12 +517,12 @@ class AuthController extends Controller
         ];
     }
 
-    private function validateAmoSubdomainUniqueness(User $user, string $subdomain): void
+    private function validateAmoSubdomainUniqueness(User $user, string $subdomain): ?string
     {
         $subdomain = Str::lower(trim($subdomain));
 
         if ($subdomain === '') {
-            return;
+            return null;
         }
 
         $userHasDifferentSubdomain = Account::query()
@@ -437,7 +533,7 @@ class AuthController extends Controller
             ->exists();
 
         if ($userHasDifferentSubdomain) {
-            abort(422, 'У аккаунта платформы может быть только один amoCRM домен.');
+            return 'У аккаунта платформы может быть только один amoCRM домен.';
         }
 
         $subdomainBelongsToAnotherUser = Account::query()
@@ -448,8 +544,10 @@ class AuthController extends Controller
             ->exists();
 
         if ($subdomainBelongsToAnotherUser) {
-            abort(422, 'Этот amoCRM домен уже подключен к другому аккаунту платформы.');
+            return 'Этот amoCRM домен уже подключен к другому аккаунту платформы.';
         }
+
+        return null;
     }
 
     private function flattenPayload(array $payload, string $prefix = ''): array

@@ -11,6 +11,24 @@ use Illuminate\Support\Facades\Redirect;
 
 trait SyncAmoCRMPage
 {
+    public function mountSyncAmoCRMPage(): void
+    {
+        if ((string)request()->query('amocrm_auth', '') !== 'error') {
+            return;
+        }
+
+        $message = trim((string)request()->query('amocrm_auth_message', ''));
+        if ($message === '') {
+            $message = 'Не удалось подключить amoCRM.';
+        }
+
+        Notification::make()
+            ->title('Ошибка подключения amoCRM')
+            ->body($message)
+            ->danger()
+            ->send();
+    }
+
     public function amocrmAuth(): void
     {
         $user = Auth::user();
