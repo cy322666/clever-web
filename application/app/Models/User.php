@@ -221,9 +221,6 @@ class User extends Authenticatable implements FilamentUser
         if ($default) {
             $payload = array_merge($payload, [
                 'subdomain' => $default->subdomain,
-                'client_id' => $default->client_id,
-                'client_secret' => $default->client_secret,
-                'redirect_uri' => $default->redirect_uri,
                 'zone' => $default->zone,
             ]);
         }

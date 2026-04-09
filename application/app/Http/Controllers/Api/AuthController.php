@@ -39,6 +39,13 @@ class AuthController extends Controller
 
         abort_unless($account instanceof Account, 422, 'Account slot not found');
 
+        $expectedWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
+        $incomingClientId = (string)$request->client_id;
+
+        if ($widget !== Account::DEFAULT_WIDGET && $expectedWidgetClientId !== '' && $incomingClientId !== '' && $incomingClientId !== $expectedWidgetClientId) {
+            abort(422, 'OAuth client_id does not match widget configuration.');
+        }
+
         $oauthConfig = $this->resolveOauthConfigForWidget($widget);
         $amoDomain = $this->extractAmoDomainParts((string)$request->referer);
         $subdomain = $amoDomain['subdomain'];
@@ -55,7 +62,7 @@ class AuthController extends Controller
         $account->code = $request->code;
         $account->widget = $widget;
         $account->zone = $zone ?? $account->zone;
-        $account->client_id = $request->client_id;
+        $account->client_id = $incomingClientId;
         $account->subdomain = $subdomain ?? $account->subdomain;
         $account->redirect_uri = $oauthConfig['redirect_uri'];
         $account->client_secret = $oauthConfig['client_secret'];
