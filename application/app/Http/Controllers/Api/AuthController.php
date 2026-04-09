@@ -12,6 +12,7 @@ use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\amoCRM\Client;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -125,6 +126,15 @@ class AuthController extends Controller
             $account->active = $amoApi->auth;
             $account->save();
 
+            $this->sendOauthResultNotification(
+                $user,
+                $widget,
+                $amoApi->auth,
+                $amoApi->auth
+                    ? 'Интеграция с amoCRM подключена.'
+                    : 'Подключение с amoCRM не завершено.'
+            );
+
             Mail::to($user->email)->queue(new SignUp($user));
 
             $redirectPath = $this->sanitizeRelativeRedirect(
@@ -154,7 +164,7 @@ class AuthController extends Controller
 
             return $this->oauthErrorRedirect(
                 $request,
-                'Не удалось завершить подключение amoCRM. Попробуйте еще раз.',
+                'Не удалось завершить подключение amoCRM. ' . trim($e->getMessage()),
                 500,
                 $fallbackRedirect,
                 $e
@@ -413,6 +423,14 @@ class AuthController extends Controller
             'exception' => $e?->getMessage(),
         ]);
 
+        $context = $this->resolveOauthContextFromRequest($request);
+        $this->sendOauthResultNotification(
+            $context['user'],
+            $context['widget'],
+            false,
+            $message
+        );
+
         return redirect()
             ->to($redirectPath)
             ->with([
@@ -420,6 +438,63 @@ class AuthController extends Controller
                 'amocrm_auth_status' => $status,
                 'amocrm_auth_message' => $message,
             ]);
+    }
+
+    private function sendOauthResultNotification(?User $user, string $widget, bool $success, string $message): void
+    {
+        if (!$user) {
+            return;
+        }
+
+        $widget = Account::normalizeWidget($widget);
+        $widgetLabel = $widget === Account::DEFAULT_WIDGET ? 'platform' : $widget;
+
+        try {
+            $notification = FilamentNotification::make()
+                ->title($success ? 'amoCRM подключена' : 'Ошибка подключения amoCRM')
+                ->body(trim($message) . PHP_EOL . 'Виджет: ' . $widgetLabel)
+                ->persistent();
+
+            if ($success) {
+                $notification->success();
+            } else {
+                $notification->danger();
+            }
+
+            $notification->sendToDatabase($user);
+        } catch (Throwable $e) {
+            Log::warning('amocrm.oauth notification failed', [
+                'user_id' => $user->id,
+                'widget' => $widget,
+                'success' => $success,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function resolveOauthContextFromRequest(Request $request): array
+    {
+        $widget = Account::DEFAULT_WIDGET;
+        $user = null;
+
+        try {
+            $decoded = $this->decodeOauthState((string)$request->input('state', ''));
+            $widget = Account::normalizeWidget((string)($decoded['widget'] ?? Account::DEFAULT_WIDGET));
+            $userUuid = (string)($decoded['user_uuid'] ?? '');
+
+            if ($userUuid !== '') {
+                $user = User::query()
+                    ->where('uuid', $userUuid)
+                    ->first();
+            }
+        } catch (Throwable) {
+            // ignore malformed state in fallback notification flow
+        }
+
+        return [
+            'user' => $user instanceof User ? $user : null,
+            'widget' => $widget,
+        ];
     }
 
     private function decodeOauthState(string $state): array
