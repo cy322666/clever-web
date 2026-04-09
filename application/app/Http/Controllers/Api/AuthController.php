@@ -95,8 +95,13 @@ class AuthController extends Controller
                 $parsedSubdomain = null;
             }
 
+            $accountSubdomain = $account->subdomain ? Str::lower((string)$account->subdomain) : null;
+            if ($this->isWidgetServiceSubdomain($accountSubdomain)) {
+                $accountSubdomain = null;
+            }
+
             $subdomain = $primaryUserDomain['subdomain']
-                ?? ($account->subdomain ? Str::lower((string)$account->subdomain) : null)
+                ?? $accountSubdomain
                 ?? $parsedSubdomain;
             $zone = $primaryUserDomain['zone']
                 ?? ($account->zone ? Str::lower((string)$account->zone) : null)
@@ -105,7 +110,7 @@ class AuthController extends Controller
             if (!$subdomain) {
                 return $this->oauthErrorRedirect(
                     $request,
-                    'Не удалось определить домен amoCRM.',
+                    'Не удалось определить домен amoCRM. Подключите amoCRM с основного аккаунта или укажите корректный домен клиента.',
                     422,
                     $fallbackRedirect
                 );
@@ -547,17 +552,30 @@ class AuthController extends Controller
 
     private function getUserPrimaryAmoDomain(User $user): array
     {
-        $account = Account::query()
+        $accounts = Account::query()
             ->where('user_id', $user->id)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')
             ->orderByDesc('active')
             ->orderByDesc('id')
-            ->first();
+            ->get();
+
+        foreach ($accounts as $account) {
+            $subdomain = Str::lower((string)$account->subdomain);
+
+            if ($this->isWidgetServiceSubdomain($subdomain)) {
+                continue;
+            }
+
+            return [
+                'subdomain' => $subdomain !== '' ? $subdomain : null,
+                'zone' => $account->zone ? Str::lower((string)$account->zone) : null,
+            ];
+        }
 
         return [
-            'subdomain' => $account?->subdomain ? Str::lower((string)$account->subdomain) : null,
-            'zone' => $account?->zone ? Str::lower((string)$account->zone) : null,
+            'subdomain' => null,
+            'zone' => null,
         ];
     }
 
