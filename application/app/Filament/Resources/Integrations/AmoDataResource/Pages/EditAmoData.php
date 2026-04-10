@@ -30,7 +30,7 @@ class EditAmoData extends EditRecord
             UpdateButton::activeUpdate($this->record),
 
             UpdateButton::amoCRMSyncButton(
-                $this->record->amoAccount(true),
+                $this->record->amoAccount(true, 'amo-data'),
                 fn() => $this->amocrmUpdate(),
             ),
 
@@ -136,6 +136,11 @@ class EditAmoData extends EditRecord
         $data['settings'] = $this->normalizeSettings($data['settings'] ?? null);
 
         return $data;
+    }
+
+    protected function getAmoWidgetKey(): string
+    {
+        return 'amo-data';
     }
 
     private function normalizeSettings(mixed $settings): array

@@ -8,7 +8,9 @@ use App\Services\amoCRM\Client;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
+use Throwable;
 
 trait SyncAmoCRMPage
 {
@@ -46,76 +48,88 @@ trait SyncAmoCRMPage
 
     public function amocrmAuth(): void
     {
-        $user = Auth::user();
-        $widget = $this->resolveAmoWidgetKey();
-        $account = $user?->resolveAmoAccountForWidget($widget, true);
+        try {
+            $user = Auth::user();
+            $widget = $this->resolveAmoWidgetKey();
+            $account = $user?->resolveAmoAccountForWidget($widget, true);
 
-        if (!$user || !$account) {
-            Notification::make()
-                ->title('Не удалось определить amoCRM аккаунт')
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        if ($this->shouldUseSharedAmoConnector($widget) && !$account->active) {
-            if ($this->hydrateWidgetAccountFromSharedConnector($user, $account)) {
+            if (!$user || !$account) {
                 Notification::make()
-                    ->title('amoCRM подключена')
-                    ->body('Виджет amo-data использует общий коннектор платформы.')
-                    ->success()
-                    ->send();
-
-                return;
-            }
-
-            Notification::make()
-                ->title('Для amo-data нужен общий коннектор')
-                ->body('Сначала подключите amoCRM в основном коннекторе платформы, затем вернитесь в amo-data.')
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        if (!$account->active) {
-            $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
-            $state = $this->encodeOauthState($user->uuid, $widget);
-            $clientId = $this->resolveOauthClientId($widget, $account);
-
-            if ($clientId === '') {
-                Notification::make()
-                    ->title('Не настроен client_id для виджета')
-                    ->body(
-                        'Для подключения amoCRM укажите client_id в services.amocrm.widgets.' . $widget . '.client_id или общий services.amocrm.client_id'
-                    )
+                    ->title('Не удалось определить amoCRM аккаунт')
                     ->danger()
                     ->send();
 
                 return;
             }
 
-            Redirect::to(
-                'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
-                . '&client_id=' . urlencode($clientId)
-                . '&uri=' . urlencode($url)
-            );
+            if ($this->shouldUseSharedAmoConnector($widget) && !$account->active) {
+                if ($this->hydrateWidgetAccountFromSharedConnector($user, $account)) {
+                    Notification::make()
+                        ->title('amoCRM подключена')
+                        ->body('Виджет amo-data использует общий коннектор платформы.')
+                        ->success()
+                        ->send();
 
-        } else {
-            $account->code = null;
-            $account->access_token = null;
-            $account->subdomain = null;
-            $account->refresh_token = null;
-            $account->client_id = null;
-            $account->client_secret = null;
-            $account->zone = null;
-            $account->active = false;
-            $account->save();
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Для amo-data нужен общий коннектор')
+                    ->body('Сначала подключите amoCRM в основном коннекторе платформы, затем вернитесь в amo-data.')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            if (!$account->active) {
+                $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
+                $state = $this->encodeOauthState($user->uuid, $widget);
+                $clientId = $this->resolveOauthClientId($widget, $account);
+
+                if ($clientId === '') {
+                    Notification::make()
+                        ->title('Не настроен client_id для виджета')
+                        ->body(
+                            'Для подключения amoCRM укажите client_id в services.amocrm.widgets.' . $widget . '.client_id или общий services.amocrm.client_id'
+                        )
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Redirect::to(
+                    'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
+                    . '&client_id=' . urlencode($clientId)
+                    . '&uri=' . urlencode($url)
+                );
+            } else {
+                $account->code = null;
+                $account->access_token = null;
+                $account->subdomain = null;
+                $account->refresh_token = null;
+                $account->client_id = null;
+                $account->client_secret = null;
+                $account->zone = null;
+                $account->active = false;
+                $account->save();
+
+                Notification::make()
+                    ->title('Авторизация отозвана')
+                    ->warning()
+                    ->send();
+            }
+        } catch (Throwable $e) {
+            Log::error('amocrmAuth failed', [
+                'widget' => $this->resolveAmoWidgetKey(),
+                'error' => $e->getMessage(),
+            ]);
 
             Notification::make()
-                ->title('Авторизация отозвана')
-                ->warning()
+                ->title('Ошибка подключения amoCRM')
+                ->body('Не удалось запустить подключение. Обновите страницу и попробуйте снова.')
+                ->danger()
                 ->send();
         }
     }
