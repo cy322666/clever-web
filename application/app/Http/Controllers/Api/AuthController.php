@@ -56,9 +56,12 @@ class AuthController extends Controller
 
             $expectedWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
             $incomingClientId = trim((string)$request->input('client_id', ''));
+            $globalClientId = (string)config('services.amocrm.client_id', '');
             $resolvedClientId = $incomingClientId !== ''
                 ? $incomingClientId
-                : ($expectedWidgetClientId !== '' ? $expectedWidgetClientId : (string)$account->client_id);
+                : ($expectedWidgetClientId !== ''
+                    ? $expectedWidgetClientId
+                    : ((string)$account->client_id !== '' ? (string)$account->client_id : $globalClientId));
 
             if ($widget !== Account::DEFAULT_WIDGET && $expectedWidgetClientId !== '' && $incomingClientId !== '' && $incomingClientId !== $expectedWidgetClientId) {
                 return $this->oauthErrorRedirect(

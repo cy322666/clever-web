@@ -68,7 +68,7 @@ trait SyncAmoCRMPage
                 Notification::make()
                     ->title('Не настроен client_id для виджета')
                     ->body(
-                        'Для подключения amoCRM укажите client_id в services.amocrm.widgets.' . $widget . '.client_id'
+                        'Для подключения amoCRM укажите client_id в services.amocrm.widgets.' . $widget . '.client_id или общий services.amocrm.client_id'
                     )
                     ->danger()
                     ->send();
@@ -157,12 +157,6 @@ trait SyncAmoCRMPage
         $configWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
         if ($configWidgetClientId !== '') {
             return $configWidgetClientId;
-        }
-
-        if ($widget !== Account::DEFAULT_WIDGET) {
-            // For widget-scoped OAuth we intentionally do not fallback to global client_id.
-            // This prevents connecting the platform app from a widget settings page.
-            return '';
         }
 
         if ((string)$account->client_id !== '') {
