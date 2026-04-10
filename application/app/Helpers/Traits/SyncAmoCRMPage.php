@@ -59,20 +59,27 @@ trait SyncAmoCRMPage
             return;
         }
 
-        if (!$account->active) {
-            if ($this->shouldUseSharedAmoConnector($widget) && $user && $this->hydrateWidgetAccountFromSharedConnector(
-                    $user,
-                    $account
-                )) {
+        if ($this->shouldUseSharedAmoConnector($widget) && !$account->active) {
+            if ($this->hydrateWidgetAccountFromSharedConnector($user, $account)) {
                 Notification::make()
                     ->title('amoCRM подключена')
-                    ->body('Использован общий коннектор платформы для виджета amo-data.')
+                    ->body('Виджет amo-data использует общий коннектор платформы.')
                     ->success()
                     ->send();
 
                 return;
             }
 
+            Notification::make()
+                ->title('Для amo-data нужен общий коннектор')
+                ->body('Сначала подключите amoCRM в основном коннекторе платформы, затем вернитесь в amo-data.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if (!$account->active) {
             $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
             $state = $this->encodeOauthState($user->uuid, $widget);
             $clientId = $this->resolveOauthClientId($widget, $account);
