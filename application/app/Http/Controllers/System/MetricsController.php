@@ -58,14 +58,28 @@ class MetricsController extends Controller
             $lines[] = '# HELP clever_queue_jobs_by_queue Number of queued jobs per queue.';
             $lines[] = '# TYPE clever_queue_jobs_by_queue gauge';
 
+            $lines[] = '# HELP clever_queue_oldest_job_age_seconds_by_queue Age of the oldest waiting job in each queue in seconds.';
+            $lines[] = '# TYPE clever_queue_oldest_job_age_seconds_by_queue gauge';
+
             $byQueue = DB::table('jobs')
-                ->select('queue', DB::raw('count(*) as count'))
+                ->select('queue', DB::raw('count(*) as count'), DB::raw('min(available_at) as oldest_available_at'))
                 ->groupBy('queue')
                 ->get();
 
             foreach ($byQueue as $row) {
                 $queueName = $this->escapeLabel((string)($row->queue ?? 'default'));
                 $lines[] = sprintf('clever_queue_jobs_by_queue{queue="%s"} %d', $queueName, (int)$row->count);
+
+                $queueOldestAvailableAt = (int)($row->oldest_available_at ?? 0);
+                $queueOldestAge = $queueOldestAvailableAt > 0
+                    ? max(0, now()->timestamp - $queueOldestAvailableAt)
+                    : 0;
+
+                $lines[] = sprintf(
+                    'clever_queue_oldest_job_age_seconds_by_queue{queue="%s"} %d',
+                    $queueName,
+                    $queueOldestAge
+                );
             }
         } catch (Throwable $e) {
             $metricsUp = 0;

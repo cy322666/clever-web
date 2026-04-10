@@ -6,11 +6,13 @@ use App\Filament\Resources\Integrations\AmoDataResource\Pages;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\Integrations\AmoData\Setting;
+use App\Services\AmoData\ExpressAuditService;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View as SchemaView;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
 
@@ -46,6 +48,18 @@ class AmoDataResource extends Resource
                                     ->bulleted()
                                     ->size(TextSize::Small)
                                     ->state(fn() => Setting::$instruction),
+                            ]),
+
+                        Section::make('Экспресс-аудит (MVP)')
+                            ->description('Быстрый аудит качества работы в amoCRM для допродаж и перевнедрения.')
+                            ->poll('30s')
+                            ->schema([
+                                SchemaView::make('filament.resources.integrations.amo-data.express-audit')
+                                    ->viewData(fn(?Setting $record) => [
+                                        'audit' => $record
+                                            ? app(ExpressAuditService::class)->buildForSetting($record)
+                                            : null,
+                                    ]),
                             ]),
 
                         Section::make('Настройки синхронизации')
