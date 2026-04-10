@@ -55,11 +55,16 @@ class AuthController extends Controller
             }
 
             $useSharedConnector = $this->shouldUseSharedAmoConnector($widget);
+            $sharedConnector = $useSharedConnector
+                ? $this->resolveSharedConnectorConfig($user, $account)
+                : null;
             $expectedWidgetClientId = $useSharedConnector
                 ? ''
                 : (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
             $incomingClientId = trim((string)$request->input('client_id', ''));
-            $globalClientId = (string)config('services.amocrm.client_id', '');
+            $globalClientId = $useSharedConnector
+                ? (string)($sharedConnector['client_id'] ?? '')
+                : (string)config('services.amocrm.client_id', '');
             $resolvedClientId = $useSharedConnector
                 ? ($globalClientId !== ''
                     ? $globalClientId
@@ -94,7 +99,7 @@ class AuthController extends Controller
                 );
             }
 
-            $oauthConfig = $this->resolveOauthConfigForWidget($widget);
+            $oauthConfig = $this->resolveOauthConfigForWidget($widget, $user, $account);
             if ((string)$oauthConfig['client_secret'] === '') {
                 return $this->oauthErrorRedirect(
                     $request,
@@ -751,9 +756,22 @@ class AuthController extends Controller
         ];
     }
 
-    private function resolveOauthConfigForWidget(string $widget): array
+    private function resolveOauthConfigForWidget(
+        string $widget,
+        ?User $user = null,
+        ?Account $currentAccount = null
+    ): array
     {
         if ($this->shouldUseSharedAmoConnector($widget)) {
+            if ($user instanceof User) {
+                $shared = $this->resolveSharedConnectorConfig($user, $currentAccount);
+
+                return [
+                    'client_secret' => (string)($shared['client_secret'] ?? ''),
+                    'redirect_uri' => (string)($shared['redirect_uri'] ?? ''),
+                ];
+            }
+
             return [
                 'client_secret' => (string)config('services.amocrm.client_secret'),
                 'redirect_uri' => (string)config('services.amocrm.redirect_uri'),
@@ -778,6 +796,42 @@ class AuthController extends Controller
     private function shouldUseSharedAmoConnector(string $widget): bool
     {
         return Account::normalizeWidget($widget) === 'amo-data';
+    }
+
+    private function resolveSharedConnectorConfig(User $user, ?Account $currentAccount = null): array
+    {
+        $sharedAccount = $user->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET, false);
+
+        return [
+            'client_id' => $this->firstFilledString([
+                (string)config('services.amocrm.client_id', ''),
+                (string)($sharedAccount?->client_id ?? ''),
+                (string)($currentAccount?->client_id ?? ''),
+            ]),
+            'client_secret' => $this->firstFilledString([
+                (string)config('services.amocrm.client_secret', ''),
+                (string)($sharedAccount?->client_secret ?? ''),
+                (string)($currentAccount?->client_secret ?? ''),
+            ]),
+            'redirect_uri' => $this->firstFilledString([
+                (string)config('services.amocrm.redirect_uri', ''),
+                (string)($sharedAccount?->redirect_uri ?? ''),
+                (string)($currentAccount?->redirect_uri ?? ''),
+            ]),
+        ];
+    }
+
+    private function firstFilledString(array $values): string
+    {
+        foreach ($values as $value) {
+            $trimmed = trim((string)$value);
+
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        return '';
     }
 
     private function extractAmoDomainParts(string $referer): array

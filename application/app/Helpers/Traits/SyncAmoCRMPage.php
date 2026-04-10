@@ -59,6 +59,18 @@ trait SyncAmoCRMPage
         }
 
         if (!$account->active) {
+            if ($this->shouldUseSharedAmoConnector($widget) && $user && $this->hydrateWidgetAccountFromSharedConnector(
+                    $user,
+                    $account
+                )) {
+                Notification::make()
+                    ->title('amoCRM подключена')
+                    ->body('Использован общий коннектор платформы для виджета amo-data.')
+                    ->success()
+                    ->send();
+
+                return;
+            }
 
             $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
             $state = $this->encodeOauthState($user->uuid, $widget);
@@ -160,6 +172,11 @@ trait SyncAmoCRMPage
             if ($globalClientId !== '') {
                 return $globalClientId;
             }
+
+            $sharedAccount = $account->user?->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET, false);
+            if ((string)($sharedAccount?->client_id ?? '') !== '') {
+                return (string)$sharedAccount->client_id;
+            }
         }
 
         $configWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
@@ -177,6 +194,41 @@ trait SyncAmoCRMPage
     protected function shouldUseSharedAmoConnector(string $widget): bool
     {
         return Account::normalizeWidget($widget) === 'amo-data';
+    }
+
+    protected function hydrateWidgetAccountFromSharedConnector($user, Account $widgetAccount): bool
+    {
+        $shared = $user->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET, false);
+
+        if (!$shared || $shared->id === $widgetAccount->id) {
+            return false;
+        }
+
+        $hasOauth = (string)($shared->access_token ?? '') !== ''
+            && (string)($shared->refresh_token ?? '') !== '';
+
+        if (!$shared->active || !$hasOauth) {
+            return false;
+        }
+
+        $widgetAccount->forceFill([
+            'code' => $shared->code,
+            'access_token' => $shared->access_token,
+            'refresh_token' => $shared->refresh_token,
+            'subdomain' => $shared->subdomain,
+            'zone' => $shared->zone,
+            'client_id' => $shared->client_id,
+            'client_secret' => $shared->client_secret,
+            'redirect_uri' => $shared->redirect_uri,
+            'token_type' => $shared->token_type,
+            'expires_in' => $shared->expires_in,
+            'referer' => $shared->referer,
+            'endpoint' => $shared->endpoint,
+            'state' => $shared->state,
+            'active' => true,
+        ])->save();
+
+        return true;
     }
 
     protected function encodeOauthState(string $userUuid, string $widget): string
