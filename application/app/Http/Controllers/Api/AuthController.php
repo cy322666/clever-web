@@ -54,16 +54,29 @@ class AuthController extends Controller
                 );
             }
 
-            $expectedWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
+            $useSharedConnector = $this->shouldUseSharedAmoConnector($widget);
+            $expectedWidgetClientId = $useSharedConnector
+                ? ''
+                : (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
             $incomingClientId = trim((string)$request->input('client_id', ''));
             $globalClientId = (string)config('services.amocrm.client_id', '');
-            $resolvedClientId = $incomingClientId !== ''
-                ? $incomingClientId
-                : ($expectedWidgetClientId !== ''
-                    ? $expectedWidgetClientId
-                    : ((string)$account->client_id !== '' ? (string)$account->client_id : $globalClientId));
+            $resolvedClientId = $useSharedConnector
+                ? ($globalClientId !== ''
+                    ? $globalClientId
+                    : ((string)$account->client_id !== '' ? (string)$account->client_id : $incomingClientId))
+                : ($incomingClientId !== ''
+                    ? $incomingClientId
+                    : ($expectedWidgetClientId !== ''
+                        ? $expectedWidgetClientId
+                        : ((string)$account->client_id !== '' ? (string)$account->client_id : $globalClientId)));
 
-            if ($widget !== Account::DEFAULT_WIDGET && $expectedWidgetClientId !== '' && $incomingClientId !== '' && $incomingClientId !== $expectedWidgetClientId) {
+            if (
+                !$useSharedConnector
+                && $widget !== Account::DEFAULT_WIDGET
+                && $expectedWidgetClientId !== ''
+                && $incomingClientId !== ''
+                && $incomingClientId !== $expectedWidgetClientId
+            ) {
                 return $this->oauthErrorRedirect(
                     $request,
                     'Подключение выполнено через другой amoCRM widget. Откройте подключение заново из нужной интеграции.',
@@ -740,6 +753,13 @@ class AuthController extends Controller
 
     private function resolveOauthConfigForWidget(string $widget): array
     {
+        if ($this->shouldUseSharedAmoConnector($widget)) {
+            return [
+                'client_secret' => (string)config('services.amocrm.client_secret'),
+                'redirect_uri' => (string)config('services.amocrm.redirect_uri'),
+            ];
+        }
+
         $prefix = 'services.amocrm.widgets.' . $widget . '.';
 
         $clientSecret = (string)config($prefix . 'client_secret', '');
@@ -753,6 +773,11 @@ class AuthController extends Controller
                 ? $redirectUri
                 : (string)config('services.amocrm.redirect_uri'),
         ];
+    }
+
+    private function shouldUseSharedAmoConnector(string $widget): bool
+    {
+        return Account::normalizeWidget($widget) === 'amo-data';
     }
 
     private function extractAmoDomainParts(string $referer): array

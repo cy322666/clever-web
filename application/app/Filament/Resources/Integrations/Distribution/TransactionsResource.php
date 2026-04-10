@@ -21,7 +21,9 @@ class TransactionsResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('user_id', Auth::id());
+        return parent::getEloquentQuery()
+            ->with('user:id,email')
+            ->where('user_id', Auth::id());
     }
 
     public static function table(Table $table): Table
@@ -43,6 +45,11 @@ class TransactionsResource extends Resource
                             Setting::STRATEGY_RANDOM   => 'Вразброс',
                         };
                     }),
+
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Почта пользователя')
+                    ->placeholder('-')
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('staff_name')
                     ->label('Ответственный'),

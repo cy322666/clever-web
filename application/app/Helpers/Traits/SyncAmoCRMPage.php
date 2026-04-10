@@ -154,6 +154,14 @@ trait SyncAmoCRMPage
 
     protected function resolveOauthClientId(string $widget, Account $account): string
     {
+        if ($this->shouldUseSharedAmoConnector($widget)) {
+            $globalClientId = (string)config('services.amocrm.client_id');
+
+            if ($globalClientId !== '') {
+                return $globalClientId;
+            }
+        }
+
         $configWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
         if ($configWidgetClientId !== '') {
             return $configWidgetClientId;
@@ -164,6 +172,11 @@ trait SyncAmoCRMPage
         }
 
         return (string)config('services.amocrm.client_id');
+    }
+
+    protected function shouldUseSharedAmoConnector(string $widget): bool
+    {
+        return Account::normalizeWidget($widget) === 'amo-data';
     }
 
     protected function encodeOauthState(string $userUuid, string $widget): string
