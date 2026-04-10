@@ -2,6 +2,26 @@
 
 use Illuminate\Support\Str;
 
+$pgDumpBinaryPath = env('DB_DUMP_BINARY_PATH');
+
+if (!$pgDumpBinaryPath) {
+    foreach (
+        [
+            '/usr/bin',
+            '/usr/lib/postgresql/17/bin',
+            '/usr/lib/postgresql/16/bin',
+            '/usr/lib/postgresql/15/bin',
+            '/usr/lib/postgresql/14/bin',
+            '/usr/local/bin',
+        ] as $candidatePath
+    ) {
+        if (is_executable($candidatePath . '/pg_dump')) {
+            $pgDumpBinaryPath = $candidatePath;
+            break;
+        }
+    }
+}
+
 return [
 
     /*
@@ -78,6 +98,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            'dump' => array_filter([
+                'dump_binary_path' => $pgDumpBinaryPath,
+                'useSingleTransaction' => true,
+            ]),
         ],
 
         'sqlsrv' => [

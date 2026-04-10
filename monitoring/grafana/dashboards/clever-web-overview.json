@@ -146,9 +146,10 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "clever_queue_failed_jobs_total",
+          "expr": "sum(clever_queue_failed_jobs_total)",
+          "instant": true,
           "legendFormat": "",
-          "range": true,
+          "range": false,
           "refId": "A"
         }
       ],

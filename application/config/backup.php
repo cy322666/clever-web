@@ -70,12 +70,7 @@ return [
              * also supply the useSingleTransaction option to avoid table locking.
              *
              * E.g.*/
-              'pgsql' => [
-                   'dump' => [
-                        'useSingleTransaction' => true,
-                    ],
-                ],
-                      /*
+            /*
              * ],
              *
              * For a complete list of available customization options, see https://github.com/spatie/db-dumper
