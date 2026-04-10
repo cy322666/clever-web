@@ -800,7 +800,7 @@ class AuthController extends Controller
 
     private function resolveSharedConnectorConfig(User $user, ?Account $currentAccount = null): array
     {
-        $sharedAccount = $user->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET, false);
+        $sharedAccount = $this->resolveSharedSourceAccount($user, $currentAccount);
 
         return [
             'client_id' => $this->firstFilledString([
@@ -819,6 +819,26 @@ class AuthController extends Controller
                 (string)($currentAccount?->redirect_uri ?? ''),
             ]),
         ];
+    }
+
+    private function resolveSharedSourceAccount(User $user, ?Account $exclude = null): ?Account
+    {
+        $query = $user->accounts()
+            ->whereNotNull('client_id')
+            ->where('client_id', '<>', '')
+            ->whereNotNull('client_secret')
+            ->where('client_secret', '<>', '')
+            ->whereNotNull('redirect_uri')
+            ->where('redirect_uri', '<>', '')
+            ->orderByRaw("CASE WHEN widget = ? OR widget IS NULL THEN 0 ELSE 1 END", [Account::DEFAULT_WIDGET])
+            ->orderByDesc('active')
+            ->orderByDesc('id');
+
+        if ($exclude) {
+            $query->where('id', '<>', $exclude->id);
+        }
+
+        return $query->first();
     }
 
     private function firstFilledString(array $values): string
