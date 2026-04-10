@@ -68,7 +68,7 @@ return [
         ],
         'amo-data' => [
             'resource' => AmoDataResource::class,
-            'public' => false,
+            'public' => true,
         ],
         'contact-merge' => [
             'resource' => ContactMergeResource::class,
