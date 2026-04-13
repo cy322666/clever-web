@@ -4,15 +4,25 @@ use Illuminate\Support\Str;
 
 $pgDumpBinaryPath = env('DB_DUMP_BINARY_PATH');
 
+if ($pgDumpBinaryPath && !is_executable(rtrim($pgDumpBinaryPath, '/') . '/pg_dump')) {
+    $pgDumpBinaryPath = null;
+}
+
 if (!$pgDumpBinaryPath) {
     foreach (
         [
             '/usr/bin',
+            '/usr/local/bin',
             '/usr/lib/postgresql/17/bin',
             '/usr/lib/postgresql/16/bin',
             '/usr/lib/postgresql/15/bin',
             '/usr/lib/postgresql/14/bin',
-            '/usr/local/bin',
+            '/usr/lib/postgresql/13/bin',
+            '/usr/pgsql-17/bin',
+            '/usr/pgsql-16/bin',
+            '/usr/pgsql-15/bin',
+            '/usr/pgsql-14/bin',
+            '/usr/pgsql-13/bin',
         ] as $candidatePath
     ) {
         if (is_executable($candidatePath . '/pg_dump')) {
