@@ -183,8 +183,14 @@ class FormSend extends Command
 
         $lead = $amoApi->service->leads()->find($lead->id);
 
-        $lead = $this->addTagWithRetry($lead, $setting['tag'] ?? null, $amoApi);
-        $lead = $this->addTagWithRetry($lead, 'tilda', $amoApi);
+        $tags = array_values(array_filter([
+            $setting['tag'] ?? null,
+            'tilda',
+        ], static fn($tag) => is_string($tag) ? trim($tag) !== '' : !empty($tag)));
+
+        if (!empty($tags)) {
+            $lead = $this->addTagWithRetry($lead, $tags, $amoApi);
+        }
 
         $form->contact_id = $contact->id;
         $form->lead_id = $lead->id;
@@ -196,76 +202,92 @@ class FormSend extends Command
 
     private function updateContactWithRetry($contact, array $fields, Client $amoApi)
     {
-        try {
-            return Contacts::update($contact, $fields);
-        } catch (Throwable $e) {
-            if (!$this->isStaleUpdateError($e) || empty($contact?->id)) {
-                throw $e;
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return Contacts::update($contact, $fields);
+            } catch (Throwable $e) {
+                if (!$this->isStaleUpdateError($e) || empty($contact?->id) || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                $this->warn('Tilda form send: contact stale update conflict, retrying');
+                usleep(200000 * $attempt);
+
+                $freshContact = $amoApi->service->contacts()->find($contact->id);
+
+                if (!$freshContact) {
+                    throw $e;
+                }
+
+                $contact = $freshContact;
             }
-
-            $this->warn('Tilda form send: contact stale update conflict, retrying');
-            usleep(300000);
-
-            $freshContact = $amoApi->service->contacts()->find($contact->id);
-
-            if (!$freshContact) {
-                throw $e;
-            }
-
-            return Contacts::update($freshContact, $fields);
         }
+
+        return $contact;
     }
 
     private function saveLeadWithRetry($lead, Client $amoApi, ?callable $reapply = null)
     {
-        try {
-            $lead->save();
+        $maxAttempts = 5;
 
-            return $lead;
-        } catch (Throwable $e) {
-            if (!$this->isStaleUpdateError($e) || empty($lead?->id)) {
-                throw $e;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $lead->save();
+
+                return $lead;
+            } catch (Throwable $e) {
+                if (!$this->isStaleUpdateError($e) || empty($lead?->id) || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                $this->warn('Tilda form send: lead stale update conflict, retrying');
+                usleep(200000 * $attempt);
+
+                $freshLead = $amoApi->service->leads()->find($lead->id);
+
+                if (!$freshLead) {
+                    throw $e;
+                }
+
+                if ($reapply) {
+                    $freshLead = $reapply($freshLead);
+                }
+
+                $lead = $freshLead;
             }
-
-            $this->warn('Tilda form send: lead stale update conflict, retrying');
-            usleep(300000);
-
-            $freshLead = $amoApi->service->leads()->find($lead->id);
-
-            if (!$freshLead) {
-                throw $e;
-            }
-
-            if ($reapply) {
-                $freshLead = $reapply($freshLead);
-            }
-
-            $freshLead->save();
-
-            return $freshLead;
         }
+
+        return $lead;
     }
 
     private function addTagWithRetry($lead, $tag, Client $amoApi)
     {
-        try {
-            return Tags::add($lead, $tag);
-        } catch (Throwable $e) {
-            if (!$this->isStaleUpdateError($e) || empty($lead?->id)) {
-                throw $e;
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return Tags::add($lead, $tag);
+            } catch (Throwable $e) {
+                if (!$this->isStaleUpdateError($e) || empty($lead?->id) || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                $this->warn('Tilda form send: tag stale update conflict, retrying');
+                usleep(200000 * $attempt);
+
+                $freshLead = $amoApi->service->leads()->find($lead->id);
+
+                if (!$freshLead) {
+                    throw $e;
+                }
+
+                $lead = $freshLead;
             }
-
-            $this->warn('Tilda form send: tag stale update conflict, retrying');
-            usleep(300000);
-
-            $freshLead = $amoApi->service->leads()->find($lead->id);
-
-            if (!$freshLead) {
-                throw $e;
-            }
-
-            return Tags::add($freshLead, $tag);
         }
+
+        return $lead;
     }
 
     private function isStaleUpdateError(Throwable $e): bool
