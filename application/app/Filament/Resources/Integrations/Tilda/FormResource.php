@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Integrations\Tilda;
 
+use App\Helpers\Traits\TenantResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource\Pages;
 use App\Jobs\Tilda\FormSend;
 use App\Models\Integrations\Bizon\Webinar;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Auth;
 
 class FormResource extends Resource
 {
+    use TenantResource;
+
     protected static ?string $model = Form::class;
 
     public static function table(Table $table): Table
