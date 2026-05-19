@@ -55,8 +55,11 @@ class ViewerSend extends Command
             ->find($setting->response_user_id)
             ?->staff_id;
 
+        $phoneForSearch = Contacts::clearPhone($viewer->phone);
+        $phoneForStore = Contacts::clearPhone($viewer->phone, true);
+
         $contact = Contacts::search([
-            'Телефоны' => [Contacts::clearPhone($viewer->phone)],
+            'Телефоны' => [$phoneForSearch],
             'Почта'    => $viewer->email
         ], $amoApi);
 
@@ -64,7 +67,7 @@ class ViewerSend extends Command
 
             $contact = Contacts::create($amoApi, $viewer->username);
             $contact = Contacts::update($contact, [
-                'Телефоны' => [Contacts::clearPhone($viewer->phone)],
+                'Телефоны' => [$phoneForStore],
                 'Почта'    => $viewer->email,
                 'Ответственный' => $responsibleId,
             ]);

@@ -75,10 +75,11 @@ class FormSend extends Command
         $lead = null;
 
         $phone = Form::getValueForKey('phone', $body, $setting);
-        $phone = Contacts::clearPhone($phone);
+        $phoneForSearch = Contacts::clearPhone($phone);
+        $phoneForStore = Contacts::clearPhone($phone, true);
 
         $contact = Contacts::search([
-            'Телефоны' => [$phone],
+            'Телефоны' => [$phoneForSearch],
             'Почта'    => Form::getValueForKey('email', $body, $setting),
         ], $amoApi);
 
@@ -100,7 +101,7 @@ class FormSend extends Command
         }
 
         $contactFields = [
-            'Телефоны' => [$phone],
+            'Телефоны' => [$phoneForStore],
             'Почта'    => Form::getValueForKey('email', $body, $setting),
             'Ответственный' => $responsibleId,
         ];

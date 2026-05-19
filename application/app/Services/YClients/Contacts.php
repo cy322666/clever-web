@@ -62,7 +62,7 @@ abstract class Contacts
     {
         $contact->name = $client->name;
         $contact->cf('Email')->setValue($client->email);
-        $contact->cf('Телефон')->setValue($client->phone);
+        $contact->cf('Телефон')->setValue(self::clearPhone($client->phone, true));
         $contact->save();
 
         return $contact;
@@ -87,11 +87,16 @@ abstract class Contacts
         return 'https://'.$amoApi->storage->model->subdomain.'.amocrm.ru/contacts/detail/'.$contactId;
     }
 
-    public static function clearPhone(?string $phone): ?string
+    public static function clearPhone(?string $phone, bool $preserveLeadingPlus = false): ?string
     {
         if ($phone) {
+            $normalized = trim(str_replace([',', '(', ')', '-', ' '], '', $phone));
 
-            return substr(str_replace([',', '(', ')', '-', '+', ' '],'', $phone), -10);
+            if ($preserveLeadingPlus && str_starts_with($normalized, '+')) {
+                return '+' . preg_replace('/\D+/', '', substr($normalized, 1));
+            }
+
+            return substr(preg_replace('/\D+/', '', $normalized), -10);
         } else
             return null;
     }

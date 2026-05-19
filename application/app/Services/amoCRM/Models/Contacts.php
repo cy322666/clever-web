@@ -212,11 +212,16 @@ abstract class Contacts extends Client
         return $contact;
     }
 
-    public static function clearPhone(?string $phone): ?string
+    public static function clearPhone(?string $phone, bool $preserveLeadingPlus = false): ?string
     {
         if ($phone) {
+            $normalized = trim(str_replace([',', '(', ')', '-', ' '], '', $phone));
 
-            return trim(str_replace([',', '(', ')', '-', '+', ' '],'', $phone));
+            if ($preserveLeadingPlus && str_starts_with($normalized, '+')) {
+                return '+' . preg_replace('/\D+/', '', substr($normalized, 1));
+            }
+
+            return preg_replace('/\D+/', '', $normalized);
         } else
             return null;
     }

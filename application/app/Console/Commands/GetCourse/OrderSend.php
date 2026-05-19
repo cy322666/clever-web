@@ -69,8 +69,11 @@ class OrderSend extends Command
             ->find($setting['response_user_id_order'])
             ?->staff_id;
 
+        $phoneForSearch = Contacts::clearPhone($order->phone ?? null);
+        $phoneForStore = Contacts::clearPhone($order->phone ?? null, true);
+
         $contact = Contacts::search([
-            'Телефоны' => [$order->phone ?? null],
+            'Телефоны' => [$phoneForSearch],
             'Почта' => $order->email ?? null,
         ], $amoApi, $account->zone);
 
@@ -81,7 +84,7 @@ class OrderSend extends Command
 
         $contact = Contacts::update($contact, [
             'Имя'       => $order->name,
-            'Телефоны'  => [$order->phone ?? null],
+            'Телефоны' => [$phoneForStore],
             'Почта'     => $order->email ?? null,
             'Ответственный' => $responsibleId,
         ], $account->zone);
