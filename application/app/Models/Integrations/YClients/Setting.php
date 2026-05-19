@@ -50,22 +50,35 @@ class Setting extends Model
         'pipelines' => 'array',
     ];
 
+    private static function fieldLabel(string $title, string $key, ?string $description = null): string
+    {
+        $label = $title . ' (' . $key . ')';
+
+        if ($description) {
+            $label .= ' - ' . $description;
+        }
+
+        return $label;
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
-            'sex' => 'Пол (список М/Ж/строка)',
-            'birth_date' => 'Дата рождения (дата)',
-            'discount' => 'Скидка (число)',
-            'comment' => 'Комментарий (строка)',
-            'sms_check' => 'Поздравлять с ДР (флаг/строка)',
-            'sms_not' => 'Отправлять рассылку (флаг/строка)',
+            'sex' => self::fieldLabel('Пол', 'sex', 'список М/Ж/строка'),
+            'birth_date' => self::fieldLabel('Дата рождения', 'birth_date', 'дата'),
+            'discount' => self::fieldLabel('Скидка', 'discount', 'число'),
+            'comment' => self::fieldLabel('Комментарий', 'comment', 'строка'),
+            'sms_check' => self::fieldLabel('Поздравлять с ДР', 'sms_check', 'флаг/строка'),
+            'sms_not' => self::fieldLabel('Отправлять рассылку', 'sms_not', 'флаг/строка'),
 //            'categories' => 'Категории клиента (строка)',
-            'branch' => 'Филиал (список/строка)',
+            'branch' => self::fieldLabel('Филиал', 'branch', 'список/строка'),
+            'company_id' => self::fieldLabel('ID филиала', 'company_id'),
+            'record_id' => self::fieldLabel('ID записи', 'record_id'),
 
-            'visits' => 'Кол-во визитов',
-            'staff' => 'Мастер',
-            'ltv' => 'Выручка',
-            'client_id' => 'ID клиента',
+            'visits' => self::fieldLabel('Кол-во визитов', 'visits'),
+            'staff' => self::fieldLabel('Мастер', 'staff'),
+            'ltv' => self::fieldLabel('Выручка', 'ltv'),
+            'client_id' => self::fieldLabel('ID клиента', 'client_id'),
         ];
     }
 
@@ -80,6 +93,8 @@ class Setting extends Model
             'sms_not',
 //            'categories',
             'branch',
+            'company_id',
+            'record_id',
 
             'visits',
             'staff',
@@ -110,6 +125,8 @@ class Setting extends Model
 //        }
 
         $fields['branch'] = $client->getBranchTitle($record->company_id);
+        $fields['company_id'] = $record->company_id;
+        $fields['record_id'] = $record->record_id;
 
         // $fields['branches'] = $client->query()->state()->getData();
 
