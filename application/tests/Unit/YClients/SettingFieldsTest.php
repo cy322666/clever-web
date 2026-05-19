@@ -16,6 +16,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('ID записи (record_id)', $fields['record_id']);
         $this->assertSame('ID филиала (company_id)', $fields['company_id']);
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
+        $this->assertSame('Сумма покупок (paid)', $fields['paid']);
     }
 
     public function test_yc_get_fields_includes_record_and_company_ids(): void
@@ -54,6 +55,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('1990-01-01', $fields['birth_date']);
         $this->assertSame(12, $fields['visits']);
         $this->assertSame('Мастер', $fields['staff']);
+        $this->assertSame(3456, $fields['paid']);
         $this->assertSame(3456, $fields['ltv']);
         $this->assertSame(555, $fields['client_id']);
     }

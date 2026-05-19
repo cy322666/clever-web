@@ -6,10 +6,10 @@ use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
 use Filament\Actions\BulkAction;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -61,7 +61,8 @@ class ListYClients extends ListRecords
 
                 TextColumn::make('lead_id')
                     ->url(fn(Record $order) => 'https://'.$order->account->subdomain.'.amocrm.ru/leads/detail/'.$order->lead_id, true)
-                    ->label('Сделка'),
+                    ->label('Сделка')
+                    ->searchable(),
 
 //                TextColumn::make('client.contact_id')
 //                    ->url(fn(Record $order) => 'https://'.$order->account->subdomain.'.amocrm.ru/contacts/detail/'.$order->lead_id, true)
@@ -86,7 +87,28 @@ class ListYClients extends ListRecords
             ->defaultSort('created_at', 'desc')
             ->paginated([20, 40, 'all'])
             ->poll('5s')
-            ->filters([])
+            ->filters([
+                SelectFilter::make('status')
+                    ->label('Статус')
+                    ->options([
+                        Record::STATUS_SUCCESS => 'Успешно',
+                        'not_success' => 'Не успешно',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'] ?? null,
+                            function (Builder $query, string $value): Builder {
+                                return $value === Record::STATUS_SUCCESS
+                                    ? $query->where('status', Record::STATUS_SUCCESS)
+                                    : $query->where(function (Builder $query): Builder {
+                                        return $query
+                                            ->where('status', '!=', Record::STATUS_SUCCESS)
+                                            ->orWhereNull('status');
+                                    });
+                            }
+                        );
+                    }),
+            ])
             ->actions([])
             ->bulkActions([
                 BulkAction::make('dispatched')

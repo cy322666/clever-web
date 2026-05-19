@@ -77,6 +77,7 @@ class Setting extends Model
 
             'visits' => self::fieldLabel('Кол-во визитов', 'visits'),
             'staff' => self::fieldLabel('Мастер', 'staff'),
+            'paid' => self::fieldLabel('Сумма покупок', 'paid'),
             'ltv' => self::fieldLabel('Выручка', 'ltv'),
             'client_id' => self::fieldLabel('ID клиента', 'client_id'),
         ];
@@ -98,6 +99,7 @@ class Setting extends Model
 
             'visits',
             'staff',
+            'paid',
             'ltv',
             'client_id',
         ];
@@ -142,6 +144,7 @@ class Setting extends Model
 
         $fields['visits'] = $clientYC->visits;
         $fields['staff'] = $record->staff_name;
+        $fields['paid'] = $clientYC->paid;
         $fields['ltv'] = $clientYC->paid;
         $fields['client_id'] = $record->client_id;
 
