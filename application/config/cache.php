@@ -15,7 +15,9 @@ return [
     |
     */
 
-    'default' => env('CACHE_DRIVER', 'file'),
+    'default' => in_array(env('CACHE_DRIVER', 'file'), ['', 'file'], true)
+        ? 'monitoring'
+        : env('CACHE_DRIVER', 'monitoring'),
 
     /*
     |--------------------------------------------------------------------------
@@ -43,6 +45,13 @@ return [
         ],
 
         'database' => [
+            'driver' => 'database',
+            'table' => 'cache',
+            'connection' => null,
+            'lock_connection' => null,
+        ],
+
+        'monitoring' => [
             'driver' => 'database',
             'table' => 'cache',
             'connection' => null,

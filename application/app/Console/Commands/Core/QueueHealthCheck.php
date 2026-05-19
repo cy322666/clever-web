@@ -3,8 +3,8 @@
 namespace App\Console\Commands\Core;
 
 use App\Services\Core\AlertService;
+use App\Services\Core\MonitoringCache;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -19,9 +19,9 @@ class QueueHealthCheck extends Command
         $newFailedCount = $this->checkNewFailedJobs();
         $stuckCount = $this->checkStuckJobs();
 
-        Cache::forever('monitoring:queue:health:last_run', now()->timestamp);
-        Cache::forever('monitoring:queue:health:last_new_failed', $newFailedCount);
-        Cache::forever('monitoring:queue:health:last_stuck', $stuckCount);
+        MonitoringCache::forever('monitoring:queue:health:last_run', now()->timestamp);
+        MonitoringCache::forever('monitoring:queue:health:last_new_failed', $newFailedCount);
+        MonitoringCache::forever('monitoring:queue:health:last_stuck', $stuckCount);
 
         return self::SUCCESS;
     }
@@ -44,7 +44,7 @@ class QueueHealthCheck extends Command
         }
 
         $cacheKey = 'monitoring:queue:last_failed_job_id';
-        $lastSeenId = (int)Cache::get($cacheKey, 0);
+        $lastSeenId = (int)MonitoringCache::get($cacheKey, 0);
 
         if ($lastSeenId === 0) {
             $initialCount = (int)DB::connection($failedConnection)
@@ -64,7 +64,7 @@ class QueueHealthCheck extends Command
                 );
             }
 
-            Cache::forever($cacheKey, $maxId);
+            MonitoringCache::forever($cacheKey, $maxId);
 
             return $initialCount;
         }
@@ -102,7 +102,7 @@ class QueueHealthCheck extends Command
             ttlSeconds: 3600,
         );
 
-        Cache::forever($cacheKey, $maxId);
+        MonitoringCache::forever($cacheKey, $maxId);
 
         return $newFailedCount;
     }

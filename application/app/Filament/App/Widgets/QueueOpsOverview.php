@@ -2,10 +2,10 @@
 
 namespace App\Filament\App\Widgets;
 
+use App\Services\Core\MonitoringCache;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -25,13 +25,13 @@ class QueueOpsOverview extends StatsOverviewWidget
 
         $unsynced = $this->getUnsyncedFailedJobsCount($failedConnection, $monitorConnection, $failedTable);
 
-        $backfillLastRun = (int)Cache::get('monitoring:queue:backfill:last_run', 0);
-        $backfillScanned = (int)Cache::get('monitoring:queue:backfill:last_scanned', 0);
-        $backfillInserted = (int)Cache::get('monitoring:queue:backfill:last_inserted', 0);
+        $backfillLastRun = (int)MonitoringCache::get('monitoring:queue:backfill:last_run', 0);
+        $backfillScanned = (int)MonitoringCache::get('monitoring:queue:backfill:last_scanned', 0);
+        $backfillInserted = (int)MonitoringCache::get('monitoring:queue:backfill:last_inserted', 0);
 
-        $healthLastRun = (int)Cache::get('monitoring:queue:health:last_run', 0);
-        $healthNewFailed = (int)Cache::get('monitoring:queue:health:last_new_failed', 0);
-        $healthStuck = (int)Cache::get('monitoring:queue:health:last_stuck', 0);
+        $healthLastRun = (int)MonitoringCache::get('monitoring:queue:health:last_run', 0);
+        $healthNewFailed = (int)MonitoringCache::get('monitoring:queue:health:last_new_failed', 0);
+        $healthStuck = (int)MonitoringCache::get('monitoring:queue:health:last_stuck', 0);
 
         return [
             Stat::make('Не синхронизированы', $unsynced === null ? 'n/a' : (string)$unsynced)

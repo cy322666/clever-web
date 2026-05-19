@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands\Core;
 
+use App\Services\Core\MonitoringCache;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -131,8 +131,8 @@ class QueueBackfillFailed extends Command
 
     private function storeTelemetry(int $startedAt, int $scanned, int $inserted): void
     {
-        Cache::forever('monitoring:queue:backfill:last_run', $startedAt);
-        Cache::forever('monitoring:queue:backfill:last_scanned', $scanned);
-        Cache::forever('monitoring:queue:backfill:last_inserted', $inserted);
+        MonitoringCache::forever('monitoring:queue:backfill:last_run', $startedAt);
+        MonitoringCache::forever('monitoring:queue:backfill:last_scanned', $scanned);
+        MonitoringCache::forever('monitoring:queue:backfill:last_inserted', $inserted);
     }
 }

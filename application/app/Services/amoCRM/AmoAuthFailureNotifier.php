@@ -4,7 +4,7 @@ namespace App\Services\amoCRM;
 
 use App\Mail\AmoAuthFailed;
 use App\Models\Core\Account;
-use Illuminate\Support\Facades\Cache;
+use App\Services\Core\MonitoringCache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -25,7 +25,7 @@ class AmoAuthFailureNotifier
         $cooldownMinutes = $this->cooldownMinutes();
         $cacheKey = $this->cacheKey($account);
 
-        if (!Cache::add($cacheKey, now()->toIso8601String(), now()->addMinutes($cooldownMinutes))) {
+        if (!MonitoringCache::add($cacheKey, now()->toIso8601String(), $cooldownMinutes * 60)) {
             return;
         }
 
@@ -34,7 +34,7 @@ class AmoAuthFailureNotifier
                 ->to($email)
                 ->queue(new AmoAuthFailed($account, $context, $exception->getMessage(), $cooldownMinutes));
         } catch (Throwable $mailException) {
-            Cache::forget($cacheKey);
+            MonitoringCache::forget($cacheKey);
 
             Log::warning('amoCRM auth failure email failed', [
                 'account_id' => $account->id,
@@ -66,7 +66,6 @@ class AmoAuthFailureNotifier
 
     public function clearThrottle(Account $account): void
     {
-        Cache::forget($this->cacheKey($account));
+        MonitoringCache::forget($this->cacheKey($account));
     }
 }
-

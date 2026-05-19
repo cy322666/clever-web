@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\System;
 
 use App\Http\Controllers\Controller;
+use App\Services\Core\MonitoringCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -85,7 +85,7 @@ class MetricsController extends Controller
             $metricsUp = 0;
         }
 
-        $heartbeatTs = (int)Cache::get('monitoring:scheduler:last_heartbeat', 0);
+        $heartbeatTs = (int)MonitoringCache::get('monitoring:scheduler:last_heartbeat', 0);
         $heartbeatAge = $heartbeatTs > 0 ? max(0, now()->timestamp - $heartbeatTs) : -1;
 
         $lines[] = '# HELP clever_scheduler_last_heartbeat_unixtime Last scheduler heartbeat unix timestamp.';
@@ -96,9 +96,9 @@ class MetricsController extends Controller
         $lines[] = '# TYPE clever_scheduler_heartbeat_age_seconds gauge';
         $lines[] = 'clever_scheduler_heartbeat_age_seconds ' . $heartbeatAge;
 
-        $slowQueriesTotal = (int)Cache::get(self::DB_SLOW_QUERY_TOTAL_KEY, 0);
-        $lastSlowQueryMs = (float)Cache::get(self::DB_SLOW_QUERY_LAST_MS_KEY, 0);
-        $lastSlowQuerySeenAt = (int)Cache::get(self::DB_SLOW_QUERY_LAST_SEEN_KEY, 0);
+        $slowQueriesTotal = (int)MonitoringCache::get(self::DB_SLOW_QUERY_TOTAL_KEY, 0);
+        $lastSlowQueryMs = (float)MonitoringCache::get(self::DB_SLOW_QUERY_LAST_MS_KEY, 0);
+        $lastSlowQuerySeenAt = (int)MonitoringCache::get(self::DB_SLOW_QUERY_LAST_SEEN_KEY, 0);
 
         $lines[] = '# HELP clever_db_slow_queries_total Total number of DB queries above configured slow threshold.';
         $lines[] = '# TYPE clever_db_slow_queries_total counter';

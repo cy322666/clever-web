@@ -3,12 +3,12 @@
 namespace App\Providers;
 
 use App\Observers\QueueMonitorObserver;
+use App\Services\Core\MonitoringCache;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -89,10 +89,10 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            Cache::add(self::DB_SLOW_QUERY_TOTAL_KEY, 0, now()->addYear());
-            Cache::increment(self::DB_SLOW_QUERY_TOTAL_KEY);
-            Cache::forever(self::DB_SLOW_QUERY_LAST_MS_KEY, (float)$query->time);
-            Cache::forever(self::DB_SLOW_QUERY_LAST_SEEN_KEY, now()->timestamp);
+            MonitoringCache::add(self::DB_SLOW_QUERY_TOTAL_KEY, 0, 31536000);
+            MonitoringCache::increment(self::DB_SLOW_QUERY_TOTAL_KEY);
+            MonitoringCache::forever(self::DB_SLOW_QUERY_LAST_MS_KEY, (float)$query->time);
+            MonitoringCache::forever(self::DB_SLOW_QUERY_LAST_SEEN_KEY, now()->timestamp);
 
             $context = [
                 'time_ms' => round((float)$query->time, 2),

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\System;
 
 use App\Http\Controllers\Controller;
+use App\Services\Core\MonitoringCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -29,7 +29,7 @@ class HealthController extends Controller
             $dbError = $e->getMessage();
         }
 
-        $heartbeatTs = (int)Cache::get('monitoring:scheduler:last_heartbeat', 0);
+        $heartbeatTs = (int)MonitoringCache::get('monitoring:scheduler:last_heartbeat', 0);
 
         if ($heartbeatTs > 0) {
             $schedulerAgeSeconds = max(0, now()->timestamp - $heartbeatTs);

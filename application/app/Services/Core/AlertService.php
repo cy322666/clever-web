@@ -3,7 +3,6 @@
 namespace App\Services\Core;
 
 use App\Services\Telegram;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -36,7 +35,7 @@ class AlertService
         if ($ttl > 0) {
             $cacheKey = self::buildDedupeCacheKey($level, $title, $message, $dedupeKey);
 
-            if (!Cache::add($cacheKey, now()->timestamp, $ttl)) {
+            if (!MonitoringCache::add($cacheKey, now()->timestamp, $ttl)) {
                 return;
             }
         }

@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands\Core;
 
+use App\Services\Core\MonitoringCache;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 
 class MonitoringHeartbeat extends Command
 {
@@ -13,7 +13,7 @@ class MonitoringHeartbeat extends Command
 
     public function handle(): int
     {
-        Cache::forever('monitoring:scheduler:last_heartbeat', now()->timestamp);
+        MonitoringCache::forever('monitoring:scheduler:last_heartbeat', now()->timestamp);
 
         return self::SUCCESS;
     }

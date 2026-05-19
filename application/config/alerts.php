@@ -5,6 +5,8 @@ return [
 
     'dedupe_ttl_seconds' => (int)env('ALERTS_DEDUPE_TTL', 900),
 
+    'cache_store' => env('ALERTS_CACHE_STORE', 'monitoring'),
+
     'channels' => [
         'telegram' => [
             'enabled' => (bool)env('ALERTS_TG_ENABLED', true),
