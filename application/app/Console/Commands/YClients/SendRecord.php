@@ -48,8 +48,10 @@ class SendRecord extends Command
         $objectStatus = $record->getStatusId($setting);
 
         if (empty($objectStatus?->status_id) || empty($objectStatus?->pipeline_id)) {
-            // Некорректная настройка статусов/воронки – нет смысла продолжать
-            return self::FAILURE;
+            return $this->failRecord(
+                $record,
+                'Некорректная настройка статусов/воронки - нет смысла продолжать.'
+            );
         }
 
         $amoApi = (new Client($account))->init();
@@ -69,7 +71,7 @@ class SendRecord extends Command
                 'user_id' => $record->user_id,
             ]);
 
-            return self::FAILURE;
+            return $this->failRecord($record, 'YClients client not found for record in scoped lookup.');
         }
 
         //CONTACT
@@ -151,6 +153,11 @@ class SendRecord extends Command
                 'exception' => $e::class,
             ]);
 
+            $this->failRecord($record, 'YClients lead sync failed during save()', [
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
             throw $e;
         }
 
@@ -161,5 +168,35 @@ class SendRecord extends Command
         $record->save();
 
         return self::SUCCESS;
+    }
+
+    private function failRecord(Record $record, string $message, array $context = []): int
+    {
+        $record->status = Record::STATUS_FAILED;
+        $record->error_message = $this->formatErrorMessage($message, $context);
+        $record->save();
+
+        return self::FAILURE;
+    }
+
+    private function formatErrorMessage(string $message, array $context = []): string
+    {
+        $lines = [$message];
+
+        foreach ($context as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $value = $value ? 'true' : 'false';
+            } elseif (is_array($value) || is_object($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+
+            $lines[] = $key . ': ' . $value;
+        }
+
+        return implode("\n", $lines);
     }
 }

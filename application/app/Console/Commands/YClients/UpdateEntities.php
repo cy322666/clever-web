@@ -68,27 +68,34 @@ class UpdateEntities extends Command
 
         $amoApi = (new Client($account))->init();
 
-        if ($setting->fields_contact || $setting->fields_lead) {
+        try {
+            if ($setting->fields_contact || $setting->fields_lead) {
+                $yc = new YClients($setting);
 
-            $yc = new YClients($setting);
+                //заполненные поля с ключами
+                $arrayFields = Setting::YCGetFields($yc, $record);
 
-            //заполненные поля с ключами
-            $arrayFields = Setting::YCGetFields($yc, $record);
+                if ($setting->fields_contact) {
+                    $contact = Contacts::get($amoApi, $client->contact_id);
 
-            if ($setting->fields_contact) {
-                $contact = Contacts::get($amoApi, $client->contact_id);
+                    if ($contact) {
+                        $setting->YCSetContactFields($contact, $arrayFields);
+                    }
+                }
 
-                if ($contact) {
-                    $setting->YCSetContactFields($contact, $arrayFields);
+                if ($setting->fields_lead) {
+                    $lead = Leads::get($amoApi, $record->lead_id);
+
+                    $setting->YCSetLeadFields($lead, $arrayFields);
                 }
             }
+        } catch (\Throwable $e) {
+            $this->failRecord($record, 'yc:update-entities failed.', [
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
 
-            if ($setting->fields_lead) {
-
-                $lead = Leads::get($amoApi, $record->lead_id);
-
-                $setting->YCSetLeadFields($lead, $arrayFields);
-            }
+            throw $e;
         }
 
 //  $note = $contact->createNote();
@@ -97,5 +104,37 @@ class UpdateEntities extends Command
 //  $note->element_id = $contact->id;
 //  $note->save();
 
+    }
+
+    private function failRecord(Record $record, string $message, array $context = []): void
+    {
+        $record->status = Record::STATUS_FAILED;
+
+        if (blank($record->error_message)) {
+            $record->error_message = $this->formatErrorMessage($message, $context);
+        }
+
+        $record->save();
+    }
+
+    private function formatErrorMessage(string $message, array $context = []): string
+    {
+        $lines = [$message];
+
+        foreach ($context as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $value = $value ? 'true' : 'false';
+            } elseif (is_array($value) || is_object($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+
+            $lines[] = $key . ': ' . $value;
+        }
+
+        return implode("\n", $lines);
     }
 }

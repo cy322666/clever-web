@@ -82,6 +82,11 @@ class ListYClients extends ListRecords
                 BooleanColumn::make('status')
                     ->label('Выгружен')
                     ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
+
+                TextColumn::make('error_message')
+                    ->label('Ошибка')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->wrap(),
             ])
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')

@@ -81,6 +81,11 @@ class RecordSend implements ShouldQueue
 
         if ($record) {
             $record->status = Record::STATUS_FAILED;
+
+            if (blank($record->error_message)) {
+                $record->error_message = $this->formatErrorMessage($message, $context);
+            }
+
             $record->save();
         }
 
@@ -90,5 +95,26 @@ class RecordSend implements ShouldQueue
             'setting_id' => $this->setting->id,
             ...$context,
         ]);
+    }
+
+    private function formatErrorMessage(string $message, array $context = []): string
+    {
+        $lines = [$message];
+
+        foreach ($context as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $value = $value ? 'true' : 'false';
+            } elseif (is_array($value) || is_object($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+
+            $lines[] = $key . ': ' . $value;
+        }
+
+        return implode("\n", $lines);
     }
 }

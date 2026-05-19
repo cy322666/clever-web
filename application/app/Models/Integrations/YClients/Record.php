@@ -36,6 +36,7 @@ class Record extends Model
         'seance_length',
         'attendance',
         'status',
+        'error_message',
         'send',
     ];
 
