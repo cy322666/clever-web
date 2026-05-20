@@ -25,6 +25,7 @@ class RecordSend implements ShouldQueue
         public Record $record,
         public Account $account,
         public Setting $setting,
+        public bool $createNote = true,
     )
     {
         $this->onQueue('yclients_record');
@@ -44,6 +45,7 @@ class RecordSend implements ShouldQueue
                 'record_id' => $this->record->id,
                 'account_id' => $this->account->id,
                 'setting_id' => $this->setting->id,
+                '--skip-note' => !$this->createNote,
             ]);
 
             if ($exitCode !== 0) {

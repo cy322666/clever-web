@@ -120,8 +120,7 @@ class ListYClients extends ListRecords
                     ->action(function (Collection $collection) {
 
                         $collection->each(function (Record $form) {
-
-                            RecordSend::dispatch($form, $form->account, $form->setting);
+                            RecordSend::dispatch($form, $form->account, $form->setting, false);
                         });
                     })
                     ->label('Выгрузить')

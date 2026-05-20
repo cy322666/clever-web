@@ -21,7 +21,7 @@ class SendRecord extends Command
      *
      * @var string
      */
-    protected $signature = 'yc:send-record {record_id} {account_id} {setting_id}';
+    protected $signature = 'yc:send-record {record_id} {account_id} {setting_id} {--skip-note}';
 
     /**
      * The console command description.
@@ -161,7 +161,9 @@ class SendRecord extends Command
             throw $e;
         }
 
-        Notes::createNoteLead($ycApi, $record, $lead, $amoApi);
+        if (!$this->option('skip-note')) {
+            Notes::createNoteLead($ycApi, $record, $lead, $amoApi);
+        }
 
         $record->lead_id = $lead->id;
         $record->status = Record::STATUS_SUCCESS;
