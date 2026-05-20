@@ -155,20 +155,24 @@ class Setting extends Model
             $createdUser = $client->getUserPermissions($record->company_id, $record->created_user_id);
 
             $role = data_get($createdUser, 'data.user_role');
-            $fields['created_user_role_name'] = self::createdUserRoleTitle($role);
+            $fields['created_user_role_name'] = self::createdUserRoleTitle($role) ?: 'Сотрудник';
 
             $staffId = data_get($createdUser, 'data.staff_id');
+            $staff = null;
 
             if (!empty($staffId)) {
                 $staff = $client->getStaff($record->company_id, $staffId);
-
-                $fields['created_user_department'] = data_get(
-                    $staff,
-                    'data.position.title'
-                ) ?: self::createdUserRoleTitle($role);
-            } else {
-                $fields['created_user_department'] = self::createdUserRoleTitle($role);
             }
+
+            if (!$staff) {
+                $staff = $client->findStaffByUserId($record->company_id, $record->created_user_id);
+            }
+
+            $fields['created_user_department'] = data_get($staff, 'data.position.title')
+                ?: data_get($staff, 'position.title')
+                    ?: data_get($staff, 'data.specialization')
+                        ?: self::createdUserRoleTitle($role)
+                            ?: 'Сотрудник';
         }
 
         // $fields['branches'] = $client->query()->state()->getData();

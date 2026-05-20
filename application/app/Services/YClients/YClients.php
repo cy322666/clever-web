@@ -70,6 +70,23 @@ class YClients
             ->object();
     }
 
+    /**
+     * @throws ConnectionException
+     */
+    public function findStaffByUserId(string $companyId, string $userId): ?object
+    {
+        $response = Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/staff/' . $companyId)
+            ->object();
+
+        $staff = collect(data_get($response, 'data', []))
+            ->first(function ($item) use ($userId) {
+                return (string)data_get($item, 'user_id') === (string)$userId;
+            });
+
+        return $staff ? (object)$staff : null;
+    }
+
     private function getHeaders(): array
     {
         return [
