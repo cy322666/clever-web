@@ -79,6 +79,19 @@ class Setting extends Model
         };
     }
 
+    private static function amoFieldName(int|string|null $fieldId, string $entityType): ?string
+    {
+        if (empty($fieldId)) {
+            return null;
+        }
+
+        return Field::query()
+            ->where('field_id', $fieldId)
+            ->where('entity_type', $entityType)
+            ->first()
+            ?->name;
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
@@ -180,10 +193,12 @@ class Setting extends Model
             }
 
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
+                ?: data_get($staff, 'data.0.position.title')
                 ?: data_get($staff, 'position.title')
-                    ?: data_get($staff, 'data.specialization')
-                        ?: $roleTitle
-                            ?: 'Сотрудник';
+                        ?: data_get($staff, 'data.specialization')
+                            ?: data_get($staff, 'data.0.specialization')
+                                ?: $roleTitle
+                                    ?: 'Сотрудник';
         }
 
         // $fields['branches'] = $client->query()->state()->getData();
@@ -211,11 +226,9 @@ class Setting extends Model
     {
         $body = json_decode($this->fields_contact, true);
 
-        //field_yc - key array yc
-        //field_amo - id
+        // field_amo stores amoCRM field_id, not the local amocrm_fields primary key.
         foreach ($body as $field) {
-
-            $fieldName = Field::query()->find($field['field_amo'])?->name;
+            $fieldName = self::amoFieldName($field['field_amo'] ?? null, 'contacts');
 
             if ($fieldName)
                 $contact = Contacts::setField($contact, $fieldName, $ycFields[$field['field_yc']] ?? null);
@@ -234,8 +247,7 @@ class Setting extends Model
         }
 
         foreach ($body as $field) {
-
-            $fieldName = Field::query()->find($field['field_amo'])?->name;
+            $fieldName = self::amoFieldName($field['field_amo'] ?? null, 'leads');
 
             if ($fieldName) {
                 $lead = Leads::setField($lead, $fieldName, $ycFields[$field['field_yc']] ?? null);
