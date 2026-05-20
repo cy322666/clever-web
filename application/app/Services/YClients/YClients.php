@@ -97,10 +97,38 @@ class YClients
         return $staff ? (object)$staff : null;
     }
 
+    /**
+     * @throws ConnectionException
+     */
+    public function getStaffPositions(string $companyId): ?object
+    {
+        return Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/staff/positions')
+            ->object();
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function findPositionTitle(string $companyId, int|string|null $positionId): ?string
+    {
+        if (empty($positionId)) {
+            return null;
+        }
+
+        $positions = $this->getStaffPositions($companyId);
+        $position = collect(data_get($positions, 'data', []))
+            ->first(function ($item) use ($positionId) {
+                return (string)data_get($item, 'id') === (string)$positionId;
+            });
+
+        return $position ? data_get($position, 'title') : null;
+    }
+
     private function getHeaders(): array
     {
         return [
-            'Accept'        => 'Accept: application/vnd.api.v2+json',
+            'Accept' => 'application/vnd.api.v2+json',
             'Content-Type'  => 'application/json',
             'Authorization' => 'Bearer ' . $this->getPartnerToken().', User '.$this->getUserToken(),
         ];

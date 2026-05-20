@@ -79,6 +79,16 @@ class Setting extends Model
         };
     }
 
+    private static function permissionValue(?object $permissions, string $slug): mixed
+    {
+        $permission = collect(data_get($permissions, 'data.user_permissions', []))
+            ->first(function ($item) use ($slug) {
+                return data_get($item, 'slug') === $slug;
+            });
+
+        return data_get($permission, 'value');
+    }
+
     private static function amoFieldName(int|string|null $fieldId, string $entityType): ?string
     {
         if (empty($fieldId)) {
@@ -182,6 +192,7 @@ class Setting extends Model
             $fields['created_user_role_name'] = $roleTitle ?: 'Сотрудник';
 
             $staffId = data_get($createdUser, 'data.staff_id');
+            $positionId = self::permissionValue($createdUser, 'timetable_position_id');
             $staff = null;
 
             if (!empty($staffId)) {
@@ -197,8 +208,9 @@ class Setting extends Model
                 ?: data_get($staff, 'position.title')
                         ?: data_get($staff, 'data.specialization')
                             ?: data_get($staff, 'data.0.specialization')
-                                ?: $roleTitle
-                                    ?: 'Сотрудник';
+                                ?: $client->findPositionTitle($record->company_id, $positionId)
+                                    ?: $roleTitle
+                                        ?: 'Сотрудник';
         }
 
         // $fields['branches'] = $client->query()->state()->getData();

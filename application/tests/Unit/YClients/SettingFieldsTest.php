@@ -93,4 +93,63 @@ class SettingFieldsTest extends TestCase
         $this->assertSame(3456, $fields['ltv']);
         $this->assertSame(555, $fields['client_id']);
     }
+
+    public function test_yc_get_fields_resolves_created_user_role_and_department_from_permissions(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods([
+                'getClient',
+                'getBranchTitle',
+                'getUserPermissions',
+                'getUserRoles',
+                'getStaff',
+                'findStaffByUserId',
+                'findPositionTitle',
+            ])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'sex' => null,
+                    'birth_date' => null,
+                    'visits' => 1,
+                    'paid' => 0,
+                ],
+            ]
+        );
+        $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getUserPermissions')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'staff_id' => 0,
+                    'user_role' => 'manager',
+                    'user_permissions' => [
+                        (object)[
+                            'slug' => 'timetable_position_id',
+                            'value' => 99,
+                        ],
+                    ],
+                ],
+            ]
+        );
+        $yc->method('getUserRoles')->willReturn((object)['data' => []]);
+        $yc->method('getStaff')->willReturn(null);
+        $yc->method('findStaffByUserId')->willReturn(null);
+        $yc->method('findPositionTitle')->with('10', 99)->willReturn('Администраторы');
+
+        $record = new Record([
+            'company_id' => 10,
+            'client_id' => 555,
+            'record_id' => 777,
+            'created_user_id' => 4321,
+            'staff_name' => 'Мастер',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('Менеджер', $fields['created_user_role_name']);
+        $this->assertSame('Администраторы', $fields['created_user_department']);
+    }
 }
