@@ -152,4 +152,70 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Менеджер', $fields['created_user_role_name']);
         $this->assertSame('Администраторы', $fields['created_user_department']);
     }
+
+    public function test_yc_get_fields_uses_staff_specialization_when_permissions_are_denied(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods([
+                'getClient',
+                'getBranchTitle',
+                'getUserPermissions',
+                'getUserRoles',
+                'getStaff',
+                'findStaffByUserId',
+                'findPositionTitle',
+            ])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'sex' => null,
+                    'birth_date' => null,
+                    'visits' => 7,
+                    'paid' => 0,
+                ],
+            ]
+        );
+        $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getUserPermissions')->willReturn(
+            (object)[
+                'success' => false,
+                'data' => null,
+                'meta' => (object)['message' => 'Недостаточно прав'],
+            ]
+        );
+        $yc->method('getUserRoles')->willReturn(
+            (object)[
+                'success' => false,
+                'data' => null,
+                'meta' => (object)['message' => 'Недостаточно прав'],
+            ]
+        );
+        $yc->method('getStaff')->willReturn(null);
+        $yc->method('findStaffByUserId')->willReturn(
+            (object)[
+                'id' => 5297304,
+                'user_id' => 12348716,
+                'name' => 'Гурова Дарья Александровна',
+                'specialization' => 'Колл-центр',
+                'position' => null,
+            ]
+        );
+        $yc->method('findPositionTitle')->willReturn(null);
+
+        $record = new Record([
+            'company_id' => 1114763,
+            'client_id' => 393190842,
+            'record_id' => 1722239055,
+            'created_user_id' => 12348716,
+            'staff_name' => 'ПАРКИНГ 53',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
+        $this->assertSame('Колл-центр', $fields['created_user_department']);
+    }
 }

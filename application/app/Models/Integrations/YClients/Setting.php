@@ -102,6 +102,13 @@ class Setting extends Model
             ?->name;
     }
 
+    private static function debugLog(string $message, array $context = []): void
+    {
+        if (function_exists('app') && app()->bound('log')) {
+            logger()->info($message, $context);
+        }
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
@@ -208,9 +215,31 @@ class Setting extends Model
                 ?: data_get($staff, 'position.title')
                         ?: data_get($staff, 'data.specialization')
                             ?: data_get($staff, 'data.0.specialization')
-                                ?: $client->findPositionTitle($record->company_id, $positionId)
-                                    ?: $roleTitle
-                                        ?: 'Сотрудник';
+                                ?: data_get($staff, 'specialization')
+                                    ?: $client->findPositionTitle($record->company_id, $positionId)
+                                        ?: $roleTitle
+                                            ?: 'Сотрудник';
+
+            self::debugLog('YClients created user fields resolved.', [
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'company_id' => $record->company_id,
+                'created_user_id' => $record->created_user_id,
+                'raw_user_role' => $role,
+                'role_title' => $roleTitle,
+                'staff_id' => $staffId,
+                'position_id' => $positionId,
+                'staff_position_title' => data_get($staff, 'data.position.title')
+                    ?: data_get($staff, 'data.0.position.title')
+                        ?: data_get($staff, 'position.title'),
+                'staff_specialization' => data_get($staff, 'data.specialization')
+                    ?: data_get($staff, 'data.0.specialization')
+                        ?: data_get($staff, 'specialization'),
+                'resolved_role' => $fields['created_user_role_name'],
+                'resolved_department' => $fields['created_user_department'],
+                'permissions_success' => data_get($createdUser, 'success'),
+                'roles_success' => data_get($createdUserRoles, 'success'),
+            ]);
         }
 
         // $fields['branches'] = $client->query()->state()->getData();
@@ -241,9 +270,19 @@ class Setting extends Model
         // field_amo stores amoCRM field_id, not the local amocrm_fields primary key.
         foreach ($body as $field) {
             $fieldName = self::amoFieldName($field['field_amo'] ?? null, 'contacts');
+            $fieldYc = $field['field_yc'] ?? null;
+            $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
+
+            self::debugLog('YClients contact field mapping.', [
+                'setting_id' => $this->id,
+                'field_yc' => $fieldYc,
+                'field_amo' => $field['field_amo'] ?? null,
+                'field_name' => $fieldName,
+                'value' => $value,
+            ]);
 
             if ($fieldName)
-                $contact = Contacts::setField($contact, $fieldName, $ycFields[$field['field_yc']] ?? null);
+                $contact = Contacts::setField($contact, $fieldName, $value);
         }
         $contact->save();
 
@@ -260,9 +299,19 @@ class Setting extends Model
 
         foreach ($body as $field) {
             $fieldName = self::amoFieldName($field['field_amo'] ?? null, 'leads');
+            $fieldYc = $field['field_yc'] ?? null;
+            $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
+
+            self::debugLog('YClients lead field mapping.', [
+                'setting_id' => $this->id,
+                'field_yc' => $fieldYc,
+                'field_amo' => $field['field_amo'] ?? null,
+                'field_name' => $fieldName,
+                'value' => $value,
+            ]);
 
             if ($fieldName) {
-                $lead = Leads::setField($lead, $fieldName, $ycFields[$field['field_yc']] ?? null);
+                $lead = Leads::setField($lead, $fieldName, $value);
             }
         }
         $lead->save();
