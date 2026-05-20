@@ -76,7 +76,7 @@ class YClients
     public function getStaff(string $companyId, string $staffId): ?object
     {
         return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/staff/' . $companyId . '/' . $staffId)
+            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/staff/' . $staffId)
             ->object();
     }
 
@@ -86,7 +86,7 @@ class YClients
     public function findStaffByUserId(string $companyId, string $userId): ?object
     {
         $response = Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/staff/' . $companyId)
+            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/staff')
             ->object();
 
         $staff = collect(data_get($response, 'data', []))
