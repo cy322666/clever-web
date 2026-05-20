@@ -29,7 +29,7 @@ class SettingFieldsTest extends TestCase
     {
         $yc = $this->getMockBuilder(YClientsService::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getClient', 'getBranchTitle', 'getUserPermissions', 'getUserRoles', 'getStaff'])
+            ->onlyMethods(['getClient', 'getRecord', 'getBranchTitle', 'getUserPermissions', 'getUserRoles', 'getStaff'])
             ->getMock();
 
         $yc->method('getClient')->willReturn(
@@ -49,6 +49,12 @@ class SettingFieldsTest extends TestCase
         );
 
         $yc->method('getBranchTitle')->willReturn('Филиал 10');
+        $yc->method('getRecord')->willReturn((object)[
+            'data' => (object)[
+                'created_user_id' => 4321,
+                'record_from' => 'CRM',
+            ],
+        ]);
         $yc->method('getUserPermissions')->willReturn(
             (object)[
                 'data' => (object)[
@@ -118,6 +124,7 @@ class SettingFieldsTest extends TestCase
             ->disableOriginalConstructor()
             ->onlyMethods([
                 'getClient',
+                'getRecord',
                 'getBranchTitle',
                 'getUserPermissions',
                 'getUserRoles',
@@ -138,6 +145,11 @@ class SettingFieldsTest extends TestCase
             ]
         );
         $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getRecord')->willReturn((object)[
+            'data' => (object)[
+                'created_user_id' => 4321,
+            ],
+        ]);
         $yc->method('getUserPermissions')->willReturn(
             (object)[
                 'data' => (object)[
@@ -177,6 +189,7 @@ class SettingFieldsTest extends TestCase
             ->disableOriginalConstructor()
             ->onlyMethods([
                 'getClient',
+                'getRecord',
                 'getBranchTitle',
                 'getUserPermissions',
                 'getUserRoles',
@@ -197,6 +210,11 @@ class SettingFieldsTest extends TestCase
             ]
         );
         $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getRecord')->willReturn((object)[
+            'data' => (object)[
+                'created_user_id' => 12348716,
+            ],
+        ]);
         $yc->method('getUserPermissions')->willReturn(
             (object)[
                 'success' => false,
@@ -241,7 +259,7 @@ class SettingFieldsTest extends TestCase
     {
         $yc = $this->getMockBuilder(YClientsService::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getClient', 'getBranchTitle'])
+            ->onlyMethods(['getClient', 'getRecord', 'getBranchTitle'])
             ->getMock();
 
         $yc->method('getClient')->willReturn(
@@ -255,6 +273,12 @@ class SettingFieldsTest extends TestCase
             ]
         );
         $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getRecord')->willReturn((object)[
+            'data' => (object)[
+                'created_user_id' => 0,
+                'record_from' => 'Партнёры: Mobile app new widget',
+            ],
+        ]);
 
         $record = new Record([
             'company_id' => 331981,
@@ -264,6 +288,45 @@ class SettingFieldsTest extends TestCase
             'record_from' => 'Партнёры: Mobile app new widget',
             'created_user_id' => 0,
             'staff_name' => 'Бурда Наталья Александровна',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('Внешний источник', $fields['created_user_role_name']);
+        $this->assertSame('Не сотрудник', $fields['created_user_department']);
+        $this->assertSame('Партнёры: Mobile app new widget', $fields['record_from']);
+    }
+
+    public function test_yc_get_fields_fetches_record_from_for_existing_records(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getClient', 'getRecord', 'getBranchTitle'])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn((object)[
+            'data' => (object)[
+                'sex' => null,
+                'birth_date' => null,
+                'visits' => 1,
+                'paid' => 0,
+            ],
+        ]);
+        $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getRecord')->willReturn((object)[
+            'data' => (object)[
+                'created_user_id' => 0,
+                'record_from' => 'Партнёры: Mobile app new widget',
+            ],
+        ]);
+
+        $record = new Record([
+            'company_id' => 1114763,
+            'client_id' => 263913558,
+            'record_id' => 1723005936,
+            'created_user_id' => null,
+            'record_from' => null,
+            'staff_name' => 'Дорошенко Анна Андреевна',
         ]);
 
         $fields = Setting::YCGetFields($yc, $record);

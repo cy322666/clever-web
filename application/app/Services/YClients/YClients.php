@@ -53,6 +53,16 @@ class YClients
     /**
      * @throws ConnectionException
      */
+    public function getRecord(string $companyId, string $recordId): ?object
+    {
+        return Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/record/' . $companyId . '/' . $recordId)
+            ->object();
+    }
+
+    /**
+     * @throws ConnectionException
+     */
     public function getUserPermissions(string $companyId, string $userId): ?object
     {
         return Http::withHeaders($this->getHeaders())

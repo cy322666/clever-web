@@ -186,6 +186,21 @@ class Setting extends Model
         $fields = static::YCfields();
 
         $clientYC = $client->getClient($record->company_id, $record->client_id)->data;
+        $recordYC = $client->getRecord($record->company_id, $record->record_id)?->data ?? null;
+        $createdUserId = $record->created_user_id;
+        $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
+
+        if ($createdUserId === null || $createdUserId === '') {
+            $createdUserId = data_get($recordYC, 'created_user_id');
+        }
+
+        if (($record->record_from !== $recordFrom || (string)$record->created_user_id !== (string)$createdUserId)
+            && $record->exists) {
+            $record->forceFill([
+                'created_user_id' => $createdUserId,
+                'record_from' => $recordFrom,
+            ])->save();
+        }
 
 //        $categories = '';
 //
@@ -206,16 +221,16 @@ class Setting extends Model
         $fields['record_datetime'] = $recordDateTime?->format('d.m.Y H:i');
         $fields['record_date'] = $recordDateTime?->format('d.m.Y');
         $fields['record_time'] = $recordDateTime?->format('H:i');
-        $fields['record_from'] = $record->record_from;
+        $fields['record_from'] = $recordFrom;
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
 
-        if (empty($record->created_user_id)) {
+        if (empty($createdUserId)) {
             $fields['created_user_role_name'] = 'Внешний источник';
             $fields['created_user_department'] = 'Не сотрудник';
         } else {
-            $createdUser = $client->getUserPermissions($record->company_id, $record->created_user_id);
-            $createdUserRoles = $client->getUserRoles($record->company_id, $record->created_user_id);
+            $createdUser = $client->getUserPermissions($record->company_id, $createdUserId);
+            $createdUserRoles = $client->getUserRoles($record->company_id, $createdUserId);
 
             $role = data_get($createdUser, 'data.user_role');
             $roleTitle = self::createdUserRoleTitle($role);
@@ -236,7 +251,7 @@ class Setting extends Model
             }
 
             if (!$staff) {
-                $staff = $client->findStaffByUserId($record->company_id, $record->created_user_id);
+                $staff = $client->findStaffByUserId($record->company_id, $createdUserId);
             }
 
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
@@ -253,7 +268,8 @@ class Setting extends Model
                 'record_db_id' => $record->id,
                 'record_id' => $record->record_id,
                 'company_id' => $record->company_id,
-                'created_user_id' => $record->created_user_id,
+                'created_user_id' => $createdUserId,
+                'record_from' => $recordFrom,
                 'raw_user_role' => $role,
                 'role_title' => $roleTitle,
                 'staff_id' => $staffId,
