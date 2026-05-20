@@ -50,6 +50,26 @@ class YClients
             ->object();
     }
 
+    /**
+     * @throws ConnectionException
+     */
+    public function getUserPermissions(string $companyId, string $userId): ?object
+    {
+        return Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/users/' . $userId . '/permissions')
+            ->object();
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function getStaff(string $companyId, string $staffId): ?object
+    {
+        return Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/staff/' . $companyId . '/' . $staffId)
+            ->object();
+    }
+
     private function getHeaders(): array
     {
         return [

@@ -78,6 +78,7 @@ class YClientsController extends Controller
             'staff_id' => $request->data['staff_id'],
             'staff_name' => $request->data['staff']['name'],
             'client_id' => $request->data['client']['id'],
+            'created_user_id' => data_get($request->data, 'created_user_id'),
             'visit_id' => $request->data['visit_id'],
             'datetime' => Carbon::parse($request->data['datetime'])->format('Y.m.d H:i:s'),
             'comment' => $request->data['comment'],

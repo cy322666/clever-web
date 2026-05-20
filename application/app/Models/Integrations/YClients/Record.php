@@ -29,6 +29,7 @@ class Record extends Model
         'staff_id',
         'staff_name',
         'client_id',
+        'created_user_id',
         'visit_id',
         'visits',
         'datetime',

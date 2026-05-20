@@ -61,6 +61,21 @@ class Setting extends Model
         return $label;
     }
 
+    private static function humanFieldLabel(string $title, ?string $description = null): string
+    {
+        return $description ? $title . ' - ' . $description : $title;
+    }
+
+    private static function createdUserRoleTitle(?string $role): ?string
+    {
+        return match ($role) {
+            'owner' => 'Владелец',
+            'worker' => 'Сотрудник',
+            'client' => 'Клиент',
+            default => $role ? ucfirst($role) : null,
+        };
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
@@ -71,15 +86,17 @@ class Setting extends Model
             'sms_check' => self::fieldLabel('Поздравлять с ДР', 'sms_check', 'флаг/строка'),
             'sms_not' => self::fieldLabel('Отправлять рассылку', 'sms_not', 'флаг/строка'),
 //            'categories' => 'Категории клиента (строка)',
-            'branch' => self::fieldLabel('Филиал', 'branch', 'список/строка'),
-            'company_id' => self::fieldLabel('ID филиала', 'company_id'),
-            'record_id' => self::fieldLabel('ID записи', 'record_id'),
+            'branch' => self::humanFieldLabel('Филиал'),
+            'company_id' => self::humanFieldLabel('Филиал записи'),
+            'record_id' => self::humanFieldLabel('Запись'),
+            'created_user_role_name' => self::humanFieldLabel('Роль создателя'),
+            'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
             'visits' => self::fieldLabel('Кол-во визитов', 'visits'),
             'staff' => self::fieldLabel('Мастер', 'staff'),
             'paid' => self::fieldLabel('Сумма покупок', 'paid'),
             'ltv' => self::fieldLabel('Выручка', 'ltv'),
-            'client_id' => self::fieldLabel('ID клиента', 'client_id'),
+            'client_id' => self::humanFieldLabel('Клиент'),
         ];
     }
 
@@ -96,6 +113,8 @@ class Setting extends Model
             'branch',
             'company_id',
             'record_id',
+            'created_user_role_name',
+            'created_user_department',
 
             'visits',
             'staff',
@@ -129,6 +148,28 @@ class Setting extends Model
         $fields['branch'] = $client->getBranchTitle($record->company_id);
         $fields['company_id'] = $record->company_id;
         $fields['record_id'] = $record->record_id;
+        $fields['created_user_role_name'] = null;
+        $fields['created_user_department'] = null;
+
+        if (!empty($record->created_user_id)) {
+            $createdUser = $client->getUserPermissions($record->company_id, $record->created_user_id);
+
+            $role = data_get($createdUser, 'data.user_role');
+            $fields['created_user_role_name'] = self::createdUserRoleTitle($role);
+
+            $staffId = data_get($createdUser, 'data.staff_id');
+
+            if (!empty($staffId)) {
+                $staff = $client->getStaff($record->company_id, $staffId);
+
+                $fields['created_user_department'] = data_get(
+                    $staff,
+                    'data.position.title'
+                ) ?: self::createdUserRoleTitle($role);
+            } else {
+                $fields['created_user_department'] = self::createdUserRoleTitle($role);
+            }
+        }
 
         // $fields['branches'] = $client->query()->state()->getData();
 

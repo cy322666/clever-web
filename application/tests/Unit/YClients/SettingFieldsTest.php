@@ -13,8 +13,10 @@ class SettingFieldsTest extends TestCase
     {
         $fields = Setting::YCfieldsSelect();
 
-        $this->assertSame('ID записи (record_id)', $fields['record_id']);
-        $this->assertSame('ID филиала (company_id)', $fields['company_id']);
+        $this->assertSame('Запись', $fields['record_id']);
+        $this->assertSame('Роль создателя', $fields['created_user_role_name']);
+        $this->assertSame('Отдел создателя', $fields['created_user_department']);
+        $this->assertSame('Филиал записи', $fields['company_id']);
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
         $this->assertSame('Сумма покупок (paid)', $fields['paid']);
     }
@@ -23,7 +25,7 @@ class SettingFieldsTest extends TestCase
     {
         $yc = $this->getMockBuilder(YClientsService::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getClient', 'getBranchTitle'])
+            ->onlyMethods(['getClient', 'getBranchTitle', 'getUserPermissions', 'getStaff'])
             ->getMock();
 
         $yc->method('getClient')->willReturn(
@@ -33,16 +35,36 @@ class SettingFieldsTest extends TestCase
                     'birth_date' => '1990-01-01',
                     'visits' => 12,
                     'paid' => 3456,
+                    'created_user_id' => 4321,
                 ],
             ]
         );
 
         $yc->method('getBranchTitle')->willReturn('Филиал 10');
+        $yc->method('getUserPermissions')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'staff_id' => 43210,
+                    'user_role' => 'worker',
+                ],
+            ]
+        );
+        $yc->method('getStaff')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'position' => (object)[
+                        'id' => 77,
+                        'title' => 'Администратор',
+                    ],
+                ],
+            ]
+        );
 
         $record = new Record([
             'company_id' => 10,
             'client_id' => 555,
             'record_id' => 777,
+            'created_user_id' => 4321,
             'staff_name' => 'Мастер',
         ]);
 
@@ -50,6 +72,8 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame(10, $fields['company_id']);
         $this->assertSame(777, $fields['record_id']);
+        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
+        $this->assertSame('Администратор', $fields['created_user_department']);
         $this->assertSame('Филиал 10', $fields['branch']);
         $this->assertSame('Ж', $fields['sex']);
         $this->assertSame('1990-01-01', $fields['birth_date']);
