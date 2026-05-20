@@ -71,8 +71,11 @@ class Setting extends Model
         return match ($role) {
             'owner' => 'Владелец',
             'worker' => 'Сотрудник',
+            'administrator' => 'Администратор',
+            'accountant' => 'Бухгалтер',
+            'manager' => 'Менеджер',
             'client' => 'Клиент',
-            default => $role ? ucfirst($role) : null,
+            default => $role ? trim((string)$role) : null,
         };
     }
 
@@ -153,9 +156,17 @@ class Setting extends Model
 
         if (!empty($record->created_user_id)) {
             $createdUser = $client->getUserPermissions($record->company_id, $record->created_user_id);
+            $createdUserRoles = $client->getUserRoles($record->company_id, $record->created_user_id);
 
             $role = data_get($createdUser, 'data.user_role');
-            $fields['created_user_role_name'] = self::createdUserRoleTitle($role) ?: 'Сотрудник';
+            $roleTitle = self::createdUserRoleTitle($role);
+
+            if (!$roleTitle) {
+                $roleTitle = self::createdUserRoleTitle(data_get($createdUserRoles, 'data.0.title'))
+                    ?: self::createdUserRoleTitle(data_get($createdUserRoles, 'data.0.slug'));
+            }
+
+            $fields['created_user_role_name'] = $roleTitle ?: 'Сотрудник';
 
             $staffId = data_get($createdUser, 'data.staff_id');
             $staff = null;
@@ -171,7 +182,7 @@ class Setting extends Model
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
                 ?: data_get($staff, 'position.title')
                     ?: data_get($staff, 'data.specialization')
-                        ?: self::createdUserRoleTitle($role)
+                        ?: $roleTitle
                             ?: 'Сотрудник';
         }
 

@@ -25,7 +25,7 @@ class SettingFieldsTest extends TestCase
     {
         $yc = $this->getMockBuilder(YClientsService::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getClient', 'getBranchTitle', 'getUserPermissions', 'getStaff'])
+            ->onlyMethods(['getClient', 'getBranchTitle', 'getUserPermissions', 'getUserRoles', 'getStaff'])
             ->getMock();
 
         $yc->method('getClient')->willReturn(
@@ -46,6 +46,16 @@ class SettingFieldsTest extends TestCase
                 'data' => (object)[
                     'staff_id' => 43210,
                     'user_role' => 'worker',
+                ],
+            ]
+        );
+        $yc->method('getUserRoles')->willReturn(
+            (object)[
+                'data' => [
+                    (object)[
+                        'slug' => 'staff_member',
+                        'title' => 'team member',
+                    ],
                 ],
             ]
         );

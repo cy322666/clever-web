@@ -63,6 +63,16 @@ class YClients
     /**
      * @throws ConnectionException
      */
+    public function getUserRoles(string $companyId, string $userId): ?object
+    {
+        return Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/users/' . $userId . '/roles')
+            ->object();
+    }
+
+    /**
+     * @throws ConnectionException
+     */
     public function getStaff(string $companyId, string $staffId): ?object
     {
         return Http::withHeaders($this->getHeaders())
