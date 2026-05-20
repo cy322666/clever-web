@@ -109,6 +109,19 @@ class Setting extends Model
         }
     }
 
+    private static function recordDateTime(?string $datetime): ?\Carbon\Carbon
+    {
+        if (empty($datetime)) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::createFromFormat('Y.m.d H:i:s', $datetime);
+        } catch (\Throwable) {
+            return \Carbon\Carbon::parse($datetime);
+        }
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
@@ -122,6 +135,10 @@ class Setting extends Model
             'branch' => self::humanFieldLabel('Филиал'),
             'company_id' => self::humanFieldLabel('Филиал записи'),
             'record_id' => self::humanFieldLabel('Запись'),
+            'record_datetime' => self::humanFieldLabel('Дата и время записи'),
+            'record_date' => self::humanFieldLabel('Дата записи'),
+            'record_time' => self::humanFieldLabel('Время записи'),
+            'record_from' => self::humanFieldLabel('Источник записи'),
             'created_user_role_name' => self::humanFieldLabel('Роль создателя'),
             'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
@@ -146,6 +163,10 @@ class Setting extends Model
             'branch',
             'company_id',
             'record_id',
+            'record_datetime',
+            'record_date',
+            'record_time',
+            'record_from',
             'created_user_role_name',
             'created_user_department',
 
@@ -178,13 +199,21 @@ class Setting extends Model
 //            }
 //        }
 
-        $fields['branch'] = $client->getBranchTitle($record->company_id);
+        $fields['branch'] = $client->getBranchTitle($record->company_id) ?: (string)$record->company_id;
         $fields['company_id'] = $record->company_id;
         $fields['record_id'] = $record->record_id;
+        $recordDateTime = self::recordDateTime($record->datetime);
+        $fields['record_datetime'] = $recordDateTime?->format('d.m.Y H:i');
+        $fields['record_date'] = $recordDateTime?->format('d.m.Y');
+        $fields['record_time'] = $recordDateTime?->format('H:i');
+        $fields['record_from'] = $record->record_from;
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
 
-        if (!empty($record->created_user_id)) {
+        if (empty($record->created_user_id)) {
+            $fields['created_user_role_name'] = 'Внешний источник';
+            $fields['created_user_department'] = 'Не сотрудник';
+        } else {
             $createdUser = $client->getUserPermissions($record->company_id, $record->created_user_id);
             $createdUserRoles = $client->getUserRoles($record->company_id, $record->created_user_id);
 
@@ -252,7 +281,11 @@ class Setting extends Model
             default => null,
         };
 
-        $fields['birth_date'] = $clientYC->birth_date;
+        $fields['birth_date'] = $clientYC->birth_date ?? $clientYC->birthday ?? null;
+        $fields['discount'] = $clientYC->discount ?? null;
+        $fields['comment'] = $clientYC->comment ?? null;
+        $fields['sms_check'] = isset($clientYC->sms_check) ? ((int)$clientYC->sms_check === 1 ? 'Да' : 'Нет') : null;
+        $fields['sms_not'] = isset($clientYC->sms_not) ? ((int)$clientYC->sms_not === 1 ? 'Нет' : 'Да') : null;
 
         $fields['visits'] = $clientYC->visits;
         $fields['staff'] = $record->staff_name;
