@@ -10,6 +10,8 @@ use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class UpdateEntities extends Command
 {
@@ -75,21 +77,9 @@ class UpdateEntities extends Command
                 //заполненные поля с ключами
                 $arrayFields = Setting::YCGetFields($yc, $record);
 
-                if ($setting->fields_contact) {
-                    $contact = Contacts::get($amoApi, $client->contact_id);
-
-                    if ($contact) {
-                        $setting->YCSetContactFields($contact, $arrayFields);
-                    }
-                }
-
-                if ($setting->fields_lead) {
-                    $lead = Leads::get($amoApi, $record->lead_id);
-
-                    $setting->YCSetLeadFields($lead, $arrayFields);
-                }
+                $this->updateAmoEntitiesWithRetry($amoApi, $setting, $record, $client->contact_id, $arrayFields);
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->failRecord($record, 'yc:update-entities failed.', [
                 'error' => $e->getMessage(),
                 'exception' => $e::class,
@@ -104,6 +94,68 @@ class UpdateEntities extends Command
 //  $note->element_id = $contact->id;
 //  $note->save();
 
+    }
+
+    /**
+     * amoCRM rejects updates made from stale entity snapshots. Reloading both
+     * entities before each retry keeps frequent concurrent webhooks from
+     * permanently failing the YClients transaction.
+     *
+     * @throws Throwable
+     */
+    private function updateAmoEntitiesWithRetry(
+        Client $amoApi,
+        Setting $setting,
+        Record $record,
+        ?int $contactId,
+        array $arrayFields,
+        int $maxAttempts = 5
+    ): void {
+        $maxAttempts = max(1, $maxAttempts);
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                if ($setting->fields_contact && $contactId) {
+                    $contact = Contacts::get($amoApi, $contactId);
+
+                    if ($contact) {
+                        $setting->YCSetContactFields($contact, $arrayFields);
+                    }
+                }
+
+                if ($setting->fields_lead && $record->lead_id) {
+                    $lead = Leads::get($amoApi, $record->lead_id);
+
+                    if ($lead) {
+                        $setting->YCSetLeadFields($lead, $arrayFields);
+                    }
+                }
+
+                return;
+            } catch (Throwable $e) {
+                if (!$this->isAmoLastModifiedConflict($e) || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                Log::warning('yc:update-entities amoCRM update conflict, retrying with fresh entities.', [
+                    'record_db_id' => $record->id,
+                    'record_id' => $record->record_id,
+                    'lead_id' => $record->lead_id,
+                    'contact_id' => $contactId,
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'error' => $e->getMessage(),
+                ]);
+
+                usleep(250000 * $attempt);
+            }
+        }
+    }
+
+    private function isAmoLastModifiedConflict(Throwable $e): bool
+    {
+        return stripos($e->getMessage(), 'Last modified date is older than in database') !== false
+            || stripos($e->getMessage(), 'Last modified date is older than in.') !== false;
     }
 
     private function failRecord(Record $record, string $message, array $context = []): void
