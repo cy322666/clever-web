@@ -101,7 +101,8 @@ class YClients
 
         $staff = collect(data_get($response, 'data', []))
             ->first(function ($item) use ($userId) {
-                return (string)data_get($item, 'user_id') === (string)$userId;
+                return (string)data_get($item, 'user_id') === (string)$userId
+                    || (string)data_get($item, 'user.id') === (string)$userId;
             });
 
         return $staff ? (object)$staff : null;

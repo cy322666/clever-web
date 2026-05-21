@@ -73,6 +73,7 @@ class Setting extends Model
             'administrator' => 'Администратор',
             'accountant' => 'Бухгалтер',
             'manager' => 'Менеджер',
+            'call_center' => 'Кол-центр',
             'client' => 'Клиент',
             default => $role ? trim((string)$role) : null,
         };

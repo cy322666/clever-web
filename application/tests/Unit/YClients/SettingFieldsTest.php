@@ -396,4 +396,80 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Администратор', $fields['created_user_department']);
         $this->assertSame('Не указан', $fields['record_from']);
     }
+
+    public function test_yc_get_fields_uses_creator_role_as_department_when_creator_staff_is_missing(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods([
+                'getClient',
+                'getRecord',
+                'getBranchTitle',
+                'getUserPermissions',
+                'getUserRoles',
+                'getStaff',
+                'findStaffByUserId',
+                'findPositionTitle',
+            ])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'sex' => null,
+                    'birth_date' => null,
+                    'visits' => 1,
+                    'paid' => 0,
+                ],
+            ]
+        );
+        $yc->method('getRecord')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'created_user_id' => 12241065,
+                    'record_from' => '',
+                    'staff' => (object)[
+                        'specialization' => 'Врач-косметолог (инъекции)',
+                        'position' => (object)[
+                            'title' => 'Врач-косметолог (инъекции)',
+                        ],
+                    ],
+                ],
+            ]
+        );
+        $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getUserPermissions')->willReturn(
+            (object)[
+                'success' => true,
+                'data' => (object)[
+                    'user_role' => 'call_center',
+                    'staff_id' => null,
+                    'user_permissions' => [
+                        (object)[
+                            'slug' => 'timetable_position_id',
+                            'value' => 0,
+                        ],
+                    ],
+                ],
+            ]
+        );
+        $yc->method('getUserRoles')->willReturn((object)['success' => true, 'data' => []]);
+        $yc->method('getStaff')->willReturn(null);
+        $yc->method('findStaffByUserId')->willReturn(null);
+        $yc->method('findPositionTitle')->willReturn(null);
+
+        $record = new Record([
+            'company_id' => 1114763,
+            'client_id' => 331751379,
+            'record_id' => 1724269599,
+            'created_user_id' => 12241065,
+            'record_from' => '',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('Кол-центр', $fields['created_user_role_name']);
+        $this->assertSame('Кол-центр', $fields['created_user_department']);
+        $this->assertSame('Не указан', $fields['record_from']);
+    }
 }
