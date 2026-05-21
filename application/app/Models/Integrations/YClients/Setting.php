@@ -5,11 +5,10 @@ namespace App\Models\Integrations\YClients;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Field;
-use App\Services\amoCRM\Models\Leads;
-use App\Services\amoCRM\Models\Contacts;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\ConnectionException;
+use RuntimeException;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
@@ -89,7 +88,7 @@ class Setting extends Model
         return data_get($permission, 'value');
     }
 
-    private static function amoFieldName(int|string|null $fieldId, string $entityType): ?string
+    private function amoField(int|string|null $fieldId, string $entityType): ?Field
     {
         if (empty($fieldId)) {
             return null;
@@ -98,8 +97,8 @@ class Setting extends Model
         return Field::query()
             ->where('field_id', $fieldId)
             ->where('entity_type', $entityType)
-            ->first()
-            ?->name;
+            ->where('user_id', $this->user_id)
+            ->first();
     }
 
     private static function debugLog(string $message, array $context = []): void
@@ -107,6 +106,23 @@ class Setting extends Model
         if (function_exists('app') && app()->bound('log')) {
             logger()->info($message, $context);
         }
+    }
+
+    private static function setAmoFieldById(Contact|Lead $entity, Field $field, mixed $value): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $customField = $entity->customFields->byId((int)$field->field_id);
+
+        if (!$customField) {
+            throw new RuntimeException(
+                "amoCRM custom field not found on entity: {$field->name} ({$field->field_id})"
+            );
+        }
+
+        $customField->setValue($value);
     }
 
     private static function recordDateTime(?string $datetime): ?\Carbon\Carbon
@@ -221,7 +237,7 @@ class Setting extends Model
         $fields['record_datetime'] = $recordDateTime?->format('d.m.Y H:i');
         $fields['record_date'] = $recordDateTime?->format('d.m.Y');
         $fields['record_time'] = $recordDateTime?->format('H:i');
-        $fields['record_from'] = $recordFrom;
+        $fields['record_from'] = $recordFrom ?: 'Не указан';
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
 
@@ -318,7 +334,7 @@ class Setting extends Model
 
         // field_amo stores amoCRM field_id, not the local amocrm_fields primary key.
         foreach ($body as $field) {
-            $fieldName = self::amoFieldName($field['field_amo'] ?? null, 'contacts');
+            $amoField = $this->amoField($field['field_amo'] ?? null, 'contacts');
             $fieldYc = $field['field_yc'] ?? null;
             $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
 
@@ -326,12 +342,17 @@ class Setting extends Model
                 'setting_id' => $this->id,
                 'field_yc' => $fieldYc,
                 'field_amo' => $field['field_amo'] ?? null,
-                'field_name' => $fieldName,
+                'field_name' => $amoField?->name,
                 'value' => $value,
             ]);
 
-            if ($fieldName)
-                $contact = Contacts::setField($contact, $fieldName, $value);
+            if (!$amoField) {
+                throw new RuntimeException(
+                    'amoCRM contact field mapping not found: ' . ($field['field_amo'] ?? 'null')
+                );
+            }
+
+            self::setAmoFieldById($contact, $amoField, $value);
         }
         $contact->save();
 
@@ -347,7 +368,7 @@ class Setting extends Model
         }
 
         foreach ($body as $field) {
-            $fieldName = self::amoFieldName($field['field_amo'] ?? null, 'leads');
+            $amoField = $this->amoField($field['field_amo'] ?? null, 'leads');
             $fieldYc = $field['field_yc'] ?? null;
             $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
 
@@ -355,13 +376,15 @@ class Setting extends Model
                 'setting_id' => $this->id,
                 'field_yc' => $fieldYc,
                 'field_amo' => $field['field_amo'] ?? null,
-                'field_name' => $fieldName,
+                'field_name' => $amoField?->name,
                 'value' => $value,
             ]);
 
-            if ($fieldName) {
-                $lead = Leads::setField($lead, $fieldName, $value);
+            if (!$amoField) {
+                throw new RuntimeException('amoCRM lead field mapping not found: ' . ($field['field_amo'] ?? 'null'));
             }
+
+            self::setAmoFieldById($lead, $amoField, $value);
         }
         $lead->save();
 

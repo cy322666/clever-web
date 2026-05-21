@@ -335,4 +335,65 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Не сотрудник', $fields['created_user_department']);
         $this->assertSame('Партнёры: Mobile app new widget', $fields['record_from']);
     }
+
+    public function test_yc_get_fields_uses_fallback_when_record_from_is_empty(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods([
+                'getClient',
+                'getRecord',
+                'getBranchTitle',
+                'getUserPermissions',
+                'getUserRoles',
+                'getStaff',
+                'findStaffByUserId',
+                'findPositionTitle',
+            ])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'sex' => null,
+                    'birth_date' => null,
+                    'visits' => 1,
+                    'paid' => 0,
+                ],
+            ]
+        );
+        $yc->method('getRecord')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'created_user_id' => 13172360,
+                    'record_from' => '',
+                ],
+            ]
+        );
+        $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getUserPermissions')->willReturn((object)['success' => false, 'data' => null]);
+        $yc->method('getUserRoles')->willReturn((object)['success' => false, 'data' => null]);
+        $yc->method('getStaff')->willReturn(null);
+        $yc->method('findStaffByUserId')->willReturn(
+            (object)[
+                'specialization' => 'Администратор',
+                'position' => null,
+            ]
+        );
+        $yc->method('findPositionTitle')->willReturn(null);
+
+        $record = new Record([
+            'company_id' => 331981,
+            'client_id' => 373533042,
+            'record_id' => 1724004600,
+            'created_user_id' => 13172360,
+            'record_from' => '',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
+        $this->assertSame('Администратор', $fields['created_user_department']);
+        $this->assertSame('Не указан', $fields['record_from']);
+    }
 }
