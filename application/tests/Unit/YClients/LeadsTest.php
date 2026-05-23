@@ -3,7 +3,9 @@
 namespace Tests\Unit\YClients;
 
 use App\Services\YClients\Leads;
+use Exception;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 class LeadsTest extends TestCase
 {
@@ -12,14 +14,6 @@ class LeadsTest extends TestCase
         $lead = $this->makeLead(statusId: 1, pipelineId: 77);
 
         $this->assertTrue(Leads::isLeadAllowedForSync($lead, null));
-    }
-
-    private function makeLead(int $statusId, int $pipelineId): object
-    {
-        return (object)[
-            'status_id' => $statusId,
-            'pipeline_id' => $pipelineId,
-        ];
     }
 
     public function test_is_lead_rejected_for_closed_statuses(): void
@@ -37,5 +31,49 @@ class LeadsTest extends TestCase
 
         $this->assertTrue(Leads::isLeadAllowedForSync($lead, [99, 100, 101]));
         $this->assertFalse(Leads::isLeadAllowedForSync($lead, [1, 2, 3]));
+    }
+
+    public function test_last_modified_conflict_is_detected_for_amocrm_database_message(): void
+    {
+        $this->assertTrue(
+            $this->isAmoLastModifiedConflict(
+                new Exception(
+                    'API response errors: {"update":{"32997293":"Last modified date is older than in database"}}'
+                )
+            )
+        );
+    }
+
+    public function test_last_modified_conflict_is_detected_for_legacy_message(): void
+    {
+        $this->assertTrue(
+            $this->isAmoLastModifiedConflict(
+                new Exception('Last modified date is older than in.')
+            )
+        );
+    }
+
+    public function test_unrelated_exception_is_not_a_last_modified_conflict(): void
+    {
+        $this->assertFalse(
+            $this->isAmoLastModifiedConflict(
+                new Exception('API response errors: validation failed')
+            )
+        );
+    }
+
+    private function isAmoLastModifiedConflict(Exception $exception): bool
+    {
+        $method = (new ReflectionClass(Leads::class))->getMethod('isAmoLastModifiedConflict');
+
+        return $method->invoke(null, $exception);
+    }
+
+    private function makeLead(int $statusId, int $pipelineId): object
+    {
+        return (object)[
+            'status_id' => $statusId,
+            'pipeline_id' => $pipelineId,
+        ];
     }
 }

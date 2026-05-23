@@ -73,33 +73,41 @@ abstract class Leads
             throw new InvalidArgumentException('Invalid amoCRM status/pipeline mapping for YClients lead update.');
         }
 
-        self::fillLeadForUpdate($lead, $statusId, $pipelineId, $record);
+        $currentLead = $lead;
+        $maxAttempts = 5;
 
-        try {
-            $lead->save();
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            self::fillLeadForUpdate($currentLead, $statusId, $pipelineId, $record);
 
-            return $lead;
-        } catch (Throwable $exception) {
-            if (!self::isAmoLastModifiedConflict($exception)) {
-                throw $exception;
+            try {
+                $currentLead->save();
+
+                return $currentLead;
+            } catch (Throwable $exception) {
+                if (!self::isAmoLastModifiedConflict($exception) || $attempt >= $maxAttempts) {
+                    throw $exception;
+                }
+
+                $freshLead = self::reloadLead($currentLead);
+
+                if (!$freshLead) {
+                    throw $exception;
+                }
+
+                Log::warning('amoCRM lead update conflict, retrying with fresh lead state', [
+                    'lead_id' => $currentLead->id,
+                    'record_id' => $record->record_id,
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                usleep(250000 * $attempt);
+                $currentLead = $freshLead;
             }
-
-            $freshLead = self::reloadLead($lead);
-
-            if (!$freshLead) {
-                throw $exception;
-            }
-
-            Log::warning('amoCRM lead update conflict, retrying with fresh lead state', [
-                'lead_id' => $lead->id,
-                'record_id' => $record->record_id,
-            ]);
-
-            self::fillLeadForUpdate($freshLead, $statusId, $pipelineId, $record);
-            $freshLead->save();
-
-            return $freshLead;
         }
+
+        return $currentLead;
     }
 
     private static function fillLeadForUpdate(Lead $lead, int $statusId, int $pipelineId, Record $record): void
@@ -111,11 +119,7 @@ abstract class Leads
 
     private static function isAmoLastModifiedConflict(Throwable $exception): bool
     {
-        return Str::contains(
-            $exception->getMessage(),
-            'Last modified date is older than in.',
-            true
-        );
+        return Str::contains($exception->getMessage(), 'Last modified date is older than in', true);
     }
 
     private static function reloadLead(Lead $lead): ?Lead
