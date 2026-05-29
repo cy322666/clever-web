@@ -113,20 +113,14 @@ class SendRecord extends Command
                 $leadCollection = ServiceLead::searchAll($contact, $amoApi, $setting->pipelines);
 
                 if ($leadCollection->count() > 0) {
-
-                    foreach ($leadCollection as $lead) {
-
-                        $recordDouble = Record::query()
-                            ->where('lead_id', $lead->id)
+                    $lead = ServiceLead::firstUnlinkedLead(
+                        $leadCollection,
+                        fn ($candidateLead): bool => Record::query()
+                            ->where('lead_id', $candidateLead->id)
                             ->where('record_id', '!=', $record->record_id)
                             ->where('account_id', $account->id)
-                            ->first();
-
-                        //сделка не привязана к какой то записи
-                        if (!$recordDouble)
-
-                            break;
-                    }
+                            ->exists()
+                    );
                 } else
                     $lead = null;
             }

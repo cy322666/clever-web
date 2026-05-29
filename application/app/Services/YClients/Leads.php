@@ -44,6 +44,17 @@ abstract class Leads
         return (int)$lead->pipeline_id === (int)$pipelines;
     }
 
+    public static function firstUnlinkedLead(iterable $leads, callable $isLinkedToAnotherRecord): ?object
+    {
+        foreach ($leads as $lead) {
+            if (!$isLinkedToAnotherRecord($lead)) {
+                return $lead;
+            }
+        }
+
+        return null;
+    }
+
     public static function create($contact, object $objectStatus, Record $record): Lead
     {
         $statusId = (int)($objectStatus->status_id ?? 0);

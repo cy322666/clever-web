@@ -33,6 +33,34 @@ class LeadsTest extends TestCase
         $this->assertFalse(Leads::isLeadAllowedForSync($lead, [1, 2, 3]));
     }
 
+    public function test_first_unlinked_lead_returns_first_free_lead(): void
+    {
+        $leads = [
+            (object)['id' => 101],
+            (object)['id' => 202],
+            (object)['id' => 303],
+        ];
+
+        $lead = Leads::firstUnlinkedLead(
+            $leads,
+            fn (object $lead): bool => in_array($lead->id, [101, 303], true)
+        );
+
+        $this->assertSame(202, $lead?->id);
+    }
+
+    public function test_first_unlinked_lead_returns_null_when_all_leads_are_linked(): void
+    {
+        $leads = [
+            (object)['id' => 101],
+            (object)['id' => 202],
+        ];
+
+        $lead = Leads::firstUnlinkedLead($leads, fn (): bool => true);
+
+        $this->assertNull($lead);
+    }
+
     public function test_last_modified_conflict_is_detected_for_amocrm_database_message(): void
     {
         $this->assertTrue(
