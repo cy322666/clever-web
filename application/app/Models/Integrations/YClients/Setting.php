@@ -160,6 +160,7 @@ class Setting extends Model
             'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
             'visits' => self::fieldLabel('Кол-во визитов', 'visits'),
+            'services' => self::fieldLabel('Услуги', 'services'),
             'staff' => self::fieldLabel('Мастер', 'staff'),
             'paid' => self::fieldLabel('Сумма покупок', 'paid'),
             'ltv' => self::fieldLabel('Выручка', 'ltv'),
@@ -188,6 +189,7 @@ class Setting extends Model
             'created_user_department',
 
             'visits',
+            'services',
             'staff',
             'paid',
             'ltv',
@@ -321,6 +323,7 @@ class Setting extends Model
         $fields['sms_not'] = isset($clientYC->sms_not) ? ((int)$clientYC->sms_not === 1 ? 'Нет' : 'Да') : null;
 
         $fields['visits'] = $clientYC->visits;
+        $fields['services'] = trim((string)$record->title);
         $fields['staff'] = $record->staff_name;
         $fields['paid'] = $clientYC->paid;
         $fields['ltv'] = $clientYC->paid;

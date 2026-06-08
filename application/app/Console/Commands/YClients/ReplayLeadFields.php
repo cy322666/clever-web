@@ -8,6 +8,7 @@ use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client as AmoClient;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\YClients\YClients;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -21,6 +22,10 @@ class ReplayLeadFields extends Command
         {--setting-id= : Limit records by YClients setting id}
         {--company-id= : Limit records by YClients company/branch id}
         {--record-id= : Limit to one YClients record id}
+        {--order-by=created_at : Sort records by created_at, updated_at, datetime, or id}
+        {--direction=asc : Sort direction: asc or desc}
+        {--from-updated-at= : Process records updated at or after this date/time}
+        {--to-updated-at= : Process records updated at or before this date/time}
         {--limit= : Max records to process}
         {--dry-run : Show records without updating amoCRM}';
 
@@ -35,9 +40,7 @@ class ReplayLeadFields extends Command
         $query = Record::query()
             ->where('user_id', $this->argument('user_id'))
             ->whereNotNull('lead_id')
-            ->where('lead_id', '>', 0)
-            ->orderBy('created_at')
-            ->orderBy('id');
+            ->where('lead_id', '>', 0);
 
         foreach (
             [
@@ -56,6 +59,21 @@ class ReplayLeadFields extends Command
             $query->limit((int)$this->option('limit'));
         }
 
+        foreach (['from-updated-at' => '>=', 'to-updated-at' => '<='] as $option => $operator) {
+            if ($this->option($option) !== null) {
+                $query->where('updated_at', $operator, Carbon::parse($this->option($option)));
+            }
+        }
+
+        $orderBy = $this->orderByColumn();
+        $direction = $this->orderDirection();
+
+        $query->orderBy($orderBy, $direction);
+
+        if ($orderBy !== 'id') {
+            $query->orderBy('id', $direction);
+        }
+
         $stats = [
             'processed' => 0,
             'updated' => 0,
@@ -63,7 +81,13 @@ class ReplayLeadFields extends Command
             'failed' => 0,
         ];
 
-        $this->info('Replaying YClients lead fields in chronological order...');
+        $this->info(
+            sprintf(
+                'Replaying YClients lead fields ordered by %s %s...',
+                $orderBy,
+                $direction
+            )
+        );
 
         foreach ($query->cursor() as $record) {
             $stats['processed']++;
@@ -116,14 +140,42 @@ class ReplayLeadFields extends Command
     private function recordLine(Record $record, string $status): string
     {
         return sprintf(
-            '[%s] record_db_id=%d record_id=%s company_id=%s lead_id=%s created_at=%s',
+            '[%s] record_db_id=%d record_id=%s company_id=%s lead_id=%s created_at=%s updated_at=%s',
             $status,
             $record->id,
             $record->record_id,
             $record->company_id,
             $record->lead_id,
             $record->created_at,
+            $record->updated_at,
         );
+    }
+
+    private function orderByColumn(): string
+    {
+        $column = (string)$this->option('order-by');
+        $allowed = ['created_at', 'updated_at', 'datetime', 'id'];
+
+        if (!in_array($column, $allowed, true)) {
+            $this->warn('Unsupported --order-by=' . $column . ', using created_at.');
+
+            return 'created_at';
+        }
+
+        return $column;
+    }
+
+    private function orderDirection(): string
+    {
+        $direction = mb_strtolower((string)$this->option('direction'));
+
+        if (!in_array($direction, ['asc', 'desc'], true)) {
+            $this->warn('Unsupported --direction=' . $direction . ', using asc.');
+
+            return 'asc';
+        }
+
+        return $direction;
     }
 
     /**

@@ -21,6 +21,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Роль создателя', $fields['created_user_role_name']);
         $this->assertSame('Отдел создателя', $fields['created_user_department']);
         $this->assertSame('Филиал записи', $fields['company_id']);
+        $this->assertSame('Услуги (services)', $fields['services']);
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
         $this->assertSame('Сумма покупок (paid)', $fields['paid']);
     }
@@ -92,6 +93,7 @@ class SettingFieldsTest extends TestCase
             'record_from' => 'CRM',
             'created_user_id' => 4321,
             'staff_name' => 'Мастер',
+            'title' => "\n   Консультация\n   Чистка",
         ]);
 
         $fields = Setting::YCGetFields($yc, $record);
@@ -108,6 +110,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Ж', $fields['sex']);
         $this->assertSame('1990-01-01', $fields['birth_date']);
         $this->assertSame(12, $fields['visits']);
+        $this->assertSame("Консультация\n   Чистка", $fields['services']);
         $this->assertSame('Мастер', $fields['staff']);
         $this->assertSame(3456, $fields['paid']);
         $this->assertSame(3456, $fields['ltv']);

@@ -27,6 +27,7 @@ class YClientsForm
             ->components([
                 Section::make('')
                     ->hiddenLabel()
+                    ->extraAttributes(['class' => 'self-start h-fit'])
                     ->schema([
                         Fieldset::make('Ссылки')
                             ->schema([
@@ -151,6 +152,7 @@ class YClientsForm
                     ->columnSpan(2),
 
                 Section::make()
+                    ->extraAttributes(['class' => 'self-start h-fit'])
                     ->schema([
 
                         Action::make('instruction')
