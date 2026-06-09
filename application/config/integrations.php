@@ -1,8 +1,6 @@
 <?php
 
 use App\Filament\Resources\Integrations\AlfaResource;
-use App\Filament\Resources\Integrations\AmoDataResource;
-use App\Filament\Resources\Integrations\AssistantResource;
 use App\Filament\Resources\Integrations\BizonResource;
 use App\Filament\Resources\Integrations\CallTranscriptionResource;
 use App\Filament\Resources\Integrations\DistributionResource;
@@ -39,14 +37,6 @@ return [
         ],
         'import-excel' => [
             'resource' => ImportResource::class,
-            'public' => true,
-        ],
-        'assistant' => [
-            'resource' => AssistantResource::class,
-            'public' => true,
-        ],
-        'amo-data' => [
-            'resource' => AmoDataResource::class,
             'public' => true,
         ],
         'call-transcription' => [

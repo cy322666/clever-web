@@ -18,8 +18,6 @@ return new class extends Migration {
             'install:yclients',
             'install:import-excel',
             'install:call-transcription',
-            'install:assistant',
-            'install:amo-data',
         ];
 
         foreach ($commands as $command) {

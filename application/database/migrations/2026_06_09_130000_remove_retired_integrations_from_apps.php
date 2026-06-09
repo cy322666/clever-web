@@ -10,6 +10,8 @@ return new class extends Migration {
         'docs',
         'analytic',
         'contact-merge',
+        'assistant',
+        'amo-data',
     ];
 
     public function up(): void

@@ -789,7 +789,7 @@ class AuthController extends Controller
 
     private function shouldUseSharedAmoConnector(string $widget): bool
     {
-        return Account::normalizeWidget($widget) === 'amo-data';
+        return false;
     }
 
     private function resolveSharedConnectorConfig(User $user, ?Account $currentAccount = null): array
