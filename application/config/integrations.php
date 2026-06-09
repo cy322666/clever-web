@@ -1,16 +1,11 @@
 <?php
 
-use App\Filament\Resources\Integrations\ActiveLeadResource;
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Filament\Resources\Integrations\AmoDataResource;
-use App\Filament\Resources\Integrations\AnalyticResource;
 use App\Filament\Resources\Integrations\AssistantResource;
 use App\Filament\Resources\Integrations\BizonResource;
 use App\Filament\Resources\Integrations\CallTranscriptionResource;
-use App\Filament\Resources\Integrations\ContactMergeResource;
-use App\Filament\Resources\Integrations\DadataResource;
 use App\Filament\Resources\Integrations\DistributionResource;
-use App\Filament\Resources\Integrations\DocResource;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Filament\Resources\Integrations\TildaResource;
@@ -34,25 +29,9 @@ return [
             'resource' => TildaResource::class,
             'public' => true,
         ],
-        'active-lead' => [
-            'resource' => ActiveLeadResource::class,
-            'public' => false,
-        ],
-        'data-info' => [
-            'resource' => DadataResource::class,
-            'public' => false,
-        ],
-        'docs' => [
-            'resource' => DocResource::class,
-            'public' => false,
-        ],
         'distribution' => [
             'resource' => DistributionResource::class,
             'public' => true,
-        ],
-        'analytic' => [
-            'resource' => AnalyticResource::class,
-            'public' => false,
         ],
         'yclients' => [
             'resource' => YClientsResource::class,
@@ -69,10 +48,6 @@ return [
         'amo-data' => [
             'resource' => AmoDataResource::class,
             'public' => true,
-        ],
-        'contact-merge' => [
-            'resource' => ContactMergeResource::class,
-            'public' => false,
         ],
         'call-transcription' => [
             'resource' => CallTranscriptionResource::class,

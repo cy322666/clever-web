@@ -330,12 +330,6 @@ class AuthController extends Controller
         }
 
         $resourceClass = (string)data_get(config("integrations.definitions.{$widget}"), 'resource', '');
-        if ($resourceClass === '') {
-            $resourceClass = (string)App::query()
-                ->where('name', $widget)
-                ->whereNotNull('resource_name')
-                ->value('resource_name');
-        }
 
         if ($resourceClass === '' || !class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
             abort(404, 'Widget integration is not supported.');

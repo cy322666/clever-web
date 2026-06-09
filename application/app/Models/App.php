@@ -35,8 +35,16 @@ class App extends Model
 
     public static function noPublicNames(): array
     {
+        return self::definitionNames(false);
+    }
+
+    public static function definitionNames(?bool $public = null): array
+    {
         return collect(config('integrations.definitions', []))
-            ->filter(fn(array $definition): bool => (bool)($definition['public'] ?? true) === false)
+            ->filter(
+                fn(array $definition): bool => $public === null
+                    || (bool)($definition['public'] ?? true) === $public
+            )
             ->keys()
             ->values()
             ->all();
@@ -50,12 +58,7 @@ class App extends Model
             'getcourse' => 'Интегрируйте заявки и заказы из GetCourse с amoCRM',
             'bizon' => 'Настройте отправку регистрвцикй и посещений из Бизон 365',
             'tilda' => 'Отправляйте заявки с вашего сайта на Tilda в amoCRM без дублей',
-            'active-lead' => 'Настройте проверку активности клиента при создании сделки',
-            'data-info' => 'Поможет узнать часовой пояс клиента по номеру телефона',
             'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
-            'contact-merge' => 'Поиск и склейка дублей контактов в amoCRM с гибкими правилами объединения',
-            'docs' => 'Создавайте документы на основе ваших шаблонов',
-            'analytic' => ' ',
             'amo-data' => 'Локальный сбор сделок и задач из amoCRM для аналитики и AI',
             'assistant' => 'AI ассистент руководителя по данным amoCRM: чат, сводки, риски и summary payload-ы для n8n',
             'call-transcription' => 'Транскрибация звонков с применением промпта, записью результата в поле или примечание и запуском Salesbot',

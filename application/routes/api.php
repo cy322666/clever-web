@@ -1,15 +1,12 @@
 <?php
 
-use App\Http\Controllers\Api\ActiveLeadController;
 use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AssistantAnalyticsController;
 use App\Http\Controllers\Api\AssistantLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BizonController;
 use App\Http\Controllers\Api\CallTranscriptionController;
-use App\Http\Controllers\Api\DadataController;
 use App\Http\Controllers\Api\DistributionController;
-use App\Http\Controllers\Api\DocsController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
 use App\Http\Controllers\Api\YClientsController;
@@ -54,18 +51,6 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
         Route::post('repeated/{user:uuid}', [AlfaCRMController::class, 'repeated'])->name('alfacrm.repeated');
     });
-
-    Route::post('active-leads/{user:uuid}', [ActiveLeadController::class, 'hook'])
-        ->middleware(['integration.active:active-lead'])
-        ->name('active-leads.hook');
-
-    Route::post('data/{user:uuid}', [DadataController::class, 'hook'])
-        ->middleware(['integration.active:data-info'])
-        ->name('data.hook');
-
-    Route::post('docs/{user:uuid}/{doc}', [DocsController::class, 'hook'])
-        ->middleware(['integration.active:docs'])
-        ->name('doc.hook');
 
     Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
         ->middleware(['integration.active:yclients'])

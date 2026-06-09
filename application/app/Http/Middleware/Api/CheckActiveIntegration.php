@@ -21,6 +21,10 @@ class CheckActiveIntegration
      */
     public function handle(Request $request, Closure $next, string $appName): Response
     {
+        if (!array_key_exists($appName, config('integrations.definitions', []))) {
+            return new Response('app no found', 403);
+        }
+
         $user = $request->route('user') ?? $request->user;
 
         if (is_string($user)) {

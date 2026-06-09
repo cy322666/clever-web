@@ -63,6 +63,7 @@ class AppStatsAggregator
                 'created_at',
                 'user_id',
             ])
+            ->whereIn('name', App::definitionNames())
             ->get();
 
         return self::$apps;

@@ -236,6 +236,7 @@ class Setting extends Model
             'record_date' => self::humanFieldLabel('Дата записи'),
             'record_time' => self::humanFieldLabel('Время записи'),
             'record_from' => self::humanFieldLabel('Источник записи'),
+            'created_user_name' => self::humanFieldLabel('Кто записал'),
             'created_user_role_name' => self::humanFieldLabel('Роль создателя'),
             'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
@@ -265,6 +266,7 @@ class Setting extends Model
             'record_date',
             'record_time',
             'record_from',
+            'created_user_name',
             'created_user_role_name',
             'created_user_department',
 
@@ -321,10 +323,12 @@ class Setting extends Model
         $fields['record_date'] = $recordDateTime?->format('d.m.Y');
         $fields['record_time'] = $recordDateTime?->format('H:i');
         $fields['record_from'] = $recordFrom ?: 'Не указан';
+        $fields['created_user_name'] = null;
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
 
         if (empty($createdUserId)) {
+            $fields['created_user_name'] = 'Не сотрудник';
             $fields['created_user_role_name'] = 'Внешний источник';
             $fields['created_user_department'] = 'Не сотрудник';
         } else {
@@ -353,6 +357,11 @@ class Setting extends Model
                 $staff = $client->findStaffByUserId($record->company_id, $createdUserId);
             }
 
+            $fields['created_user_name'] = data_get($staff, 'data.name')
+                ?: data_get($staff, 'data.0.name')
+                    ?: data_get($staff, 'name')
+                        ?: (string)$createdUserId;
+
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
                 ?: data_get($staff, 'data.0.position.title')
                 ?: data_get($staff, 'position.title')
@@ -379,6 +388,7 @@ class Setting extends Model
                 'staff_specialization' => data_get($staff, 'data.specialization')
                     ?: data_get($staff, 'data.0.specialization')
                         ?: data_get($staff, 'specialization'),
+                'resolved_name' => $fields['created_user_name'],
                 'resolved_role' => $fields['created_user_role_name'],
                 'resolved_department' => $fields['created_user_department'],
                 'permissions_success' => data_get($createdUser, 'success'),

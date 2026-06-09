@@ -83,9 +83,11 @@ class Market extends TableWidget
         $query = App::query()
             ->where('user_id', auth()->id());
 
-        if (app()->environment('production')) {
-            $query->whereNotIn('name', App::noPublicNames());
-        }
+        $availableNames = app()->environment('production')
+            ? App::definitionNames(true)
+            : App::definitionNames();
+
+        $query->whereIn('name', $availableNames);
 
         $status = (string)($this->pageFilters['status'] ?? 'all');
         if ($status !== '' && $status !== 'all') {
@@ -116,6 +118,7 @@ class Market extends TableWidget
 
         return App::query()
             ->where('user_id', auth()->id())
+            ->whereIn('name', App::definitionNames())
             ->get(['name', 'resource_name'])
             ->filter(function (App $app) use ($search): bool {
                 $title = Str::lower(self::safeRecordTitle($app));

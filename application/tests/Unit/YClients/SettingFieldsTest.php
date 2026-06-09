@@ -32,6 +32,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Дата записи', $fields['record_date']);
         $this->assertSame('Время записи', $fields['record_time']);
         $this->assertSame('Источник записи', $fields['record_from']);
+        $this->assertSame('Кто записал', $fields['created_user_name']);
         $this->assertSame('Роль создателя', $fields['created_user_role_name']);
         $this->assertSame('Отдел создателя', $fields['created_user_department']);
         $this->assertSame('Филиал записи', $fields['company_id']);
@@ -91,6 +92,7 @@ class SettingFieldsTest extends TestCase
         $yc->method('getStaff')->willReturn(
             (object)[
                 'data' => (object)[
+                    'name' => 'Иванова Анна',
                     'position' => (object)[
                         'id' => 77,
                         'title' => 'Администратор',
@@ -118,6 +120,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('20.05.2026', $fields['record_date']);
         $this->assertSame('15:00', $fields['record_time']);
         $this->assertSame('CRM', $fields['record_from']);
+        $this->assertSame('Иванова Анна', $fields['created_user_name']);
         $this->assertSame('Сотрудник', $fields['created_user_role_name']);
         $this->assertSame('Администратор', $fields['created_user_department']);
         $this->assertSame('Филиал 10', $fields['branch']);
@@ -270,6 +273,7 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('Сотрудник', $fields['created_user_role_name']);
         $this->assertSame('Колл-центр', $fields['created_user_department']);
+        $this->assertSame('Гурова Дарья Александровна', $fields['created_user_name']);
     }
 
     public function test_yc_get_fields_marks_online_records_without_created_user(): void
@@ -311,6 +315,7 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('Внешний источник', $fields['created_user_role_name']);
         $this->assertSame('Не сотрудник', $fields['created_user_department']);
+        $this->assertSame('Не сотрудник', $fields['created_user_name']);
         $this->assertSame('Партнёры: Mobile app new widget', $fields['record_from']);
     }
 

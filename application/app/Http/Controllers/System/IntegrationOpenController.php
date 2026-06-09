@@ -18,6 +18,10 @@ class IntegrationOpenController extends Controller
             abort(403);
         }
 
+        if (!array_key_exists($app->name, config('integrations.definitions', []))) {
+            abort(404, 'Integration is not supported.');
+        }
+
         $app = $provisioning->ensureSettingForApp($app);
 
         if (!$app->setting_id || !class_exists((string)$app->resource_name)) {
@@ -30,4 +34,3 @@ class IntegrationOpenController extends Controller
         return redirect()->to($resourceClass::getUrl('edit', ['record' => $app->setting_id]));
     }
 }
-
