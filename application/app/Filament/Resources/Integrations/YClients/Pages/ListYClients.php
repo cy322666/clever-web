@@ -70,6 +70,11 @@ class ListYClients extends ListRecords
                         ->label('ID филиала')
                         ->numeric(),
 
+                    TextInput::make('record_db_id')
+                        ->label('ID транзакции')
+                        ->helperText('Это колонка ID в текущем списке.')
+                        ->numeric(),
+
                     TextInput::make('setting_id')
                         ->label('ID настройки')
                         ->numeric(),
@@ -215,6 +220,10 @@ class ListYClients extends ListRecords
             if (!blank($data[$column] ?? null)) {
                 $query->where($column, $data[$column]);
             }
+        }
+
+        if (!blank($data['record_db_id'] ?? null)) {
+            $query->where('id', $data['record_db_id']);
         }
 
         $records = $query

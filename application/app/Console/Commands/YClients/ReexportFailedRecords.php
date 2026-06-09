@@ -20,6 +20,7 @@ class ReexportFailedRecords extends Command
         {--account-id= : Limit records by amoCRM account id}
         {--setting-id= : Limit records by YClients setting id}
         {--company-id= : Limit records by YClients company/branch id}
+        {--record-db-id= : Limit to one local yclients_records id}
         {--record-id= : Limit to one YClients record id}
         {--limit= : Max records to re-export}
         {--include-pending : Also re-export non-success records without an error message}
@@ -48,6 +49,7 @@ class ReexportFailedRecords extends Command
                 'account-id' => 'account_id',
                 'setting-id' => 'setting_id',
                 'company-id' => 'company_id',
+                'record-db-id' => 'id',
                 'record-id' => 'record_id',
             ] as $option => $column
         ) {
@@ -144,6 +146,12 @@ class ReexportFailedRecords extends Command
 
                 $this->error($this->recordLine($record, 'failed') . ' error: ' . $e->getMessage());
             }
+        }
+
+        if ($stats['processed'] === 0) {
+            $this->warn(
+                'No records matched. Check USER_ID, period, status, and whether you used --record-id (YClients id) or --record-db-id (local table id).'
+            );
         }
 
         $this->info(
