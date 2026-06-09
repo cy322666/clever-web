@@ -172,19 +172,26 @@ class ListYClients extends ListRecords
                     ->label('Статус')
                     ->options([
                         Record::STATUS_SUCCESS => 'Успешно',
+                        Record::STATUS_FAILED => 'Ошибка',
+                        Record::STATUS_PENDING => 'В очереди',
+                        'with_error_message' => 'Есть текст ошибки',
                         'not_success' => 'Не успешно',
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when(
                             $data['value'] ?? null,
                             function (Builder $query, string $value): Builder {
-                                return $value === Record::STATUS_SUCCESS
-                                    ? $query->where('status', Record::STATUS_SUCCESS)
-                                    : $query->where(function (Builder $query): Builder {
+                                return match ($value) {
+                                    Record::STATUS_SUCCESS => $query->where('status', Record::STATUS_SUCCESS),
+                                    Record::STATUS_FAILED => $query->where('status', Record::STATUS_FAILED),
+                                    Record::STATUS_PENDING => $query->where('status', Record::STATUS_PENDING),
+                                    'with_error_message' => $query->whereNotNull('error_message'),
+                                    default => $query->where(function (Builder $query): Builder {
                                         return $query
                                             ->where('status', '!=', Record::STATUS_SUCCESS)
                                             ->orWhereNull('status');
-                                    });
+                                    }),
+                                };
                             }
                         );
                     }),
