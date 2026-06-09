@@ -261,7 +261,7 @@ class Setting extends Model
     {
         $fields = static::YCfields();
 
-        $clientYC = $client->getClient($record->company_id, $record->client_id)->data;
+        $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
         $recordYC = $client->getRecord($record->company_id, $record->record_id)?->data ?? null;
         $createdUserId = $record->created_user_id;
         $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
@@ -367,23 +367,27 @@ class Setting extends Model
 
 //        $fields['categories'] = $categories;
 
-        $fields['sex'] = match ($clientYC->sex) {
+        $fields['sex'] = match (data_get($clientYC, 'sex')) {
             'Женский' => 'Ж',
             'Мужской' => 'М',
             default => null,
         };
 
-        $fields['birth_date'] = $clientYC->birth_date ?? $clientYC->birthday ?? null;
-        $fields['discount'] = $clientYC->discount ?? null;
-        $fields['comment'] = $clientYC->comment ?? null;
-        $fields['sms_check'] = isset($clientYC->sms_check) ? ((int)$clientYC->sms_check === 1 ? 'Да' : 'Нет') : null;
-        $fields['sms_not'] = isset($clientYC->sms_not) ? ((int)$clientYC->sms_not === 1 ? 'Нет' : 'Да') : null;
+        $fields['birth_date'] = data_get($clientYC, 'birth_date') ?? data_get($clientYC, 'birthday');
+        $fields['discount'] = data_get($clientYC, 'discount');
+        $fields['comment'] = data_get($clientYC, 'comment');
+        $fields['sms_check'] = data_get($clientYC, 'sms_check') !== null
+            ? ((int)data_get($clientYC, 'sms_check') === 1 ? 'Да' : 'Нет')
+            : null;
+        $fields['sms_not'] = data_get($clientYC, 'sms_not') !== null
+            ? ((int)data_get($clientYC, 'sms_not') === 1 ? 'Нет' : 'Да')
+            : null;
 
-        $fields['visits'] = $clientYC->visits;
+        $fields['visits'] = data_get($clientYC, 'visits');
         $fields['services'] = trim((string)$record->title);
         $fields['staff'] = $record->staff_name;
-        $fields['paid'] = $clientYC->paid;
-        $fields['ltv'] = $clientYC->paid;
+        $fields['paid'] = data_get($clientYC, 'paid');
+        $fields['ltv'] = data_get($clientYC, 'paid');
         $fields['client_id'] = $record->client_id;
 
         return $fields;

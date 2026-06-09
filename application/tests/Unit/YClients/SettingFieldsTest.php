@@ -300,6 +300,44 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Партнёры: Mobile app new widget', $fields['record_from']);
     }
 
+    public function test_yc_get_fields_does_not_fail_when_client_data_is_empty(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getClient', 'getRecord', 'getBranchTitle'])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn((object)['data' => null]);
+        $yc->method('getBranchTitle')->willReturn('Филиал');
+        $yc->method('getRecord')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'created_user_id' => 0,
+                    'record_from' => 'Онлайн',
+                ],
+            ]
+        );
+
+        $record = new Record([
+            'company_id' => 331981,
+            'client_id' => 162146132,
+            'record_id' => 1722699114,
+            'datetime' => '2026.05.20 17:30:00',
+            'title' => "\n   Консультация",
+            'staff_name' => 'Специалист',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame(1722699114, $fields['record_id']);
+        $this->assertSame('20.05.2026 17:30', $fields['record_datetime']);
+        $this->assertSame('Консультация', $fields['services']);
+        $this->assertSame('Онлайн', $fields['record_from']);
+        $this->assertNull($fields['sex']);
+        $this->assertNull($fields['paid']);
+        $this->assertNull($fields['visits']);
+    }
+
     public function test_yc_get_fields_fetches_record_from_for_existing_records(): void
     {
         $yc = $this->getMockBuilder(YClientsService::class)
