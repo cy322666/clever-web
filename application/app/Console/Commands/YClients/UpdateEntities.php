@@ -113,6 +113,21 @@ class UpdateEntities extends Command
     ): void {
         $maxAttempts = max(1, $maxAttempts);
 
+        if ($record->lead_id && $record->isLeadOwnedByAnotherYClientsRecord()) {
+            Log::warning(
+                'yc:update-entities skipped lead fields because lead_id is owned by another YClients record.',
+                [
+                    'record_db_id' => $record->id,
+                    'record_id' => $record->record_id,
+                    'lead_id' => $record->lead_id,
+                    'lead_owner_record_id' => $record->leadOwnerRecord()?->record_id,
+                    'account_id' => $record->account_id,
+                ]
+            );
+
+            return;
+        }
+
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
                 if ($setting->fields_contact && $contactId) {

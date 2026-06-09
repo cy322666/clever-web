@@ -118,6 +118,30 @@ class Record extends Model
             ->first();
     }
 
+    public function leadOwnerRecord(): ?self
+    {
+        if (empty($this->lead_id)) {
+            return null;
+        }
+
+        return static::query()
+            ->where('lead_id', $this->lead_id)
+            ->where('account_id', $this->account_id)
+            ->orderBy('id')
+            ->first();
+    }
+
+    public function isLeadOwnedByAnotherYClientsRecord(): bool
+    {
+        $owner = $this->leadOwnerRecord();
+
+        if (!$owner) {
+            return false;
+        }
+
+        return (string)$owner->record_id !== (string)$this->record_id;
+    }
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'account_id', 'id');

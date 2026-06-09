@@ -58,6 +58,57 @@ class RecordClientRelationTest extends TestCase
         $this->assertSame($expectedClient->id, $resolvedClient->id);
     }
 
+    public function test_record_detects_lead_owned_by_another_yclients_record(): void
+    {
+        Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'lead_id' => 555,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+
+        $record = Record::query()->create([
+            'record_id' => 1002,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'lead_id' => 555,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+
+        $this->assertTrue($record->isLeadOwnedByAnotherYClientsRecord());
+        $this->assertSame(1001, $record->leadOwnerRecord()?->record_id);
+    }
+
+    public function test_record_allows_same_yclients_record_duplicates_to_share_lead(): void
+    {
+        Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'lead_id' => 555,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+
+        $record = Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'lead_id' => 555,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+
+        $this->assertFalse($record->isLeadOwnedByAnotherYClientsRecord());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -88,6 +139,7 @@ class RecordClientRelationTest extends TestCase
             $table->integer('record_id')->nullable();
             $table->integer('client_id')->nullable();
             $table->integer('company_id')->nullable();
+            $table->integer('lead_id')->nullable();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('account_id');
             $table->unsignedBigInteger('setting_id');

@@ -86,9 +86,21 @@ class SendRecord extends Command
 
         // LEAD
 
-        if ($record->lead_id)
+        if ($record->lead_id) {
+            if ($record->isLeadOwnedByAnotherYClientsRecord()) {
+                Log::warning('YClients record has lead_id owned by another record, ignoring stale lead link.', [
+                    'record_db_id' => $record->id,
+                    'record_id' => $record->record_id,
+                    'stale_lead_id' => $record->lead_id,
+                    'lead_owner_record_id' => $record->leadOwnerRecord()?->record_id,
+                    'account_id' => $account->id,
+                ]);
 
-            $lead = ServiceLead::get($amoApi, $record->lead_id);
+                $record->lead_id = null;
+            } else {
+                $lead = ServiceLead::get($amoApi, $record->lead_id);
+            }
+        }
 
         if (empty($lead)) {
 
@@ -101,8 +113,9 @@ class SendRecord extends Command
                 ->first();
 
             if (!empty($recordDouble) && $recordDouble->lead_id) {
-
-                $lead = ServiceLead::get($amoApi, $recordDouble->lead_id);
+                $lead = $recordDouble->isLeadOwnedByAnotherYClientsRecord()
+                    ? null
+                    : ServiceLead::get($amoApi, $recordDouble->lead_id);
 
                 // уже привязывали сделку к записи
                 if ($lead)

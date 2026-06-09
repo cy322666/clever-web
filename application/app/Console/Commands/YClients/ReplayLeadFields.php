@@ -89,10 +89,27 @@ class ReplayLeadFields extends Command
             )
         );
 
+        $processedLeadIds = [];
+
         foreach ($query->cursor() as $record) {
             $stats['processed']++;
+            $leadId = (int)$record->lead_id;
 
             try {
+                if ($record->isLeadOwnedByAnotherYClientsRecord()) {
+                    $stats['skipped']++;
+                    $this->line($this->recordLine($record, 'skipped-foreign-lead'));
+                    continue;
+                }
+
+                if (isset($processedLeadIds[$leadId])) {
+                    $stats['skipped']++;
+                    $this->line($this->recordLine($record, 'skipped-duplicate-lead'));
+                    continue;
+                }
+
+                $processedLeadIds[$leadId] = true;
+
                 if ($this->option('dry-run')) {
                     $this->line($this->recordLine($record, 'dry-run'));
                     $stats['skipped']++;
