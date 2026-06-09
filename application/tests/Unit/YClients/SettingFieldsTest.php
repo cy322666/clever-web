@@ -9,6 +9,20 @@ use PHPUnit\Framework\TestCase;
 
 class SettingFieldsTest extends TestCase
 {
+    public function test_yc_mapping_rows_handles_empty_or_invalid_mapping(): void
+    {
+        $method = new \ReflectionMethod(Setting::class, 'mappingRows');
+
+        $this->assertSame([], $method->invoke(null, null));
+        $this->assertSame([], $method->invoke(null, ''));
+        $this->assertSame([], $method->invoke(null, 'not-json'));
+        $this->assertSame([], $method->invoke(null, '[{"field_yc":null,"field_amo":null}]'));
+        $this->assertSame(
+            [['field_yc' => 'services', 'field_amo' => 123]],
+            $method->invoke(null, '[{"field_yc":"services","field_amo":123}]')
+        );
+    }
+
     public function test_yc_fields_select_shows_system_keys_in_labels(): void
     {
         $fields = Setting::YCfieldsSelect();

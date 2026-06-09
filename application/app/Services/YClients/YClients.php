@@ -153,11 +153,16 @@ class YClients
         $companies = Http::withHeaders($this->getHeaders())
             ->get('https://api.yclients.com/api/v1/companies?my=1');
 
-        foreach ($companies->json()['data'] as $branch) {
+        $branches = $companies->json('data') ?? [];
 
-            if ($branch['id'] == $companyId)
+        if (!is_iterable($branches)) {
+            return null;
+        }
 
-                return $branch['title'] ?? null;
+        foreach ($branches as $branch) {
+            if (data_get($branch, 'id') == $companyId) {
+                return data_get($branch, 'title');
+            }
         }
 
         return null;

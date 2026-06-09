@@ -183,6 +183,29 @@ class Setting extends Model
         return $hasServices && $hasDateOrTime;
     }
 
+    private static function mappingRows(mixed $mapping): array
+    {
+        if (blank($mapping)) {
+            return [];
+        }
+
+        $rows = is_array($mapping)
+            ? $mapping
+            : json_decode((string)$mapping, true);
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_values(
+            array_filter(
+                $rows,
+                fn($row): bool => is_array($row)
+                    && (!blank($row['field_yc'] ?? null) || !blank($row['field_amo'] ?? null))
+            )
+        );
+    }
+
     private static function recordDateTime(?string $datetime): ?\Carbon\Carbon
     {
         if (empty($datetime)) {
@@ -395,7 +418,11 @@ class Setting extends Model
 
     public function YCSetContactFields(Contact $contact, array $ycFields): Contact
     {
-        $body = json_decode($this->fields_contact, true);
+        $body = self::mappingRows($this->fields_contact);
+
+        if (!$body) {
+            return $contact;
+        }
 
         // field_amo stores amoCRM field_id, not the local amocrm_fields primary key.
         foreach ($body as $field) {
@@ -426,7 +453,7 @@ class Setting extends Model
 
     public function YCSetLeadFields(Lead $lead, array $ycFields): Lead
     {
-        $body = json_decode($this->fields_lead, true);
+        $body = self::mappingRows($this->fields_lead);
 
         if (!$body) {
             return $lead;
