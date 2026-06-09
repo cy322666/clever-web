@@ -5,7 +5,14 @@ namespace App\Filament\Resources\Integrations\YClients\Pages;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
+use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -24,6 +31,69 @@ class ListYClients extends ListRecords
     protected function getTableQuery(): ?Builder
     {
         return Record::query()->where('user_id', Auth::user()->id);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('reexport_failed')
+                ->label('Перевыгрузить ошибки')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->modalHeading('Перевыгрузить записи YClients с ошибками')
+                ->modalSubmitActionLabel('Запустить')
+                ->form([
+                    DateTimePicker::make('from')
+                        ->label('С')
+                        ->seconds(false)
+                        ->native(false)
+                        ->required(),
+
+                    DateTimePicker::make('to')
+                        ->label('По')
+                        ->seconds(false)
+                        ->native(false)
+                        ->required(),
+
+                    Select::make('date_column')
+                        ->label('Период считать по')
+                        ->options([
+                            'created_at' => 'Дата создания транзакции',
+                            'updated_at' => 'Дата обновления транзакции',
+                            'datetime' => 'Дата записи',
+                        ])
+                        ->default('created_at')
+                        ->required()
+                        ->native(false),
+
+                    TextInput::make('company_id')
+                        ->label('ID филиала')
+                        ->numeric(),
+
+                    TextInput::make('setting_id')
+                        ->label('ID настройки')
+                        ->numeric(),
+
+                    TextInput::make('record_id')
+                        ->label('ID записи YClients'),
+
+                    TextInput::make('limit')
+                        ->label('Лимит')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1000)
+                        ->required(),
+
+                    Toggle::make('include_pending')
+                        ->label('Захватить все неуспешные, включая pending')
+                        ->helperText('По умолчанию берём только status=failed или записи с текстом ошибки.'),
+
+                    Toggle::make('with_notes')
+                        ->label('Создавать примечания повторно')
+                        ->helperText('Лучше оставлять выключенным, чтобы не плодить дубли примечаний.'),
+                ])
+                ->action(fn(array $data) => $this->reexportFailedRecords($data)),
+        ];
     }
 
     public function table(Table $table): Table
@@ -126,5 +196,66 @@ class ListYClients extends ListRecords
                     ->label('Выгрузить')
             ])
             ->emptyStateActions([]);
+    }
+
+    private function reexportFailedRecords(array $data): void
+    {
+        $dateColumn = in_array($data['date_column'] ?? null, ['created_at', 'updated_at', 'datetime'], true)
+            ? $data['date_column']
+            : 'created_at';
+
+        $query = Record::query()
+            ->with(['account', 'setting'])
+            ->where('user_id', Auth::id())
+            ->failedExport((bool)($data['include_pending'] ?? false))
+            ->where($dateColumn, '>=', Carbon::parse($data['from']))
+            ->where($dateColumn, '<=', Carbon::parse($data['to']));
+
+        foreach (['company_id', 'setting_id', 'record_id'] as $column) {
+            if (!blank($data[$column] ?? null)) {
+                $query->where($column, $data[$column]);
+            }
+        }
+
+        $records = $query
+            ->orderBy($dateColumn)
+            ->orderBy('id')
+            ->limit(max(1, (int)($data['limit'] ?? 1000)))
+            ->get();
+
+        $queued = 0;
+        $failed = 0;
+
+        foreach ($records as $record) {
+            if (!$record->account || !$record->setting) {
+                $failed++;
+                $record->forceFill([
+                    'status' => Record::STATUS_FAILED,
+                    'error_message' => 'YClients re-export skipped: account or setting not found.',
+                ])->save();
+
+                continue;
+            }
+
+            $record->forceFill([
+                'status' => Record::STATUS_PENDING,
+                'error_message' => null,
+            ])->save();
+
+            RecordSend::dispatch(
+                $record->fresh(),
+                $record->account,
+                $record->setting,
+                (bool)($data['with_notes'] ?? false),
+            );
+
+            $queued++;
+        }
+
+        $notification = Notification::make()
+            ->title($queued > 0 ? 'Перевыгрузка запущена' : 'Ошибочных записей не найдено')
+            ->body(sprintf('Поставлено в очередь: %d. Пропущено с ошибкой настройки: %d.', $queued, $failed));
+
+        ($failed > 0 ? $notification->warning() : $notification->success())->send();
     }
 }

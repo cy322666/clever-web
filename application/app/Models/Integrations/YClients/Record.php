@@ -4,6 +4,7 @@ namespace App\Models\Integrations\YClients;
 
 use App\Models\amoCRM\Status;
 use App\Models\Core\Account;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Client\ConnectionException;
@@ -39,6 +40,9 @@ class Record extends Model
         'attendance',
         'status',
         'error_message',
+        'lead_fields_replay_status',
+        'lead_fields_replayed_at',
+        'lead_fields_replay_error',
         'send',
     ];
 
@@ -116,6 +120,23 @@ class Record extends Model
             ->where('setting_id', $this->setting_id)
             ->where('user_id', $this->user_id)
             ->first();
+    }
+
+    public function scopeFailedExport(Builder $query, bool $includePending = false): Builder
+    {
+        if ($includePending) {
+            return $query->where(function (Builder $query): void {
+                $query
+                    ->where('status', '!=', self::STATUS_SUCCESS)
+                    ->orWhereNull('status');
+            });
+        }
+
+        return $query->where(function (Builder $query): void {
+            $query
+                ->where('status', self::STATUS_FAILED)
+                ->orWhereNotNull('error_message');
+        });
     }
 
     public function leadOwnerRecord(): ?self

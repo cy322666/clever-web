@@ -109,6 +109,91 @@ class RecordClientRelationTest extends TestCase
         $this->assertFalse($record->isLeadOwnedByAnotherYClientsRecord());
     }
 
+    public function test_failed_export_scope_selects_errors_without_pending_by_default(): void
+    {
+        $failed = Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_FAILED,
+        ]);
+
+        $failedWithMessage = Record::query()->create([
+            'record_id' => 1002,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_PENDING,
+            'error_message' => 'amoCRM error',
+        ]);
+
+        Record::query()->create([
+            'record_id' => 1003,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_PENDING,
+        ]);
+
+        Record::query()->create([
+            'record_id' => 1004,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_SUCCESS,
+        ]);
+
+        $ids = Record::query()->failedExport()->pluck('id')->all();
+
+        $this->assertSame([$failed->id, $failedWithMessage->id], $ids);
+    }
+
+    public function test_failed_export_scope_can_include_pending_records(): void
+    {
+        $failed = Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_FAILED,
+        ]);
+
+        $pending = Record::query()->create([
+            'record_id' => 1002,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_PENDING,
+        ]);
+
+        Record::query()->create([
+            'record_id' => 1003,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'status' => Record::STATUS_SUCCESS,
+        ]);
+
+        $ids = Record::query()->failedExport(true)->pluck('id')->all();
+
+        $this->assertSame([$failed->id, $pending->id], $ids);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -144,6 +229,7 @@ class RecordClientRelationTest extends TestCase
             $table->unsignedBigInteger('account_id');
             $table->unsignedBigInteger('setting_id');
             $table->string('status')->nullable();
+            $table->text('error_message')->nullable();
             $table->timestamps();
         });
     }

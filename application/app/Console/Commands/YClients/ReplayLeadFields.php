@@ -98,12 +98,14 @@ class ReplayLeadFields extends Command
             try {
                 if ($record->isLeadOwnedByAnotherYClientsRecord()) {
                     $stats['skipped']++;
+                    $this->markReplayResult($record, 'skipped_foreign_lead');
                     $this->line($this->recordLine($record, 'skipped-foreign-lead'));
                     continue;
                 }
 
                 if (isset($processedLeadIds[$leadId])) {
                     $stats['skipped']++;
+                    $this->markReplayResult($record, 'skipped_duplicate_lead');
                     $this->line($this->recordLine($record, 'skipped-duplicate-lead'));
                     continue;
                 }
@@ -118,14 +120,17 @@ class ReplayLeadFields extends Command
 
                 if ($this->replayRecord($record)) {
                     $stats['updated']++;
+                    $this->markReplayResult($record, 'success');
                     $this->line($this->recordLine($record, 'updated'));
                     continue;
                 }
 
                 $stats['skipped']++;
+                $this->markReplayResult($record, 'skipped');
                 $this->line($this->recordLine($record, 'skipped'));
             } catch (Throwable $e) {
                 $stats['failed']++;
+                $this->markReplayResult($record, 'failed', $e->getMessage());
 
                 Log::error('yc:replay-lead-fields failed for record.', [
                     'record_db_id' => $record->id,
@@ -166,6 +171,15 @@ class ReplayLeadFields extends Command
             $record->created_at,
             $record->updated_at,
         );
+    }
+
+    private function markReplayResult(Record $record, string $status, ?string $error = null): void
+    {
+        $record->forceFill([
+            'lead_fields_replay_status' => $status,
+            'lead_fields_replayed_at' => now(),
+            'lead_fields_replay_error' => $error,
+        ])->save();
     }
 
     private function orderByColumn(): string
