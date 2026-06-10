@@ -20,6 +20,8 @@ use Throwable;
 
 class AppsRelationManager extends RelationManager
 {
+    protected static bool $isLazy = false;
+
     protected static string $relationship = 'apps';
 
     protected static ?string $title = 'Виджеты';

@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 
 class StatusesRelationManager extends RelationManager
 {
+    protected static bool $isLazy = false;
+
     protected static string $relationship = 'amocrm_statuses';
 
     protected static ?string $title = 'Этапы и воронки';

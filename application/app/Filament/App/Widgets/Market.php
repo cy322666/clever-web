@@ -20,6 +20,8 @@ class Market extends TableWidget
 {
     use InteractsWithPageFilters;
 
+    protected static bool $isLazy = false;
+
     private bool $catalogSynced = false;
 
     public function table(Table $table): Table

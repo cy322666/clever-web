@@ -9,6 +9,8 @@ use Filament\Widgets\TableWidget;
 
 class AppStats extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     public function getTableRecords(): \Illuminate\Support\Collection

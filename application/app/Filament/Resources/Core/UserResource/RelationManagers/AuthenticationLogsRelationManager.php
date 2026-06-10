@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AuthenticationLogsRelationManager extends RelationManager
 {
+    protected static bool $isLazy = false;
+
     protected static string $relationship = 'authentications';
 
     protected static ?string $recordTitleAttribute = 'id';
