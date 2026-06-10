@@ -69,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::STYLES_BEFORE,
-            fn(): string => (string)app(Vite::class)('resources/css/filament-workflows.css'),
+            fn(): string => $this->optionalViteAsset('resources/css/filament-workflows.css'),
         );
 
         FilamentAsset::register([
@@ -101,6 +101,15 @@ class AppServiceProvider extends ServiceProvider
             && class_exists(TriggerRegistry::class)
             && class_exists(\Leek\FilamentWorkflows\Engine\WorkflowExecutor::class)
             && class_exists(\Leek\FilamentWorkflows\Models\Workflow::class);
+    }
+
+    private function optionalViteAsset(string $asset): string
+    {
+        try {
+            return (string)app(Vite::class)($asset);
+        } catch (Throwable) {
+            return '';
+        }
     }
 
     private function registerWorkflowTriggers(): void
