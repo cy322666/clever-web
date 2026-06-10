@@ -63,11 +63,11 @@ class App extends Model
     {
         $resource = (string)($definition['resource'] ?? '');
 
-        if (!self::classAvailable($resource)) {
+        if ($name === 'workflows' && !self::classAvailable(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
             return false;
         }
 
-        if ($name === 'workflows' && !class_exists(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
+        if (!self::classAvailable($resource)) {
             return false;
         }
 
@@ -92,7 +92,11 @@ class App extends Model
             }
         }
 
-        return class_exists($class);
+        try {
+            return class_exists($class);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public static function getTooltipText(string $appName): string
