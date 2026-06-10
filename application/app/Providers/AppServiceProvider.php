@@ -45,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        if (!$this->workflowsAvailable()) {
+            return;
+        }
+
         $this->app->singleton(
             \Leek\FilamentWorkflows\Engine\WorkflowExecutor::class,
             fn($app): AppWorkflowExecutor => new AppWorkflowExecutor($app->make(ActionRegistry::class)),
@@ -83,9 +87,20 @@ class AppServiceProvider extends ServiceProvider
 
         $this->disableTelescopeWhenNotEnabled();
         $this->registerSlowQueryMonitoring();
-        $this->registerWorkflowTriggers();
-        $this->registerWorkflowActions();
-        $this->registerWorkflowWebhookSynchronization();
+
+        if ($this->workflowsAvailable()) {
+            $this->registerWorkflowTriggers();
+            $this->registerWorkflowActions();
+            $this->registerWorkflowWebhookSynchronization();
+        }
+    }
+
+    private function workflowsAvailable(): bool
+    {
+        return class_exists(ActionRegistry::class)
+            && class_exists(TriggerRegistry::class)
+            && class_exists(\Leek\FilamentWorkflows\Engine\WorkflowExecutor::class)
+            && class_exists(\Leek\FilamentWorkflows\Models\Workflow::class);
     }
 
     private function registerWorkflowTriggers(): void

@@ -37,6 +37,19 @@ class AppPanelProvider extends PanelProvider
      */
     public function panel(Panel $panel): Panel
     {
+        $plugins = [
+            FilamentJobsMonitorPlugin::make()
+                ->enableNavigation(
+                    fn(): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
+                        )->user()->is_root
+                ),
+        ];
+
+        if (class_exists(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
+            $plugins[] = CleverWorkflowsPlugin::make()
+                ->navigation(false);
+        }
+
         return $panel
             ->id('app')
             ->default()
@@ -49,17 +62,7 @@ class AppPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,//TODO
             ])
-            ->plugins([
-                FilamentJobsMonitorPlugin::make()
-                    ->enableNavigation(
-                        fn(): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
-                            )->user()->is_root
-                    ),
-
-                CleverWorkflowsPlugin::make()
-                    ->navigation(false),
-
-            ])
+            ->plugins($plugins)
             ->pages([
                 Dashboard::class,
             ])
