@@ -37,7 +37,7 @@ class IntegrationProvisioningService
 
     public function definitions(): Collection
     {
-        return collect(config('integrations.definitions', []))
+        return App::definitions()
             ->map(function (array $definition, string $name): array {
                 return [
                     'name' => $name,

@@ -8,6 +8,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class App extends Model
 {
@@ -40,14 +41,37 @@ class App extends Model
 
     public static function definitionNames(?bool $public = null): array
     {
-        return collect(config('integrations.definitions', []))
-            ->filter(
-                fn(array $definition): bool => $public === null
-                    || (bool)($definition['public'] ?? true) === $public
-            )
+        return self::definitions($public)
             ->keys()
             ->values()
             ->all();
+    }
+
+    public static function definitions(?bool $public = null): Collection
+    {
+        return collect(config('integrations.definitions', []))
+            ->filter(
+                fn(array $definition, string $name): bool => self::definitionAvailable($name, $definition)
+                    && (
+                        $public === null
+                        || (bool)($definition['public'] ?? true) === $public
+                    )
+            );
+    }
+
+    private static function definitionAvailable(string $name, array $definition): bool
+    {
+        $resource = (string)($definition['resource'] ?? '');
+
+        if ($resource === '' || !class_exists($resource)) {
+            return false;
+        }
+
+        if ($name === 'workflows' && !class_exists(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function getTooltipText(string $appName): string

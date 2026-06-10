@@ -3,6 +3,7 @@
 namespace App\Filament\App\Widgets;
 
 use App\Models\App;
+use App\Services\Integrations\IntegrationProvisioningService;
 use Carbon\Carbon;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
@@ -18,6 +19,8 @@ use Illuminate\Support\Str;
 class Market extends TableWidget
 {
     use InteractsWithPageFilters;
+
+    private bool $catalogSynced = false;
 
     public function table(Table $table): Table
     {
@@ -80,6 +83,8 @@ class Market extends TableWidget
 
     protected function getFilteredQuery(): Builder
     {
+        $this->syncCatalog();
+
         $query = App::query()
             ->where('user_id', auth()->id());
 
@@ -107,6 +112,22 @@ class Market extends TableWidget
         }
 
         return $query->orderBy('name');
+    }
+
+    private function syncCatalog(): void
+    {
+        if ($this->catalogSynced) {
+            return;
+        }
+
+        $this->catalogSynced = true;
+
+        $user = auth()->user();
+        if (!$user) {
+            return;
+        }
+
+        app(IntegrationProvisioningService::class)->syncCatalogForUser($user);
     }
 
     private function matchedAppNamesByMeta(string $search): array
