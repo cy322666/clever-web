@@ -14,7 +14,9 @@ use Filament\Tables\Table;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class Market extends TableWidget
 {
@@ -129,7 +131,14 @@ class Market extends TableWidget
             return;
         }
 
-        app(IntegrationProvisioningService::class)->syncCatalogForUser($user);
+        try {
+            app(IntegrationProvisioningService::class)->syncCatalogForUser($user);
+        } catch (Throwable $exception) {
+            Log::warning('Failed to sync integration catalog before rendering market.', [
+                'user_id' => $user->id,
+                'exception' => $exception,
+            ]);
+        }
     }
 
     private function matchedAppNamesByMeta(string $search): array

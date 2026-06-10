@@ -23,15 +23,18 @@ class IntegrationProvisioningService
     public function syncCatalogForUser(User $user): void
     {
         foreach ($this->definitions() as $definition) {
-            App::query()->updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'name' => $definition['name'],
-                ],
-                [
-                    'resource_name' => $definition['resource'],
-                ]
-            );
+            $app = App::query()->firstOrNew([
+                'user_id' => $user->id,
+                'name' => $definition['name'],
+            ]);
+
+            $app->resource_name = $definition['resource'];
+
+            if (!$app->exists) {
+                $app->status = App::STATE_CREATED;
+            }
+
+            $app->save();
         }
     }
 
