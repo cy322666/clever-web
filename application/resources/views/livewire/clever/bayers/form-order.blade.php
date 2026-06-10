@@ -187,12 +187,22 @@
         .clever-order-page .fi-input,
         .clever-order-page .fi-select-input,
         .clever-order-page .fi-select-input-btn {
+            appearance: none;
+            -webkit-appearance: none;
             width: 100%;
             min-height: 38px;
+            border: 0 !important;
             padding: 8px 12px;
+            background: transparent !important;
             color: #111827;
             font-size: 14px;
             line-height: 22px;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .clever-order-page .fi-input-wrp,
+        .clever-order-page .fi-input-wrp-content-ctn {
             outline: none !important;
             box-shadow: none !important;
         }
@@ -201,6 +211,7 @@
         .clever-order-page select,
         .clever-order-page textarea,
         .clever-order-page button {
+            border-color: transparent;
             font: inherit;
         }
 
@@ -208,6 +219,7 @@
         .clever-order-page select:focus,
         .clever-order-page textarea:focus,
         .clever-order-page button:focus {
+            border-color: transparent !important;
             outline: none !important;
             box-shadow: none !important;
         }
