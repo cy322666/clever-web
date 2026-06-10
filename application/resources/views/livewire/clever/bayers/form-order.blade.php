@@ -4,12 +4,12 @@
             min-height: 100vh;
             background: #f4f6f8;
             color: #111827;
-            padding: 48px 16px;
+            padding: 32px 16px;
         }
 
         .clever-order-shell {
             width: 100%;
-            max-width: 680px;
+            max-width: 560px;
             margin: 0 auto;
         }
 
@@ -128,9 +128,9 @@
 
         .clever-order-title {
             margin: 0 0 20px;
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 700;
-            line-height: 34px;
+            line-height: 32px;
             color: #111827;
         }
 
@@ -143,12 +143,12 @@
         }
 
         .clever-order-page .fi-section-content {
-            padding: 24px;
+            padding: 20px;
         }
 
         .clever-order-page .fi-sc.fi-sc-has-gap {
             display: grid;
-            gap: 20px;
+            gap: 16px;
         }
 
         .clever-order-page .fi-fo-field {
@@ -171,7 +171,7 @@
         }
 
         .clever-order-page .fi-input-wrp {
-            min-height: 42px;
+            min-height: 40px;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             background: #ffffff;
@@ -188,11 +188,40 @@
         .clever-order-page .fi-select-input,
         .clever-order-page .fi-select-input-btn {
             width: 100%;
-            min-height: 40px;
+            min-height: 38px;
             padding: 8px 12px;
             color: #111827;
             font-size: 14px;
             line-height: 22px;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .clever-order-page input,
+        .clever-order-page select,
+        .clever-order-page textarea,
+        .clever-order-page button {
+            font: inherit;
+        }
+
+        .clever-order-page input:focus,
+        .clever-order-page select:focus,
+        .clever-order-page textarea:focus,
+        .clever-order-page button:focus {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .clever-order-page input[type='number'] {
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+
+        .clever-order-page input[type='number']::-webkit-inner-spin-button,
+        .clever-order-page input[type='number']::-webkit-outer-spin-button {
+            margin: 0;
+            appearance: none;
+            -webkit-appearance: none;
         }
 
         .clever-order-page .fi-select-input-btn {
