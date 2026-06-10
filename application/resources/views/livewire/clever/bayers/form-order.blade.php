@@ -83,7 +83,7 @@
         .clever-order-company-button {
             flex: 0 0 auto;
             min-height: 36px;
-            border: 1px solid #111827;
+            border: 1px solid #d1d5db;
             border-radius: 8px;
             background: #ffffff;
             padding: 8px 12px;
@@ -172,16 +172,27 @@
 
         .clever-order-page .fi-input-wrp {
             min-height: 40px;
-            border: 1px solid #d1d5db;
+            border: 1px solid #d1d5db !important;
             border-radius: 8px;
             background: #ffffff;
             color: #111827;
+            outline: none !important;
+            box-shadow: none !important;
             transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
 
         .clever-order-page .fi-input-wrp:focus-within {
-            border-color: #f59e0b;
-            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18) !important;
+        }
+
+        .clever-order-page .fi-input-wrp::before,
+        .clever-order-page .fi-input-wrp::after,
+        .clever-order-page .fi-input-wrp-content-ctn::before,
+        .clever-order-page .fi-input-wrp-content-ctn::after {
+            border: 0 !important;
+            outline: none !important;
+            box-shadow: none !important;
         }
 
         .clever-order-page .fi-input,
@@ -211,7 +222,9 @@
         .clever-order-page select,
         .clever-order-page textarea,
         .clever-order-page button {
-            border-color: transparent;
+            border-color: transparent !important;
+            outline: none !important;
+            box-shadow: none !important;
             font: inherit;
         }
 
