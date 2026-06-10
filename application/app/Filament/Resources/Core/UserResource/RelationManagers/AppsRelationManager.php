@@ -254,7 +254,7 @@ SQL,
 
         $resourceClass = (string)($definition['resource'] ?? $record->resource_name);
 
-        return $resourceClass !== '' && class_exists($resourceClass);
+        return App::classAvailable($resourceClass);
     }
 
     private static function effectiveStatus(App $app): int

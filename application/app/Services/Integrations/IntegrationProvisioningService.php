@@ -59,12 +59,12 @@ class IntegrationProvisioningService
         }
 
         $resourceClass = (string)$app->resource_name;
-        if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+        if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
             return $app;
         }
 
         $settingModelClass = $resourceClass::getModel();
-        if (!is_string($settingModelClass) || !class_exists($settingModelClass)) {
+        if (!is_string($settingModelClass) || !App::classAvailable($settingModelClass)) {
             return $app;
         }
 
@@ -135,12 +135,12 @@ class IntegrationProvisioningService
                 continue;
             }
 
-            if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+            if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
                 continue;
             }
 
             $modelClass = $resourceClass::getModel();
-            if (!is_string($modelClass) || !class_exists($modelClass)) {
+            if (!is_string($modelClass) || !App::classAvailable($modelClass)) {
                 continue;
             }
 
@@ -193,12 +193,12 @@ class IntegrationProvisioningService
         }
 
         foreach ($this->resourceClassesForCleanup() as $resourceClass) {
-            if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+            if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
                 continue;
             }
 
             $modelClass = $resourceClass::getModel();
-            if (!is_string($modelClass) || !class_exists($modelClass)) {
+            if (!is_string($modelClass) || !App::classAvailable($modelClass)) {
                 continue;
             }
 
@@ -269,12 +269,12 @@ class IntegrationProvisioningService
         }
 
         $resourceClass = (string)$app->resource_name;
-        if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+        if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
             return null;
         }
 
         $settingModelClass = $resourceClass::getModel();
-        if (!is_string($settingModelClass) || !class_exists($settingModelClass)) {
+        if (!is_string($settingModelClass) || !App::classAvailable($settingModelClass)) {
             return null;
         }
 

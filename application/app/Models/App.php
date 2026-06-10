@@ -63,7 +63,7 @@ class App extends Model
     {
         $resource = (string)($definition['resource'] ?? '');
 
-        if ($resource === '' || !class_exists($resource)) {
+        if (!self::classAvailable($resource)) {
             return false;
         }
 
@@ -72,6 +72,27 @@ class App extends Model
         }
 
         return true;
+    }
+
+    public static function classAvailable(?string $class): bool
+    {
+        if (!is_string($class) || $class === '') {
+            return false;
+        }
+
+        if (class_exists($class, false)) {
+            return true;
+        }
+
+        if (str_starts_with($class, 'App\\')) {
+            $path = app_path(str_replace('\\', '/', substr($class, 4)) . '.php');
+
+            if (!is_file($path)) {
+                return false;
+            }
+        }
+
+        return class_exists($class);
     }
 
     public static function getTooltipText(string $appName): string
@@ -105,7 +126,7 @@ class App extends Model
 
         if (
             is_string($resourceClass)
-            && class_exists($resourceClass)
+            && self::classAvailable($resourceClass)
             && method_exists($resourceClass, 'getRecordTitle')
         ) {
             return (string)$resourceClass::getRecordTitle();

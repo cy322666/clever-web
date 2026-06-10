@@ -25,7 +25,7 @@ class IntegrationOpenController extends Controller
         }
 
         $resourceClass = (string)($definition['resource'] ?? $app->resource_name);
-        if (!class_exists($resourceClass)) {
+        if (!App::classAvailable($resourceClass)) {
             abort(404, 'Integration resource is not available.');
         }
 
@@ -35,7 +35,7 @@ class IntegrationOpenController extends Controller
 
         $app = $provisioning->ensureSettingForApp($app);
 
-        if (!$app->setting_id || !class_exists((string)$app->resource_name)) {
+        if (!$app->setting_id || !App::classAvailable((string)$app->resource_name)) {
             abort(404, 'Integration setting is not available.');
         }
 
