@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Dashboard;
+use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
@@ -43,6 +44,13 @@ class AppPanelProvider extends PanelProvider
                         )->user()->is_root
                 ),
         ];
+
+        if (
+            class_exists(\Leek\FilamentWorkflows\WorkflowsPlugin::class)
+            && class_exists(CleverWorkflowsPlugin::class)
+        ) {
+            $plugins[] = CleverWorkflowsPlugin::make();
+        }
 
         return $panel
             ->id('app')
