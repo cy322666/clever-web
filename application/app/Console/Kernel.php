@@ -38,8 +38,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
             ->dailyAt('00:00');
 
-        $schedule->command('app:amo-data-sync-periodic')
-            ->everyThirtyMinutes();
     }
 
     /**
