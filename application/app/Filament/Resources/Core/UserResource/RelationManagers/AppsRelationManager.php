@@ -33,7 +33,6 @@ class AppsRelationManager extends RelationManager
 
         return $this->getOwnerRecord()
             ->apps()
-            ->whereIn('name', App::definitionNames())
             ->where('status', '!=', App::STATE_CREATED)
             ->orderByRaw(
                 <<<'SQL'
@@ -119,6 +118,7 @@ SQL,
                 ActionGroup::make([
                     Action::make('view')
                         ->label('Настроить')
+                        ->visible(fn(Model $record): bool => self::canOpenIntegration($record))
                         ->url(function (Model $record) {
                             return route('integrations.open', ['app' => $record->id]);
                         }),
@@ -237,6 +237,22 @@ SQL,
         }
 
         return (string)($app->name ?: ('App #' . $app->id));
+    }
+
+    private static function canOpenIntegration(Model $record): bool
+    {
+        if (!$record instanceof App) {
+            return false;
+        }
+
+        $definition = config("integrations.definitions.{$record->name}");
+        if (!is_array($definition)) {
+            return false;
+        }
+
+        $resourceClass = (string)($definition['resource'] ?? $record->resource_name);
+
+        return $resourceClass !== '' && class_exists($resourceClass);
     }
 
     private static function effectiveStatus(App $app): int
