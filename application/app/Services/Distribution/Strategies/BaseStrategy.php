@@ -188,7 +188,7 @@ class BaseStrategy
             return false;
         }
 
-        $leads = Leads::searchActiveLeads($contact);
+        $leads = Leads::searchOpenLeads($contact);
         if (count($leads) <= 1) {
             return false;
         }

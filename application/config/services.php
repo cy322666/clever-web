@@ -67,4 +67,9 @@ return [
         'token' => env('TELEGRAM_ALERTS_TOKEN', env('TG_DEBUG_TOKEN')),
         'chat_id' => env('TELEGRAM_ALERTS_CHAT_ID', env('TG_DEBUG_CHAT_ID')),
     ],
+
+    'clever_bayers_invoice_telegram' => [
+        'token' => env('CLEVER_BAYERS_INVOICE_TG_TOKEN'),
+        'chat_id' => env('CLEVER_BAYERS_INVOICE_TG_CHAT_ID'),
+    ],
 ];

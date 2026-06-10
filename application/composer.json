@@ -11,43 +11,38 @@
         "php": "^8.2",
         "ext-mbstring": "*",
         "ext-openssl": "*",
-        "arhitector/yandex": "^1.2",
-        "aspose-cloud/aspose-words-cloud": "^23.10",
-        "coolsam/flatpickr": "^5.0",
-        "croustibat/filament-jobs-monitor": "^3.3",
+        "croustibat/filament-jobs-monitor": "^4.2",
         "doctrine/dbal": "3.6.6",
         "dompdf/dompdf": "^2.0",
-        "filament/actions": "^4.0",
-        "filament/filament": "^4.0",
-        "filament/forms": "^4.0",
-        "filament/infolists": "^4.3",
-        "filament/notifications": "^4.3",
-        "filament/tables": "^4.0",
-        "filament/widgets": "^4.3",
+        "filament/actions": "^5.0",
+        "filament/filament": "^5.0",
+        "filament/forms": "^5.0",
+        "filament/infolists": "^5.0",
+        "filament/notifications": "^5.0",
+        "filament/tables": "^5.0",
+        "filament/widgets": "^5.0",
         "guzzlehttp/guzzle": "^7.2",
-        "hflabs/dadata": "^22.3",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "4.x-dev",
         "laravel/tinker": "^2.8",
+        "leek/filament-workflows": "^1.5",
         "maatwebsite/excel": "^3.1",
-        "novadaemon/filament-pretty-json": "^3.1",
-        "phpoffice/phpword": "^1.1",
         "phpseclib/phpseclib": "^3",
         "rappasoft/laravel-authentication-log": "^5.0",
-        "shuvroroy/filament-spatie-laravel-backup": "^3.2",
-        "stechstudio/filament-impersonate": "4.0.1",
-        "tapp/filament-authentication-log": "^5.0",
+        "spatie/laravel-backup": "^9.0",
+        "stechstudio/filament-impersonate": "^5.0",
+        "symfony/html-sanitizer": "^7.4",
         "ufee/amoapi": "0.9.3.5",
         "vgrish/yclients-sdk-php": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
-        "filament/upgrade": "^4.0",
+        "filament/upgrade": "^5.0",
         "laravel/pint": "^1.0",
         "laravel/sail": "^1.18",
         "mockery/mockery": "^1.4.4",
         "phpunit/phpunit": "^10.1",
-        "spatie/laravel-ignition": "^2.0"
+        "spatie/laravel-ignition": "^2.12"
     },
     "autoload": {
         "psr-4": {
@@ -101,5 +96,12 @@
         }
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "name": "filament-workflow-engine",
+            "type": "composer",
+            "url": "https://filament-workflow-engine.composer.sh"
+        }
+    ]
 }

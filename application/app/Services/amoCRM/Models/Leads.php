@@ -31,8 +31,7 @@ abstract class Leads
         return $leads;
     }
 
-    //поиск активной в воронке
-    public static function searchActiveLeads($contact, int|array $pipelines = null) : null|array
+    public static function searchOpenLeads($contact, int|array|null $pipelines = null): null|array
     {
         $leads = [];
 
@@ -68,7 +67,7 @@ abstract class Leads
     }
 
     //поиск активной в воронке
-    public static function search($contact, $client, int|array $pipelines = null)
+    public static function search($contact, $client, int|array|null $pipelines = null)
     {
         return $contact->leads->filter(function($lead) use ($client, $pipelines) {
 
@@ -93,7 +92,7 @@ abstract class Leads
         })->sortBy('created_at', 'DESC')?->first();
     }
 
-    public static function searchAll(Contact $contact, $client, int|array $pipelines = null)
+    public static function searchAll(Contact $contact, $client, int|array|null $pipelines = null)
     {
         return $contact->leads->filter(function($lead) use ($client, $pipelines) {
 

@@ -18,8 +18,19 @@ class IntegrationOpenController extends Controller
             abort(403);
         }
 
-        if (!array_key_exists($app->name, config('integrations.definitions', []))) {
+        $definition = config("integrations.definitions.{$app->name}");
+
+        if (!is_array($definition)) {
             abort(404, 'Integration is not supported.');
+        }
+
+        $resourceClass = (string)($definition['resource'] ?? $app->resource_name);
+        if (!class_exists($resourceClass)) {
+            abort(404, 'Integration resource is not available.');
+        }
+
+        if ((bool)($definition['requires_setting'] ?? true) === false) {
+            return redirect()->to($resourceClass::getUrl((string)($definition['open_page'] ?? 'index')));
         }
 
         $app = $provisioning->ensureSettingForApp($app);

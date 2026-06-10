@@ -37,7 +37,7 @@ return [
                 array_filter(
                     array_map(
                         static fn(string $queue): string => trim($queue),
-                        explode(',', (string)env('ALERTS_QUEUE_EXCLUDE', 'amo_data')),
+                        explode(',', (string)env('ALERTS_QUEUE_EXCLUDE', '')),
                     )
                 )
             ),

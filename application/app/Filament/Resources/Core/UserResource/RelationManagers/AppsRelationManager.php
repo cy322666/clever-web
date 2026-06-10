@@ -73,8 +73,7 @@ SQL,
                 Tables\Columns\TextColumn::make('name')
                     ->label('Название')
                     ->state(function ($record) {
-
-                        return $record->resource_name::getRecordTitle($record);
+                        return App::getTitle((string)$record->name, $record->resource_name);
                     })
                     ->searchable(),
 
@@ -121,7 +120,7 @@ SQL,
                     Action::make('view')
                         ->label('Настроить')
                         ->url(function (Model $record) {
-                            return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
+                            return route('integrations.open', ['app' => $record->id]);
                         }),
                     Action::make('extend')
                         ->label('Продлить')
@@ -232,9 +231,7 @@ SQL,
     private function appTitle(App $app): string
     {
         try {
-            if (is_string($app->resource_name) && class_exists($app->resource_name)) {
-                return (string)$app->resource_name::getRecordTitle($app);
-            }
+            return App::getTitle((string)$app->name, $app->resource_name);
         } catch (Throwable) {
             // fallback ниже
         }

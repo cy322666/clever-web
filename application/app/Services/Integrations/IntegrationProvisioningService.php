@@ -43,6 +43,7 @@ class IntegrationProvisioningService
                     'name' => $name,
                     'resource' => (string)($definition['resource'] ?? ''),
                     'public' => (bool)($definition['public'] ?? true),
+                    'requires_setting' => (bool)($definition['requires_setting'] ?? true),
                 ];
             })
             ->filter(fn(array $definition): bool => $definition['resource'] !== '');
@@ -50,6 +51,10 @@ class IntegrationProvisioningService
 
     public function ensureSettingForApp(App $app): App
     {
+        if (!$this->requiresSetting($app->name)) {
+            return $app;
+        }
+
         $resourceClass = (string)$app->resource_name;
         if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
             return $app;
@@ -123,6 +128,10 @@ class IntegrationProvisioningService
 
         foreach ($apps as $app) {
             $resourceClass = (string)$app->resource_name;
+            if (!$this->requiresSetting($app->name)) {
+                continue;
+            }
+
             if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
                 continue;
             }
@@ -248,6 +257,10 @@ class IntegrationProvisioningService
 
     private function resolveAppSetting(App $app): ?Model
     {
+        if (!$this->requiresSetting($app->name)) {
+            return null;
+        }
+
         if (!$app->setting_id) {
             return null;
         }
@@ -268,19 +281,28 @@ class IntegrationProvisioningService
     private function resourceClassesForCleanup(): Collection
     {
         $definedResources = $this->definitions()
+            ->filter(fn(array $definition): bool => (bool)($definition['requires_setting'] ?? true))
             ->pluck('resource')
             ->filter()
             ->values();
 
         $appsResources = App::query()
             ->whereNotNull('resource_name')
-            ->distinct()
-            ->pluck('resource_name');
+            ->get(['name', 'resource_name'])
+            ->filter(fn(App $app): bool => $this->requiresSetting((string)$app->name))
+            ->pluck('resource_name')
+            ->unique()
+            ->values();
 
         return $definedResources
             ->merge($appsResources)
             ->filter(fn($resource): bool => is_string($resource) && $resource !== '')
             ->unique()
             ->values();
+    }
+
+    private function requiresSetting(string $name): bool
+    {
+        return (bool)config("integrations.definitions.{$name}.requires_setting", true);
     }
 }

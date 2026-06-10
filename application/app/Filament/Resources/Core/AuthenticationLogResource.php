@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Core;
 
+use App\Filament\Resources\Core\AuthenticationLogResource\Pages\ListAuthenticationLogs;
 use Filament\Forms\Components\DatePicker;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -13,12 +16,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use Tapp\FilamentAuthenticationLog\FilamentAuthenticationLogPlugin;
-use Tapp\FilamentAuthenticationLog\Resources\AuthenticationLogResource as BaseAuthenticationLogResource;
+use Rappasoft\LaravelAuthenticationLog\Models\AuthenticationLog;
 
-class AuthenticationLogResource extends BaseAuthenticationLogResource
+class AuthenticationLogResource extends Resource
 {
+    protected static ?string $model = AuthenticationLog::class;
+
     protected static ?string $slug = 'authentication-logs';
+
+    protected static bool $shouldRegisterNavigation = false;
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->schema([]);
+    }
 
     public static function table(Table $table): Table
     {
@@ -44,8 +55,7 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
                         }
 
                         $authenticableEditRoute = '#';
-                        $routeName = 'filament.' . FilamentAuthenticationLogPlugin::get()->getPanelName() .
-                            '.resources.' . Str::plural(
+                        $routeName = 'filament.app.resources.' . Str::plural(
                                 Str::lower(class_basename($record->authenticatable::class))
                             ) . '.edit';
 
@@ -136,5 +146,28 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
                     ->toggle()
                     ->query(fn(Builder $query): Builder => $query->where('cleared_by_user', true)),
             ]);
+    }
+
+    protected static function getCustomUserRoute(Model $record): string
+    {
+        $userResource = config('filament-authentication-log.user-resource');
+
+        if (
+            is_string($userResource)
+            && method_exists($userResource, 'getUrl')
+            && method_exists($userResource, 'hasPage')
+            && $userResource::hasPage('edit')
+        ) {
+            return $userResource::getUrl('edit', ['record' => $record->authenticatable_id]);
+        }
+
+        return '#';
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListAuthenticationLogs::route('/'),
+        ];
     }
 }

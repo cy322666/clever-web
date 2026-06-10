@@ -1,0 +1,292 @@
+<?php
+
+$fallback = require base_path('vendor/leek/filament-workflows/resources/lang/en/workflows.php');
+
+return array_replace_recursive($fallback, [
+    'navigation' => [
+        'label' => 'Автоматизация',
+        'group' => 'Автоматизация',
+    ],
+    'model' => [
+        'singular' => 'процесс',
+        'plural' => 'Процессы',
+    ],
+    'fields' => [
+        'name' => [
+            'label' => 'Название процесса',
+            'placeholder' => 'Например: отправить приветственное письмо при создании клиента',
+        ],
+        'description' => [
+            'label' => 'Описание',
+            'placeholder' => 'Опишите, что делает этот процесс',
+        ],
+        'is_active' => ['label' => 'Активен'],
+        'failure_strategy' => ['label' => 'При ошибке'],
+        'max_retries' => ['label' => 'Макс. повторов'],
+        'trigger_type' => ['label' => 'Триггер'],
+        'trigger_event' => ['label' => 'Событие'],
+        'runs_count' => ['label' => 'Запуски'],
+        'updated_at' => ['label' => 'Изменен'],
+        'created_at' => ['label' => 'Создан'],
+        'ulid' => ['label' => 'ID запуска'],
+        'status' => ['label' => 'Статус'],
+        'trigger_source' => ['label' => 'Триггер'],
+        'started_at' => ['label' => 'Начат'],
+        'completed_at' => ['label' => 'Завершен'],
+        'duration' => ['label' => 'Длительность'],
+        'steps_count' => ['label' => 'Шаги'],
+        'retry_count' => ['label' => 'Повторы'],
+        'error_message' => ['label' => 'Ошибка'],
+        'triggered_by' => ['label' => 'Запущен'],
+    ],
+    'sections' => [
+        'workflow_details' => [
+            'title' => 'Данные процесса',
+            'description' => 'Основная информация о процессе',
+        ],
+        'settings' => [
+            'title' => 'Настройки',
+            'description' => 'Поведение при выполнении',
+        ],
+        'summary' => [
+            'title' => 'Итог',
+            'description' => 'Процесс будет создан неактивным. Вы сможете включить его после проверки.',
+        ],
+        'test_inputs' => [
+            'title' => 'Тестовые данные',
+            'description' => 'Укажите значения для тестового запуска процесса',
+        ],
+    ],
+    'actions' => [
+        'create_workflow' => ['label' => 'Создать процесс'],
+        'create_from_template' => ['label' => 'Создать из шаблона'],
+        'select_trigger' => ['label' => 'Выбрать триггер'],
+        'configure' => ['label' => 'Настроить'],
+        'configure_trigger' => ['label' => 'Настроить триггер'],
+        'delete_trigger' => ['label' => 'Удалить триггер'],
+        'add_action' => ['label' => 'Добавить действие'],
+        'test_workflow' => ['label' => 'Проверить процесс'],
+        'view_steps' => ['label' => 'Посмотреть шаги'],
+        'retry' => ['label' => 'Повторить'],
+        'cancel' => ['label' => 'Отменить'],
+        'save_changes' => ['label' => 'Сохранить'],
+        'clear_results' => ['label' => 'Очистить результат'],
+        'run_test' => ['label' => 'Запустить тест'],
+        'close' => ['label' => 'Закрыть'],
+        'cancel_action' => ['label' => 'Отмена'],
+        'view_plugin' => ['label' => 'Открыть плагин'],
+        'dismiss' => ['label' => 'Скрыть'],
+        'install' => ['label' => 'Открыть плагин'],
+        'add_property' => ['label' => 'Добавить свойство'],
+        'add_variable' => ['label' => 'Добавить переменную'],
+        'test' => ['label' => 'Тест'],
+        'add' => ['label' => 'Добавить'],
+    ],
+    'modals' => [
+        'choose_trigger' => [
+            'heading' => 'Выберите триггер',
+            'description' => 'Что должно запускать этот процесс',
+        ],
+        'configure_trigger' => ['description' => 'Настройте этот триггер'],
+        'delete_trigger' => [
+            'heading' => 'Удалить триггер?',
+            'description' => 'Текущий триггер будет удален. Продолжить?',
+        ],
+        'choose_action' => [
+            'heading' => 'Выберите действие',
+            'description' => 'Что должен сделать процесс',
+        ],
+        'configure_action' => ['description' => 'Настройте это действие'],
+        'test_workflow' => [
+            'heading' => 'Тест процесса',
+            'description' => 'Введите тестовые значения для симуляции. Побочные эффекты не выполняются: письма, уведомления и изменения записей будут только имитированы.',
+        ],
+        'run_steps' => ['heading' => 'Шаги запуска :ulid'],
+        'retry_workflow' => [
+            'heading' => 'Повторить запуск процесса',
+            'description' => 'Неудачный запуск будет сброшен и выполнен заново. Попытка: :retry_count/:max_retries',
+        ],
+        'cancel_workflow' => [
+            'heading' => 'Отменить запуск процесса',
+            'description_running' => 'Процесс сейчас выполняется. Отмена остановит выполнение. Это действие нельзя отменить.',
+            'description_pending' => 'Вы уверены, что хотите отменить этот запуск? Это действие нельзя отменить.',
+        ],
+    ],
+    'steps' => [
+        'select_template' => [
+            'title' => 'Выберите шаблон',
+            'description' => 'Выберите шаблон процесса',
+        ],
+        'configure_variables' => [
+            'title' => 'Настройте переменные',
+            'description' => 'Настройте шаблон под себя',
+        ],
+        'name_workflow' => [
+            'title' => 'Назовите процесс',
+            'description' => 'Укажите название процесса',
+        ],
+    ],
+    'filters' => [
+        'active' => [
+            'label' => 'Активность',
+            'all' => 'Все',
+            'active_only' => 'Только активные',
+            'inactive_only' => 'Только неактивные',
+        ],
+        'trigger_type' => ['label' => 'Тип триггера'],
+        'status' => ['label' => 'Статус'],
+    ],
+    'placeholders' => [
+        'no_model' => 'Система',
+        'not_started' => 'Не начат',
+        'completed' => '-',
+        'duration' => '-',
+        'error' => '-',
+        'trigger_event' => '-',
+    ],
+    'tooltips' => [
+        'copy_run_id' => 'Нажмите, чтобы скопировать',
+    ],
+    'messages' => [
+        'copy_success' => 'ID запуска скопирован',
+        'no_templates' => 'Шаблоны недоступны. Проверьте фильтр категории или добавьте шаблоны.',
+        'select_template_first' => 'Сначала выберите шаблон.',
+        'no_variables' => 'У этого шаблона нет настраиваемых переменных. Нажмите Далее.',
+        'template_summary' => 'Шаблон: :name | Триггер: :trigger | Действий: :count',
+        'no_template_selected' => 'Шаблон не выбран.',
+        'template_not_found' => 'Шаблон не найден.',
+        'workflow_name_helper' => 'Название поможет быстро найти процесс в списке.',
+        'model_id_helper' => 'Введите ID :model для теста на реальных данных или оставьте пустым для тестовых данных.',
+        'from_status_helper' => 'Статус, из которого меняется запись',
+        'to_status_helper' => 'Статус, в который переходит запись',
+        'schedule_info' => 'Процессы по расписанию запускаются в заданное время. Тест имитирует запуск расписания сейчас.',
+        'date_field_helper' => 'Значение даты/времени для выбранного поля даты',
+        'event_properties_helper' => 'Пары ключ-значение со свойствами события',
+        'manual_info' => 'Ручные триггеры запускаются пользователем. Тест имитирует ручной запуск.',
+        'custom_variables_helper' => 'Добавьте свои переменные контекста; они доступны как {{var.key}} в действиях',
+        'action_name_helper' => 'Название шага видно в конструкторе и истории запусков.',
+        'workflow_builder_description' => 'Выберите триггер и добавьте действия процесса.',
+        'when_this_happens' => 'Когда происходит...',
+        'then_do_this' => 'Тогда выполнить...',
+        'trigger_empty_description' => 'Выберите, что должно запускать процесс',
+        'first_action_description' => 'Действия определяют, что произойдет после запуска процесса. Начните с добавления действия ниже.',
+        'action_examples' => 'Отправка писем, создание задач, обновление записей и другое',
+        'select_trigger_first' => 'Сначала выберите триггер, чтобы добавить действия',
+        'workflow_valid' => 'Процесс настроен корректно',
+        'configure_all_steps' => 'Настройте все шаги для завершения',
+        'add_trigger_and_actions' => 'Добавьте триггер и действия, чтобы собрать процесс',
+        'action_count' => ':count действ.',
+        'remove_action_confirmation' => 'Удалить это действие?',
+    ],
+    'builder' => [
+        'heading' => 'Шаги процесса',
+        'empty_state' => [
+            'no_trigger' => 'Триггер не выбран',
+            'add_first_action' => 'Добавьте первое действие',
+        ],
+        'sections' => [
+            'steps' => [
+                'title' => 'Шаги процесса',
+                'description' => 'Выберите триггер и добавьте действия процесса.',
+            ],
+            'trigger' => [
+                'label' => 'КОГДА ПРОИСХОДИТ...',
+                'empty' => 'Триггер не выбран',
+                'empty_description' => 'Выберите, что должно запускать процесс',
+            ],
+            'actions' => [
+                'label' => 'ТОГДА ВЫПОЛНИТЬ...',
+                'empty' => 'Сначала выберите триггер, чтобы добавить действия',
+                'empty_description' => 'Добавьте триггер и действия, чтобы собрать процесс',
+                'count' => ':count действ.',
+            ],
+        ],
+        'cards' => [
+            'trigger_badge' => 'Триггер',
+            'unknown_trigger' => 'Неизвестный триггер',
+            'unknown_action' => 'Неизвестное действие',
+            'general_category' => 'Общее',
+        ],
+        'tooltips' => [
+            'configure_trigger' => 'Настроить триггер',
+            'delete_trigger' => 'Удалить триггер',
+            'edit_action' => 'Настроить действие',
+            'remove_action' => 'Удалить действие',
+            'move_up' => 'Выше',
+            'move_down' => 'Ниже',
+        ],
+        'condition' => [
+            'label' => 'Условие',
+            'when' => 'Когда:',
+            'and' => 'И',
+            'empty' => 'Условия не настроены — нажмите редактирование, чтобы добавить',
+            'if_true' => 'ЕСЛИ ДА',
+            'if_false' => 'ЕСЛИ НЕТ',
+        ],
+        'selection' => [
+            'unknown' => 'Неизвестно',
+            'requires_plugin' => 'Требуется плагин',
+        ],
+    ],
+    'test_results' => [
+        'true_branch_execution' => 'ДА — выполняется ветка "Если да"',
+        'false_branch_execution' => 'НЕТ — выполняется ветка "Если нет"',
+        'if_true_branch' => 'Ветка "Если да"',
+        'if_false_branch' => 'Ветка "Если нет"',
+    ],
+    'empty_states' => [
+        'no_workflows' => [
+            'heading' => 'Процессов пока нет',
+            'description' => 'Создайте первый процесс, чтобы автоматизировать действия.',
+        ],
+        'no_runs' => [
+            'heading' => 'Запусков пока нет',
+            'description' => 'История появится после первого запуска процесса.',
+        ],
+    ],
+    'relation_managers' => [
+        'runs' => [
+            'title' => 'История запусков',
+            'singular' => 'Запуск',
+            'plural' => 'Запуски',
+        ],
+    ],
+    'notifications' => [
+        'workflow_created' => ['title' => 'Процесс создан'],
+        'workflow_saved' => ['title' => 'Процесс сохранен'],
+        'workflow_cancelled' => [
+            'title' => 'Запуск отменен',
+            'body' => 'Запуск :ulid отменен.',
+        ],
+        'retry_queued' => [
+            'title' => 'Повтор поставлен в очередь',
+            'body' => 'Запуск :ulid будет выполнен заново.',
+        ],
+        'template_created' => [
+            'title' => 'Процесс создан из шаблона',
+            'body' => 'Создан процесс ":name".',
+        ],
+        'validation_failed' => [
+            'title' => 'Ошибка проверки',
+            'body' => ':error',
+        ],
+        'template_not_selected' => ['title' => 'Шаблон не выбран'],
+        'template_not_found' => ['title' => 'Шаблон не найден'],
+    ],
+    'validation' => [
+        'workflow_requires_trigger' => 'Выберите триггер процесса.',
+        'workflow_requires_action' => 'Добавьте хотя бы одно действие.',
+        'unknown_action_type' => 'Неизвестный тип действия #:number.',
+        'trigger_error' => 'Ошибка триггера: :error',
+        'action_error' => 'Ошибка действия #:number: :error',
+    ],
+    'variable_fields' => [
+        'action_name' => ['label' => 'Название действия'],
+        'filter_category' => [
+            'label' => 'Категория',
+            'placeholder' => 'Все категории',
+        ],
+        'template' => ['label' => 'Шаблон'],
+        'workflow_name' => ['label' => 'Название процесса'],
+    ],
+]);

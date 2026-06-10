@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Core\UserDeleteService;
 use STS\FilamentImpersonate\Actions\Impersonate;
-use Tapp\FilamentAuthenticationLog\RelationManagers\AuthenticationLogsRelationManager;
 use Throwable;
 
 class UserResource extends Resource
@@ -168,7 +167,7 @@ class UserResource extends Resource
     {
         return [
             RelationManagers\AppsRelationManager::class,
-            AuthenticationLogsRelationManager::class,
+            RelationManagers\AuthenticationLogsRelationManager::class,
         ];
     }
 

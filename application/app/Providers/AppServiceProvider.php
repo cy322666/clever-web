@@ -4,16 +4,33 @@ namespace App\Providers;
 
 use App\Observers\QueueMonitorObserver;
 use App\Services\Core\MonitoringCache;
+use App\Services\Workflows\WorkflowAmoCrmWebhookService;
+use App\Services\Workflows\WorkflowVariableService;
+use App\Models\Workflows\Workflow;
+use App\Workflows\Actions\ControlConditionAction;
+use App\Workflows\Actions\F5AmoCrmActionCatalog;
+use App\Workflows\Actions\MultiChannelNotificationAction;
+use App\Workflows\Actions\RunWorkflowAction;
+use App\Workflows\Engine\WorkflowExecutor as AppWorkflowExecutor;
+use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Foundation\Vite;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Leek\FilamentWorkflows\Actions\ActionRegistry;
+use Leek\FilamentWorkflows\Triggers\DateConditionTrigger;
+use Leek\FilamentWorkflows\Triggers\ManualTrigger;
+use Leek\FilamentWorkflows\Triggers\ScheduleTrigger;
+use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
 use Studio\Totem\Totem;
 use Throwable;
 
@@ -28,7 +45,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(
+            \Leek\FilamentWorkflows\Engine\WorkflowExecutor::class,
+            fn($app): AppWorkflowExecutor => new AppWorkflowExecutor($app->make(ActionRegistry::class)),
+        );
+
+        $this->app->singleton(
+            \Leek\FilamentWorkflows\Services\WorkflowVariableService::class,
+            WorkflowVariableService::class,
+        );
     }
 
     /**
@@ -37,6 +62,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         QueueMonitor::observe(QueueMonitorObserver::class);
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::STYLES_BEFORE,
+            fn(): string => (string)app(Vite::class)('resources/css/filament-workflows.css'),
+        );
 
         FilamentAsset::register([
             Js::make('amochat', resource_path('js/amochat.js')),
@@ -53,6 +83,114 @@ class AppServiceProvider extends ServiceProvider
 
         $this->disableTelescopeWhenNotEnabled();
         $this->registerSlowQueryMonitoring();
+        $this->registerWorkflowTriggers();
+        $this->registerWorkflowActions();
+        $this->registerWorkflowWebhookSynchronization();
+    }
+
+    private function registerWorkflowTriggers(): void
+    {
+        $this->app->booted(function (): void {
+            if (!$this->app->bound(TriggerRegistry::class)) {
+                return;
+            }
+
+            /** @var TriggerRegistry $registry */
+            $registry = $this->app->make(TriggerRegistry::class);
+            $registry->flush();
+
+            $registry->register(ManualTrigger::class);
+            $registry->register(ScheduleTrigger::class);
+            $registry->register(DateConditionTrigger::class);
+
+            foreach (AmoCrmWebhookTriggerCatalog::classes() as $triggerClass) {
+                $registry->register($triggerClass);
+            }
+        });
+    }
+
+    private function registerWorkflowActions(): void
+    {
+        $this->app->booted(function (): void {
+            if (!$this->app->bound(ActionRegistry::class)) {
+                return;
+            }
+
+            /** @var ActionRegistry $registry */
+            $registry = $this->app->make(ActionRegistry::class);
+            $registry->flush();
+            $this->clearWorkflowActionPromotions($registry);
+
+            $registry->register(ControlConditionAction::class);
+            $registry->register(RunWorkflowAction::class);
+            $registry->register(MultiChannelNotificationAction::class);
+
+            foreach (F5AmoCrmActionCatalog::classes() as $actionClass) {
+                $registry->register($actionClass);
+            }
+
+            $registry->setSortOrder([
+                'control-condition',
+                'run_workflow',
+                'send_notification',
+                'amocrm_create_lead',
+                'amocrm_create_contact',
+                'amocrm_create_company',
+                'amocrm_copy_lead',
+                'amocrm_update_fields',
+                'amocrm_create_task',
+                'amocrm_add_note',
+                'amocrm_change_tags',
+                'amocrm_change_lead_status',
+                'amocrm_start_salesbot',
+                'amocrm_stop_salesbot',
+                'amocrm_manage_subscription',
+                'amocrm_update_task',
+                'amocrm_cancel_delayed_action',
+                'amocrm_normalize_contact_data',
+                'amocrm_add_products',
+                'amocrm_remove_products',
+                'amocrm_find_entity',
+                'amocrm_link_entity',
+                'amocrm_unlink_entity',
+            ]);
+        });
+    }
+
+    private function registerWorkflowWebhookSynchronization(): void
+    {
+        Workflow::saved(function (Workflow $workflow): void {
+            $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
+
+            if ($userId <= 0) {
+                return;
+            }
+
+            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser($userId);
+        });
+
+        Workflow::deleted(function (Workflow $workflow): void {
+            $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
+
+            if ($userId <= 0) {
+                return;
+            }
+
+            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser($userId);
+        });
+    }
+
+    private function clearWorkflowActionPromotions(ActionRegistry $registry): void
+    {
+        try {
+            $property = new \ReflectionProperty($registry, 'promotions');
+            $property->setAccessible(true);
+            $property->setValue($registry, []);
+        } catch (Throwable $e) {
+            Log::warning('Failed to clear workflow action promotions.', [
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function disableTelescopeWhenNotEnabled(): void

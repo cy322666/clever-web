@@ -1,0 +1,29 @@
+<?php
+
+namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
+
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasCompactWorkflowConfigurationPanels;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowPageActions;
+use Filament\Actions\Action;
+use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\EditWorkflow as BaseEditWorkflow;
+
+class EditWorkflow extends BaseEditWorkflow
+{
+    use HasCompactWorkflowConfigurationPanels;
+    use HasWorkflowPageActions;
+
+    protected static string $resource = WorkflowResource::class;
+
+    /**
+     * @return array<Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->workflowHelpAction(),
+            $this->backToWorkflowListAction(),
+            $this->deleteAction(),
+        ];
+    }
+}

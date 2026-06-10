@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html class="fi" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8" />
 
@@ -15,15 +15,18 @@
             }
         </style>
 
+        @livewireStyles
         @filamentStyles
+        {{ filament()->getTheme()->getHtml() }}
         @vite('resources/css/app.css')
     </head>
 
-    <body class="antialiased">
+    <body class="fi-body antialiased">
         {{ $slot }}
 
         @livewire('notifications')
 
+        @livewireScripts
         @filamentScripts
         @vite('resources/js/app.js')
         <x-impersonate::banner/>

@@ -1,0 +1,43 @@
+@tailwind utilities;
+
+.workflow-builder .workflow-card,
+.workflow-builder .workflow-condition-node,
+.workflow-builder .workflow-empty-state {
+    border-width: 1px !important;
+    border-color: rgb(226 232 240) !important;
+    box-shadow: 0 4px 14px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.04) !important;
+}
+
+.dark .workflow-builder .workflow-card,
+.dark .workflow-builder .workflow-condition-node,
+.dark .workflow-builder .workflow-empty-state {
+    border-color: rgb(55 65 81) !important;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.16), 0 1px 2px rgb(0 0 0 / 0.18) !important;
+}
+
+.workflow-builder .workflow-card.ring-2 {
+    --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+.workflow-builder .workflow-condition-node {
+    background-color: rgb(254 252 232 / 0.45) !important;
+}
+
+.dark .workflow-builder .workflow-condition-node {
+    background-color: rgb(113 63 18 / 0.08) !important;
+}
+
+body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
+    border-width: 1px !important;
+    border-color: rgb(226 232 240) !important;
+    box-shadow: 0 4px 14px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.04) !important;
+}
+
+.dark body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
+    border-color: rgb(55 65 81) !important;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.14), 0 1px 2px rgb(0 0 0 / 0.16) !important;
+}
+
+body:has(.workflow-builder) .fi-modal-slide-over .fi-section-header {
+    border-bottom-width: 1px !important;
+}

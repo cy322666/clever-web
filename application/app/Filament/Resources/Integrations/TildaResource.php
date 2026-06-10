@@ -30,7 +30,6 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
-use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 class TildaResource extends Resource
 {
@@ -83,8 +82,24 @@ class TildaResource extends Resource
                                     ->copyable()
                                     ->disabled(),
 
-                                PrettyJsonField::make('body')
+                                Forms\Components\Textarea::make('body')
                                     ->label('Тело заявки')
+                                    ->formatStateUsing(function ($state): string {
+                                        if (is_array($state)) {
+                                            return json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                                        }
+
+                                        if (!is_string($state) || trim($state) === '') {
+                                            return '';
+                                        }
+
+                                        $decoded = json_decode($state, true);
+
+                                        return json_last_error() === JSON_ERROR_NONE
+                                            ? json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+                                            : $state;
+                                    })
+                                    ->rows(8)
                                     ->disabled(),
 
                                 Forms\Components\TextInput::make('name_form')

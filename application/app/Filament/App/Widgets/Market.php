@@ -30,7 +30,7 @@ class Market extends TableWidget
                             ->label('Название')
                             ->weight(FontWeight::Bold)
                             ->size(TextSize::Medium)
-                            ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
+                            ->tooltip(fn(?App $app) => $app ? App::getTooltipText($app->name) : null)
                             ->limit(28)
                             ->state(fn(?App $app) => self::safeRecordTitle($app)),
 
@@ -178,11 +178,6 @@ class Market extends TableWidget
             return '';
         }
 
-        $resourceClass = (string)$app->resource_name;
-        if (class_exists($resourceClass) && method_exists($resourceClass, 'getRecordTitle')) {
-            return (string)$resourceClass::getRecordTitle();
-        }
-
-        return (string)$app->name;
+        return App::getTitle((string)$app->name, $app->resource_name);
     }
 }

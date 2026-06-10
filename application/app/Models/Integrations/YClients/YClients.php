@@ -127,9 +127,9 @@ class YClients
     public function getBookServices(
         $companyId,
         $staffId = null,
-        \DateTime $datetime = null,
-        array $serviceIds = null,
-        array $eventIds = null
+        ?\DateTime $datetime = null,
+        ?array $serviceIds = null,
+        ?array $eventIds = null
     ) {
         $parameters = [];
 
@@ -175,9 +175,9 @@ class YClients
     public function getBookStaff(
         $companyId,
         $staffId = null,
-        \DateTime $datetime = null,
-        array $serviceIds = null,
-        array $eventIds = null,
+        ?\DateTime $datetime = null,
+        ?array $serviceIds = null,
+        ?array $eventIds = null,
         $withoutSeances = false
     ) {
         $parameters = [];
@@ -225,9 +225,9 @@ class YClients
     public function getBookDates(
         $companyId,
         $staffId = null,
-        array $serviceIds = null,
-        \DateTime $date = null,
-        array $eventIds = null
+        ?array $serviceIds = null,
+        ?\DateTime $date = null,
+        ?array $eventIds = null
     ) {
         $parameters = [];
 
@@ -271,8 +271,8 @@ class YClients
         $companyId,
         $staffId,
         \DateTime $date,
-        array $serviceIds = null,
-        array $eventIds = null
+        ?array $serviceIds = null,
+        ?array $eventIds = null
     ) {
         $parameters = [];
 
@@ -368,7 +368,7 @@ class YClients
         array $person,
         array $appointments,
         $code = null,
-        array $notify = null,
+        ?array $notify = null,
         $comment = null,
         $apiId = null
     ) {
@@ -773,14 +773,14 @@ class YClients
      * @see http://docs.yclients.apiary.io/#reference/4/0/0
      * @throws YclientsException
      */
-    public function postServices($companyId, $serviceId, $categoryId, $title, $userToken, array $fields = null)
+    public function postServices($companyId, $serviceId, $categoryId, $title, $userToken, ?array $fields = null)
     {
         $parameters = [
             'category_id' => $categoryId,
             'title' => $title,
         ];
 
-        $parameters = array_merge($parameters, $fields);
+        $parameters = array_merge($parameters, $fields ?? []);
 
         return $this->request('services/' . $companyId . '/' . $serviceId, $parameters, self::METHOD_POST, $userToken);
     }
@@ -799,14 +799,14 @@ class YClients
      * @see http://docs.yclients.apiary.io/#reference/4/0/1
      * @throws YclientsException
      */
-    public function putServices($companyId, $serviceId, $categoryId, $title, $userToken, array $fields = null)
+    public function putServices($companyId, $serviceId, $categoryId, $title, $userToken, ?array $fields = null)
     {
         $parameters = [
             'category_id' => $categoryId,
             'title' => $title,
         ];
 
-        $parameters = array_merge($parameters, $fields);
+        $parameters = array_merge($parameters, $fields ?? []);
 
         return $this->request('services/' . $companyId . '/' . $serviceId, $parameters, self::METHOD_PUT, $userToken);
     }
@@ -870,13 +870,13 @@ class YClients
      * @see http://docs.yclients.apiary.io/#reference/6/0/0
      * @throws YclientsException
      */
-    public function postStaff($companyId, $staffId, $name, $userToken, array $fields = null)
+    public function postStaff($companyId, $staffId, $name, $userToken, ?array $fields = null)
     {
         $parameters = [
             'name' => $name,
         ];
 
-        $parameters = array_merge($parameters, $fields);
+        $parameters = array_merge($parameters, $fields ?? []);
 
         return $this->request('staff/' . $companyId . '/' . $staffId, $parameters, self::METHOD_POST, $userToken);
     }
@@ -976,14 +976,14 @@ class YClients
      * @see http://docs.yclients.apiary.io/#reference/7/0/1
      * @throws YclientsException
      */
-    public function postClients($companyId, $name, $phone, $userToken, array $fields = null)
+    public function postClients($companyId, $name, $phone, $userToken, ?array $fields = null)
     {
         $parameters = [
             'name' => $name,
             'phone' => $phone,
         ];
 
-        $parameters = array_merge($parameters, $fields);
+        $parameters = array_merge($parameters, $fields ?? []);
 
         return $this->request('clients/' . $companyId, $parameters, self::METHOD_POST, $userToken);
     }
@@ -1064,12 +1064,12 @@ class YClients
         $count = null,
         $staffId = null,
         $clientId = null,
-        \DateTime $startDate = null,
-        \DateTime $endDate = null,
-        \DateTime $cStartDate = null,
-        \DateTime $cEndDate = null,
-        \DateTime $changedAfter = null,
-        \DateTime $changedBefore = null
+        ?\DateTime $startDate = null,
+        ?\DateTime $endDate = null,
+        ?\DateTime $cStartDate = null,
+        ?\DateTime $cEndDate = null,
+        ?\DateTime $changedAfter = null,
+        ?\DateTime $changedBefore = null
     ) {
         $parameters = [];
 
@@ -1332,8 +1332,8 @@ class YClients
     public function getComments(
         $companyId,
         $userToken,
-        \DateTime $startDate = null,
-        \DateTime $endDate = null,
+        ?\DateTime $startDate = null,
+        ?\DateTime $endDate = null,
         $staffId = null,
         $rating = null
     ) {

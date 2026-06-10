@@ -52,6 +52,11 @@ class App extends Model
 
     public static function getTooltipText(string $appName): string
     {
+        $description = config("integrations.definitions.{$appName}.description");
+        if (is_string($description) && $description !== '') {
+            return $description;
+        }
+
         return match ($appName) {
             'alfacrm' => 'Синхронизируйте клиентов и их посещения между amoCRM и АльфаСРМ',
             'distribution' => 'Гибко настройте распределение сделок между менеджерами',
@@ -65,6 +70,24 @@ class App extends Model
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
             default => '',
         };
+    }
+
+    public static function getTitle(string $appName, ?string $resourceClass = null): string
+    {
+        $title = config("integrations.definitions.{$appName}.title");
+        if (is_string($title) && $title !== '') {
+            return $title;
+        }
+
+        if (
+            is_string($resourceClass)
+            && class_exists($resourceClass)
+            && method_exists($resourceClass, 'getRecordTitle')
+        ) {
+            return (string)$resourceClass::getRecordTitle();
+        }
+
+        return $appName;
     }
 
     public function getStatusLabel(): string

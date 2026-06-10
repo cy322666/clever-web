@@ -30,7 +30,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
-use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 class ImportResource extends Resource
 {
@@ -236,10 +235,6 @@ class ImportResource extends Resource
                         Section::make('Загрузка файла')
                             ->description('Загрузите Excel файл для импорта данных в amoCRM')
                             ->schema([
-
-//                                PrettyJsonField::make('headers')
-//                                    ->label('Заголовки')
-//                                    ->disabled(),
 
                                 FileUpload::make('file_path')
                                     ->label('Excel файл')
