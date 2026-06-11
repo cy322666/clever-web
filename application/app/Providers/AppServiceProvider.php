@@ -2,15 +2,15 @@
 
 namespace App\Providers;
 
+use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
+use App\Models\Workflows\Workflow;
 use App\Observers\QueueMonitorObserver;
 use App\Services\Core\MonitoringCache;
-use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use App\Services\Workflows\WorkflowVariableService;
-use App\Models\Workflows\Workflow;
 use App\Workflows\Actions\ControlConditionAction;
-use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Actions\MultiChannelNotificationAction;
 use App\Workflows\Actions\RunWorkflowAction;
+use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Engine\WorkflowExecutor as AppWorkflowExecutor;
 use App\Workflows\Engine\WorkflowTestRunner as AppWorkflowTestRunner;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
@@ -39,7 +39,9 @@ use Throwable;
 class AppServiceProvider extends ServiceProvider
 {
     private const DB_SLOW_QUERY_TOTAL_KEY = 'monitoring:db:slow_queries:total';
+
     private const DB_SLOW_QUERY_LAST_MS_KEY = 'monitoring:db:slow_queries:last_ms';
+
     private const DB_SLOW_QUERY_LAST_SEEN_KEY = 'monitoring:db:slow_queries:last_seen_unixtime';
 
     /**
@@ -88,10 +90,10 @@ class AppServiceProvider extends ServiceProvider
             Js::make('amochat', resource_path('js/amochat.js')),
         ]);
 
-//        Totem::auth(function(Request $request) {
-//
-//            return $request->user()->is_root;
-//        });
+        //        Totem::auth(function(Request $request) {
+        //
+        //            return $request->user()->is_root;
+        //        });
 
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
@@ -205,7 +207,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser($userId);
+            $this->dispatchWorkflowWebhookSynchronization($userId);
         });
 
         Workflow::deleted(function (Workflow $workflow): void {
@@ -215,8 +217,17 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser($userId);
+            $this->dispatchWorkflowWebhookSynchronization($userId);
         });
+    }
+
+    private function dispatchWorkflowWebhookSynchronization(int $userId): void
+    {
+        $dispatch = SynchronizeAmoCrmWebhooks::dispatch($userId);
+
+        if (!$this->app->runningInConsole()) {
+            $dispatch->afterResponse();
+        }
     }
 
     private function clearWorkflowActionPromotions(ActionRegistry $registry): void

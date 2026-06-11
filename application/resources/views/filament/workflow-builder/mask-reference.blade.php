@@ -20,6 +20,7 @@
                 'name' => (string) ($item['name'] ?? ''),
                 'subtitle' => (string) ($item['subtitle'] ?? ''),
                 'entity' => (string) ($item['entity'] ?? ''),
+                'options' => array_values($item['options'] ?? []),
             ])
             ->filter(fn (array $item): bool => $item['id'] !== '')
             ->values()
@@ -55,6 +56,7 @@
         systemIds: @js($systemIds),
         selectedSystemGroup: '',
         selectedFieldEntity: '',
+        expandedFields: {},
         systemIdGroupNames: @js($systemIdGroupNames),
         popularMasks: @js($popularMasks),
         fieldEntities() {
@@ -100,7 +102,11 @@
                 item.name.toLowerCase().includes(query) ||
                 item.subtitle.toLowerCase().includes(query) ||
                 item.entity.toLowerCase().includes(query) ||
-                item.id.toLowerCase().includes(query)
+                item.id.toLowerCase().includes(query) ||
+                item.options.some((option) =>
+                    option.name.toLowerCase().includes(query) ||
+                    option.id.toLowerCase().includes(query)
+                )
             );
         },
         filteredGroups() {
@@ -128,6 +134,9 @@
             navigator.clipboard?.writeText(item.id);
             this.copied = item.id;
             setTimeout(() => this.copied = null, 1400);
+        },
+        toggleFieldOptions(item) {
+            this.expandedFields[item.id] = !this.expandedFields[item.id];
         },
     }"
     class="workflow-mask-reference flex min-h-0 flex-col gap-4"
@@ -200,10 +209,8 @@
 
         <div x-show="selectedSystemGroup" x-cloak class="mt-3 space-y-1.5">
             <template x-for="item in filteredSystemIds()" :key="selectedSystemGroup + item.id + item.name">
-                <button
-                    type="button"
-                    x-on:click="copyId(item)"
-                    class="group w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition hover:border-amber-300 hover:bg-white/80 dark:hover:border-amber-800 dark:hover:bg-gray-900/70"
+                <div
+                    class="group w-full rounded-lg border border-transparent px-2.5 py-2 transition hover:border-amber-300 hover:bg-white/80 dark:hover:border-amber-800 dark:hover:bg-gray-900/70"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
@@ -214,12 +221,60 @@
                             </code>
                         </div>
 
-                        <span
-                            class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 opacity-0 transition group-hover:opacity-100 dark:bg-amber-900/40 dark:text-amber-300">
-                            копировать ID
-                        </span>
+                        <div class="flex shrink-0 items-center gap-1 self-end">
+                            <button
+                                x-show="item.options.length > 0"
+                                type="button"
+                                x-on:click.stop="toggleFieldOptions(item)"
+                                class="rounded-md p-1.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                                :title="expandedFields[item.id] ? 'Скрыть варианты' : 'Показать варианты'"
+                            >
+                                <x-filament::icon
+                                    icon="heroicon-o-list-bullet"
+                                    class="h-4 w-4"
+                                    x-bind:class="{ 'text-amber-900 dark:text-amber-100': expandedFields[item.id] }"
+                                />
+                            </button>
+
+                            <button
+                                type="button"
+                                x-on:click.stop="copyId(item)"
+                                class="rounded-md p-1.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                                title="Копировать ID поля"
+                            >
+                                <x-filament::icon icon="heroicon-o-clipboard-document" class="h-4 w-4"/>
+                            </button>
+                        </div>
                     </div>
-                </button>
+
+                    <div
+                        x-show="item.options.length > 0 && expandedFields[item.id]"
+                        x-collapse
+                        class="mt-2 border-t border-amber-200 pt-2 dark:border-amber-900/60"
+                    >
+                        <div
+                            class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                            Варианты поля
+                        </div>
+
+                        <div class="space-y-1">
+                            <template x-for="option in item.options" :key="item.id + option.id">
+                                <button
+                                    type="button"
+                                    x-on:click.stop="copyId(option)"
+                                    class="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-amber-100/70 dark:hover:bg-amber-900/30"
+                                    title="Копировать ID варианта"
+                                >
+                                    <span class="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200"
+                                          x-text="option.name"></span>
+                                    <code class="shrink-0 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                                        ID: <span x-text="option.id"></span>
+                                    </code>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
             </template>
 
             <div

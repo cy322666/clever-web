@@ -324,7 +324,7 @@ class WorkflowTriggerConditionVariableCatalog
     }
 
     /**
-     * @return array<int, array{id: string, name: string, subtitle: string}>
+     * @return array<int, array{id: string, name: string, subtitle: string, entity: string, options: array<int, array{id: string, name: string}>}>
      */
     private static function amoFieldIdItems(int $userId): array
     {
@@ -334,7 +334,7 @@ class WorkflowTriggerConditionVariableCatalog
             ->whereNotNull('field_id')
             ->orderBy('entity_type')
             ->orderBy('name')
-            ->get(['field_id', 'name', 'type', 'code', 'entity_type'])
+            ->get(['field_id', 'name', 'type', 'code', 'entity_type', 'enums'])
             ->map(fn(AmoCrmField $field): array => [
                 'id' => (string)$field->field_id,
                 'name' => (string)($field->name ?: $field->code ?: $field->field_id),
@@ -342,7 +342,45 @@ class WorkflowTriggerConditionVariableCatalog
                 'subtitle' => static::entityTypeLabel((string)$field->entity_type)
                     . ' · ' . trim((string)($field->type ?: 'поле'))
                     . ($field->code ? ' · ' . $field->code : ''),
+                'options' => static::amoFieldEnumItems($field->enums),
             ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    private static function amoFieldEnumItems(mixed $enums): array
+    {
+        if (is_string($enums)) {
+            $enums = json_decode($enums, true);
+        }
+
+        if (!is_array($enums)) {
+            return [];
+        }
+
+        return collect($enums)
+            ->map(function (mixed $enum, int|string $key): ?array {
+                if (is_array($enum)) {
+                    $id = trim((string)($enum['id'] ?? $key));
+                    $name = trim((string)($enum['value'] ?? $enum['name'] ?? ''));
+                } else {
+                    $id = trim((string)$key);
+                    $name = trim((string)$enum);
+                }
+
+                if ($id === '' || $name === '') {
+                    return null;
+                }
+
+                return [
+                    'id' => $id,
+                    'name' => $name,
+                ];
+            })
+            ->filter()
             ->values()
             ->all();
     }

@@ -26,11 +26,13 @@ class SyncAmoCrmWebhooks extends Command
                 return self::FAILURE;
             }
 
-            $webhooks->synchronizeUser((int)$user->id);
-            $this->info('Webhook-подписки amoCRM пересинхронизированы.');
+            $result = $webhooks->synchronizeUser((int)$user->id);
+            $this->line((string)($result['message'] ?? 'Синхронизация завершена.'));
 
-            return self::SUCCESS;
+            return ($result['ok'] ?? false) ? self::SUCCESS : self::FAILURE;
         }
+
+        $failed = 0;
 
         Account::query()
             ->where('active', true)
@@ -38,10 +40,17 @@ class SyncAmoCrmWebhooks extends Command
             ->select('user_id')
             ->distinct()
             ->pluck('user_id')
-            ->each(fn($id) => $webhooks->synchronizeUser((int)$id));
+            ->each(function ($id) use ($webhooks, &$failed): void {
+                $result = $webhooks->synchronizeUser((int)$id);
 
-        $this->info('Webhook-подписки amoCRM пересинхронизированы для всех активных аккаунтов.');
+                if (!($result['ok'] ?? false)) {
+                    $failed++;
+                    $this->warn(sprintf('Пользователь #%d: %s', $id, $result['message'] ?? 'ошибка'));
+                }
+            });
 
-        return self::SUCCESS;
+        $this->info(sprintf('Синхронизация завершена. Ошибок: %d.', $failed));
+
+        return $failed === 0 ? self::SUCCESS : self::FAILURE;
     }
 }
