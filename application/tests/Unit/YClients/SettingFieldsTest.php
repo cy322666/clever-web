@@ -537,6 +537,7 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('Кол-центр', $fields['created_user_role_name']);
         $this->assertSame('Кол-центр', $fields['created_user_department']);
+        $this->assertSame('Кол-центр', $fields['created_user_name']);
         $this->assertSame('Не указан', $fields['record_from']);
     }
 }

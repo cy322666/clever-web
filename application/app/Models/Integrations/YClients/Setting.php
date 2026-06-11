@@ -380,7 +380,10 @@ class Setting extends Model
             $fields['created_user_name'] = data_get($staff, 'data.name')
                 ?: data_get($staff, 'data.0.name')
                     ?: data_get($staff, 'name')
-                        ?: (string)$createdUserId;
+                        ?: data_get($createdUser, 'data.name')
+                            ?: data_get($createdUser, 'data.login')
+                                ?: $roleTitle
+                                    ?: 'Пользователь YClients';
 
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
                 ?: data_get($staff, 'data.0.position.title')
