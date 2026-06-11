@@ -35,6 +35,10 @@ class Kernel extends ConsoleKernel
             ->dailyAt('03:00')
             ->withoutOverlapping();
 
+        $schedule->command('yc:prune-records --days=' . (int)env('YCLIENTS_RECORDS_RETENTION_DAYS', 5))
+            ->dailyAt('03:30')
+            ->withoutOverlapping();
+
         $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
             ->dailyAt('00:00');
 
