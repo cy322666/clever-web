@@ -368,6 +368,7 @@ class Setting extends Model
             $staffId = data_get($createdUser, 'data.staff_id');
             $positionId = self::permissionValue($createdUser, 'timetable_position_id');
             $staff = null;
+            $companyUser = null;
 
             if (!empty($staffId)) {
                 $staff = $client->getStaff($record->company_id, $staffId);
@@ -377,13 +378,18 @@ class Setting extends Model
                 $staff = $client->findStaffByUserId($record->company_id, $createdUserId);
             }
 
+            if (!$staff) {
+                $companyUser = $client->findCompanyUserById($record->company_id, $createdUserId);
+            }
+
             $fields['created_user_name'] = data_get($staff, 'data.name')
                 ?: data_get($staff, 'data.0.name')
                     ?: data_get($staff, 'name')
-                        ?: data_get($createdUser, 'data.name')
-                            ?: data_get($createdUser, 'data.login')
-                                ?: $roleTitle
-                                    ?: 'Пользователь YClients';
+                        ?: data_get($companyUser, 'name')
+                            ?: data_get($createdUser, 'data.name')
+                                ?: data_get($createdUser, 'data.login')
+                                    ?: $roleTitle
+                                        ?: 'Пользователь YClients';
 
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
                 ?: data_get($staff, 'data.0.position.title')
@@ -405,6 +411,7 @@ class Setting extends Model
                 'role_title' => $roleTitle,
                 'staff_id' => $staffId,
                 'position_id' => $positionId,
+                'company_user_name' => data_get($companyUser, 'name'),
                 'staff_position_title' => data_get($staff, 'data.position.title')
                     ?: data_get($staff, 'data.0.position.title')
                         ?: data_get($staff, 'position.title'),

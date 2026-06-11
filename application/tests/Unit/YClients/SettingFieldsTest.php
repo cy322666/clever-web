@@ -154,6 +154,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -219,6 +220,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -415,6 +417,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -476,6 +479,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -523,6 +527,11 @@ class SettingFieldsTest extends TestCase
         $yc->method('getUserRoles')->willReturn((object)['success' => true, 'data' => []]);
         $yc->method('getStaff')->willReturn(null);
         $yc->method('findStaffByUserId')->willReturn(null);
+        $yc->method('findCompanyUserById')->willReturn((object)[
+            'id' => 12241065,
+            'name' => 'Цигорская Дарья Дмитриевна',
+            'user_role_slug' => 'call_center',
+        ]);
         $yc->method('findPositionTitle')->willReturn(null);
 
         $record = new Record([
@@ -537,7 +546,7 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('Кол-центр', $fields['created_user_role_name']);
         $this->assertSame('Кол-центр', $fields['created_user_department']);
-        $this->assertSame('Кол-центр', $fields['created_user_name']);
+        $this->assertSame('Цигорская Дарья Дмитриевна', $fields['created_user_name']);
         $this->assertSame('Не указан', $fields['record_from']);
     }
 }

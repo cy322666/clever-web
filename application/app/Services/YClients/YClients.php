@@ -111,6 +111,21 @@ class YClients
     /**
      * @throws ConnectionException
      */
+    public function findCompanyUserById(string $companyId, string $userId): ?object
+    {
+        $response = Http::withHeaders($this->getHeaders())
+            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/users')
+            ->object();
+
+        $user = collect(data_get($response, 'data', []))
+            ->first(fn($item) => (string)data_get($item, 'id') === (string)$userId);
+
+        return $user ? (object)$user : null;
+    }
+
+    /**
+     * @throws ConnectionException
+     */
     public function getStaffPositions(string $companyId): ?object
     {
         return Http::withHeaders($this->getHeaders())
