@@ -8,7 +8,7 @@
             'title' => 'Ручной запуск и время',
             'description' => 'Запуск пользователем, по расписанию или относительно даты.',
             'icon' => 'heroicon-o-clock',
-            'types' => ['manual', 'schedule', 'date-condition'],
+            'types' => ['manual', 'schedule', 'date-condition', 'workflow-completed'],
             'items' => [],
         ],
         'lead' => [

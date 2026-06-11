@@ -25,7 +25,12 @@
         'fields' => [
             'title' => 'Поля и данные',
             'icon' => 'heroicon-o-pencil-square',
-            'types' => ['amocrm_update_fields', 'amocrm_normalize_contact_data'],
+            'types' => [
+                'amocrm_update_lead_fields',
+                'amocrm_update_contact_fields',
+                'amocrm_update_company_fields',
+                'amocrm_normalize_contact_data',
+            ],
             'items' => [],
         ],
         'tasks' => [

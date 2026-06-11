@@ -124,7 +124,16 @@ class RunWorkflowAction extends BaseRunWorkflowAction
             ];
         }
 
-        return parent::handle($config, $context);
+        $result = parent::handle($config, $context);
+
+        if (($result['success'] ?? false) && isset($result['output']['child_context']) && is_array(
+                $result['output']['child_context']
+            )) {
+            $result['output']['child_context']['source_workflow_id'] = $currentWorkflowId ?: null;
+            $result['output']['child_context']['source_workflow_run_id'] = $context?->getWorkflowRunId();
+        }
+
+        return $result;
     }
 
     /**

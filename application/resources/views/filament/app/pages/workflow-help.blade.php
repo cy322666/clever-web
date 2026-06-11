@@ -34,12 +34,12 @@
         </x-slot>
 
         <div class="fi-ta-text grid gap-3 text-sm text-gray-700 dark:text-gray-200">
-            <p><code>{{ '{{trigger.lead.id}}' }}</code> — ID сделки</p>
-            <p><code>{{ '{{trigger.lead.status_id}}' }}</code> — текущий статус сделки</p>
-            <p><code>{{ '{{trigger.status.old_status_id}}' }}</code> — старый статус при смене статуса</p>
-            <p><code>{{ '{{trigger.contact.name}}' }}</code> — имя контакта</p>
-            <p><code>{{ '{{trigger.task.complete_till}}' }}</code> — срок задачи</p>
-            <p><code>{{ '{{trigger.note.text}}' }}</code> — текст примечания</p>
+            <p><code>{{ '{{lead.id}}' }}</code> — ID сделки</p>
+            <p><code>{{ '{{lead.status_id}}' }}</code> — текущий статус сделки</p>
+            <p><code>{{ '{{status.old_status_id}}' }}</code> — старый статус при смене статуса</p>
+            <p><code>{{ '{{contact.name}}' }}</code> — имя контакта</p>
+            <p><code>{{ '{{task.complete_till}}' }}</code> — срок задачи</p>
+            <p><code>{{ '{{note.text}}' }}</code> — текст примечания</p>
         </div>
     </x-filament::section>
 </x-filament-panels::page>

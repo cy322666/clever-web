@@ -8,11 +8,13 @@ use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use App\Services\Workflows\WorkflowVariableService;
 use App\Models\Workflows\Workflow;
 use App\Workflows\Actions\ControlConditionAction;
-use App\Workflows\Actions\F5AmoCrmActionCatalog;
+use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Actions\MultiChannelNotificationAction;
 use App\Workflows\Actions\RunWorkflowAction;
 use App\Workflows\Engine\WorkflowExecutor as AppWorkflowExecutor;
+use App\Workflows\Engine\WorkflowTestRunner as AppWorkflowTestRunner;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
+use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
@@ -55,6 +57,11 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(
+            \Leek\FilamentWorkflows\Engine\WorkflowTestRunner::class,
+            fn($app): AppWorkflowTestRunner => new AppWorkflowTestRunner($app->make(ActionRegistry::class)),
+        );
+
+        $this->app->singleton(
             \Leek\FilamentWorkflows\Services\WorkflowVariableService::class,
             WorkflowVariableService::class,
         );
@@ -70,6 +77,11 @@ class AppServiceProvider extends ServiceProvider
         FilamentView::registerRenderHook(
             PanelsRenderHook::STYLES_BEFORE,
             fn(): string => $this->optionalViteAsset('resources/css/filament-workflows.css'),
+        );
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            fn(): string => $this->optionalViteAsset('resources/js/app.js'),
         );
 
         FilamentAsset::register([
@@ -126,6 +138,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(ManualTrigger::class);
             $registry->register(ScheduleTrigger::class);
             $registry->register(DateConditionTrigger::class);
+            $registry->register(WorkflowCompletedTrigger::class);
 
             foreach (AmoCrmWebhookTriggerCatalog::classes() as $triggerClass) {
                 $registry->register($triggerClass);
@@ -149,7 +162,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(RunWorkflowAction::class);
             $registry->register(MultiChannelNotificationAction::class);
 
-            foreach (F5AmoCrmActionCatalog::classes() as $actionClass) {
+            foreach (WorkflowAmoCrmActionCatalog::classes() as $actionClass) {
                 $registry->register($actionClass);
             }
 
@@ -161,7 +174,9 @@ class AppServiceProvider extends ServiceProvider
                 'amocrm_create_contact',
                 'amocrm_create_company',
                 'amocrm_copy_lead',
-                'amocrm_update_fields',
+                'amocrm_update_lead_fields',
+                'amocrm_update_contact_fields',
+                'amocrm_update_company_fields',
                 'amocrm_create_task',
                 'amocrm_add_note',
                 'amocrm_change_tags',

@@ -2,7 +2,7 @@
 
 namespace App\Services\Workflows;
 
-use App\Workflows\Actions\F5TriggerConditionVariableCatalog;
+use App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog;
 use Leek\FilamentWorkflows\Services\WorkflowVariableService as BaseWorkflowVariableService;
 
 class WorkflowVariableService extends BaseWorkflowVariableService
@@ -16,7 +16,7 @@ class WorkflowVariableService extends BaseWorkflowVariableService
     {
         return $this->uniqueByPath([
             ...$this->getAmoCrmTriggerVariables(),
-            ...parent::getAvailableVariables($modelClass, $previousActions),
+            ...$this->withoutTriggerPrefix(parent::getAvailableVariables($modelClass, $previousActions)),
         ]);
     }
 
@@ -27,7 +27,7 @@ class WorkflowVariableService extends BaseWorkflowVariableService
     {
         $variables = [];
 
-        foreach (F5TriggerConditionVariableCatalog::groupedOptions(false) as $category => $options) {
+        foreach (WorkflowTriggerConditionVariableCatalog::groupedOptions(false) as $category => $options) {
             foreach ($options as $placeholder => $label) {
                 $path = $this->placeholderToPath((string)$placeholder);
 
@@ -56,6 +56,23 @@ class WorkflowVariableService extends BaseWorkflowVariableService
         }
 
         return $placeholder;
+    }
+
+    /**
+     * @param array<int, array{path: string, label: string, description?: string, category: string}> $variables
+     * @return array<array{path: string, label: string, description?: string, category: string}>
+     */
+    private function withoutTriggerPrefix(array $variables): array
+    {
+        return array_map(static function (array $variable): array {
+            $path = (string)($variable['path'] ?? '');
+
+            if (str_starts_with($path, 'trigger.')) {
+                $variable['path'] = substr($path, 8);
+            }
+
+            return $variable;
+        }, $variables);
     }
 
     /**

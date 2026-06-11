@@ -23,6 +23,11 @@ class Client
     public bool $logs = false;
 
     /**
+     * @var array<int, array<string, mixed>>
+     */
+    private array $capturedQueries = [];
+
+    /**
      * @throws Exception
      */
     public function __construct(Account $account)
@@ -179,6 +184,46 @@ class Client
         });
 
         return $this;
+    }
+
+    public function startWorkflowQueryCapture(): static
+    {
+        $this->capturedQueries = [];
+
+        $this->service->queries->listen(function (QueryModel $query): void {
+            $queryData = $query->toArray();
+            $responseData = $query->response->getData();
+            $responseBody = $responseData;
+
+            if (is_string($responseData)) {
+                $decodedResponse = json_decode($responseData, true);
+                $responseBody = json_last_error() === JSON_ERROR_NONE ? $decodedResponse : $responseData;
+            }
+
+            $this->capturedQueries[] = [
+                'request' => [
+                    'method' => $query->method,
+                    'url' => static::trimUrl((string)($queryData['url'] ?? $query->getUrl())),
+                    'query' => $queryData['args'] ?? null,
+                    'body' => $queryData['post_data'] ?? null,
+                ],
+                'response' => [
+                    'code' => $query->response->getCode(),
+                    'body' => $responseBody,
+                    'error' => $query->response->getError(),
+                ],
+            ];
+        });
+
+        return $this;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getCapturedWorkflowQueries(): array
+    {
+        return $this->capturedQueries;
     }
 
     private static function trimUrl(string $url): string
