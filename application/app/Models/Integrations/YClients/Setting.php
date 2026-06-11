@@ -126,63 +126,6 @@ class Setting extends Model
         $customField->setValue($value);
     }
 
-    private static function amoFieldHasValue(Contact|Lead $entity, Field $field): bool
-    {
-        $customField = $entity->customFields->byId((int)$field->field_id);
-
-        if (!$customField) {
-            return false;
-        }
-
-        return self::filledAmoValue($customField->getValue());
-    }
-
-    private static function filledAmoValue(mixed $value): bool
-    {
-        if ($value === null) {
-            return false;
-        }
-
-        if (is_string($value)) {
-            return trim($value) !== '';
-        }
-
-        if (is_array($value)) {
-            return count(array_filter($value, fn($item) => self::filledAmoValue($item))) > 0;
-        }
-
-        return true;
-    }
-
-    private function leadAlreadyHasRecordIdentity(Lead $lead, array $mapping): bool
-    {
-        $hasServices = false;
-        $hasDateOrTime = false;
-
-        foreach ($mapping as $field) {
-            $fieldYc = $field['field_yc'] ?? null;
-
-            if (!in_array($fieldYc, ['services', 'record_datetime', 'record_date', 'record_time'], true)) {
-                continue;
-            }
-
-            $amoField = $this->amoField($field['field_amo'] ?? null, 'leads');
-
-            if (!$amoField || !self::amoFieldHasValue($lead, $amoField)) {
-                continue;
-            }
-
-            if ($fieldYc === 'services') {
-                $hasServices = true;
-                continue;
-            }
-
-            $hasDateOrTime = true;
-        }
-
-        return $hasServices && $hasDateOrTime;
-    }
-
     private static function mappingRows(mixed $mapping): array
     {
         if (blank($mapping)) {
@@ -219,6 +162,19 @@ class Setting extends Model
         }
     }
 
+    private static function formattedDateTime(?string $datetime): ?string
+    {
+        if (empty($datetime)) {
+            return null;
+        }
+
+        try {
+            return self::recordDateTime($datetime)?->format('d.m.Y H:i');
+        } catch (\Throwable) {
+            return (string)$datetime;
+        }
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
@@ -236,7 +192,8 @@ class Setting extends Model
             'record_date' => self::humanFieldLabel('Дата записи'),
             'record_time' => self::humanFieldLabel('Время записи'),
             'record_from' => self::humanFieldLabel('Источник записи'),
-            'created_user_name' => self::humanFieldLabel('Кто записал'),
+            'create_date' => self::humanFieldLabel('Дата создания'),
+            'created_user_name' => self::humanFieldLabel('Кто создал'),
             'created_user_role_name' => self::humanFieldLabel('Роль создателя'),
             'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
@@ -266,6 +223,7 @@ class Setting extends Model
             'record_date',
             'record_time',
             'record_from',
+            'create_date',
             'created_user_name',
             'created_user_role_name',
             'created_user_department',
@@ -290,16 +248,20 @@ class Setting extends Model
         $recordYC = $client->getRecord($record->company_id, $record->record_id)?->data ?? null;
         $createdUserId = $record->created_user_id;
         $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
+        $createDate = $record->create_date ?: data_get($recordYC, 'create_date');
 
         if ($createdUserId === null || $createdUserId === '') {
             $createdUserId = data_get($recordYC, 'created_user_id');
         }
 
-        if (($record->record_from !== $recordFrom || (string)$record->created_user_id !== (string)$createdUserId)
+        if (($record->record_from !== $recordFrom
+                || (string)$record->created_user_id !== (string)$createdUserId
+                || (string)$record->create_date !== (string)$createDate)
             && $record->exists) {
             $record->forceFill([
                 'created_user_id' => $createdUserId,
                 'record_from' => $recordFrom,
+                'create_date' => $createDate,
             ])->save();
         }
 
@@ -323,6 +285,7 @@ class Setting extends Model
         $fields['record_date'] = $recordDateTime?->format('d.m.Y');
         $fields['record_time'] = $recordDateTime?->format('H:i');
         $fields['record_from'] = $recordFrom ?: 'Не указан';
+        $fields['create_date'] = self::formattedDateTime($createDate);
         $fields['created_user_name'] = null;
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
@@ -348,6 +311,7 @@ class Setting extends Model
             $staffId = data_get($createdUser, 'data.staff_id');
             $positionId = self::permissionValue($createdUser, 'timetable_position_id');
             $staff = null;
+            $companyUser = null;
 
             if (!empty($staffId)) {
                 $staff = $client->getStaff($record->company_id, $staffId);
@@ -357,10 +321,18 @@ class Setting extends Model
                 $staff = $client->findStaffByUserId($record->company_id, $createdUserId);
             }
 
+            if (!$staff) {
+                $companyUser = $client->findCompanyUserById($record->company_id, $createdUserId);
+            }
+
             $fields['created_user_name'] = data_get($staff, 'data.name')
                 ?: data_get($staff, 'data.0.name')
                     ?: data_get($staff, 'name')
-                        ?: (string)$createdUserId;
+                        ?: data_get($companyUser, 'name')
+                            ?: data_get($createdUser, 'data.name')
+                                ?: data_get($createdUser, 'data.login')
+                                    ?: $roleTitle
+                                        ?: 'Пользователь YClients';
 
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
                 ?: data_get($staff, 'data.0.position.title')
@@ -382,6 +354,7 @@ class Setting extends Model
                 'role_title' => $roleTitle,
                 'staff_id' => $staffId,
                 'position_id' => $positionId,
+                'company_user_name' => data_get($companyUser, 'name'),
                 'staff_position_title' => data_get($staff, 'data.position.title')
                     ?: data_get($staff, 'data.0.position.title')
                         ?: data_get($staff, 'position.title'),
@@ -466,15 +439,6 @@ class Setting extends Model
         $body = self::mappingRows($this->fields_lead);
 
         if (!$body) {
-            return $lead;
-        }
-
-        if ($this->leadAlreadyHasRecordIdentity($lead, $body)) {
-            self::debugLog('YClients lead field mapping skipped: lead already has services and date/time.', [
-                'setting_id' => $this->id,
-                'lead_id' => $lead->id,
-            ]);
-
             return $lead;
         }
 

@@ -8,6 +8,7 @@ use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 
 return [
     'definitions' => [
@@ -42,6 +43,14 @@ return [
         'call-transcription' => [
             'resource' => CallTranscriptionResource::class,
             'public' => true,
+        ],
+        'workflows' => [
+            'resource' => WorkflowResource::class,
+            'public' => true,
+            'requires_setting' => false,
+            'open_page' => 'index',
+            'title' => 'Автоматизация',
+            'description' => 'Конструктор процессов и триггеров: события, условия, действия, история запусков и секреты.',
         ],
     ],
 

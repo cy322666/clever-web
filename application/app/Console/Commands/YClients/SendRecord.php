@@ -9,6 +9,7 @@ use App\Services\amoCRM\Client;
 use App\Services\YClients\Notes;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\YClients\Leads as ServiceLead;
 use App\Services\YClients\Contacts as ServiceContact;
@@ -37,6 +38,14 @@ class SendRecord extends Command
      * @throws \Exception
      */
     public function handle()
+    {
+        $recordId = $this->argument('record_id');
+
+        return Cache::lock('yclients:send-record:' . $recordId, 120)
+            ->block(60, fn () => $this->handleLocked());
+    }
+
+    private function handleLocked(): int
     {
         /** @var Record $record */
         $record  = Record::query()->findOrFail($this->argument('record_id'));

@@ -29,7 +29,6 @@ return [
     'queues' => [
         'default',
         'yclients_record',
-        'amo_data',
     ],
     'tenancy' => [
         'enabled' => false,

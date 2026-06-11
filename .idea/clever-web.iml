@@ -153,21 +153,15 @@
       <excludeFolder url="file://$MODULE_DIR$/_application/vendor/league/flysystem" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/psr/clock" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/stechstudio/filament-impersonate" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/lab404/laravel-impersonate" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/hflabs/dadata" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/ezyang/htmlpurifier" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/maatwebsite/excel" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/maennchen/zipstream-php" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/markbaker/complex" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/markbaker/matrix" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phpoffice/phpspreadsheet" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/anourvalar/eloquent-serialize" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/league/csv" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/openspout/openspout" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/phpoffice/math" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/error-solutions" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/arhitector/yandex" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/aspose-cloud/aspose-words-cloud" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/blade-ui-kit/blade-heroicons" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/blade-ui-kit/blade-icons" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/brick/math" />
@@ -239,8 +233,6 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phar-io/version" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phenx/php-font-lib" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phenx/php-svg-lib" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/php-curl-class/php-curl-class" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/phpoffice/phpword" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phpoption/phpoption" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phpseclib/phpseclib" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/phpstan/phpstan" />
@@ -328,11 +320,7 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/ufee/amoapi" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/vlucas/phpdotenv" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/voku/portable-ascii" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/coolsam/flatpickr" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/novadaemon/filament-pretty-json" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/rappasoft/laravel-authentication-log" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/tapp/filament-authentication-log" />
-      <excludeFolder url="file://$MODULE_DIR$/application/vendor/shuvroroy/filament-spatie-laravel-backup" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/db-dumper" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/laravel-backup" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/spatie/laravel-signal-aware-command" />
@@ -340,6 +328,7 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/vgrish/yclients-openapi-php" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/vgrish/yclients-sdk-php" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/croustibat/filament-jobs-monitor" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/leek/filament-workflows" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

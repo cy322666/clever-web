@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 
 class StaffsRelationManager extends RelationManager
 {
+    protected static bool $isLazy = false;
+
     protected static string $relationship = 'amocrm_staffs';
 
     protected static ?string $title = 'Сотрудники';

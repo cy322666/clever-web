@@ -15,9 +15,7 @@ return [
     |
     */
 
-    'default' => in_array(env('CACHE_DRIVER', 'file'), ['', 'file'], true)
-        ? 'monitoring'
-        : env('CACHE_DRIVER', 'monitoring'),
+    'default' => env('CACHE_STORE', env('CACHE_DRIVER', 'file')),
 
     /*
     |--------------------------------------------------------------------------

@@ -60,7 +60,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'
           extensions: mbstring, intl, pdo_pgsql, bcmath, pcntl, exif
           coverage: none
 
@@ -88,10 +88,39 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ci-tests
+    if: ${{ always() }}
     environment:
       name: production
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: application/package-lock.json
+
+      - name: Build Frontend Assets
+        working-directory: application
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Upload Frontend Assets
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || '22' }}
+          fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          source: application/public/build
+          target: ${{ secrets.PROD_PROJECT_PATH }}
+          overwrite: true
+
       - name: Deploy via SSH with rollback
         uses: appleboy/ssh-action@v1.2.0
         env:

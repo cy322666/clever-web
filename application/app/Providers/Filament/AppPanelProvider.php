@@ -3,13 +3,11 @@
 namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\AppStats;
-use App\Filament\App\Pages\Backup;
 use App\Filament\App\Pages\Dashboard;
+use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\Bizon\WebinarResource;
-use App\Filament\Resources\Integrations\Dadata\InfoResource;
-use App\Filament\Resources\Integrations\DocResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
@@ -31,8 +29,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
-use Tapp\FilamentAuthenticationLog\FilamentAuthenticationLogPlugin;
 
 class AppPanelProvider extends PanelProvider
 {
@@ -41,6 +37,21 @@ class AppPanelProvider extends PanelProvider
      */
     public function panel(Panel $panel): Panel
     {
+        $plugins = [
+            FilamentJobsMonitorPlugin::make()
+                ->enableNavigation(
+                    fn(): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
+                        )->user()->is_root
+                ),
+        ];
+
+        if (
+            class_exists(\Leek\FilamentWorkflows\WorkflowsPlugin::class)
+            && class_exists(CleverWorkflowsPlugin::class)
+        ) {
+            $plugins[] = CleverWorkflowsPlugin::make();
+        }
+
         return $panel
             ->id('app')
             ->default()
@@ -53,21 +64,7 @@ class AppPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,//TODO
             ])
-            ->plugins([
-                FilamentAuthenticationLogPlugin::make()
-                    ->panelName('app'),
-
-                FilamentSpatieLaravelBackupPlugin::make()
-                    ->usingPage(Backup::class)
-                    ->authorize(fn (): bool => auth()->user()->is_root),
-
-                FilamentJobsMonitorPlugin::make()
-                    ->enableNavigation(
-                        fn(): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
-                            )->user()->is_root
-                    ),
-
-            ])
+            ->plugins($plugins)
             ->pages([
                 Dashboard::class,
             ])

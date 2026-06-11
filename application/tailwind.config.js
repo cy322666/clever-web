@@ -6,6 +6,7 @@ export default {
         './app/Filament/**/*.php',
         './resources/views/**/*.blade.php',
         './vendor/filament/**/*.blade.php',
+        './vendor/leek/filament-workflows/**/*.blade.php',
     ],
     theme: {extend: {}},
     plugins: [],

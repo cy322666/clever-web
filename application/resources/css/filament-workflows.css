@@ -1,0 +1,224 @@
+@tailwind utilities;
+
+.workflow-builder .workflow-card,
+.workflow-builder .workflow-condition-node,
+.workflow-builder .workflow-empty-state {
+    margin-inline: auto !important;
+    border-width: 1px !important;
+    border-color: rgb(226 232 240) !important;
+    box-shadow: 0 0 0 1px rgb(15 23 42 / 0.025), 0 0 18px 3px rgb(15 23 42 / 0.08) !important;
+}
+
+.workflow-builder .workflow-card:hover,
+.workflow-builder .workflow-condition-node:hover,
+.workflow-builder .workflow-empty-state:hover {
+    box-shadow: 0 0 0 1px rgb(15 23 42 / 0.035), 0 0 22px 4px rgb(15 23 42 / 0.1) !important;
+}
+
+.workflow-builder .workflow-card {
+    width: min(100%, 36rem) !important;
+    max-width: 36rem !important;
+}
+
+.workflow-builder .workflow-empty-state {
+    width: min(100%, 36rem) !important;
+    max-width: 36rem !important;
+}
+
+.workflow-builder .workflow-condition-node {
+    width: min(100%, 42rem) !important;
+    max-width: 42rem !important;
+}
+
+.workflow-builder .workflow-condition-node:has(.grid-cols-2) {
+    width: min(100%, 58rem) !important;
+    max-width: 58rem !important;
+}
+
+.workflow-builder > .mb-6 > h3 {
+    width: min(100%, 36rem);
+    margin-inline: auto;
+}
+
+.workflow-builder .workflow-trigger-card {
+    border-color: rgb(191 219 254) !important;
+}
+
+.workflow-builder .condition-branch {
+    min-width: 0;
+}
+
+.workflow-builder .condition-branch .workflow-card {
+    width: min(100%, 30rem) !important;
+    max-width: 30rem !important;
+}
+
+.workflow-builder .workflow-readiness {
+    width: min(100%, 46rem);
+    margin-inline: auto;
+}
+
+.workflow-builder code,
+.fi-modal-slide-over code {
+    overflow-wrap: anywhere;
+}
+
+.fi-modal-slide-over pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.dark .workflow-builder .workflow-card,
+.dark .workflow-builder .workflow-condition-node,
+.dark .workflow-builder .workflow-empty-state {
+    border-color: rgb(55 65 81) !important;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.025), 0 0 18px 3px rgb(0 0 0 / 0.34) !important;
+}
+
+.dark .workflow-builder .workflow-card:hover,
+.dark .workflow-builder .workflow-condition-node:hover,
+.dark .workflow-builder .workflow-empty-state:hover {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.035), 0 0 22px 4px rgb(0 0 0 / 0.4) !important;
+}
+
+.workflow-builder .workflow-card.ring-2 {
+    --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+.workflow-builder .workflow-condition-node {
+    background-color: rgb(254 252 232 / 0.45) !important;
+}
+
+.dark .workflow-builder .workflow-condition-node {
+    background-color: rgb(113 63 18 / 0.08) !important;
+}
+
+body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
+    border-width: 1px !important;
+    border-color: rgb(226 232 240) !important;
+    box-shadow: 0 4px 14px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.04) !important;
+}
+
+.dark body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
+    border-color: rgb(55 65 81) !important;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.14), 0 1px 2px rgb(0 0 0 / 0.16) !important;
+}
+
+body:has(.workflow-builder) .fi-modal-slide-over .fi-section-header {
+    border-bottom-width: 1px !important;
+    border-bottom-color: rgb(226 232 240) !important;
+}
+
+.dark body:has(.workflow-builder) .fi-modal-slide-over .fi-section-header {
+    border-bottom-color: rgb(55 65 81) !important;
+}
+
+.workflow-mermaid-map__canvas {
+    min-height: 22rem;
+    overflow: auto;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 1rem;
+    background: radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.22) 1px, transparent 0),
+    linear-gradient(180deg, rgb(248 250 252), rgb(255 255 255));
+    background-size: 22px 22px, 100% 100%;
+    padding: 1.25rem;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 12px 30px rgb(15 23 42 / 0.07);
+}
+
+.workflow-mermaid-map__canvas svg {
+    display: block;
+    width: max(100%, 52rem);
+    max-width: none;
+    min-height: 18rem;
+    margin: 0 auto;
+}
+
+.workflow-mermaid-map__canvas .node rect,
+.workflow-mermaid-map__canvas .node polygon,
+.workflow-mermaid-map__canvas .node circle,
+.workflow-mermaid-map__canvas .node ellipse {
+    rx: 12px;
+    ry: 12px;
+    filter: drop-shadow(0 6px 14px rgb(15 23 42 / 0.08));
+}
+
+.workflow-mermaid-map__canvas .edgePaths path,
+.workflow-mermaid-map__canvas .flowchart-link {
+    stroke: rgb(148 163 184) !important;
+    stroke-width: 1.6px !important;
+}
+
+.workflow-mermaid-map__canvas marker path,
+.workflow-mermaid-map__canvas .marker {
+    fill: rgb(148 163 184) !important;
+    stroke: rgb(148 163 184) !important;
+}
+
+.workflow-mermaid-map__canvas .edgeLabel {
+    background: transparent !important;
+    color: rgb(71 85 105) !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+}
+
+.workflow-mermaid-map__canvas .edgeLabel .labelBkg,
+.workflow-mermaid-map__canvas .edgeLabel rect {
+    fill: rgb(255 255 255 / 0.88) !important;
+    rx: 999px;
+    ry: 999px;
+}
+
+.workflow-mermaid-map__canvas .nodeLabel {
+    font-weight: 700;
+}
+
+.workflow-mermaid-map__canvas .nodeLabel small {
+    font-weight: 600;
+    opacity: 0.68;
+}
+
+.workflow-mermaid-map__loading,
+.workflow-mermaid-map__error {
+    display: flex;
+    min-height: 18rem;
+    align-items: center;
+    justify-content: center;
+    color: rgb(100 116 139);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.workflow-mermaid-map__error {
+    color: rgb(220 38 38);
+}
+
+.dark .workflow-mermaid-map__canvas {
+    border-color: rgb(55 65 81);
+    background: radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.16) 1px, transparent 0),
+    linear-gradient(180deg, rgb(17 24 39), rgb(3 7 18));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 30px rgb(0 0 0 / 0.28);
+}
+
+.dark .workflow-mermaid-map__loading {
+    color: rgb(156 163 175);
+}
+
+.dark .workflow-mermaid-map__canvas .edgePaths path,
+.dark .workflow-mermaid-map__canvas .flowchart-link {
+    stroke: rgb(100 116 139) !important;
+}
+
+.dark .workflow-mermaid-map__canvas marker path,
+.dark .workflow-mermaid-map__canvas .marker {
+    fill: rgb(100 116 139) !important;
+    stroke: rgb(100 116 139) !important;
+}
+
+.dark .workflow-mermaid-map__canvas .edgeLabel {
+    color: rgb(203 213 225) !important;
+}
+
+.dark .workflow-mermaid-map__canvas .edgeLabel .labelBkg,
+.dark .workflow-mermaid-map__canvas .edgeLabel rect {
+    fill: rgb(17 24 39 / 0.9) !important;
+}

@@ -23,6 +23,8 @@ class WidgetShow extends TableWidget
 {
     use InteractsWithPageFilters;
 
+    protected static bool $isLazy = false;
+
     public function table(Table $table): Table
     {
         return $table

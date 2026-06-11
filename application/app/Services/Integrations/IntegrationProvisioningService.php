@@ -23,26 +23,30 @@ class IntegrationProvisioningService
     public function syncCatalogForUser(User $user): void
     {
         foreach ($this->definitions() as $definition) {
-            App::query()->updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'name' => $definition['name'],
-                ],
-                [
-                    'resource_name' => $definition['resource'],
-                ]
-            );
+            $app = App::query()->firstOrNew([
+                'user_id' => $user->id,
+                'name' => $definition['name'],
+            ]);
+
+            $app->resource_name = $definition['resource'];
+
+            if (!$app->exists) {
+                $app->status = App::STATE_CREATED;
+            }
+
+            $app->save();
         }
     }
 
     public function definitions(): Collection
     {
-        return collect(config('integrations.definitions', []))
+        return App::definitions()
             ->map(function (array $definition, string $name): array {
                 return [
                     'name' => $name,
                     'resource' => (string)($definition['resource'] ?? ''),
                     'public' => (bool)($definition['public'] ?? true),
+                    'requires_setting' => (bool)($definition['requires_setting'] ?? true),
                 ];
             })
             ->filter(fn(array $definition): bool => $definition['resource'] !== '');
@@ -50,13 +54,17 @@ class IntegrationProvisioningService
 
     public function ensureSettingForApp(App $app): App
     {
+        if (!$this->requiresSetting($app->name)) {
+            return $app;
+        }
+
         $resourceClass = (string)$app->resource_name;
-        if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+        if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
             return $app;
         }
 
         $settingModelClass = $resourceClass::getModel();
-        if (!is_string($settingModelClass) || !class_exists($settingModelClass)) {
+        if (!is_string($settingModelClass) || !App::classAvailable($settingModelClass)) {
             return $app;
         }
 
@@ -123,12 +131,16 @@ class IntegrationProvisioningService
 
         foreach ($apps as $app) {
             $resourceClass = (string)$app->resource_name;
-            if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+            if (!$this->requiresSetting($app->name)) {
+                continue;
+            }
+
+            if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
                 continue;
             }
 
             $modelClass = $resourceClass::getModel();
-            if (!is_string($modelClass) || !class_exists($modelClass)) {
+            if (!is_string($modelClass) || !App::classAvailable($modelClass)) {
                 continue;
             }
 
@@ -181,12 +193,12 @@ class IntegrationProvisioningService
         }
 
         foreach ($this->resourceClassesForCleanup() as $resourceClass) {
-            if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+            if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
                 continue;
             }
 
             $modelClass = $resourceClass::getModel();
-            if (!is_string($modelClass) || !class_exists($modelClass)) {
+            if (!is_string($modelClass) || !App::classAvailable($modelClass)) {
                 continue;
             }
 
@@ -248,17 +260,21 @@ class IntegrationProvisioningService
 
     private function resolveAppSetting(App $app): ?Model
     {
+        if (!$this->requiresSetting($app->name)) {
+            return null;
+        }
+
         if (!$app->setting_id) {
             return null;
         }
 
         $resourceClass = (string)$app->resource_name;
-        if (!class_exists($resourceClass) || !method_exists($resourceClass, 'getModel')) {
+        if (!App::classAvailable($resourceClass) || !method_exists($resourceClass, 'getModel')) {
             return null;
         }
 
         $settingModelClass = $resourceClass::getModel();
-        if (!is_string($settingModelClass) || !class_exists($settingModelClass)) {
+        if (!is_string($settingModelClass) || !App::classAvailable($settingModelClass)) {
             return null;
         }
 
@@ -268,19 +284,28 @@ class IntegrationProvisioningService
     private function resourceClassesForCleanup(): Collection
     {
         $definedResources = $this->definitions()
+            ->filter(fn(array $definition): bool => (bool)($definition['requires_setting'] ?? true))
             ->pluck('resource')
             ->filter()
             ->values();
 
         $appsResources = App::query()
             ->whereNotNull('resource_name')
-            ->distinct()
-            ->pluck('resource_name');
+            ->get(['name', 'resource_name'])
+            ->filter(fn(App $app): bool => $this->requiresSetting((string)$app->name))
+            ->pluck('resource_name')
+            ->unique()
+            ->values();
 
         return $definedResources
             ->merge($appsResources)
             ->filter(fn($resource): bool => is_string($resource) && $resource !== '')
             ->unique()
             ->values();
+    }
+
+    private function requiresSetting(string $name): bool
+    {
+        return (bool)config("integrations.definitions.{$name}.requires_setting", true);
     }
 }

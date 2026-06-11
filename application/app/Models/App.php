@@ -8,6 +8,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class App extends Model
 {
@@ -40,18 +41,71 @@ class App extends Model
 
     public static function definitionNames(?bool $public = null): array
     {
-        return collect(config('integrations.definitions', []))
-            ->filter(
-                fn(array $definition): bool => $public === null
-                    || (bool)($definition['public'] ?? true) === $public
-            )
+        return self::definitions($public)
             ->keys()
             ->values()
             ->all();
     }
 
+    public static function definitions(?bool $public = null): Collection
+    {
+        return collect(config('integrations.definitions', []))
+            ->filter(
+                fn(array $definition, string $name): bool => self::definitionAvailable($name, $definition)
+                    && (
+                        $public === null
+                        || (bool)($definition['public'] ?? true) === $public
+                    )
+            );
+    }
+
+    private static function definitionAvailable(string $name, array $definition): bool
+    {
+        $resource = (string)($definition['resource'] ?? '');
+
+        if ($name === 'workflows' && !self::classAvailable(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
+            return false;
+        }
+
+        if (!self::classAvailable($resource)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function classAvailable(?string $class): bool
+    {
+        if (!is_string($class) || $class === '') {
+            return false;
+        }
+
+        if (class_exists($class, false)) {
+            return true;
+        }
+
+        if (str_starts_with($class, 'App\\')) {
+            $path = app_path(str_replace('\\', '/', substr($class, 4)) . '.php');
+
+            if (!is_file($path)) {
+                return false;
+            }
+        }
+
+        try {
+            return class_exists($class);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public static function getTooltipText(string $appName): string
     {
+        $description = config("integrations.definitions.{$appName}.description");
+        if (is_string($description) && $description !== '') {
+            return $description;
+        }
+
         return match ($appName) {
             'alfacrm' => 'Синхронизируйте клиентов и их посещения между amoCRM и АльфаСРМ',
             'distribution' => 'Гибко настройте распределение сделок между менеджерами',
@@ -63,6 +117,24 @@ class App extends Model
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
             default => '',
         };
+    }
+
+    public static function getTitle(string $appName, ?string $resourceClass = null): string
+    {
+        $title = config("integrations.definitions.{$appName}.title");
+        if (is_string($title) && $title !== '') {
+            return $title;
+        }
+
+        if (
+            is_string($resourceClass)
+            && self::classAvailable($resourceClass)
+            && method_exists($resourceClass, 'getRecordTitle')
+        ) {
+            return (string)$resourceClass::getRecordTitle();
+        }
+
+        return $appName;
     }
 
     public function getStatusLabel(): string

@@ -6,7 +6,9 @@ use App\Models\Core\Account;
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use Ufee\Amo\Base\Models\QueryModel;
@@ -15,12 +17,21 @@ use Ufee\Amo\Oauthapi;
 class Client
 {
     public Oauthapi $service;
+
     public EloquentStorage $storage;
+
     public Account $account;
+
     public User $user;
 
     public bool $auth = false;
+
     public bool $logs = false;
+
+    /**
+     * @var array<int, array<string, mixed>>
+     */
+    private array $capturedQueries = [];
 
     /**
      * @throws Exception
@@ -31,21 +42,21 @@ class Client
         $this->user = $account->user;
 
         $this->storage = new EloquentStorage([
-            'domain'    => $account->subdomain ?? null,
+            'domain' => $account->subdomain ?? null,
             'client_id' => $account->client_id ?? null,
             'client_secret' => $account->client_secret ?? null,
-            'redirect_uri'  => $account->redirect_uri ?? null,
+            'redirect_uri' => $account->redirect_uri ?? null,
             'zone' => $account->zone ?? null,
         ], $account);
 
         Oauthapi::setOauthStorage($this->storage);
 
         $this->service = Oauthapi::setInstance([
-            'domain'        => $this->storage->model->subdomain,
-            'client_id'     => $this->storage->model->client_id,
+            'domain' => $this->storage->model->subdomain,
+            'client_id' => $this->storage->model->client_id,
             'client_secret' => $this->storage->model->client_secret,
-            'redirect_uri'  => $this->storage->model->redirect_uri,
-            'zone'          => $this->storage->model->zone,
+            'redirect_uri' => $this->storage->model->redirect_uri,
+            'zone' => $this->storage->model->zone,
         ]);
 
         $this->init();
@@ -58,7 +69,7 @@ class Client
         return $this;
     }
 
-    //проверка ключей первый раз
+    // проверка ключей первый раз
     public function checkAuth(): bool
     {
         if (!$this->storage->model->code ||
@@ -85,8 +96,6 @@ class Client
     }
 
     /**
-     *
-     *
      * @throws Exception
      */
     public function init(): Client
@@ -116,7 +125,42 @@ class Client
         return $this->ensureAccessToken(true);
     }
 
-    public function initCache(int $time = 3600) : Client
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    public function requestV4(string $method, string $path, array $payload = [], array $query = []): array
+    {
+        $this->ensureAccessToken();
+
+        $response = $this->sendV4Request($method, $path, $payload, $query);
+
+        if ($response->status() === 401) {
+            $this->refreshAccessToken();
+            $response = $this->sendV4Request($method, $path, $payload, $query);
+        }
+
+        if (!$response->successful()) {
+            throw new Exception(
+                sprintf(
+                    'amoCRM API v4 error: %s %s returned %d: %s',
+                    strtoupper($method),
+                    $path,
+                    $response->status(),
+                    $response->body(),
+                )
+            );
+        }
+
+        if ($response->status() === 204 || $response->body() === '') {
+            return [];
+        }
+
+        return $response->json() ?? [];
+    }
+
+    public function initCache(int $time = 3600): Client
     {
         return $this;
 
@@ -133,57 +177,129 @@ class Client
 
         return $this;
 
-        if (!$debug) return $this;
+        if (!$debug) {
+            return $this;
+        }
 
-        $this->service->queries->onResponseCode(429, function(QueryModel $query) {
+        $this->service->queries->onResponseCode(429, function (QueryModel $query) {
 
             $this->user->amocrm_logs()->create([
                 'code' => 429,
-                'url'  => static::trimUrl($query->getUrl()),
-                'method'  => $query->method,
+                'url' => static::trimUrl($query->getUrl()),
+                'method' => $query->method,
                 'details' => json_encode($query->toArray()),
             ]);
         });
 
         $this->service->queries->listen(
         /**
-         * @param QueryModel $query
          * @return void
          */
-        function(QueryModel $query) {
+            function (QueryModel $query) {
+                $log = $this->user
+                    ->amocrm_logs()
+                    ->create([
+                        'code' => $query->response->getCode(),
+                        'url' => $query->toArray()['url'] ?? '',
+                        'start' => $query->startDate(),
+                        'end' => $query->endDate(),
+                        'method' => $query->method,
+                        'details' => json_encode($query->toArray()),
 
-            $log =  $this->user
-                ->amocrm_logs()
-                ->create([
-                    'code'  => $query->response->getCode(),
-                    'url'   => $query->toArray()['url'] ?? '',
-                    'start' => $query->startDate(),
-                    'end'   => $query->endDate(),
-                    'method'  => $query->method,
-                    'details' => json_encode($query->toArray()),
+                        'args' => json_encode($query->toArray()['args']) ?? null,
+                        'body' => json_encode($query->toArray()['post_data']) ?? null,
+                        'retries' => $query->toArray()['retries'] ?? null,
+                        'memory_usage' => $query->toArray()['memory_usage'] ?? null,
+                        'execution_time' => $query->toArray()['execution_time'] ?? null,
+                    ]);
 
-                    'args' => json_encode($query->toArray()['args']) ?? null,
-                    'body' => json_encode($query->toArray()['post_data']) ?? null,
-                    'retries' => $query->toArray()['retries'] ?? null,
-                    'memory_usage' => $query->toArray()['memory_usage'] ?? null,
-                    'execution_time' => $query->toArray()['execution_time'] ?? null,
-                ]);
+                if ($query->response->getCode() === 0) {
+                    $log->error = $query->response->getError();
+                } else {
+                    $log->data = strlen($query->response->getData() > 1) ? $query->response->getData() : [];
+                }
 
-            if ($query->response->getCode() === 0) {
+                $log->save();
+            }
+        );
 
-                $log->error = $query->response->getError();
-            } else
-                $log->data = strlen($query->response->getData() > 1) ? $query->response->getData() : [];
+        return $this;
+    }
 
-            $log->save();
+    public function startWorkflowQueryCapture(): static
+    {
+        $this->capturedQueries = [];
+
+        $this->service->queries->listen(function (QueryModel $query): void {
+            $queryData = $query->toArray();
+            $responseData = $query->response->getData();
+            $responseBody = $responseData;
+
+            if (is_string($responseData)) {
+                $decodedResponse = json_decode($responseData, true);
+                $responseBody = json_last_error() === JSON_ERROR_NONE ? $decodedResponse : $responseData;
+            }
+
+            $this->capturedQueries[] = [
+                'request' => [
+                    'method' => $query->method,
+                    'url' => static::trimUrl((string)($queryData['url'] ?? $query->getUrl())),
+                    'query' => $queryData['args'] ?? null,
+                    'body' => $queryData['post_data'] ?? null,
+                ],
+                'response' => [
+                    'code' => $query->response->getCode(),
+                    'body' => $responseBody,
+                    'error' => $query->response->getError(),
+                ],
+            ];
         });
 
         return $this;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getCapturedWorkflowQueries(): array
+    {
+        return $this->capturedQueries;
+    }
+
     private static function trimUrl(string $url): string
     {
-        return strlen($url) > 250 ? mb_strimwidth($url, 0, 200, "...") : $url;
+        return strlen($url) > 250 ? mb_strimwidth($url, 0, 200, '...') : $url;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $query
+     */
+    private function sendV4Request(string $method, string $path, array $payload, array $query): Response
+    {
+        $options = [];
+
+        if ($query !== []) {
+            $options['query'] = $query;
+        }
+
+        if ($payload !== []) {
+            $options['json'] = $payload;
+        }
+
+        return Http::acceptJson()
+            ->asJson()
+            ->withToken((string)$this->account->access_token)
+            ->timeout(20)
+            ->send(strtoupper($method), $this->amoCrmBaseUrl() . '/' . ltrim($path, '/'), $options);
+    }
+
+    private function amoCrmBaseUrl(): string
+    {
+        $zone = trim((string)($this->account->zone ?: 'ru'));
+        $domain = str_contains($zone, '.') ? $zone : 'amocrm.' . $zone;
+
+        return 'https://' . trim((string)$this->account->subdomain) . '.' . $domain;
     }
 
     /**
@@ -309,5 +425,4 @@ class Client
             ]);
         }
     }
-
 }

@@ -194,6 +194,41 @@ class RecordClientRelationTest extends TestCase
         $this->assertSame([$failed->id, $pending->id], $ids);
     }
 
+    public function test_prune_records_command_deletes_only_records_older_than_retention(): void
+    {
+        $oldRecord = Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $oldRecord->forceFill([
+            'created_at' => now()->subDays(6),
+            'updated_at' => now()->subDays(6),
+        ])->save();
+
+        $freshRecord = Record::query()->create([
+            'record_id' => 1002,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $freshRecord->forceFill([
+            'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
+        ])->save();
+
+        $this->artisan('yc:prune-records', ['--days' => 5, '--chunk' => 1])
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('yclients_records', ['id' => $oldRecord->id]);
+        $this->assertDatabaseHas('yclients_records', ['id' => $freshRecord->id]);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

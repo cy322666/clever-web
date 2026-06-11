@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\Core;
 
+use App\Filament\Resources\Core\AuthenticationLogResource\Pages\ListAuthenticationLogs;
 use Filament\Forms\Components\DatePicker;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -13,12 +16,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use Tapp\FilamentAuthenticationLog\FilamentAuthenticationLogPlugin;
-use Tapp\FilamentAuthenticationLog\Resources\AuthenticationLogResource as BaseAuthenticationLogResource;
+use Rappasoft\LaravelAuthenticationLog\Models\AuthenticationLog;
 
-class AuthenticationLogResource extends BaseAuthenticationLogResource
+class AuthenticationLogResource extends Resource
 {
+    protected static ?string $model = AuthenticationLog::class;
+
     protected static ?string $slug = 'authentication-logs';
+
+    protected static bool $shouldRegisterNavigation = false;
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->schema([]);
+    }
 
     public static function table(Table $table): Table
     {
@@ -30,8 +41,12 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
             )
             ->columns([
                 TextColumn::make('authenticatable')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.authenticatable'))
+                    ->label('Пользователь')
                     ->formatStateUsing(function (?string $state, Model $record) {
+                        if (!$record->authenticatable_id || !$record->authenticatable) {
+                            return new HtmlString('&mdash;');
+                        }
+
                         $authenticatableFieldToDisplay = config(
                             'filament-authentication-log.authenticatable.field-to-display'
                         );
@@ -39,13 +54,8 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
                             ? $record->authenticatable->{$authenticatableFieldToDisplay}
                             : class_basename($record->authenticatable::class);
 
-                        if (!$record->authenticatable_id) {
-                            return new HtmlString('&mdash;');
-                        }
-
                         $authenticableEditRoute = '#';
-                        $routeName = 'filament.' . FilamentAuthenticationLogPlugin::get()->getPanelName() .
-                            '.resources.' . Str::plural(
+                        $routeName = 'filament.app.resources.' . Str::plural(
                                 Str::lower(class_basename($record->authenticatable::class))
                             ) . '.edit';
 
@@ -64,12 +74,12 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
                     ->sortable(['authenticatable_id']),
 
                 TextColumn::make('ip_address')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.ip_address'))
+                    ->label('IP-адрес')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('user_agent')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.user_agent'))
+                    ->label('Устройство')
                     ->searchable()
                     ->sortable()
                     ->limit(50)
@@ -83,22 +93,22 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
                     }),
 
                 TextColumn::make('login_at')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.login_at'))
+                    ->label('Время входа')
                     ->dateTime()
                     ->sortable(),
 
                 IconColumn::make('login_successful')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.login_successful'))
+                    ->label('Успешный вход')
                     ->boolean()
                     ->sortable(),
 
                 TextColumn::make('logout_at')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.logout_at'))
+                    ->label('Время выхода')
                     ->dateTime()
                     ->sortable(),
 
                 IconColumn::make('cleared_by_user')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.cleared_by_user'))
+                    ->label('Сброшено пользователем')
                     ->boolean()
                     ->sortable(),
             ])
@@ -136,5 +146,28 @@ class AuthenticationLogResource extends BaseAuthenticationLogResource
                     ->toggle()
                     ->query(fn(Builder $query): Builder => $query->where('cleared_by_user', true)),
             ]);
+    }
+
+    protected static function getCustomUserRoute(Model $record): string
+    {
+        $userResource = config('filament-authentication-log.user-resource');
+
+        if (
+            is_string($userResource)
+            && method_exists($userResource, 'getUrl')
+            && method_exists($userResource, 'hasPage')
+            && $userResource::hasPage('edit')
+        ) {
+            return $userResource::getUrl('edit', ['record' => $record->authenticatable_id]);
+        }
+
+        return '#';
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListAuthenticationLogs::route('/'),
+        ];
     }
 }

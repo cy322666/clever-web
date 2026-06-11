@@ -20,6 +20,8 @@ use Throwable;
 
 class AppsRelationManager extends RelationManager
 {
+    protected static bool $isLazy = false;
+
     protected static string $relationship = 'apps';
 
     protected static ?string $title = 'Виджеты';
@@ -33,7 +35,6 @@ class AppsRelationManager extends RelationManager
 
         return $this->getOwnerRecord()
             ->apps()
-            ->whereIn('name', App::definitionNames())
             ->where('status', '!=', App::STATE_CREATED)
             ->orderByRaw(
                 <<<'SQL'
@@ -73,8 +74,7 @@ SQL,
                 Tables\Columns\TextColumn::make('name')
                     ->label('Название')
                     ->state(function ($record) {
-
-                        return $record->resource_name::getRecordTitle($record);
+                        return App::getTitle((string)$record->name, $record->resource_name);
                     })
                     ->searchable(),
 
@@ -120,8 +120,9 @@ SQL,
                 ActionGroup::make([
                     Action::make('view')
                         ->label('Настроить')
+                        ->visible(fn(Model $record): bool => self::canOpenIntegration($record))
                         ->url(function (Model $record) {
-                            return $record->resource_name::getUrl('edit', ['record' => $record->setting_id]);
+                            return route('integrations.open', ['app' => $record->id]);
                         }),
                     Action::make('extend')
                         ->label('Продлить')
@@ -232,14 +233,28 @@ SQL,
     private function appTitle(App $app): string
     {
         try {
-            if (is_string($app->resource_name) && class_exists($app->resource_name)) {
-                return (string)$app->resource_name::getRecordTitle($app);
-            }
+            return App::getTitle((string)$app->name, $app->resource_name);
         } catch (Throwable) {
             // fallback ниже
         }
 
         return (string)($app->name ?: ('App #' . $app->id));
+    }
+
+    private static function canOpenIntegration(Model $record): bool
+    {
+        if (!$record instanceof App) {
+            return false;
+        }
+
+        $definition = config("integrations.definitions.{$record->name}");
+        if (!is_array($definition)) {
+            return false;
+        }
+
+        $resourceClass = (string)($definition['resource'] ?? $record->resource_name);
+
+        return App::classAvailable($resourceClass);
     }
 
     private static function effectiveStatus(App $app): int

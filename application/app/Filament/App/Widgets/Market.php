@@ -3,6 +3,7 @@
 namespace App\Filament\App\Widgets;
 
 use App\Models\App;
+use App\Services\Integrations\IntegrationProvisioningService;
 use Carbon\Carbon;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
@@ -13,11 +14,17 @@ use Filament\Tables\Table;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class Market extends TableWidget
 {
     use InteractsWithPageFilters;
+
+    protected static bool $isLazy = false;
+
+    private bool $catalogSynced = false;
 
     public function table(Table $table): Table
     {
@@ -30,7 +37,7 @@ class Market extends TableWidget
                             ->label('Название')
                             ->weight(FontWeight::Bold)
                             ->size(TextSize::Medium)
-                            ->tooltip(fn(?App $app) => App::getTooltipText($app->name))
+                            ->tooltip(fn(?App $app) => $app ? App::getTooltipText($app->name) : null)
                             ->limit(28)
                             ->state(fn(?App $app) => self::safeRecordTitle($app)),
 
@@ -80,6 +87,8 @@ class Market extends TableWidget
 
     protected function getFilteredQuery(): Builder
     {
+        $this->syncCatalog();
+
         $query = App::query()
             ->where('user_id', auth()->id());
 
@@ -107,6 +116,29 @@ class Market extends TableWidget
         }
 
         return $query->orderBy('name');
+    }
+
+    private function syncCatalog(): void
+    {
+        if ($this->catalogSynced) {
+            return;
+        }
+
+        $this->catalogSynced = true;
+
+        $user = auth()->user();
+        if (!$user) {
+            return;
+        }
+
+        try {
+            app(IntegrationProvisioningService::class)->syncCatalogForUser($user);
+        } catch (Throwable $exception) {
+            Log::warning('Failed to sync integration catalog before rendering market.', [
+                'user_id' => $user->id,
+                'exception' => $exception,
+            ]);
+        }
     }
 
     private function matchedAppNamesByMeta(string $search): array
@@ -178,11 +210,6 @@ class Market extends TableWidget
             return '';
         }
 
-        $resourceClass = (string)$app->resource_name;
-        if (class_exists($resourceClass) && method_exists($resourceClass, 'getRecordTitle')) {
-            return (string)$resourceClass::getRecordTitle();
-        }
-
-        return (string)$app->name;
+        return App::getTitle((string)$app->name, $app->resource_name);
     }
 }

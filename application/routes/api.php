@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CallTranscriptionController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
+use App\Http\Controllers\Api\WorkflowWebhookController;
 use App\Http\Controllers\Api\YClientsController;
 use Illuminate\Support\Facades\Route;
 
@@ -81,6 +82,8 @@ Route::group(['prefix' => 'amocrm'], function () {
     //переход по кнопке с виджета в амо
     Route::get('widget', [AuthController::class, 'widget'])
         ->middleware('throttle:10,1');
-});
 
-//Route::get('docs/yandex/redirect', [DocsController::class, 'redirect'])->name('doc.redirect');
+    Route::post('workflows/hook/{account}/{signature}', [WorkflowWebhookController::class, 'amoCrm'])
+        ->middleware('throttle:120,1')
+        ->name('amocrm.workflows.hook');
+});

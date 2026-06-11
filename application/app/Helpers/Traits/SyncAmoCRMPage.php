@@ -2,7 +2,6 @@
 
 namespace App\Helpers\Traits;
 
-use App\Models\User;
 use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
 use Filament\Notifications\Notification;
@@ -56,26 +55,6 @@ trait SyncAmoCRMPage
             if (!$user || !$account) {
                 Notification::make()
                     ->title('Не удалось определить amoCRM аккаунт')
-                    ->danger()
-                    ->send();
-
-                return;
-            }
-
-            if ($this->shouldUseSharedAmoConnector($widget) && !$account->active) {
-                if ($this->hydrateWidgetAccountFromSharedConnector($user, $account)) {
-                    Notification::make()
-                        ->title('amoCRM подключена')
-                        ->body('Виджет amo-data использует общий коннектор платформы.')
-                        ->success()
-                        ->send();
-
-                    return;
-                }
-
-                Notification::make()
-                    ->title('Для amo-data нужен общий коннектор')
-                    ->body('Сначала подключите amoCRM в основном коннекторе платформы, затем вернитесь в amo-data.')
                     ->danger()
                     ->send();
 
@@ -188,19 +167,6 @@ trait SyncAmoCRMPage
 
     protected function resolveOauthClientId(string $widget, Account $account): string
     {
-        if ($this->shouldUseSharedAmoConnector($widget)) {
-            $globalClientId = (string)config('services.amocrm.client_id');
-
-            if ($globalClientId !== '') {
-                return $globalClientId;
-            }
-
-            $sharedAccount = $this->resolveSharedSourceAccount($account->user, $account);
-            if ((string)($sharedAccount?->client_id ?? '') !== '') {
-                return (string)$sharedAccount->client_id;
-            }
-        }
-
         $configWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
         if ($configWidgetClientId !== '') {
             return $configWidgetClientId;
@@ -211,69 +177,6 @@ trait SyncAmoCRMPage
         }
 
         return (string)config('services.amocrm.client_id');
-    }
-
-    protected function shouldUseSharedAmoConnector(string $widget): bool
-    {
-        return Account::normalizeWidget($widget) === 'amo-data';
-    }
-
-    protected function hydrateWidgetAccountFromSharedConnector($user, Account $widgetAccount): bool
-    {
-        $shared = $this->resolveSharedSourceAccount($user, $widgetAccount);
-        if (!$shared) {
-            return false;
-        }
-
-        $hasOauth = (string)($shared->access_token ?? '') !== ''
-            && (string)($shared->refresh_token ?? '') !== '';
-
-        if (!$shared->active || !$hasOauth) {
-            return false;
-        }
-
-        $widgetAccount->forceFill([
-            'code' => $shared->code,
-            'access_token' => $shared->access_token,
-            'refresh_token' => $shared->refresh_token,
-            'subdomain' => $shared->subdomain,
-            'zone' => $shared->zone,
-            'client_id' => $shared->client_id,
-            'client_secret' => $shared->client_secret,
-            'redirect_uri' => $shared->redirect_uri,
-            'token_type' => $shared->token_type,
-            'expires_in' => $shared->expires_in,
-            'referer' => $shared->referer,
-            'endpoint' => $shared->endpoint,
-            'state' => $shared->state,
-            'active' => true,
-        ])->save();
-
-        return true;
-    }
-
-    protected function resolveSharedSourceAccount(?User $user, ?Account $exclude = null): ?Account
-    {
-        if (!$user) {
-            return null;
-        }
-
-        $query = $user->accounts()
-            ->whereNotNull('client_id')
-            ->where('client_id', '<>', '')
-            ->whereNotNull('client_secret')
-            ->where('client_secret', '<>', '')
-            ->whereNotNull('redirect_uri')
-            ->where('redirect_uri', '<>', '')
-            ->orderByRaw("CASE WHEN widget = ? OR widget IS NULL THEN 0 ELSE 1 END", [Account::DEFAULT_WIDGET])
-            ->orderByDesc('active')
-            ->orderByDesc('id');
-
-        if ($exclude) {
-            $query->where('id', '<>', $exclude->id);
-        }
-
-        return $query->first();
     }
 
     protected function encodeOauthState(string $userUuid, string $widget): string

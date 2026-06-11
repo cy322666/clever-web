@@ -32,6 +32,7 @@ class Record extends Model
         'client_id',
         'created_user_id',
         'record_from',
+        'create_date',
         'visit_id',
         'visits',
         'datetime',

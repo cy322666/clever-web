@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\App\Pages\ApiRequests;
 use App\Filament\App\Pages\AppStats;
-use App\Filament\App\Pages\Backup;
 use App\Filament\Resources\Core\UserResource;
 use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
@@ -63,14 +62,6 @@ class ListUsers extends ListRecords
             $actions[] = Action::make('apps')
                 ->label('Приложения')
                 ->url(AppStats::getUrl())
-                ->openUrlInNewTab()
-                ->color(Color::Green);
-        }
-
-        if (config('features.panel_actions.backups', true)) {
-            $actions[] = Action::make('backups')
-                ->label('Бэкапы')
-                ->url(Backup::getUrl())
                 ->openUrlInNewTab()
                 ->color(Color::Green);
         }
