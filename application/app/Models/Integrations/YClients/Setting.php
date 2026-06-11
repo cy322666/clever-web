@@ -126,63 +126,6 @@ class Setting extends Model
         $customField->setValue($value);
     }
 
-    private static function amoFieldHasValue(Contact|Lead $entity, Field $field): bool
-    {
-        $customField = $entity->customFields->byId((int)$field->field_id);
-
-        if (!$customField) {
-            return false;
-        }
-
-        return self::filledAmoValue($customField->getValue());
-    }
-
-    private static function filledAmoValue(mixed $value): bool
-    {
-        if ($value === null) {
-            return false;
-        }
-
-        if (is_string($value)) {
-            return trim($value) !== '';
-        }
-
-        if (is_array($value)) {
-            return count(array_filter($value, fn($item) => self::filledAmoValue($item))) > 0;
-        }
-
-        return true;
-    }
-
-    private function leadAlreadyHasRecordIdentity(Lead $lead, array $mapping): bool
-    {
-        $hasServices = false;
-        $hasDateOrTime = false;
-
-        foreach ($mapping as $field) {
-            $fieldYc = $field['field_yc'] ?? null;
-
-            if (!in_array($fieldYc, ['services', 'record_datetime', 'record_date', 'record_time'], true)) {
-                continue;
-            }
-
-            $amoField = $this->amoField($field['field_amo'] ?? null, 'leads');
-
-            if (!$amoField || !self::amoFieldHasValue($lead, $amoField)) {
-                continue;
-            }
-
-            if ($fieldYc === 'services') {
-                $hasServices = true;
-                continue;
-            }
-
-            $hasDateOrTime = true;
-        }
-
-        return $hasServices && $hasDateOrTime;
-    }
-
     private static function mappingRows(mixed $mapping): array
     {
         if (blank($mapping)) {
@@ -496,15 +439,6 @@ class Setting extends Model
         $body = self::mappingRows($this->fields_lead);
 
         if (!$body) {
-            return $lead;
-        }
-
-        if ($this->leadAlreadyHasRecordIdentity($lead, $body)) {
-            self::debugLog('YClients lead field mapping skipped: lead already has services and date/time.', [
-                'setting_id' => $this->id,
-                'lead_id' => $lead->id,
-            ]);
-
             return $lead;
         }
 
