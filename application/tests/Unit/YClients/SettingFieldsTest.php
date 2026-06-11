@@ -32,7 +32,8 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Дата записи', $fields['record_date']);
         $this->assertSame('Время записи', $fields['record_time']);
         $this->assertSame('Источник записи', $fields['record_from']);
-        $this->assertSame('Кто записал', $fields['created_user_name']);
+        $this->assertSame('Дата создания', $fields['create_date']);
+        $this->assertSame('Кто создал', $fields['created_user_name']);
         $this->assertSame('Роль создателя', $fields['created_user_role_name']);
         $this->assertSame('Отдел создателя', $fields['created_user_department']);
         $this->assertSame('Филиал записи', $fields['company_id']);
@@ -69,6 +70,7 @@ class SettingFieldsTest extends TestCase
             'data' => (object)[
                 'created_user_id' => 4321,
                 'record_from' => 'CRM',
+                'create_date' => '2026-05-20 14:10:00',
             ],
         ]);
         $yc->method('getUserPermissions')->willReturn(
@@ -107,6 +109,7 @@ class SettingFieldsTest extends TestCase
             'record_id' => 777,
             'datetime' => '2026.05.20 15:00:00',
             'record_from' => 'CRM',
+            'create_date' => '2026-05-20 14:10:00',
             'created_user_id' => 4321,
             'staff_name' => 'Мастер',
             'title' => "\n   Консультация\n   Чистка",
@@ -120,6 +123,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('20.05.2026', $fields['record_date']);
         $this->assertSame('15:00', $fields['record_time']);
         $this->assertSame('CRM', $fields['record_from']);
+        $this->assertSame('20.05.2026 14:10', $fields['create_date']);
         $this->assertSame('Иванова Анна', $fields['created_user_name']);
         $this->assertSame('Сотрудник', $fields['created_user_role_name']);
         $this->assertSame('Администратор', $fields['created_user_department']);
@@ -298,6 +302,7 @@ class SettingFieldsTest extends TestCase
             'data' => (object)[
                 'created_user_id' => 0,
                 'record_from' => 'Партнёры: Mobile app new widget',
+                'create_date' => '2026-05-20 16:45:00',
             ],
         ]);
 
@@ -377,6 +382,7 @@ class SettingFieldsTest extends TestCase
             'data' => (object)[
                 'created_user_id' => 0,
                 'record_from' => 'Партнёры: Mobile app new widget',
+                'create_date' => '2026-05-20 16:45:00',
             ],
         ]);
 
@@ -394,6 +400,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Внешний источник', $fields['created_user_role_name']);
         $this->assertSame('Не сотрудник', $fields['created_user_department']);
         $this->assertSame('Партнёры: Mobile app new widget', $fields['record_from']);
+        $this->assertSame('20.05.2026 16:45', $fields['create_date']);
     }
 
     public function test_yc_get_fields_uses_fallback_when_record_from_is_empty(): void

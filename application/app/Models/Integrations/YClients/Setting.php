@@ -219,6 +219,19 @@ class Setting extends Model
         }
     }
 
+    private static function formattedDateTime(?string $datetime): ?string
+    {
+        if (empty($datetime)) {
+            return null;
+        }
+
+        try {
+            return self::recordDateTime($datetime)?->format('d.m.Y H:i');
+        } catch (\Throwable) {
+            return (string)$datetime;
+        }
+    }
+
     public static function YCfieldsSelect(): array
     {
         return [
@@ -236,7 +249,8 @@ class Setting extends Model
             'record_date' => self::humanFieldLabel('Дата записи'),
             'record_time' => self::humanFieldLabel('Время записи'),
             'record_from' => self::humanFieldLabel('Источник записи'),
-            'created_user_name' => self::humanFieldLabel('Кто записал'),
+            'create_date' => self::humanFieldLabel('Дата создания'),
+            'created_user_name' => self::humanFieldLabel('Кто создал'),
             'created_user_role_name' => self::humanFieldLabel('Роль создателя'),
             'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
@@ -266,6 +280,7 @@ class Setting extends Model
             'record_date',
             'record_time',
             'record_from',
+            'create_date',
             'created_user_name',
             'created_user_role_name',
             'created_user_department',
@@ -290,16 +305,20 @@ class Setting extends Model
         $recordYC = $client->getRecord($record->company_id, $record->record_id)?->data ?? null;
         $createdUserId = $record->created_user_id;
         $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
+        $createDate = $record->create_date ?: data_get($recordYC, 'create_date');
 
         if ($createdUserId === null || $createdUserId === '') {
             $createdUserId = data_get($recordYC, 'created_user_id');
         }
 
-        if (($record->record_from !== $recordFrom || (string)$record->created_user_id !== (string)$createdUserId)
+        if (($record->record_from !== $recordFrom
+                || (string)$record->created_user_id !== (string)$createdUserId
+                || (string)$record->create_date !== (string)$createDate)
             && $record->exists) {
             $record->forceFill([
                 'created_user_id' => $createdUserId,
                 'record_from' => $recordFrom,
+                'create_date' => $createDate,
             ])->save();
         }
 
@@ -323,6 +342,7 @@ class Setting extends Model
         $fields['record_date'] = $recordDateTime?->format('d.m.Y');
         $fields['record_time'] = $recordDateTime?->format('H:i');
         $fields['record_from'] = $recordFrom ?: 'Не указан';
+        $fields['create_date'] = self::formattedDateTime($createDate);
         $fields['created_user_name'] = null;
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
