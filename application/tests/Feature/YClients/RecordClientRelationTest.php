@@ -4,6 +4,7 @@ namespace Tests\Feature\YClients;
 
 use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Record;
+use App\Models\Integrations\YClients\ResponsibleMapping;
 use App\Models\Integrations\YClients\Setting;
 use App\Models\amoCRM\Staff;
 use Illuminate\Database\Schema\Blueprint;
@@ -207,14 +208,16 @@ class RecordClientRelationTest extends TestCase
 
         $setting = new Setting([
             'user_id' => 1,
-            'responsible_mappings' => [
-                [
-                    'company_id' => 10,
-                    'yc_user_id' => 4321,
-                    'yc_user_name' => 'Администратор YClients',
-                    'amo_user_id' => 9001,
-                ],
-            ],
+        ]);
+        $setting->id = 111;
+
+        ResponsibleMapping::query()->create([
+            'setting_id' => 111,
+            'company_id' => 10,
+            'yc_user_id' => 4321,
+            'yc_user_name' => 'Администратор YClients',
+            'amo_user_id' => 9001,
+            'active' => true,
         ]);
 
         $matchingRecord = new Record([
@@ -312,6 +315,17 @@ class RecordClientRelationTest extends TestCase
             $table->boolean('active')->default(true);
             $table->timestamps();
         });
+
+        Schema::create('yclients_responsible_mappings', function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedBigInteger('setting_id');
+            $table->string('company_id');
+            $table->string('yc_user_id');
+            $table->string('yc_user_name')->nullable();
+            $table->unsignedBigInteger('amo_user_id')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
@@ -319,6 +333,7 @@ class RecordClientRelationTest extends TestCase
         Schema::dropIfExists('yclients_records');
         Schema::dropIfExists('yclients_clients');
         Schema::dropIfExists('amocrm_staffs');
+        Schema::dropIfExists('yclients_responsible_mappings');
 
         parent::tearDown();
     }

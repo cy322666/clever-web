@@ -8,6 +8,7 @@ use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Client\ConnectionException;
 use RuntimeException;
 use Ufee\Amo\Models\Contact;
@@ -44,12 +45,10 @@ class Setting extends Model
         'account_id',
         'fields_contact',
         'fields_lead',
-        'responsible_mappings',
     ];
 
     protected $casts = [
         'pipelines' => 'array',
-        'responsible_mappings' => 'array',
     ];
 
     private static function fieldLabel(string $title, string $key, ?string $description = null): string
@@ -154,14 +153,12 @@ class Setting extends Model
 
     public function responsibleUserIdForRecord(Record $record): ?int
     {
-        $mapping = collect(is_array($this->responsible_mappings) ? $this->responsible_mappings : [])
-            ->first(function ($row) use ($record): bool {
-                return is_array($row)
-                    && (string)($row['company_id'] ?? '') === (string)$record->company_id
-                    && (string)($row['yc_user_id'] ?? '') === (string)$record->created_user_id;
-            });
-
-        $amoUserId = (int)($mapping['amo_user_id'] ?? 0);
+        $amoUserId = (int)ResponsibleMapping::query()
+            ->where('setting_id', $this->id)
+            ->where('company_id', (string)$record->company_id)
+            ->where('yc_user_id', (string)$record->created_user_id)
+            ->where('active', true)
+            ->value('amo_user_id');
 
         if ($amoUserId <= 0) {
             return null;
@@ -174,6 +171,11 @@ class Setting extends Model
             ->exists()
             ? $amoUserId
             : null;
+    }
+
+    public function responsibleMappings(): HasMany
+    {
+        return $this->hasMany(ResponsibleMapping::class, 'setting_id');
     }
 
     private static function recordDateTime(?string $datetime): ?\Carbon\Carbon

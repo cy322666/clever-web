@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Integrations\YClients\Schemas;
 
 use App\Models\amoCRM\Field;
-use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\YClients\Setting;
 use App\Support\Integrations\PricingView;
@@ -150,42 +149,6 @@ class YClientsForm
                                     ->addActionLabel('+ Добавить')
                             ]),
 
-                        Fieldset::make('Ответственный по создателю записи')
-                            ->schema([
-                                Repeater::make('responsible_mappings')
-                                    ->label('Соответствие пользователей YClients и amoCRM')
-                                    ->helperText(
-                                        'Ответственный назначается при создании новой сделки и найденной свободной активной сделке. Уже привязанная к записи сделка не переназначается.'
-                                    )
-                                    ->schema([
-                                        TextInput::make('company_id')
-                                            ->label('ID филиала YClients')
-                                            ->required(),
-
-                                        TextInput::make('yc_user_id')
-                                            ->label('ID пользователя YClients, который создал запись')
-                                            ->required(),
-
-                                        TextInput::make('yc_user_name')
-                                            ->label('Имя пользователя YClients')
-                                            ->helperText('Только для понятного отображения настройки.'),
-
-                                        Select::make('amo_user_id')
-                                            ->label('Ответственный amoCRM')
-                                            ->options(
-                                                fn() => Staff::getWithUser()
-                                                    ->orderBy('name')
-                                                    ->pluck('name', 'staff_id')
-                                            )
-                                            ->searchable()
-                                            ->required(),
-                                    ])
-                                    ->columns(2)
-                                    ->defaultItems(0)
-                                    ->reorderable(false)
-                                    ->reorderableWithDragAndDrop(false)
-                                    ->addActionLabel('+ Добавить соответствие'),
-                            ]),
                     ])
                     ->columnSpan(2),
 
