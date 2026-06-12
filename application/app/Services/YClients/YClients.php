@@ -7,6 +7,7 @@ use App\Models\Integrations\YClients\Setting;
 use App\Models\Integrations\YClients\YClients as YC;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 class YClients
 {
@@ -45,9 +46,7 @@ class YClients
      */
     public function getClient(string $companyId, string $clientId): ?object
     {
-        return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/client/'.$companyId.'/'.$clientId)
-            ->object();
+        return $this->get('client/' . $companyId . '/' . $clientId);
     }
 
     /**
@@ -55,9 +54,7 @@ class YClients
      */
     public function getRecord(string $companyId, string $recordId): ?object
     {
-        return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/record/' . $companyId . '/' . $recordId)
-            ->object();
+        return $this->get('record/' . $companyId . '/' . $recordId);
     }
 
     /**
@@ -65,9 +62,7 @@ class YClients
      */
     public function getUserPermissions(string $companyId, string $userId): ?object
     {
-        return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/users/' . $userId . '/permissions')
-            ->object();
+        return $this->get('company/' . $companyId . '/users/' . $userId . '/permissions');
     }
 
     /**
@@ -75,9 +70,7 @@ class YClients
      */
     public function getUserRoles(string $companyId, string $userId): ?object
     {
-        return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/users/' . $userId . '/roles')
-            ->object();
+        return $this->get('company/' . $companyId . '/users/' . $userId . '/roles');
     }
 
     /**
@@ -85,9 +78,7 @@ class YClients
      */
     public function getStaff(string $companyId, string $staffId): ?object
     {
-        return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/staff/' . $staffId)
-            ->object();
+        return $this->get('company/' . $companyId . '/staff/' . $staffId);
     }
 
     /**
@@ -95,9 +86,7 @@ class YClients
      */
     public function findStaffByUserId(string $companyId, string $userId): ?object
     {
-        $response = Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/staff')
-            ->object();
+        $response = $this->get('company/' . $companyId . '/staff');
 
         $staff = collect(data_get($response, 'data', []))
             ->first(function ($item) use ($userId) {
@@ -113,9 +102,7 @@ class YClients
      */
     public function findCompanyUserById(string $companyId, string $userId): ?object
     {
-        $response = Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/users')
-            ->object();
+        $response = $this->get('company/' . $companyId . '/users');
 
         $user = collect(data_get($response, 'data', []))
             ->first(fn($item) => (string)data_get($item, 'id') === (string)$userId);
@@ -128,9 +115,7 @@ class YClients
      */
     public function getStaffPositions(string $companyId): ?object
     {
-        return Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/company/' . $companyId . '/staff/positions')
-            ->object();
+        return $this->get('company/' . $companyId . '/staff/positions');
     }
 
     /**
@@ -161,14 +146,30 @@ class YClients
     }
 
     /**
+     * Retry transient network failures before marking the YClients record failed.
+     *
+     * @throws ConnectionException
+     */
+    private function get(string $path): ?object
+    {
+        return Http::withHeaders($this->getHeaders())
+            ->connectTimeout(10)
+            ->timeout(30)
+            ->retry(
+                [500, 1000, 2000, 4000],
+                0,
+                fn(Throwable $exception): bool => $exception instanceof ConnectionException
+            )
+            ->get('https://api.yclients.com/api/v1/' . ltrim($path, '/'))
+            ->object();
+    }
+
+    /**
      * @throws ConnectionException
      */
     public function getBranchTitle(string $companyId): ?string
     {
-        $companies = Http::withHeaders($this->getHeaders())
-            ->get('https://api.yclients.com/api/v1/companies?my=1');
-
-        $branches = $companies->json('data') ?? [];
+        $branches = data_get($this->get('companies?my=1'), 'data', []);
 
         if (!is_iterable($branches)) {
             return null;

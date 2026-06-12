@@ -41,7 +41,8 @@ class SendRecord extends Command
     {
         $recordId = $this->argument('record_id');
 
-        return Cache::lock('yclients:send-record:' . $recordId, 120)
+        return Cache::store(config('cache.yclients_lock_store', 'database'))
+            ->lock('yclients:send-record:' . $recordId, 120)
             ->block(60, fn () => $this->handleLocked());
     }
 
