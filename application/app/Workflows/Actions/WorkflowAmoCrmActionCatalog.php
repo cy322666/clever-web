@@ -8,6 +8,7 @@ use App\Models\amoCRM\Field as AmoCrmField;
 use App\Models\amoCRM\Staff as AmoCrmStaff;
 use App\Models\amoCRM\Status as AmoCrmStatus;
 use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
+use App\Services\Workflows\WorkflowAmoCrmSalesBotService;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Hidden;
@@ -1163,7 +1164,15 @@ class AmoCrmStartSalesBotAction extends WorkflowAmoCrmAction
     {
         return [
             Section::make('SalesBot')->schema([
-                VariableTextInput::make('bot_id')->label('ID бота')->required(),
+                Select::make('bot_id')
+                    ->label('SalesBot')
+                    ->options(fn(): array => app(WorkflowAmoCrmSalesBotService::class)->options())
+                    ->searchable()
+                    ->preload()
+                    ->native(false)
+                    ->placeholder('Выберите SalesBot')
+                    ->noSearchResultsMessage('SalesBot не найден')
+                    ->required(),
             ]),
             static::delaySection(),
         ];
