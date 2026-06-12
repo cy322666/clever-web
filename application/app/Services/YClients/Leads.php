@@ -55,7 +55,12 @@ abstract class Leads
         return null;
     }
 
-    public static function create($contact, object $objectStatus, Record $record): Lead
+    public static function create(
+        $contact,
+        object $objectStatus,
+        Record $record,
+        ?int $responsibleUserId = null
+    ): Lead
     {
         $statusId = (int)($objectStatus->status_id ?? 0);
         $pipelineId = (int)($objectStatus->pipeline_id ?? 0);
@@ -70,12 +75,22 @@ abstract class Leads
         $lead->sale = $record->cost;
         $lead->status_id = $statusId;
         $lead->pipeline_id = $pipelineId;
+
+        if ($responsibleUserId) {
+            $lead->responsible_user_id = $responsibleUserId;
+        }
+
         $lead->save();
 
         return $lead;
     }
 
-    public static function update(Lead $lead, object $objectStatus, Record $record): Lead
+    public static function update(
+        Lead $lead,
+        object $objectStatus,
+        Record $record,
+        ?int $responsibleUserId = null
+    ): Lead
     {
         $statusId = (int)($objectStatus->status_id ?? 0);
         $pipelineId = (int)($objectStatus->pipeline_id ?? 0);
@@ -88,7 +103,7 @@ abstract class Leads
         $maxAttempts = 5;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            self::fillLeadForUpdate($currentLead, $statusId, $pipelineId, $record);
+            self::fillLeadForUpdate($currentLead, $statusId, $pipelineId, $record, $responsibleUserId);
 
             try {
                 $currentLead->save();
@@ -121,11 +136,21 @@ abstract class Leads
         return $currentLead;
     }
 
-    private static function fillLeadForUpdate(Lead $lead, int $statusId, int $pipelineId, Record $record): void
+    private static function fillLeadForUpdate(
+        Lead $lead,
+        int $statusId,
+        int $pipelineId,
+        Record $record,
+        ?int $responsibleUserId = null
+    ): void
     {
         $lead->sale = $record->cost;
         $lead->status_id = $statusId;
         $lead->pipeline_id = $pipelineId;
+
+        if ($responsibleUserId) {
+            $lead->responsible_user_id = $responsibleUserId;
+        }
     }
 
     private static function isAmoLastModifiedConflict(Throwable $exception): bool

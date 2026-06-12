@@ -5,6 +5,7 @@ namespace App\Models\Integrations\YClients;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Field;
+use App\Models\amoCRM\Staff;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\ConnectionException;
@@ -43,10 +44,12 @@ class Setting extends Model
         'account_id',
         'fields_contact',
         'fields_lead',
+        'responsible_mappings',
     ];
 
     protected $casts = [
         'pipelines' => 'array',
+        'responsible_mappings' => 'array',
     ];
 
     private static function fieldLabel(string $title, string $key, ?string $description = null): string
@@ -147,6 +150,30 @@ class Setting extends Model
                     && (!blank($row['field_yc'] ?? null) || !blank($row['field_amo'] ?? null))
             )
         );
+    }
+
+    public function responsibleUserIdForRecord(Record $record): ?int
+    {
+        $mapping = collect(is_array($this->responsible_mappings) ? $this->responsible_mappings : [])
+            ->first(function ($row) use ($record): bool {
+                return is_array($row)
+                    && (string)($row['company_id'] ?? '') === (string)$record->company_id
+                    && (string)($row['yc_user_id'] ?? '') === (string)$record->created_user_id;
+            });
+
+        $amoUserId = (int)($mapping['amo_user_id'] ?? 0);
+
+        if ($amoUserId <= 0) {
+            return null;
+        }
+
+        return Staff::query()
+            ->where('user_id', $this->user_id)
+            ->where('staff_id', $amoUserId)
+            ->where('active', true)
+            ->exists()
+            ? $amoUserId
+            : null;
     }
 
     private static function recordDateTime(?string $datetime): ?\Carbon\Carbon

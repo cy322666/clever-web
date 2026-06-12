@@ -4,6 +4,8 @@ namespace Tests\Feature\YClients;
 
 use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Record;
+use App\Models\Integrations\YClients\Setting;
+use App\Models\amoCRM\Staff;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -194,6 +196,40 @@ class RecordClientRelationTest extends TestCase
         $this->assertSame([$failed->id, $pending->id], $ids);
     }
 
+    public function test_setting_resolves_active_amo_responsible_by_branch_and_created_user(): void
+    {
+        Staff::query()->create([
+            'user_id' => 1,
+            'staff_id' => 9001,
+            'name' => 'Менеджер amoCRM',
+            'active' => true,
+        ]);
+
+        $setting = new Setting([
+            'user_id' => 1,
+            'responsible_mappings' => [
+                [
+                    'company_id' => 10,
+                    'yc_user_id' => 4321,
+                    'yc_user_name' => 'Администратор YClients',
+                    'amo_user_id' => 9001,
+                ],
+            ],
+        ]);
+
+        $matchingRecord = new Record([
+            'company_id' => 10,
+            'created_user_id' => 4321,
+        ]);
+        $otherBranchRecord = new Record([
+            'company_id' => 99,
+            'created_user_id' => 4321,
+        ]);
+
+        $this->assertSame(9001, $setting->responsibleUserIdForRecord($matchingRecord));
+        $this->assertNull($setting->responsibleUserIdForRecord($otherBranchRecord));
+    }
+
     public function test_prune_records_command_deletes_only_records_older_than_retention(): void
     {
         $oldRecord = Record::query()->create([
@@ -267,12 +303,22 @@ class RecordClientRelationTest extends TestCase
             $table->text('error_message')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('amocrm_staffs', function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('staff_id');
+            $table->string('name')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
     {
         Schema::dropIfExists('yclients_records');
         Schema::dropIfExists('yclients_clients');
+        Schema::dropIfExists('amocrm_staffs');
 
         parent::tearDown();
     }
