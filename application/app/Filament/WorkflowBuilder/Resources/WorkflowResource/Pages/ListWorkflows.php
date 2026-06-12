@@ -3,6 +3,7 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
+use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -19,6 +20,12 @@ class ListWorkflows extends BaseListWorkflows
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('workflow_runs')
+                ->label('Исполнения')
+                ->icon('heroicon-o-play-circle')
+                ->color('gray')
+                ->url(WorkflowRunResource::getUrl()),
+
             ActionGroup::make([
                 Action::make('check_amocrm_webhooks')
                     ->label('Проверить')
