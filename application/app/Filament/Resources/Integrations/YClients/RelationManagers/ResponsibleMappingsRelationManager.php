@@ -47,8 +47,7 @@ class ResponsibleMappingsRelationManager extends RelationManager
                     ]),
 
                 Tables\Columns\ToggleColumn::make('active')
-                    ->label('Активно')
-                    ->boolean(),
+                    ->label('Активно'),
             ])
             ->defaultSort('amo_user_id')
             ->headerActions([
