@@ -13,6 +13,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -88,20 +89,30 @@ class WorkflowRunResource extends Resource
                     ->weight(FontWeight::Bold)
                     ->searchable()
                     ->sortable()
+                    ->limit(48)
+                    ->tooltip(fn(?string $state): ?string => $state)
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->url(fn(WorkflowRun $record): string => WorkflowResource::getUrl('edit', [
                         'record' => $record->workflow_id,
-                    ])),
+                    ]))
+                    ->openUrlInNewTab(),
 
                 TextColumn::make('trigger_description')
                     ->label('Триггер')
                     ->state(fn(WorkflowRun $record): string => static::triggerDescription($record))
                     ->icon(fn(WorkflowRun $record): ?string => $record->trigger_source?->getIcon())
                     ->color('gray')
-                    ->wrap(),
+                    ->limit(34)
+                    ->tooltip(fn(?string $state): ?string => $state)
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes()),
 
                 TextColumn::make('status')
                     ->label('Статус')
                     ->badge()
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->sortable(),
 
                 TextColumn::make('step_progress')
@@ -112,23 +123,29 @@ class WorkflowRunResource extends Resource
                         $record->steps_count,
                     ))
                     ->badge()
+                    ->inline()
                     ->color(fn(WorkflowRun $record): string => match ($record->status) {
                         RunStatus::COMPLETED => 'success',
                         RunStatus::FAILED => 'danger',
                         RunStatus::RUNNING => 'info',
                         default => 'gray',
                     })
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->alignCenter(),
 
                 TextColumn::make('started_at')
                     ->label('Запущен')
                     ->dateTime('d.m.Y H:i:s')
                     ->sortable()
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->placeholder('Ожидает запуска'),
 
                 TextColumn::make('duration')
                     ->label('Длительность')
                     ->state(fn(WorkflowRun $record): string => static::duration($record))
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->alignEnd(),
 
                 TextColumn::make('error_message')
@@ -137,6 +154,8 @@ class WorkflowRunResource extends Resource
                     ->tooltip(fn(?string $state): ?string => $state)
                     ->color('danger')
                     ->placeholder('—')
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->toggleable(),
 
                 TextColumn::make('ulid')
@@ -144,6 +163,8 @@ class WorkflowRunResource extends Resource
                     ->fontFamily('mono')
                     ->copyable()
                     ->searchable()
+                    ->inline()
+                    ->extraCellAttributes(static::compactCellAttributes())
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
@@ -166,11 +187,9 @@ class WorkflowRunResource extends Resource
                     ->options(TriggerType::class)
                     ->multiple(),
             ])
+            ->recordAction('view_steps')
             ->recordActions([
                 Action::make('view_steps')
-                    ->label('Посмотреть исполнение')
-                    ->icon('heroicon-o-list-bullet')
-                    ->color('gray')
                     ->modalHeading(fn(WorkflowRun $record): string => 'Исполнение процесса · ' . $record->ulid)
                     ->modalContent(fn(WorkflowRun $record) => view(
                         'filament-workflows::filament.partials.run-steps-modal',
@@ -179,15 +198,7 @@ class WorkflowRunResource extends Resource
                     ->modalWidth('5xl')
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Закрыть'),
-
-                Action::make('open_workflow')
-                    ->label('Открыть процесс')
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->color('gray')
-                    ->url(fn(WorkflowRun $record): string => WorkflowResource::getUrl('edit', [
-                        'record' => $record->workflow_id,
-                    ])),
-            ])
+            ], RecordActionsPosition::AfterContent)
             ->toolbarActions([])
             ->emptyStateIcon('heroicon-o-play-circle')
             ->emptyStateHeading('Исполнений пока нет')
@@ -241,6 +252,16 @@ class WorkflowRunResource extends Resource
         return $seconds < 60
             ? $seconds . ' сек.'
             : floor($seconds / 60) . ' мин. ' . ($seconds % 60) . ' сек.';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function compactCellAttributes(): array
+    {
+        return [
+            'style' => 'padding: 0.625rem 0.75rem; vertical-align: middle;',
+        ];
     }
 
     public static function getPages(): array

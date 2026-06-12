@@ -3,6 +3,7 @@
 namespace App\Filament\WorkflowBuilder\Resources;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\RelationManagers\WorkflowRunsRelationManager;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -154,6 +155,16 @@ class WorkflowResource extends BaseWorkflowResource
         return $workflowModel::query()
             ->whereKey($workflowId)
             ->value('name');
+    }
+
+    /**
+     * @return array<class-string>
+     */
+    public static function getRelations(): array
+    {
+        return [
+            WorkflowRunsRelationManager::class,
+        ];
     }
 
     /**
