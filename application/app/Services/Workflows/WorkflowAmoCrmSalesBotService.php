@@ -18,7 +18,7 @@ class WorkflowAmoCrmSalesBotService
      */
     public function options(): array
     {
-        $account = Auth::user()?->resolveAmoAccountForWidget(null, false);
+        $account = $this->resolveAccount();
 
         if (!$account instanceof Account) {
             return [];
@@ -41,9 +41,27 @@ class WorkflowAmoCrmSalesBotService
         }
     }
 
+    private function resolveAccount(): ?Account
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return null;
+        }
+
+        return Account::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->whereNotNull('subdomain')
+            ->whereNotNull('refresh_token')
+            ->orderByRaw("CASE WHEN widget = ? OR widget IS NULL THEN 0 ELSE 1 END", [Account::DEFAULT_WIDGET])
+            ->latest('id')
+            ->first();
+    }
+
     private function cacheKey(Account $account): string
     {
-        return 'workflow:amocrm:salesbots:' . $account->getKey();
+        return 'workflow:amocrm:salesbots:v3:' . $account->getKey();
     }
 
     /**
@@ -55,16 +73,19 @@ class WorkflowAmoCrmSalesBotService
             'limit' => 250,
         ]);
 
-        return collect(data_get($response, '_embedded.bots', []))
+        return collect(data_get($response, '_embedded.items', []))
             ->filter(fn(mixed $bot): bool => is_array($bot) && filled($bot['id'] ?? null))
-            ->sortBy([
-                fn(array $bot): int => ($bot['is_active'] ?? true) ? 0 : 1,
-                fn(array $bot): string => mb_strtolower((string)($bot['name'] ?? '')),
-            ])
+            ->sortBy(fn(array $bot): string => sprintf(
+                '%d:%s',
+                data_get($bot, 'settings.active', true) ? 0 : 1,
+                mb_strtolower((string)($bot['name'] ?? '')),
+            ))
             ->mapWithKeys(function (array $bot): array {
                 $id = (string)$bot['id'];
-                $name = filled($bot['name'] ?? null) ? (string)$bot['name'] : "SalesBot #{$id}";
-                $label = ($bot['is_active'] ?? true) ? $name : "{$name} · неактивен";
+                $name = filled($bot['name'] ?? null)
+                    ? html_entity_decode((string)$bot['name'], ENT_QUOTES | ENT_HTML5, 'UTF-8')
+                    : "SalesBot #{$id}";
+                $label = data_get($bot, 'settings.active', true) ? $name : "{$name} · неактивен";
 
                 return [$id => $label];
             })
