@@ -8,14 +8,12 @@ use App\Models\Integrations\YClients\ResponsibleMapping;
 use App\Models\Integrations\YClients\YClientsUser;
 use App\Services\YClients\YClients;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Renderless;
 use Throwable;
 
 class ResponsibleMappingsRelationManager extends RelationManager
@@ -41,15 +39,14 @@ class ResponsibleMappingsRelationManager extends RelationManager
                     )
                     ->placeholder('Пользователь amoCRM не найден'),
 
-                Tables\Columns\TextColumn::make('yc_users')
+                Tables\Columns\ViewColumn::make('yc_user_keys')
                     ->label('Пользователи YClients')
-                    ->state(
-                        fn(ResponsibleMapping $record): string => $this->selectedYClientsLabels($record)->implode(', ')
-                    )
-                    ->wrap()
-                    ->placeholder('Не выбраны'),
+                    ->view('filament.resources.integrations.yclients.columns.responsible-users-select')
+                    ->viewData(fn(): array => [
+                        'groupedOptions' => $this->yclientsUserOptions(),
+                    ]),
 
-                Tables\Columns\IconColumn::make('active')
+                Tables\Columns\ToggleColumn::make('active')
                     ->label('Активно')
                     ->boolean(),
             ])
@@ -60,29 +57,35 @@ class ResponsibleMappingsRelationManager extends RelationManager
                     ->icon('heroicon-o-arrow-path')
                     ->action(fn() => $this->syncUsers()),
             ])
-            ->recordActions([
-                EditAction::make()
-                    ->label('Настроить')
-                    ->form([
-                        Select::make('yc_user_keys')
-                            ->label('Пользователи YClients')
-                            ->options(fn() => $this->yclientsUserOptions())
-                            ->multiple()
-                            ->searchable()
-                            ->preload()
-                            ->helperText('Можно выбрать нескольких пользователей из разных филиалов.'),
-
-                        Toggle::make('active')
-                            ->label('Использовать соответствие')
-                            ->default(true),
-                    ])
-                    ->after(fn(ResponsibleMapping $record) => $record->removeSelectedUsersFromOtherMappings()),
-            ])
+            ->recordActions([])
             ->bulkActions([])
             ->paginated([20, 50, 100])
             ->emptyStateHeading('Пользователи amoCRM ещё не загружены')
             ->emptyStateDescription('Нажмите «Обновить пользователей».')
             ->emptyStateIcon('heroicon-o-user-group');
+    }
+
+    #[Renderless]
+    public function updateResponsibleMappingUsers(int|string $mappingId, array $ycUserKeys): void
+    {
+        $allowedKeys = YClientsUser::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->get()
+            ->map(fn(YClientsUser $user): string => $user->key());
+
+        $mapping = ResponsibleMapping::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->findOrFail($mappingId);
+
+        $mapping->update([
+            'yc_user_keys' => collect($ycUserKeys)
+                ->map(fn(mixed $key): string => (string)$key)
+                ->intersect($allowedKeys)
+                ->unique()
+                ->values()
+                ->all(),
+        ]);
+        $mapping->removeSelectedUsersFromOtherMappings();
     }
 
     private function syncUsers(): void
@@ -190,14 +193,4 @@ class ResponsibleMappingsRelationManager extends RelationManager
             ->all();
     }
 
-    private function selectedYClientsLabels(ResponsibleMapping $mapping): Collection
-    {
-        $users = YClientsUser::query()
-            ->where('setting_id', $this->getOwnerRecord()->id)
-            ->get()
-            ->keyBy(fn(YClientsUser $user): string => $user->key());
-
-        return collect($mapping->yc_user_keys ?? [])
-            ->map(fn(string $key): string => $users[$key]?->yc_user_name ?? $key);
-    }
 }
