@@ -9,6 +9,7 @@ use App\Services\amoCRM\Client;
 use App\Services\YClients\Notes;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\YClients\Leads as ServiceLead;
@@ -46,6 +47,10 @@ class SendRecord extends Command
             ->block(60, fn () => $this->handleLocked());
     }
 
+    /**
+     * @throws Throwable
+     * @throws ConnectionException
+     */
     private function handleLocked(): int
     {
         /** @var Record $record */
@@ -65,8 +70,8 @@ class SendRecord extends Command
         }
 
         $amoApi = (new Client($account))->init();
-
         $ycApi = (new YClients($setting));
+
         $lead = null;
         $assignResponsible = false;
         $responsibleUserId = $setting->responsibleUserIdForRecord($record);
