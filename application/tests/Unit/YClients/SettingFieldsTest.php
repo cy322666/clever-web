@@ -9,6 +9,19 @@ use PHPUnit\Framework\TestCase;
 
 class SettingFieldsTest extends TestCase
 {
+    public function test_yclients_company_user_normalization_supports_nested_user(): void
+    {
+        $user = (object)[
+            'user' => (object)[
+                'id' => 13360104,
+                'name' => 'Иванова Анна Сергеевна',
+            ],
+        ];
+
+        $this->assertSame('13360104', YClientsService::companyUserId($user));
+        $this->assertSame('Иванова Анна Сергеевна', YClientsService::companyUserName($user));
+    }
+
     public function test_yc_mapping_rows_handles_empty_or_invalid_mapping(): void
     {
         $method = new \ReflectionMethod(Setting::class, 'mappingRows');

@@ -101,9 +101,31 @@ class YClients
     public function findCompanyUserById(string $companyId, string $userId): ?object
     {
         $user = collect($this->getCompanyUsers($companyId))
-            ->first(fn($item) => (string)data_get($item, 'id') === (string)$userId);
+            ->first(fn($item) => self::companyUserId($item) === (string)$userId);
 
         return $user ? (object)$user : null;
+    }
+
+    public static function companyUserId(mixed $user): string
+    {
+        return (string)(
+            data_get($user, 'id')
+            ?? data_get($user, 'user_id')
+            ?? data_get($user, 'user.id')
+            ?? ''
+        );
+    }
+
+    public static function companyUserName(mixed $user): ?string
+    {
+        $name = data_get($user, 'name')
+            ?? data_get($user, 'full_name')
+            ?? data_get($user, 'display_name')
+            ?? data_get($user, 'user.name')
+            ?? data_get($user, 'user.full_name')
+            ?? data_get($user, 'user.display_name');
+
+        return filled($name) ? trim((string)$name) : null;
     }
 
     /**

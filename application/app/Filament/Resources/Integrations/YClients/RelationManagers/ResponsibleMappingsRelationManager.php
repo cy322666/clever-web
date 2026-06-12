@@ -127,7 +127,7 @@ class ResponsibleMappingsRelationManager extends RelationManager
         foreach ($creatorsByCompany as $companyId => $companyCreators) {
             try {
                 $companyUsers = collect($yc->getCompanyUsers($companyId))
-                    ->filter(fn($user): bool => filled(data_get($user, 'id')));
+                    ->filter(fn($user): bool => filled(YClients::companyUserId($user)));
             } catch (Throwable $e) {
                 $companyUsers = collect();
                 $apiErrors++;
@@ -136,10 +136,8 @@ class ResponsibleMappingsRelationManager extends RelationManager
 
             $usersToSave = $companyUsers
                 ->map(fn($user): array => [
-                    'id' => (string)data_get($user, 'id'),
-                    'name' => data_get($user, 'name')
-                        ?: data_get($user, 'full_name')
-                            ?: data_get($user, 'user.name'),
+                    'id' => YClients::companyUserId($user),
+                    'name' => YClients::companyUserName($user),
                 ])
                 ->keyBy('id');
 
