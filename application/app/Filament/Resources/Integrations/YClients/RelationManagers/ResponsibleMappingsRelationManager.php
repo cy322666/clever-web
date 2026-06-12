@@ -16,6 +16,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ResponsibleMappingsRelationManager extends RelationManager
@@ -88,53 +89,122 @@ class ResponsibleMappingsRelationManager extends RelationManager
         $yc = new YClients($setting);
         $created = 0;
         $updated = 0;
-        $failed = 0;
+        $apiErrors = 0;
+        $saveErrors = 0;
 
-        $creators = Record::query()
-            ->where('setting_id', $setting->id)
-            ->whereNotNull('created_user_id')
-            ->where('created_user_id', '!=', 0)
-            ->select(['company_id', 'created_user_id'])
-            ->distinct()
-            ->get();
+        try {
+            $creators = Record::query()
+                ->where('setting_id', $setting->id)
+                ->whereNotNull('created_user_id')
+                ->where('created_user_id', '!=', 0)
+                ->select(['company_id', 'created_user_id'])
+                ->distinct()
+                ->get();
+        } catch (Throwable $e) {
+            $this->logSyncError('load-records', null, $e);
 
-        foreach ($creators as $creator) {
+            Notification::make()
+                ->title('Не удалось загрузить создателей записей')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if ($creators->isEmpty()) {
+            Notification::make()
+                ->title('Создатели записей не найдены')
+                ->body('В истории YClients нет записей с заполненным created_user_id.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $creatorsByCompany = $creators->groupBy(fn(Record $record): string => (string)$record->company_id);
+
+        foreach ($creatorsByCompany as $companyId => $companyCreators) {
             try {
-                $companyId = (string)$creator->company_id;
+                $companyUsers = collect($yc->getCompanyUsers($companyId))
+                    ->filter(fn($user): bool => filled(data_get($user, 'id')));
+            } catch (Throwable $e) {
+                $companyUsers = collect();
+                $apiErrors++;
+                $this->logSyncError('company-users', $companyId, $e);
+            }
+
+            $usersToSave = $companyUsers
+                ->map(fn($user): array => [
+                    'id' => (string)data_get($user, 'id'),
+                    'name' => data_get($user, 'name')
+                        ?: data_get($user, 'full_name')
+                            ?: data_get($user, 'user.name'),
+                ])
+                ->keyBy('id');
+
+            foreach ($companyCreators as $creator) {
                 $ycUserId = (string)$creator->created_user_id;
-                $companyUser = $yc->findCompanyUserById($companyId, $ycUserId);
-                $staff = $yc->findStaffByUserId($companyId, $ycUserId);
 
-                $mapping = ResponsibleMapping::query()->firstOrNew([
-                    'setting_id' => $setting->id,
-                    'company_id' => $companyId,
-                    'yc_user_id' => $ycUserId,
-                ]);
-
-                $wasRecentlyCreated = !$mapping->exists;
-                $mapping->company_name = $yc->getBranchTitle($companyId) ?: $mapping->company_name ?: $companyId;
-                $mapping->yc_user_name = data_get($companyUser, 'name')
-                    ?: data_get($companyUser, 'full_name')
-                        ?: data_get($staff, 'name')
-                            ?: $mapping->yc_user_name
-                                ?: $ycUserId;
-                if ($wasRecentlyCreated) {
-                    $mapping->active = true;
+                if (!$usersToSave->has($ycUserId)) {
+                    $usersToSave->put($ycUserId, [
+                        'id' => $ycUserId,
+                        'name' => null,
+                    ]);
                 }
+            }
 
-                $mapping->save();
+            foreach ($usersToSave as $userData) {
+                try {
+                    $ycUserId = (string)$userData['id'];
 
-                $wasRecentlyCreated ? $created++ : $updated++;
-            } catch (Throwable) {
-                $failed++;
+                    $mapping = ResponsibleMapping::query()->firstOrNew([
+                        'setting_id' => $setting->id,
+                        'company_id' => $companyId,
+                        'yc_user_id' => $ycUserId,
+                    ]);
+
+                    $wasRecentlyCreated = !$mapping->exists;
+                    $mapping->company_name = $mapping->company_name ?: $companyId;
+                    $mapping->yc_user_name = $userData['name'] ?: $mapping->yc_user_name ?: $ycUserId;
+                    if ($wasRecentlyCreated) {
+                        $mapping->active = true;
+                    }
+
+                    $mapping->save();
+
+                    $wasRecentlyCreated ? $created++ : $updated++;
+                } catch (Throwable $e) {
+                    $saveErrors++;
+                    $this->logSyncError('save-mapping', $companyId, $e);
+                }
             }
         }
 
         $notification = Notification::make()
             ->title('Список создателей записей обновлён')
-            ->body(sprintf('Добавлено: %d. Обновлено: %d. Ошибок API: %d.', $created, $updated, $failed));
+            ->body(
+                sprintf(
+                    'Добавлено: %d. Обновлено: %d. Ошибок API: %d. Ошибок сохранения: %d.',
+                    $created,
+                    $updated,
+                    $apiErrors,
+                    $saveErrors
+                ) . ' Запросов YClients: ' . $creatorsByCompany->count()
+            );
 
-        ($failed > 0 ? $notification->warning() : $notification->success())->send();
+        ($apiErrors > 0 || $saveErrors > 0 ? $notification->warning() : $notification->success())->send();
+    }
+
+    private function logSyncError(string $stage, ?string $companyId, Throwable $e): void
+    {
+        Log::warning('YClients responsible mappings sync API error.', [
+            'setting_id' => $this->getOwnerRecord()->id,
+            'stage' => $stage,
+            'company_id' => $companyId,
+            'error' => $e->getMessage(),
+            'exception' => $e::class,
+        ]);
     }
 
     private function mappingForm(): array

@@ -86,9 +86,7 @@ class YClients
      */
     public function findStaffByUserId(string $companyId, string $userId): ?object
     {
-        $response = $this->get('company/' . $companyId . '/staff');
-
-        $staff = collect(data_get($response, 'data', []))
+        $staff = collect($this->getCompanyStaff($companyId))
             ->first(function ($item) use ($userId) {
                 return (string)data_get($item, 'user_id') === (string)$userId
                     || (string)data_get($item, 'user.id') === (string)$userId;
@@ -102,12 +100,40 @@ class YClients
      */
     public function findCompanyUserById(string $companyId, string $userId): ?object
     {
-        $response = $this->get('company/' . $companyId . '/users');
-
-        $user = collect(data_get($response, 'data', []))
+        $user = collect($this->getCompanyUsers($companyId))
             ->first(fn($item) => (string)data_get($item, 'id') === (string)$userId);
 
         return $user ? (object)$user : null;
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function getCompanyUsers(string $companyId): array
+    {
+        $users = data_get($this->get('company/' . $companyId . '/users'), 'data', []);
+
+        return is_array($users) ? $users : [];
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function getCompanyStaff(string $companyId): array
+    {
+        $staff = data_get($this->get('company/' . $companyId . '/staff'), 'data', []);
+
+        return is_array($staff) ? $staff : [];
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function getBranches(): array
+    {
+        $branches = data_get($this->get('companies?my=1'), 'data', []);
+
+        return is_array($branches) ? $branches : [];
     }
 
     /**
@@ -169,19 +195,10 @@ class YClients
      */
     public function getBranchTitle(string $companyId): ?string
     {
-        $branches = data_get($this->get('companies?my=1'), 'data', []);
+        $branch = collect($this->getBranches())
+            ->first(fn($branch): bool => (string)data_get($branch, 'id') === (string)$companyId);
 
-        if (!is_iterable($branches)) {
-            return null;
-        }
-
-        foreach ($branches as $branch) {
-            if (data_get($branch, 'id') == $companyId) {
-                return data_get($branch, 'title');
-            }
-        }
-
-        return null;
+        return data_get($branch, 'title');
     }
 
     /**
