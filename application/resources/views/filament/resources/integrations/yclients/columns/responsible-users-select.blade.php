@@ -21,9 +21,11 @@
             'value' => $value,
         ])
         ->all();
+    $componentKey = md5(json_encode([$selectedKeys, $groupedOptions]));
 @endphp
 
 <div
+    wire:key="responsible-users-{{ $record->getKey() }}-{{ $componentKey }}"
     x-load
     x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('select', 'filament/forms') }}"
     x-data="selectFormComponent({

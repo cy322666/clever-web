@@ -13,7 +13,6 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Livewire\Attributes\Renderless;
 use Throwable;
 
 class ResponsibleMappingsRelationManager extends RelationManager
@@ -42,8 +41,8 @@ class ResponsibleMappingsRelationManager extends RelationManager
                 Tables\Columns\ViewColumn::make('yc_user_keys')
                     ->label('Пользователи YClients')
                     ->view('filament.resources.integrations.yclients.columns.responsible-users-select')
-                    ->viewData(fn(): array => [
-                        'groupedOptions' => $this->yclientsUserOptions(),
+                    ->viewData(fn(ResponsibleMapping $record): array => [
+                        'groupedOptions' => $this->yclientsUserOptions($record),
                     ]),
 
                 Tables\Columns\ToggleColumn::make('active')
@@ -64,17 +63,18 @@ class ResponsibleMappingsRelationManager extends RelationManager
             ->emptyStateIcon('heroicon-o-user-group');
     }
 
-    #[Renderless]
     public function updateResponsibleMappingUsers(int|string $mappingId, array $ycUserKeys): void
     {
-        $allowedKeys = YClientsUser::query()
-            ->where('setting_id', $this->getOwnerRecord()->id)
-            ->get()
-            ->map(fn(YClientsUser $user): string => $user->key());
-
         $mapping = ResponsibleMapping::query()
             ->where('setting_id', $this->getOwnerRecord()->id)
             ->findOrFail($mappingId);
+
+        $reservedKeys = $mapping->reservedUserKeysByOtherMappings();
+        $allowedKeys = YClientsUser::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->get()
+            ->map(fn(YClientsUser $user): string => $user->key())
+            ->diff($reservedKeys);
 
         $mapping->update([
             'yc_user_keys' => collect($ycUserKeys)
@@ -84,7 +84,6 @@ class ResponsibleMappingsRelationManager extends RelationManager
                 ->values()
                 ->all(),
         ]);
-        $mapping->removeSelectedUsersFromOtherMappings();
     }
 
     private function syncUsers(): void
@@ -176,13 +175,18 @@ class ResponsibleMappingsRelationManager extends RelationManager
             ->pluck('name', 'staff_id');
     }
 
-    private function yclientsUserOptions(): array
+    private function yclientsUserOptions(ResponsibleMapping $mapping): array
     {
+        $currentKeys = collect($mapping->yc_user_keys ?? []);
+        $reservedKeys = collect($mapping->reservedUserKeysByOtherMappings());
+
         return YClientsUser::query()
             ->where('setting_id', $this->getOwnerRecord()->id)
             ->orderBy('company_name')
             ->orderBy('yc_user_name')
             ->get()
+            ->filter(fn(YClientsUser $user): bool => $currentKeys->contains($user->key())
+                || !$reservedKeys->contains($user->key()))
             ->groupBy(fn(YClientsUser $user): string => $user->company_name ?: $user->company_id)
             ->map(fn(Collection $users): array => $users
                 ->mapWithKeys(fn(YClientsUser $user): array => [

@@ -26,24 +26,15 @@ class ResponsibleMapping extends Model
         return $this->belongsTo(Setting::class);
     }
 
-    public function removeSelectedUsersFromOtherMappings(): void
+    public function reservedUserKeysByOtherMappings(): array
     {
-        $selectedKeys = $this->yc_user_keys ?? [];
-
-        if ($selectedKeys === []) {
-            return;
-        }
-
-        self::query()
+        return self::query()
             ->where('setting_id', $this->setting_id)
             ->whereKeyNot($this->getKey())
             ->get()
-            ->each(function (self $mapping) use ($selectedKeys): void {
-                $remainingKeys = array_values(array_diff($mapping->yc_user_keys ?? [], $selectedKeys));
-
-                if ($remainingKeys !== ($mapping->yc_user_keys ?? [])) {
-                    $mapping->update(['yc_user_keys' => $remainingKeys]);
-                }
-            });
+            ->flatMap(fn(self $mapping): array => $mapping->yc_user_keys ?? [])
+            ->unique()
+            ->values()
+            ->all();
     }
 }

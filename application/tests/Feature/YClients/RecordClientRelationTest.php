@@ -236,7 +236,7 @@ class RecordClientRelationTest extends TestCase
         $this->assertNull($setting->responsibleUserIdForRecord($otherBranchRecord));
     }
 
-    public function test_selected_yclients_users_are_removed_from_other_amo_responsible_mappings(): void
+    public function test_mapping_reports_yclients_users_reserved_by_other_amo_users(): void
     {
         $first = ResponsibleMapping::query()->create([
             'setting_id' => 111,
@@ -244,17 +244,14 @@ class RecordClientRelationTest extends TestCase
             'yc_user_keys' => ['10:4321', '10:4322'],
             'active' => true,
         ]);
-        $second = ResponsibleMapping::query()->create([
+        ResponsibleMapping::query()->create([
             'setting_id' => 111,
             'amo_user_id' => 9002,
-            'yc_user_keys' => ['10:4322', '10:4323'],
+            'yc_user_keys' => ['10:4323', '20:5001'],
             'active' => true,
         ]);
 
-        $second->removeSelectedUsersFromOtherMappings();
-
-        $this->assertSame(['10:4321'], $first->refresh()->yc_user_keys);
-        $this->assertSame(['10:4322', '10:4323'], $second->refresh()->yc_user_keys);
+        $this->assertSame(['10:4323', '20:5001'], $first->reservedUserKeysByOtherMappings());
     }
 
     public function test_prune_records_command_deletes_only_records_older_than_retention(): void
