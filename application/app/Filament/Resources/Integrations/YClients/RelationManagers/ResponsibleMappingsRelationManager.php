@@ -5,17 +5,16 @@ namespace App\Filament\Resources\Integrations\YClients\RelationManagers;
 use App\Models\amoCRM\Staff;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\ResponsibleMapping;
+use App\Models\Integrations\YClients\YClientsUser;
 use App\Services\YClients\YClients;
 use Filament\Actions\Action;
-use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -25,220 +24,172 @@ class ResponsibleMappingsRelationManager extends RelationManager
 
     protected static string $relationship = 'responsibleMappings';
 
-    protected static ?string $title = 'Ответственные по создателю записи YClients';
-
-    protected static ?string $recordTitleAttribute = 'yc_user_name';
+    protected static ?string $title = 'Соответствие ответственных amoCRM и пользователей YClients';
 
     public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->description(
-                'Новая или свободная активная сделка получает выбранного ответственного. Уже привязанная к записи сделка не переназначается.'
+                'Для каждого ответственного amoCRM выберите одного или несколько пользователей YClients.'
             )
             ->columns([
-                Tables\Columns\TextColumn::make('company_name')
-                    ->label('Филиал')
-                    ->description(fn(ResponsibleMapping $record): string => 'ID: ' . $record->company_id)
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('yc_user_name')
-                    ->label('Кто создал запись в YClients')
-                    ->description(fn(ResponsibleMapping $record): string => 'ID: ' . $record->yc_user_id)
-                    ->searchable(),
-
                 Tables\Columns\TextColumn::make('amo_user_name')
-                    ->label('Ответственный amoCRM')
-                    ->state(fn(ResponsibleMapping $record): ?string => Staff::query()
-                        ->where('user_id', $this->getOwnerRecord()->user_id)
-                        ->where('staff_id', $record->amo_user_id)
-                        ->value('name'))
-                    ->placeholder('Не выбран'),
+                    ->label('Пользователь amoCRM')
+                    ->state(
+                        fn(ResponsibleMapping $record): ?string => $this->amoStaffOptions(
+                        )[$record->amo_user_id] ?? null
+                    )
+                    ->placeholder('Пользователь amoCRM не найден'),
+
+                Tables\Columns\TextColumn::make('yc_users')
+                    ->label('Пользователи YClients')
+                    ->state(
+                        fn(ResponsibleMapping $record): string => $this->selectedYClientsLabels($record)->implode(', ')
+                    )
+                    ->wrap()
+                    ->placeholder('Не выбраны'),
 
                 Tables\Columns\IconColumn::make('active')
                     ->label('Активно')
                     ->boolean(),
             ])
-            ->defaultSort('company_name')
+            ->defaultSort('amo_user_id')
             ->headerActions([
                 Action::make('sync_yclients_users')
-                    ->label('Обновить список пользователей')
+                    ->label('Обновить пользователей')
                     ->icon('heroicon-o-arrow-path')
-                    ->action(fn() => $this->syncObservedCreators()),
-
-                CreateAction::make()
-                    ->label('Добавить вручную')
-                    ->form($this->mappingForm()),
+                    ->action(fn() => $this->syncUsers()),
             ])
             ->recordActions([
                 EditAction::make()
-                    ->label('Сопоставить')
-                    ->form($this->mappingForm()),
+                    ->label('Настроить')
+                    ->form([
+                        Select::make('yc_user_keys')
+                            ->label('Пользователи YClients')
+                            ->options(fn() => $this->yclientsUserOptions())
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Можно выбрать нескольких пользователей из разных филиалов.'),
 
-                DeleteAction::make(),
+                        Toggle::make('active')
+                            ->label('Использовать соответствие')
+                            ->default(true),
+                    ])
+                    ->after(fn(ResponsibleMapping $record) => $record->removeSelectedUsersFromOtherMappings()),
             ])
             ->bulkActions([])
             ->paginated([20, 50, 100])
-            ->emptyStateHeading('Создатели записей ещё не загружены')
-            ->emptyStateDescription('Нажмите «Обновить список пользователей», затем выберите ответственных amoCRM.')
+            ->emptyStateHeading('Пользователи amoCRM ещё не загружены')
+            ->emptyStateDescription('Нажмите «Обновить пользователей».')
             ->emptyStateIcon('heroicon-o-user-group');
     }
 
-    private function syncObservedCreators(): void
+    private function syncUsers(): void
     {
         $setting = $this->getOwnerRecord();
         $yc = new YClients($setting);
-        $created = 0;
-        $updated = 0;
         $apiErrors = 0;
-        $saveErrors = 0;
+        $ycSaved = 0;
 
-        try {
-            $creators = Record::query()
-                ->where('setting_id', $setting->id)
-                ->whereNotNull('created_user_id')
-                ->where('created_user_id', '!=', 0)
-                ->select(['company_id', 'created_user_id'])
-                ->distinct()
-                ->get();
-        } catch (Throwable $e) {
-            $this->logSyncError('load-records', null, $e);
+        $companyIds = Record::query()
+            ->where('setting_id', $setting->id)
+            ->whereNotNull('company_id')
+            ->distinct()
+            ->pluck('company_id')
+            ->map(fn($companyId): string => (string)$companyId);
 
-            Notification::make()
-                ->title('Не удалось загрузить создателей записей')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        if ($creators->isEmpty()) {
-            Notification::make()
-                ->title('Создатели записей не найдены')
-                ->body('В истории YClients нет записей с заполненным created_user_id.')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        $creatorsByCompany = $creators->groupBy(fn(Record $record): string => (string)$record->company_id);
-
-        foreach ($creatorsByCompany as $companyId => $companyCreators) {
+        foreach ($companyIds as $companyId) {
             try {
-                $companyUsers = collect($yc->getCompanyUsers($companyId))
-                    ->filter(fn($user): bool => filled(YClients::companyUserId($user)));
-            } catch (Throwable $e) {
-                $companyUsers = collect();
-                $apiErrors++;
-                $this->logSyncError('company-users', $companyId, $e);
-            }
+                foreach ($yc->getCompanyUsers($companyId) as $user) {
+                    $ycUserId = YClients::companyUserId($user);
 
-            $usersToSave = $companyUsers
-                ->map(fn($user): array => [
-                    'id' => YClients::companyUserId($user),
-                    'name' => YClients::companyUserName($user),
-                ])
-                ->keyBy('id');
-
-            foreach ($companyCreators as $creator) {
-                $ycUserId = (string)$creator->created_user_id;
-
-                if (!$usersToSave->has($ycUserId)) {
-                    $usersToSave->put($ycUserId, [
-                        'id' => $ycUserId,
-                        'name' => null,
-                    ]);
-                }
-            }
-
-            foreach ($usersToSave as $userData) {
-                try {
-                    $ycUserId = (string)$userData['id'];
-
-                    $mapping = ResponsibleMapping::query()->firstOrNew([
-                        'setting_id' => $setting->id,
-                        'company_id' => $companyId,
-                        'yc_user_id' => $ycUserId,
-                    ]);
-
-                    $wasRecentlyCreated = !$mapping->exists;
-                    $mapping->company_name = $mapping->company_name ?: $companyId;
-                    $mapping->yc_user_name = $userData['name'] ?: $mapping->yc_user_name ?: $ycUserId;
-                    if ($wasRecentlyCreated) {
-                        $mapping->active = true;
+                    if ($ycUserId === '') {
+                        continue;
                     }
 
-                    $mapping->save();
-
-                    $wasRecentlyCreated ? $created++ : $updated++;
-                } catch (Throwable $e) {
-                    $saveErrors++;
-                    $this->logSyncError('save-mapping', $companyId, $e);
+                    YClientsUser::query()->updateOrCreate(
+                        [
+                            'setting_id' => $setting->id,
+                            'company_id' => $companyId,
+                            'yc_user_id' => $ycUserId,
+                        ],
+                        [
+                            'yc_user_name' => YClients::companyUserName($user) ?: $ycUserId,
+                        ]
+                    );
+                    $ycSaved++;
                 }
+            } catch (Throwable $e) {
+                $apiErrors++;
+                Log::warning('YClients users sync failed for responsible mapping.', [
+                    'setting_id' => $setting->id,
+                    'company_id' => $companyId,
+                    'error' => $e->getMessage(),
+                    'exception' => $e::class,
+                ]);
+            }
+        }
+
+        $amoCreated = 0;
+
+        foreach ($this->amoStaffOptions()->keys() as $amoUserId) {
+            $mapping = ResponsibleMapping::query()->firstOrCreate(
+                [
+                    'setting_id' => $setting->id,
+                    'amo_user_id' => $amoUserId,
+                ],
+                [
+                    'yc_user_keys' => [],
+                    'active' => true,
+                ]
+            );
+
+            if ($mapping->wasRecentlyCreated) {
+                $amoCreated++;
             }
         }
 
         $notification = Notification::make()
-            ->title('Список создателей записей обновлён')
+            ->title('Пользователи обновлены')
             ->body(
                 sprintf(
-                    'Добавлено: %d. Обновлено: %d. Ошибок API: %d. Ошибок сохранения: %d.',
-                    $created,
-                    $updated,
-                    $apiErrors,
-                    $saveErrors
-                ) . ' Запросов YClients: ' . $creatorsByCompany->count()
+                    'Пользователей YClients сохранено: %d. Добавлено строк amoCRM: %d. Запросов YClients: %d. Ошибок API: %d.',
+                    $ycSaved,
+                    $amoCreated,
+                    $companyIds->count(),
+                    $apiErrors
+                )
             );
 
-        ($apiErrors > 0 || $saveErrors > 0 ? $notification->warning() : $notification->success())->send();
+        ($apiErrors > 0 ? $notification->warning() : $notification->success())->send();
     }
 
-    private function logSyncError(string $stage, ?string $companyId, Throwable $e): void
+    private function amoStaffOptions(): Collection
     {
-        Log::warning('YClients responsible mappings sync API error.', [
-            'setting_id' => $this->getOwnerRecord()->id,
-            'stage' => $stage,
-            'company_id' => $companyId,
-            'error' => $e->getMessage(),
-            'exception' => $e::class,
-        ]);
+        return Staff::query()
+            ->where('user_id', $this->getOwnerRecord()->user_id)
+            ->where('active', true)
+            ->orderBy('name')
+            ->pluck('name', 'staff_id');
     }
 
-    private function mappingForm(): array
+    private function yclientsUserOptions(): array
     {
-        return [
-            TextInput::make('company_name')
-                ->label('Филиал')
-                ->disabled()
-                ->dehydrated(),
+        return YClientsUser::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->orderBy('company_name')
+            ->orderBy('yc_user_name')
+            ->get()
+            ->mapWithKeys(fn(YClientsUser $user): array => [$user->key() => $user->label()])
+            ->all();
+    }
 
-            TextInput::make('company_id')
-                ->label('ID филиала YClients')
-                ->required(),
+    private function selectedYClientsLabels(ResponsibleMapping $mapping): Collection
+    {
+        $options = $this->yclientsUserOptions();
 
-            TextInput::make('yc_user_name')
-                ->label('Кто создал запись в YClients')
-                ->disabled()
-                ->dehydrated(),
-
-            TextInput::make('yc_user_id')
-                ->label('ID пользователя YClients')
-                ->required(),
-
-            Select::make('amo_user_id')
-                ->label('Ответственный amoCRM')
-                ->options(fn() => Staff::query()
-                    ->where('user_id', $this->getOwnerRecord()->user_id)
-                    ->where('active', true)
-                    ->orderBy('name')
-                    ->pluck('name', 'staff_id'))
-                ->searchable()
-                ->required(),
-
-            Toggle::make('active')
-                ->label('Использовать соответствие')
-                ->default(true),
-        ];
+        return collect($mapping->yc_user_keys ?? [])
+            ->map(fn(string $key): string => $options[$key] ?? $key);
     }
 }

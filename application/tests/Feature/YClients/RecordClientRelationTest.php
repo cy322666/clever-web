@@ -213,10 +213,8 @@ class RecordClientRelationTest extends TestCase
 
         ResponsibleMapping::query()->create([
             'setting_id' => 111,
-            'company_id' => 10,
-            'yc_user_id' => 4321,
-            'yc_user_name' => 'Администратор YClients',
             'amo_user_id' => 9001,
+            'yc_user_keys' => ['10:4321', '10:4322'],
             'active' => true,
         ]);
 
@@ -224,13 +222,39 @@ class RecordClientRelationTest extends TestCase
             'company_id' => 10,
             'created_user_id' => 4321,
         ]);
+        $secondMatchingRecord = new Record([
+            'company_id' => 10,
+            'created_user_id' => 4322,
+        ]);
         $otherBranchRecord = new Record([
             'company_id' => 99,
             'created_user_id' => 4321,
         ]);
 
         $this->assertSame(9001, $setting->responsibleUserIdForRecord($matchingRecord));
+        $this->assertSame(9001, $setting->responsibleUserIdForRecord($secondMatchingRecord));
         $this->assertNull($setting->responsibleUserIdForRecord($otherBranchRecord));
+    }
+
+    public function test_selected_yclients_users_are_removed_from_other_amo_responsible_mappings(): void
+    {
+        $first = ResponsibleMapping::query()->create([
+            'setting_id' => 111,
+            'amo_user_id' => 9001,
+            'yc_user_keys' => ['10:4321', '10:4322'],
+            'active' => true,
+        ]);
+        $second = ResponsibleMapping::query()->create([
+            'setting_id' => 111,
+            'amo_user_id' => 9002,
+            'yc_user_keys' => ['10:4322', '10:4323'],
+            'active' => true,
+        ]);
+
+        $second->removeSelectedUsersFromOtherMappings();
+
+        $this->assertSame(['10:4321'], $first->refresh()->yc_user_keys);
+        $this->assertSame(['10:4322', '10:4323'], $second->refresh()->yc_user_keys);
     }
 
     public function test_prune_records_command_deletes_only_records_older_than_retention(): void
@@ -319,10 +343,8 @@ class RecordClientRelationTest extends TestCase
         Schema::create('yclients_responsible_mappings', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedBigInteger('setting_id');
-            $table->string('company_id');
-            $table->string('yc_user_id');
-            $table->string('yc_user_name')->nullable();
-            $table->unsignedBigInteger('amo_user_id')->nullable();
+            $table->unsignedBigInteger('amo_user_id');
+            $table->json('yc_user_keys')->nullable();
             $table->boolean('active')->default(true);
             $table->timestamps();
         });

@@ -153,12 +153,13 @@ class Setting extends Model
 
     public function responsibleUserIdForRecord(Record $record): ?int
     {
+        $ycUserKey = (string)$record->company_id . ':' . (string)$record->created_user_id;
         $amoUserId = (int)ResponsibleMapping::query()
             ->where('setting_id', $this->id)
-            ->where('company_id', (string)$record->company_id)
-            ->where('yc_user_id', (string)$record->created_user_id)
             ->where('active', true)
-            ->value('amo_user_id');
+            ->get()
+            ->first(fn(ResponsibleMapping $mapping): bool => in_array($ycUserKey, $mapping->yc_user_keys ?? [], true))
+            ?->amo_user_id;
 
         if ($amoUserId <= 0) {
             return null;
@@ -176,6 +177,11 @@ class Setting extends Model
     public function responsibleMappings(): HasMany
     {
         return $this->hasMany(ResponsibleMapping::class, 'setting_id');
+    }
+
+    public function yclientsUsers(): HasMany
+    {
+        return $this->hasMany(YClientsUser::class, 'setting_id');
     }
 
     private static function recordDateTime(?string $datetime): ?\Carbon\Carbon
