@@ -181,15 +181,23 @@ class ResponsibleMappingsRelationManager extends RelationManager
             ->orderBy('company_name')
             ->orderBy('yc_user_name')
             ->get()
-            ->mapWithKeys(fn(YClientsUser $user): array => [$user->key() => $user->label()])
+            ->groupBy(fn(YClientsUser $user): string => $user->company_name ?: $user->company_id)
+            ->map(fn(Collection $users): array => $users
+                ->mapWithKeys(fn(YClientsUser $user): array => [
+                    $user->key() => $user->yc_user_name ?: $user->yc_user_id,
+                ])
+                ->all())
             ->all();
     }
 
     private function selectedYClientsLabels(ResponsibleMapping $mapping): Collection
     {
-        $options = $this->yclientsUserOptions();
+        $users = YClientsUser::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->get()
+            ->keyBy(fn(YClientsUser $user): string => $user->key());
 
         return collect($mapping->yc_user_keys ?? [])
-            ->map(fn(string $key): string => $options[$key] ?? $key);
+            ->map(fn(string $key): string => $users[$key]?->yc_user_name ?? $key);
     }
 }
