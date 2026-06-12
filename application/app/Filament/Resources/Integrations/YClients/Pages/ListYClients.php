@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\YClients\Pages;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
+use App\Models\Integrations\YClients\Setting;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -36,6 +37,18 @@ class ListYClients extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('settings')
+                ->label('Вернуться в настройки')
+                ->icon('heroicon-o-arrow-left')
+                ->url(function (): ?string {
+                    $settingId = Setting::query()->where('user_id', Auth::id())->value('id');
+
+                    return $settingId
+                        ? YClientsResource::getUrl('edit', ['record' => $settingId])
+                        : null;
+                })
+                ->visible(fn(): bool => Setting::query()->where('user_id', Auth::id())->exists()),
+
             Action::make('reexport_failed')
                 ->label('Перевыгрузить ошибки')
                 ->icon('heroicon-o-arrow-path')

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Client\ConnectionException;
 use RuntimeException;
+use Throwable;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
@@ -108,6 +109,24 @@ class Setting extends Model
     {
         if (function_exists('app') && app()->bound('log')) {
             logger()->info($message, $context);
+        }
+    }
+
+    private static function optionalYClientsRequest(callable $request, string $requestName, Record $record): mixed
+    {
+        try {
+            return $request();
+        } catch (Throwable $e) {
+            self::debugLog('Optional YClients request skipped.', [
+                'request' => $requestName,
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'company_id' => $record->company_id,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
+            return null;
         }
     }
 
@@ -280,7 +299,11 @@ class Setting extends Model
         $fields = static::YCfields();
 
         $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
-        $recordYC = $client->getRecord($record->company_id, $record->record_id)?->data ?? null;
+        $recordYC = self::optionalYClientsRequest(
+            fn() => $client->getRecord($record->company_id, $record->record_id),
+            'record',
+            $record
+        )?->data ?? null;
         $createdUserId = $record->created_user_id;
         $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
         $createDate = $record->create_date ?: data_get($recordYC, 'create_date');
@@ -312,7 +335,11 @@ class Setting extends Model
 //            }
 //        }
 
-        $fields['branch'] = $client->getBranchTitle($record->company_id) ?: (string)$record->company_id;
+        $fields['branch'] = self::optionalYClientsRequest(
+            fn() => $client->getBranchTitle($record->company_id),
+            'branch-title',
+            $record
+        ) ?: (string)$record->company_id;
         $fields['company_id'] = $record->company_id;
         $fields['record_id'] = $record->record_id;
         $recordDateTime = self::recordDateTime($record->datetime);
@@ -330,8 +357,16 @@ class Setting extends Model
             $fields['created_user_role_name'] = 'Внешний источник';
             $fields['created_user_department'] = 'Не сотрудник';
         } else {
-            $createdUser = $client->getUserPermissions($record->company_id, $createdUserId);
-            $createdUserRoles = $client->getUserRoles($record->company_id, $createdUserId);
+            $createdUser = self::optionalYClientsRequest(
+                fn() => $client->getUserPermissions($record->company_id, $createdUserId),
+                'created-user-permissions',
+                $record
+            );
+            $createdUserRoles = self::optionalYClientsRequest(
+                fn() => $client->getUserRoles($record->company_id, $createdUserId),
+                'created-user-roles',
+                $record
+            );
 
             $role = data_get($createdUser, 'data.user_role');
             $roleTitle = self::createdUserRoleTitle($role);
@@ -349,15 +384,27 @@ class Setting extends Model
             $companyUser = null;
 
             if (!empty($staffId)) {
-                $staff = $client->getStaff($record->company_id, $staffId);
+                $staff = self::optionalYClientsRequest(
+                    fn() => $client->getStaff($record->company_id, $staffId),
+                    'created-user-staff',
+                    $record
+                );
             }
 
             if (!$staff) {
-                $staff = $client->findStaffByUserId($record->company_id, $createdUserId);
+                $staff = self::optionalYClientsRequest(
+                    fn() => $client->findStaffByUserId($record->company_id, $createdUserId),
+                    'created-user-staff-list',
+                    $record
+                );
             }
 
             if (!$staff) {
-                $companyUser = $client->findCompanyUserById($record->company_id, $createdUserId);
+                $companyUser = self::optionalYClientsRequest(
+                    fn() => $client->findCompanyUserById($record->company_id, $createdUserId),
+                    'created-user-company-user',
+                    $record
+                );
             }
 
             $fields['created_user_name'] = data_get($staff, 'data.name')
@@ -375,7 +422,11 @@ class Setting extends Model
                         ?: data_get($staff, 'data.specialization')
                             ?: data_get($staff, 'data.0.specialization')
                                 ?: data_get($staff, 'specialization')
-                                    ?: $client->findPositionTitle($record->company_id, $positionId)
+                                    ?: self::optionalYClientsRequest(
+                                        fn() => $client->findPositionTitle($record->company_id, $positionId),
+                                        'created-user-position',
+                                        $record
+                                    )
                                         ?: $roleTitle
                                             ?: 'Сотрудник';
 

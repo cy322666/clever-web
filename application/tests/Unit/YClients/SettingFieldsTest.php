@@ -562,4 +562,55 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Цигорская Дарья Дмитриевна', $fields['created_user_name']);
         $this->assertSame('Не указан', $fields['record_from']);
     }
+
+    public function test_yc_get_fields_does_not_fail_when_optional_branch_requests_are_forbidden(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods([
+                'getClient',
+                'getRecord',
+                'getBranchTitle',
+                'getUserPermissions',
+                'getUserRoles',
+                'findStaffByUserId',
+                'findCompanyUserById',
+                'findPositionTitle',
+            ])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'visits' => 3,
+                    'paid' => 1500,
+                ],
+            ]
+        );
+        $yc->method('getRecord')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('getBranchTitle')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('getUserPermissions')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('getUserRoles')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('findStaffByUserId')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('findCompanyUserById')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('findPositionTitle')->willThrowException(new \RuntimeException('YClients 403'));
+
+        $record = new Record([
+            'company_id' => 1114763,
+            'client_id' => 555,
+            'record_id' => 777,
+            'created_user_id' => 4321,
+            'record_from' => 'CRM',
+            'title' => 'Консультация',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('1114763', $fields['branch']);
+        $this->assertSame('CRM', $fields['record_from']);
+        $this->assertSame('Пользователь YClients', $fields['created_user_name']);
+        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
+        $this->assertSame('Сотрудник', $fields['created_user_department']);
+        $this->assertSame(1500, $fields['paid']);
+    }
 }

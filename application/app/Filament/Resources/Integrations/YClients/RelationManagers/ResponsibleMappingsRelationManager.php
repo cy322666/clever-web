@@ -3,9 +3,12 @@
 namespace App\Filament\Resources\Integrations\YClients\RelationManagers;
 
 use App\Models\amoCRM\Staff;
+use App\Models\Core\Account as AmoAccount;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\ResponsibleMapping;
 use App\Models\Integrations\YClients\YClientsUser;
+use App\Services\amoCRM\Client as AmoClient;
+use App\Services\amoCRM\Models\Account as AmoAccountService;
 use App\Services\YClients\YClients;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -22,6 +25,13 @@ class ResponsibleMappingsRelationManager extends RelationManager
     protected static string $relationship = 'responsibleMappings';
 
     protected static ?string $title = 'Соответствие ответственных amoCRM и пользователей YClients';
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $this->ensureAmoMappingRows();
+    }
 
     public function table(Tables\Table $table): Tables\Table
     {
@@ -92,6 +102,27 @@ class ResponsibleMappingsRelationManager extends RelationManager
         $yc = new YClients($setting);
         $apiErrors = 0;
         $ycSaved = 0;
+        $amoSynced = false;
+
+        try {
+            $account = AmoAccount::query()
+                ->where('user_id', $setting->user_id)
+                ->where('widget', 'yclients')
+                ->where('active', true)
+                ->first();
+
+            if ($account) {
+                AmoAccountService::users(new AmoClient($account), $account->user);
+                $amoSynced = true;
+            }
+        } catch (Throwable $e) {
+            $apiErrors++;
+            Log::warning('amoCRM users sync failed for YClients responsible mapping.', [
+                'setting_id' => $setting->id,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+        }
 
         $companyIds = Record::query()
             ->where('setting_id', $setting->id)
@@ -132,30 +163,14 @@ class ResponsibleMappingsRelationManager extends RelationManager
             }
         }
 
-        $amoCreated = 0;
-
-        foreach ($this->amoStaffOptions()->keys() as $amoUserId) {
-            $mapping = ResponsibleMapping::query()->firstOrCreate(
-                [
-                    'setting_id' => $setting->id,
-                    'amo_user_id' => $amoUserId,
-                ],
-                [
-                    'yc_user_keys' => [],
-                    'active' => true,
-                ]
-            );
-
-            if ($mapping->wasRecentlyCreated) {
-                $amoCreated++;
-            }
-        }
+        $amoCreated = $this->ensureAmoMappingRows();
 
         $notification = Notification::make()
             ->title('Пользователи обновлены')
             ->body(
                 sprintf(
-                    'Пользователей YClients сохранено: %d. Добавлено строк amoCRM: %d. Запросов YClients: %d. Ошибок API: %d.',
+                    'Пользователей amoCRM обновлено: %s. Пользователей YClients сохранено: %d. Добавлено строк amoCRM: %d. Запросов YClients: %d. Ошибок API: %d.',
+                    $amoSynced ? 'да' : 'нет',
                     $ycSaved,
                     $amoCreated,
                     $companyIds->count(),
@@ -173,6 +188,30 @@ class ResponsibleMappingsRelationManager extends RelationManager
             ->where('active', true)
             ->orderBy('name')
             ->pluck('name', 'staff_id');
+    }
+
+    private function ensureAmoMappingRows(): int
+    {
+        $created = 0;
+
+        foreach ($this->amoStaffOptions()->keys() as $amoUserId) {
+            $mapping = ResponsibleMapping::query()->firstOrCreate(
+                [
+                    'setting_id' => $this->getOwnerRecord()->id,
+                    'amo_user_id' => $amoUserId,
+                ],
+                [
+                    'yc_user_keys' => [],
+                    'active' => true,
+                ]
+            );
+
+            if ($mapping->wasRecentlyCreated) {
+                $created++;
+            }
+        }
+
+        return $created;
     }
 
     private function yclientsUserOptions(ResponsibleMapping $mapping): array
