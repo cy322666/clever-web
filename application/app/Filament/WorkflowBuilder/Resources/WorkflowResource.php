@@ -12,9 +12,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
-use Leek\FilamentWorkflows\Enums\TriggerType;
+use Illuminate\Database\Eloquent\Builder;
 use Leek\FilamentWorkflows\Models\Workflow;
 use Leek\FilamentWorkflows\Resources\WorkflowResource as BaseWorkflowResource;
+use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
 
 class WorkflowResource extends BaseWorkflowResource
 {
@@ -31,7 +32,6 @@ class WorkflowResource extends BaseWorkflowResource
                     ->label(__('filament-workflows::workflows.fields.name.label'))
                     ->searchable()
                     ->sortable()
-                    ->weight('bold')
                     ->description(fn(Workflow $record): ?string => $record->description)
                     ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
 
@@ -70,9 +70,16 @@ class WorkflowResource extends BaseWorkflowResource
                     ->trueLabel(__('filament-workflows::workflows.filters.active.active_only'))
                     ->falseLabel(__('filament-workflows::workflows.filters.active.inactive_only')),
 
-                SelectFilter::make('trigger_type')
+                SelectFilter::make('workflow_trigger')
                     ->label(__('filament-workflows::workflows.filters.trigger_type.label'))
-                    ->options(TriggerType::class),
+                    ->options(fn(): array => app(TriggerRegistry::class)->getSelectOptions())
+                    ->query(fn(Builder $query, array $data): Builder => $query->when(
+                        filled($data['value'] ?? null),
+                        fn(Builder $query): Builder => $query->where(
+                            'definition->trigger->type',
+                            $data['value'],
+                        ),
+                    )),
             ])
             ->recordActions([
                 Action::make('toggle_active')
@@ -113,11 +120,13 @@ class WorkflowResource extends BaseWorkflowResource
             return static::workflowName($sourceWorkflowId) ?? 'Процесс #' . $sourceWorkflowId;
         }
 
-        $triggerType = $record->trigger_type;
+        $triggerClass = static::triggerClass($record);
 
-        return $triggerType instanceof TriggerType
-            ? (string)$triggerType->getLabel()
-            : (string)($triggerType ?: '—');
+        if ($triggerClass !== null) {
+            return $triggerClass::name();
+        }
+
+        return $record->trigger_type?->getLabel() ?? '—';
     }
 
     private static function triggerIcon(Workflow $record): string
@@ -126,16 +135,36 @@ class WorkflowResource extends BaseWorkflowResource
             return 'heroicon-o-arrow-right-circle';
         }
 
-        $triggerType = $record->trigger_type;
+        $triggerClass = static::triggerClass($record);
 
-        return $triggerType instanceof TriggerType
-            ? (string)$triggerType->getIcon()
-            : 'heroicon-o-bolt';
+        return $triggerClass !== null
+            ? $triggerClass::icon()
+            : ($record->trigger_type?->getIcon() ?? 'heroicon-o-bolt');
     }
 
     private static function triggerColor(Workflow $record): string
     {
-        return static::isWorkflowCallTrigger($record) ? 'info' : 'warning';
+        if (static::isWorkflowCallTrigger($record)) {
+            return 'info';
+        }
+
+        $triggerClass = static::triggerClass($record);
+
+        return $triggerClass !== null ? $triggerClass::color() : 'warning';
+    }
+
+    /**
+     * @return class-string|null
+     */
+    private static function triggerClass(Workflow $record): ?string
+    {
+        $triggerType = (string)data_get($record->definition, 'trigger.type');
+
+        if ($triggerType === '') {
+            return null;
+        }
+
+        return app(TriggerRegistry::class)->get($triggerType);
     }
 
     private static function isWorkflowCallTrigger(Workflow $record): bool

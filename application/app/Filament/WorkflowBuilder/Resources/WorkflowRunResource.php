@@ -8,19 +8,24 @@ use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Leek\FilamentWorkflows\Context\WorkflowContext;
+use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\RunStatus;
 use Leek\FilamentWorkflows\Enums\TriggerType;
+use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
 use Leek\FilamentWorkflows\WorkflowsPlugin;
+use Throwable;
 
 class WorkflowRunResource extends Resource
 {
@@ -86,7 +91,6 @@ class WorkflowRunResource extends Resource
             ->columns([
                 TextColumn::make('workflow.name')
                     ->label('Процесс')
-                    ->weight(FontWeight::Bold)
                     ->searchable()
                     ->sortable()
                     ->limit(48)
@@ -148,15 +152,16 @@ class WorkflowRunResource extends Resource
                     ->extraCellAttributes(static::compactCellAttributes())
                     ->alignEnd(),
 
-                TextColumn::make('error_message')
-                    ->label('Ошибка')
-                    ->limit(70)
-                    ->tooltip(fn(?string $state): ?string => $state)
-                    ->color('danger')
-                    ->placeholder('—')
-                    ->inline()
+                IconColumn::make('result_status')
+                    ->label('')
+                    ->state(fn(WorkflowRun $record): string => $record->status->value)
+                    ->icon(fn(WorkflowRun $record): ?string => $record->status->getIcon())
+                    ->color(fn(WorkflowRun $record): ?string => $record->status->getColor())
+                    ->tooltip(fn(WorkflowRun $record): string => $record->status === RunStatus::FAILED
+                        ? ($record->error_message ?: 'Ошибка выполнения')
+                        : ($record->status->getLabel() ?: 'Статус выполнения'))
                     ->extraCellAttributes(static::compactCellAttributes())
-                    ->toggleable(),
+                    ->alignCenter(),
 
                 TextColumn::make('ulid')
                     ->label('ID запуска')
@@ -166,10 +171,28 @@ class WorkflowRunResource extends Resource
                     ->inline()
                     ->extraCellAttributes(static::compactCellAttributes())
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                IconColumn::make('restart')
+                    ->label('')
+                    ->state(fn(WorkflowRun $record): bool => $record->status->isTerminal())
+                    ->icon(fn(bool $state): ?string => $state ? 'heroicon-o-arrow-path' : null)
+                    ->color('warning')
+                    ->tooltip('Перезапустить сценарий')
+                    ->extraCellAttributes(static::compactCellAttributes())
+                    ->action(
+                        Action::make('restart_run')
+                            ->label('Перезапустить сценарий')
+                            ->requiresConfirmation()
+                            ->modalHeading('Перезапустить сценарий?')
+                            ->modalDescription('Будет создан новый запуск с теми же входными данными.')
+                            ->modalSubmitActionLabel('Перезапустить')
+                            ->action(fn(WorkflowRun $record): mixed => static::restartRun($record))
+                    ),
             ])
             ->defaultSort('created_at', 'desc')
             ->poll('3s')
             ->paginated([25, 50, 100])
+            ->defaultPaginationPageOption(50)
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
@@ -262,6 +285,52 @@ class WorkflowRunResource extends Resource
         return [
             'style' => 'padding: 0.625rem 0.75rem; vertical-align: middle;',
         ];
+    }
+
+    private static function restartRun(WorkflowRun $record): void
+    {
+        if (!$record->status->isTerminal()) {
+            Notification::make()
+                ->warning()
+                ->title('Текущий запуск ещё выполняется')
+                ->send();
+
+            return;
+        }
+
+        try {
+            $executor = app(WorkflowExecutor::class);
+            $newRun = $executor->start(
+                workflow: $record->workflow,
+                triggerModel: $record->triggerable,
+                triggerSource: $record->trigger_source,
+                triggeredBy: Auth::id(),
+            );
+
+            $contextData = (array)($record->context_data ?? []);
+            $contextData['workflow_id'] = $newRun->workflow_id;
+            $contextData['workflow_run_id'] = $newRun->id;
+            $contextData['trigger_source'] = $newRun->trigger_source->value;
+            $contextData['triggered_by'] = Auth::id();
+            $contextData['step_outputs'] = [];
+
+            $newRun->update([
+                'context_data' => WorkflowContext::fromArray($contextData, $record->triggerable)->toArray(),
+            ]);
+
+            ExecuteWorkflowJob::dispatch($newRun->id);
+
+            Notification::make()
+                ->success()
+                ->title('Сценарий перезапущен')
+                ->send();
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Не удалось перезапустить сценарий')
+                ->body($exception->getMessage())
+                ->send();
+        }
     }
 
     public static function getPages(): array
