@@ -227,7 +227,9 @@
                                 type="button"
                                 x-on:click.stop="toggleFieldOptions(item)"
                                 class="rounded-md p-1.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                                :title="expandedFields[item.id] ? 'Скрыть варианты' : 'Показать варианты'"
+                                :title="selectedSystemGroup === 'Воронки amoCRM'
+                                    ? (expandedFields[item.id] ? 'Скрыть этапы' : 'Показать этапы')
+                                    : (expandedFields[item.id] ? 'Скрыть варианты' : 'Показать варианты')"
                             >
                                 <x-filament::icon
                                     icon="heroicon-o-list-bullet"
@@ -240,7 +242,7 @@
                                 type="button"
                                 x-on:click.stop="copyId(item)"
                                 class="rounded-md p-1.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                                title="Копировать ID поля"
+                                :title="selectedSystemGroup === 'Воронки amoCRM' ? 'Копировать ID воронки' : 'Копировать ID поля'"
                             >
                                 <x-filament::icon icon="heroicon-o-clipboard-document" class="h-4 w-4"/>
                             </button>
@@ -254,7 +256,8 @@
                     >
                         <div
                             class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                            Варианты поля
+                            <span
+                                x-text="selectedSystemGroup === 'Воронки amoCRM' ? 'Этапы воронки' : 'Варианты поля'"></span>
                         </div>
 
                         <div class="space-y-1">
@@ -263,7 +266,7 @@
                                     type="button"
                                     x-on:click.stop="copyId(option)"
                                     class="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-amber-100/70 dark:hover:bg-amber-900/30"
-                                    title="Копировать ID варианта"
+                                    :title="selectedSystemGroup === 'Воронки amoCRM' ? 'Копировать ID этапа' : 'Копировать ID варианта'"
                                 >
                                     <span class="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200"
                                           x-text="option.name"></span>

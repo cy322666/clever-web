@@ -386,22 +386,37 @@ class WorkflowTriggerConditionVariableCatalog
     }
 
     /**
-     * @return array<int, array{id: string, name: string, subtitle: string}>
+     * @return array<int, array{id: string, name: string, subtitle: string, options: array<int, array{id: string, name: string}>}>
      */
     private static function amoPipelineIdItems(int $userId): array
     {
-        return AmoCrmStatus::query()
+        $statuses = AmoCrmStatus::query()
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('is_archive', false)
             ->whereNotNull('pipeline_id')
             ->orderBy('pipeline_name')
-            ->get(['pipeline_id', 'pipeline_name'])
+            ->orderBy('sort')
+            ->get(['pipeline_id', 'pipeline_name', 'status_id', 'name']);
+
+        $statusesByPipeline = $statuses
+            ->whereNotNull('status_id')
+            ->groupBy(fn(AmoCrmStatus $status): string => (string)$status->pipeline_id);
+
+        return $statuses
             ->unique('pipeline_id')
             ->map(fn(AmoCrmStatus $status): array => [
                 'id' => (string)$status->pipeline_id,
                 'name' => (string)($status->pipeline_name ?: 'Воронка ' . $status->pipeline_id),
                 'subtitle' => 'ID воронки',
+                'options' => $statusesByPipeline
+                    ->get((string)$status->pipeline_id, collect())
+                    ->map(fn(AmoCrmStatus $pipelineStatus): array => [
+                        'id' => (string)$pipelineStatus->status_id,
+                        'name' => (string)($pipelineStatus->name ?: 'Этап ' . $pipelineStatus->status_id),
+                    ])
+                    ->values()
+                    ->all(),
             ])
             ->values()
             ->all();
