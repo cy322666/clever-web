@@ -67,7 +67,9 @@ class SubscriptionPlanResource extends Resource
         $query = parent::getEloquentQuery();
 
         if (!(bool)auth()->user()?->is_root) {
-            $query->active();
+            $query
+                ->active()
+                ->whereIn('widget', static::installedWidgetNamesForCurrentUser());
         }
 
         return $query;
@@ -243,6 +245,26 @@ class SubscriptionPlanResource extends Resource
         }
 
         return $record->name;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function installedWidgetNamesForCurrentUser(): array
+    {
+        $userId = auth()->id();
+
+        if (!$userId) {
+            return [];
+        }
+
+        return App::query()
+            ->where('user_id', $userId)
+            ->whereIn('name', App::definitionNames())
+            ->pluck('name')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private static function periodLabel(SubscriptionPlan $record): string
