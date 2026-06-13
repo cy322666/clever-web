@@ -197,6 +197,36 @@ class RecordClientRelationTest extends TestCase
         $this->assertSame([$failed->id, $pending->id], $ids);
     }
 
+    public function test_pending_mapped_fields_update_scope_skips_successfully_updated_records(): void
+    {
+        $pending = Record::query()->create([
+            'record_id' => 1001,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $failed = Record::query()->create([
+            'record_id' => 1002,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'mapped_fields_update_error' => 'failed',
+        ]);
+        Record::query()->create([
+            'record_id' => 1003,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'mapped_fields_updated_at' => now(),
+        ]);
+
+        $this->assertSame(
+            [$pending->id, $failed->id],
+            Record::query()->pendingMappedFieldsUpdate()->orderBy('id')->pluck('id')->all()
+        );
+        $this->assertCount(3, Record::query()->pendingMappedFieldsUpdate(true)->get());
+    }
+
     public function test_setting_resolves_active_amo_responsible_by_branch_and_created_user(): void
     {
         Staff::query()->create([
@@ -325,6 +355,11 @@ class RecordClientRelationTest extends TestCase
             $table->unsignedBigInteger('setting_id');
             $table->string('status')->nullable();
             $table->text('error_message')->nullable();
+            $table->string('lead_fields_replay_status')->nullable();
+            $table->timestamp('lead_fields_replayed_at')->nullable();
+            $table->text('lead_fields_replay_error')->nullable();
+            $table->timestamp('mapped_fields_updated_at')->nullable();
+            $table->text('mapped_fields_update_error')->nullable();
             $table->timestamps();
         });
 

@@ -6,12 +6,14 @@ use App\Models\Core\Account;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client as AmoClient;
+use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\YClients\YClients;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
 class ReplayLeadFields extends Command
@@ -27,9 +29,10 @@ class ReplayLeadFields extends Command
         {--from-updated-at= : Process records updated at or after this date/time}
         {--to-updated-at= : Process records updated at or before this date/time}
         {--limit= : Max records to process}
+        {--include-updated : Also process records already marked as successfully updated}
         {--dry-run : Show records without updating amoCRM}';
 
-    protected $description = 'Replay YClients records chronologically and update only mapped amoCRM lead fields by existing lead_id.';
+    protected $description = 'Replay YClients records chronologically and update all mapped amoCRM fields without moving leads.';
 
     private array $amoClients = [];
 
@@ -41,6 +44,8 @@ class ReplayLeadFields extends Command
             ->where('user_id', $this->argument('user_id'))
             ->whereNotNull('lead_id')
             ->where('lead_id', '>', 0);
+
+        $query->pendingMappedFieldsUpdate((bool)$this->option('include-updated'));
 
         foreach (
             [
@@ -89,11 +94,8 @@ class ReplayLeadFields extends Command
             )
         );
 
-        $processedLeadIds = [];
-
         foreach ($query->cursor() as $record) {
             $stats['processed']++;
-            $leadId = (int)$record->lead_id;
 
             try {
                 if ($record->isLeadOwnedByAnotherYClientsRecord()) {
@@ -102,15 +104,6 @@ class ReplayLeadFields extends Command
                     $this->line($this->recordLine($record, 'skipped-foreign-lead'));
                     continue;
                 }
-
-                if (isset($processedLeadIds[$leadId])) {
-                    $stats['skipped']++;
-                    $this->markReplayResult($record, 'skipped_duplicate_lead');
-                    $this->line($this->recordLine($record, 'skipped-duplicate-lead'));
-                    continue;
-                }
-
-                $processedLeadIds[$leadId] = true;
 
                 if ($this->option('dry-run')) {
                     $this->line($this->recordLine($record, 'dry-run'));
@@ -175,11 +168,13 @@ class ReplayLeadFields extends Command
 
     private function markReplayResult(Record $record, string $status, ?string $error = null): void
     {
-        $record->forceFill([
+        Record::withoutTimestamps(fn() => $record->forceFill([
             'lead_fields_replay_status' => $status,
             'lead_fields_replayed_at' => now(),
             'lead_fields_replay_error' => $error,
-        ])->save();
+            'mapped_fields_updated_at' => $status === 'success' ? now() : null,
+            'mapped_fields_update_error' => $status === 'success' ? null : ($error ?: $status),
+        ])->save());
     }
 
     private function orderByColumn(): string
@@ -210,27 +205,44 @@ class ReplayLeadFields extends Command
     }
 
     /**
-     * Updates only amoCRM lead custom fields mapped in YClients settings.
+     * Updates only configured custom fields. This path never changes lead
+     * status, pipeline, responsible user, or relations.
      */
     private function replayRecord(Record $record): bool
     {
         $setting = Setting::query()->find($record->setting_id);
 
-        if (!$setting || blank($setting->fields_lead)) {
+        if (!$setting || (blank($setting->fields_lead) && blank($setting->fields_contact))) {
             return false;
         }
 
         $amoApi = $this->amoApi($record->account_id);
-        $lead = Leads::get($amoApi, $record->lead_id);
+        $ycFields = Setting::YCGetFields($this->ycApi($setting), $record);
+        $updated = false;
 
-        if (!$lead) {
-            return false;
+        if (!blank($setting->fields_contact)) {
+            $contactId = $record->scopedClient()?->contact_id;
+
+            if ($contactId) {
+                $contact = Contacts::get($amoApi, $contactId);
+
+                if ($contact) {
+                    $this->updateContactFieldsWithRetry($setting, $amoApi, $contact, $ycFields, $record);
+                    $updated = true;
+                }
+            }
         }
 
-        $ycFields = Setting::YCGetFields($this->ycApi($setting), $record);
-        $this->updateLeadFieldsWithRetry($setting, $amoApi, $lead, $ycFields, $record);
+        if (!blank($setting->fields_lead)) {
+            $lead = Leads::get($amoApi, $record->lead_id);
 
-        return true;
+            if ($lead) {
+                $this->updateLeadFieldsWithRetry($setting, $amoApi, $lead, $ycFields, $record);
+                $updated = true;
+            }
+        }
+
+        return $updated;
     }
 
     private function amoApi(int $accountId): AmoClient
@@ -290,6 +302,48 @@ class ReplayLeadFields extends Command
                 $currentLead = Leads::get($amoApi, $record->lead_id);
 
                 if (!$currentLead) {
+                    throw $e;
+                }
+            }
+        }
+    }
+
+    /**
+     * @throws Throwable
+     */
+    private function updateContactFieldsWithRetry(
+        Setting $setting,
+        AmoClient $amoApi,
+        Contact $contact,
+        array $ycFields,
+        Record $record,
+        int $maxAttempts = 5
+    ): void {
+        $currentContact = $contact;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $setting->YCSetContactFields($currentContact, $ycFields);
+
+                return;
+            } catch (Throwable $e) {
+                if (!$this->isAmoLastModifiedConflict($e) || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                Log::warning('yc:replay-lead-fields amoCRM contact update conflict, retrying with fresh contact.', [
+                    'record_db_id' => $record->id,
+                    'record_id' => $record->record_id,
+                    'contact_id' => $record->scopedClient()?->contact_id,
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'error' => $e->getMessage(),
+                ]);
+
+                usleep(250000 * $attempt);
+                $currentContact = Contacts::get($amoApi, $record->scopedClient()?->contact_id);
+
+                if (!$currentContact) {
                     throw $e;
                 }
             }
