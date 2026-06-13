@@ -55,19 +55,23 @@ body.fi-body {
     gap: 0.25rem;
 }
 
-.fi-sidebar-item a {
+.fi-sidebar-item a,
+.fi-sidebar-item-btn {
     border-radius: 0.8rem !important;
     color: rgb(255 255 255 / 0.76) !important;
     transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
-.fi-sidebar-item a:hover {
+.fi-sidebar-item a:hover,
+.fi-sidebar-item-btn:hover {
     background: rgb(255 255 255 / 0.08) !important;
     color: #ffffff !important;
 }
 
 .fi-sidebar-item.fi-active a,
-.fi-sidebar-item a[aria-current="page"] {
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn,
+.fi-sidebar-item a[aria-current="page"],
+.fi-sidebar-item-btn[aria-current="page"] {
     background: linear-gradient(135deg, rgb(255 106 0 / 0.24), rgb(255 255 255 / 0.08)) !important;
     color: #ffffff !important;
     box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.22);
@@ -479,19 +483,26 @@ body.fi-body {
 }
 
 .dark .workflow-list-row--active > td {
+    border-color: rgb(58 51 45 / 0.72) !important;
     background-color: rgb(34 197 94 / 0.025);
 }
 
 .dark .workflow-list-row--inactive > td {
+    border-color: rgb(58 51 45 / 0.72) !important;
     background-color: rgb(148 163 184 / 0.018);
 }
 
 .dark .workflow-list-row--warning > td {
+    border-color: rgb(80 42 37 / 0.72) !important;
     background-color: rgb(239 68 68 / 0.035);
 }
 
+.dark .fi-resource-workflows .fi-ta-row.workflow-list-row:hover > td,
+.dark .fi-resource-workflows .workflow-list-row:hover > td,
 .dark .workflow-list-row:hover > td {
-    background-color: rgb(96 165 250 / 0.045);
+    border-color: rgb(92 67 49 / 0.78) !important;
+    background-color: rgb(41 36 31 / 0.96) !important;
+    color: rgb(245 245 244) !important;
 }
 
 .dark .workflow-list-name-cell--inactive,
@@ -510,11 +521,11 @@ body.fi-body {
 }
 
 .dark .workflow-run-history-link {
-    color: rgb(96 165 250);
+    color: rgb(255 163 87);
 }
 
 .dark .workflow-run-history-link:hover {
-    color: rgb(147 197 253);
+    color: rgb(255 190 128);
 }
 
 .dark .workflow-run-history-subline,
@@ -531,8 +542,8 @@ body.fi-body {
 }
 
 .dark .workflow-list-controls {
-    border-color: rgb(55 65 81);
-    background: rgb(17 24 39);
+    border-color: var(--clever-border);
+    background: rgb(31 29 26 / 0.94);
 }
 
 .workflow-workbench__shell {
@@ -599,24 +610,29 @@ body.fi-body {
 
 .dark .workflow-workbench__shell {
     background:
-        radial-gradient(circle at 20% 0%, rgb(37 99 235 / 0.16), transparent 24rem),
-        linear-gradient(180deg, rgb(3 7 18), rgb(17 24 39));
+        radial-gradient(circle at 20% 0%, rgb(255 106 0 / 0.12), transparent 24rem),
+        linear-gradient(180deg, rgb(17 17 15), rgb(23 23 23));
 }
 
 .dark .workflow-workbench__canvas {
-    background: rgb(17 24 39 / 0.46);
+    background: rgb(23 23 23 / 0.58);
+}
+
+.dark .workflow-workbench__toolbar {
+    border-color: var(--clever-border) !important;
+    background: rgb(17 17 15 / 0.94) !important;
 }
 
 .dark .workflow-workbench__quick-action {
-    border-color: rgb(55 65 81);
-    background: rgb(17 24 39 / 0.78);
+    border-color: var(--clever-border);
+    background: rgb(31 29 26 / 0.82);
     color: rgb(203 213 225);
 }
 
 .dark .workflow-workbench__quick-action:hover {
-    border-color: rgb(59 130 246 / 0.72);
-    background: rgb(30 41 59);
-    color: rgb(147 197 253);
+    border-color: rgb(255 106 0 / 0.5);
+    background: rgb(69 26 3 / 0.32);
+    color: rgb(255 190 128);
 }
 
 .dark .workflow-workbench__quick-action--warning {
@@ -751,6 +767,7 @@ body.fi-body {
 .dark .workflow-builder .workflow-condition-node,
 .dark .workflow-builder .workflow-empty-state {
     border-color: rgb(55 65 81) !important;
+    background-color: rgb(23 23 23) !important;
     box-shadow: 0 0 0 1px rgb(255 255 255 / 0.025), 0 0 18px 3px rgb(0 0 0 / 0.34) !important;
 }
 
