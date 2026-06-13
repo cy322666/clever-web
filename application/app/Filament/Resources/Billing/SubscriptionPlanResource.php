@@ -18,7 +18,11 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -125,34 +129,59 @@ class SubscriptionPlanResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Название')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('widget')
-                    ->label('Виджет')
-                    ->formatStateUsing(fn(?string $state): string => $state ? App::getTitle($state) : '—')
-                    ->badge()
-                    ->color('gray')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('price_label')
-                    ->label('Цена')
-                    ->placeholder('—'),
-                Tables\Columns\TextColumn::make('period_days')
-                    ->label('Период')
-                    ->suffix(' дн.')
-                    ->placeholder('—')
-                    ->sortable(),
-                Tables\Columns\IconColumn::make('is_active')
-                    ->label('Активен')
-                    ->boolean()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('sort_order')
-                    ->label('Сорт.')
-                    ->sortable(),
+                Stack::make([
+                    Split::make([
+                        Tables\Columns\TextColumn::make('widget')
+                            ->label('Виджет')
+                            ->state(fn(SubscriptionPlan $record): string => static::widgetTitle($record))
+                            ->weight(FontWeight::Bold)
+                            ->size(TextSize::Large)
+                            ->searchable()
+                            ->sortable(),
+
+                        Tables\Columns\TextColumn::make('period_label')
+                            ->label('Период')
+                            ->state(fn(SubscriptionPlan $record): string => static::periodLabel($record))
+                            ->badge()
+                            ->color('warning')
+                            ->alignRight(),
+                    ]),
+
+                    Tables\Columns\TextColumn::make('price_label')
+                        ->label('Цена')
+                        ->state(fn(SubscriptionPlan $record): string => $record->price_label ?: 'По запросу')
+                        ->weight(FontWeight::Bold)
+                        ->size(TextSize::Large)
+                        ->color('primary'),
+
+                    Tables\Columns\TextColumn::make('description')
+                        ->label('Описание')
+                        ->state(fn(SubscriptionPlan $record): string => static::descriptionText($record))
+                        ->color('gray')
+                        ->wrap()
+                        ->limit(150),
+
+                    Tables\Columns\TextColumn::make('monthly_price')
+                        ->label('В месяц')
+                        ->state(fn(SubscriptionPlan $record): string => static::monthlyPriceLabel($record) ?? '')
+                        ->color('gray'),
+
+                    Tables\Columns\TextColumn::make('features_summary')
+                        ->label('Что входит')
+                        ->state(fn(SubscriptionPlan $record): array => static::featuresSummary($record))
+                        ->color('gray')
+                        ->size(TextSize::Small)
+                        ->bulleted()
+                        ->wrap(),
+                ])
+                    ->space(3),
+            ])
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
             ])
             ->defaultSort('sort_order')
+            ->paginated(false)
             ->headerActions([
                 CreateAction::make()
                     ->visible(fn(): bool => (bool)auth()->user()?->is_root),
@@ -168,6 +197,9 @@ class SubscriptionPlanResource extends Resource
                             ->label('Виджет')
                             ->options(WidgetSubscriptionResource::widgetOptions())
                             ->searchable()
+                            ->default(fn(SubscriptionPlan $record): ?string => $record->widget)
+                            ->disabled(fn(SubscriptionPlan $record): bool => filled($record->widget))
+                            ->dehydrated()
                             ->required(),
                         Forms\Components\Textarea::make('comment')
                             ->label('Комментарий')
@@ -202,6 +234,78 @@ class SubscriptionPlanResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private static function widgetTitle(SubscriptionPlan $record): string
+    {
+        if (filled($record->widget)) {
+            return App::getTitle((string)$record->widget);
+        }
+
+        return $record->name;
+    }
+
+    private static function periodLabel(SubscriptionPlan $record): string
+    {
+        return match ((int)$record->period_days) {
+            30 => '1 месяц',
+            180 => '6 месяцев',
+            365 => '12 месяцев',
+            default => filled($record->period_days) ? $record->period_days . ' дн.' : 'Период по запросу',
+        };
+    }
+
+    private static function descriptionText(SubscriptionPlan $record): string
+    {
+        if (filled($record->description)) {
+            return (string)$record->description;
+        }
+
+        if (filled($record->widget)) {
+            return App::getTooltipText((string)$record->widget) ?: 'Доступ к виджету и поддержка подключения.';
+        }
+
+        return 'Доступ к виджету и поддержка подключения.';
+    }
+
+    private static function monthlyPriceLabel(SubscriptionPlan $record): ?string
+    {
+        $periodDays = (int)$record->period_days;
+        $price = (int)$record->price_rub;
+
+        if ($price <= 0 || $periodDays <= 30) {
+            return null;
+        }
+
+        $months = match ($periodDays) {
+            180 => 6,
+            365 => 12,
+            default => max(1, (int)round($periodDays / 30)),
+        };
+
+        return 'примерно ' . number_format((int)floor($price / $months), 0, '.', ' ') . ' ₽/мес.';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function featuresSummary(SubscriptionPlan $record): array
+    {
+        $features = collect($record->features ?? [])
+            ->filter(fn(mixed $feature): bool => filled($feature))
+            ->map(fn(mixed $feature): string => trim((string)$feature))
+            ->take(3)
+            ->values()
+            ->all();
+
+        if ($features !== []) {
+            return $features;
+        }
+
+        return [
+            'Ручное продление через поддержку',
+            'Уведомления до окончания доступа',
+        ];
     }
 
     public static function getPages(): array
