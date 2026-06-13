@@ -32,6 +32,7 @@ class Record extends Model
         'client_id',
         'created_user_id',
         'record_from',
+        'create_date',
         'visit_id',
         'visits',
         'datetime',
@@ -43,10 +44,17 @@ class Record extends Model
         'lead_fields_replay_status',
         'lead_fields_replayed_at',
         'lead_fields_replay_error',
+        'mapped_fields_updated_at',
+        'mapped_fields_update_error',
         'send',
     ];
 
     protected $table = 'yclients_records';
+
+    protected $casts = [
+        'lead_fields_replayed_at' => 'datetime',
+        'mapped_fields_updated_at' => 'datetime',
+    ];
 
     public function getEvent(): ?string
     {
@@ -137,6 +145,11 @@ class Record extends Model
                 ->where('status', self::STATUS_FAILED)
                 ->orWhereNotNull('error_message');
         });
+    }
+
+    public function scopePendingMappedFieldsUpdate(Builder $query, bool $includeUpdated = false): Builder
+    {
+        return $includeUpdated ? $query : $query->whereNull('mapped_fields_updated_at');
     }
 
     public function leadOwnerRecord(): ?self

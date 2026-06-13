@@ -11,8 +11,10 @@ use App\Filament\Catalog\Widgets\WidgetShow as WidgetShowWidget;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\VerifyCsrfToken;
 use Exception;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
@@ -28,8 +30,18 @@ class CatalogPanelProvider extends PanelProvider
         return $panel
             ->id('catalog')
             ->path('catalog') // например, публичный корень
+            ->brandName('CleverCRM')
+            ->brandLogo(asset('logo/full_logo.png'))
+            ->brandLogoHeight('2rem')
+            ->favicon(asset('logo/clever_mini_logo.png'))
+            ->font(
+                'Manrope',
+                'https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800;900&display=swap',
+                GoogleFontProvider::class,
+            )
             ->colors([
-                'primary' => '#FF4E36',
+                'primary' => Color::hex('#ff6a00'),
+                'gray' => Color::Stone,
             ])
             ->pages([
                 CaseCatalog::class,

@@ -19,7 +19,7 @@ class AuthenticationLogsRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return trans('filament-authentication-log::filament-authentication-log.table.heading');
+        return 'История входов';
     }
 
     public function table(Table $table): Table
@@ -32,12 +32,12 @@ class AuthenticationLogsRelationManager extends RelationManager
             )
             ->columns([
                 TextColumn::make('ip_address')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.ip_address'))
+                    ->label('IP-адрес')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('user_agent')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.user_agent'))
+                    ->label('Устройство')
                     ->searchable()
                     ->sortable()
                     ->limit(50)
@@ -52,26 +52,26 @@ class AuthenticationLogsRelationManager extends RelationManager
                     }),
 
                 TextColumn::make('login_at')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.login_at'))
+                    ->label('Время входа')
                     ->since()
                     ->sortable(),
 
                 IconColumn::make('login_successful')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.login_successful'))
+                    ->label('Успешный вход')
                     ->boolean()
                     ->sortable(),
 
                 TextColumn::make('logout_at')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.logout_at'))
+                    ->label('Время выхода')
                     ->since()
                     ->sortable(),
 
                 IconColumn::make('cleared_by_user')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.cleared_by_user'))
+                    ->label('Сброшено пользователем')
                     ->boolean()
                     ->sortable(),
             ])
-            ->emptyStateHeading(trans('filament-authentication-log::filament-authentication-log.table.empty'))
+            ->emptyStateHeading('История входов пуста')
             ->filters([])
             ->headerActions([])
             ->recordActions([])

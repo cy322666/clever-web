@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Integrations\YClients;
 
 use App\Filament\Resources\Integrations\YClients\Pages\EditYClients;
 use App\Filament\Resources\Integrations\YClients\Pages\ListYClients;
+use App\Filament\Resources\Integrations\YClients\RelationManagers\ResponsibleMappingsRelationManager;
 use App\Filament\Resources\Integrations\YClients\Schemas\YClientsForm;
 use App\Filament\Resources\Integrations\YClients\Tables\YClientsTable;
 use App\Helpers\Traits\SettingResource;
@@ -57,7 +58,7 @@ class YClientsResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ResponsibleMappingsRelationManager::class,
         ];
     }
 

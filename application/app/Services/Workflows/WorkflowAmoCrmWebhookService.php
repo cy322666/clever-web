@@ -5,10 +5,10 @@ namespace App\Services\Workflows;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
 use App\Services\amoCRM\Client;
+use App\Workflows\Context\WorkflowContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Leek\FilamentWorkflows\Context\WorkflowContext;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\TriggerType;
 use Throwable;
@@ -18,7 +18,9 @@ class WorkflowAmoCrmWebhookService
     public function __construct(
         private readonly WorkflowAmoCrmWebhookPayloadNormalizer $normalizer,
         private readonly WorkflowExecutor $executor,
-    ) {
+        private readonly WorkflowAmoCrmLoopGuard $loopGuard,
+    )
+    {
     }
 
     public function signature(Account $account): string
@@ -41,31 +43,146 @@ class WorkflowAmoCrmWebhookService
 
     public function callbackUrl(Account $account): string
     {
-        return route('amocrm.workflows.hook', [
+        $path = route('amocrm.workflows.hook', [
             'account' => $account->getKey(),
             'signature' => $this->signature($account),
-        ], true);
+        ], false);
+
+        return rtrim($this->publicBaseUrl(), '/') . $path;
     }
 
-    public function synchronizeUser(int $userId): void
+    /**
+     * @return array<string, mixed>
+     */
+    public function statusForUser(int $userId): array
     {
         $account = $this->resolvePrimaryAccount($userId);
 
         if (!$account instanceof Account) {
-            return;
+            return $this->missingAccountStatus($userId);
         }
 
-        $this->synchronizeAccount($account);
+        return $this->statusForAccount($account);
     }
 
-    public function synchronizeAccount(Account $account): void
+    /**
+     * @return array<string, mixed>
+     */
+    public function statusForAccount(Account $account): array
     {
         if (!$this->accountCanUseWebhooks($account)) {
-            return;
+            return $this->baseStatus(
+                account: $account,
+                requiredEvents: $this->requiredEventsForUser((int)$account->user_id),
+                ok: false,
+                state: 'disconnected',
+                connected: false,
+                message: 'Подключение amoCRM не готово к работе с вебхуками.',
+            );
         }
 
         $requiredEvents = $this->requiredEventsForUser((int)$account->user_id);
         $targetUrl = $this->callbackUrl($account);
+
+        try {
+            if (!$this->isValidPublicWebhookUrl($targetUrl)) {
+                return $this->baseStatus(
+                    account: $account,
+                    requiredEvents: $requiredEvents,
+                    ok: false,
+                    state: 'error',
+                    message: 'Нельзя установить вебхуки amoCRM: URL приёмника недоступен извне. Укажите публичный HTTPS-домен в WORKFLOW_PUBLIC_URL. Сейчас: ' . $targetUrl,
+                );
+            }
+
+            $client = new Client($account);
+            $currentHooks = $this->platformHooks($client, $account);
+            $targetHook = collect($currentHooks)->firstWhere('url', $targetUrl);
+            $currentEvents = $targetHook['events'] ?? [];
+            $disabled = (bool)($targetHook['disabled'] ?? false);
+            $installed = $targetHook !== null;
+            $matches = $installed
+                && !$disabled
+                && $this->sameEvents($requiredEvents, $currentEvents);
+            $staleHooks = collect($currentHooks)
+                ->where('url', '!=', $targetUrl)
+                ->pluck('url')
+                ->values()
+                ->all();
+            $state = $staleHooks === []
+                ? $this->statusState($requiredEvents, $installed, $matches, $disabled)
+                : 'outdated';
+            $message = $this->statusMessage($requiredEvents, $installed, $matches, $disabled);
+
+            if ($staleHooks !== []) {
+                $message .= sprintf(' Найдено устаревших вебхуков: %d.', count($staleHooks));
+            }
+
+            return [
+                ...$this->baseStatus(
+                    account: $account,
+                    requiredEvents: $requiredEvents,
+                    state: $state,
+                    message: $message,
+                ),
+                'installed_events' => $currentEvents,
+                'installed' => $installed,
+                'matches' => $matches,
+                'disabled' => $disabled,
+                'stale_hooks' => $staleHooks,
+            ];
+        } catch (Throwable $e) {
+            Log::error('Workflow amoCRM webhook status failed', [
+                'account_id' => $account->id,
+                'user_id' => $account->user_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->baseStatus(
+                account: $account,
+                requiredEvents: $requiredEvents,
+                ok: false,
+                state: 'error',
+                message: 'Не удалось проверить вебхуки amoCRM: ' . $e->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function synchronizeUser(int $userId): array
+    {
+        $account = $this->resolvePrimaryAccount($userId);
+
+        if (!$account instanceof Account) {
+            return $this->missingAccountStatus($userId);
+        }
+
+        return $this->synchronizeAccount($account);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function synchronizeAccount(Account $account): array
+    {
+        if (!$this->accountCanUseWebhooks($account)) {
+            return $this->statusForAccount($account);
+        }
+
+        $requiredEvents = $this->requiredEventsForUser((int)$account->user_id);
+        $targetUrl = $this->callbackUrl($account);
+
+        if (!$this->isValidPublicWebhookUrl($targetUrl)) {
+            return $this->baseStatus(
+                account: $account,
+                requiredEvents: $requiredEvents,
+                ok: false,
+                state: 'error',
+                message: 'Нельзя установить вебхуки amoCRM: URL приёмника недоступен извне. Укажите публичный HTTPS-домен в WORKFLOW_PUBLIC_URL. Сейчас: ' . $targetUrl,
+            );
+        }
 
         try {
             $client = new Client($account);
@@ -73,54 +190,118 @@ class WorkflowAmoCrmWebhookService
 
             foreach ($currentHooks as $hook) {
                 if (($hook['url'] ?? '') !== $targetUrl) {
-                    $this->unsubscribe($client, (string)$hook['url'], $hook['events'] ?? []);
+                    $this->unsubscribe($client, (string)$hook['url']);
                 }
             }
-
-            $currentEvents = $this->eventsForUrl($currentHooks, $targetUrl);
 
             if ($requiredEvents === []) {
-                if ($currentEvents !== []) {
-                    $this->unsubscribe($client, $targetUrl, $currentEvents);
+                if (collect($currentHooks)->contains('url', $targetUrl)) {
+                    $this->unsubscribe($client, $targetUrl);
                 }
 
-                return;
+                return $this->statusForAccount($account);
             }
 
-            if ($this->sameEvents($requiredEvents, $currentEvents)) {
-                return;
-            }
-
-            if ($currentEvents !== []) {
-                $this->unsubscribe($client, $targetUrl, $currentEvents);
-            }
-
-            $client->service->webhooks()->subscribe($targetUrl, $requiredEvents);
+            $client->requestV4('POST', '/api/v4/webhooks', [
+                'destination' => $targetUrl,
+                'settings' => $requiredEvents,
+            ]);
 
             Log::info('Workflow amoCRM webhooks synchronized', [
                 'account_id' => $account->id,
                 'user_id' => $account->user_id,
                 'events' => $requiredEvents,
             ]);
+
+            return $this->statusForAccount($account);
         } catch (Throwable $e) {
             Log::error('Workflow amoCRM webhook sync failed', [
                 'account_id' => $account->id,
                 'user_id' => $account->user_id,
                 'error' => $e->getMessage(),
             ]);
+
+            return $this->baseStatus(
+                account: $account,
+                requiredEvents: $requiredEvents,
+                ok: false,
+                state: 'error',
+                message: 'Не удалось синхронизировать вебхуки amoCRM: ' . $e->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function removeUser(int $userId): array
+    {
+        $account = $this->resolvePrimaryAccount($userId);
+
+        if (!$account instanceof Account) {
+            return $this->missingAccountStatus($userId);
+        }
+
+        return $this->removeAccount($account);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function removeAccount(Account $account): array
+    {
+        if (!$this->accountCanUseWebhooks($account)) {
+            return $this->statusForAccount($account);
+        }
+
+        try {
+            $client = new Client($account);
+            $removed = 0;
+
+            foreach ($this->platformHooks($client, $account) as $hook) {
+                $this->unsubscribe($client, (string)($hook['url'] ?? ''));
+                $removed++;
+            }
+
+            return [
+                ...$this->baseStatus(
+                    account: $account,
+                    requiredEvents: $this->requiredEventsForUser((int)$account->user_id),
+                    state: 'missing',
+                    message: $removed > 0
+                        ? 'Вебхуки процессов удалены из amoCRM.'
+                        : 'Вебхуки процессов в amoCRM не найдены.',
+                ),
+                'removed' => $removed,
+            ];
+        } catch (Throwable $e) {
+            Log::error('Workflow amoCRM webhook removal failed', [
+                'account_id' => $account->id,
+                'user_id' => $account->user_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->baseStatus(
+                account: $account,
+                requiredEvents: $this->requiredEventsForUser((int)$account->user_id),
+                ok: false,
+                state: 'error',
+                message: 'Не удалось удалить вебхуки amoCRM: ' . $e->getMessage(),
+            );
         }
     }
 
     /**
      * @param array<string, mixed> $payload
      * @param array<string, mixed> $headers
-     * @return array{events: array<int, string>, started: int}
+     * @return array{events: array<int, string>, started: int, skipped: int}
      */
     public function handleIncomingWebhook(Account $account, array $payload, array $headers = []): array
     {
         $normalized = $this->normalizer->normalize($payload);
         $events = array_keys($normalized['events']);
         $started = 0;
+        $skipped = 0;
 
         if ($events === []) {
             Log::warning('Workflow amoCRM webhook without supported events', [
@@ -128,7 +309,7 @@ class WorkflowAmoCrmWebhookService
                 'payload_keys' => array_keys($payload),
             ]);
 
-            return ['events' => [], 'started' => 0];
+            return ['events' => [], 'started' => 0, 'skipped' => 0];
         }
 
         $workflows = $this->matchingWorkflows((int)$account->user_id, $events);
@@ -139,6 +320,24 @@ class WorkflowAmoCrmWebhookService
             $event = $normalized['events'][$eventCode] ?? null;
 
             if ($event === null) {
+                continue;
+            }
+
+            $recentMutation = $this->loopGuard->matchingRecentMutation($workflow, $account, $event);
+
+            if ($recentMutation !== null) {
+                $skipped++;
+
+                Log::info('Workflow amoCRM webhook skipped to prevent self loop', [
+                    'account_id' => $account->id,
+                    'workflow_id' => $workflow->id,
+                    'workflow_run_id' => $recentMutation['workflow_run_id'] ?? null,
+                    'event' => $eventCode,
+                    'entity' => $event['entity'] ?? null,
+                    'entity_id' => $recentMutation['entity_id'] ?? null,
+                    'action_type' => $recentMutation['action_type'] ?? null,
+                ]);
+
                 continue;
             }
 
@@ -158,6 +357,7 @@ class WorkflowAmoCrmWebhookService
         return [
             'events' => $events,
             'started' => $started,
+            'skipped' => $skipped,
         ];
     }
 
@@ -322,10 +522,11 @@ class WorkflowAmoCrmWebhookService
     {
         $hooks = [];
         $pathNeedle = '/amocrm/workflows/hook/' . $account->getKey() . '/';
+        $response = $client->requestV4('GET', '/api/v4/webhooks');
 
-        foreach ($client->service->webhooks()->webhooks() as $webhook) {
+        foreach ((array)data_get($response, '_embedded.webhooks', []) as $webhook) {
             $hook = $this->webhookToArray($webhook);
-            $url = (string)($hook['url'] ?? '');
+            $url = (string)($hook['destination'] ?? $hook['url'] ?? '');
 
             if ($url === '' || !Str::contains($url, $pathNeedle)) {
                 continue;
@@ -333,38 +534,51 @@ class WorkflowAmoCrmWebhookService
 
             $hooks[] = [
                 'url' => $url,
-                'events' => array_values(array_filter((array)($hook['events'] ?? []))),
+                'events' => array_values(array_filter((array)($hook['settings'] ?? $hook['events'] ?? []))),
+                'disabled' => (bool)($hook['disabled'] ?? false),
             ];
         }
 
         return $hooks;
     }
 
-    /**
-     * @param array<int, array{url: string, events: array<int, string>}> $hooks
-     * @return array<int, string>
-     */
-    private function eventsForUrl(array $hooks, string $url): array
-    {
-        foreach ($hooks as $hook) {
-            if (($hook['url'] ?? '') === $url) {
-                return array_values(array_filter($hook['events'] ?? []));
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * @param array<int, string> $events
-     */
-    private function unsubscribe(Client $client, string $url, array $events): void
+    private function unsubscribe(Client $client, string $url): void
     {
         if ($url === '') {
             return;
         }
 
-        $client->service->webhooks()->unsubscribe($url, array_values(array_filter($events)));
+        $client->requestV4('DELETE', '/api/v4/webhooks', [
+            'destination' => $url,
+        ]);
+    }
+
+    private function publicBaseUrl(): string
+    {
+        return rtrim((string)(config('workflow-webhooks.public_url') ?: config('app.url')), '/');
+    }
+
+    private function isValidPublicWebhookUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower((string)($parts['scheme'] ?? ''));
+        $host = strtolower((string)($parts['host'] ?? ''));
+
+        if (!in_array($scheme, ['https', 'http'], true) || $host === '') {
+            return false;
+        }
+
+        if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0', '::1'], true)) {
+            return false;
+        }
+
+        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return true;
+        }
+
+        return (bool)filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
     }
 
     /**
@@ -393,5 +607,102 @@ class WorkflowAmoCrmWebhookService
         }
 
         return [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function missingAccountStatus(int $userId): array
+    {
+        return [
+            'ok' => false,
+            'state' => 'disconnected',
+            'account_id' => null,
+            'user_id' => $userId,
+            'connected' => false,
+            'message' => 'Активное подключение amoCRM не найдено.',
+            'required_events' => $this->requiredEventsForUser($userId),
+            'installed_events' => [],
+            'installed' => false,
+            'matches' => false,
+            'disabled' => false,
+            'callback_url' => null,
+            'stale_hooks' => [],
+        ];
+    }
+
+    /**
+     * @param array<int, string> $requiredEvents
+     * @return array<string, mixed>
+     */
+    private function baseStatus(
+        Account $account,
+        array $requiredEvents,
+        bool $ok = true,
+        string $state = 'missing',
+        bool $connected = true,
+        string $message = '',
+    ): array {
+        return [
+            'ok' => $ok,
+            'state' => $state,
+            'account_id' => $account->id,
+            'user_id' => $account->user_id,
+            'connected' => $connected,
+            'message' => $message,
+            'required_events' => $requiredEvents,
+            'installed_events' => [],
+            'installed' => false,
+            'matches' => false,
+            'disabled' => false,
+            'callback_url' => $this->callbackUrl($account),
+            'stale_hooks' => [],
+        ];
+    }
+
+    /**
+     * @param array<int, string> $requiredEvents
+     */
+    private function statusState(array $requiredEvents, bool $installed, bool $matches, bool $disabled): string
+    {
+        if ($requiredEvents === []) {
+            return $installed ? 'outdated' : 'not_required';
+        }
+
+        if (!$installed) {
+            return 'missing';
+        }
+
+        if ($disabled || !$matches) {
+            return 'outdated';
+        }
+
+        return 'installed';
+    }
+
+    /**
+     * @param array<int, string> $requiredEvents
+     */
+    private function statusMessage(array $requiredEvents, bool $installed, bool $matches, bool $disabled): string
+    {
+        if ($requiredEvents === []) {
+            return $installed
+                ? 'Webhook установлен, но активным процессам события amoCRM не требуются.'
+                : 'Активным процессам события amoCRM не требуются.';
+        }
+
+        if (!$installed) {
+            return 'Webhook не установлен.';
+        }
+
+        if ($disabled) {
+            return 'Webhook установлен, но отключён в amoCRM.';
+        }
+
+        if (!$matches) {
+            return 'Webhook установлен, но список событий отличается от активных процессов.';
+        }
+
+        return 'Webhook установлен и соответствует активным процессам.';
     }
 }

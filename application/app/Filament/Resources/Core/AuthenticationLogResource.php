@@ -41,18 +41,18 @@ class AuthenticationLogResource extends Resource
             )
             ->columns([
                 TextColumn::make('authenticatable')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.authenticatable'))
+                    ->label('Пользователь')
                     ->formatStateUsing(function (?string $state, Model $record) {
+                        if (!$record->authenticatable_id || !$record->authenticatable) {
+                            return new HtmlString('&mdash;');
+                        }
+
                         $authenticatableFieldToDisplay = config(
                             'filament-authentication-log.authenticatable.field-to-display'
                         );
                         $authenticatableDisplay = $authenticatableFieldToDisplay !== null
                             ? $record->authenticatable->{$authenticatableFieldToDisplay}
                             : class_basename($record->authenticatable::class);
-
-                        if (!$record->authenticatable_id) {
-                            return new HtmlString('&mdash;');
-                        }
 
                         $authenticableEditRoute = '#';
                         $routeName = 'filament.app.resources.' . Str::plural(
@@ -74,12 +74,12 @@ class AuthenticationLogResource extends Resource
                     ->sortable(['authenticatable_id']),
 
                 TextColumn::make('ip_address')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.ip_address'))
+                    ->label('IP-адрес')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('user_agent')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.user_agent'))
+                    ->label('Устройство')
                     ->searchable()
                     ->sortable()
                     ->limit(50)
@@ -93,22 +93,22 @@ class AuthenticationLogResource extends Resource
                     }),
 
                 TextColumn::make('login_at')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.login_at'))
+                    ->label('Время входа')
                     ->dateTime()
                     ->sortable(),
 
                 IconColumn::make('login_successful')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.login_successful'))
+                    ->label('Успешный вход')
                     ->boolean()
                     ->sortable(),
 
                 TextColumn::make('logout_at')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.logout_at'))
+                    ->label('Время выхода')
                     ->dateTime()
                     ->sortable(),
 
                 IconColumn::make('cleared_by_user')
-                    ->label(trans('filament-authentication-log::filament-authentication-log.column.cleared_by_user'))
+                    ->label('Сброшено пользователем')
                     ->boolean()
                     ->sortable(),
             ])

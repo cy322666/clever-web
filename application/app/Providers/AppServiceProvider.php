@@ -2,17 +2,22 @@
 
 namespace App\Providers;
 
+use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
+use App\Models\Workflows\Workflow;
+use App\Models\Workflows\WorkflowRun as AppWorkflowRun;
 use App\Observers\QueueMonitorObserver;
 use App\Services\Core\MonitoringCache;
-use App\Services\Workflows\WorkflowAmoCrmWebhookService;
+use App\Services\Workflows\WorkflowRunEntityIndexService;
 use App\Services\Workflows\WorkflowVariableService;
-use App\Models\Workflows\Workflow;
 use App\Workflows\Actions\ControlConditionAction;
-use App\Workflows\Actions\F5AmoCrmActionCatalog;
 use App\Workflows\Actions\MultiChannelNotificationAction;
 use App\Workflows\Actions\RunWorkflowAction;
+use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Engine\WorkflowExecutor as AppWorkflowExecutor;
+use App\Workflows\Engine\WorkflowTestRunner as AppWorkflowTestRunner;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
+use App\Workflows\Triggers\GenericWebhookTrigger;
+use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
@@ -27,6 +32,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
+use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Triggers\DateConditionTrigger;
 use Leek\FilamentWorkflows\Triggers\ManualTrigger;
 use Leek\FilamentWorkflows\Triggers\ScheduleTrigger;
@@ -37,7 +43,9 @@ use Throwable;
 class AppServiceProvider extends ServiceProvider
 {
     private const DB_SLOW_QUERY_TOTAL_KEY = 'monitoring:db:slow_queries:total';
+
     private const DB_SLOW_QUERY_LAST_MS_KEY = 'monitoring:db:slow_queries:last_ms';
+
     private const DB_SLOW_QUERY_LAST_SEEN_KEY = 'monitoring:db:slow_queries:last_seen_unixtime';
 
     /**
@@ -52,6 +60,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             \Leek\FilamentWorkflows\Engine\WorkflowExecutor::class,
             fn($app): AppWorkflowExecutor => new AppWorkflowExecutor($app->make(ActionRegistry::class)),
+        );
+
+        $this->app->singleton(
+            \Leek\FilamentWorkflows\Engine\WorkflowTestRunner::class,
+            fn($app): AppWorkflowTestRunner => new AppWorkflowTestRunner($app->make(ActionRegistry::class)),
         );
 
         $this->app->singleton(
@@ -72,14 +85,19 @@ class AppServiceProvider extends ServiceProvider
             fn(): string => $this->optionalViteAsset('resources/css/filament-workflows.css'),
         );
 
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            fn(): string => $this->optionalViteAsset('resources/js/app.js'),
+        );
+
         FilamentAsset::register([
             Js::make('amochat', resource_path('js/amochat.js')),
         ]);
 
-//        Totem::auth(function(Request $request) {
-//
-//            return $request->user()->is_root;
-//        });
+        //        Totem::auth(function(Request $request) {
+        //
+        //            return $request->user()->is_root;
+        //        });
 
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
@@ -92,6 +110,7 @@ class AppServiceProvider extends ServiceProvider
             $this->registerWorkflowTriggers();
             $this->registerWorkflowActions();
             $this->registerWorkflowWebhookSynchronization();
+            $this->registerWorkflowRunEntityIndexing();
         }
     }
 
@@ -126,6 +145,8 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(ManualTrigger::class);
             $registry->register(ScheduleTrigger::class);
             $registry->register(DateConditionTrigger::class);
+            $registry->register(WorkflowCompletedTrigger::class);
+            $registry->register(GenericWebhookTrigger::class);
 
             foreach (AmoCrmWebhookTriggerCatalog::classes() as $triggerClass) {
                 $registry->register($triggerClass);
@@ -149,7 +170,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(RunWorkflowAction::class);
             $registry->register(MultiChannelNotificationAction::class);
 
-            foreach (F5AmoCrmActionCatalog::classes() as $actionClass) {
+            foreach (WorkflowAmoCrmActionCatalog::classes() as $actionClass) {
                 $registry->register($actionClass);
             }
 
@@ -161,7 +182,9 @@ class AppServiceProvider extends ServiceProvider
                 'amocrm_create_contact',
                 'amocrm_create_company',
                 'amocrm_copy_lead',
-                'amocrm_update_fields',
+                'amocrm_update_lead_fields',
+                'amocrm_update_contact_fields',
+                'amocrm_update_company_fields',
                 'amocrm_create_task',
                 'amocrm_add_note',
                 'amocrm_change_tags',
@@ -190,7 +213,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser($userId);
+            $this->dispatchWorkflowWebhookSynchronization($userId);
         });
 
         Workflow::deleted(function (Workflow $workflow): void {
@@ -200,7 +223,41 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser($userId);
+            $this->dispatchWorkflowWebhookSynchronization($userId);
+        });
+    }
+
+    private function dispatchWorkflowWebhookSynchronization(int $userId): void
+    {
+        $dispatch = SynchronizeAmoCrmWebhooks::dispatch($userId);
+
+        if (!$this->app->runningInConsole()) {
+            $dispatch->afterResponse();
+        }
+    }
+
+    private function registerWorkflowRunEntityIndexing(): void
+    {
+        /** @var class-string<AppWorkflowRun> $runModelClass */
+        $runModelClass = config('filament-workflows.models.workflow_run', AppWorkflowRun::class);
+
+        /** @var class-string<WorkflowRunStep> $stepModelClass */
+        $stepModelClass = config('filament-workflows.models.workflow_run_step', WorkflowRunStep::class);
+
+        $runModelClass::saved(function ($run): void {
+            if (!$run->wasChanged('context_data')) {
+                return;
+            }
+
+            app(WorkflowRunEntityIndexService::class)->indexRun($run);
+        });
+
+        $stepModelClass::saved(function ($step): void {
+            if (!$step->wasChanged('output_data') && !$step->wasChanged('input_data')) {
+                return;
+            }
+
+            app(WorkflowRunEntityIndexService::class)->indexStep($step);
         });
     }
 

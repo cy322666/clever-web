@@ -11,13 +11,29 @@ return array_replace_recursive($fallback, [
         'plural' => 'Секреты',
     ],
     'fields' => [
-        'name' => ['label' => 'Название'],
-        'value' => ['label' => 'Значение'],
+        'name' => [
+            'label' => 'Название',
+            'placeholder' => 'Например: stripe_api_key',
+            'helper' => 'Уникальный идентификатор секрета. Используйте snake_case.',
+        ],
+        'value' => [
+            'label' => 'Значение секрета',
+            'placeholder' => 'Введите значение секрета...',
+            'helper_create' => 'Значение будет зашифровано перед сохранением.',
+            'helper_edit' => 'Оставьте пустым, чтобы сохранить текущее значение.',
+            'display' => '********',
+        ],
         'type' => ['label' => 'Тип'],
         'description' => ['label' => 'Описание'],
-        'last_used_at' => ['label' => 'Последнее использование'],
+        'last_used_at' => [
+            'label' => 'Последнее использование',
+            'never' => 'Никогда',
+        ],
         'created_at' => ['label' => 'Создан'],
         'updated_at' => ['label' => 'Изменен'],
+    ],
+    'filters' => [
+        'type' => ['label' => 'Тип'],
     ],
     'sections' => [
         'secret_details' => [
@@ -30,5 +46,17 @@ return array_replace_recursive($fallback, [
         'bearer_token' => 'Bearer token',
         'url' => 'URL',
         'custom' => 'Свое значение',
+    ],
+    'actions' => [
+        'edit' => [
+            'description' => 'Обновите данные секрета. Оставьте значение пустым, чтобы сохранить текущий секрет.',
+        ],
+        'create' => [
+            'description' => 'Безопасно сохраните чувствительные значения. Они будут зашифрованы.',
+        ],
+    ],
+    'empty_state' => [
+        'heading' => 'Секретов пока нет',
+        'description' => 'Создайте секрет для безопасного хранения API-ключей, токенов и других чувствительных данных.',
     ],
 ]);

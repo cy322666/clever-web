@@ -9,6 +9,8 @@ use App\Services\amoCRM\Client;
 use App\Services\YClients\Notes;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\YClients\Leads as ServiceLead;
 use App\Services\YClients\Contacts as ServiceContact;
@@ -38,6 +40,19 @@ class SendRecord extends Command
      */
     public function handle()
     {
+        $recordId = $this->argument('record_id');
+
+        return Cache::store(config('cache.yclients_lock_store', 'database'))
+            ->lock('yclients:send-record:' . $recordId, 120)
+            ->block(60, fn () => $this->handleLocked());
+    }
+
+    /**
+     * @throws Throwable
+     * @throws ConnectionException
+     */
+    private function handleLocked(): int
+    {
         /** @var Record $record */
         $record  = Record::query()->findOrFail($this->argument('record_id'));
         /** @var Account $account */
@@ -55,10 +70,20 @@ class SendRecord extends Command
         }
 
         $amoApi = (new Client($account))->init();
-
         $ycApi = (new YClients($setting));
+
         $lead = null;
+        $assignResponsible = false;
+        $responsibleUserId = $setting->responsibleUserIdForRecord($record);
         $client = $record->scopedClient();
+
+        Log::info('YClients responsible mapping resolved.', [
+            'record_db_id' => $record->id,
+            'record_id' => $record->record_id,
+            'company_id' => $record->company_id,
+            'created_user_id' => $record->created_user_id,
+            'amo_responsible_user_id' => $responsibleUserId,
+        ]);
 
         if (!$client) {
             Log::error('YClients client not found for record in scoped lookup.', [
@@ -80,9 +105,9 @@ class SendRecord extends Command
             $contact = ServiceContact::get($amoApi, $client->contact_id);
 
             if (!$contact)
-                $contact = ServiceContact::updateOrCreate($client, $amoApi);
+                $contact = ServiceContact::updateOrCreate($client, $amoApi, $responsibleUserId);
         } else
-            $contact = ServiceContact::updateOrCreate($client, $amoApi);
+            $contact = ServiceContact::updateOrCreate($client, $amoApi, $responsibleUserId);
 
         // LEAD
 
@@ -119,7 +144,7 @@ class SendRecord extends Command
 
                 // уже привязывали сделку к записи
                 if ($lead)
-                    $lead = ServiceLead::update($lead, $objectStatus, $record);
+                    $assignResponsible = false;
 
             } else {
                 // поиск открытой сделки у контакта в нужной воронке
@@ -134,6 +159,7 @@ class SendRecord extends Command
                             ->where('account_id', $account->id)
                             ->exists()
                     );
+                    $assignResponsible = !empty($lead);
                 } else
                     $lead = null;
             }
@@ -141,9 +167,14 @@ class SendRecord extends Command
 
         try {
             if (!empty($lead)) {
-                $lead = ServiceLead::update($lead, $objectStatus, $record);
+                $lead = ServiceLead::update(
+                    $lead,
+                    $objectStatus,
+                    $record,
+                    $assignResponsible ? $responsibleUserId : null
+                );
             } else {
-                $lead = ServiceLead::create($contact, $objectStatus, $record);
+                $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId);
             }
         } catch (Throwable $e) {
             Log::error('YClients lead sync failed during save()', [

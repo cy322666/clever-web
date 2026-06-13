@@ -26,6 +26,36 @@ return array_replace_recursive($fallback, [
         'output_from_step' => 'Результат шага ":name"',
         'nested_fields' => 'Можно обращаться к вложенным полям через точку',
     ],
+    'outputs' => [
+        'condition_passed' => [
+            'label' => 'Условие выполнено',
+            'description' => 'Логический результат',
+        ],
+        'branch_taken' => [
+            'label' => 'Выбранная ветка',
+            'description' => '"true" или "false"',
+        ],
+        'http_status' => [
+            'label' => 'HTTP-статус',
+            'description' => 'Код статуса ответа',
+        ],
+        'response_body' => [
+            'label' => 'Тело ответа',
+            'description' => 'Содержимое ответа',
+        ],
+        'response_headers' => [
+            'label' => 'Заголовки ответа',
+            'description' => 'Заголовки ответа',
+        ],
+        'transformed_data' => [
+            'label' => 'Преобразованные данные',
+            'description' => 'Результат преобразования',
+        ],
+        'variable_value' => [
+            'label' => 'Значение переменной',
+            'description' => 'Установленное значение',
+        ],
+    ],
     'placeholders' => [
         'unknown' => 'Неизвестно',
     ],

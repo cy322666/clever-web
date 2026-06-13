@@ -5,10 +5,13 @@ namespace App\Models\Integrations\YClients;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Field;
+use App\Models\amoCRM\Staff;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Client\ConnectionException;
 use RuntimeException;
+use Throwable;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
@@ -109,6 +112,24 @@ class Setting extends Model
         }
     }
 
+    private static function optionalYClientsRequest(callable $request, string $requestName, Record $record): mixed
+    {
+        try {
+            return $request();
+        } catch (Throwable $e) {
+            self::debugLog('Optional YClients request skipped.', [
+                'request' => $requestName,
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'company_id' => $record->company_id,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+
+            return null;
+        }
+    }
+
     private static function setAmoFieldById(Contact|Lead $entity, Field $field, mixed $value): void
     {
         if ($value === null || $value === '') {
@@ -124,63 +145,6 @@ class Setting extends Model
         }
 
         $customField->setValue($value);
-    }
-
-    private static function amoFieldHasValue(Contact|Lead $entity, Field $field): bool
-    {
-        $customField = $entity->customFields->byId((int)$field->field_id);
-
-        if (!$customField) {
-            return false;
-        }
-
-        return self::filledAmoValue($customField->getValue());
-    }
-
-    private static function filledAmoValue(mixed $value): bool
-    {
-        if ($value === null) {
-            return false;
-        }
-
-        if (is_string($value)) {
-            return trim($value) !== '';
-        }
-
-        if (is_array($value)) {
-            return count(array_filter($value, fn($item) => self::filledAmoValue($item))) > 0;
-        }
-
-        return true;
-    }
-
-    private function leadAlreadyHasRecordIdentity(Lead $lead, array $mapping): bool
-    {
-        $hasServices = false;
-        $hasDateOrTime = false;
-
-        foreach ($mapping as $field) {
-            $fieldYc = $field['field_yc'] ?? null;
-
-            if (!in_array($fieldYc, ['services', 'record_datetime', 'record_date', 'record_time'], true)) {
-                continue;
-            }
-
-            $amoField = $this->amoField($field['field_amo'] ?? null, 'leads');
-
-            if (!$amoField || !self::amoFieldHasValue($lead, $amoField)) {
-                continue;
-            }
-
-            if ($fieldYc === 'services') {
-                $hasServices = true;
-                continue;
-            }
-
-            $hasDateOrTime = true;
-        }
-
-        return $hasServices && $hasDateOrTime;
     }
 
     private static function mappingRows(mixed $mapping): array
@@ -206,6 +170,39 @@ class Setting extends Model
         );
     }
 
+    public function responsibleUserIdForRecord(Record $record): ?int
+    {
+        $ycUserKey = (string)$record->company_id . ':' . (string)$record->created_user_id;
+        $amoUserId = (int)ResponsibleMapping::query()
+            ->where('setting_id', $this->id)
+            ->where('active', true)
+            ->get()
+            ->first(fn(ResponsibleMapping $mapping): bool => in_array($ycUserKey, $mapping->yc_user_keys ?? [], true))
+            ?->amo_user_id;
+
+        if ($amoUserId <= 0) {
+            return null;
+        }
+
+        return Staff::query()
+            ->where('user_id', $this->user_id)
+            ->where('staff_id', $amoUserId)
+            ->where('active', true)
+            ->exists()
+            ? $amoUserId
+            : null;
+    }
+
+    public function responsibleMappings(): HasMany
+    {
+        return $this->hasMany(ResponsibleMapping::class, 'setting_id');
+    }
+
+    public function yclientsUsers(): HasMany
+    {
+        return $this->hasMany(YClientsUser::class, 'setting_id');
+    }
+
     private static function recordDateTime(?string $datetime): ?\Carbon\Carbon
     {
         if (empty($datetime)) {
@@ -216,6 +213,19 @@ class Setting extends Model
             return \Carbon\Carbon::createFromFormat('Y.m.d H:i:s', $datetime);
         } catch (\Throwable) {
             return \Carbon\Carbon::parse($datetime);
+        }
+    }
+
+    private static function formattedDateTime(?string $datetime): ?string
+    {
+        if (empty($datetime)) {
+            return null;
+        }
+
+        try {
+            return self::recordDateTime($datetime)?->format('d.m.Y H:i');
+        } catch (\Throwable) {
+            return (string)$datetime;
         }
     }
 
@@ -236,7 +246,8 @@ class Setting extends Model
             'record_date' => self::humanFieldLabel('Дата записи'),
             'record_time' => self::humanFieldLabel('Время записи'),
             'record_from' => self::humanFieldLabel('Источник записи'),
-            'created_user_name' => self::humanFieldLabel('Кто записал'),
+            'create_date' => self::humanFieldLabel('Дата создания'),
+            'created_user_name' => self::humanFieldLabel('Кто создал'),
             'created_user_role_name' => self::humanFieldLabel('Роль создателя'),
             'created_user_department' => self::humanFieldLabel('Отдел создателя'),
 
@@ -266,6 +277,7 @@ class Setting extends Model
             'record_date',
             'record_time',
             'record_from',
+            'create_date',
             'created_user_name',
             'created_user_role_name',
             'created_user_department',
@@ -287,19 +299,27 @@ class Setting extends Model
         $fields = static::YCfields();
 
         $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
-        $recordYC = $client->getRecord($record->company_id, $record->record_id)?->data ?? null;
+        $recordYC = self::optionalYClientsRequest(
+            fn() => $client->getRecord($record->company_id, $record->record_id),
+            'record',
+            $record
+        )?->data ?? null;
         $createdUserId = $record->created_user_id;
         $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
+        $createDate = $record->create_date ?: data_get($recordYC, 'create_date');
 
         if ($createdUserId === null || $createdUserId === '') {
             $createdUserId = data_get($recordYC, 'created_user_id');
         }
 
-        if (($record->record_from !== $recordFrom || (string)$record->created_user_id !== (string)$createdUserId)
+        if (($record->record_from !== $recordFrom
+                || (string)$record->created_user_id !== (string)$createdUserId
+                || (string)$record->create_date !== (string)$createDate)
             && $record->exists) {
             $record->forceFill([
                 'created_user_id' => $createdUserId,
                 'record_from' => $recordFrom,
+                'create_date' => $createDate,
             ])->save();
         }
 
@@ -315,7 +335,11 @@ class Setting extends Model
 //            }
 //        }
 
-        $fields['branch'] = $client->getBranchTitle($record->company_id) ?: (string)$record->company_id;
+        $fields['branch'] = self::optionalYClientsRequest(
+            fn() => $client->getBranchTitle($record->company_id),
+            'branch-title',
+            $record
+        ) ?: (string)$record->company_id;
         $fields['company_id'] = $record->company_id;
         $fields['record_id'] = $record->record_id;
         $recordDateTime = self::recordDateTime($record->datetime);
@@ -323,6 +347,7 @@ class Setting extends Model
         $fields['record_date'] = $recordDateTime?->format('d.m.Y');
         $fields['record_time'] = $recordDateTime?->format('H:i');
         $fields['record_from'] = $recordFrom ?: 'Не указан';
+        $fields['create_date'] = self::formattedDateTime($createDate);
         $fields['created_user_name'] = null;
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
@@ -332,8 +357,16 @@ class Setting extends Model
             $fields['created_user_role_name'] = 'Внешний источник';
             $fields['created_user_department'] = 'Не сотрудник';
         } else {
-            $createdUser = $client->getUserPermissions($record->company_id, $createdUserId);
-            $createdUserRoles = $client->getUserRoles($record->company_id, $createdUserId);
+            $createdUser = self::optionalYClientsRequest(
+                fn() => $client->getUserPermissions($record->company_id, $createdUserId),
+                'created-user-permissions',
+                $record
+            );
+            $createdUserRoles = self::optionalYClientsRequest(
+                fn() => $client->getUserRoles($record->company_id, $createdUserId),
+                'created-user-roles',
+                $record
+            );
 
             $role = data_get($createdUser, 'data.user_role');
             $roleTitle = self::createdUserRoleTitle($role);
@@ -348,19 +381,40 @@ class Setting extends Model
             $staffId = data_get($createdUser, 'data.staff_id');
             $positionId = self::permissionValue($createdUser, 'timetable_position_id');
             $staff = null;
+            $companyUser = null;
 
             if (!empty($staffId)) {
-                $staff = $client->getStaff($record->company_id, $staffId);
+                $staff = self::optionalYClientsRequest(
+                    fn() => $client->getStaff($record->company_id, $staffId),
+                    'created-user-staff',
+                    $record
+                );
             }
 
             if (!$staff) {
-                $staff = $client->findStaffByUserId($record->company_id, $createdUserId);
+                $staff = self::optionalYClientsRequest(
+                    fn() => $client->findStaffByUserId($record->company_id, $createdUserId),
+                    'created-user-staff-list',
+                    $record
+                );
+            }
+
+            if (!$staff) {
+                $companyUser = self::optionalYClientsRequest(
+                    fn() => $client->findCompanyUserById($record->company_id, $createdUserId),
+                    'created-user-company-user',
+                    $record
+                );
             }
 
             $fields['created_user_name'] = data_get($staff, 'data.name')
                 ?: data_get($staff, 'data.0.name')
                     ?: data_get($staff, 'name')
-                        ?: (string)$createdUserId;
+                        ?: data_get($companyUser, 'name')
+                            ?: data_get($createdUser, 'data.name')
+                                ?: data_get($createdUser, 'data.login')
+                                    ?: $roleTitle
+                                        ?: 'Пользователь YClients';
 
             $fields['created_user_department'] = data_get($staff, 'data.position.title')
                 ?: data_get($staff, 'data.0.position.title')
@@ -368,7 +422,11 @@ class Setting extends Model
                         ?: data_get($staff, 'data.specialization')
                             ?: data_get($staff, 'data.0.specialization')
                                 ?: data_get($staff, 'specialization')
-                                    ?: $client->findPositionTitle($record->company_id, $positionId)
+                                    ?: self::optionalYClientsRequest(
+                                        fn() => $client->findPositionTitle($record->company_id, $positionId),
+                                        'created-user-position',
+                                        $record
+                                    )
                                         ?: $roleTitle
                                             ?: 'Сотрудник';
 
@@ -382,6 +440,7 @@ class Setting extends Model
                 'role_title' => $roleTitle,
                 'staff_id' => $staffId,
                 'position_id' => $positionId,
+                'company_user_name' => data_get($companyUser, 'name'),
                 'staff_position_title' => data_get($staff, 'data.position.title')
                     ?: data_get($staff, 'data.0.position.title')
                         ?: data_get($staff, 'position.title'),
@@ -466,15 +525,6 @@ class Setting extends Model
         $body = self::mappingRows($this->fields_lead);
 
         if (!$body) {
-            return $lead;
-        }
-
-        if ($this->leadAlreadyHasRecordIdentity($lead, $body)) {
-            self::debugLog('YClients lead field mapping skipped: lead already has services and date/time.', [
-                'setting_id' => $this->id,
-                'lead_id' => $lead->id,
-            ]);
-
             return $lead;
         }
 

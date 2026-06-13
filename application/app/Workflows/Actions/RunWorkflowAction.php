@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Workflows\Actions;
 
+use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -36,7 +37,7 @@ class RunWorkflowAction extends BaseRunWorkflowAction
                         ->searchable()
                         ->preload()
                         ->native(false)
-                        ->helperText('Показываются только активные процессы.'),
+                        ->helperText('Показываются процессы с триггером «Запуск из другого процесса».'),
                 ]),
 
             Section::make('Что передать')
@@ -124,7 +125,23 @@ class RunWorkflowAction extends BaseRunWorkflowAction
             ];
         }
 
-        return parent::handle($config, $context);
+        if ($targetWorkflowId > 0 && !static::isCallableWorkflow($targetWorkflowId, $currentWorkflowId ?: null)) {
+            return [
+                'success' => false,
+                'error' => 'Выбранный процесс не настроен для запуска из другого процесса.',
+            ];
+        }
+
+        $result = parent::handle($config, $context);
+
+        if (($result['success'] ?? false) && isset($result['output']['child_context']) && is_array(
+                $result['output']['child_context']
+            )) {
+            $result['output']['child_context']['source_workflow_id'] = $currentWorkflowId ?: null;
+            $result['output']['child_context']['source_workflow_run_id'] = $context?->getWorkflowRunId();
+        }
+
+        return $result;
     }
 
     /**
@@ -132,14 +149,36 @@ class RunWorkflowAction extends BaseRunWorkflowAction
      */
     protected static function workflowOptionsExceptCurrent(mixed $record = null, mixed $livewire = null): array
     {
-        $options = static::getWorkflowOptions();
         $currentWorkflowId = static::currentWorkflowId($record) ?? static::currentWorkflowId($livewire);
+        $workflowModel = config('filament-workflows.models.workflow');
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
 
-        if ($currentWorkflowId !== null) {
-            unset($options[$currentWorkflowId], $options[(string)$currentWorkflowId]);
+        return $workflowModel::query()
+            ->when(
+                config('filament-workflows.tenancy.enabled', false) && auth()->id(),
+                fn($query) => $query->where($tenantColumn, auth()->id())
+            )
+            ->when($currentWorkflowId !== null, fn($query) => $query->whereKeyNot($currentWorkflowId))
+            ->where('definition->trigger->type', WorkflowCompletedTrigger::type())
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active'])
+            ->mapWithKeys(fn($workflow): array => [
+                (string)$workflow->getKey() => $workflow->name . ($workflow->is_active ? '' : ' (выключен)'),
+            ])
+            ->all();
+    }
+
+    public function validateWorkflowConfig(array $config): array
+    {
+        $result = parent::validateWorkflowConfig($config);
+        $workflowId = (int)($config['workflow_id'] ?? 0);
+
+        if ($workflowId > 0 && !static::isCallableWorkflow($workflowId)) {
+            $result['valid'] = false;
+            $result['errors'][] = 'Выбранный процесс должен иметь триггер «Запуск из другого процесса».';
         }
 
-        return $options;
+        return $result;
     }
 
     protected static function currentWorkflowId(mixed $source): ?int
@@ -159,5 +198,27 @@ class RunWorkflowAction extends BaseRunWorkflowAction
         }
 
         return null;
+    }
+
+    protected static function isCallableWorkflow(int $workflowId, ?int $sourceWorkflowId = null): bool
+    {
+        $workflowModel = config('filament-workflows.models.workflow');
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
+        $sourceTenantId = $sourceWorkflowId !== null
+            ? $workflowModel::query()->whereKey($sourceWorkflowId)->value($tenantColumn)
+            : null;
+
+        return $workflowModel::query()
+            ->when(
+                config('filament-workflows.tenancy.enabled', false),
+                fn($query) => $query->when(
+                    $sourceTenantId !== null,
+                    fn($query) => $query->where($tenantColumn, $sourceTenantId),
+                    fn($query) => $query->when(auth()->id(), fn($query) => $query->where($tenantColumn, auth()->id()))
+                )
+            )
+            ->whereKey($workflowId)
+            ->where('definition->trigger->type', WorkflowCompletedTrigger::type())
+            ->exists();
     }
 }

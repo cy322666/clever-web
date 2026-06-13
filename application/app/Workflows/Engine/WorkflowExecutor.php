@@ -3,6 +3,7 @@
 namespace App\Workflows\Engine;
 
 use App\Services\Core\AlertService;
+use App\Workflows\Context\WorkflowContext as AppWorkflowContext;
 use App\Workflows\FailureStrategies;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,7 @@ use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Actions\FlowControl\ConditionAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor as BaseWorkflowExecutor;
+use Leek\FilamentWorkflows\Enums\TriggerType;
 use Leek\FilamentWorkflows\Models\WorkflowRun;
 use Throwable;
 
@@ -158,5 +160,63 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         }
 
         return (string)$value;
+    }
+
+    protected function buildContext(WorkflowRun $run): WorkflowContext
+    {
+        $triggerModel = null;
+
+        if ($run->triggerable_type && $run->triggerable_id) {
+            $triggerModel = $run->triggerable;
+        }
+
+        if ($run->context_data) {
+            return AppWorkflowContext::fromArray($run->context_data, $triggerModel);
+        }
+
+        return (new AppWorkflowContext)
+            ->setWorkflowId($run->workflow_id)
+            ->setWorkflowRunId($run->id)
+            ->setTriggerSource($this->scalarValue($run->trigger_source ?? TriggerType::MANUAL))
+            ->setTriggeredBy($run->triggered_by)
+            ->setTriggerModel($triggerModel);
+    }
+
+    /**
+     * @param array<string, mixed> $childContextData
+     */
+    protected function buildChildContext(WorkflowRun $childRun, array $childContextData): WorkflowContext
+    {
+        $triggerModel = null;
+
+        if ($childRun->triggerable_type && $childRun->triggerable_id) {
+            $triggerModel = $childRun->triggerable;
+        }
+
+        $triggerData = (array)($childContextData['trigger_data'] ?? []);
+        $triggerData['event'] = 'workflow-called';
+        $triggerData['source_workflow_id'] = $childContextData['source_workflow_id'] ?? null;
+        $triggerData['source_workflow_run_id'] = $childContextData['source_workflow_run_id'] ?? null;
+
+        $context = (new AppWorkflowContext($triggerData))
+            ->setWorkflowId($childRun->workflow_id)
+            ->setWorkflowRunId($childRun->id)
+            ->setTriggerSource('workflow-called')
+            ->setTriggeredBy($childRun->triggered_by)
+            ->setTriggerModel($triggerModel);
+
+        $context->setVariable('_chain_depth', $childContextData['_chain_depth'] ?? 1);
+        $context->setVariable('source_workflow_id', $childContextData['source_workflow_id'] ?? null);
+        $context->setVariable('source_workflow_run_id', $childContextData['source_workflow_run_id'] ?? null);
+
+        foreach (($childContextData['variables'] ?? []) as $key => $value) {
+            $context->setVariable((string)$key, $value);
+        }
+
+        foreach (($childContextData['step_outputs'] ?? []) as $stepId => $output) {
+            $context->setStepOutput((string)$stepId, $output);
+        }
+
+        return $context;
     }
 }

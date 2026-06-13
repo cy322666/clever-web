@@ -13,6 +13,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
@@ -106,48 +108,44 @@ class YClientsForm
 //                                    )->searchable(),
                             ]),
 
-                        Fieldset::make('Соотношение полей amoCRM')
+                        Section::make('Соотношение полей amoCRM')
+                            ->description('Настройте только нужные поля. Сделки и контакты разделены по вкладкам.')
+                            ->compact()
+                            ->collapsible()
+                            ->collapsed()
                             ->schema([
-                                Repeater::make('fields_contact')
-                                    ->label('Поля контакта')
-                                    ->schema([
+                                Tabs::make('Маппинг полей')
+                                    ->contained(false)
+                                    ->persistTabInQueryString('yc-fields-tab')
+                                    ->tabs([
+                                        Tab::make('Сделка')
+                                            ->icon('heroicon-o-briefcase')
+                                            ->schema([
+                                                Repeater::make('fields_lead')
+                                                    ->hiddenLabel()
+                                                    ->schema(self::mappingFields(Field::getLeadSelectFields()))
+                                                    ->columns(2)
+                                                    ->defaultItems(0)
+                                                    ->reorderable(false)
+                                                    ->reorderableWithDragAndDrop(false)
+                                                    ->addActionLabel('+ Добавить поле сделки'),
+                                            ]),
 
-                                        Select::make('field_yc')
-                                            ->label('Поле из YClients')
-                                            ->searchable()
-                                            ->options(Setting::YCfieldsSelect()),
-
-                                        Select::make('field_amo')
-                                            ->label('Поле из amoCRM')
-                                            ->searchable()
-                                            ->options(Field::getContactSelectFields()),
-                                    ])
-                                    ->defaultItems(1)
-                                    ->reorderable(false)
-                                    ->reorderableWithDragAndDrop(false)
-                                    ->addActionLabel('+ Добавить'),
-
-                                Repeater::make('fields_lead')
-                                    ->label('Поля сделки')
-                                    ->schema([
-
-                                        Select::make('field_yc')
-                                            ->label('Поле из YClients')
-                                            ->searchable()
-                                            ->options(Setting::YCfieldsSelect()),
-
-                                        Select::make('field_amo')
-                                            ->label('Поле из amoCRM')
-                                            ->searchable()
-                                            ->options(Field::getLeadSelectFields()),
-                                    ])
-//                                    ->columns()
-//                                    ->collapsible()
-                                    ->defaultItems(1)
-                                    ->reorderable(false)
-                                    ->reorderableWithDragAndDrop(false)
-                                    ->addActionLabel('+ Добавить')
+                                        Tab::make('Контакт')
+                                            ->icon('heroicon-o-user')
+                                            ->schema([
+                                                Repeater::make('fields_contact')
+                                                    ->hiddenLabel()
+                                                    ->schema(self::mappingFields(Field::getContactSelectFields()))
+                                                    ->columns(2)
+                                                    ->defaultItems(0)
+                                                    ->reorderable(false)
+                                                    ->reorderableWithDragAndDrop(false)
+                                                    ->addActionLabel('+ Добавить поле контакта'),
+                                            ]),
+                                    ]),
                             ]),
+
                     ])
                     ->columnSpan(2),
 
@@ -173,5 +171,20 @@ class YClientsForm
                     ->columnSpan(1),
 
             ])->columns(3);
+    }
+
+    private static function mappingFields($amoFields): array
+    {
+        return [
+            Select::make('field_yc')
+                ->label('YClients')
+                ->searchable()
+                ->options(Setting::YCfieldsSelect()),
+
+            Select::make('field_amo')
+                ->label('amoCRM')
+                ->searchable()
+                ->options($amoFields),
+        ];
     }
 }

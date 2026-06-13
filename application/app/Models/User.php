@@ -23,6 +23,8 @@ class User extends Authenticatable implements FilamentUser
 {
     use HasApiTokens, HasFactory, Notifiable, AuthenticationLoggable;
 
+    private const SHARED_AMO_CONNECTION_USER_ID = 1;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -171,6 +173,14 @@ class User extends Authenticatable implements FilamentUser
     {
         $widget = Account::normalizeWidget($widget);
 
+        if ($this->usesSharedAmoConnectionAcrossWidgets()) {
+            $shared = $this->resolveAnyActiveAmoAccount();
+
+            if ($shared instanceof Account) {
+                return $shared;
+            }
+        }
+
         $specific = $this->accounts()
             ->where('widget', $widget)
             ->first();
@@ -204,5 +214,29 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return Account::query()->create($payload);
+    }
+
+    public function usesSharedAmoConnectionAcrossWidgets(): bool
+    {
+        return (int)$this->getKey() === self::SHARED_AMO_CONNECTION_USER_ID;
+    }
+
+    private function resolveAnyActiveAmoAccount(): ?Account
+    {
+        return $this->accounts()
+            ->where('active', true)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->where(function ($query): void {
+                $query->where(function ($query): void {
+                    $query->whereNotNull('access_token')
+                        ->where('access_token', '<>', '');
+                })->orWhere(function ($query): void {
+                    $query->whereNotNull('refresh_token')
+                        ->where('refresh_token', '<>', '');
+                });
+            })
+            ->orderByDesc('id')
+            ->first();
     }
 }

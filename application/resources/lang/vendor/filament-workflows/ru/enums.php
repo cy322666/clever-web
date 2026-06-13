@@ -4,12 +4,12 @@ $fallback = require base_path('vendor/leek/filament-workflows/resources/lang/en/
 
 return array_replace_recursive($fallback, [
     'failure_strategy' => [
-        'stop' => 'Остановить процесс',
-        'continue' => 'Перейти к следующему шагу',
-        'telegram_report' => 'Остановить и отправить отчёт в Telegram',
+        'stop' => 'Остановить',
+        'continue' => 'Выполнить в любом случае',
+        'telegram_report' => 'Остановить + уведомление в Telegram',
         'stop_description' => 'Остановить процесс сразу после ошибки шага',
-        'continue_description' => 'Записать ошибку и продолжить следующий шаг',
-        'telegram_report_description' => 'Остановить процесс и отправить отчёт об ошибке в Telegram',
+        'continue_description' => 'Записать ошибку и выполнить следующие шаги',
+        'telegram_report_description' => 'Остановить процесс и отправить уведомление об ошибке в Telegram',
     ],
     'metric_period_type' => [
         'rolling_24h' => 'Последние 24 часа',

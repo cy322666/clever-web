@@ -4,6 +4,9 @@ namespace Tests\Feature\YClients;
 
 use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Record;
+use App\Models\Integrations\YClients\ResponsibleMapping;
+use App\Models\Integrations\YClients\Setting;
+use App\Models\amoCRM\Staff;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -194,6 +197,128 @@ class RecordClientRelationTest extends TestCase
         $this->assertSame([$failed->id, $pending->id], $ids);
     }
 
+    public function test_pending_mapped_fields_update_scope_skips_successfully_updated_records(): void
+    {
+        $pending = Record::query()->create([
+            'record_id' => 1001,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $failed = Record::query()->create([
+            'record_id' => 1002,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'mapped_fields_update_error' => 'failed',
+        ]);
+        Record::query()->create([
+            'record_id' => 1003,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'mapped_fields_updated_at' => now(),
+        ]);
+
+        $this->assertSame(
+            [$pending->id, $failed->id],
+            Record::query()->pendingMappedFieldsUpdate()->orderBy('id')->pluck('id')->all()
+        );
+        $this->assertCount(3, Record::query()->pendingMappedFieldsUpdate(true)->get());
+    }
+
+    public function test_setting_resolves_active_amo_responsible_by_branch_and_created_user(): void
+    {
+        Staff::query()->create([
+            'user_id' => 1,
+            'staff_id' => 9001,
+            'name' => 'Менеджер amoCRM',
+            'active' => true,
+        ]);
+
+        $setting = new Setting([
+            'user_id' => 1,
+        ]);
+        $setting->id = 111;
+
+        ResponsibleMapping::query()->create([
+            'setting_id' => 111,
+            'amo_user_id' => 9001,
+            'yc_user_keys' => ['10:4321', '10:4322'],
+            'active' => true,
+        ]);
+
+        $matchingRecord = new Record([
+            'company_id' => 10,
+            'created_user_id' => 4321,
+        ]);
+        $secondMatchingRecord = new Record([
+            'company_id' => 10,
+            'created_user_id' => 4322,
+        ]);
+        $otherBranchRecord = new Record([
+            'company_id' => 99,
+            'created_user_id' => 4321,
+        ]);
+
+        $this->assertSame(9001, $setting->responsibleUserIdForRecord($matchingRecord));
+        $this->assertSame(9001, $setting->responsibleUserIdForRecord($secondMatchingRecord));
+        $this->assertNull($setting->responsibleUserIdForRecord($otherBranchRecord));
+    }
+
+    public function test_mapping_reports_yclients_users_reserved_by_other_amo_users(): void
+    {
+        $first = ResponsibleMapping::query()->create([
+            'setting_id' => 111,
+            'amo_user_id' => 9001,
+            'yc_user_keys' => ['10:4321', '10:4322'],
+            'active' => true,
+        ]);
+        ResponsibleMapping::query()->create([
+            'setting_id' => 111,
+            'amo_user_id' => 9002,
+            'yc_user_keys' => ['10:4323', '20:5001'],
+            'active' => true,
+        ]);
+
+        $this->assertSame(['10:4323', '20:5001'], $first->reservedUserKeysByOtherMappings());
+    }
+
+    public function test_prune_records_command_deletes_only_records_older_than_retention(): void
+    {
+        $oldRecord = Record::query()->create([
+            'record_id' => 1001,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $oldRecord->forceFill([
+            'created_at' => now()->subDays(6),
+            'updated_at' => now()->subDays(6),
+        ])->save();
+
+        $freshRecord = Record::query()->create([
+            'record_id' => 1002,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $freshRecord->forceFill([
+            'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
+        ])->save();
+
+        $this->artisan('yc:prune-records', ['--days' => 5, '--chunk' => 1])
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('yclients_records', ['id' => $oldRecord->id]);
+        $this->assertDatabaseHas('yclients_records', ['id' => $freshRecord->id]);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -230,6 +355,29 @@ class RecordClientRelationTest extends TestCase
             $table->unsignedBigInteger('setting_id');
             $table->string('status')->nullable();
             $table->text('error_message')->nullable();
+            $table->string('lead_fields_replay_status')->nullable();
+            $table->timestamp('lead_fields_replayed_at')->nullable();
+            $table->text('lead_fields_replay_error')->nullable();
+            $table->timestamp('mapped_fields_updated_at')->nullable();
+            $table->text('mapped_fields_update_error')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('amocrm_staffs', function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('staff_id');
+            $table->string('name')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
+
+        Schema::create('yclients_responsible_mappings', function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedBigInteger('setting_id');
+            $table->unsignedBigInteger('amo_user_id');
+            $table->json('yc_user_keys')->nullable();
+            $table->boolean('active')->default(true);
             $table->timestamps();
         });
     }
@@ -238,6 +386,8 @@ class RecordClientRelationTest extends TestCase
     {
         Schema::dropIfExists('yclients_records');
         Schema::dropIfExists('yclients_clients');
+        Schema::dropIfExists('amocrm_staffs');
+        Schema::dropIfExists('yclients_responsible_mappings');
 
         parent::tearDown();
     }

@@ -10,7 +10,7 @@ abstract class Contacts
     /**
      * @throws \Exception
      */
-    public static function updateOrCreate(Client $client, $amoApi): ContactModel
+    public static function updateOrCreate(Client $client, $amoApi, ?int $responsibleUserId = null): ContactModel
     {
         $contact = Contacts::search([
             'Телефон' => $client->phone,
@@ -18,8 +18,7 @@ abstract class Contacts
         ], $amoApi);
 
         if (!$contact) {
-
-            $contact = static::create($amoApi);
+            $contact = static::create($amoApi, $responsibleUserId);
             $contact = static::update($contact, $client);
         } else
             $contact = static::update($contact, $client);
@@ -68,10 +67,15 @@ abstract class Contacts
         return $contact;
     }
 
-    public static function create(\App\Services\amoCRM\Client $amoApi)
+    public static function create(\App\Services\amoCRM\Client $amoApi, ?int $responsibleUserId = null)
     {
         $contact = $amoApi->service->contacts()->create();
         $contact->name = 'Клиент YClients';
+
+        if ($responsibleUserId) {
+            $contact->responsible_user_id = $responsibleUserId;
+        }
+
         $contact->save();
 
         return $contact;

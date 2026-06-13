@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\YClients\Pages;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
+use App\Models\Integrations\YClients\Setting;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -36,6 +37,18 @@ class ListYClients extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('settings')
+                ->label('Вернуться в настройки')
+                ->icon('heroicon-o-arrow-left')
+                ->url(function (): ?string {
+                    $settingId = Setting::query()->where('user_id', Auth::id())->value('id');
+
+                    return $settingId
+                        ? YClientsResource::getUrl('edit', ['record' => $settingId])
+                        : null;
+                })
+                ->visible(fn(): bool => Setting::query()->where('user_id', Auth::id())->exists()),
+
             Action::make('reexport_failed')
                 ->label('Перевыгрузить ошибки')
                 ->icon('heroicon-o-arrow-path')
@@ -158,6 +171,22 @@ class ListYClients extends ListRecords
                     ->label('Выгружен')
                     ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
 
+                BooleanColumn::make('mapped_fields_updated')
+                    ->label('Поля обновлены')
+                    ->state(fn(Record $record): bool => $record->mapped_fields_updated_at !== null)
+                    ->toggleable(),
+
+                TextColumn::make('mapped_fields_updated_at')
+                    ->label('Дата обновления полей')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('mapped_fields_update_error')
+                    ->label('Ошибка обновления полей')
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('error_message')
                     ->label('Ошибка')
                     ->toggleable(isToggledHiddenByDefault: true)
@@ -194,6 +223,26 @@ class ListYClients extends ListRecords
                                 };
                             }
                         );
+                    }),
+
+                SelectFilter::make('mapped_fields_updated_at')
+                    ->label('Повторное обновление полей')
+                    ->options([
+                        'success' => 'Обновлено',
+                        'failed' => 'Ошибка',
+                        'not_processed' => 'Не обработано',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'success' => $query->whereNotNull('mapped_fields_updated_at'),
+                            'failed' => $query
+                                ->whereNull('mapped_fields_updated_at')
+                                ->whereNotNull('mapped_fields_update_error'),
+                            'not_processed' => $query
+                                ->whereNull('mapped_fields_updated_at')
+                                ->whereNull('mapped_fields_update_error'),
+                            default => $query,
+                        };
                     }),
             ])
             ->actions([])

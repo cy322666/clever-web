@@ -9,6 +9,19 @@ use PHPUnit\Framework\TestCase;
 
 class SettingFieldsTest extends TestCase
 {
+    public function test_yclients_company_user_normalization_supports_nested_user(): void
+    {
+        $user = (object)[
+            'user' => (object)[
+                'id' => 13360104,
+                'name' => 'Иванова Анна Сергеевна',
+            ],
+        ];
+
+        $this->assertSame('13360104', YClientsService::companyUserId($user));
+        $this->assertSame('Иванова Анна Сергеевна', YClientsService::companyUserName($user));
+    }
+
     public function test_yc_mapping_rows_handles_empty_or_invalid_mapping(): void
     {
         $method = new \ReflectionMethod(Setting::class, 'mappingRows');
@@ -32,7 +45,8 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Дата записи', $fields['record_date']);
         $this->assertSame('Время записи', $fields['record_time']);
         $this->assertSame('Источник записи', $fields['record_from']);
-        $this->assertSame('Кто записал', $fields['created_user_name']);
+        $this->assertSame('Дата создания', $fields['create_date']);
+        $this->assertSame('Кто создал', $fields['created_user_name']);
         $this->assertSame('Роль создателя', $fields['created_user_role_name']);
         $this->assertSame('Отдел создателя', $fields['created_user_department']);
         $this->assertSame('Филиал записи', $fields['company_id']);
@@ -69,6 +83,7 @@ class SettingFieldsTest extends TestCase
             'data' => (object)[
                 'created_user_id' => 4321,
                 'record_from' => 'CRM',
+                'create_date' => '2026-05-20 14:10:00',
             ],
         ]);
         $yc->method('getUserPermissions')->willReturn(
@@ -107,6 +122,7 @@ class SettingFieldsTest extends TestCase
             'record_id' => 777,
             'datetime' => '2026.05.20 15:00:00',
             'record_from' => 'CRM',
+            'create_date' => '2026-05-20 14:10:00',
             'created_user_id' => 4321,
             'staff_name' => 'Мастер',
             'title' => "\n   Консультация\n   Чистка",
@@ -120,6 +136,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('20.05.2026', $fields['record_date']);
         $this->assertSame('15:00', $fields['record_time']);
         $this->assertSame('CRM', $fields['record_from']);
+        $this->assertSame('20.05.2026 14:10', $fields['create_date']);
         $this->assertSame('Иванова Анна', $fields['created_user_name']);
         $this->assertSame('Сотрудник', $fields['created_user_role_name']);
         $this->assertSame('Администратор', $fields['created_user_department']);
@@ -150,6 +167,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -215,6 +233,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -298,6 +317,7 @@ class SettingFieldsTest extends TestCase
             'data' => (object)[
                 'created_user_id' => 0,
                 'record_from' => 'Партнёры: Mobile app new widget',
+                'create_date' => '2026-05-20 16:45:00',
             ],
         ]);
 
@@ -377,6 +397,7 @@ class SettingFieldsTest extends TestCase
             'data' => (object)[
                 'created_user_id' => 0,
                 'record_from' => 'Партнёры: Mobile app new widget',
+                'create_date' => '2026-05-20 16:45:00',
             ],
         ]);
 
@@ -394,6 +415,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Внешний источник', $fields['created_user_role_name']);
         $this->assertSame('Не сотрудник', $fields['created_user_department']);
         $this->assertSame('Партнёры: Mobile app new widget', $fields['record_from']);
+        $this->assertSame('20.05.2026 16:45', $fields['create_date']);
     }
 
     public function test_yc_get_fields_uses_fallback_when_record_from_is_empty(): void
@@ -408,6 +430,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -469,6 +492,7 @@ class SettingFieldsTest extends TestCase
                 'getUserRoles',
                 'getStaff',
                 'findStaffByUserId',
+                'findCompanyUserById',
                 'findPositionTitle',
             ])
             ->getMock();
@@ -516,6 +540,11 @@ class SettingFieldsTest extends TestCase
         $yc->method('getUserRoles')->willReturn((object)['success' => true, 'data' => []]);
         $yc->method('getStaff')->willReturn(null);
         $yc->method('findStaffByUserId')->willReturn(null);
+        $yc->method('findCompanyUserById')->willReturn((object)[
+            'id' => 12241065,
+            'name' => 'Цигорская Дарья Дмитриевна',
+            'user_role_slug' => 'call_center',
+        ]);
         $yc->method('findPositionTitle')->willReturn(null);
 
         $record = new Record([
@@ -530,6 +559,58 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('Кол-центр', $fields['created_user_role_name']);
         $this->assertSame('Кол-центр', $fields['created_user_department']);
+        $this->assertSame('Цигорская Дарья Дмитриевна', $fields['created_user_name']);
         $this->assertSame('Не указан', $fields['record_from']);
+    }
+
+    public function test_yc_get_fields_does_not_fail_when_optional_branch_requests_are_forbidden(): void
+    {
+        $yc = $this->getMockBuilder(YClientsService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods([
+                'getClient',
+                'getRecord',
+                'getBranchTitle',
+                'getUserPermissions',
+                'getUserRoles',
+                'findStaffByUserId',
+                'findCompanyUserById',
+                'findPositionTitle',
+            ])
+            ->getMock();
+
+        $yc->method('getClient')->willReturn(
+            (object)[
+                'data' => (object)[
+                    'visits' => 3,
+                    'paid' => 1500,
+                ],
+            ]
+        );
+        $yc->method('getRecord')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('getBranchTitle')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('getUserPermissions')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('getUserRoles')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('findStaffByUserId')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('findCompanyUserById')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->method('findPositionTitle')->willThrowException(new \RuntimeException('YClients 403'));
+
+        $record = new Record([
+            'company_id' => 1114763,
+            'client_id' => 555,
+            'record_id' => 777,
+            'created_user_id' => 4321,
+            'record_from' => 'CRM',
+            'title' => 'Консультация',
+        ]);
+
+        $fields = Setting::YCGetFields($yc, $record);
+
+        $this->assertSame('1114763', $fields['branch']);
+        $this->assertSame('CRM', $fields['record_from']);
+        $this->assertSame('Пользователь YClients', $fields['created_user_name']);
+        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
+        $this->assertSame('Сотрудник', $fields['created_user_department']);
+        $this->assertSame(1500, $fields['paid']);
     }
 }

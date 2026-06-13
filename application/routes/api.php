@@ -87,3 +87,7 @@ Route::group(['prefix' => 'amocrm'], function () {
         ->middleware('throttle:120,1')
         ->name('amocrm.workflows.hook');
 });
+
+Route::match(['get', 'post', 'put', 'patch', 'delete'], 'workflows/webhook/{workflow}/{signature}', [WorkflowWebhookController::class, 'generic'])
+    ->middleware('throttle:120,1')
+    ->name('workflows.webhook');

@@ -25,6 +25,10 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping();
 
+        $schedule->command('workflows:fail-stuck-runs')
+            ->everyMinute()
+            ->withoutOverlapping();
+
         $schedule->command('app:check-date-expire')
             ->dailyAt('01:00');
 
@@ -33,6 +37,16 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('app:api-requests-prune --days=' . (int)env('API_REQUESTS_RETENTION_DAYS', 30))
             ->dailyAt('03:00')
+            ->withoutOverlapping();
+
+        if ((bool)env('YCLIENTS_RECORDS_PRUNE_ENABLED', false)) {
+            $schedule->command('yc:prune-records --days=' . (int)env('YCLIENTS_RECORDS_RETENTION_DAYS', 5))
+                ->dailyAt('03:30')
+                ->withoutOverlapping();
+        }
+
+        $schedule->command('workflows:db-maintenance --days=' . (int)env('WORKFLOWS_DB_MAINTENANCE_DAYS', 45))
+            ->dailyAt(env('WORKFLOWS_DB_MAINTENANCE_TIME', '03:45'))
             ->withoutOverlapping();
 
         $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
