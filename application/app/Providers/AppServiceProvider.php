@@ -206,7 +206,21 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerWorkflowWebhookSynchronization(): void
     {
-        Workflow::saved(function (Workflow $workflow): void {
+        Workflow::created(function (Workflow $workflow): void {
+            $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
+
+            if ($userId <= 0) {
+                return;
+            }
+
+            $this->dispatchWorkflowWebhookSynchronization($userId);
+        });
+
+        Workflow::updated(function (Workflow $workflow): void {
+            if (!$this->workflowWebhookTriggerChanged($workflow)) {
+                return;
+            }
+
             $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
 
             if ($userId <= 0) {
@@ -225,6 +239,46 @@ class AppServiceProvider extends ServiceProvider
 
             $this->dispatchWorkflowWebhookSynchronization($userId);
         });
+    }
+
+    private function workflowWebhookTriggerChanged(Workflow $workflow): bool
+    {
+        if ($workflow->wasChanged([
+            config('filament-workflows.tenancy.column', 'user_id'),
+            'is_active',
+            'trigger_type',
+            'trigger_model_type',
+            'trigger_event',
+            'trigger_conditions',
+            'trigger_schedule',
+        ])) {
+            return true;
+        }
+
+        if (!$workflow->wasChanged('definition')) {
+            return false;
+        }
+
+        return $this->workflowDefinitionTrigger($workflow->getRawOriginal('definition'))
+            != data_get($workflow->definition, 'trigger');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function workflowDefinitionTrigger(mixed $definition): ?array
+    {
+        if (is_string($definition)) {
+            $definition = json_decode($definition, true);
+        }
+
+        if (!is_array($definition)) {
+            return null;
+        }
+
+        $trigger = data_get($definition, 'trigger');
+
+        return is_array($trigger) ? $trigger : null;
     }
 
     private function dispatchWorkflowWebhookSynchronization(int $userId): void
