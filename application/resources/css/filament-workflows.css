@@ -610,14 +610,24 @@ body.fi-body {
     }
 }
 
+.dark .fi-resource-workflows .workflow-workbench__shell,
 .dark .workflow-workbench__shell {
+    border-color: rgb(73 60 48 / 0.88) !important;
     background:
-        radial-gradient(circle at 20% 0%, rgb(255 106 0 / 0.12), transparent 24rem),
-        linear-gradient(180deg, rgb(17 17 15), rgb(23 23 23));
+        radial-gradient(circle at 18% 0%, rgb(255 106 0 / 0.11), transparent 25rem),
+        linear-gradient(180deg, rgb(17 17 15), rgb(23 22 20)) !important;
 }
 
+.dark .fi-resource-workflows .workflow-workbench__layout,
+.dark .workflow-workbench__layout {
+    background: linear-gradient(180deg, rgb(19 18 17 / 0.98), rgb(18 18 16 / 0.98)) !important;
+}
+
+.dark .fi-resource-workflows .workflow-workbench__canvas,
 .dark .workflow-workbench__canvas {
-    background: rgb(23 23 23 / 0.58);
+    background:
+        radial-gradient(circle at 50% 4rem, rgb(255 106 0 / 0.055), transparent 24rem),
+        linear-gradient(180deg, rgb(24 23 21 / 0.88), rgb(20 20 18 / 0.88)) !important;
 }
 
 .dark .workflow-workbench__toolbar {
@@ -765,11 +775,14 @@ body.fi-body {
     overflow-wrap: anywhere;
 }
 
+.dark .fi-resource-workflows .workflow-builder .workflow-card,
+.dark .fi-resource-workflows .workflow-builder .workflow-condition-node,
+.dark .fi-resource-workflows .workflow-builder .workflow-empty-state,
 .dark .workflow-builder .workflow-card,
 .dark .workflow-builder .workflow-condition-node,
 .dark .workflow-builder .workflow-empty-state {
-    border-color: rgb(55 65 81) !important;
-    background-color: rgb(23 23 23) !important;
+    border-color: rgb(73 60 48 / 0.88) !important;
+    background-color: rgb(25 24 22) !important;
     box-shadow: 0 0 0 1px rgb(255 255 255 / 0.025), 0 0 18px 3px rgb(0 0 0 / 0.34) !important;
 }
 
@@ -787,8 +800,10 @@ body.fi-body {
     background-color: rgb(254 252 232 / 0.45) !important;
 }
 
+.dark .fi-resource-workflows .workflow-builder .workflow-condition-node,
 .dark .workflow-builder .workflow-condition-node {
-    background-color: rgb(113 63 18 / 0.08) !important;
+    border-color: rgb(146 64 14 / 0.42) !important;
+    background-color: rgb(38 28 20 / 0.88) !important;
 }
 
 body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
