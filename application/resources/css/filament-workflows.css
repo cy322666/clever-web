@@ -242,6 +242,15 @@ body.fi-body {
     background: linear-gradient(180deg, rgb(31 29 26 / 0.92), rgb(23 23 23 / 0.88));
 }
 
+.dark .fi-ta-row,
+.dark .fi-ta-table td {
+    border-color: rgb(58 51 45 / 0.72) !important;
+}
+
+.dark .fi-ta-row:hover > td {
+    background: rgb(41 36 31 / 0.74) !important;
+}
+
 .dark .fi-input-wrp,
 .dark .fi-select-input,
 .dark .fi-tags-input,
