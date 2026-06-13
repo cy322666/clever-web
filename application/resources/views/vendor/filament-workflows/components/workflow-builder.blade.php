@@ -74,6 +74,14 @@
         <div class="workflow-workbench__toolbar sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
             <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div class="workflow-workbench__quick-actions ml-auto flex flex-wrap items-center gap-2">
+                    <button
+                        type="submit"
+                        class="workflow-workbench__quick-action workflow-workbench__quick-action--primary"
+                    >
+                        <x-filament::icon icon="heroicon-o-check" class="h-4 w-4"/>
+                        <span>{{ $submitLabel }}</span>
+                    </button>
+
                     @if ($this->trigger && $workflowActionsCount > 0)
                         <button
                             type="button"
@@ -206,11 +214,5 @@
             </main>
 
         </div>
-    </div>
-
-    <div class="mt-6 flex justify-end gap-x-3">
-        <x-filament::button type="submit">
-            {{ $submitLabel }}
-        </x-filament::button>
     </div>
 </div>
