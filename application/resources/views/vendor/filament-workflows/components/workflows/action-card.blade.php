@@ -100,19 +100,23 @@
 @endphp
 
 <div
+    @if(!$readOnly)
+        wire:click="openWorkflowActionEditor('{{ $actionId }}')"
+    @endif
     {{ $attributes->class([
-        'workflow-card group relative rounded-xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-900',
+        'workflow-card group relative rounded-xl border bg-white p-3 shadow-sm transition-all hover:shadow-md dark:bg-gray-900',
+        'cursor-pointer' => !$readOnly,
         'border-gray-200 dark:border-gray-700',
     ]) }}
 >
-    <div class="flex items-start gap-4">
+    <div class="flex items-start gap-3">
         <div
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
             style="background-color: {{ $color }}18;"
         >
             <x-filament::icon
                 :icon="$icon"
-                class="h-5 w-5"
+                class="h-4 w-4"
                 style="color: {{ $color }};"
             />
         </div>
@@ -121,12 +125,12 @@
             'min-w-0 flex-1',
         ])>
             <div class="flex flex-wrap items-center gap-2">
-                <h4 class="text-base font-semibold leading-6 text-gray-950 dark:text-white">
+                <h4 class="text-sm font-semibold leading-5 text-gray-950 dark:text-white">
                     {{ $actionName }}
                 </h4>
 
                 @if($category)
-                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <span class="text-sm font-medium leading-5 text-gray-500 dark:text-gray-400">
                         {{ $category }}
                     </span>
                 @endif
@@ -138,10 +142,10 @@
                         <div
                             @class([
                                 'flex flex-wrap items-center',
-                                'mt-3' => $loop->first,
-                                'mt-1.5' => !$loop->first,
+                                'mt-2' => $loop->first,
+                                'mt-1' => !$loop->first,
                             ])
-                            style="column-gap: 2rem; row-gap: 0.375rem;"
+                            style="column-gap: 1.25rem; row-gap: 0.25rem;"
                         >
                             @foreach($rowItems as $item)
                                 @php
@@ -150,7 +154,7 @@
                                     $labelValue = count($parts) === 2 ? $parts[1] : $item['label'];
                                 @endphp
                                 <span
-                                    class="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-gray-400">
+                                    class="inline-flex max-w-full items-center gap-1.5 text-sm font-medium leading-5 text-slate-500 dark:text-gray-400">
                                     <x-filament::icon :icon="$item['icon']" class="h-3.5 w-3.5 shrink-0"/>
                                     <span class="truncate">
                                         @if($labelPrefix)
@@ -158,6 +162,8 @@
                                             @if(filled($item['url'] ?? null))
                                                 <a
                                                     href="{{ $item['url'] }}"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
                                                     class="inline-flex max-w-full items-center gap-1 font-semibold text-primary-700 hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-200"
                                                     title="Открыть процесс"
                                                     x-on:click.stop
@@ -174,6 +180,8 @@
                                             @if(filled($item['url'] ?? null))
                                                 <a
                                                     href="{{ $item['url'] }}"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
                                                     class="inline-flex max-w-full items-center gap-1 font-semibold text-primary-700 hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-200"
                                                     title="Открыть процесс"
                                                     x-on:click.stop
@@ -194,7 +202,7 @@
                     @endif
                 @endforeach
             @else
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <p class="mt-1.5 text-sm leading-5 text-gray-500 dark:text-gray-400">
                     Настройте действие, чтобы оно стало видно в конструкторе и истории запусков.
                 </p>
             @endif
@@ -202,7 +210,7 @@
 
         <div class="flex shrink-0 flex-col items-end gap-2">
             @if($delayLabel)
-                <span class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-300">
+                <span class="inline-flex items-center gap-1.5 text-sm font-medium leading-5 text-amber-600 dark:text-amber-300">
                     <x-filament::icon icon="heroicon-o-clock" class="h-3.5 w-3.5 shrink-0"/>
                     {{ $delayLabel }}
                 </span>
@@ -211,47 +219,26 @@
             @if(!$readOnly)
                 <div
                     class="flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                    @if($index > 0)
-                        <button
-                            type="button"
-                            wire:click="moveWorkflowActionUp('{{ $actionId }}')"
-                            class="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                            title="{{ __('filament-workflows::workflows.builder.tooltips.move_up') }}"
-                        >
-                            <x-filament::icon icon="heroicon-o-chevron-up" class="h-4 w-4"/>
-                        </button>
-                    @endif
-
-                    @if($index < $total - 1)
-                        <button
-                            type="button"
-                            wire:click="moveWorkflowActionDown('{{ $actionId }}')"
-                            class="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                            title="{{ __('filament-workflows::workflows.builder.tooltips.move_down') }}"
-                        >
-                            <x-filament::icon icon="heroicon-o-chevron-down" class="h-4 w-4"/>
-                        </button>
-                    @endif
-
                     <button
                         type="button"
-                        wire:click="openWorkflowActionEditor('{{ $actionId }}')"
+                        wire:click="duplicateWorkflowActionStep('{{ $actionId }}')"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-50"
-                        wire:target="openWorkflowActionEditor('{{ $actionId }}')"
+                        wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
+                        x-on:click.stop
                         class="rounded-md p-1.5 text-gray-400 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-950 dark:hover:text-primary-400"
-                        title="{{ __('filament-workflows::workflows.builder.tooltips.edit_action') }}"
+                        title="Копировать шаг"
                     >
                         <x-filament::icon
-                            icon="heroicon-o-pencil"
+                            icon="heroicon-o-document-duplicate"
                             class="h-4 w-4"
                             wire:loading.remove
-                            wire:target="openWorkflowActionEditor('{{ $actionId }}')"
+                            wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
                         />
                         <x-filament::loading-indicator
                             class="h-4 w-4"
                             wire:loading
-                            wire:target="openWorkflowActionEditor('{{ $actionId }}')"
+                            wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
                         />
                     </button>
 
@@ -262,6 +249,7 @@
                         wire:loading.class="opacity-50"
                         wire:target="removeWorkflowAction('{{ $actionId }}')"
                         wire:confirm="{{ __('filament-workflows::workflows.messages.remove_action_confirmation') }}"
+                        x-on:click.stop
                         class="rounded-md p-1.5 text-gray-400 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-950 dark:hover:text-danger-400"
                         title="{{ __('filament-workflows::workflows.builder.tooltips.remove_action') }}"
                     >

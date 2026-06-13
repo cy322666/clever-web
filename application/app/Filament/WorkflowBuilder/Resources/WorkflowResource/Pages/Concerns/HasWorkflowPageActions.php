@@ -100,6 +100,114 @@ trait HasWorkflowPageActions
             });
     }
 
+    protected function duplicateWorkflowAction(): Action
+    {
+        return Action::make('duplicate_workflow')
+            ->label('Копировать')
+            ->icon('heroicon-o-document-duplicate')
+            ->color('gray')
+            ->action(fn() => $this->duplicateCurrentWorkflow());
+    }
+
+    public function duplicateCurrentWorkflow(): void
+    {
+        $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
+
+        if (!$record) {
+            return;
+        }
+
+        $copy = WorkflowResource::duplicateWorkflow($record);
+
+        Notification::make()
+            ->success()
+            ->title('Копия процесса создана')
+            ->body($copy->name)
+            ->actions([
+                Action::make('open_copy')
+                    ->label('Открыть копию')
+                    ->url(WorkflowResource::getUrl('edit', ['record' => $copy]))
+                    ->openUrlInNewTab(),
+            ])
+            ->send();
+    }
+
+    public function duplicateWorkflowActionStep(string $actionId): void
+    {
+        $path = $this->findActionPathById($actionId);
+
+        if ($path === null) {
+            return;
+        }
+
+        $parts = explode('.', $path);
+        $index = (int)array_pop($parts);
+        $parentPath = implode('.', $parts);
+        $actions = $this->getArrayAtPath($parentPath);
+        $source = $actions[$index] ?? null;
+
+        if (!is_array($source)) {
+            return;
+        }
+
+        array_splice($actions, $index + 1, 0, [$this->cloneWorkflowActionTree($source)]);
+        $this->setArrayAtPath($parentPath, $actions);
+        $this->syncDefinition();
+
+        Notification::make()
+            ->success()
+            ->title('Шаг скопирован')
+            ->send();
+    }
+
+    public function reorderWorkflowActions(string $path, int $fromIndex, int $toIndex): void
+    {
+        $actions = $this->getArrayAtPath($path);
+        $count = count($actions);
+
+        if ($count < 2) {
+            return;
+        }
+
+        $fromIndex = max(0, min($fromIndex, $count - 1));
+        $toIndex = max(0, min($toIndex, $count - 1));
+
+        if ($fromIndex === $toIndex || !array_key_exists($fromIndex, $actions)) {
+            return;
+        }
+
+        $movedAction = $actions[$fromIndex];
+        unset($actions[$fromIndex]);
+
+        $actions = array_values($actions);
+        array_splice($actions, $toIndex, 0, [$movedAction]);
+
+        $this->setArrayAtPath($path, $actions);
+        $this->syncDefinition();
+    }
+
+    /**
+     * @param array<string, mixed> $action
+     * @return array<string, mixed>
+     */
+    private function cloneWorkflowActionTree(array $action): array
+    {
+        $action['id'] = 'step_' . Str::lower(Str::ulid()->toBase32());
+
+        foreach (['true_actions', 'false_actions'] as $branchKey) {
+            if (!isset($action['config'][$branchKey]) || !is_array($action['config'][$branchKey])) {
+                continue;
+            }
+
+            $action['config'][$branchKey] = array_map(
+                fn(array $branchAction): array => $this->cloneWorkflowActionTree($branchAction),
+                $action['config'][$branchKey],
+            );
+        }
+
+        return $action;
+    }
+
     protected function backToWorkflowListAction(): Action
     {
         return Action::make('back_to_workflow_list')
@@ -286,6 +394,17 @@ trait HasWorkflowPageActions
         }
 
         $path = (string)($this->insertActionPath ?? $this->targetPath ?? '');
+
+        if ($type === 'control-condition' && $this->isConditionBranchPath($path)) {
+            Notification::make()
+                ->warning()
+                ->title('Вложенные условия временно отключены')
+                ->body('Добавьте условие на верхнем уровне процесса.')
+                ->send();
+
+            return;
+        }
+
         $actions = $this->getArrayAtPath($path);
         $index = $this->insertActionIndex ?? count($actions);
         $index = min(max(0, (int)$index), count($actions));
@@ -312,6 +431,14 @@ trait HasWorkflowPageActions
         $this->syncDefinition();
         $this->unmountAction();
         $this->mountAction('configureWorkflowAction', ['actionId' => $actionId]);
+    }
+
+    private function isConditionBranchPath(string $path): bool
+    {
+        return str_contains($path, '.config.true_actions')
+            || str_contains($path, '.config.false_actions')
+            || str_starts_with($path, 'config.true_actions')
+            || str_starts_with($path, 'config.false_actions');
     }
 
     /**

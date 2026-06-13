@@ -3,12 +3,24 @@
 @php
     $maskGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedOptions(false);
     $systemIdGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::systemIdGroups();
+    try {
+        $workflowRecord = method_exists($this, 'getRecord') ? $this->getRecord() : null;
+    } catch (\Throwable) {
+        $workflowRecord = null;
+    }
+    $workflowActionsCount = count($this->workflowActions);
+    $workflowRunsUrl = $workflowRecord
+        ? \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::getUrl('index', [
+            'workflow_id' => $workflowRecord->getKey(),
+        ])
+        : null;
 @endphp
 
 <div
     x-data="{ masksOpen: false }"
     x-on:keydown.escape.window="masksOpen = false"
     x-on:workflow-masks-open.window="masksOpen = true"
+    class="workflow-workbench"
 >
     <aside
         x-show="masksOpen"
@@ -58,12 +70,48 @@
         </div>
     </aside>
 
-    <x-filament::section class="mt-6" icon="heroicon-o-bolt" compact="true">
-        <x-slot name="heading">
-            {{ __('filament-workflows::workflows.builder.heading') }}
-        </x-slot>
+    <div class="workflow-workbench__shell mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 dark:border-gray-800 dark:bg-gray-950">
+        <div class="workflow-workbench__toolbar sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="workflow-workbench__quick-actions ml-auto flex flex-wrap items-center gap-2">
+                    @if ($this->trigger && $workflowActionsCount > 0)
+                        <button
+                            type="button"
+                            wire:click="mountAction('testWorkflow')"
+                            class="workflow-workbench__quick-action workflow-workbench__quick-action--warning"
+                        >
+                            <x-filament::icon icon="heroicon-o-beaker" class="h-4 w-4"/>
+                            <span>Запустить тест</span>
+                        </button>
+                    @endif
 
-        <div class="workflow-builder w-full">
+                    @if ($workflowRunsUrl)
+                        <a href="{{ $workflowRunsUrl }}" target="_blank" rel="noopener noreferrer" class="workflow-workbench__quick-action">
+                            <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4"/>
+                            <span>Запуски</span>
+                        </a>
+                    @endif
+
+                    @if ($workflowRecord)
+                        <button
+                            type="button"
+                            wire:click="duplicateCurrentWorkflow"
+                            wire:loading.attr="disabled"
+                            wire:target="duplicateCurrentWorkflow"
+                            class="workflow-workbench__quick-action"
+                        >
+                            <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
+                            <span>Копировать</span>
+                        </button>
+                    @endif
+
+                </div>
+            </div>
+        </div>
+
+        <div class="workflow-workbench__layout">
+            <main id="workflow-canvas" class="workflow-workbench__canvas">
+                <div class="workflow-builder w-full">
         {{-- Trigger Section --}}
         <div class="mb-6">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
@@ -147,27 +195,18 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    {{-- Test Button --}}
-                    @if ($this->trigger && count($this->workflowActions) > 0)
-                        <x-filament::button
-                            wire:click="mountAction('testWorkflow')"
-                            icon="heroicon-o-beaker"
-                            color="warning"
-                            size="xs"
-                        >
-                            {{ __('filament-workflows::workflows.actions.test.label') }}
-                        </x-filament::button>
-                    @endif
-
                     <div class="text-xs text-gray-400 dark:text-gray-500">
                         {{ __('filament-workflows::workflows.messages.action_count', ['count' => count($this->workflowActions)]) }}
                     </div>
                 </div>
             </div>
 
+                </div>
+                </div>
+            </main>
+
         </div>
-        </div>
-    </x-filament::section>
+    </div>
 
     <div class="mt-6 flex justify-end gap-x-3">
         <x-filament::button type="submit">

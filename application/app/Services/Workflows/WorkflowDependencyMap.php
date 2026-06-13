@@ -78,7 +78,6 @@ class WorkflowDependencyMap
         $links = [];
         $workflowId = (int)$workflow->getKey();
         $trigger = (array)data_get($workflow, 'definition.trigger', []);
-        $sourceWorkflowId = (int)data_get($trigger, 'config.source_workflow_id', 0);
 
         if (($trigger['type'] ?? null) !== 'workflow-completed' && filled($trigger['type'] ?? null)) {
             $links[] = [
@@ -88,15 +87,6 @@ class WorkflowDependencyMap
                 'type' => 'trigger',
                 'label' => 'Триггер процесса',
             ];
-        }
-
-        if (($trigger['type'] ?? null) === 'workflow-completed' && $sourceWorkflowId > 0) {
-            $links[] = $this->link(
-                workflow: $workflows->first(fn(Model $item): bool => (int)$item->getKey() === $sourceWorkflowId),
-                fallbackId: $sourceWorkflowId,
-                type: 'trigger',
-                label: 'Запуск из процесса'
-            );
         }
 
         foreach ($workflows as $candidate) {
@@ -142,29 +132,6 @@ class WorkflowDependencyMap
                 fallbackId: $targetWorkflowId,
                 type: 'action',
                 label: $link['path'] !== '' ? 'Действие: ' . $link['path'] : 'Действие: Запустить процесс'
-            );
-        }
-
-        foreach ($workflows as $candidate) {
-            if ((int)$candidate->getKey() === $workflowId) {
-                continue;
-            }
-
-            $trigger = (array)data_get($candidate, 'definition.trigger', []);
-
-            if (($trigger['type'] ?? null) !== 'workflow-completed') {
-                continue;
-            }
-
-            if ((int)data_get($trigger, 'config.source_workflow_id', 0) !== $workflowId) {
-                continue;
-            }
-
-            $links[] = $this->link(
-                workflow: $candidate,
-                fallbackId: (int)$candidate->getKey(),
-                type: 'trigger',
-                label: 'Настроен как запускаемый из этого процесса'
             );
         }
 

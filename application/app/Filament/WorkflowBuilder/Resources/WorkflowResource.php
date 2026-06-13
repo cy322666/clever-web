@@ -5,12 +5,17 @@ namespace App\Filament\WorkflowBuilder\Resources;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\RelationManagers\WorkflowRunsRelationManager;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm;
+use App\Services\Workflows\WorkflowDependencyMap;
+use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Leek\FilamentWorkflows\Models\Workflow;
@@ -19,6 +24,13 @@ use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
 
 class WorkflowResource extends BaseWorkflowResource
 {
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with('latestRun')
+            ->withCount('runs');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return WorkflowForm::configure($schema);
@@ -28,47 +40,103 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return $table
             ->columns([
+                ToggleColumn::make('is_active')
+                    ->label('Вкл')
+                    ->alignCenter()
+                    ->updateStateUsing(function (Workflow $record, bool $state): bool {
+                        if ($state && !static::canActivate($record)) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Процесс не подключён к родителю')
+                                ->body('Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.')
+                                ->send();
+
+                            return (bool)$record->is_active;
+                        }
+
+                        $record->update([
+                            'is_active' => $state,
+                        ]);
+
+                        Notification::make()
+                            ->success()
+                            ->title($state ? 'Процесс включён' : 'Процесс выключен')
+                            ->send();
+
+                        return $state;
+                    }),
+
                 TextColumn::make('name')
                     ->label(__('filament-workflows::workflows.fields.name.label'))
-                    ->searchable()
                     ->sortable()
+                    ->extraCellAttributes(fn(Workflow $record): array => [
+                        'class' => $record->is_active
+                            ? 'workflow-list-name-cell'
+                            : 'workflow-list-name-cell workflow-list-name-cell--inactive',
+                    ])
                     ->description(fn(Workflow $record): ?string => $record->description)
-                    ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
+                    ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
+                    ->openUrlInNewTab(),
+
+                TextColumn::make('group_name')
+                    ->label('Группа')
+                    ->placeholder('Без группы')
+                    ->icon('heroicon-o-folder')
+                    ->sortable(),
 
                 TextColumn::make('workflow_trigger')
-                    ->label(__('filament-workflows::workflows.fields.trigger_type.label'))
+                    ->label('Событие')
                     ->state(fn(Workflow $record): string => static::triggerLabel($record))
+                    ->description(fn(Workflow $record): string => static::latestRunDescription($record))
                     ->icon(fn(Workflow $record): string => static::triggerIcon($record))
                     ->color(fn(Workflow $record): string => static::triggerColor($record))
-                    ->badge()
                     ->sortable(false),
 
                 TextColumn::make('runs_count')
-                    ->label(__('filament-workflows::workflows.fields.runs_count.label'))
-                    ->counts('runs')
+                    ->label('Запусков')
                     ->sortable()
-                    ->badge()
-                    ->color('gray'),
-
-                TextColumn::make('updated_at')
-                    ->label(__('filament-workflows::workflows.fields.updated_at.label'))
-                    ->dateTime('d.m.Y')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->alignCenter(),
 
                 TextColumn::make('created_at')
                     ->label(__('filament-workflows::workflows.fields.created_at.label'))
-                    ->dateTime('d.m.Y')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->state(fn(Workflow $record): string => static::createdDescription($record))
+                    ->sortable(),
             ])
+            ->recordUrl(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
+            ->openRecordUrlInNewTab()
             ->defaultSort('updated_at', 'desc')
+            ->paginated(false)
+            ->groups([
+                Group::make('group_name')
+                    ->label('Группа')
+                    ->titlePrefixedWithLabel(false)
+                    ->getKeyFromRecordUsing(fn(Workflow $record): string => $record->group_name ?: '__without_group__')
+                    ->getTitleFromRecordUsing(fn(Workflow $record): string => $record->group_name ?: 'Без группы')
+                    ->scopeQueryByKeyUsing(function (Builder $query, ?string $key): Builder {
+                        if ($key === '__without_group__') {
+                            return $query->where(fn(Builder $query): Builder => $query
+                                ->whereNull('group_name')
+                                ->orWhere('group_name', ''));
+                        }
+
+                        return $query->where('group_name', $key);
+                    })
+                    ->collapsible(),
+            ])
+            ->groupingSettingsHidden()
+            ->groupingDirectionSettingHidden()
+            ->recordClasses(fn(Workflow $record): string => match (true) {
+                static::isWorkflowCallTrigger($record) && !static::canActivate($record) => 'workflow-list-row workflow-list-row--warning',
+                $record->is_active => 'workflow-list-row workflow-list-row--active',
+                default => 'workflow-list-row workflow-list-row--inactive',
+            })
             ->filters([
                 TernaryFilter::make('is_active')
                     ->label(__('filament-workflows::workflows.filters.active.label'))
                     ->placeholder(__('filament-workflows::workflows.filters.active.all'))
                     ->trueLabel(__('filament-workflows::workflows.filters.active.active_only'))
-                    ->falseLabel(__('filament-workflows::workflows.filters.active.inactive_only')),
+                    ->falseLabel(__('filament-workflows::workflows.filters.active.inactive_only'))
+                    ->indicateUsing(fn(): array => []),
 
                 SelectFilter::make('workflow_trigger')
                     ->label(__('filament-workflows::workflows.filters.trigger_type.label'))
@@ -79,31 +147,29 @@ class WorkflowResource extends BaseWorkflowResource
                             'definition->trigger->type',
                             $data['value'],
                         ),
-                    )),
-            ])
+                    ))
+                    ->indicateUsing(fn(): array => []),
+            ], layout: FiltersLayout::Hidden)
+            ->deferFilters(false)
             ->recordActions([
-                Action::make('toggle_active')
-                    ->label(
-                        fn(Workflow $record): string => $record->is_active ? 'Выключить процесс' : 'Включить процесс'
-                    )
-                    ->icon(fn(Workflow $record): string => $record->is_active ? 'heroicon-o-power' : 'heroicon-o-play')
-                    ->color(fn(Workflow $record): string => $record->is_active ? 'warning' : 'success')
+                Action::make('duplicate_workflow')
+                    ->label('Копировать сценарий')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('gray')
                     ->iconButton()
-                    ->extraAttributes(fn(Workflow $record): array => [
-                        'class' => $record->is_active
-                            ? '!h-10 !w-10 rounded-full bg-amber-100 text-amber-700 ring-1 ring-amber-300 shadow-sm transition hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30'
-                            : '!h-10 !w-10 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300 shadow-sm transition hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30',
-                    ])
                     ->action(function (Workflow $record): void {
-                        $isActive = !$record->is_active;
-
-                        $record->update([
-                            'is_active' => $isActive,
-                        ]);
+                        $copy = static::duplicateWorkflow($record);
 
                         Notification::make()
                             ->success()
-                            ->title($isActive ? 'Процесс включён' : 'Процесс выключен')
+                            ->title('Копия процесса создана')
+                            ->body($copy->name)
+                            ->actions([
+                                Action::make('open_copy')
+                                    ->label('Открыть копию')
+                                    ->url(static::getUrl('edit', ['record' => $copy]))
+                                    ->openUrlInNewTab(),
+                            ])
                             ->send();
                     }),
             ])
@@ -115,9 +181,15 @@ class WorkflowResource extends BaseWorkflowResource
     private static function triggerLabel(Workflow $record): string
     {
         if (static::isWorkflowCallTrigger($record)) {
-            $sourceWorkflowId = (int)data_get($record->definition, 'trigger.config.source_workflow_id');
+            $parents = static::workflowCallParents($record);
 
-            return static::workflowName($sourceWorkflowId) ?? 'Процесс #' . $sourceWorkflowId;
+            if ($parents === []) {
+                return 'Не подключён к родителю';
+            }
+
+            return count($parents) === 1
+                ? $parents[0]
+                : $parents[0] . ' +' . (count($parents) - 1);
         }
 
         $triggerClass = static::triggerClass($record);
@@ -127,6 +199,36 @@ class WorkflowResource extends BaseWorkflowResource
         }
 
         return $record->trigger_type?->getLabel() ?? '—';
+    }
+
+    private static function latestRunDescription(Workflow $record): string
+    {
+        $latestRun = $record->latestRun;
+
+        if ($latestRun === null) {
+            return 'Не запускался';
+        }
+
+        $date = $latestRun->created_at;
+
+        if ($date === null) {
+            return 'Запуск без даты';
+        }
+
+        return $date->isToday()
+            ? 'Сегодня, ' . $date->format('H:i')
+            : $date->format('d.m.Y H:i');
+    }
+
+    private static function createdDescription(Workflow $record): string
+    {
+        $date = $record->created_at;
+
+        if ($date === null) {
+            return '—';
+        }
+
+        return $date->format('d.m.Y H:i');
     }
 
     private static function triggerIcon(Workflow $record): string
@@ -145,7 +247,7 @@ class WorkflowResource extends BaseWorkflowResource
     private static function triggerColor(Workflow $record): string
     {
         if (static::isWorkflowCallTrigger($record)) {
-            return 'info';
+            return static::canActivate($record) ? 'info' : 'danger';
         }
 
         $triggerClass = static::triggerClass($record);
@@ -169,21 +271,48 @@ class WorkflowResource extends BaseWorkflowResource
 
     private static function isWorkflowCallTrigger(Workflow $record): bool
     {
-        return data_get($record->definition, 'trigger.type') === 'workflow-completed'
-            && filled(data_get($record->definition, 'trigger.config.source_workflow_id'));
+        return data_get($record->definition, 'trigger.type') === WorkflowCompletedTrigger::type();
     }
 
-    private static function workflowName(int $workflowId): ?string
+    private static function canActivate(Workflow $record): bool
     {
-        if ($workflowId <= 0) {
-            return null;
+        if (!static::isWorkflowCallTrigger($record)) {
+            return true;
         }
 
-        $workflowModel = config('filament-workflows.models.workflow', Workflow::class);
+        return static::workflowCallParents($record) !== [];
+    }
 
-        return $workflowModel::query()
-            ->whereKey($workflowId)
-            ->value('name');
+    public static function duplicateWorkflow(Workflow $record): Workflow
+    {
+        $copy = $record->replicate();
+        $copy->name = static::copyName($record->name);
+        $copy->is_active = false;
+        $copy->created_by = auth()->id();
+        $copy->updated_by = auth()->id();
+        $copy->save();
+
+        return $copy;
+    }
+
+    private static function copyName(string $name): string
+    {
+        $name = trim($name);
+
+        return str($name)->startsWith('Копия: ')
+            ? $name . ' (копия)'
+            : 'Копия: ' . $name;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function workflowCallParents(Workflow $record): array
+    {
+        static $parentsByWorkflow = [];
+
+        return $parentsByWorkflow[$record->getKey()]
+            ??= app(WorkflowDependencyMap::class)->incomingLabels($record);
     }
 
     /**

@@ -34,8 +34,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             ->setWorkflowId($workflowId)
             ->setTriggerSource('test')
             ->setTriggerModel($testModel)
-            ->setTriggerData($testInputs)
-            ->setVariable('_capture_amo_exchange', true);
+            ->setTriggerData($testInputs);
     }
 
     /**

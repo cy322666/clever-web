@@ -121,43 +121,25 @@ class AuthController extends Controller
             }
 
             if (
+                !$user->usesSharedAmoConnectionAcrossWidgets()
+                &&
                 $parsedSubdomain
                 && $primaryUserDomain['subdomain']
                 && $parsedSubdomain !== $primaryUserDomain['subdomain']
             ) {
-                $ownershipError = $this->validateAmoSubdomainUniqueness($user, $parsedSubdomain);
-
-                if ($ownershipError !== null) {
-                    return $this->oauthErrorRedirect(
-                        $request,
-                        $ownershipError,
-                        422,
-                        $fallbackRedirect
-                    );
-                }
-
-                $normalizedZone = ($amoDomain['zone'] ? Str::lower((string)$amoDomain['zone']) : null)
-                    ?? $primaryUserDomain['zone']
-                    ?? ($account->zone ? Str::lower((string)$account->zone) : null)
-                    ?? 'ru';
-
-                $this->switchUserAmoDomain($user, $parsedSubdomain, $normalizedZone);
-
-                Log::warning('amocrm.domain switched from callback', [
+                Log::warning('amocrm.redirect blocked by single-domain guard', [
                     'user_id' => $user->id,
-                    'from' => $primaryUserDomain['subdomain'],
-                    'to' => $parsedSubdomain,
-                    'zone' => $normalizedZone,
+                    'current_subdomain' => $primaryUserDomain['subdomain'],
+                    'incoming_subdomain' => $parsedSubdomain,
                     'widget' => $widget,
                 ]);
 
-                $primaryUserDomain = [
-                    'subdomain' => $parsedSubdomain,
-                    'zone' => $normalizedZone,
-                ];
-
-                $account->refresh();
-                $accountSubdomain = $parsedSubdomain;
+                return $this->oauthErrorRedirect(
+                    $request,
+                    $this->amoDomainMismatchMessage($primaryUserDomain['subdomain'], $parsedSubdomain),
+                    422,
+                    $fallbackRedirect
+                );
             }
 
             $subdomain = $parsedSubdomain
@@ -186,7 +168,7 @@ class AuthController extends Controller
             $exchangeErrors = [];
 
             foreach ($candidateSubdomains as $candidateSubdomain) {
-                $subdomainValidationError = $this->validateAmoSubdomainUniqueness($user, $candidateSubdomain);
+                $subdomainValidationError = $this->validateAmoSubdomainAllowedForUser($user, $candidateSubdomain);
                 if ($subdomainValidationError !== null) {
                     $exchangeErrors[] = $candidateSubdomain . ': ' . $subdomainValidationError;
                     continue;
@@ -662,6 +644,17 @@ class AuthController extends Controller
             ->where('user_id', $user->id)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')
+            ->where(function ($query): void {
+                $query->where('active', true)
+                    ->orWhere(function ($query): void {
+                        $query->whereNotNull('access_token')
+                            ->where('access_token', '<>', '');
+                    })
+                    ->orWhere(function ($query): void {
+                        $query->whereNotNull('refresh_token')
+                            ->where('refresh_token', '<>', '');
+                    });
+            })
             ->orderByRaw("CASE WHEN widget = ? OR widget IS NULL THEN 0 ELSE 1 END", [Account::DEFAULT_WIDGET])
             ->orderByDesc('active')
             ->orderByDesc('id')
@@ -680,20 +673,6 @@ class AuthController extends Controller
             'subdomain' => null,
             'zone' => null,
         ];
-    }
-
-    private function switchUserAmoDomain(User $user, string $subdomain, string $zone): void
-    {
-        Account::query()
-            ->where('user_id', $user->id)
-            ->update([
-                'subdomain' => $subdomain,
-                'zone' => $zone,
-                'code' => null,
-                'access_token' => null,
-                'refresh_token' => null,
-                'active' => false,
-            ]);
     }
 
     private function appendQuery(string $path, array $params): string
@@ -887,8 +866,12 @@ class AuthController extends Controller
         ];
     }
 
-    private function validateAmoSubdomainUniqueness(User $user, string $subdomain): ?string
+    private function validateAmoSubdomainAllowedForUser(User $user, string $subdomain): ?string
     {
+        if ($user->usesSharedAmoConnectionAcrossWidgets()) {
+            return null;
+        }
+
         $subdomain = Str::lower(trim($subdomain));
 
         if ($subdomain === '') {
@@ -906,7 +889,47 @@ class AuthController extends Controller
             return 'Этот amoCRM домен уже подключен к другому аккаунту платформы.';
         }
 
+        $connectedUserSubdomains = Account::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->where(function ($query): void {
+                $query->where('active', true)
+                    ->orWhere(function ($query): void {
+                        $query->whereNotNull('access_token')
+                            ->where('access_token', '<>', '');
+                    })
+                    ->orWhere(function ($query): void {
+                        $query->whereNotNull('refresh_token')
+                            ->where('refresh_token', '<>', '');
+                    });
+            })
+            ->pluck('subdomain')
+            ->map(static fn(mixed $value): string => Str::lower(trim((string)$value)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $differentSubdomain = $connectedUserSubdomains
+            ->first(static fn(string $connectedSubdomain): bool => $connectedSubdomain !== $subdomain);
+
+        if ($differentSubdomain !== null) {
+            return $this->amoDomainMismatchMessage($differentSubdomain, $subdomain);
+        }
+
         return null;
+    }
+
+    private function amoDomainMismatchMessage(?string $currentSubdomain, ?string $incomingSubdomain): string
+    {
+        $currentSubdomain = $currentSubdomain ? Str::lower(trim($currentSubdomain)) : 'другой домен';
+        $incomingSubdomain = $incomingSubdomain ? Str::lower(trim($incomingSubdomain)) : 'новый домен';
+
+        return sprintf(
+            'У аккаунта уже подключен amoCRM домен %s. Подключение %s запрещено: все виджеты должны работать только с одним amoCRM доменом.',
+            $currentSubdomain,
+            $incomingSubdomain,
+        );
     }
 
     private function flattenPayload(array $payload, string $prefix = ''): array

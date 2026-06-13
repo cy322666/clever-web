@@ -4,7 +4,9 @@ namespace App\Filament\WorkflowBuilder\Resources;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource\Pages;
 use App\Models\Workflows\WorkflowRun;
+use App\Models\Workflows\WorkflowRunEntity;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
+use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -14,11 +16,16 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Enums\RecordActionsPosition;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Filament\Forms\Components\TextInput;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema as SchemaFacade;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\RunStatus;
@@ -69,10 +76,22 @@ class WorkflowRunResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $workflowId = request()->integer('workflow_id');
+
+        $query = parent::getEloquentQuery()
             ->where('user_id', Auth::id())
-            ->with('workflow')
+            ->with(['workflow', 'latestStep', 'triggeredBy'])
             ->withCount('steps');
+
+        if ($workflowId > 0) {
+            $query->where('workflow_id', $workflowId);
+        }
+
+        if (static::hasEntityIndexTable()) {
+            $query->with('entityLinks');
+        }
+
+        return $query;
     }
 
     public static function getNavigationBadgeColor(): ?string
@@ -89,68 +108,44 @@ class WorkflowRunResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('workflow.name')
-                    ->label('Процесс')
-                    ->searchable()
+                TextColumn::make('started_at')
+                    ->label('Дата срабатывания')
+                    ->state(fn(WorkflowRun $record): string => static::startedDescription($record))
                     ->sortable()
-                    ->limit(48)
-                    ->tooltip(fn(?string $state): ?string => $state)
-                    ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->url(fn(WorkflowRun $record): string => WorkflowResource::getUrl('edit', [
-                        'record' => $record->workflow_id,
-                    ]))
-                    ->openUrlInNewTab(),
-
-                TextColumn::make('trigger_description')
-                    ->label('Триггер')
-                    ->state(fn(WorkflowRun $record): string => static::triggerDescription($record))
-                    ->icon(fn(WorkflowRun $record): ?string => $record->trigger_source?->getIcon())
-                    ->color('gray')
-                    ->limit(34)
-                    ->tooltip(fn(?string $state): ?string => $state)
                     ->inline()
                     ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('status')
-                    ->label('Статус')
-                    ->badge()
+                TextColumn::make('initiator')
+                    ->label('Инициатор')
+                    ->state(fn(WorkflowRun $record): HtmlString => static::initiatorHtml($record))
+                    ->html()
                     ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->sortable(),
+                    ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('step_progress')
-                    ->label('Шаги')
-                    ->state(fn(WorkflowRun $record): string => sprintf(
-                        '%d / %d',
-                        min($record->current_step_index + 1, $record->steps_count),
-                        $record->steps_count,
-                    ))
-                    ->badge()
+                TextColumn::make('workflow_history_name')
+                    ->label('Сценарий')
+                    ->state(fn(WorkflowRun $record): HtmlString => static::workflowHtml($record))
+                    ->html()
+                    ->sortable(query: fn(Builder $query, string $direction): Builder => $query
+                        ->join('workflows', 'workflow_runs.workflow_id', '=', 'workflows.id')
+                        ->orderBy('workflows.name', $direction)
+                        ->select('workflow_runs.*'))
                     ->inline()
-                    ->color(fn(WorkflowRun $record): string => match ($record->status) {
-                        RunStatus::COMPLETED => 'success',
-                        RunStatus::FAILED => 'danger',
-                        RunStatus::RUNNING => 'info',
-                        default => 'gray',
-                    })
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->alignCenter(),
+                    ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('started_at')
-                    ->label('Запущен')
-                    ->dateTime('d.m.Y H:i:s')
-                    ->sortable()
+                TextColumn::make('latest_block')
+                    ->label('Блок / шаг')
+                    ->state(fn(WorkflowRun $record): HtmlString => static::latestBlockHtml($record))
+                    ->html()
                     ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->placeholder('Ожидает запуска'),
+                    ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('duration')
-                    ->label('Длительность')
-                    ->state(fn(WorkflowRun $record): string => static::duration($record))
+                TextColumn::make('latest_changes')
+                    ->label('Последние изменения')
+                    ->state(fn(WorkflowRun $record): HtmlString => static::latestChangesHtml($record))
+                    ->html()
                     ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->alignEnd(),
+                    ->extraCellAttributes(static::compactCellAttributes()),
 
                 IconColumn::make('result_status')
                     ->label('')
@@ -163,15 +158,6 @@ class WorkflowRunResource extends Resource
                     ->extraCellAttributes(static::compactCellAttributes())
                     ->alignCenter(),
 
-                TextColumn::make('ulid')
-                    ->label('ID запуска')
-                    ->fontFamily('mono')
-                    ->copyable()
-                    ->searchable()
-                    ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->toggleable(isToggledHiddenByDefault: true),
-
                 IconColumn::make('restart')
                     ->label('')
                     ->state(fn(WorkflowRun $record): bool => $record->status->isTerminal())
@@ -182,10 +168,6 @@ class WorkflowRunResource extends Resource
                     ->action(
                         Action::make('restart_run')
                             ->label('Перезапустить сценарий')
-                            ->requiresConfirmation()
-                            ->modalHeading('Перезапустить сценарий?')
-                            ->modalDescription('Будет создан новый запуск с теми же входными данными.')
-                            ->modalSubmitActionLabel('Перезапустить')
                             ->action(fn(WorkflowRun $record): mixed => static::restartRun($record))
                     ),
             ])
@@ -209,7 +191,20 @@ class WorkflowRunResource extends Resource
                     ->label('Источник запуска')
                     ->options(TriggerType::class)
                     ->multiple(),
-            ])
+
+                Filter::make('entity_id')
+                    ->label('ID сущности')
+                    ->schema([
+                        TextInput::make('value')
+                            ->label('ID сущности')
+                            ->numeric(),
+                    ])
+                    ->query(fn(Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                        ? static::applyEntityIdSearch($query, (string)$data['value'])
+                        : $query)
+                    ->indicateUsing(fn(): array => []),
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(4)
             ->recordAction('view_steps')
             ->recordActions([
                 Action::make('view_steps')
@@ -228,7 +223,7 @@ class WorkflowRunResource extends Resource
             ->emptyStateDescription('Здесь появятся запуски всех процессов текущего аккаунта.');
     }
 
-    private static function triggerDescription(WorkflowRun $run): string
+    public static function triggerDescription(WorkflowRun $run): string
     {
         $triggerType = (string)data_get($run->workflow?->definition, 'trigger.type');
 
@@ -253,6 +248,7 @@ class WorkflowRunResource extends Resource
             'schedule' => 'По расписанию',
             'date-condition' => 'Относительно даты',
             WorkflowCompletedTrigger::type() => WorkflowCompletedTrigger::name(),
+            GenericWebhookTrigger::type() => GenericWebhookTrigger::name(),
         ];
 
         foreach (AmoCrmWebhookTriggerCatalog::classes() as $triggerClass) {
@@ -277,6 +273,193 @@ class WorkflowRunResource extends Resource
             : floor($seconds / 60) . ' мин. ' . ($seconds % 60) . ' сек.';
     }
 
+    private static function startedDescription(WorkflowRun $run): string
+    {
+        $date = $run->started_at ?? $run->created_at;
+
+        if ($date === null) {
+            return 'Ожидает запуска';
+        }
+
+        return $date->isToday()
+            ? 'Сегодня, ' . $date->format('H:i')
+            : $date->format('d.m.Y H:i');
+    }
+
+    private static function initiatorHtml(WorkflowRun $run): HtmlString
+    {
+        $triggerEntity = static::firstEntityLink($run, 'trigger');
+
+        if ($triggerEntity !== null) {
+            return new HtmlString(static::entityLinkHtml($triggerEntity));
+        }
+
+        if ($run->triggerable_id !== null) {
+            return new HtmlString(sprintf(
+                '<span class="workflow-run-history-muted">Сущность</span> <span class="workflow-run-history-strong">#%d</span>',
+                (int)$run->triggerable_id,
+            ));
+        }
+
+        $triggeredBy = $run->triggeredBy?->name ?? null;
+
+        if ($triggeredBy !== null) {
+            return new HtmlString(e($triggeredBy));
+        }
+
+        return new HtmlString(e(static::triggerDescription($run)));
+    }
+
+    private static function workflowHtml(WorkflowRun $run): HtmlString
+    {
+        $name = $run->workflow?->name ?: 'Процесс удалён';
+        $trigger = static::triggerDescription($run);
+        $url = $run->workflow_id
+            ? WorkflowResource::getUrl('edit', ['record' => $run->workflow_id])
+            : null;
+
+        $title = $url
+            ? sprintf(
+                '<a class="workflow-run-history-link" href="%s" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">%s</a>',
+                e($url),
+                e($name),
+            )
+            : e($name);
+
+        return new HtmlString(sprintf(
+            '%s<div class="workflow-run-history-subline">%s</div>',
+            $title,
+            e($trigger),
+        ));
+    }
+
+    private static function latestBlockHtml(WorkflowRun $run): HtmlString
+    {
+        $step = $run->latestStep;
+
+        if ($step === null) {
+            return new HtmlString('<span class="workflow-run-history-muted">Шагов нет</span>');
+        }
+
+        $label = static::actionLabel((string)($step->action_type ?: $step->step_type));
+        $status = $step->status?->getLabel() ?: null;
+        $isFailed = filled($step->error_message);
+        $prefix = $isFailed ? '<span class="workflow-run-history-error">!</span> ' : '';
+        $subline = $status
+            ? sprintf('<div class="workflow-run-history-subline">%s</div>', e($status))
+            : '';
+
+        return new HtmlString($prefix . e($label) . $subline);
+    }
+
+    private static function latestChangesHtml(WorkflowRun $run): HtmlString
+    {
+        if ($run->status === RunStatus::FAILED && filled($run->error_message)) {
+            return new HtmlString(sprintf(
+                '<span class="workflow-run-history-error">%s</span>',
+                e(str($run->error_message)->limit(110)),
+            ));
+        }
+
+        $entities = static::entityLinks($run)
+            ->sortByDesc(fn(WorkflowRunEntity $entity): int => $entity->workflow_run_step_id ? 1 : 0)
+            ->take(2)
+            ->map(fn(WorkflowRunEntity $entity): string => static::entityLinkHtml($entity))
+            ->implode('<br>');
+
+        if ($entities !== '') {
+            return new HtmlString($entities);
+        }
+
+        return new HtmlString(sprintf(
+            '<span class="workflow-run-history-muted">Шаги %d / %d · %s</span>',
+            min($run->current_step_index + 1, $run->steps_count),
+            $run->steps_count,
+            e(static::duration($run)),
+        ));
+    }
+
+    private static function firstEntityLink(WorkflowRun $run, ?string $source = null): ?WorkflowRunEntity
+    {
+        return static::entityLinks($run)
+            ->when($source !== null, fn($entities) => $entities->where('source', $source))
+            ->first();
+    }
+
+    private static function entityLinks(WorkflowRun $run)
+    {
+        if (!static::hasEntityIndexTable()) {
+            return collect();
+        }
+
+        if ($run->relationLoaded('entityLinks')) {
+            return collect($run->entityLinks ?? []);
+        }
+
+        return collect();
+    }
+
+    private static function entityLinkHtml(WorkflowRunEntity $entity): string
+    {
+        $label = static::entityLabel((string)$entity->entity_type);
+        $text = sprintf('%s #%d', $label, (int)$entity->entity_id);
+
+        if (filled($entity->url)) {
+            return sprintf(
+                '<a class="workflow-run-history-link" href="%s" target="_blank" rel="noopener noreferrer">%s</a>',
+                e((string)$entity->url),
+                e($text),
+            );
+        }
+
+        return sprintf('<span class="workflow-run-history-strong">%s</span>', e($text));
+    }
+
+    private static function entityLabel(string $entity): string
+    {
+        return [
+            'lead' => 'Сделка',
+            'contact' => 'Контакт',
+            'company' => 'Компания',
+            'customer' => 'Покупатель',
+        ][$entity] ?? 'Сущность';
+    }
+
+    private static function actionLabel(string $action): string
+    {
+        return static::actionNames()[$action] ?? ($action !== '' ? $action : 'Шаг процесса');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function actionNames(): array
+    {
+        return [
+            'trigger' => 'Триггер',
+            'condition' => 'Блок условий',
+            'delay' => 'Задержка',
+            'amocrm_create_lead' => 'Создать сделку',
+            'amocrm_create_contact' => 'Создать контакт',
+            'amocrm_create_company' => 'Создать компанию',
+            'amocrm_copy_lead' => 'Копировать сделку',
+            'amocrm_update_fields' => 'Сменить значение поля',
+            'amocrm_update_lead_fields' => 'Изменить сделку',
+            'amocrm_update_contact_fields' => 'Изменить контакт',
+            'amocrm_update_company_fields' => 'Изменить компанию',
+            'amocrm_create_task' => 'Поставить задачу',
+            'amocrm_add_note' => 'Добавить примечание',
+            'amocrm_change_tags' => 'Сменить теги',
+            'amocrm_change_lead_status' => 'Сменить статус сделки',
+            'amocrm_find_entity' => 'Найти сущность',
+            'amocrm_link_entity' => 'Прикрепить сущность',
+            'amocrm_unlink_entity' => 'Открепить сущность',
+            'workflow_call' => 'Запустить процесс',
+            'send_email' => 'Отправить email',
+            'send_telegram' => 'Отправить в Telegram',
+        ];
+    }
+
     /**
      * @return array<string, string>
      */
@@ -285,6 +468,39 @@ class WorkflowRunResource extends Resource
         return [
             'style' => 'padding: 0.625rem 0.75rem; vertical-align: middle;',
         ];
+    }
+
+    private static function applyEntityIdSearch(Builder $query, string $search): Builder
+    {
+        $entityId = preg_replace('/\D+/', '', $search);
+
+        if ($entityId === '') {
+            return $query->whereKey(0);
+        }
+
+        return $query->where(function (Builder $query) use ($entityId): void {
+            $query->where('triggerable_id', (int)$entityId);
+
+            if (!static::hasEntityIndexTable()) {
+                return;
+            }
+
+            $query->orWhereIn('workflow_runs.id', WorkflowRunEntity::query()
+                ->select('workflow_run_id')
+                ->where('user_id', Auth::id())
+                ->where('entity_id', (int)$entityId));
+        });
+    }
+
+    private static function hasEntityIndexTable(): bool
+    {
+        static $exists = null;
+
+        if ($exists === null) {
+            $exists = SchemaFacade::hasTable('workflow_run_entities');
+        }
+
+        return $exists;
     }
 
     private static function restartRun(WorkflowRun $record): void

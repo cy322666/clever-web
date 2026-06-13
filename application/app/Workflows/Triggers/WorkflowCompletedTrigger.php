@@ -2,8 +2,6 @@
 
 namespace App\Workflows\Triggers;
 
-use App\Models\Workflows\Workflow;
-use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Component;
 use Leek\FilamentWorkflows\Triggers\Contracts\BaseTrigger;
 
@@ -21,7 +19,7 @@ class WorkflowCompletedTrigger implements BaseTrigger
 
     public static function description(): string
     {
-        return 'Запускается действием из выбранного процесса.';
+        return 'Запускается действием «Запустить процесс» из другого процесса.';
     }
 
     public static function icon(): string
@@ -39,14 +37,7 @@ class WorkflowCompletedTrigger implements BaseTrigger
      */
     public static function configSchema(): array
     {
-        return [
-            Select::make('source_workflow_id')
-                ->label('Родительский процесс')
-                ->options(fn(): array => static::workflowOptions())
-                ->searchable()
-                ->native(false)
-                ->required(),
-        ];
+        return [];
     }
 
     /**
@@ -54,17 +45,14 @@ class WorkflowCompletedTrigger implements BaseTrigger
      */
     public static function defaultConfig(): array
     {
-        return [
-            'source_workflow_id' => null,
-        ];
+        return [];
     }
 
     public function shouldTrigger(array $config, mixed $subject, array $context = []): bool
     {
-        $configuredWorkflowId = (int)($config['source_workflow_id'] ?? 0);
         $sourceWorkflowId = (int)($context['source_workflow_id'] ?? data_get($subject, 'workflow_id', 0));
 
-        return $configuredWorkflowId > 0 && $sourceWorkflowId === $configuredWorkflowId;
+        return $sourceWorkflowId > 0;
     }
 
     /**
@@ -82,12 +70,6 @@ class WorkflowCompletedTrigger implements BaseTrigger
 
     public static function getConfiguredDescription(array $config): string
     {
-        $workflowName = static::workflowName($config['source_workflow_id'] ?? null);
-
-        if ($workflowName !== null) {
-            return '<strong>' . e($workflowName) . '</strong>';
-        }
-
         return static::description();
     }
 
@@ -96,57 +78,9 @@ class WorkflowCompletedTrigger implements BaseTrigger
      */
     public function validateConfig(array $config): array
     {
-        $errors = [];
-        $workflowId = (int)($config['source_workflow_id'] ?? 0);
-
-        if ($workflowId <= 0) {
-            $errors[] = 'Выберите процесс, который будет запускать этот процесс.';
-        } elseif (static::workflowName($workflowId) === null) {
-            $errors[] = 'Выбранный процесс не найден.';
-        }
-
         return [
-            'valid' => $errors === [],
-            'errors' => $errors,
+            'valid' => true,
+            'errors' => [],
         ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private static function workflowOptions(): array
-    {
-        $workflowModel = config('filament-workflows.models.workflow', Workflow::class);
-        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
-
-        return $workflowModel::query()
-            ->when(
-                config('filament-workflows.tenancy.enabled', false) && auth()->id(),
-                fn($query) => $query->where($tenantColumn, auth()->id())
-            )
-            ->orderBy('name')
-            ->pluck('name', 'id')
-            ->mapWithKeys(fn(string $name, int|string $id): array => [(string)$id => $name])
-            ->all();
-    }
-
-    private static function workflowName(mixed $workflowId): ?string
-    {
-        $workflowId = (int)$workflowId;
-
-        if ($workflowId <= 0) {
-            return null;
-        }
-
-        $workflowModel = config('filament-workflows.models.workflow', Workflow::class);
-        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
-
-        return $workflowModel::query()
-            ->when(
-                config('filament-workflows.tenancy.enabled', false) && auth()->id(),
-                fn($query) => $query->where($tenantColumn, auth()->id())
-            )
-            ->whereKey($workflowId)
-            ->value('name');
     }
 }

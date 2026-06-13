@@ -3,6 +3,12 @@
 ])
 
 @php
+    $currentInsertPath = (string) (($this->insertActionPath ?? null) ?? ($this->targetPath ?? ''));
+    $isInsideConditionBranch = str_contains($currentInsertPath, '.config.true_actions')
+        || str_contains($currentInsertPath, '.config.false_actions')
+        || str_starts_with($currentInsertPath, 'config.true_actions')
+        || str_starts_with($currentInsertPath, 'config.false_actions');
+
     $groups = [
         'flow' => [
             'title' => 'Логика процесса',
@@ -87,6 +93,11 @@
 
     foreach ($actions as $action) {
         $type = $action['type'] ?? '';
+
+        if ($isInsideConditionBranch && $type === 'control-condition') {
+            continue;
+        }
+
         $groupKey = $typeToGroup[$type] ?? 'other';
 
         $groups[$groupKey]['items'][] = $action;

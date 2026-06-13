@@ -26,6 +26,8 @@
         'amocrm_link_entity' => 'Прикрепить сущность',
         'amocrm_unlink_entity' => 'Открепить сущность',
     ][$type ?? ''] ?? ($type ?: 'Действие');
+    $entityLinkService = app(\App\Services\Workflows\WorkflowRunEntityLinkService::class);
+    $triggerDescription = \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::triggerDescription($run);
 @endphp
 
 <div class="space-y-5">
@@ -53,7 +55,7 @@
             <div>
                 <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Источник</div>
                 <div class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {{ $run->trigger_source?->getLabel() ?? '-' }}
+                    {{ $triggerDescription }}
                 </div>
             </div>
 
@@ -72,16 +74,6 @@
                 </div>
             </div>
         </div>
-
-        @if($run->error_message)
-            <div
-                class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-                <div class="flex gap-2">
-                    <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-5 w-5 shrink-0"/>
-                    <div>{{ $run->error_message }}</div>
-                </div>
-            </div>
-        @endif
     </div>
 
     <div>
@@ -99,6 +91,7 @@
                 @php
                     $stepStatus = $step->status?->value ?? (string) $step->status;
                     $type = $step->action_type ?? $step->step_type;
+                    $entityLinks = $entityLinkService->forStep($run, $step);
                 @endphp
 
                 <div @class([
@@ -115,21 +108,32 @@
                                 {{ $index + 1 }}
                             </span>
 
-                            <div class="min-w-0">
+                            <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h5 class="text-sm font-semibold text-gray-950 dark:text-white">
                                         {{ $actionLabel($type) }}
                                     </h5>
-
-                                    <span
-                                        class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-gray-800 dark:text-gray-400">
-                                        {{ $step->step_id }}
-                                    </span>
                                 </div>
+
+                                @if($entityLinks !== [])
+                                    <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                        @foreach($entityLinks as $entityLink)
+                                            <a
+                                                href="{{ $entityLink['url'] }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="inline-flex items-center gap-1.5 font-medium text-primary-600 outline-none transition hover:text-primary-500 hover:underline focus-visible:ring-0 dark:text-primary-400 dark:hover:text-primary-300"
+                                            >
+                                                <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" class="h-4 w-4"/>
+                                                {{ $entityLink['label'] }} #{{ $entityLink['id'] }}
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
 
                                 @if($step->error_message)
                                     <div
-                                        class="mt-2 rounded-lg bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                                        class="mt-3 inline-flex max-w-full rounded-lg bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
                                         {{ $step->error_message }}
                                     </div>
                                 @endif
@@ -146,42 +150,8 @@
                             ])>
                                 {{ $step->status?->getLabel() ?? $stepStatus }}
                             </span>
-
-                            @if($step->duration_ms !== null)
-                                <span
-                                    class="text-xs text-gray-500 dark:text-gray-400">{{ $step->duration_ms }} мс</span>
-                            @endif
                         </div>
                     </div>
-
-                    @if($step->input_data || $step->output_data)
-                        <div class="mt-4 grid gap-3 lg:grid-cols-2">
-                            @if($step->input_data)
-                                <details
-                                    class="rounded-lg border border-slate-200 bg-white/70 p-3 dark:border-gray-700 dark:bg-gray-950/40">
-                                    <summary
-                                        class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                        Входные данные
-                                    </summary>
-                                    <pre
-                                        class="mt-2 max-h-44 overflow-auto rounded-md bg-slate-50 p-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ json_encode($step->input_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
-                                </details>
-                            @endif
-
-                            @if($step->output_data)
-                                <details
-                                    class="rounded-lg border border-slate-200 bg-white/70 p-3 dark:border-gray-700 dark:bg-gray-950/40"
-                                    open>
-                                    <summary
-                                        class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                        Результат шага
-                                    </summary>
-                                    <pre
-                                        class="mt-2 max-h-44 overflow-auto rounded-md bg-slate-50 p-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ json_encode($step->output_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
-                                </details>
-                            @endif
-                        </div>
-                    @endif
                 </div>
             @empty
                 <div class="rounded-xl border border-dashed border-gray-300 p-6 text-center dark:border-gray-700">

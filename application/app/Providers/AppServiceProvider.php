@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
 use App\Models\Workflows\Workflow;
+use App\Models\Workflows\WorkflowRun as AppWorkflowRun;
 use App\Observers\QueueMonitorObserver;
 use App\Services\Core\MonitoringCache;
+use App\Services\Workflows\WorkflowRunEntityIndexService;
 use App\Services\Workflows\WorkflowVariableService;
 use App\Workflows\Actions\ControlConditionAction;
 use App\Workflows\Actions\MultiChannelNotificationAction;
@@ -14,6 +16,7 @@ use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Engine\WorkflowExecutor as AppWorkflowExecutor;
 use App\Workflows\Engine\WorkflowTestRunner as AppWorkflowTestRunner;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
+use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
@@ -29,6 +32,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
+use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Triggers\DateConditionTrigger;
 use Leek\FilamentWorkflows\Triggers\ManualTrigger;
 use Leek\FilamentWorkflows\Triggers\ScheduleTrigger;
@@ -106,6 +110,7 @@ class AppServiceProvider extends ServiceProvider
             $this->registerWorkflowTriggers();
             $this->registerWorkflowActions();
             $this->registerWorkflowWebhookSynchronization();
+            $this->registerWorkflowRunEntityIndexing();
         }
     }
 
@@ -141,6 +146,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(ScheduleTrigger::class);
             $registry->register(DateConditionTrigger::class);
             $registry->register(WorkflowCompletedTrigger::class);
+            $registry->register(GenericWebhookTrigger::class);
 
             foreach (AmoCrmWebhookTriggerCatalog::classes() as $triggerClass) {
                 $registry->register($triggerClass);
@@ -228,6 +234,31 @@ class AppServiceProvider extends ServiceProvider
         if (!$this->app->runningInConsole()) {
             $dispatch->afterResponse();
         }
+    }
+
+    private function registerWorkflowRunEntityIndexing(): void
+    {
+        /** @var class-string<AppWorkflowRun> $runModelClass */
+        $runModelClass = config('filament-workflows.models.workflow_run', AppWorkflowRun::class);
+
+        /** @var class-string<WorkflowRunStep> $stepModelClass */
+        $stepModelClass = config('filament-workflows.models.workflow_run_step', WorkflowRunStep::class);
+
+        $runModelClass::saved(function ($run): void {
+            if (!$run->wasChanged('context_data')) {
+                return;
+            }
+
+            app(WorkflowRunEntityIndexService::class)->indexRun($run);
+        });
+
+        $stepModelClass::saved(function ($step): void {
+            if (!$step->wasChanged('output_data') && !$step->wasChanged('input_data')) {
+                return;
+            }
+
+            app(WorkflowRunEntityIndexService::class)->indexStep($step);
+        });
     }
 
     private function clearWorkflowActionPromotions(ActionRegistry $registry): void

@@ -18,6 +18,7 @@ class WorkflowAmoCrmWebhookService
     public function __construct(
         private readonly WorkflowAmoCrmWebhookPayloadNormalizer $normalizer,
         private readonly WorkflowExecutor $executor,
+        private readonly WorkflowAmoCrmLoopGuard $loopGuard,
     )
     {
     }
@@ -42,10 +43,12 @@ class WorkflowAmoCrmWebhookService
 
     public function callbackUrl(Account $account): string
     {
-        return route('amocrm.workflows.hook', [
+        $path = route('amocrm.workflows.hook', [
             'account' => $account->getKey(),
             'signature' => $this->signature($account),
-        ], true);
+        ], false);
+
+        return rtrim($this->publicBaseUrl(), '/') . $path;
     }
 
     /**
@@ -82,6 +85,16 @@ class WorkflowAmoCrmWebhookService
         $targetUrl = $this->callbackUrl($account);
 
         try {
+            if (!$this->isValidPublicWebhookUrl($targetUrl)) {
+                return $this->baseStatus(
+                    account: $account,
+                    requiredEvents: $requiredEvents,
+                    ok: false,
+                    state: 'error',
+                    message: 'Нельзя установить вебхуки amoCRM: URL приёмника недоступен извне. Укажите публичный HTTPS-домен в WORKFLOW_PUBLIC_URL. Сейчас: ' . $targetUrl,
+                );
+            }
+
             $client = new Client($account);
             $currentHooks = $this->platformHooks($client, $account);
             $targetHook = collect($currentHooks)->firstWhere('url', $targetUrl);
@@ -160,6 +173,16 @@ class WorkflowAmoCrmWebhookService
 
         $requiredEvents = $this->requiredEventsForUser((int)$account->user_id);
         $targetUrl = $this->callbackUrl($account);
+
+        if (!$this->isValidPublicWebhookUrl($targetUrl)) {
+            return $this->baseStatus(
+                account: $account,
+                requiredEvents: $requiredEvents,
+                ok: false,
+                state: 'error',
+                message: 'Нельзя установить вебхуки amoCRM: URL приёмника недоступен извне. Укажите публичный HTTPS-домен в WORKFLOW_PUBLIC_URL. Сейчас: ' . $targetUrl,
+            );
+        }
 
         try {
             $client = new Client($account);
@@ -271,13 +294,14 @@ class WorkflowAmoCrmWebhookService
     /**
      * @param array<string, mixed> $payload
      * @param array<string, mixed> $headers
-     * @return array{events: array<int, string>, started: int}
+     * @return array{events: array<int, string>, started: int, skipped: int}
      */
     public function handleIncomingWebhook(Account $account, array $payload, array $headers = []): array
     {
         $normalized = $this->normalizer->normalize($payload);
         $events = array_keys($normalized['events']);
         $started = 0;
+        $skipped = 0;
 
         if ($events === []) {
             Log::warning('Workflow amoCRM webhook without supported events', [
@@ -285,7 +309,7 @@ class WorkflowAmoCrmWebhookService
                 'payload_keys' => array_keys($payload),
             ]);
 
-            return ['events' => [], 'started' => 0];
+            return ['events' => [], 'started' => 0, 'skipped' => 0];
         }
 
         $workflows = $this->matchingWorkflows((int)$account->user_id, $events);
@@ -296,6 +320,24 @@ class WorkflowAmoCrmWebhookService
             $event = $normalized['events'][$eventCode] ?? null;
 
             if ($event === null) {
+                continue;
+            }
+
+            $recentMutation = $this->loopGuard->matchingRecentMutation($workflow, $account, $event);
+
+            if ($recentMutation !== null) {
+                $skipped++;
+
+                Log::info('Workflow amoCRM webhook skipped to prevent self loop', [
+                    'account_id' => $account->id,
+                    'workflow_id' => $workflow->id,
+                    'workflow_run_id' => $recentMutation['workflow_run_id'] ?? null,
+                    'event' => $eventCode,
+                    'entity' => $event['entity'] ?? null,
+                    'entity_id' => $recentMutation['entity_id'] ?? null,
+                    'action_type' => $recentMutation['action_type'] ?? null,
+                ]);
+
                 continue;
             }
 
@@ -315,6 +357,7 @@ class WorkflowAmoCrmWebhookService
         return [
             'events' => $events,
             'started' => $started,
+            'skipped' => $skipped,
         ];
     }
 
@@ -508,6 +551,34 @@ class WorkflowAmoCrmWebhookService
         $client->requestV4('DELETE', '/api/v4/webhooks', [
             'destination' => $url,
         ]);
+    }
+
+    private function publicBaseUrl(): string
+    {
+        return rtrim((string)(config('workflow-webhooks.public_url') ?: config('app.url')), '/');
+    }
+
+    private function isValidPublicWebhookUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower((string)($parts['scheme'] ?? ''));
+        $host = strtolower((string)($parts['host'] ?? ''));
+
+        if (!in_array($scheme, ['https', 'http'], true) || $host === '') {
+            return false;
+        }
+
+        if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0', '::1'], true)) {
+            return false;
+        }
+
+        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return true;
+        }
+
+        return (bool)filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
     }
 
     /**

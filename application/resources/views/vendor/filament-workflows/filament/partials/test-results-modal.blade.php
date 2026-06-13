@@ -41,24 +41,6 @@
         </div>
     @endif
 
-    {{-- Context Variables --}}
-    @if(!empty($results['variables']))
-        <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <div class="flex items-center gap-2 mb-3">
-                <x-filament::icon
-                    icon="heroicon-o-variable"
-                    class="h-5 w-5 text-gray-500 dark:text-gray-400"
-                />
-                <h4 class="font-medium text-gray-900 dark:text-white">{{ __('filament-workflows::workflows.test_results.context_variables') }}</h4>
-            </div>
-
-            <div class="max-h-40 overflow-y-auto">
-                <pre
-                    class="text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ json_encode($results['variables'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-            </div>
-        </div>
-    @endif
-
     {{-- Completed Timestamp --}}
     @if(!empty($results['completed_at']))
         <p class="text-xs text-gray-500 dark:text-gray-400 text-right">

@@ -2,6 +2,7 @@
 
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas;
 
+use App\Models\Workflows\Workflow;
 use App\Workflows\FailureStrategies;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,54 +21,91 @@ class WorkflowForm
                 ->columnSpanFull()
                 ->extraAttributes(['class' => 'match-height'])
                 ->schema([
-                    Section::make(__('filament-workflows::workflows.sections.workflow_details.title'))
-                        ->icon('heroicon-o-document-text')
+                    Section::make()
                         ->compact()
                         ->columnSpan(2)
-                        ->schema([
-                            TextInput::make('name')
-                                ->label(__('filament-workflows::workflows.fields.name.label'))
-                                ->required()
-                                ->maxLength(255)
-                                ->placeholder(__('filament-workflows::workflows.fields.name.placeholder')),
+                        ->columns(3)
+                        ->schema(self::workflowDetailsFields()),
 
-                            Textarea::make('description')
-                                ->label(__('filament-workflows::workflows.fields.description.label'))
-                                ->rows(2)
-                                ->placeholder(__('filament-workflows::workflows.fields.description.placeholder')),
-                        ]),
-
-                    Section::make(__('filament-workflows::workflows.sections.settings.title'))
-                        ->icon('heroicon-o-cog-6-tooth')
+                    Section::make()
                         ->compact()
                         ->columnSpan(1)
-                        ->schema([
-                            Toggle::make('is_active')
-                                ->label(__('filament-workflows::workflows.fields.is_active.label'))
-                                ->default(true),
-
-                            Select::make('failure_strategy')
-                                ->label(__('filament-workflows::workflows.fields.failure_strategy.label'))
-                                ->options([
-                                    FailureStrategies::STOP => __('filament-workflows::enums.failure_strategy.stop'),
-                                    FailureStrategies::CONTINUE => __(
-                                        'filament-workflows::enums.failure_strategy.continue'
-                                    ),
-                                    FailureStrategies::TELEGRAM_REPORT => __(
-                                        'filament-workflows::enums.failure_strategy.telegram_report'
-                                    ),
-                                ])
-                                ->default(FailureStrategies::STOP)
-                                ->native(false),
-
-                            TextInput::make('max_retries')
-                                ->label(__('filament-workflows::workflows.fields.max_retries.label'))
-                                ->numeric()
-                                ->default(3)
-                                ->minValue(0)
-                                ->maxValue(10),
-                        ]),
+                        ->schema(self::executionSettingsFields()),
                 ]),
         ]);
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private static function workflowDetailsFields(bool $compact = false): array
+    {
+        return [
+            TextInput::make('name')
+                ->label(__('filament-workflows::workflows.fields.name.label'))
+                ->required()
+                ->maxLength(255)
+                ->placeholder(__('filament-workflows::workflows.fields.name.placeholder'))
+                ->columnSpan($compact ? 2 : 2),
+
+            Select::make('group_name')
+                ->label('Группа')
+                ->placeholder('Без группы')
+                ->options(fn(): array => Workflow::groupOptions())
+                ->getOptionLabelUsing(fn(mixed $value): string => (string)$value)
+                ->searchable()
+                ->native(false)
+                ->createOptionModalHeading('Новая группа')
+                ->createOptionForm([
+                    TextInput::make('name')
+                        ->label('Название группы')
+                        ->required()
+                        ->maxLength(255),
+                ])
+                ->createOptionUsing(fn(array $data): string => trim($data['name']))
+                ->columnSpan($compact ? 2 : 1),
+
+            Textarea::make('description')
+                ->label(__('filament-workflows::workflows.fields.description.label'))
+                ->rows($compact ? 3 : 2)
+                ->placeholder(__('filament-workflows::workflows.fields.description.placeholder'))
+                ->columnSpan($compact ? 2 : 3),
+        ];
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private static function executionSettingsFields(bool $compact = false): array
+    {
+        return [
+            Toggle::make('is_active')
+                ->label(__('filament-workflows::workflows.fields.is_active.label'))
+                ->default(true)
+                ->columnSpan($compact ? 1 : 1),
+
+            Select::make('failure_strategy')
+                ->label(__('filament-workflows::workflows.fields.failure_strategy.label'))
+                ->options([
+                    FailureStrategies::STOP => __('filament-workflows::enums.failure_strategy.stop'),
+                    FailureStrategies::CONTINUE => __(
+                        'filament-workflows::enums.failure_strategy.continue'
+                    ),
+                    FailureStrategies::TELEGRAM_REPORT => __(
+                        'filament-workflows::enums.failure_strategy.telegram_report'
+                    ),
+                ])
+                ->default(FailureStrategies::STOP)
+                ->native(false)
+                ->columnSpan($compact ? 1 : 1),
+
+            TextInput::make('max_retries')
+                ->label(__('filament-workflows::workflows.fields.max_retries.label'))
+                ->numeric()
+                ->default(3)
+                ->minValue(0)
+                ->maxValue(10)
+                ->columnSpan($compact ? 1 : 1),
+        ];
     }
 }

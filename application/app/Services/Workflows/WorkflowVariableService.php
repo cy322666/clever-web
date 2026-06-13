@@ -38,7 +38,9 @@ class WorkflowVariableService extends BaseWorkflowVariableService
                 $variables[] = [
                     'path' => $path,
                     'label' => (string)$label,
-                    'description' => 'Данные входящего события amoCRM',
+                    'description' => (string)$category === 'Вебхук'
+                        ? 'Данные входящего вебхука'
+                        : 'Данные входящего события',
                     'category' => (string)$category,
                 ];
             }

@@ -38,6 +38,17 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{received_at}}' => 'Дата получения',
                 '{{now}}' => 'Текущая дата и время',
             ],
+            'Вебхук' => [
+                '{{payload}}' => 'Тело запроса',
+                '{{payload.key}}' => 'Значение из тела запроса',
+                '{{query.key}}' => 'Значение из query-параметров',
+                '{{headers.content_type}}' => 'Заголовок Content-Type',
+                '{{headers.user_agent}}' => 'Заголовок User-Agent',
+                '{{method}}' => 'HTTP-метод',
+                '{{url}}' => 'URL запроса',
+                '{{ip}}' => 'IP отправителя',
+                '{{raw_body}}' => 'Сырое тело запроса',
+            ],
             'Текущая сущность' => [
                 '{{item.id}}' => 'ID',
                 '{{item.name}}' => 'Название / имя',

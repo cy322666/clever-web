@@ -18,9 +18,6 @@ class WorkflowMermaidMap
     /** @var array<int, bool> */
     private array $visitedProcessActions = [];
 
-    /** @var array<int, bool> */
-    private array $childProcessesLinkedFromActions = [];
-
     /** @var array<int, Model> */
     private array $workflowCache = [];
 
@@ -35,7 +32,6 @@ class WorkflowMermaidMap
     {
         $this->renderedProcesses = [];
         $this->visitedProcessActions = [];
-        $this->childProcessesLinkedFromActions = [];
         $this->workflowCache = [(int)$workflow->getKey() => $workflow];
         $this->lines = [
             'flowchart LR',
@@ -46,7 +42,6 @@ class WorkflowMermaidMap
         $this->addProcessNode($workflow, 'currentNode', 'текущий процесс');
         $this->addIncomingNodes($workflow, $map['incoming'] ?? []);
         $this->addActionsForWorkflow($workflow, $currentId);
-        $this->addOutgoingProcessesWithoutExplicitAction($workflow, $map['outgoing'] ?? []);
         $this->addClassDefinitions();
 
         return implode("\n", $this->lines);
@@ -87,39 +82,6 @@ class WorkflowMermaidMap
             $this->addNode($triggerId, (string)($link['workflow_name'] ?? 'Триггер'), 'триггер');
             $this->lines[] = '    ' . $triggerId . ' --> ' . $currentId;
             $this->lines[] = '    class ' . $triggerId . ' triggerNode';
-        }
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $outgoing
-     */
-    private function addOutgoingProcessesWithoutExplicitAction(Model $workflow, array $outgoing): void
-    {
-        $currentId = $this->processNodeId($workflow);
-
-        foreach ($outgoing as $index => $link) {
-            if (($link['type'] ?? null) !== 'trigger') {
-                continue;
-            }
-
-            $targetWorkflowId = (int)($link['workflow_id'] ?? 0);
-
-            if (isset($this->childProcessesLinkedFromActions[$targetWorkflowId])) {
-                continue;
-            }
-
-            $target = $this->findWorkflow($workflow, $targetWorkflowId);
-
-            if (!$target) {
-                continue;
-            }
-
-            $targetId = $this->processNodeId($target);
-
-            $this->addProcessNode($target, 'childNode', $this->statusLabel($target));
-            $this->addProcessClick($target);
-            $this->lines[] = '    ' . $currentId . ' --> ' . $targetId;
-            $this->addActionsForWorkflow($target, $targetId, 1);
         }
     }
 
@@ -232,7 +194,6 @@ class WorkflowMermaidMap
         $this->addProcessNode($targetWorkflow, 'childNode', $this->statusLabel($targetWorkflow));
         $this->addProcessClick($targetWorkflow);
         $this->lines[] = '    ' . $actionNodeId . ' --> ' . $targetNodeId;
-        $this->childProcessesLinkedFromActions[(int)$targetWorkflow->getKey()] = true;
         $this->addActionsForWorkflow($targetWorkflow, $targetNodeId, $depth + 1);
     }
 
@@ -334,6 +295,15 @@ class WorkflowMermaidMap
 
         return match ($type) {
             'control-condition', 'condition' => 'ветвление',
+            'amocrm_create_lead', 'amocrm_create_contact', 'amocrm_create_company' => 'создание сущности',
+            'amocrm_update_lead_fields', 'amocrm_update_contact_fields', 'amocrm_update_company_fields' => 'изменение полей',
+            'amocrm_change_lead_status' => 'смена статуса',
+            'amocrm_create_task', 'amocrm_update_task' => 'задача',
+            'amocrm_add_note' => 'примечание',
+            'amocrm_find_entity' => 'поиск сущности',
+            'amocrm_link_entity', 'amocrm_unlink_entity' => 'связь сущностей',
+            'amocrm_copy_lead' => 'копирование сделки',
+            'send_notification', 'send_email', 'multi_channel_notification' => 'уведомление',
             default => 'действие',
         };
     }
@@ -481,15 +451,15 @@ class WorkflowMermaidMap
         $this->lines[] = '    classDef currentNode fill:#eef5ff,stroke:#2563eb,stroke-width:2.5px,color:#0f172a';
         $this->lines[] = '    classDef triggerNode fill:#fff7ed,stroke:#fb923c,stroke-width:1.8px,color:#7c2d12';
         $this->lines[] = '    classDef parentNode fill:#edfdf6,stroke:#34d399,stroke-width:1.8px,color:#064e3b';
-        $this->lines[] = '    classDef childNode fill:#f8fafc,stroke:#475569,stroke-width:2.4px,color:#0f172a,stroke-dasharray:5 5';
+        $this->lines[] = '    classDef childNode fill:#f8fafc,stroke:#64748b,stroke-width:2.2px,color:#0f172a,stroke-dasharray:6 4';
         $this->lines[] = '    classDef actionNode fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155';
         $this->lines[] = '    classDef amoActionNode fill:#f0fdf4,stroke:#86efac,stroke-width:1.5px,color:#14532d';
-        $this->lines[] = '    classDef createActionNode fill:#effaf3,stroke:#22c55e,stroke-width:1.8px,color:#14532d';
-        $this->lines[] = '    classDef updateActionNode fill:#eff6ff,stroke:#60a5fa,stroke-width:1.8px,color:#1e3a8a';
-        $this->lines[] = '    classDef taskActionNode fill:#fff7ed,stroke:#fdba74,stroke-width:1.8px,color:#7c2d12';
-        $this->lines[] = '    classDef relationActionNode fill:#f5f3ff,stroke:#a78bfa,stroke-width:1.8px,color:#4c1d95';
-        $this->lines[] = '    classDef notificationActionNode fill:#fdf2f8,stroke:#f9a8d4,stroke-width:1.8px,color:#831843';
-        $this->lines[] = '    classDef runWorkflowNode fill:#ecfeff,stroke:#22d3ee,stroke-width:2px,color:#164e63';
+        $this->lines[] = '    classDef createActionNode fill:#ecfdf5,stroke:#10b981,stroke-width:1.8px,color:#064e3b';
+        $this->lines[] = '    classDef updateActionNode fill:#eff6ff,stroke:#3b82f6,stroke-width:1.8px,color:#1e3a8a';
+        $this->lines[] = '    classDef taskActionNode fill:#fff7ed,stroke:#f97316,stroke-width:1.8px,color:#7c2d12';
+        $this->lines[] = '    classDef relationActionNode fill:#f5f3ff,stroke:#8b5cf6,stroke-width:1.8px,color:#4c1d95';
+        $this->lines[] = '    classDef notificationActionNode fill:#fdf2f8,stroke:#ec4899,stroke-width:1.8px,color:#831843';
+        $this->lines[] = '    classDef runWorkflowNode fill:#ecfeff,stroke:#0891b2,stroke-width:2.1px,color:#164e63';
         $this->lines[] = '    classDef conditionNode fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f';
     }
 }

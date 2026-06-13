@@ -13,7 +13,7 @@ class ListWorkflowRuns extends ListRecords
 
     protected static ?string $title = 'Исполнения процессов';
 
-    protected ?string $subheading = 'Все запуски процессов обновляются автоматически.';
+    protected ?string $subheading = null;
 
     /**
      * @return array<Action>

@@ -14,6 +14,7 @@ use Exception;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -59,10 +60,20 @@ class AppPanelProvider extends PanelProvider
             ->login()
             ->registration()
             ->passwordReset()
+            ->brandName('CleverCRM')
+            ->brandLogo(asset('logo/full_logo.png'))
+            ->brandLogoHeight('2rem')
+            ->favicon(asset('logo/clever_mini_logo.png'))
+            ->font(
+                'Manrope',
+                'https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800;900&display=swap',
+                GoogleFontProvider::class,
+            )
 //            ->emailVerification()
 //            ->profile(UserResource\Pages\EditUser::class)//TODO
             ->colors([
-                'primary' => Color::Amber,//TODO
+                'primary' => Color::hex('#ff6a00'),
+                'gray' => Color::Stone,
             ])
             ->plugins($plugins)
             ->pages([

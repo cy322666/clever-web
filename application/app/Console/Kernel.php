@@ -25,6 +25,10 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping();
 
+        $schedule->command('workflows:fail-stuck-runs')
+            ->everyMinute()
+            ->withoutOverlapping();
+
         $schedule->command('app:check-date-expire')
             ->dailyAt('01:00');
 
@@ -41,6 +45,9 @@ class Kernel extends ConsoleKernel
                 ->withoutOverlapping();
         }
 
+        $schedule->command('workflows:db-maintenance --days=' . (int)env('WORKFLOWS_DB_MAINTENANCE_DAYS', 45))
+            ->dailyAt(env('WORKFLOWS_DB_MAINTENANCE_TIME', '03:45'))
+            ->withoutOverlapping();
 
         $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
             ->dailyAt('00:00');

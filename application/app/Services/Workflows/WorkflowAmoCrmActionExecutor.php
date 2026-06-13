@@ -23,6 +23,11 @@ class WorkflowAmoCrmActionExecutor
      */
     private array $capturedAmoExchange = [];
 
+    public function __construct(
+        private readonly WorkflowAmoCrmLoopGuard $loopGuard,
+    ) {
+    }
+
     /**
      * @param array<string, mixed> $config
      * @return array{success: bool, output?: array<string, mixed>, error?: string}
@@ -146,6 +151,9 @@ class WorkflowAmoCrmActionExecutor
         $entityId = $this->extractEmbeddedEntityId($body, $entity);
 
         $this->linkCreatedEntityToTarget($account, $entity, $entityId, $config, $context);
+        $this->rememberAmoMutation($account, $context, 'amocrm_create_' . $entity, $entity, $entityId, [
+            'add_' . $entity,
+        ]);
 
         return $this->successById($action = 'created', $entity, $entityId, $account, [
             'action' => $action,
@@ -181,6 +189,9 @@ class WorkflowAmoCrmActionExecutor
 
         $body = $this->amoRequest($account, 'POST', '/api/v4/leads', [$payload]);
         $leadId = $this->extractEmbeddedEntityId($body, 'lead');
+        $this->rememberAmoMutation($account, $context, 'amocrm_copy_lead', 'lead', $leadId, [
+            'add_lead',
+        ]);
 
         return $this->successById('copied', 'lead', $leadId, $account, [
             'source_id' => $sourceId,
@@ -209,6 +220,9 @@ class WorkflowAmoCrmActionExecutor
         }
 
         $this->amoRequest($account, 'PATCH', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId, $payload);
+        $this->rememberAmoMutation($account, $context, 'amocrm_update_fields', $entity, $entityId, [
+            'update_' . $entity,
+        ]);
 
         return $this->successById('updated', $entity, $entityId, $account);
     }
@@ -241,6 +255,9 @@ class WorkflowAmoCrmActionExecutor
 
         $body = $this->amoRequest($account, 'POST', '/api/v4/tasks', [$payload]);
         $taskId = $this->extractEmbeddedEntityId($body, 'task');
+        $this->rememberAmoMutation($account, $context, 'amocrm_create_task', 'task', $taskId, [
+            'add_task',
+        ]);
 
         return $this->successById('task_created', 'task', $taskId, $account, [
             'parent_entity' => $entity,
@@ -277,6 +294,9 @@ class WorkflowAmoCrmActionExecutor
             $payload
         );
         $noteId = $this->extractEmbeddedEntityId($body, 'note');
+        $this->rememberAmoMutation($account, $context, 'amocrm_add_note', $entity, $entityId, [
+            'note_' . $entity,
+        ]);
 
         return $this->successById('note_created', 'note', $noteId, $account, [
             'parent_entity' => $entity,
@@ -323,6 +343,9 @@ class WorkflowAmoCrmActionExecutor
                 'tags' => $tags === [] ? null : $tags,
             ],
         ]);
+        $this->rememberAmoMutation($account, $context, 'amocrm_change_tags', $entity, $entityId, [
+            'update_' . $entity,
+        ]);
 
         return $this->successById('tags_changed', $entity, $entityId, $account, [
             'added' => $this->tags($config['tags_to_add'] ?? null),
@@ -357,6 +380,10 @@ class WorkflowAmoCrmActionExecutor
         }
 
         $this->amoRequest($account, 'PATCH', '/api/v4/leads/' . $leadId, $payload);
+        $this->rememberAmoMutation($account, $context, 'amocrm_change_lead_status', 'lead', $leadId, [
+            'status_lead',
+            'update_lead',
+        ]);
 
         return $this->successById('status_changed', 'lead', $leadId, $account, [
             'pipeline_id' => $payload['pipeline_id'] ?? null,
@@ -479,6 +506,12 @@ class WorkflowAmoCrmActionExecutor
                 'metadata' => null,
             ]
         ]);
+        $this->rememberAmoMutation($account, $context, 'amocrm_link_entity', $entity, $entityId, [
+            'update_' . $entity,
+        ]);
+        $this->rememberAmoMutation($account, $context, 'amocrm_link_entity', $linkedEntity, $linkedId, [
+            'update_' . $linkedEntity,
+        ]);
 
         return $this->successById('linked', $entity, $entityId, $account, [
             'linked_entity' => $linkedEntity,
@@ -506,6 +539,12 @@ class WorkflowAmoCrmActionExecutor
                 'to_entity_id' => $linkedId,
                 'to_entity_type' => $this->entityPlural($linkedEntity),
             ]
+        ]);
+        $this->rememberAmoMutation($account, $context, 'amocrm_unlink_entity', $entity, $entityId, [
+            'update_' . $entity,
+        ]);
+        $this->rememberAmoMutation($account, $context, 'amocrm_unlink_entity', $linkedEntity, $linkedId, [
+            'update_' . $linkedEntity,
         ]);
 
         return $this->successById('unlinked', $entity, $entityId, $account, [
@@ -753,6 +792,9 @@ class WorkflowAmoCrmActionExecutor
                 'to_entity_type' => $this->entityPlural($createdEntity),
                 'metadata' => $createdEntity === 'contact' ? ['is_main' => true] : null,
             ]
+        ]);
+        $this->rememberAmoMutation($account, $context, 'amocrm_create_' . $createdEntity, $target, $targetId, [
+            'update_' . $target,
         ]);
     }
 
@@ -1051,6 +1093,20 @@ class WorkflowAmoCrmActionExecutor
                 'account_id' => $account->id,
             ], $extra),
         ];
+    }
+
+    /**
+     * @param array<int, string> $events
+     */
+    private function rememberAmoMutation(
+        Account $account,
+        ?WorkflowContext $context,
+        string $actionType,
+        string $entity,
+        int $entityId,
+        array $events
+    ): void {
+        $this->loopGuard->rememberMutation($account, $context, $actionType, $entity, $entityId, $events);
     }
 
     /**

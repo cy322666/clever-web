@@ -125,82 +125,21 @@
                 @endif
 
                 @if(!empty($step['output']['affected_entities']) && !$isCondition)
-                    <div
-                        class="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-gray-700 dark:bg-gray-950/40">
-                        <div
-                            class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                            <x-filament::icon icon="heroicon-o-link"
-                                              class="h-4 w-4 text-slate-500 dark:text-slate-400"/>
-                            Сущности
-                        </div>
-
-                        <div class="flex flex-wrap gap-2">
+                    <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                             @foreach($step['output']['affected_entities'] as $entity)
-                                <div
-                                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                                    <span class="text-slate-500 dark:text-slate-400">
-                                        {{ $entity['role'] ?? 'Сущность' }}
-                                    </span>
-
-                                    @if(!empty($entity['url']))
-                                        <a
-                                            href="{{ $entity['url'] }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center gap-1.5 font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-                                        >
-                                            {{ $entity['label'] ?? $entity['type'] ?? 'amoCRM' }}
-                                            <span
-                                                class="rounded-md bg-primary-50 px-1.5 py-0.5 font-mono text-[11px] text-primary-700 dark:bg-primary-950/50 dark:text-primary-300">
-                                                #{{ $entity['id'] }}
-                                            </span>
-                                            <x-filament::icon icon="heroicon-o-arrow-top-right-on-square"
-                                                              class="h-3.5 w-3.5"/>
-                                        </a>
-                                    @else
-                                        <span class="font-semibold text-slate-900 dark:text-white">
-                                            {{ $entity['label'] ?? $entity['type'] ?? 'amoCRM' }}
-                                        </span>
-
-                                        @if(!empty($entity['id']))
-                                            <span
-                                                class="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-gray-800 dark:text-gray-300">
-                                                #{{ $entity['id'] }}
-                                            </span>
-
-                                        @else
-                                            <span
-                                                class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                                                ID после запуска
-                                            </span>
-                                        @endif
-                                    @endif
-                                </div>
+                                @if(!empty($entity['url']) && !empty($entity['id']))
+                                    <a
+                                        href="{{ $entity['url'] }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-500 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
+                                    >
+                                        <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" class="h-4 w-4"/>
+                                        {{ $entity['label'] ?? $entity['type'] ?? 'amoCRM' }} #{{ $entity['id'] }}
+                                    </a>
+                                @endif
                             @endforeach
-                        </div>
                     </div>
-                @endif
-
-                @if(!empty($step['output']['amo_exchange']) && !$isCondition)
-                    @foreach($step['output']['amo_exchange'] as $exchangeIndex => $exchange)
-                        <details class="mt-2 text-xs">
-                            <summary
-                                class="cursor-pointer text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                                Запрос amoCRM #{{ $exchangeIndex + 1 }}
-                            </summary>
-                            <pre
-                                class="mt-1 max-h-36 overflow-auto rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-950 dark:text-gray-300">{{ json_encode($exchange['request'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
-                        </details>
-
-                        <details class="mt-2 text-xs">
-                            <summary
-                                class="cursor-pointer text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                                Ответ amoCRM #{{ $exchangeIndex + 1 }}
-                            </summary>
-                            <pre
-                                class="mt-1 max-h-36 overflow-auto rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-gray-950 dark:text-gray-300">{{ json_encode($exchange['response'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
-                        </details>
-                    @endforeach
                 @endif
             </div>
         </div>

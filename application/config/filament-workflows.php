@@ -85,6 +85,11 @@ return [
 
         // Maximum workflow chaining depth (RunWorkflowAction)
         'max_chain_depth' => env('WORKFLOWS_MAX_CHAIN_DEPTH', 5),
+
+        // Watchdog closes workflow runs that were left active after a dead worker.
+        'stuck_running_after_seconds' => env('WORKFLOWS_STUCK_RUNNING_AFTER_SECONDS', 300),
+        'stuck_pending_after_seconds' => env('WORKFLOWS_STUCK_PENDING_AFTER_SECONDS', 300),
+        'stuck_paused_after_seconds' => env('WORKFLOWS_STUCK_PAUSED_AFTER_SECONDS', 300),
     ],
 
     /*
@@ -113,7 +118,7 @@ return [
     */
     'metrics' => [
         // Enable or disable metrics collection
-        'enabled' => env('WORKFLOWS_METRICS_ENABLED', true),
+        'enabled' => env('WORKFLOWS_METRICS_ENABLED', false),
 
         // Maximum duration samples to store for P95 calculation
         'max_duration_samples' => 100,

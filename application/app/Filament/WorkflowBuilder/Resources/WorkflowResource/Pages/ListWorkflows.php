@@ -8,11 +8,28 @@ use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\RenderHook;
+use Filament\Schemas\Components\View;
+use Filament\Schemas\Schema;
+use Filament\View\PanelsRenderHook;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as BaseListWorkflows;
 
 class ListWorkflows extends BaseListWorkflows
 {
     protected static string $resource = WorkflowResource::class;
+
+    public function content(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                $this->getTabsContentComponent(),
+                RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE),
+                View::make('filament.workflow-builder.workflow-list-controls'),
+                EmbeddedTable::make(),
+                RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER),
+            ]);
+    }
 
     /**
      * @return array<Action | ActionGroup>
@@ -76,8 +93,6 @@ class ListWorkflows extends BaseListWorkflows
                         ->info()
                         ->send();
                 }),
-
-            ...parent::getHeaderActions(),
         ];
     }
 
