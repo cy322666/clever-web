@@ -549,6 +549,7 @@ body.fi-body {
 }
 
 .workflow-workbench__shell {
+    border-radius: 1rem !important;
     background:
         radial-gradient(circle at 20% 0%, rgb(255 106 0 / 0.08), transparent 24rem),
         linear-gradient(180deg, rgb(255 255 255), var(--clever-soft));
@@ -560,7 +561,7 @@ body.fi-body {
 
 .workflow-workbench__canvas {
     min-width: 0;
-    border-radius: 1.25rem;
+    border-radius: 1rem;
     background: rgb(255 255 255 / 0.78);
     padding: clamp(0.75rem, 1.5vw, 1.15rem);
 }
@@ -571,7 +572,7 @@ body.fi-body {
     justify-content: center;
     gap: 0.45rem;
     border: 1px solid var(--clever-border);
-    border-radius: 999px;
+    border-radius: 0.82rem;
     background: rgb(255 255 255 / 0.86);
     color: var(--clever-text);
     font-size: 0.8125rem;
