@@ -166,13 +166,13 @@ body.fi-body {
 .fi-btn.fi-color-primary {
     background: linear-gradient(135deg, var(--clever-orange), #ff8b2c) !important;
     color: #ffffff !important;
-    box-shadow: 0 10px 22px rgb(255 106 0 / 0.22) !important;
+    box-shadow: none !important;
 }
 
 .fi-btn-color-primary:hover,
 .fi-btn.fi-color-primary:hover {
     background: linear-gradient(135deg, var(--clever-orange-dark), var(--clever-orange)) !important;
-    box-shadow: 0 12px 28px rgb(255 106 0 / 0.28) !important;
+    box-shadow: none !important;
 }
 
 .fi-link.fi-color-primary,
@@ -737,21 +737,21 @@ body.fi-body {
     border-color: rgb(255 106 0 / 0.34);
     background: var(--clever-orange-soft);
     color: var(--clever-orange-dark);
-    box-shadow: 0 8px 18px rgb(255 106 0 / 0.12);
+    box-shadow: none;
 }
 
 .workflow-workbench__quick-action--primary {
     border-color: rgb(255 106 0 / 0.52);
     background: linear-gradient(135deg, var(--clever-orange), #ff8b2c);
     color: #ffffff;
-    box-shadow: 0 10px 22px rgb(255 106 0 / 0.2);
+    box-shadow: none;
 }
 
 .workflow-workbench__quick-action--primary:hover {
     border-color: rgb(255 106 0 / 0.64);
     background: linear-gradient(135deg, var(--clever-orange-dark), var(--clever-orange));
     color: #ffffff;
-    box-shadow: 0 12px 26px rgb(255 106 0 / 0.26);
+    box-shadow: none;
 }
 
 .workflow-workbench__quick-action--warning {
