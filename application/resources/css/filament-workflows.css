@@ -1147,3 +1147,83 @@ body:has(.workflow-builder) .fi-modal-slide-over .fi-section-header {
 .workflow-sortable-item[draggable="true"]:active {
     cursor: grabbing;
 }
+
+.dark .workflow-mask-dock {
+    border-color: rgb(73 60 48 / 0.86) !important;
+    background: linear-gradient(180deg, rgb(21 20 18), rgb(15 14 13)) !important;
+    box-shadow: 0 18px 42px rgb(0 0 0 / 0.38) !important;
+}
+
+.dark .workflow-mask-dock > div:first-child {
+    border-bottom-color: rgb(73 60 48 / 0.72) !important;
+}
+
+.dark .workflow-mask-dock .fi-btn-color-gray,
+.dark .workflow-mask-dock .fi-btn.fi-color-gray {
+    border-color: rgb(82 72 62 / 0.9) !important;
+    background: rgb(25 24 22) !important;
+    color: rgb(245 245 244) !important;
+}
+
+.dark .workflow-mask-dock .fi-btn-color-gray:hover,
+.dark .workflow-mask-dock .fi-btn.fi-color-gray:hover {
+    border-color: rgb(255 106 0 / 0.42) !important;
+    background: rgb(33 29 25) !important;
+}
+
+.dark .workflow-mask-reference .fi-input-wrp {
+    border-color: rgb(73 60 48 / 0.82) !important;
+    background: rgb(27 25 23) !important;
+    box-shadow: none !important;
+}
+
+.dark .workflow-mask-reference .fi-input-wrp:hover,
+.dark .workflow-mask-reference .fi-input-wrp:focus-within {
+    border-color: rgb(255 106 0 / 0.42) !important;
+    background: rgb(32 29 26) !important;
+}
+
+.dark .workflow-mask-reference .fi-input,
+.dark .workflow-mask-reference select {
+    color: rgb(245 245 244) !important;
+}
+
+.dark .workflow-mask-reference input::placeholder {
+    color: rgb(168 162 158) !important;
+}
+
+.dark .workflow-mask-reference section {
+    border-color: rgb(73 60 48 / 0.78) !important;
+    background: rgb(24 22 20) !important;
+}
+
+.dark .workflow-mask-reference-list section {
+    background: rgb(24 22 20) !important;
+}
+
+.dark .workflow-mask-reference button.rounded-full {
+    border-color: rgb(82 72 62 / 0.9) !important;
+    background: rgb(25 24 22) !important;
+    color: rgb(214 211 209) !important;
+}
+
+.dark .workflow-mask-reference button.rounded-full:hover {
+    border-color: rgb(255 106 0 / 0.42) !important;
+    background: rgb(34 29 25) !important;
+    color: rgb(255 190 128) !important;
+}
+
+.dark .workflow-mask-reference button.rounded-lg:hover {
+    border-color: rgb(255 106 0 / 0.34) !important;
+    background: rgb(33 29 25) !important;
+}
+
+.dark .workflow-mask-reference .bg-slate-100,
+.dark .workflow-mask-reference .dark\:bg-gray-800 {
+    background-color: rgb(37 34 31) !important;
+}
+
+.dark .workflow-mask-reference .text-slate-500,
+.dark .workflow-mask-reference .dark\:text-gray-400 {
+    color: rgb(168 162 158) !important;
+}
