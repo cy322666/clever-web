@@ -116,6 +116,18 @@ body.fi-body {
     border-radius: 1rem !important;
 }
 
+.fi-wi-stats-overview {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.fi-wi-stats-overview-stat {
+    border-color: var(--clever-border) !important;
+    background-color: rgb(255 255 255 / 0.92) !important;
+    box-shadow: var(--clever-shadow-soft) !important;
+}
+
 .fi-section-header,
 .fi-ta-header {
     border-color: rgb(232 225 215 / 0.82) !important;
@@ -234,6 +246,18 @@ body.fi-body {
 .dark .fi-modal-window {
     border-color: var(--clever-border) !important;
     background-color: rgb(23 23 23 / 0.92) !important;
+}
+
+.dark .fi-wi-stats-overview {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-wi-stats-overview-stat {
+    border-color: rgb(58 51 45 / 0.78) !important;
+    background-color: rgb(23 23 23 / 0.92) !important;
+    box-shadow: 0 10px 26px rgb(0 0 0 / 0.2) !important;
 }
 
 .dark .fi-section-header,

@@ -12,7 +12,12 @@ class ViewUser extends ViewRecord
 {
     protected static string $resource = UserResource::class;
 
-    protected static ?string $title = 'Аккаунт';
+    protected static ?string $title = '';
+
+    public function getHeading(): string
+    {
+        return '';
+    }
 
     public function mountCanAuthorizeResourceAccess(): void
     {
