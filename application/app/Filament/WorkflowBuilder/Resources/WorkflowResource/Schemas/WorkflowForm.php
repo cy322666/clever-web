@@ -99,13 +99,6 @@ class WorkflowForm
                 ->native(false)
                 ->columnSpan($compact ? 1 : 1),
 
-            TextInput::make('max_retries')
-                ->label(__('filament-workflows::workflows.fields.max_retries.label'))
-                ->numeric()
-                ->default(3)
-                ->minValue(0)
-                ->maxValue(10)
-                ->columnSpan($compact ? 1 : 1),
         ];
     }
 }
