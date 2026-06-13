@@ -82,6 +82,10 @@ class SubscriptionPlanResource extends Resource
                         ->required()
                         ->unique(ignoreRecord: true)
                         ->maxLength(255),
+                    Forms\Components\Select::make('widget')
+                        ->label('Виджет')
+                        ->options(WidgetSubscriptionResource::widgetOptions())
+                        ->searchable(),
                     Forms\Components\TextInput::make('price_label')
                         ->label('Цена для отображения')
                         ->placeholder('например: 4 900 ₽ / мес.')
@@ -122,6 +126,13 @@ class SubscriptionPlanResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Название')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('widget')
+                    ->label('Виджет')
+                    ->formatStateUsing(fn(?string $state): string => $state ? App::getTitle($state) : '—')
+                    ->badge()
+                    ->color('gray')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('price_label')
