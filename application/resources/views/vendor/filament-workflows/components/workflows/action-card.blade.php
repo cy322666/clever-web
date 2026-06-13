@@ -86,6 +86,20 @@
         ];
     }
 
+    if (in_array($actionType, ['amocrm_start_salesbot', 'amocrm_stop_salesbot'], true)) {
+        $botId = (string) ($config['bot_id'] ?? '');
+        $botName = null;
+
+        if ($botId !== '') {
+            $botName = app(\App\Services\Workflows\WorkflowAmoCrmSalesBotService::class)->options()[$botId] ?? null;
+        }
+
+        $summaryItems[] = [
+            'icon' => $actionType === 'amocrm_stop_salesbot' ? 'heroicon-o-stop-circle' : 'heroicon-o-play-circle',
+            'label' => $botName ?: ($botId !== '' ? 'SalesBot #' . $botId : 'SalesBot не выбран'),
+        ];
+    }
+
     if ($actionType === 'run_workflow' && filled($config['workflow_id'] ?? null)) {
         $workflowId = (int) $config['workflow_id'];
         $workflowModel = config('filament-workflows.models.workflow', \Leek\FilamentWorkflows\Models\Workflow::class);
