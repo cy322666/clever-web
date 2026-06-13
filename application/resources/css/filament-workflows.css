@@ -379,18 +379,58 @@ body.fi-body {
 }
 
 .workflow-list-controls__field {
-    display: block;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    min-height: 3rem;
     min-width: 0 !important;
     width: 100%;
+    overflow: hidden;
+    border: 1px solid rgb(216 208 197 / 0.85);
+    border-radius: 0.82rem;
+    background: rgb(255 255 255 / 0.78);
+    box-shadow: 0 3px 10px rgb(15 15 15 / 0.04);
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.workflow-list-controls__field:hover,
+.workflow-list-controls__field:focus-within {
+    border-color: rgb(255 106 0 / 0.48);
+    background: rgb(255 255 255 / 0.96);
+    box-shadow: 0 0 0 3px rgb(255 106 0 / 0.1), 0 8px 18px rgb(15 15 15 / 0.06);
+}
+
+.workflow-list-controls__label {
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    border-right: 1px solid rgb(216 208 197 / 0.82);
+    background: rgb(247 244 239 / 0.7);
+    color: rgb(111 111 111);
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding-inline: 0.85rem;
+    white-space: nowrap;
+}
+
+.workflow-list-controls__select {
+    min-width: 0;
 }
 
 .workflow-list-controls__field .fi-input-wrp {
+    border: 0 !important;
+    border-radius: 0 !important;
     width: 100%;
     min-width: 0;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
-.workflow-list-controls__field .fi-input {
+.workflow-list-controls__field .fi-input,
+.workflow-list-controls__field select {
     min-width: 0;
+    cursor: pointer;
+    font-weight: 650;
 }
 
 .workflow-list-controls__create {
@@ -579,6 +619,25 @@ body.fi-body {
     border-color: rgb(73 60 48 / 0.92) !important;
     background: linear-gradient(180deg, rgb(31 29 26 / 0.98), rgb(25 24 22 / 0.98)) !important;
     box-shadow: 0 12px 28px rgb(0 0 0 / 0.18) !important;
+}
+
+.dark .workflow-list-controls__field {
+    border-color: rgb(73 60 48 / 0.82);
+    background: rgb(20 19 18 / 0.9);
+    box-shadow: 0 3px 10px rgb(0 0 0 / 0.14);
+}
+
+.dark .workflow-list-controls__field:hover,
+.dark .workflow-list-controls__field:focus-within {
+    border-color: rgb(255 106 0 / 0.5);
+    background: rgb(27 25 23 / 0.96);
+    box-shadow: 0 0 0 3px rgb(255 106 0 / 0.14), 0 8px 18px rgb(0 0 0 / 0.2);
+}
+
+.dark .workflow-list-controls__label {
+    border-right-color: rgb(73 60 48 / 0.82);
+    background: rgb(31 29 26 / 0.88);
+    color: rgb(168 162 158);
 }
 
 .workflow-workbench__shell {

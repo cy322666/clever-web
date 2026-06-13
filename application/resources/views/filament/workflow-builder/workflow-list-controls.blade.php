@@ -6,7 +6,8 @@
 
 <div class="workflow-list-controls">
     <label class="workflow-list-controls__field">
-        <x-filament::input.wrapper prefix="Группировка">
+        <span class="workflow-list-controls__label">Группировка</span>
+        <span class="workflow-list-controls__select">
             <x-filament::input.select wire:model.live="tableGrouping">
                 <option value="">Без группировки</option>
                 <option value="__without_group__:asc">Без группы</option>
@@ -15,21 +16,23 @@
                     <option value="{{ $groupName }}:asc">{{ $groupName }}</option>
                 @endforeach
             </x-filament::input.select>
-        </x-filament::input.wrapper>
+        </span>
     </label>
 
     <label class="workflow-list-controls__field workflow-list-controls__field--compact">
-        <x-filament::input.wrapper prefix="Активность">
+        <span class="workflow-list-controls__label">Активность</span>
+        <span class="workflow-list-controls__select">
             <x-filament::input.select wire:model.live="tableFilters.is_active.value">
                 <option value="">Все</option>
                 <option value="1">Включены</option>
                 <option value="0">Выключены</option>
             </x-filament::input.select>
-        </x-filament::input.wrapper>
+        </span>
     </label>
 
     <label class="workflow-list-controls__field workflow-list-controls__field--wide">
-        <x-filament::input.wrapper prefix="Триггер">
+        <span class="workflow-list-controls__label">Триггер</span>
+        <span class="workflow-list-controls__select">
             <x-filament::input.select wire:model.live="tableFilters.workflow_trigger.value">
                 <option value="">Все триггеры</option>
 
@@ -37,7 +40,7 @@
                     <option value="{{ $value }}">{{ $label }}</option>
                 @endforeach
             </x-filament::input.select>
-        </x-filament::input.wrapper>
+        </span>
     </label>
 
     <div class="workflow-list-controls__spacer"></div>

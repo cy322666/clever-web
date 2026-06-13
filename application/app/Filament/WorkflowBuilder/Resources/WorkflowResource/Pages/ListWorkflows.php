@@ -13,11 +13,17 @@ use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as BaseListWorkflows;
 
 class ListWorkflows extends BaseListWorkflows
 {
     protected static string $resource = WorkflowResource::class;
+
+    public function getHeading(): string|Htmlable|null
+    {
+        return null;
+    }
 
     public function content(Schema $schema): Schema
     {
