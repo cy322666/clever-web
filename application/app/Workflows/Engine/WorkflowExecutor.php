@@ -206,6 +206,8 @@ class WorkflowExecutor extends BaseWorkflowExecutor
             ->setTriggerModel($triggerModel);
 
         $context->setVariable('_chain_depth', $childContextData['_chain_depth'] ?? 1);
+        $context->setVariable('_chain_id', $childContextData['_chain_id'] ?? null);
+        $context->setVariable('_workflow_chain_ids', $childContextData['_workflow_chain_ids'] ?? []);
         $context->setVariable('source_workflow_id', $childContextData['source_workflow_id'] ?? null);
         $context->setVariable('source_workflow_run_id', $childContextData['source_workflow_run_id'] ?? null);
 

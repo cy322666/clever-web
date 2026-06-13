@@ -15,10 +15,11 @@ class WorkflowDatabaseMaintenance extends Command
 {
     protected $signature = 'workflows:db-maintenance
         {--days=45 : За сколько последних дней обновлять служебные индексы}
+        {--raw-days= : Сколько дней хранить тяжелые JSON-данные запусков}
         {--chunk=500 : Размер пачки}
         {--skip-vacuum : Не выполнять VACUUM, только ANALYZE/служебные индексы}';
 
-    protected $description = 'Ночное обслуживание таблиц процессов: индекс сущностей и статистика планировщика БД.';
+    protected $description = 'Ночное обслуживание таблиц процессов: индексы, статистика, очистка тяжелых данных.';
 
     public function handle(WorkflowRunEntityIndexService $entityIndexer): int
     {
@@ -29,20 +30,222 @@ class WorkflowDatabaseMaintenance extends Command
         }
 
         $days = max(1, (int)$this->option('days'));
+        $rawDays = max(1, (int)($this->option('raw-days') ?: config('filament-workflows.execution.raw_retention_days', 7)));
         $chunk = max(50, (int)$this->option('chunk'));
 
         [$runsIndexed, $stepsIndexed] = $this->refreshEntityIndex($entityIndexer, $days, $chunk);
+        $usageAggregated = $this->aggregateMonthlyUsage($rawDays, $chunk);
+        [$runsScrubbed, $stepsScrubbed] = $this->scrubRawWorkflowData($rawDays, $chunk);
+        $mutationsPruned = $this->pruneExpiredMutations();
         $tables = $this->workflowTables();
         $optimizedTables = $this->refreshDatabaseStatistics($tables, (bool)$this->option('skip-vacuum'));
 
         $this->info(sprintf(
-            'Workflow DB maintenance complete. Entity index: runs=%d, steps=%d. DB tables refreshed: %d.',
+            'Workflow DB maintenance complete. Entity index: runs=%d, steps=%d. Usage aggregated=%d. Raw scrubbed: runs=%d, steps=%d. Mutations pruned=%d. DB tables refreshed: %d.',
             $runsIndexed,
             $stepsIndexed,
+            $usageAggregated,
+            $runsScrubbed,
+            $stepsScrubbed,
+            $mutationsPruned,
             $optimizedTables,
         ));
 
         return self::SUCCESS;
+    }
+
+    private function aggregateMonthlyUsage(int $rawDays, int $chunk): int
+    {
+        if (!Schema::hasTable('workflow_usage_months') || !Schema::hasColumn('workflow_runs', 'usage_recorded_at')) {
+            return 0;
+        }
+
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
+
+        if (!is_string($tenantColumn) || !Schema::hasColumn('workflow_runs', $tenantColumn)) {
+            return 0;
+        }
+
+        $cutoff = now()->subDays($rawDays);
+        $aggregated = 0;
+
+        WorkflowRun::query()
+            ->select(['id', 'workflow_id', 'status', 'created_at', $tenantColumn])
+            ->whereNull('usage_recorded_at')
+            ->where('created_at', '<', $cutoff)
+            ->chunkById($chunk, function ($runs) use (&$aggregated, $tenantColumn): void {
+                $ids = $runs->pluck('id')->map(fn($id): int => (int)$id)->all();
+
+                if ($ids === []) {
+                    return;
+                }
+
+                $stepCounts = DB::table('workflow_run_steps')
+                    ->select('workflow_run_id')
+                    ->selectRaw('count(*) as aggregate')
+                    ->whereIn('workflow_run_id', $ids)
+                    ->groupBy('workflow_run_id')
+                    ->pluck('aggregate', 'workflow_run_id');
+
+                $groups = [];
+
+                foreach ($runs as $run) {
+                    $userId = (int)$run->getAttribute($tenantColumn);
+                    $workflowId = (int)$run->getAttribute('workflow_id');
+
+                    if ($userId <= 0 || $workflowId <= 0) {
+                        continue;
+                    }
+
+                    $periodMonth = $run->created_at->copy()->startOfMonth()->toDateString();
+                    $key = implode('|', [$userId, $workflowId, $periodMonth]);
+                    $status = $run->status instanceof \BackedEnum ? $run->status->value : (string)$run->status;
+                    $steps = (int)($stepCounts[(int)$run->id] ?? 0);
+
+                    $groups[$key] ??= [
+                        'user_id' => $userId,
+                        'workflow_id' => $workflowId,
+                        'period_month' => $periodMonth,
+                        'runs_count' => 0,
+                        'steps_count' => 0,
+                        'actions_count' => 0,
+                        'completed_runs_count' => 0,
+                        'failed_runs_count' => 0,
+                    ];
+
+                    $groups[$key]['runs_count']++;
+                    $groups[$key]['steps_count'] += $steps;
+                    $groups[$key]['actions_count'] += $steps;
+                    $groups[$key]['completed_runs_count'] += $status === 'completed' ? 1 : 0;
+                    $groups[$key]['failed_runs_count'] += $status === 'failed' ? 1 : 0;
+                }
+
+                foreach ($groups as $group) {
+                    $this->incrementUsageMonth($group);
+                    $aggregated += (int)$group['runs_count'];
+                }
+
+                WorkflowRun::query()
+                    ->whereKey($ids)
+                    ->update(['usage_recorded_at' => now()]);
+            });
+
+        return $aggregated;
+    }
+
+    /**
+     * @param array{
+     *     user_id: int,
+     *     workflow_id: int,
+     *     period_month: string,
+     *     runs_count: int,
+     *     steps_count: int,
+     *     actions_count: int,
+     *     completed_runs_count: int,
+     *     failed_runs_count: int
+     * } $group
+     */
+    private function incrementUsageMonth(array $group): void
+    {
+        $key = [
+            'user_id' => $group['user_id'],
+            'workflow_id' => $group['workflow_id'],
+            'period_month' => $group['period_month'],
+        ];
+
+        if (!DB::table('workflow_usage_months')->where($key)->exists()) {
+            DB::table('workflow_usage_months')->insert([
+                ...$key,
+                'runs_count' => 0,
+                'steps_count' => 0,
+                'actions_count' => 0,
+                'completed_runs_count' => 0,
+                'failed_runs_count' => 0,
+                'last_aggregated_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('workflow_usage_months')
+            ->where($key)
+            ->update([
+                'runs_count' => DB::raw('runs_count + ' . (int)$group['runs_count']),
+                'steps_count' => DB::raw('steps_count + ' . (int)$group['steps_count']),
+                'actions_count' => DB::raw('actions_count + ' . (int)$group['actions_count']),
+                'completed_runs_count' => DB::raw('completed_runs_count + ' . (int)$group['completed_runs_count']),
+                'failed_runs_count' => DB::raw('failed_runs_count + ' . (int)$group['failed_runs_count']),
+                'last_aggregated_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function scrubRawWorkflowData(int $rawDays, int $chunk): array
+    {
+        $cutoff = now()->subDays($rawDays);
+        $runsScrubbed = 0;
+        $stepsScrubbed = 0;
+
+        DB::table('workflow_runs')
+            ->select('id')
+            ->where('created_at', '<', $cutoff)
+            ->whereNotNull('context_data')
+            ->orderBy('id')
+            ->chunkById($chunk, function ($runs) use (&$runsScrubbed): void {
+                $ids = $runs->pluck('id')->map(fn($id): int => (int)$id)->all();
+
+                if ($ids === []) {
+                    return;
+                }
+
+                $runsScrubbed += DB::table('workflow_runs')
+                    ->whereIn('id', $ids)
+                    ->update([
+                        'context_data' => null,
+                        'updated_at' => now(),
+                    ]);
+            });
+
+        if (Schema::hasTable('workflow_run_steps')) {
+            DB::table('workflow_run_steps')
+                ->select('id')
+                ->where('created_at', '<', $cutoff)
+                ->where(fn($query) => $query
+                    ->whereNotNull('input_data')
+                    ->orWhereNotNull('output_data'))
+                ->orderBy('id')
+                ->chunkById($chunk, function ($steps) use (&$stepsScrubbed): void {
+                    $ids = $steps->pluck('id')->map(fn($id): int => (int)$id)->all();
+
+                    if ($ids === []) {
+                        return;
+                    }
+
+                    $stepsScrubbed += DB::table('workflow_run_steps')
+                        ->whereIn('id', $ids)
+                        ->update([
+                            'input_data' => null,
+                            'output_data' => null,
+                            'updated_at' => now(),
+                        ]);
+                });
+        }
+
+        return [$runsScrubbed, $stepsScrubbed];
+    }
+
+    private function pruneExpiredMutations(): int
+    {
+        if (!Schema::hasTable('workflow_amo_crm_mutations')) {
+            return 0;
+        }
+
+        return DB::table('workflow_amo_crm_mutations')
+            ->where('expires_at', '<', now())
+            ->delete();
     }
 
     /**
@@ -122,6 +325,7 @@ class WorkflowDatabaseMaintenance extends Command
             'workflow_run_steps',
             'workflow_metrics',
             'workflow_run_entities',
+            'workflow_amo_crm_mutations',
             'workflow_usage_months',
         ], static fn(string $table): bool => Schema::hasTable($table)));
     }

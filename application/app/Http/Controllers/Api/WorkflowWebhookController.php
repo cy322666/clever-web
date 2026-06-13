@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
+use App\Services\Billing\WidgetSubscriptionAccessService;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use App\Services\Workflows\WorkflowGenericWebhookService;
 use Illuminate\Http\JsonResponse;
@@ -25,13 +26,21 @@ class WorkflowWebhookController extends Controller
             ], 403);
         }
 
+        if (!app(WidgetSubscriptionAccessService::class)->canUse((int)$account->user_id, 'workflows')) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Workflow widget access is not active.',
+            ], 403);
+        }
+
         $result = $webhooks->handleIncomingWebhook($account, $request->all(), $request->headers->all());
 
         return response()->json([
             'ok' => true,
             'events' => $result['events'],
             'started' => $result['started'],
-        ]);
+            'queued' => $result['started'],
+        ], 202);
     }
 
     public function generic(
@@ -47,6 +56,13 @@ class WorkflowWebhookController extends Controller
             ], 403);
         }
 
+        if (!app(WidgetSubscriptionAccessService::class)->canUse((int)$workflow->user_id, 'workflows')) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Workflow widget access is not active.',
+            ], 403);
+        }
+
         if (!$webhooks->canReceive($workflow)) {
             return response()->json([
                 'ok' => false,
@@ -59,8 +75,9 @@ class WorkflowWebhookController extends Controller
         return response()->json([
             'ok' => true,
             'started' => true,
+            'queued' => true,
             'run_id' => $result['run_id'],
             'run_ulid' => $result['run_ulid'],
-        ]);
+        ], 202);
     }
 }

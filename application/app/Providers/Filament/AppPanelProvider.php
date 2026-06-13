@@ -4,6 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Dashboard;
+use App\Filament\Resources\Billing\InvoiceRequestResource;
+use App\Filament\Resources\Billing\SubscriptionPlanResource;
+use App\Filament\Resources\Billing\WidgetSubscriptionResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Alfa\TransactionResource;
@@ -98,6 +101,23 @@ class AppPanelProvider extends PanelProvider
                                 ->label('Магазин')
                                 ->icon('heroicon-o-shopping-bag')
                                 ->url(fn (): string => Dashboard::getUrl()),
+
+                            NavigationItem::make('Tariffs')
+                                ->label('Тарифы')
+                                ->icon('heroicon-o-banknotes')
+                                ->url(fn(): string => SubscriptionPlanResource::getUrl()),
+
+                            NavigationItem::make('Subscriptions')
+                                ->label('Подписки')
+                                ->icon('heroicon-o-lock-open')
+                                ->visible(fn(): bool => (bool)auth()->user()?->is_root)
+                                ->url(fn(): string => WidgetSubscriptionResource::getUrl()),
+
+                            NavigationItem::make('InvoiceRequests')
+                                ->label('Заявки на счет')
+                                ->icon('heroicon-o-document-text')
+                                ->visible(fn(): bool => (bool)auth()->user()?->is_root)
+                                ->url(fn(): string => InvoiceRequestResource::getUrl()),
                         ]),
                 ]);
             })

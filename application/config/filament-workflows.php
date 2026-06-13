@@ -87,9 +87,15 @@ return [
         'max_chain_depth' => env('WORKFLOWS_MAX_CHAIN_DEPTH', 5),
 
         // Watchdog closes workflow runs that were left active after a dead worker.
-        'stuck_running_after_seconds' => env('WORKFLOWS_STUCK_RUNNING_AFTER_SECONDS', 300),
-        'stuck_pending_after_seconds' => env('WORKFLOWS_STUCK_PENDING_AFTER_SECONDS', 300),
-        'stuck_paused_after_seconds' => env('WORKFLOWS_STUCK_PAUSED_AFTER_SECONDS', 300),
+        'stuck_running_after_seconds' => env('WORKFLOWS_STUCK_RUNNING_AFTER_SECONDS', 120),
+        'stuck_pending_after_seconds' => env('WORKFLOWS_STUCK_PENDING_AFTER_SECONDS', 120),
+        'stuck_paused_after_seconds' => env('WORKFLOWS_STUCK_PAUSED_AFTER_SECONDS', 120),
+
+        // Persistent guard window for amoCRM events caused by our own workflow actions.
+        'loop_guard_ttl_seconds' => env('WORKFLOWS_LOOP_GUARD_TTL_SECONDS', 900),
+
+        // Heavy raw JSON is scrubbed nightly after this many days, aggregates stay monthly.
+        'raw_retention_days' => env('WORKFLOWS_RAW_RETENTION_DAYS', 7),
     ],
 
     /*

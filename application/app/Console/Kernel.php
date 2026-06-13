@@ -32,6 +32,14 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:check-date-expire')
             ->dailyAt('01:00');
 
+        $schedule->command('subscriptions:notify-expiring --days=7')
+            ->dailyAt('01:20')
+            ->withoutOverlapping();
+
+        $schedule->command('subscriptions:expire')
+            ->dailyAt('01:30')
+            ->withoutOverlapping();
+
         $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 

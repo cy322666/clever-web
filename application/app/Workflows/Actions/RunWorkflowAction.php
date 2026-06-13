@@ -11,6 +11,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Actions\FlowControl\RunWorkflowAction as BaseRunWorkflowAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 
@@ -125,10 +126,26 @@ class RunWorkflowAction extends BaseRunWorkflowAction
             ];
         }
 
+        $chain = $this->workflowChain($context, $currentWorkflowId);
+
+        if ($targetWorkflowId > 0 && in_array($targetWorkflowId, $chain, true)) {
+            return [
+                'success' => false,
+                'error' => 'Запуск остановлен: процесс уже есть в текущей цепочке выполнения.',
+            ];
+        }
+
         if ($targetWorkflowId > 0 && !static::isCallableWorkflow($targetWorkflowId, $currentWorkflowId ?: null)) {
             return [
                 'success' => false,
                 'error' => 'Выбранный процесс не настроен для запуска из другого процесса.',
+            ];
+        }
+
+        if ($targetWorkflowId > 0 && $currentWorkflowId > 0 && static::wouldCreateCycle($currentWorkflowId, $targetWorkflowId)) {
+            return [
+                'success' => false,
+                'error' => 'Запуск остановлен: связка процессов создаёт цикл.',
             ];
         }
 
@@ -139,6 +156,11 @@ class RunWorkflowAction extends BaseRunWorkflowAction
             )) {
             $result['output']['child_context']['source_workflow_id'] = $currentWorkflowId ?: null;
             $result['output']['child_context']['source_workflow_run_id'] = $context?->getWorkflowRunId();
+            $result['output']['child_context']['_workflow_chain_ids'] = array_values(array_unique([
+                ...$chain,
+                $targetWorkflowId,
+            ]));
+            $result['output']['child_context']['_chain_id'] = $this->chainId($context);
         }
 
         return $result;
@@ -220,5 +242,110 @@ class RunWorkflowAction extends BaseRunWorkflowAction
             ->whereKey($workflowId)
             ->where('definition->trigger->type', WorkflowCompletedTrigger::type())
             ->exists();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function workflowChain(?WorkflowContext $context, int $currentWorkflowId): array
+    {
+        $chain = $context?->getVariable('_workflow_chain_ids');
+        $chain = is_array($chain) ? $chain : [];
+
+        if ($currentWorkflowId > 0) {
+            $chain[] = $currentWorkflowId;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn(mixed $id): int => (int)$id,
+            $chain,
+        ))));
+    }
+
+    private function chainId(?WorkflowContext $context): string
+    {
+        $chainId = $context?->getVariable('_chain_id');
+
+        if (is_scalar($chainId) && trim((string)$chainId) !== '') {
+            return (string)$chainId;
+        }
+
+        $runId = (int)($context?->getWorkflowRunId() ?? 0);
+
+        return $runId > 0 ? 'workflow-run-' . $runId : (string)Str::ulid();
+    }
+
+    private static function wouldCreateCycle(int $sourceWorkflowId, int $targetWorkflowId): bool
+    {
+        $workflowModel = config('filament-workflows.models.workflow');
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
+        $sourceTenantId = $workflowModel::query()->whereKey($sourceWorkflowId)->value($tenantColumn);
+        $visited = [];
+        $stack = [$targetWorkflowId];
+
+        while ($stack !== [] && count($visited) < 100) {
+            $workflowId = (int)array_pop($stack);
+
+            if ($workflowId === $sourceWorkflowId) {
+                return true;
+            }
+
+            if ($workflowId <= 0 || isset($visited[$workflowId])) {
+                continue;
+            }
+
+            $visited[$workflowId] = true;
+            $workflow = $workflowModel::query()
+                ->when(
+                    config('filament-workflows.tenancy.enabled', false) && $sourceTenantId !== null,
+                    fn($query) => $query->where($tenantColumn, $sourceTenantId),
+                )
+                ->find($workflowId);
+
+            if (!$workflow) {
+                continue;
+            }
+
+            foreach (self::runWorkflowTargetIds((array)data_get($workflow, 'definition.actions', [])) as $childWorkflowId) {
+                if (!isset($visited[$childWorkflowId])) {
+                    $stack[] = $childWorkflowId;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $actions
+     * @return array<int, int>
+     */
+    private static function runWorkflowTargetIds(array $actions): array
+    {
+        $ids = [];
+
+        foreach ($actions as $action) {
+            $type = (string)($action['type'] ?? '');
+            $config = (array)($action['config'] ?? []);
+
+            if ($type === 'run_workflow') {
+                $workflowId = (int)($config['workflow_id'] ?? 0);
+
+                if ($workflowId > 0) {
+                    $ids[] = $workflowId;
+                }
+            }
+
+            if (in_array($type, ['condition', 'control-condition'], true)
+                || ($action['componentType'] ?? null) === 'control-condition') {
+                $ids = array_merge(
+                    $ids,
+                    self::runWorkflowTargetIds((array)($config['true_actions'] ?? [])),
+                    self::runWorkflowTargetIds((array)($config['false_actions'] ?? [])),
+                );
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 }

@@ -8,6 +8,7 @@ use App\Workflows\Triggers\GenericWebhookTrigger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\TriggerType;
 
@@ -60,7 +61,7 @@ class WorkflowGenericWebhookService
 
         $run->update(['context_data' => $context->toArray()]);
 
-        $this->executor->execute($run->fresh() ?? $run);
+        ExecuteWorkflowJob::dispatch((int)$run->id);
 
         return [
             'run_id' => (int)$run->id,

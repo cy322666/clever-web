@@ -81,7 +81,6 @@ class WorkflowResource extends BaseWorkflowResource
                 TextColumn::make('group_name')
                     ->label('Группа')
                     ->placeholder('Без группы')
-                    ->icon('heroicon-o-folder')
                     ->sortable(),
 
                 TextColumn::make('workflow_trigger')

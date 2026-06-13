@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
+use App\Models\Billing\SubscriptionInvoiceRequest;
+use App\Models\Billing\WidgetSubscription;
 use App\Models\Core\Account;
 use App\Models\Integrations\Alfa\Branch;
 use App\Models\Integrations\Bizon\Setting;
@@ -127,6 +129,16 @@ class User extends Authenticatable implements FilamentUser
     public function apps(): HasMany
     {
         return $this->hasMany(App::class);
+    }
+
+    public function widgetSubscriptions(): HasMany
+    {
+        return $this->hasMany(WidgetSubscription::class);
+    }
+
+    public function subscriptionInvoiceRequests(): HasMany
+    {
+        return $this->hasMany(SubscriptionInvoiceRequest::class);
     }
 
     public function amocrm_staffs(): HasMany

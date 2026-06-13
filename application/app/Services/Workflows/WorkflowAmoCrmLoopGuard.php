@@ -6,13 +6,15 @@ use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 use Throwable;
 
 class WorkflowAmoCrmLoopGuard
 {
-    private const TTL_SECONDS = 120;
+    private const FALLBACK_TTL_SECONDS = 120;
 
     /**
      * @param array<int, string> $events
@@ -45,17 +47,22 @@ class WorkflowAmoCrmLoopGuard
             'workflow_run_id' => (int)($context?->getWorkflowRunId() ?? 0) ?: null,
             'action_type' => $actionType,
             'entity' => $entity,
+            'entity_type' => $entity,
             'entity_id' => $entityId,
             'account_id' => (int)$account->id,
             'user_id' => (int)$account->user_id,
+            'chain_id' => $this->chainId($context),
             'created_at' => now()->toIso8601String(),
         ];
 
         foreach ($events as $event) {
-            $this->safePut($this->key($account, $workflowId, $event, $entityId), [
+            $eventPayload = [
                 ...$payload,
                 'event' => $event,
-            ]);
+            ];
+
+            $this->rememberPersistentMutation($eventPayload);
+            $this->safePut($this->key($account, $workflowId, $event, $entityId), $eventPayload);
         }
     }
 
@@ -72,9 +79,25 @@ class WorkflowAmoCrmLoopGuard
             return null;
         }
 
+        $persistentMutation = $this->matchingPersistentMutation($account, $eventCode, $this->eventEntity($event), $entityId);
+
+        if ($persistentMutation !== null) {
+            return $persistentMutation;
+        }
+
         $mutation = $this->safeGet($this->key($account, (int)$workflow->id, $eventCode, $entityId));
 
         return is_array($mutation) ? $mutation : null;
+    }
+
+    /**
+     * @param array<string, mixed> $event
+     */
+    private function eventEntity(array $event): string
+    {
+        $entity = trim((string)($event['entity'] ?? ''));
+
+        return $entity !== '' ? $entity : 'unknown';
     }
 
     /**
@@ -122,7 +145,7 @@ class WorkflowAmoCrmLoopGuard
     private function safePut(string $key, array $payload): void
     {
         try {
-            Cache::put($key, $payload, now()->addSeconds(self::TTL_SECONDS));
+            Cache::put($key, $payload, now()->addSeconds(self::FALLBACK_TTL_SECONDS));
         } catch (Throwable $e) {
             Log::warning('Workflow amoCRM loop guard cache write failed', [
                 'key' => $key,
@@ -143,5 +166,86 @@ class WorkflowAmoCrmLoopGuard
 
             return null;
         }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function rememberPersistentMutation(array $payload): void
+    {
+        if (!Schema::hasTable('workflow_amo_crm_mutations')) {
+            return;
+        }
+
+        try {
+            DB::table('workflow_amo_crm_mutations')->insert([
+                'user_id' => (int)$payload['user_id'],
+                'account_id' => (int)$payload['account_id'],
+                'workflow_id' => (int)$payload['workflow_id'],
+                'workflow_run_id' => $payload['workflow_run_id'] ?: null,
+                'action_type' => $payload['action_type'] ?: null,
+                'entity_type' => (string)$payload['entity_type'],
+                'entity_id' => (int)$payload['entity_id'],
+                'event' => (string)$payload['event'],
+                'chain_id' => $payload['chain_id'] ?: null,
+                'expires_at' => now()->addSeconds($this->ttlSeconds()),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('Workflow amoCRM loop guard DB write failed', [
+                'account_id' => $payload['account_id'] ?? null,
+                'workflow_id' => $payload['workflow_id'] ?? null,
+                'event' => $payload['event'] ?? null,
+                'entity_id' => $payload['entity_id'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function matchingPersistentMutation(Account $account, string $event, string $entity, int $entityId): ?array
+    {
+        if (!Schema::hasTable('workflow_amo_crm_mutations')) {
+            return null;
+        }
+
+        try {
+            $row = DB::table('workflow_amo_crm_mutations')
+                ->where('account_id', (int)$account->id)
+                ->where('user_id', (int)$account->user_id)
+                ->where('event', $event)
+                ->where('entity_type', $entity)
+                ->where('entity_id', $entityId)
+                ->where('expires_at', '>=', now())
+                ->orderByDesc('id')
+                ->first();
+
+            return $row ? (array)$row : null;
+        } catch (Throwable $e) {
+            Log::warning('Workflow amoCRM loop guard DB read failed', [
+                'account_id' => $account->id,
+                'event' => $event,
+                'entity' => $entity,
+                'entity_id' => $entityId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function ttlSeconds(): int
+    {
+        return max(120, (int)config('filament-workflows.execution.loop_guard_ttl_seconds', 900));
+    }
+
+    private function chainId(?WorkflowContext $context): ?string
+    {
+        $chainId = $context?->getVariable('_chain_id');
+
+        return is_scalar($chainId) && trim((string)$chainId) !== '' ? (string)$chainId : null;
     }
 }

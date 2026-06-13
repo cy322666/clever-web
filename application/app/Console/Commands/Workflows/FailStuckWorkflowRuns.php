@@ -35,9 +35,9 @@ class FailStuckWorkflowRuns extends Command
 
         $dryRun = (bool)$this->option('dry-run');
         $limit = max(1, (int)$this->option('limit'));
-        $runningAfter = $this->secondsOption('running-after', 'stuck_running_after_seconds', 300);
-        $pendingAfter = $this->secondsOption('pending-after', 'stuck_pending_after_seconds', 300);
-        $pausedAfter = $this->secondsOption('paused-after', 'stuck_paused_after_seconds', 300);
+        $runningAfter = $this->secondsOption('running-after', 'stuck_running_after_seconds', 120);
+        $pendingAfter = $this->secondsOption('pending-after', 'stuck_pending_after_seconds', 120);
+        $pausedAfter = $this->secondsOption('paused-after', 'stuck_paused_after_seconds', 120);
 
         $candidates = $this->candidateRuns($runningAfter, $pendingAfter, $pausedAfter, $limit);
 
@@ -92,7 +92,7 @@ class FailStuckWorkflowRuns extends Command
             $value = config("filament-workflows.execution.{$configKey}", $default);
         }
 
-        return max(60, (int)$value);
+        return max(30, (int)$value);
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Workflows\Context\WorkflowContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\TriggerType;
 use Throwable;
@@ -189,7 +190,7 @@ class WorkflowAmoCrmWebhookService
             $currentHooks = $this->platformHooks($client, $account);
 
             foreach ($currentHooks as $hook) {
-                if (($hook['url'] ?? '') !== $targetUrl) {
+                if (($hook['url'] ?? '') !== $targetUrl && $this->isOwnedPlatformHookUrl((string)($hook['url'] ?? ''), $account)) {
                     $this->unsubscribe($client, (string)$hook['url']);
                 }
             }
@@ -512,7 +513,7 @@ class WorkflowAmoCrmWebhookService
 
         $run->update(['context_data' => $context->toArray()]);
 
-        $this->executor->execute($run->fresh() ?? $run);
+        ExecuteWorkflowJob::dispatch((int)$run->id);
     }
 
     /**
@@ -528,7 +529,7 @@ class WorkflowAmoCrmWebhookService
             $hook = $this->webhookToArray($webhook);
             $url = (string)($hook['destination'] ?? $hook['url'] ?? '');
 
-            if ($url === '' || !Str::contains($url, $pathNeedle)) {
+            if ($url === '' || !Str::contains($url, $pathNeedle) || !$this->isOwnedPlatformHookUrl($url, $account)) {
                 continue;
             }
 
@@ -551,6 +552,21 @@ class WorkflowAmoCrmWebhookService
         $client->requestV4('DELETE', '/api/v4/webhooks', [
             'destination' => $url,
         ]);
+    }
+
+    private function isOwnedPlatformHookUrl(string $url, Account $account): bool
+    {
+        $parts = parse_url($url);
+        $path = '/' . ltrim((string)($parts['path'] ?? ''), '/');
+        $prefix = '/api/amocrm/workflows/hook/' . $account->getKey() . '/';
+
+        if (!str_starts_with($path, $prefix)) {
+            return false;
+        }
+
+        $signature = trim(Str::after($path, $prefix), '/');
+
+        return $signature !== '' && $this->signatureIsValid($account, $signature);
     }
 
     private function publicBaseUrl(): string

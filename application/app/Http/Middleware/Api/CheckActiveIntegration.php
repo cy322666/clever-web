@@ -2,9 +2,8 @@
 
 namespace App\Http\Middleware\Api;
 
-use App\Models\App;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Services\Billing\WidgetSubscriptionAccessService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,37 +36,10 @@ class CheckActiveIntegration
             return new Response('user no found', 403);
         }
 
-        $app = $user->apps()
-            ->where('name', $appName)
-            ->first();
-
-        if (!$app) {
-            return new Response('app no found', 403);
-        }
-
-        if (!$this->isAppActiveAndPaid($app)) {
+        if (!app(WidgetSubscriptionAccessService::class)->canUse($user, $appName)) {
             return new Response('app no active', 403);
         }
 
         return $next($request);
-    }
-
-    private function isAppActiveAndPaid(App $app): bool
-    {
-        if ((int)$app->status !== App::STATE_ACTIVE) {
-            return false;
-        }
-
-        if (blank($app->expires_tariff_at)) {
-            return true;
-        }
-
-        try {
-            $expiresAt = Carbon::parse($app->expires_tariff_at)->startOfDay();
-        } catch (\Throwable) {
-            return false;
-        }
-
-        return !$expiresAt->lt(now()->startOfDay());
     }
 }
