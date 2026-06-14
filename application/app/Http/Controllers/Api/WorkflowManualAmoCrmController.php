@@ -23,7 +23,7 @@ class WorkflowManualAmoCrmController extends Controller
                 'ok' => false,
                 'message' => 'Подключение amoCRM для сценариев не найдено.',
                 'workflows' => [],
-            ], 404);
+            ]);
         }
 
         if (!$access->canUse((int)$account->user_id, 'workflows')) {
@@ -31,7 +31,7 @@ class WorkflowManualAmoCrmController extends Controller
                 'ok' => false,
                 'message' => 'Доступ к виджету сценариев не активен.',
                 'workflows' => [],
-            ], 403);
+            ]);
         }
 
         $workflows = $this->manualWorkflowQuery((int)$account->user_id)
@@ -100,11 +100,7 @@ class WorkflowManualAmoCrmController extends Controller
         return Workflow::query()
             ->where(config('filament-workflows.tenancy.column', 'user_id'), $userId)
             ->where('is_active', true)
-            ->where(function (Builder $query): void {
-                $query
-                    ->where('trigger_type', 'manual')
-                    ->orWhere('definition->trigger->type', 'manual');
-            });
+            ->where('definition->trigger->type', 'manual');
     }
 
     public function run(
