@@ -4,7 +4,9 @@ services:
   app:
     build: ./docker/images/php82
     command: >
-      sh -lc "php artisan package:discover --ansi
+      sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+      && (chown -R www-data:www-data storage bootstrap/cache || true)
+      && php artisan package:discover --ansi
       && php artisan serve --host=0.0.0.0 --port=8000"
     volumes:
       - ./application:/var/www/html
@@ -13,6 +15,8 @@ services:
       - "8080:8000"
     depends_on:
       postgresql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       supervisor:
         condition: service_started
@@ -44,10 +48,30 @@ services:
         aliases:
           - postgresql
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      default:
+        aliases:
+          - redis
+
   supervisor:
     build: ./docker/images/supervisor
     command: >
-      sh -lc "php artisan package:discover --ansi
+      sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+      && (chown -R www-data:www-data storage bootstrap/cache || true)
+      && php artisan package:discover --ansi
       && /usr/bin/supervisord -n"
     working_dir: /var/www/html
     restart: unless-stopped
@@ -56,7 +80,15 @@ services:
       - ./docker/images/supervisor/files:/etc/supervisor/conf.d/
     ports:
       - "8007:8008"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       default:
         aliases:
           - supervisor
+
+volumes:
+  redis-data:

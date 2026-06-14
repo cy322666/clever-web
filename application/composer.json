@@ -23,6 +23,7 @@
         "filament/widgets": "^5.0",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^12.0",
+        "laravel/horizon": "^5.47",
         "laravel/sanctum": "4.x-dev",
         "laravel/tinker": "^2.8",
         "leek/filament-workflows": "^1.5",
@@ -64,7 +65,8 @@
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",
-            "@php artisan filament:upgrade"
+            "@php artisan filament:upgrade",
+            "@php artisan horizon:publish --ansi"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"

@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Bizon;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\Bizon\Form;
 use App\Models\Integrations\Bizon\Setting;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class FormSend implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Create a new job instance.
@@ -30,7 +31,13 @@ class FormSend implements ShouldQueue
 
     public function tags(): array
     {
-        return ['bizon-form', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:bizon',
+            'queue:bizon_form',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('bizon_form', $this->form),
+            $this->modelHorizonTag('bizon_setting', $this->setting),
+        ]);
     }
 
     /**

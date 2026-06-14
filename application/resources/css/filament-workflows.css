@@ -36,8 +36,9 @@ body.fi-body {
 
 .fi-sidebar {
     background:
-        linear-gradient(180deg, rgb(15 15 15 / 0.98), rgb(24 24 22 / 0.98)) !important;
-    border-inline-end: 1px solid rgb(255 255 255 / 0.08) !important;
+        linear-gradient(180deg, rgb(255 255 255 / 0.96), rgb(251 250 247 / 0.94)) !important;
+    border-inline-end: 1px solid rgb(232 225 215 / 0.9) !important;
+    box-shadow: 10px 0 30px rgb(15 15 15 / 0.035);
 }
 
 .fi-sidebar .fi-logo img {
@@ -47,7 +48,7 @@ body.fi-body {
 
 .fi-sidebar .fi-logo,
 .fi-sidebar .fi-sidebar-header {
-    color: #ffffff;
+    color: var(--clever-ink);
 }
 
 .fi-sidebar-nav,
@@ -58,23 +59,23 @@ body.fi-body {
 .fi-sidebar-item a,
 .fi-sidebar-item-btn {
     border-radius: 0.8rem !important;
-    color: rgb(255 255 255 / 0.76) !important;
+    color: rgb(97 92 86 / 0.86) !important;
     transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .fi-sidebar-item a:hover,
 .fi-sidebar-item-btn:hover {
-    background: rgb(255 255 255 / 0.08) !important;
-    color: #ffffff !important;
+    background: rgb(255 106 0 / 0.08) !important;
+    color: var(--clever-orange-dark) !important;
 }
 
 .fi-sidebar-item.fi-active a,
 .fi-sidebar-item.fi-active .fi-sidebar-item-btn,
 .fi-sidebar-item a[aria-current="page"],
 .fi-sidebar-item-btn[aria-current="page"] {
-    background: linear-gradient(135deg, rgb(255 106 0 / 0.24), rgb(255 255 255 / 0.08)) !important;
-    color: #ffffff !important;
-    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.22);
+    background: linear-gradient(135deg, rgb(255 106 0 / 0.16), rgb(255 241 229 / 0.72)) !important;
+    color: var(--clever-orange-dark) !important;
+    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.16);
 }
 
 .fi-topbar nav {
@@ -238,6 +239,38 @@ body.fi-body {
         linear-gradient(180deg, #11110f, #171717 24rem);
 }
 
+.dark .fi-sidebar {
+    background:
+        linear-gradient(180deg, rgb(15 15 15 / 0.98), rgb(24 24 22 / 0.98)) !important;
+    border-inline-end: 1px solid rgb(255 255 255 / 0.08) !important;
+    box-shadow: 10px 0 34px rgb(0 0 0 / 0.22);
+}
+
+.dark .fi-sidebar .fi-logo,
+.dark .fi-sidebar .fi-sidebar-header {
+    color: #ffffff;
+}
+
+.dark .fi-sidebar-item a,
+.dark .fi-sidebar-item-btn {
+    color: rgb(255 255 255 / 0.76) !important;
+}
+
+.dark .fi-sidebar-item a:hover,
+.dark .fi-sidebar-item-btn:hover {
+    background: rgb(255 255 255 / 0.08) !important;
+    color: #ffffff !important;
+}
+
+.dark .fi-sidebar-item.fi-active a,
+.dark .fi-sidebar-item.fi-active .fi-sidebar-item-btn,
+.dark .fi-sidebar-item a[aria-current="page"],
+.dark .fi-sidebar-item-btn[aria-current="page"] {
+    background: linear-gradient(135deg, rgb(255 106 0 / 0.24), rgb(255 255 255 / 0.08)) !important;
+    color: #ffffff !important;
+    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.22);
+}
+
 .dark .fi-topbar nav,
 .dark .fi-section,
 .dark .fi-ta,
@@ -327,8 +360,35 @@ body.fi-body {
     background-color: rgb(148 163 184 / 0.08);
 }
 
-.workflow-list-toggle {
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.08) !important;
+.workflow-list-status-toggle {
+    width: 4.25rem;
+}
+
+.workflow-list-status-toggle .fi-ta-icon,
+.workflow-list-status-toggle svg {
+    width: 1.05rem !important;
+    height: 1.05rem !important;
+}
+
+.workflow-list-status-toggle button,
+.workflow-list-status-toggle a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgb(229 231 235 / 0.92);
+    background: rgb(255 255 255 / 0.86);
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.workflow-list-status-toggle button:hover,
+.workflow-list-status-toggle a:hover {
+    border-color: rgb(255 106 0 / 0.45);
+    background: rgb(255 247 237);
+    transform: translateY(-1px);
 }
 
 .workflow-run-history-link {
@@ -621,8 +681,17 @@ body.fi-body {
     color: rgb(100 116 139) !important;
 }
 
-.dark .workflow-list-toggle {
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.18) !important;
+.dark .workflow-list-status-toggle button,
+.dark .workflow-list-status-toggle a {
+    border-color: rgb(74 65 56 / 0.82);
+    background: rgb(24 24 24 / 0.86);
+    box-shadow: none;
+}
+
+.dark .workflow-list-status-toggle button:hover,
+.dark .workflow-list-status-toggle a:hover {
+    border-color: rgb(255 106 0 / 0.42);
+    background: rgb(42 34 27 / 0.92);
 }
 
 .dark .workflow-run-history-link {

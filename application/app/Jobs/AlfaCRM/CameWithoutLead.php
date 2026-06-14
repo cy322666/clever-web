@@ -2,6 +2,7 @@
 
 namespace App\Jobs\AlfaCRM;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\Alfa\Setting;
 use App\Models\Integrations\Alfa\Transaction;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class CameWithoutLead implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
     /**
@@ -55,7 +56,13 @@ class CameWithoutLead implements ShouldQueue
 
     public function tags(): array
     {
-        return ['alfacrm-came', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:alfacrm',
+            'queue:alfacrm_record',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('alfacrm_transaction', $this->transaction),
+            $this->modelHorizonTag('alfacrm_setting', $this->setting),
+        ]);
     }
 
     /**

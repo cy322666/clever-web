@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Tilda;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\Tilda\Form;
 use App\Models\Integrations\Tilda\Setting;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class FormSend implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Create a new job instance.
@@ -31,7 +32,13 @@ class FormSend implements ShouldQueue
 
     public function tags(): array
     {
-        return ['tilda', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:tilda',
+            'queue:tilda_form',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('tilda_form', $this->form),
+            $this->modelHorizonTag('tilda_setting', $this->setting),
+        ]);
     }
     /**
      * Execute the job.

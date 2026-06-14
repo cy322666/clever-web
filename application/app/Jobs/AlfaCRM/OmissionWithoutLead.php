@@ -2,6 +2,7 @@
 
 namespace App\Jobs\AlfaCRM;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Webhook;
 use App\Services\AlfaCRM\Models\Customer;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class OmissionWithoutLead implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
     /**
@@ -58,7 +59,13 @@ class OmissionWithoutLead implements ShouldQueue
 
     public function tags(): array
     {
-        return ['alfacrm-omission', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:alfacrm',
+            'queue:alfacrm_record',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('alfacrm_transaction', $this->transaction),
+            $this->modelHorizonTag('alfacrm_setting', $this->setting),
+        ]);
     }
 
     /**

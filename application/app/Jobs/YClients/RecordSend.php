@@ -2,6 +2,7 @@
 
 namespace App\Jobs\YClients;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
@@ -16,7 +17,16 @@ use Throwable;
 
 class RecordSend implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 2;
+
+    public int $timeout = 300;
+
+    /**
+     * @var array<int, int>
+     */
+    public array $backoff = [30, 120];
 
     /**
      * Create a new job instance.
@@ -33,7 +43,13 @@ class RecordSend implements ShouldQueue
 
     public function tags(): array
     {
-        return ['yclients', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:yclients',
+            'queue:yclients_record',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('yclients_record', $this->record),
+            $this->modelHorizonTag('yclients_setting', $this->setting),
+        ]);
     }
     /**
      * Execute the job.

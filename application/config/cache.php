@@ -17,6 +17,8 @@ return [
 
     'default' => env('CACHE_STORE', env('CACHE_DRIVER', 'file')),
 
+    'schedule_store' => env('SCHEDULE_CACHE_STORE', env('CACHE_STORE', env('CACHE_DRIVER', 'file'))),
+
     'yclients_lock_store' => env('YCLIENTS_LOCK_CACHE_STORE', 'database'),
 
     /*

@@ -2,6 +2,7 @@
 
 namespace App\Jobs\ImportExcel;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class ProcessImportRow implements ShouldQueue, ShouldBeUnique
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 30;
     public int $tries = 1;
@@ -37,10 +38,13 @@ class ProcessImportRow implements ShouldQueue, ShouldBeUnique
 
     public function tags(): array
     {
-        return [
-            'import-excel',
-            'client:' . ($this->account?->subdomain ?? 'unknown'),
-        ];
+        return $this->horizonTags([
+            'widget:import-excel',
+            'queue:import_excel',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('import_setting', $this->settingId),
+            $this->modelHorizonTag('import_record', $this->recordId),
+        ]);
     }
 
     public function uniqueId(): string

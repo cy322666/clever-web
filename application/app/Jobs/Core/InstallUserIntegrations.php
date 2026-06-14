@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Core;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\User;
 use App\Services\Integrations\IntegrationProvisioningService;
 use Illuminate\Bus\Queueable;
@@ -13,12 +14,21 @@ use Illuminate\Support\Facades\Log;
 
 class InstallUserIntegrations implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
 
     public function __construct(public int $userId)
     {
+    }
+
+    public function tags(): array
+    {
+        return $this->horizonTags([
+            'platform:catalog',
+            'queue:default',
+            $this->modelHorizonTag('user', $this->userId),
+        ]);
     }
 
     public function handle(): void

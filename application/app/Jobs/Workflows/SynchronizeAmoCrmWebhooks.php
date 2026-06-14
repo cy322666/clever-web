@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Workflows;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -13,7 +14,7 @@ use RuntimeException;
 
 class SynchronizeAmoCrmWebhooks implements ShouldBeUnique, ShouldQueueAfterCommit
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
 
@@ -30,6 +31,17 @@ class SynchronizeAmoCrmWebhooks implements ShouldBeUnique, ShouldQueueAfterCommi
     public function uniqueId(): string
     {
         return "workflow-amocrm-webhooks:{$this->userId}";
+    }
+
+    public function tags(): array
+    {
+        return $this->horizonTags([
+            'workflow',
+            'widget:workflows',
+            'integration:amoCRM',
+            'queue:' . (string)config('workflow-webhooks.queue.name', 'workflow-webhooks'),
+            $this->modelHorizonTag('user', $this->userId),
+        ]);
     }
 
     public function backoff(): array

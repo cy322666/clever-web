@@ -16,6 +16,7 @@ class WorkflowDatabaseMaintenance extends Command
     protected $signature = 'workflows:db-maintenance
         {--days=45 : За сколько последних дней обновлять служебные индексы}
         {--raw-days= : Сколько дней хранить тяжелые JSON-данные запусков}
+        {--run-days= : Сколько дней хранить детальные строки запусков и шагов}
         {--chunk=500 : Размер пачки}
         {--skip-vacuum : Не выполнять VACUUM, только ANALYZE/служебные индексы}';
 
@@ -31,22 +32,25 @@ class WorkflowDatabaseMaintenance extends Command
 
         $days = max(1, (int)$this->option('days'));
         $rawDays = max(1, (int)($this->option('raw-days') ?: config('filament-workflows.execution.raw_retention_days', 7)));
+        $runDays = max($rawDays, (int)($this->option('run-days') ?: config('filament-workflows.execution.run_retention_days', 31)));
         $chunk = max(50, (int)$this->option('chunk'));
 
         [$runsIndexed, $stepsIndexed] = $this->refreshEntityIndex($entityIndexer, $days, $chunk);
         $usageAggregated = $this->aggregateMonthlyUsage($rawDays, $chunk);
         [$runsScrubbed, $stepsScrubbed] = $this->scrubRawWorkflowData($rawDays, $chunk);
+        $runsPruned = $this->pruneDetailedWorkflowRuns($runDays, $chunk);
         $mutationsPruned = $this->pruneExpiredMutations();
         $tables = $this->workflowTables();
         $optimizedTables = $this->refreshDatabaseStatistics($tables, (bool)$this->option('skip-vacuum'));
 
         $this->info(sprintf(
-            'Workflow DB maintenance complete. Entity index: runs=%d, steps=%d. Usage aggregated=%d. Raw scrubbed: runs=%d, steps=%d. Mutations pruned=%d. DB tables refreshed: %d.',
+            'Workflow DB maintenance complete. Entity index: runs=%d, steps=%d. Usage aggregated=%d. Raw scrubbed: runs=%d, steps=%d. Detailed runs pruned=%d. Mutations pruned=%d. DB tables refreshed: %d.',
             $runsIndexed,
             $stepsIndexed,
             $usageAggregated,
             $runsScrubbed,
             $stepsScrubbed,
+            $runsPruned,
             $mutationsPruned,
             $optimizedTables,
         ));
@@ -235,6 +239,36 @@ class WorkflowDatabaseMaintenance extends Command
         }
 
         return [$runsScrubbed, $stepsScrubbed];
+    }
+
+    private function pruneDetailedWorkflowRuns(int $runDays, int $chunk): int
+    {
+        if (!Schema::hasColumn('workflow_runs', 'usage_recorded_at')) {
+            return 0;
+        }
+
+        $cutoff = now()->subDays($runDays);
+        $pruned = 0;
+
+        DB::table('workflow_runs')
+            ->select('id')
+            ->where('created_at', '<', $cutoff)
+            ->whereNotNull('usage_recorded_at')
+            ->whereNotIn('status', ['running', 'pending', 'paused'])
+            ->orderBy('id')
+            ->chunkById($chunk, function ($runs) use (&$pruned): void {
+                $ids = $runs->pluck('id')->map(fn($id): int => (int)$id)->all();
+
+                if ($ids === []) {
+                    return;
+                }
+
+                $pruned += DB::table('workflow_runs')
+                    ->whereIn('id', $ids)
+                    ->delete();
+            });
+
+        return $pruned;
     }
 
     private function pruneExpiredMutations(): int

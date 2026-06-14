@@ -10,8 +10,8 @@ use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -40,31 +40,18 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return $table
             ->columns([
-                ToggleColumn::make('is_active')
+                IconColumn::make('is_active')
                     ->label('Вкл')
+                    ->boolean()
+                    ->trueIcon('heroicon-s-bolt')
+                    ->falseIcon('heroicon-o-power')
+                    ->trueColor('warning')
+                    ->falseColor('gray')
+                    ->size('lg')
                     ->alignCenter()
-                    ->updateStateUsing(function (Workflow $record, bool $state): bool {
-                        if ($state && !static::canActivate($record)) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Процесс не подключён к родителю')
-                                ->body('Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.')
-                                ->send();
-
-                            return (bool)$record->is_active;
-                        }
-
-                        $record->update([
-                            'is_active' => $state,
-                        ]);
-
-                        Notification::make()
-                            ->success()
-                            ->title($state ? 'Процесс включён' : 'Процесс выключен')
-                            ->send();
-
-                        return $state;
-                    }),
+                    ->tooltip(fn(Workflow $record): string => $record->is_active ? 'Выключить процесс' : 'Включить процесс')
+                    ->extraCellAttributes(['class' => 'workflow-list-status-toggle'])
+                    ->action(fn(Workflow $record) => static::toggleWorkflowActivation($record)),
 
                 TextColumn::make('name')
                     ->label(__('filament-workflows::workflows.fields.name.label'))
@@ -175,6 +162,32 @@ class WorkflowResource extends BaseWorkflowResource
             ->emptyStateHeading(__('filament-workflows::workflows.empty_states.no_workflows.heading'))
             ->emptyStateDescription(__('filament-workflows::workflows.empty_states.no_workflows.description'))
             ->emptyStateIcon('heroicon-o-arrow-path');
+    }
+
+    private static function toggleWorkflowActivation(Workflow $record): void
+    {
+        $state = !$record->is_active;
+
+        if ($state && !static::canActivate($record)) {
+            Notification::make()
+                ->danger()
+                ->title('Процесс не подключён к родителю')
+                ->body('Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.')
+                ->send();
+
+            return;
+        }
+
+        $record->update([
+            'is_active' => $state,
+        ]);
+
+        Notification::make()
+            ->success()
+            ->title($state ? 'Процесс включён' : 'Процесс выключен')
+            ->send();
+
+        return;
     }
 
     private static function triggerLabel(Workflow $record): string

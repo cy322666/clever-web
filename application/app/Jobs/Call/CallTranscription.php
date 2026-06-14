@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Call;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\CallTranscription\Setting;
 use App\Models\Integrations\CallTranscription\Transaction;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class CallTranscription implements ShouldQueue
 {
-    use Queueable;
+    use BuildsHorizonTags, Queueable;
 
     /**
      * Create a new job instance.
@@ -21,6 +22,18 @@ class CallTranscription implements ShouldQueue
         public Account $account,
         public Setting $setting,
     ) {
+        $this->onQueue('call_transcription');
+    }
+
+    public function tags(): array
+    {
+        return $this->horizonTags([
+            'widget:call-transcription',
+            'queue:call_transcription',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('call_transaction', $this->transaction),
+            $this->modelHorizonTag('call_setting', $this->setting),
+        ]);
     }
 
     /**

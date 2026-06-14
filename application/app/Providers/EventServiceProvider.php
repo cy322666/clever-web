@@ -3,12 +3,14 @@
 namespace App\Providers;
 
 use App\Listeners\SendFailedJobAlert;
+use App\Listeners\SendHorizonLongWaitAlert;
 use App\Listeners\SendTelegramRegistrationNotification;
 use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Queue\Events\JobFailed;
+use Laravel\Horizon\Events\LongWaitDetected;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -23,6 +25,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         JobFailed::class => [
             SendFailedJobAlert::class,
+        ],
+        LongWaitDetected::class => [
+            SendHorizonLongWaitAlert::class,
         ],
     ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Jobs\GetCourse;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\GetCourse\Form;
 use App\Models\Integrations\GetCourse\Setting;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class FormSend implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
         public Form $form,
@@ -27,7 +28,13 @@ class FormSend implements ShouldQueue
 
     public function tags(): array
     {
-        return ['getcourse-form', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:getcourse',
+            'queue:getcourse_form',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('getcourse_form', $this->form),
+            $this->modelHorizonTag('getcourse_setting', $this->setting),
+        ]);
     }
 
     public function handle()

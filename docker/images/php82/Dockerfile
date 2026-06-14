@@ -20,7 +20,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin -
 
 # PHP: Install php extensions
 RUN pecl channel-update pecl.php.net
-RUN pecl install pcov
+RUN pecl install pcov redis
 
 #RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 
@@ -28,7 +28,7 @@ RUN pecl install pcov
 RUN docker-php-ext-install mbstring xml pcntl zip pdo pdo_pgsql bcmath soap
 
 #sockets gd iconv
-RUN docker-php-ext-enable mbstring xml zip pcov pcntl bcmath pdo pdo_pgsql soap
+RUN docker-php-ext-enable mbstring xml zip pcov redis pcntl bcmath pdo pdo_pgsql soap
 
 RUN docker-php-ext-install exif
 

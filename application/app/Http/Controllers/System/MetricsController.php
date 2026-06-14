@@ -7,6 +7,7 @@ use App\Services\Core\MonitoringCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -35,13 +36,10 @@ class MetricsController extends Controller
         $metricsUp = 1;
 
         try {
-            $jobsTotal = (int)DB::table('jobs')->count();
+            $queueStats = $this->queueStats();
+            $jobsTotal = array_sum(array_column($queueStats, 'count'));
             $failedJobsTotal = (int)DB::table('failed_jobs')->count();
-
-            $oldestAvailableAt = DB::table('jobs')->min('available_at');
-            $queueOldestAge = $oldestAvailableAt
-                ? max(0, now()->timestamp - (int)$oldestAvailableAt)
-                : 0;
+            $queueOldestAge = $queueStats === [] ? 0 : max(array_column($queueStats, 'oldest_age'));
 
             $lines[] = '# HELP clever_queue_jobs_total Number of queued jobs.';
             $lines[] = '# TYPE clever_queue_jobs_total gauge';
@@ -61,24 +59,13 @@ class MetricsController extends Controller
             $lines[] = '# HELP clever_queue_oldest_job_age_seconds_by_queue Age of the oldest waiting job in each queue in seconds.';
             $lines[] = '# TYPE clever_queue_oldest_job_age_seconds_by_queue gauge';
 
-            $byQueue = DB::table('jobs')
-                ->select('queue', DB::raw('count(*) as count'), DB::raw('min(available_at) as oldest_available_at'))
-                ->groupBy('queue')
-                ->get();
-
-            foreach ($byQueue as $row) {
-                $queueName = $this->escapeLabel((string)($row->queue ?? 'default'));
-                $lines[] = sprintf('clever_queue_jobs_by_queue{queue="%s"} %d', $queueName, (int)$row->count);
-
-                $queueOldestAvailableAt = (int)($row->oldest_available_at ?? 0);
-                $queueOldestAge = $queueOldestAvailableAt > 0
-                    ? max(0, now()->timestamp - $queueOldestAvailableAt)
-                    : 0;
-
+            foreach ($queueStats as $queue => $stats) {
+                $queueName = $this->escapeLabel((string)$queue);
+                $lines[] = sprintf('clever_queue_jobs_by_queue{queue="%s"} %d', $queueName, (int)$stats['count']);
                 $lines[] = sprintf(
                     'clever_queue_oldest_job_age_seconds_by_queue{queue="%s"} %d',
                     $queueName,
-                    $queueOldestAge
+                    (int)$stats['oldest_age']
                 );
             }
         } catch (Throwable $e) {
@@ -157,6 +144,164 @@ class MetricsController extends Controller
                 FILTER_VALIDATE_IP,
                 FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
             ) === false;
+    }
+
+    /**
+     * @return array<string, array{count: int, oldest_age: int}>
+     */
+    private function queueStats(): array
+    {
+        $stats = [];
+
+        foreach ($this->databaseQueueStats() as $queue => $queueStats) {
+            $this->mergeQueueStats($stats, $queue, $queueStats['count'], $queueStats['oldest_age']);
+        }
+
+        foreach ($this->redisQueueStats() as $queue => $queueStats) {
+            $this->mergeQueueStats($stats, $queue, $queueStats['count'], $queueStats['oldest_age']);
+        }
+
+        ksort($stats);
+
+        return $stats;
+    }
+
+    /**
+     * @return array<string, array{count: int, oldest_age: int}>
+     */
+    private function databaseQueueStats(): array
+    {
+        if (!DB::getSchemaBuilder()->hasTable('jobs')) {
+            return [];
+        }
+
+        $stats = [];
+        $rows = DB::table('jobs')
+            ->select('queue', DB::raw('count(*) as count'), DB::raw('min(available_at) as oldest_available_at'))
+            ->groupBy('queue')
+            ->get();
+
+        foreach ($rows as $row) {
+            $queue = (string)($row->queue ?? 'default');
+            $oldestAvailableAt = (int)($row->oldest_available_at ?? 0);
+
+            $stats[$queue] = [
+                'count' => (int)$row->count,
+                'oldest_age' => $oldestAvailableAt > 0 ? max(0, now()->timestamp - $oldestAvailableAt) : 0,
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @return array<string, array{count: int, oldest_age: int}>
+     */
+    private function redisQueueStats(): array
+    {
+        if ((string)config('queue.default') !== 'redis') {
+            return [];
+        }
+
+        try {
+            $redis = Redis::connection((string)config('queue.connections.redis.connection', 'default'));
+        } catch (Throwable) {
+            return [];
+        }
+
+        $stats = [];
+
+        foreach ($this->monitoredRedisQueues() as $queue) {
+            try {
+                $readyKey = 'queues:' . $queue;
+                $delayedKey = $readyKey . ':delayed';
+                $reservedKey = $readyKey . ':reserved';
+
+                $readyCount = (int)$redis->llen($readyKey);
+                $delayedCount = (int)$redis->zcard($delayedKey);
+                $reservedCount = (int)$redis->zcard($reservedKey);
+                $count = $readyCount + $delayedCount + $reservedCount;
+
+                if ($count <= 0) {
+                    continue;
+                }
+
+                $stats[$queue] = [
+                    'count' => $count,
+                    'oldest_age' => max(
+                        $this->redisReadyQueueOldestAge($redis, $readyKey),
+                        $this->redisSortedSetOverdueAge($redis, $delayedKey),
+                    ),
+                ];
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function monitoredRedisQueues(): array
+    {
+        $queues = [
+            (string)config('queue.connections.redis.queue', 'default'),
+            (string)config('filament-workflows.queue.name', 'workflows'),
+            (string)config('workflow-webhooks.queue.name', 'workflows'),
+        ];
+
+        foreach ((array)config('horizon.defaults', []) as $supervisor) {
+            foreach ((array)($supervisor['queue'] ?? []) as $queue) {
+                $queues[] = (string)$queue;
+            }
+        }
+
+        return array_values(array_unique(array_filter($queues)));
+    }
+
+    private function redisReadyQueueOldestAge(mixed $redis, string $key): int
+    {
+        $payload = $redis->lindex($key, 0);
+
+        if (!is_string($payload) || $payload === '') {
+            return 0;
+        }
+
+        $decoded = json_decode($payload, true);
+        $pushedAt = is_array($decoded) ? (float)($decoded['pushedAt'] ?? 0) : 0.0;
+
+        return $pushedAt > 0 ? max(0, now()->timestamp - (int)$pushedAt) : 0;
+    }
+
+    private function redisSortedSetOverdueAge(mixed $redis, string $key): int
+    {
+        $items = $redis->zrange($key, 0, 0, ['withscores' => true]);
+
+        if (!is_array($items) || $items === []) {
+            return 0;
+        }
+
+        $score = (int)reset($items);
+
+        return $score > 0 && $score < now()->timestamp
+            ? now()->timestamp - $score
+            : 0;
+    }
+
+    /**
+     * @param array<string, array{count: int, oldest_age: int}> $stats
+     */
+    private function mergeQueueStats(array &$stats, string $queue, int $count, int $oldestAge): void
+    {
+        if ($count <= 0) {
+            return;
+        }
+
+        $stats[$queue] ??= ['count' => 0, 'oldest_age' => 0];
+        $stats[$queue]['count'] += $count;
+        $stats[$queue]['oldest_age'] = max($stats[$queue]['oldest_age'], $oldestAge);
     }
 
     private function escapeLabel(string $value): string

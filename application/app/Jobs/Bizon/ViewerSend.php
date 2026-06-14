@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Bizon;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Core\Account;
 use App\Models\Integrations\Bizon\Setting;
 use App\Models\Integrations\Bizon\Viewer;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Log;
 
 class ViewerSend implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Количество попыток выполнения задания.
@@ -66,7 +67,13 @@ class ViewerSend implements ShouldQueue
 
     public function tags(): array
     {
-        return ['bizon-export', 'client:'.$this->account->subdomain];
+        return $this->horizonTags([
+            'widget:bizon',
+            'queue:bizon_export',
+            $this->accountHorizonTags($this->account),
+            $this->modelHorizonTag('bizon_viewer', $this->viewer),
+            $this->modelHorizonTag('bizon_setting', $this->setting),
+        ]);
     }
 
     /**

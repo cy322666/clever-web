@@ -12,6 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        $schedule->useCache(config('cache.schedule_store', config('cache.default', 'file')));
+
         $dbConnection = config('database.default', 'pgsql');
 
         $schedule->command('app:monitor-heartbeat')
@@ -23,6 +25,14 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('app:queue-backfill-failed --limit=1000')
             ->everyMinute()
+            ->withoutOverlapping();
+
+        $schedule->command('horizon:snapshot')
+            ->everyFiveMinutes()
+            ->withoutOverlapping();
+
+        $schedule->command('horizon:sync-platform-monitoring')
+            ->everyThirtyMinutes()
             ->withoutOverlapping();
 
         $schedule->command('workflows:fail-stuck-runs')
@@ -53,7 +63,12 @@ class Kernel extends ConsoleKernel
                 ->withoutOverlapping();
         }
 
-        $schedule->command('workflows:db-maintenance --days=' . (int)env('WORKFLOWS_DB_MAINTENANCE_DAYS', 45))
+        $schedule->command(sprintf(
+            'workflows:db-maintenance --days=%d --raw-days=%d --run-days=%d',
+            (int)env('WORKFLOWS_DB_MAINTENANCE_DAYS', 45),
+            (int)env('WORKFLOWS_RAW_RETENTION_DAYS', 7),
+            (int)env('WORKFLOWS_RUN_RETENTION_DAYS', 31),
+        ))
             ->dailyAt(env('WORKFLOWS_DB_MAINTENANCE_TIME', '03:45'))
             ->withoutOverlapping();
 

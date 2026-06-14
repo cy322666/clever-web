@@ -2,6 +2,7 @@
 
 namespace App\Jobs\ImportExcel;
 
+use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Integrations\ImportExcel\ImportSetting;
 use App\Services\ImportExcel\ExcelImport;
 use Illuminate\Bus\Queueable;
@@ -16,7 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ParseImportFile implements ShouldQueue, ShouldBeUnique
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 180;
     public int $tries = 1;
@@ -31,6 +32,15 @@ class ParseImportFile implements ShouldQueue, ShouldBeUnique
     public function uniqueId(): string
     {
         return "import-excel:parse:{$this->settingId}";
+    }
+
+    public function tags(): array
+    {
+        return $this->horizonTags([
+            'widget:import-excel',
+            'queue:default',
+            $this->modelHorizonTag('import_setting', $this->settingId),
+        ]);
     }
 
     public function handle(): void

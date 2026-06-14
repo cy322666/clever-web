@@ -11,7 +11,6 @@ use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
@@ -20,8 +19,6 @@ use Throwable;
 
 class Market extends TableWidget
 {
-    use InteractsWithPageFilters;
-
     protected static bool $isLazy = false;
 
     private bool $catalogSynced = false;
@@ -98,23 +95,6 @@ class Market extends TableWidget
 
         $query->whereIn('name', $availableNames);
 
-        $status = (string)($this->pageFilters['status'] ?? 'all');
-        if ($status !== '' && $status !== 'all') {
-            $query->where('status', (int)$status);
-        }
-
-        $search = trim((string)($this->pageFilters['q'] ?? ''));
-        if ($search !== '') {
-            $query->where(function (Builder $builder) use ($search): void {
-                $builder->where('name', 'like', '%' . $search . '%');
-
-                $matchedByMeta = $this->matchedAppNamesByMeta($search);
-                if (!empty($matchedByMeta)) {
-                    $builder->orWhereIn('name', $matchedByMeta);
-                }
-            });
-        }
-
         return $query->orderBy('name');
     }
 
@@ -139,29 +119,6 @@ class Market extends TableWidget
                 'exception' => $exception,
             ]);
         }
-    }
-
-    private function matchedAppNamesByMeta(string $search): array
-    {
-        $search = Str::lower(trim($search));
-        if ($search === '') {
-            return [];
-        }
-
-        return App::query()
-            ->where('user_id', auth()->id())
-            ->whereIn('name', App::definitionNames())
-            ->get(['name', 'resource_name'])
-            ->filter(function (App $app) use ($search): bool {
-                $title = Str::lower(self::safeRecordTitle($app));
-                $tooltip = Str::lower(App::getTooltipText($app->name));
-
-                return Str::contains($title . ' ' . $tooltip, $search);
-            })
-            ->pluck('name')
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private static function effectiveStatus(App $app): int
