@@ -3,7 +3,7 @@
         "name": "widget.name",
         "description": "widget.description",
         "short_description": "widget.short_description",
-        "version": "1.0.5",
+        "version": "1.0.6",
         "interface_version": 2,
         "init_once": false,
         "locale": [
@@ -16,7 +16,8 @@
         }
     },
     "locations": [
-        "lcard-1"
+        "lcard-1",
+        "digital_pipeline"
     ],
     "tour": {
         "is_tour": true,
@@ -33,5 +34,16 @@
             "type": "text",
             "required": false
         }
+    },
+    "dp": {
+        "settings": {
+            "workflow_id": {
+                "name": "dp.workflow_id",
+                "type": "text",
+                "required": true
+            }
+        },
+        "action_multiple": false,
+        "webhook_url": "https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons/digital-pipeline"
     }
 }

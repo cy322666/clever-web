@@ -7,5 +7,8 @@
     },
     "settings": {
         "api_base_url": "API Clever"
+    },
+    "dp": {
+        "workflow_id": "Сценарий"
     }
 }

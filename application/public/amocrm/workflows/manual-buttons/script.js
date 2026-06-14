@@ -15,7 +15,16 @@ define(['jquery'], function ($) {
                 account = {};
             }
 
-            return account.subdomain || account.account_subdomain || '';
+            return cleanSubdomain(account.subdomain || account.account_subdomain || window.location.hostname || '');
+        }
+
+        function cleanSubdomain(value) {
+            value = String(value || '').replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+
+            return value
+                .replace(/\.amocrm\.ru$/, '')
+                .replace(/\.amocrm\.com$/, '')
+                .replace(/\.kommo\.com$/, '');
         }
 
         function currentLeadId() {
@@ -71,6 +80,11 @@ define(['jquery'], function ($) {
                 '.clever-workflow-card__status--error{color:#d1453b}' +
                 '.clever-workflow-card__loader{display:inline-flex;align-items:center;gap:8px}' +
                 '.clever-workflow-card__loader:before{content:"";width:12px;height:12px;border:2px solid #f5c3a2;border-top-color:#f17822;border-radius:999px;animation:cleverWorkflowSpin .8s linear infinite}' +
+                '.clever-workflow-dp{margin-top:8px}' +
+                '.clever-workflow-dp__select{width:100%;height:40px;border:1px solid #d7dadd;background:#fff;color:#313942;padding:0 10px;font-size:14px;outline:none}' +
+                '.clever-workflow-dp__select:focus{border-color:#f17822}' +
+                '.clever-workflow-dp__hint{margin-top:7px;color:#7a7068;font-size:12px;line-height:1.35}' +
+                '.clever-workflow-dp__hint--error{color:#d1453b}' +
                 '@keyframes cleverWorkflowSpin{to{transform:rotate(360deg)}}' +
                 '</style>'
             );
@@ -279,6 +293,72 @@ define(['jquery'], function ($) {
             }, 1200);
         }
 
+        function renderDpSettings() {
+            injectStyles();
+
+            var $input = $('input[name="workflow_id"], input[name$="[workflow_id]"]').first();
+
+            if (!$input.length) {
+                window.setTimeout(renderDpSettings, 150);
+                return;
+            }
+
+            if ($('#clever-workflow-dp-settings').length) {
+                return;
+            }
+
+            var currentValue = String($input.val() || '');
+            var $field = $input.closest('.widget_settings_block__input_field, .control-wrapper, .linked-form__field, .js-widget-settings__field');
+            var $container = $('<div id="clever-workflow-dp-settings" class="clever-workflow-dp">' +
+                '<select class="clever-workflow-dp__select" disabled><option>Загрузка сценариев...</option></select>' +
+                '<div class="clever-workflow-dp__hint">Выберите ручной сценарий, который amoCRM запустит при срабатывании действия в воронке.</div>' +
+                '</div>');
+
+            $input.attr('type', 'hidden');
+
+            if ($field.length) {
+                $field.after($container);
+            } else {
+                $input.after($container);
+            }
+
+            request(
+                'GET',
+                API_BASE,
+                {
+                    subdomain: accountSubdomain()
+                },
+                function (response) {
+                    var workflows = response.workflows || [];
+                    var $select = $container.find('select');
+
+                    if (!response.ok) {
+                        $select.html('<option value="">' + escapeHtml(response.message || 'Сценарии недоступны') + '</option>');
+                        $container.find('.clever-workflow-dp__hint').addClass('clever-workflow-dp__hint--error');
+                        return;
+                    }
+
+                    if (!workflows.length) {
+                        $select.html('<option value="">Нет включенных ручных сценариев</option>');
+                        return;
+                    }
+
+                    $select.html('<option value="">Выберите сценарий</option>' + workflows.map(function (workflow) {
+                        return '<option value="' + workflow.id + '">' + escapeHtml(workflow.name || ('Сценарий #' + workflow.id)) + '</option>';
+                    }).join(''));
+
+                    $select.prop('disabled', false).val(currentValue);
+                    $select.on('change', function () {
+                        $input.val($(this).val()).trigger('input').trigger('change');
+                    });
+                },
+                function () {
+                    $container.find('select').html('<option value="">Не удалось загрузить сценарии</option>');
+                    $container.find('.clever-workflow-dp__hint').addClass('clever-workflow-dp__hint--error');
+                }
+            );
+        }
+
         function escapeHtml(value) {
             return String(value || '')
                 .replace(/&/g, '&amp;')
@@ -306,6 +386,10 @@ define(['jquery'], function ($) {
                 return true;
             },
             settings: function () {
+                return true;
+            },
+            dpSettings: function () {
+                renderDpSettings();
                 return true;
             },
             onSave: function () {

@@ -60,7 +60,7 @@ class WorkflowManualAmoCrmRunService
         ];
 
         return [
-            'source' => 'amocrm-widget',
+            'source' => (string)($input['source'] ?? 'amocrm-widget'),
             'event' => 'manual',
             'entity' => 'lead',
             'action' => 'manual',
@@ -71,6 +71,8 @@ class WorkflowManualAmoCrmRunService
             'payload' => [
                 'lead_id' => $leadId,
                 'lead_name' => $lead['name'],
+                'pipeline_id' => $input['pipeline_id'] ?? null,
+                'status_id' => $input['status_id'] ?? null,
             ],
             'account' => [
                 'id' => (int)$account->id,
@@ -79,9 +81,11 @@ class WorkflowManualAmoCrmRunService
                 'zone' => (string)($account->zone ?: 'amocrm.ru'),
             ],
             'widget' => [
-                'source' => 'amocrm-card',
+                'source' => (string)($input['widget_source'] ?? 'amocrm-card'),
                 'entity' => 'lead',
                 'entity_id' => $leadId,
+                'pipeline_id' => $input['pipeline_id'] ?? null,
+                'status_id' => $input['status_id'] ?? null,
             ],
             'received_at' => $receivedAt,
             'triggered_at' => $receivedAt,

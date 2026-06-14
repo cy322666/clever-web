@@ -95,6 +95,10 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::post('workflows/manual-buttons/run', [WorkflowManualAmoCrmController::class, 'run'])
         ->middleware('throttle:30,1')
         ->name('amocrm.workflows.manual-buttons.run');
+
+    Route::post('workflows/manual-buttons/digital-pipeline', [WorkflowManualAmoCrmController::class, 'digitalPipeline'])
+        ->middleware('throttle:120,1')
+        ->name('amocrm.workflows.manual-buttons.digital-pipeline');
 });
 
 Route::match(['get', 'post', 'put', 'patch', 'delete'], 'workflows/webhook/{workflow}/{signature}', [WorkflowWebhookController::class, 'generic'])
