@@ -65,6 +65,41 @@ class WidgetSubscriptionAccessService
         ];
     }
 
+    public function blockedWidgetsFor(User|int|null $user): array
+    {
+        $userId = $this->resolveUserId($user);
+
+        if ($userId === null) {
+            return [];
+        }
+
+        return App::query()
+            ->where('user_id', $userId)
+            ->where('status', '!=', App::STATE_CREATED)
+            ->whereIn('name', App::definitionNames())
+            ->latest('id')
+            ->get(['id', 'name', 'resource_name', 'expires_tariff_at', 'status'])
+            ->unique('name')
+            ->map(function (App $app) use ($userId): array {
+                $status = $this->statusFor($userId, (string)$app->name);
+
+                return [
+                    'widget' => (string)$app->name,
+                    'title' => App::getTitle((string)$app->name, $app->resource_name),
+                    'active' => (bool)($status['active'] ?? false),
+                    'status_label' => (string)($status['label'] ?? 'Недоступна'),
+                    'ends_at' => $status['ends_at'] ?? $app->expires_tariff_at,
+                    'grace_until' => $status['grace_until'] ?? null,
+                    'source' => (string)($status['source'] ?? 'legacy_apps'),
+                    'subscription_id' => $status['subscription_id'] ?? null,
+                    'app_id' => $status['app_id'] ?? $app->id,
+                ];
+            })
+            ->reject(fn(array $widget): bool => (bool)$widget['active'])
+            ->values()
+            ->all();
+    }
+
     public function syncSubscriptionToLegacyApp(WidgetSubscription $subscription): void
     {
         $app = $subscription->app ?: $this->legacyApp((int)$subscription->user_id, (string)$subscription->widget);
