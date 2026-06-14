@@ -33,7 +33,7 @@ class SubscriptionPlanResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Тарифы';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Подписки';
+    protected static string|\UnitEnum|null $navigationGroup = 'Оплата';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 

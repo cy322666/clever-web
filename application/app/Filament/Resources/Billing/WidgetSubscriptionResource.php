@@ -25,13 +25,13 @@ class WidgetSubscriptionResource extends Resource
 {
     protected static ?string $model = WidgetSubscription::class;
 
-    protected static ?string $navigationLabel = 'Подписки';
+    protected static ?string $navigationLabel = 'Оплата';
 
     protected static ?string $modelLabel = 'Подписка';
 
-    protected static ?string $pluralModelLabel = 'Подписки';
+    protected static ?string $pluralModelLabel = 'Оплата';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Подписки';
+    protected static string|\UnitEnum|null $navigationGroup = 'Оплата';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-lock-open';
 

@@ -28,7 +28,7 @@ class InvoiceRequestResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Заявки на счет';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Подписки';
+    protected static string|\UnitEnum|null $navigationGroup = 'Оплата';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
