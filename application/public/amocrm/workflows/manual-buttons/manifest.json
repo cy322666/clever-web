@@ -1,0 +1,22 @@
+{
+    "widget": {
+        "name": "clever_workflow_buttons",
+        "description": "Кнопки ручного запуска сценариев Clever в карточке сделки",
+        "short_description": "Ручной запуск сценариев",
+        "version": "1.0.0",
+        "interface_version": 2,
+        "init_once": false,
+        "locale": [
+            "ru"
+        ],
+        "installation": true,
+        "support": {
+            "link": "https://clevercrm.pro",
+            "email": "support@clevercrm.pro"
+        }
+    },
+    "locations": [
+        "lcard-1"
+    ],
+    "settings": {}
+}

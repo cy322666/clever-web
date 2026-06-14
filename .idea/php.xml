@@ -311,6 +311,20 @@
       <path value="$PROJECT_DIR$/application/vendor/vgrish/yclients-sdk-php" />
       <path value="$PROJECT_DIR$/application/vendor/croustibat/filament-jobs-monitor" />
       <path value="$PROJECT_DIR$/application/vendor/leek/filament-workflows" />
+      <path value="$PROJECT_DIR$/application/vendor/hflabs/dadata" />
+      <path value="$PROJECT_DIR$/application/vendor/lab404/laravel-impersonate" />
+      <path value="$PROJECT_DIR$/application/vendor/phpoffice/math" />
+      <path value="$PROJECT_DIR$/application/vendor/phpoffice/phpword" />
+      <path value="$PROJECT_DIR$/application/vendor/arhitector/yandex" />
+      <path value="$PROJECT_DIR$/application/vendor/anourvalar/eloquent-serialize" />
+      <path value="$PROJECT_DIR$/application/vendor/aspose-cloud/aspose-words-cloud" />
+      <path value="$PROJECT_DIR$/application/vendor/php-curl-class/php-curl-class" />
+      <path value="$PROJECT_DIR$/application/vendor/coolsam/flatpickr" />
+      <path value="$PROJECT_DIR$/application/vendor/novadaemon/filament-pretty-json" />
+      <path value="$PROJECT_DIR$/application/vendor/tapp/filament-authentication-log" />
+      <path value="$PROJECT_DIR$/application/vendor/shuvroroy/filament-spatie-laravel-backup" />
+      <path value="$PROJECT_DIR$/application/vendor/laravel/sentinel" />
+      <path value="$PROJECT_DIR$/application/vendor/laravel/horizon" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">

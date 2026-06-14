@@ -329,6 +329,8 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/vgrish/yclients-sdk-php" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/croustibat/filament-jobs-monitor" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/leek/filament-workflows" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/horizon" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/sentinel" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

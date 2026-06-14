@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CallTranscriptionController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
+use App\Http\Controllers\Api\WorkflowManualAmoCrmController;
 use App\Http\Controllers\Api\WorkflowWebhookController;
 use App\Http\Controllers\Api\YClientsController;
 use Illuminate\Support\Facades\Route;
@@ -86,6 +87,14 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::post('workflows/hook/{account}/{signature}', [WorkflowWebhookController::class, 'amoCrm'])
         ->middleware('throttle:120,1')
         ->name('amocrm.workflows.hook');
+
+    Route::match(['get', 'post'], 'workflows/manual-buttons', [WorkflowManualAmoCrmController::class, 'index'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.workflows.manual-buttons.index');
+
+    Route::post('workflows/manual-buttons/run', [WorkflowManualAmoCrmController::class, 'run'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.workflows.manual-buttons.run');
 });
 
 Route::match(['get', 'post', 'put', 'patch', 'delete'], 'workflows/webhook/{workflow}/{signature}', [WorkflowWebhookController::class, 'generic'])
