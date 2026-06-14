@@ -103,7 +103,8 @@ jobs:
               fi
             fi
 
-            echo "::warning::Composer auth is not configured. Paid package download may fail with HTTP 401. Prefer setting COMPOSER_AUTH secret."
+            echo "::error::Composer auth is not configured. Set COMPOSER_AUTH repository secret or make production auth.json available through PROD_SSH_* secrets."
+            exit 1
           fi
 
       - name: Validate Composer Files
