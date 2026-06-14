@@ -234,7 +234,7 @@ jobs:
 
               if [ -n "$CURRENT_COMMIT" ]; then
                 echo "Reverting code to ${CURRENT_COMMIT}"
-                git checkout --force "$CURRENT_COMMIT"
+                git checkout -B "$DEPLOY_BRANCH" "$CURRENT_COMMIT"
               fi
 
               compose_cmd up -d --build postgresql app supervisor
@@ -259,7 +259,7 @@ jobs:
             echo "Current commit: $CURRENT_COMMIT"
             echo "Target commit:  $DEPLOY_SHA"
 
-            git checkout --force "$DEPLOY_SHA"
+            git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
 
             compose_cmd up -d --build postgresql app supervisor
 
