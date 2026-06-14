@@ -64,14 +64,14 @@ define(['jquery'], function ($) {
 
             $('head').append(
                 '<style id="' + BLOCK_ID + '-styles">' +
-                '.clever-workflow-card{padding:13px 14px;border:1px solid #e7ddd5;background:#fff;color:#181411;font-family:inherit;box-shadow:0 8px 18px rgba(24,20,17,.06)}' +
-                '.clever-workflow-card__head{display:flex;align-items:center;gap:8px;margin:0 0 10px}' +
-                '.clever-workflow-card__mark{width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:#f17822;color:#fff;font-size:12px;font-weight:700;line-height:1}' +
-                '.clever-workflow-card__title{font-size:15px;font-weight:700;margin:0;color:#181411;letter-spacing:-.01em}' +
-                '.clever-workflow-card__list{display:flex;flex-direction:column;gap:6px}' +
-                '.clever-workflow-card__button{position:relative;width:100%;border:1px solid #eadfd6;background:#fff;color:#181411;min-height:34px;padding:8px 10px 8px 22px;font-size:13px;font-weight:600;cursor:pointer;text-align:left;box-shadow:none;transition:background .15s ease,border-color .15s ease,color .15s ease}' +
-                '.clever-workflow-card__button:before{content:"";position:absolute;left:9px;top:9px;bottom:9px;width:3px;background:#f17822}' +
-                '.clever-workflow-card__button:hover{background:#fff7f1;border-color:#f17822;color:#c95c16}' +
+                '.clever-workflow-card{padding:14px 16px;border:0;background:#fff;color:#181411;font-family:inherit;box-shadow:none}' +
+                '.clever-workflow-card__head{display:flex;align-items:center;margin:0 0 8px}' +
+                '.clever-workflow-card__mark{display:none}' +
+                '.clever-workflow-card__title{font-size:16px;font-weight:700;margin:0;color:#181411;letter-spacing:-.01em}' +
+                '.clever-workflow-card__list{display:flex;flex-direction:column;gap:0;border-top:1px solid #eee7e1}' +
+                '.clever-workflow-card__button{position:relative;width:100%;border:0;border-bottom:1px solid #eee7e1;background:#fff;color:#181411;min-height:38px;padding:9px 8px 9px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;box-shadow:none;transition:background .15s ease,color .15s ease}' +
+                '.clever-workflow-card__button:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;background:#f17822}' +
+                '.clever-workflow-card__button:hover{background:#fff8f3;color:#c95c16}' +
                 '.clever-workflow-card__button:disabled{cursor:default;opacity:.65;transform:none}' +
                 '.clever-workflow-card__empty,.clever-workflow-card__status{font-size:13px;line-height:1.45;color:#7a7068}' +
                 '.clever-workflow-card__empty{padding:4px 0}' +
