@@ -117,7 +117,10 @@ body.fi-body {
     border-radius: 1rem !important;
 }
 
-.fi-wi-stats-overview {
+.fi-wi-widget.fi-wi-stats-overview,
+.fi-wi-stats-overview,
+.fi-wi-stats-overview .fi-sc-section,
+.fi-wi-stats-overview .fi-section {
     border-color: transparent !important;
     background: transparent !important;
     box-shadow: none !important;
@@ -126,7 +129,7 @@ body.fi-body {
 .fi-wi-stats-overview-stat {
     border-color: var(--clever-border) !important;
     background-color: rgb(255 255 255 / 0.92) !important;
-    box-shadow: var(--clever-shadow-soft) !important;
+    box-shadow: 0 4px 14px rgb(15 15 15 / 0.045), 0 1px 2px rgb(15 15 15 / 0.025) !important;
 }
 
 .fi-section-header,
@@ -281,7 +284,10 @@ body.fi-body {
     background-color: rgb(23 23 23 / 0.92) !important;
 }
 
-.dark .fi-wi-stats-overview {
+.dark .fi-wi-widget.fi-wi-stats-overview,
+.dark .fi-wi-stats-overview,
+.dark .fi-wi-stats-overview .fi-sc-section,
+.dark .fi-wi-stats-overview .fi-section {
     border-color: transparent !important;
     background: transparent !important;
     box-shadow: none !important;
@@ -290,7 +296,7 @@ body.fi-body {
 .dark .fi-wi-stats-overview-stat {
     border-color: rgb(58 51 45 / 0.78) !important;
     background-color: rgb(23 23 23 / 0.92) !important;
-    box-shadow: 0 10px 26px rgb(0 0 0 / 0.2) !important;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.16), 0 1px 2px rgb(0 0 0 / 0.12) !important;
 }
 
 .dark .fi-section-header,
