@@ -1,9 +1,9 @@
 {
     "widget": {
-        "name": "clever_workflow_buttons",
-        "description": "Кнопки ручного запуска сценариев Clever в карточке сделки",
-        "short_description": "Ручной запуск сценариев",
-        "version": "1.0.0",
+        "name": "widget.name",
+        "description": "widget.description",
+        "short_description": "widget.short_description",
+        "version": "1.0.2",
         "interface_version": 2,
         "init_once": false,
         "locale": [
@@ -18,5 +18,20 @@
     "locations": [
         "lcard-1"
     ],
-    "settings": {}
+    "tour": {
+        "is_tour": true,
+        "tour_images": {
+            "ru": [
+                "/images/tour_1_ru.png"
+            ]
+        },
+        "tour_description": "widget.tour_description"
+    },
+    "settings": {
+        "api_base_url": {
+            "name": "settings.api_base_url",
+            "type": "text",
+            "required": false
+        }
+    }
 }
