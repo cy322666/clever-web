@@ -1,6 +1,7 @@
 define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
+    var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
     var LOAD_RETRIES = 0;
 
     var Widget = function () {
@@ -57,6 +58,20 @@ define(['jquery'], function ($) {
             return card.name || $('.linked-form__field__value-name input').val() || '';
         }
 
+        function currentArea() {
+            try {
+                return String((self.system && self.system().area) || '');
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function isLeadCardArea() {
+            var area = currentArea();
+
+            return area.indexOf('lcard') === 0 || /\/leads\/detail\/\d+/.test(String(window.location.pathname));
+        }
+
         function injectStyles() {
             if ($('#' + BLOCK_ID + '-styles').length) {
                 return;
@@ -85,6 +100,20 @@ define(['jquery'], function ($) {
                 '.clever-workflow-dp__select:focus{border-color:#f17822}' +
                 '.clever-workflow-dp__hint{margin-top:7px;color:#7a7068;font-size:12px;line-height:1.35}' +
                 '.clever-workflow-dp__hint--error{color:#d1453b}' +
+                '.clever-workflow-bulk{position:fixed;inset:0;z-index:999999;background:rgba(24,20,17,.38);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit}' +
+                '.clever-workflow-bulk__box{width:min(460px,100%);background:#fff;color:#181411;border:1px solid #eee0d5;box-shadow:0 18px 48px rgba(24,20,17,.18)}' +
+                '.clever-workflow-bulk__head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid #eee7e1}' +
+                '.clever-workflow-bulk__title{font-size:18px;font-weight:700;letter-spacing:-.01em}' +
+                '.clever-workflow-bulk__close{border:0;background:transparent;color:#8a817a;font-size:28px;line-height:1;cursor:pointer;padding:0}' +
+                '.clever-workflow-bulk__body{padding:18px 20px 20px}' +
+                '.clever-workflow-bulk__meta{font-size:13px;color:#7a7068;margin-bottom:12px}' +
+                '.clever-workflow-bulk__list{display:flex;flex-direction:column;border-top:1px solid #eee7e1}' +
+                '.clever-workflow-bulk__scenario{position:relative;width:100%;border:0;border-bottom:1px solid #eee7e1;background:#fff;color:#181411;min-height:42px;padding:10px 10px 10px 18px;font-size:15px;font-weight:600;text-align:left;cursor:pointer}' +
+                '.clever-workflow-bulk__scenario:before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:3px;background:#f17822}' +
+                '.clever-workflow-bulk__scenario:hover{background:#fff8f3;color:#c95c16}' +
+                '.clever-workflow-bulk__scenario:disabled{opacity:.55;cursor:default}' +
+                '.clever-workflow-bulk__message{font-size:14px;line-height:1.45;color:#7a7068}' +
+                '.clever-workflow-bulk__message--error{color:#d1453b}' +
                 '@keyframes cleverWorkflowSpin{to{transform:rotate(360deg)}}' +
                 '</style>'
             );
@@ -293,6 +322,162 @@ define(['jquery'], function ($) {
             }, 1200);
         }
 
+        function selectedLeadIds() {
+            var selected = {};
+            var ids = [];
+
+            try {
+                selected = self.list_selected ? (self.list_selected().selected || {}) : {};
+            } catch (e) {
+                selected = {};
+            }
+
+            function pushId(value) {
+                var id = parseInt(value, 10);
+
+                if (id > 0 && ids.indexOf(id) === -1) {
+                    ids.push(id);
+                }
+            }
+
+            function collect(value, key, depth) {
+                if (depth > 3 || value === null || typeof value === 'undefined') {
+                    return;
+                }
+
+                if (typeof value !== 'object') {
+                    if (/^\d+$/.test(String(key || '')) || /^(id|ID|entity_id|entityId)$/.test(String(key || ''))) {
+                        pushId(value || key);
+                    }
+
+                    return;
+                }
+
+                pushId(value.id || value.ID || value.entity_id || value.entityId);
+
+                if (/^\d+$/.test(String(key || ''))) {
+                    pushId(key);
+                }
+
+                $.each(value, function (childKey, childValue) {
+                    collect(childValue, childKey, depth + 1);
+                });
+            }
+
+            collect(selected, '', 0);
+
+            return ids;
+        }
+
+        function openBulkModal() {
+            injectStyles();
+
+            var leadIds = selectedLeadIds();
+            var subdomain = accountSubdomain();
+
+            $('#' + BULK_MODAL_ID).remove();
+            $('body').append([
+                '<div id="' + BULK_MODAL_ID + '" class="clever-workflow-bulk">',
+                '<div class="clever-workflow-bulk__box">',
+                '<div class="clever-workflow-bulk__head">',
+                '<div class="clever-workflow-bulk__title">Сценарии</div>',
+                '<button type="button" class="clever-workflow-bulk__close" aria-label="Закрыть">×</button>',
+                '</div>',
+                '<div class="clever-workflow-bulk__body">',
+                '<div class="clever-workflow-bulk__meta">Выбрано сделок: ' + leadIds.length + '</div>',
+                '<div class="clever-workflow-bulk__content">',
+                '<div class="clever-workflow-bulk__message clever-workflow-card__loader">Загрузка сценариев</div>',
+                '</div>',
+                '</div>',
+                '</div>',
+                '</div>'
+            ].join(''));
+
+            if (!leadIds.length) {
+                bulkMessage('Выберите сделки для запуска сценария.', true);
+                return;
+            }
+
+            request(
+                'GET',
+                API_BASE,
+                {
+                    subdomain: subdomain
+                },
+                function (response) {
+                    var workflows = response.workflows || [];
+
+                    if (!response.ok) {
+                        bulkMessage(response.message || 'Сценарии недоступны.', true);
+                        return;
+                    }
+
+                    if (!workflows.length) {
+                        bulkMessage('Нет включенных ручных сценариев.', false);
+                        return;
+                    }
+
+                    $('#' + BULK_MODAL_ID + ' .clever-workflow-bulk__content').html(
+                        '<div class="clever-workflow-bulk__list">' +
+                        workflows.map(function (workflow) {
+                            return '<button type="button" class="clever-workflow-bulk__scenario" data-workflow-id="' + workflow.id + '">' +
+                                escapeHtml(workflow.name || ('Сценарий #' + workflow.id)) +
+                                '</button>';
+                        }).join('') +
+                        '</div>'
+                    );
+                },
+                function () {
+                    bulkMessage('Не удалось загрузить сценарии. Проверьте подключение Clever.', true);
+                }
+            );
+        }
+
+        function bulkMessage(message, isError) {
+            $('#' + BULK_MODAL_ID + ' .clever-workflow-bulk__content').html(
+                '<div class="clever-workflow-bulk__message' + (isError ? ' clever-workflow-bulk__message--error' : '') + '">' +
+                escapeHtml(message) +
+                '</div>'
+            );
+        }
+
+        function runBulkWorkflow($button) {
+            var leadIds = selectedLeadIds();
+            var workflowId = $button.data('workflow-id');
+            var $modal = $('#' + BULK_MODAL_ID);
+            var $buttons = $modal.find('.clever-workflow-bulk__scenario');
+
+            if (!leadIds.length) {
+                bulkMessage('Выберите сделки для запуска сценария.', true);
+                return;
+            }
+
+            $buttons.prop('disabled', true);
+            $button.text('Запускаю...');
+
+            request(
+                'POST',
+                API_BASE + '/bulk-run',
+                {
+                    subdomain: accountSubdomain(),
+                    workflow_id: workflowId,
+                    lead_ids: leadIds
+                },
+                function (response) {
+                    if (response.ok) {
+                        $('#' + BULK_MODAL_ID).remove();
+                    } else {
+                        $buttons.prop('disabled', false);
+                        bulkMessage(response.message || 'Не удалось запустить сценарий.', true);
+                    }
+                },
+                function () {
+                    $buttons.prop('disabled', false);
+                    bulkMessage('Не удалось запустить сценарий.', true);
+                }
+            );
+        }
+
         function renderDpSettings() {
             injectStyles();
 
@@ -370,7 +555,10 @@ define(['jquery'], function ($) {
 
         this.callbacks = {
             render: function () {
-                mount();
+                if (isLeadCardArea()) {
+                    mount();
+                }
+
                 return true;
             },
             init: function () {
@@ -381,9 +569,34 @@ define(['jquery'], function ($) {
                     .off('click.cleverWorkflowButtons')
                     .on('click.cleverWorkflowButtons', '.clever-workflow-card__button', function () {
                         runWorkflow($(this));
+                    })
+                    .on('click.cleverWorkflowButtons', '.clever-workflow-bulk__close', function () {
+                        $('#' + BULK_MODAL_ID).remove();
+                    })
+                    .on('click.cleverWorkflowButtons', '#' + BULK_MODAL_ID, function (event) {
+                        if (event.target === this) {
+                            $('#' + BULK_MODAL_ID).remove();
+                        }
+                    })
+                    .on('click.cleverWorkflowButtons', '.clever-workflow-bulk__scenario', function () {
+                        runBulkWorkflow($(this));
                     });
 
                 return true;
+            },
+            'leads.selected': function () {
+                openBulkModal();
+                return true;
+            },
+            'leads:selected': function () {
+                openBulkModal();
+                return true;
+            },
+            leads: {
+                selected: function () {
+                    openBulkModal();
+                    return true;
+                }
             },
             settings: function () {
                 return true;

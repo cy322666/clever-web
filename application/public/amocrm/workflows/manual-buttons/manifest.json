@@ -3,7 +3,7 @@
         "name": "widget.name",
         "description": "widget.description",
         "short_description": "widget.short_description",
-        "version": "1.0.7",
+        "version": "1.0.8",
         "interface_version": 2,
         "init_once": false,
         "locale": [
@@ -17,6 +17,7 @@
     },
     "locations": [
         "lcard-1",
+        "llist-0",
         "digital_pipeline"
     ],
     "tour": {

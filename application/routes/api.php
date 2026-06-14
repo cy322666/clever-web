@@ -96,6 +96,10 @@ Route::group(['prefix' => 'amocrm'], function () {
         ->middleware('throttle:30,1')
         ->name('amocrm.workflows.manual-buttons.run');
 
+    Route::post('workflows/manual-buttons/bulk-run', [WorkflowManualAmoCrmController::class, 'bulkRun'])
+        ->middleware('throttle:20,1')
+        ->name('amocrm.workflows.manual-buttons.bulk-run');
+
     Route::post('workflows/manual-buttons/digital-pipeline', [WorkflowManualAmoCrmController::class, 'digitalPipeline'])
         ->middleware('throttle:120,1')
         ->name('amocrm.workflows.manual-buttons.digital-pipeline');

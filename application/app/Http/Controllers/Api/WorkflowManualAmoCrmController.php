@@ -167,6 +167,74 @@ class WorkflowManualAmoCrmController extends Controller
         ], 202);
     }
 
+    public function bulkRun(
+        Request $request,
+        WidgetSubscriptionAccessService $access,
+        WorkflowManualAmoCrmRunService $manualRuns,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'workflow_id' => ['required', 'integer'],
+            'lead_ids' => ['required', 'array', 'min:1', 'max:250'],
+            'lead_ids.*' => ['required', 'integer', 'min:1'],
+            'subdomain' => ['nullable', 'string', 'max:255'],
+            'account_subdomain' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $account = $this->resolveAccount($request);
+
+        if (!$account instanceof Account) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Подключение amoCRM для сценариев не найдено.',
+            ], 404);
+        }
+
+        if (!$access->canUse((int)$account->user_id, 'workflows')) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Доступ к виджету сценариев не активен.',
+            ], 403);
+        }
+
+        $workflow = $this->manualWorkflowQuery((int)$account->user_id)
+            ->whereKey((int)$validated['workflow_id'])
+            ->first();
+
+        if (!$workflow instanceof Workflow) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Ручной сценарий не найден или выключен.',
+            ], 404);
+        }
+
+        $leadIds = array_values(array_unique(array_map(
+            static fn(mixed $leadId): int => (int)$leadId,
+            $validated['lead_ids'],
+        )));
+
+        $runs = [];
+
+        foreach ($leadIds as $leadId) {
+            $runs[] = $manualRuns->startForLead(
+                workflow: $workflow,
+                account: $account,
+                leadId: $leadId,
+                input: [
+                    'source' => 'amocrm-list-bulk',
+                    'widget_source' => 'amocrm-list-bulk',
+                ],
+            );
+        }
+
+        return response()->json([
+            'ok' => true,
+            'queued' => true,
+            'count' => count($runs),
+            'run_ids' => array_column($runs, 'run_id'),
+            'run_ulids' => array_column($runs, 'run_ulid'),
+        ], 202);
+    }
+
     public function digitalPipeline(
         Request $request,
         WidgetSubscriptionAccessService $access,
