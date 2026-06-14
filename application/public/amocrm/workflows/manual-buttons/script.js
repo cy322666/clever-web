@@ -263,7 +263,7 @@ define(['jquery'], function ($) {
                 },
                 function (response) {
                     if (response.ok) {
-                        $status.addClass('clever-workflow-card__status--ok').text('Сценарий запущен.');
+                        $status.removeClass('clever-workflow-card__status--ok clever-workflow-card__status--error').text('');
                     } else {
                         $status.addClass('clever-workflow-card__status--error').text(response.message || 'Не удалось запустить сценарий.');
                     }
