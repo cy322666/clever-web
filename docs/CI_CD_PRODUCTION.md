@@ -34,7 +34,8 @@
 - `PROD_SSH_FINGERPRINT` — fingerprint хоста для дополнительной защиты
 - `PROD_COMPOSE_FILES` — если нужен нестандартный набор compose-файлов
 - `PROD_AUTO_MIGRATE` — `true`/`false` (по умолчанию `true`)
-- `COMPOSER_AUTH` — JSON для доступа к приватным Composer-пакетам, включая `filament-workflow-engine.composer.sh`
+- `COMPOSER_AUTH` — JSON для доступа к приватным Composer-пакетам, включая `filament-workflow-engine.composer.sh`.
+  Если secret не задан, CI попробует забрать `application/auth.json` с production-сервера через SSH.
 - По умолчанию `PROD_COMPOSE_FILES`: `-f docker-compose.yml -f monitoring/docker-compose.monitoring.prod.yml`
 
 ## Требования на сервере

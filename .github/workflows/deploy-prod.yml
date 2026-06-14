@@ -56,6 +56,11 @@ jobs:
       FILESYSTEM_DISK: local
       TELESCOPE_ENABLED: false
       COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+      PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+      PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+      PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+      PROD_PROJECT_PATH: ${{ secrets.PROD_PROJECT_PATH }}
 
     steps:
       - name: Checkout
@@ -69,12 +74,34 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Validate Composer Access
+      - name: Prepare Composer Auth
         run: |
           if grep -q "filament-workflow-engine.composer.sh" composer.lock composer.json; then
-            if [ -z "${COMPOSER_AUTH:-}" ]; then
-              echo "::notice::COMPOSER_AUTH is empty. If the paid workflow package download URL expires, add repository secret COMPOSER_AUTH for filament-workflow-engine.composer.sh."
+            if [ -n "${COMPOSER_AUTH:-}" ]; then
+              echo "COMPOSER_AUTH is configured through GitHub secret."
+              exit 0
             fi
+
+            if [ -n "${PROD_SSH_HOST:-}" ] && [ -n "${PROD_SSH_USER:-}" ] && [ -n "${PROD_SSH_PRIVATE_KEY:-}" ] && [ -n "${PROD_PROJECT_PATH:-}" ]; then
+              mkdir -p ~/.ssh
+              chmod 700 ~/.ssh
+              printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/production_ci_key
+              chmod 600 ~/.ssh/production_ci_key
+
+              ssh-keyscan -p "${PROD_SSH_PORT:-22}" "$PROD_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+              if scp -q -P "${PROD_SSH_PORT:-22}" -i ~/.ssh/production_ci_key \
+                -o IdentitiesOnly=yes \
+                -o StrictHostKeyChecking=accept-new \
+                "${PROD_SSH_USER}@${PROD_SSH_HOST}:${PROD_PROJECT_PATH%/}/application/auth.json" \
+                auth.json; then
+                chmod 600 auth.json
+                echo "Composer auth.json loaded from production host."
+                exit 0
+              fi
+            fi
+
+            echo "::warning::Composer auth is not configured. Paid package download may fail with HTTP 401. Prefer setting COMPOSER_AUTH secret."
           fi
 
       - name: Validate Composer Files
