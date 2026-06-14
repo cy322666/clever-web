@@ -10,8 +10,8 @@ use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -40,14 +40,9 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return $table
             ->columns([
-                IconColumn::make('is_active')
+                ViewColumn::make('is_active')
                     ->label('Вкл')
-                    ->boolean()
-                    ->trueIcon('heroicon-s-bolt')
-                    ->falseIcon('heroicon-o-power')
-                    ->trueColor('warning')
-                    ->falseColor('gray')
-                    ->size('lg')
+                    ->view('filament.workflow-builder.columns.workflow-status-toggle')
                     ->alignCenter()
                     ->tooltip(fn(Workflow $record): string => $record->is_active ? 'Выключить процесс' : 'Включить процесс')
                     ->extraCellAttributes(['class' => 'workflow-list-status-toggle'])
