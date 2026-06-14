@@ -33,7 +33,8 @@ RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     imap \
     xml \
     zip \
-    mbstring
+    mbstring \
+    pcntl
 
 RUN pecl install redis && docker-php-ext-enable redis
 RUN docker-php-ext-install snmp
