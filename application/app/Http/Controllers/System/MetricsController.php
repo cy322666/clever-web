@@ -39,6 +39,9 @@ class MetricsController extends Controller
             $queueStats = $this->queueStats();
             $jobsTotal = array_sum(array_column($queueStats, 'count'));
             $failedJobsTotal = (int)DB::table('failed_jobs')->count();
+            $recentFailedJobsTotal = (int)DB::table('failed_jobs')
+                ->where('failed_at', '>=', now()->subMinutes(10))
+                ->count();
             $queueOldestAge = $queueStats === [] ? 0 : max(array_column($queueStats, 'oldest_age'));
 
             $lines[] = '# HELP clever_queue_jobs_total Number of queued jobs.';
@@ -48,6 +51,10 @@ class MetricsController extends Controller
             $lines[] = '# HELP clever_queue_failed_jobs_total Number of failed jobs.';
             $lines[] = '# TYPE clever_queue_failed_jobs_total gauge';
             $lines[] = 'clever_queue_failed_jobs_total ' . $failedJobsTotal;
+
+            $lines[] = '# HELP clever_queue_failed_jobs_recent_total Number of failed jobs in the last 10 minutes.';
+            $lines[] = '# TYPE clever_queue_failed_jobs_recent_total gauge';
+            $lines[] = 'clever_queue_failed_jobs_recent_total ' . $recentFailedJobsTotal;
 
             $lines[] = '# HELP clever_queue_oldest_job_age_seconds Age of the oldest waiting job in seconds.';
             $lines[] = '# TYPE clever_queue_oldest_job_age_seconds gauge';

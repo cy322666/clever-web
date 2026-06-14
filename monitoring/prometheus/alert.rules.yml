@@ -29,13 +29,13 @@ groups:
           description: "Heartbeat планировщика не обновлялся более 3 минут."
 
       - alert: FailedJobsDetected
-        expr: clever_queue_failed_jobs_total > 0
+        expr: clever_queue_failed_jobs_recent_total > 0
         for: 5m
         labels:
           severity: critical
         annotations:
           summary: "Обнаружены упавшие задачи"
-          description: "В таблице failed_jobs есть записи минимум 5 минут."
+          description: "За последние 10 минут появились failed jobs."
 
       - alert: QueueBacklogHigh
         expr: clever_queue_jobs_total > 200

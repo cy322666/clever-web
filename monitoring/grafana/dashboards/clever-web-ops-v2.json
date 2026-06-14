@@ -339,7 +339,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(clever_queue_failed_jobs_total)",
+          "expr": "sum(clever_queue_failed_jobs_recent_total)",
           "instant": true,
           "legendFormat": "",
           "range": false,
