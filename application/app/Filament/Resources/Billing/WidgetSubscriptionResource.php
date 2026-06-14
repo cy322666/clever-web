@@ -165,6 +165,11 @@ class WidgetSubscriptionResource extends Resource
             ])
             ->defaultSort('id', 'desc')
             ->headerActions([
+                Action::make('invoice_requests')
+                    ->label('Заявки на счет')
+                    ->icon('heroicon-o-document-text')
+                    ->color('gray')
+                    ->url(fn(): string => InvoiceRequestResource::getUrl('index')),
                 CreateAction::make(),
             ])
             ->recordActions([

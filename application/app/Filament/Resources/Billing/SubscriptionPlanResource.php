@@ -4,17 +4,13 @@ namespace App\Filament\Resources\Billing;
 
 use App\Filament\Resources\Billing\SubscriptionPlanResource\Pages;
 use App\Models\App;
-use App\Models\Billing\SubscriptionInvoiceRequest;
 use App\Models\Billing\SubscriptionPlan;
-use App\Models\User;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -26,7 +22,6 @@ use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 
 class SubscriptionPlanResource extends Resource
 {
@@ -42,9 +37,14 @@ class SubscriptionPlanResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return (bool)auth()->user()?->is_root;
+    }
+
     public static function canViewAny(): bool
     {
-        return auth()->check();
+        return (bool)auth()->user()?->is_root;
     }
 
     public static function canCreate(): bool
@@ -65,12 +65,6 @@ class SubscriptionPlanResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-
-        if (!(bool)auth()->user()?->is_root) {
-            $query
-                ->active()
-                ->whereIn('widget', static::installedWidgetNamesForCurrentUser());
-        }
 
         return $query;
     }
@@ -110,10 +104,6 @@ class SubscriptionPlanResource extends Resource
                         ->columnSpanFull(),
                     Forms\Components\KeyValue::make('limits')
                         ->label('Лимиты')
-                        ->columnSpanFull(),
-                    Forms\Components\Textarea::make('description')
-                        ->label('Описание')
-                        ->rows(4)
                         ->columnSpanFull(),
                     Forms\Components\TextInput::make('sort_order')
                         ->label('Сортировка')
@@ -156,27 +146,12 @@ class SubscriptionPlanResource extends Resource
                         ->size(TextSize::Large)
                         ->color('primary'),
 
-                    Tables\Columns\TextColumn::make('description')
-                        ->label('Описание')
-                        ->state(fn(SubscriptionPlan $record): string => static::descriptionText($record))
-                        ->color('gray')
-                        ->wrap()
-                        ->limit(150),
-
                     Tables\Columns\TextColumn::make('monthly_price')
                         ->label('В месяц')
                         ->state(fn(SubscriptionPlan $record): string => static::monthlyPriceLabel($record) ?? '')
                         ->color('gray'),
-
-                    Tables\Columns\TextColumn::make('features_summary')
-                        ->label('Что входит')
-                        ->state(fn(SubscriptionPlan $record): array => static::featuresSummary($record))
-                        ->color('gray')
-                        ->size(TextSize::Small)
-                        ->bulleted()
-                        ->wrap(),
                 ])
-                    ->space(3),
+                    ->space(2),
             ])
             ->contentGrid([
                 'md' => 2,
@@ -189,43 +164,6 @@ class SubscriptionPlanResource extends Resource
                     ->visible(fn(): bool => (bool)auth()->user()?->is_root),
             ])
             ->recordActions([
-                Action::make('request_invoice')
-                    ->label('Запросить счет')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('warning')
-                    ->visible(fn(): bool => auth()->check() && !(bool)auth()->user()?->is_root)
-                    ->form([
-                        Forms\Components\Select::make('widget')
-                            ->label('Виджет')
-                            ->options(WidgetSubscriptionResource::widgetOptions())
-                            ->searchable()
-                            ->default(fn(SubscriptionPlan $record): ?string => $record->widget)
-                            ->disabled(fn(SubscriptionPlan $record): bool => filled($record->widget))
-                            ->dehydrated()
-                            ->required(),
-                        Forms\Components\Textarea::make('comment')
-                            ->label('Комментарий')
-                            ->rows(3),
-                    ])
-                    ->action(function (SubscriptionPlan $record, array $data): void {
-                        $user = Auth::user();
-
-                        SubscriptionInvoiceRequest::query()->create([
-                            'user_id' => $user instanceof User ? $user->id : null,
-                            'subscription_plan_id' => $record->id,
-                            'widget' => $data['widget'] ?? null,
-                            'status' => SubscriptionInvoiceRequest::STATUS_NEW,
-                            'contact_name' => $user?->name,
-                            'contact_email' => $user?->email,
-                            'comment' => $data['comment'] ?? null,
-                        ]);
-
-                        Notification::make()
-                            ->title('Заявка отправлена')
-                            ->body('Мы увидим ее в поддержке и свяжемся с вами.')
-                            ->success()
-                            ->send();
-                    }),
                 EditAction::make()
                     ->visible(fn(): bool => (bool)auth()->user()?->is_root),
                 DeleteAction::make()
@@ -247,26 +185,6 @@ class SubscriptionPlanResource extends Resource
         return $record->name;
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private static function installedWidgetNamesForCurrentUser(): array
-    {
-        $userId = auth()->id();
-
-        if (!$userId) {
-            return [];
-        }
-
-        return App::query()
-            ->where('user_id', $userId)
-            ->whereIn('name', App::definitionNames())
-            ->pluck('name')
-            ->unique()
-            ->values()
-            ->all();
-    }
-
     private static function periodLabel(SubscriptionPlan $record): string
     {
         return match ((int)$record->period_days) {
@@ -275,19 +193,6 @@ class SubscriptionPlanResource extends Resource
             365 => '12 месяцев',
             default => filled($record->period_days) ? $record->period_days . ' дн.' : 'Период по запросу',
         };
-    }
-
-    private static function descriptionText(SubscriptionPlan $record): string
-    {
-        if (filled($record->description)) {
-            return (string)$record->description;
-        }
-
-        if (filled($record->widget)) {
-            return App::getTooltipText((string)$record->widget) ?: 'Доступ к виджету и поддержка подключения.';
-        }
-
-        return 'Доступ к виджету и поддержка подключения.';
     }
 
     private static function monthlyPriceLabel(SubscriptionPlan $record): ?string
@@ -306,28 +211,6 @@ class SubscriptionPlanResource extends Resource
         };
 
         return 'примерно ' . number_format((int)floor($price / $months), 0, '.', ' ') . ' ₽/мес.';
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private static function featuresSummary(SubscriptionPlan $record): array
-    {
-        $features = collect($record->features ?? [])
-            ->filter(fn(mixed $feature): bool => filled($feature))
-            ->map(fn(mixed $feature): string => trim((string)$feature))
-            ->take(3)
-            ->values()
-            ->all();
-
-        if ($features !== []) {
-            return $features;
-        }
-
-        return [
-            'Ручное продление через поддержку',
-            'Уведомления до окончания доступа',
-        ];
     }
 
     public static function getPages(): array

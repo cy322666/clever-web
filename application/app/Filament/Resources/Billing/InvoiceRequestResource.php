@@ -32,6 +32,8 @@ class InvoiceRequestResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function canViewAny(): bool
     {
         return (bool)auth()->user()?->is_root;
