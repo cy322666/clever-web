@@ -41,8 +41,14 @@ class SmokeCheck extends Command
             }
         }
 
-        if ((string)config('queue.default') === 'sync' && app()->environment('production')) {
-            $warnings[] = 'QUEUE_CONNECTION=sync in production.';
+        if (app()->environment('production')) {
+            $queueConnection = (string)config('queue.default');
+
+            if ($queueConnection === 'sync') {
+                $warnings[] = 'QUEUE_CONNECTION=sync in production.';
+            } elseif ($queueConnection !== 'redis') {
+                $errors[] = 'QUEUE_CONNECTION must be redis in production, current: ' . $queueConnection . '.';
+            }
         }
 
         $heartbeatTs = (int)MonitoringCache::get('monitoring:scheduler:last_heartbeat', 0);

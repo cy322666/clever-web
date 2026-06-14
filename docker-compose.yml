@@ -3,6 +3,10 @@ version: '3.5'
 services:
   app:
     build: ./docker/images/php82
+    environment:
+      QUEUE_CONNECTION: redis
+      WORKFLOWS_QUEUE_CONNECTION: redis
+      WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
     command: >
       sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)
@@ -68,6 +72,10 @@ services:
 
   supervisor:
     build: ./docker/images/supervisor
+    environment:
+      QUEUE_CONNECTION: redis
+      WORKFLOWS_QUEUE_CONNECTION: redis
+      WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
     command: >
       sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)
