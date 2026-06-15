@@ -4,6 +4,7 @@ namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
+use App\Models\Core\Account;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -14,6 +15,7 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Redirect;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as BaseListWorkflows;
 
 class ListWorkflows extends BaseListWorkflows
@@ -94,10 +96,38 @@ class ListWorkflows extends BaseListWorkflows
                 ->icon('heroicon-o-link')
                 ->color('success')
                 ->action(function (): void {
-                    Notification::make()
-                        ->title('Подключение amoCRM будет добавлено позже')
-                        ->info()
-                        ->send();
+                    $user = auth()->user();
+
+                    if (!$user) {
+                        Notification::make()
+                            ->title('Пользователь не найден')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $widget = Account::normalizeWidget('workflows');
+                    $clientId = (string)config('services.amocrm.widgets.workflows.client_id', '');
+
+                    if ($clientId === '') {
+                        Notification::make()
+                            ->title('Не настроен client_id для процессов')
+                            ->body('Укажите AMO_WORKFLOWS_CLIENT_ID.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $state = $user->uuid . '|' . $widget;
+                    $url = WorkflowResource::getUrl();
+
+                    Redirect::to(
+                        'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
+                        . '&client_id=' . urlencode($clientId)
+                        . '&uri=' . urlencode($url)
+                    );
                 }),
         ];
     }
