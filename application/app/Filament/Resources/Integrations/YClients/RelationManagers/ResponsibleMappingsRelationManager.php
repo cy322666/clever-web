@@ -37,7 +37,7 @@ class ResponsibleMappingsRelationManager extends RelationManager
     {
         return $table
             ->description(
-                'Для каждого ответственного amoCRM выберите одного или несколько пользователей YClients.'
+                'Для каждого ответственного amoCRM выберите пользователей YClients. Колонка «По умолчанию» используется, если соответствие не найдено.'
             )
             ->columns([
                 Tables\Columns\TextColumn::make('amo_user_name')
@@ -53,6 +53,14 @@ class ResponsibleMappingsRelationManager extends RelationManager
                     ->view('filament.resources.integrations.yclients.columns.responsible-users-select')
                     ->viewData(fn(ResponsibleMapping $record): array => [
                         'groupedOptions' => $this->yclientsUserOptions($record),
+                    ]),
+
+                Tables\Columns\ViewColumn::make('default_responsible')
+                    ->label('По умолчанию')
+                    ->alignCenter()
+                    ->view('filament.resources.integrations.yclients.columns.default-responsible-toggle')
+                    ->viewData(fn(ResponsibleMapping $record): array => [
+                        'isDefault' => (int)$this->getOwnerRecord()->default_responsible_user_id === (int)$record->amo_user_id,
                     ]),
 
                 Tables\Columns\ToggleColumn::make('active')
@@ -94,6 +102,22 @@ class ResponsibleMappingsRelationManager extends RelationManager
                 ->values()
                 ->all(),
         ]);
+    }
+
+    public function setDefaultResponsibleUser(int|string|null $amoUserId): void
+    {
+        $amoUserId = (int)$amoUserId;
+        $allowedAmoUserIds = $this->amoStaffOptions()->keys()->map(fn(mixed $id): int => (int)$id);
+
+        if ($amoUserId <= 0 || !$allowedAmoUserIds->contains($amoUserId)) {
+            return;
+        }
+
+        $this->getOwnerRecord()->update([
+            'default_responsible_user_id' => $amoUserId,
+        ]);
+
+        $this->getOwnerRecord()->refresh();
     }
 
     private function syncUsers(): void

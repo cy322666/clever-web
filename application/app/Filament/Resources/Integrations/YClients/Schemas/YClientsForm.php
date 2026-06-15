@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Integrations\YClients\Schemas;
 
 use App\Models\amoCRM\Field;
-use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\YClients\Setting;
 use App\Support\Integrations\PricingView;
@@ -20,7 +19,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
-use Illuminate\Support\Facades\Auth;
 
 class YClientsForm
 {
@@ -57,21 +55,6 @@ class YClientsForm
 //                                TextInput::make('password')
 //                                    ->label('Пароль')
 //                                    ->required(),
-                            ]),
-
-                        Fieldset::make('Ответственные')
-                            ->schema([
-                                Select::make('default_responsible_user_id')
-                                    ->label('Ответственный по умолчанию')
-                                    ->helperText('Используется, если для создателя записи YClients не найдено соответствие.')
-                                    ->options(fn() => Staff::query()
-                                        ->where('user_id', Auth::id())
-                                        ->where('active', true)
-                                        ->orderBy('name')
-                                        ->pluck('name', 'staff_id'))
-                                    ->searchable()
-                                    ->preload()
-                                    ->native(false),
                             ]),
 
                         Fieldset::make('Соотношение этапов amoCRM')
