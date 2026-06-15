@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Core\UserResource\RelationManagers;
 
 use App\Models\App;
+use App\Services\Core\PlatformTechnicalMonitor;
 use App\Services\Integrations\IntegrationProvisioningService;
 use Exception;
 use Filament\Actions\ActionGroup;
@@ -142,6 +143,8 @@ SQL,
                             $days = max(1, (int)($data['days'] ?? 30));
                             $updated = $this->extendAndActivate($record, $days);
 
+                            app(PlatformTechnicalMonitor::class)->legacyWidgetExtended($updated, $days, auth()->user());
+
                             Notification::make()
                                 ->title('Виджет продлён')
                                 ->body(
@@ -162,6 +165,9 @@ SQL,
                         ->requiresConfirmation()
                         ->action(function (App $record): void {
                             $this->deactivate($record);
+                            $record->refresh();
+
+                            app(PlatformTechnicalMonitor::class)->legacyWidgetDeactivated($record, auth()->user());
 
                             Notification::make()
                                 ->title('Виджет отключён')

@@ -5,7 +5,7 @@ namespace App\Services\Billing;
 use App\Models\App;
 use App\Models\Billing\WidgetSubscription;
 use App\Models\User;
-use App\Services\Core\AlertService;
+use App\Services\Core\PlatformTechnicalMonitor;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
@@ -302,26 +302,7 @@ class WidgetSubscriptionAccessService
 
     private function sendExpiringAlert(WidgetSubscription $subscription, int $days): void
     {
-        $user = $subscription->user;
-
-        AlertService::warning(
-            'Подписка скоро закончится',
-            sprintf(
-                'Через %d дн. закончится доступ к виджету %s для пользователя %s.',
-                max(0, $days),
-                $this->widgetTitle((string)$subscription->widget),
-                $user?->email ?: ('ID ' . $subscription->user_id),
-            ),
-            [
-                'subscription_id' => $subscription->id,
-                'user_id' => $subscription->user_id,
-                'widget' => $subscription->widget,
-                'plan' => $subscription->plan?->name,
-                'ends_at' => $subscription->ends_at?->toDateString(),
-            ],
-            'subscription-expiring-' . $subscription->id . '-' . $days,
-            86400,
-        );
+        app(PlatformTechnicalMonitor::class)->subscriptionExpiring($subscription, $days);
     }
 
     private function markNotificationSent(WidgetSubscription $subscription, string $key): void
@@ -345,12 +326,4 @@ class WidgetSubscriptionAccessService
         $subscription->save();
     }
 
-    private function widgetTitle(string $widget): string
-    {
-        try {
-            return App::getTitle($widget);
-        } catch (Throwable) {
-            return $widget;
-        }
-    }
 }

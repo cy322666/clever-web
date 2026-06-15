@@ -10,6 +10,7 @@ use App\Mail\SignUpWidget;
 use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
+use App\Services\Core\PlatformTechnicalMonitor;
 use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\amoCRM\Client;
 use Filament\Notifications\Notification as FilamentNotification;
@@ -245,14 +246,17 @@ class AuthController extends Controller
                 ]);
             }
 
-            $this->sendOauthResultNotification(
-                $user,
-                $widget,
-                $amoApi->auth,
-                $amoApi->auth
-                    ? 'Интеграция с amoCRM подключена.'
-                    : 'Подключение с amoCRM не завершено.'
-            );
+            $oauthResultMessage = $amoApi->auth
+                ? 'Интеграция с amoCRM подключена.'
+                : 'Подключение с amoCRM не завершено.';
+
+            $this->sendOauthResultNotification($user, $widget, $amoApi->auth, $oauthResultMessage);
+
+            if ($amoApi->auth) {
+                app(PlatformTechnicalMonitor::class)->amoConnected($user, $account, $widget, $oauthResultMessage);
+            } else {
+                app(PlatformTechnicalMonitor::class)->amoConnectionFailed($user, $widget, $oauthResultMessage);
+            }
 
             Mail::to($user->email)->queue(new SignUp($user));
 
@@ -570,6 +574,7 @@ class AuthController extends Controller
             false,
             $message
         );
+        app(PlatformTechnicalMonitor::class)->amoConnectionFailed($context['user'], $context['widget'], $message);
 
         return redirect()
             ->to(

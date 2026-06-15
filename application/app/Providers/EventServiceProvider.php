@@ -5,8 +5,10 @@ namespace App\Providers;
 use App\Listeners\SendFailedJobAlert;
 use App\Listeners\SendHorizonLongWaitAlert;
 use App\Listeners\SendTelegramRegistrationNotification;
+use App\Models\Billing\WidgetSubscription;
 use App\Models\User;
 use App\Observers\UserObserver;
+use App\Observers\WidgetSubscriptionObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Queue\Events\JobFailed;
@@ -37,6 +39,7 @@ class EventServiceProvider extends ServiceProvider
     public function boot(): void
     {
         User::observe(UserObserver::class);
+        WidgetSubscription::observe(WidgetSubscriptionObserver::class);
     }
 
     /**
