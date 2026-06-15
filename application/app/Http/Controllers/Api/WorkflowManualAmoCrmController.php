@@ -10,6 +10,8 @@ use App\Services\Workflows\WorkflowManualAmoCrmRunService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class WorkflowManualAmoCrmController extends Controller
@@ -241,8 +243,29 @@ class WorkflowManualAmoCrmController extends Controller
         WorkflowManualAmoCrmRunService $manualRuns,
     ): JsonResponse {
         $account = $this->resolveAccount($request);
+        $payload = $request->all();
+        $workflowId = $this->extractWorkflowId($payload);
+        $leadId = $this->extractLeadId($payload);
+
+        Log::info('Workflow manual digital pipeline received', [
+            'account_id' => $account?->id,
+            'user_id' => $account?->user_id,
+            'subdomain' => $account?->subdomain,
+            'payload_keys' => array_keys($payload),
+            'workflow_id' => $workflowId ?: null,
+            'lead_id' => $leadId ?: null,
+        ]);
 
         if (!$account instanceof Account) {
+            Log::warning('Workflow manual digital pipeline account not found', [
+                'payload_keys' => array_keys($payload),
+                'subdomain_input' => $request->input('subdomain')
+                    ?: $request->input('account_subdomain')
+                    ?: $request->input('account.subdomain')
+                    ?: $request->input('account.domain')
+                    ?: $request->input('account'),
+            ]);
+
             return response()->json([
                 'ok' => false,
                 'message' => 'Подключение amoCRM для сценариев не найдено.',
@@ -250,17 +273,27 @@ class WorkflowManualAmoCrmController extends Controller
         }
 
         if (!$access->canUse((int)$account->user_id, 'workflows')) {
+            Log::warning('Workflow manual digital pipeline access denied', [
+                'account_id' => $account->id,
+                'user_id' => $account->user_id,
+            ]);
+
             return response()->json([
                 'ok' => false,
                 'message' => 'Доступ к виджету сценариев не активен.',
             ]);
         }
 
-        $payload = $request->all();
-        $workflowId = $this->extractWorkflowId($payload);
-        $leadId = $this->extractLeadId($payload);
-
         if ($workflowId <= 0 || $leadId <= 0) {
+            Log::warning('Workflow manual digital pipeline missing ids', [
+                'account_id' => $account->id,
+                'user_id' => $account->user_id,
+                'workflow_id' => $workflowId ?: null,
+                'lead_id' => $leadId ?: null,
+                'payload_keys' => array_keys($payload),
+                'payload_preview' => $this->payloadPreview($payload),
+            ]);
+
             return response()->json([
                 'ok' => false,
                 'message' => 'Не передан сценарий или ID сделки.',
@@ -272,6 +305,13 @@ class WorkflowManualAmoCrmController extends Controller
             ->first();
 
         if (!$workflow instanceof Workflow) {
+            Log::warning('Workflow manual digital pipeline workflow not found', [
+                'account_id' => $account->id,
+                'user_id' => $account->user_id,
+                'workflow_id' => $workflowId,
+                'lead_id' => $leadId,
+            ]);
+
             return response()->json([
                 'ok' => false,
                 'message' => 'Ручной сценарий не найден или выключен.',
@@ -326,8 +366,12 @@ class WorkflowManualAmoCrmController extends Controller
             'workflow_id',
             'settings.workflow_id',
             'widget.settings.workflow_id',
+            'data.settings.workflow_id',
+            'entity.settings.workflow_id',
             'action.settings.workflow_id',
             'action.settings.widget.settings.workflow_id',
+            'action.params.workflow_id',
+            'params.workflow_id',
         ]);
 
         return (int)$value;
@@ -341,9 +385,15 @@ class WorkflowManualAmoCrmController extends Controller
         $value = $this->firstFilled($payload, [
             'lead_id',
             'entity_id',
+            'entity.id',
+            'entity.lead_id',
+            'data.lead_id',
+            'data.entity_id',
+            'data.entity.id',
             'leads.status.0.id',
             'leads.add.0.id',
             'leads.update.0.id',
+            'leads.0.id',
             'lead.id',
             'id',
         ]);
@@ -377,5 +427,32 @@ class WorkflowManualAmoCrmController extends Controller
         $value = $this->firstFilled($payload, $paths);
 
         return filled($value) ? (int)$value : null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function payloadPreview(array $payload): array
+    {
+        $preview = [];
+
+        foreach (Arr::dot($payload) as $key => $value) {
+            if (!is_scalar($value) && $value !== null) {
+                continue;
+            }
+
+            if (!Str::contains((string)$key, ['workflow', 'lead', 'entity', 'account', 'subdomain', 'status', 'pipeline', 'id'])) {
+                continue;
+            }
+
+            $preview[(string)$key] = is_string($value) ? Str::limit($value, 120) : $value;
+
+            if (count($preview) >= 30) {
+                break;
+            }
+        }
+
+        return $preview;
     }
 }
