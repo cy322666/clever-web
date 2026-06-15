@@ -64,7 +64,10 @@ class TransactionsResource extends Resource
 
                 Tables\Columns\TextColumn::make('lead_id')
                     ->url(function (Transaction $transaction): string {
-                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('distribution')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $transaction->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('distribution')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $transaction->lead_id
@@ -74,7 +77,10 @@ class TransactionsResource extends Resource
 
                 Tables\Columns\TextColumn::make('contact_id')
                     ->url(function (Transaction $transaction): string {
-                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('distribution')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $transaction->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('distribution')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $transaction->contact_id
@@ -89,8 +95,8 @@ class TransactionsResource extends Resource
                     ->label('Шаблон'),
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([20, 40, 'all'])
-            ->poll('15s')
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->filters([])
             ->actions([])
             ->bulkActions([])

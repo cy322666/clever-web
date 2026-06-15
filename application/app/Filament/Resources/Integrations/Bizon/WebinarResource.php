@@ -24,7 +24,12 @@ class WebinarResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->with('user:id,email')
+            ->withCount([
+                'viewers',
+                'viewers as successful_viewers_count' => fn(Builder $query): Builder => $query->where('status', 1),
+            ]);
 
         if (!Auth::user()->is_root) {
 
@@ -62,15 +67,11 @@ class WebinarResource extends Resource
 
                 Tables\Columns\TextColumn::make('count')
                     ->label('Зрителей')
-                    ->state(
-                        fn(Webinar $webinar) => $webinar->viewers()->count()
-                    ),
+                    ->state(fn(Webinar $webinar): int => (int)$webinar->viewers_count),
 
                 Tables\Columns\TextColumn::make('success')
                     ->label('Отправлено')
-                    ->state(
-                        fn(Webinar $webinar) => $webinar->viewers()->where('status', 1)->count()
-                    ),
+                    ->state(fn(Webinar $webinar): int => (int)$webinar->successful_viewers_count),
 
 //                Tables\Columns\TextColumn::make('fails')
 //                    ->label('Ошибок')
@@ -82,13 +83,7 @@ class WebinarResource extends Resource
                 Tables\Columns\BooleanColumn::make('status')
                     ->label('Выгружен')
                     ->state(fn(Webinar $webinar) =>
-                        $webinar
-                            ->viewers()
-                            ->where('status', 1)
-                            ->count() ==
-                        $webinar
-                            ->viewers()
-                            ->count()
+                        (int)$webinar->successful_viewers_count === (int)$webinar->viewers_count
                     )
             ])
             ->defaultSort('created_at', 'desc')
@@ -98,8 +93,8 @@ class WebinarResource extends Resource
 //                    ->url(fn (Webinar $record): string => route('posts.edit', $record))
 //                    ->openUrlInNewTab()
             ])
-            ->paginated([20, 30, 'all'])
-            ->poll('15s')
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->bulkActions([
                 BulkAction::make('dispatched')
                     ->action(function (Collection $collection) {

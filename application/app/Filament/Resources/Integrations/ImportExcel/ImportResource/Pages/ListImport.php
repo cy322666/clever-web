@@ -59,7 +59,10 @@ class ListImport extends ListRecords
                 TextColumn::make('lead_id')
                     ->label('Сделка')
                     ->url(function (ImportRecord $order): string {
-                        $subdomain = $order->user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $order->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id
@@ -69,7 +72,10 @@ class ListImport extends ListRecords
                 TextColumn::make('contact_id')
                     ->label('Контакт')
                     ->url(function (ImportRecord $order): string {
-                        $subdomain = $order->user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $order->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $order->contact_id
@@ -79,7 +85,10 @@ class ListImport extends ListRecords
                 TextColumn::make('company_id')
                     ->label('Компания')
                     ->url(function (ImportRecord $order): string {
-                        $subdomain = $order->user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $order->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('import-excel')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/companies/detail/' . $order->company_id
@@ -88,8 +97,7 @@ class ListImport extends ListRecords
 
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')
-//                    ->lineClamp(2)        // 👈 по умолчанию свернуто (2 строки)
-                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (ImportRecord $record) {
                         $data = $record->row_data;
 
@@ -112,8 +120,8 @@ class ListImport extends ListRecords
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([50, 100, 150])
+            ->defaultPaginationPageOption(50)
             ->recordUrl(null)
-            ->poll(5)
             ->filters([
                 SelectFilter::make('status')->options([
                     ImportRecord::STATUS_PROCESSING => 'Ждет выгрузки',

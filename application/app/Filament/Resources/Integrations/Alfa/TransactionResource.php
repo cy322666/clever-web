@@ -38,7 +38,10 @@ class TransactionResource extends Resource
 
                 Tables\Columns\TextColumn::make('amo_lead_id')
                     ->url(function (Transaction $transaction): string {
-                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('alfacrm')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $transaction->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('alfacrm')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $transaction->amo_lead_id
@@ -48,7 +51,10 @@ class TransactionResource extends Resource
 
                 Tables\Columns\TextColumn::make('amo_contact_id')
                     ->url(function (Transaction $transaction): string {
-                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('alfacrm')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $transaction->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('alfacrm')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $transaction->amo_contact_id
@@ -57,7 +63,16 @@ class TransactionResource extends Resource
                     ->label('Контакт'),
 
                 Tables\Columns\TextColumn::make('alfa_client_id')
-                    ->url(fn(Transaction $transaction) => 'https://'.$transaction->user->alfacrm_settings->domain.'.s20.online/company/'.$transaction->alfa_branch_id.'/customer/view?id='.$transaction->alfa_client_id, true)
+                    ->url(function (Transaction $transaction): string {
+                        static $domains = [];
+
+                        $user = Auth::user()?->is_root ? $transaction->user : Auth::user();
+                        $domain = $domains[$user?->id ?? 0] ??= $user?->alfacrm_settings?->domain;
+
+                        return $domain
+                            ? 'https://' . $domain . '.s20.online/company/' . $transaction->alfa_branch_id . '/customer/view?id=' . $transaction->alfa_client_id
+                            : '#';
+                    }, true)
                     ->label('Клиент'),
 
                 Tables\Columns\TextColumn::make('alfa_branch_id')
@@ -87,7 +102,8 @@ class TransactionResource extends Resource
             ->defaultSort('created_at', 'DESC')
             ->filters([])
             ->actions([])
-            ->paginated([30, 50, 'all']);
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50);
     }
 
     public static function getPages(): array

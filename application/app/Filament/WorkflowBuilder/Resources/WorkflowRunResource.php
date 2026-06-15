@@ -172,7 +172,6 @@ class WorkflowRunResource extends Resource
                     ),
             ])
             ->defaultSort('created_at', 'desc')
-            ->poll('3s')
             ->paginated([25, 50, 100])
             ->defaultPaginationPageOption(50)
             ->filters([

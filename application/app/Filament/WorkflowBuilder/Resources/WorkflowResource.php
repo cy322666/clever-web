@@ -86,7 +86,8 @@ class WorkflowResource extends BaseWorkflowResource
             ->recordUrl(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
             ->openRecordUrlInNewTab()
             ->defaultSort('updated_at', 'desc')
-            ->paginated(false)
+            ->paginated([25, 50, 100])
+            ->defaultPaginationPageOption(50)
             ->groups([
                 Group::make('group_name')
                     ->label('Группа')

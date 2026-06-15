@@ -13,7 +13,8 @@ class ListTransactions extends ListRecords
 
     protected function getTableQuery(): ?Builder
     {
-        $query = parent::getTableQuery();
+        $query = parent::getTableQuery()
+            ->with('user');
 
         if (!Auth::user()->is_root) {
 

@@ -30,7 +30,10 @@ class ListTransactions extends ListRecords
                 Tables\Columns\TextColumn::make('contact_id')
                     ->label('Контакт')
                     ->url(function (Transaction $transaction): string {
-                        $subdomain = $transaction->user?->resolveAmoAccountForWidget('call-transcription')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $transaction->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('call-transcription')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $transaction->contact_id
@@ -84,7 +87,8 @@ class ListTransactions extends ListRecords
                     ->tooltip(fn(Transaction $transaction) => $transaction->url),
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([30, 50, 'all'])
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->filters([])
             ->actions([])
             ->bulkActions([])
@@ -93,7 +97,8 @@ class ListTransactions extends ListRecords
 
     protected function getTableQuery(): ?Builder
     {
-        $query = Transaction::query();
+        $query = Transaction::query()
+            ->with('user');
 
         if (!Auth::user()->is_root) {
             $query->where('user_id', Auth::id());

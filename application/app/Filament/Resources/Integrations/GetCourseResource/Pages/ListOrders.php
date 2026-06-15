@@ -37,7 +37,9 @@ class ListOrders extends ListRecords
 
     protected function getTableQuery(): ?Builder
     {
-        return GetCourse\Order::query()->where('user_id', Auth::user()->id);
+        return GetCourse\Order::query()
+            ->with('user')
+            ->where('user_id', Auth::user()->id);
     }
 
     public function table(Table $table): Table
@@ -61,7 +63,10 @@ class ListOrders extends ListRecords
 
                 TextColumn::make('lead_id')
                     ->url(function (GetCourse\Order $order): string {
-                        $subdomain = $order->user?->resolveAmoAccountForWidget('getcourse')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $order->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('getcourse')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id
@@ -71,7 +76,10 @@ class ListOrders extends ListRecords
 
                 TextColumn::make('contact_id')
                     ->url(function (GetCourse\Order $order): string {
-                        $subdomain = $order->user?->resolveAmoAccountForWidget('getcourse')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $order->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('getcourse')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $order->lead_id
@@ -86,8 +94,8 @@ class ListOrders extends ListRecords
 //                    ->label('Форма'),
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([20, 40, 'all'])
-            ->poll('5s')
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->filters([])
             ->actions([])
             ->bulkActions([

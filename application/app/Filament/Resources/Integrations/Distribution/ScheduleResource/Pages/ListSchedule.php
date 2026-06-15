@@ -279,8 +279,8 @@ class ListSchedule extends ListRecords
                         ]);
                     })
             ])
-            ->paginated([20, 30, 'all'])
-            ->poll('30s')
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->emptyStateActions([]);
     }
 

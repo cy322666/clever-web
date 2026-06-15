@@ -44,7 +44,10 @@ class FormResource extends Resource
 
                 Tables\Columns\TextColumn::make('lead_id')
                     ->url(function (Form $form): string {
-                        $subdomain = $form->user?->resolveAmoAccountForWidget('tilda')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $form->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('tilda')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $form->lead_id
@@ -54,7 +57,10 @@ class FormResource extends Resource
 
                 Tables\Columns\TextColumn::make('contact_id')
                     ->url(function (Form $form): string {
-                        $subdomain = $form->user?->resolveAmoAccountForWidget('tilda')?->subdomain;
+                        static $subdomains = [];
+
+                        $user = Auth::user()?->is_root ? $form->user : Auth::user();
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('tilda')?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $form->contact_id
@@ -79,8 +85,8 @@ class FormResource extends Resource
                     ->toggledHiddenByDefault(true),
             ])
             ->defaultSort('created_at', 'desc')
-            ->paginated([20, 40, 'all'])
-            ->poll('15s')
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->filters([])
             ->actions([])
             ->bulkActions([
