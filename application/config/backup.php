@@ -254,33 +254,33 @@ return [
             /*
              * The number of days for which backups must be kept.
              */
-            'keep_all_backups_for_days' => 7,
+            'keep_all_backups_for_days' => (int)env('BACKUP_KEEP_ALL_DAYS', 2),
 
             /*
              * The number of days for which daily backups must be kept.
              */
-            'keep_daily_backups_for_days' => 16,
+            'keep_daily_backups_for_days' => (int)env('BACKUP_KEEP_DAILY_DAYS', 7),
 
             /*
              * The number of weeks for which one weekly backup must be kept.
              */
-            'keep_weekly_backups_for_weeks' => 8,
+            'keep_weekly_backups_for_weeks' => (int)env('BACKUP_KEEP_WEEKLY_WEEKS', 4),
 
             /*
              * The number of months for which one monthly backup must be kept.
              */
-            'keep_monthly_backups_for_months' => 4,
+            'keep_monthly_backups_for_months' => (int)env('BACKUP_KEEP_MONTHLY_MONTHS', 2),
 
             /*
              * The number of years for which one yearly backup must be kept.
              */
-            'keep_yearly_backups_for_years' => 2,
+            'keep_yearly_backups_for_years' => (int)env('BACKUP_KEEP_YEARLY_YEARS', 0),
 
             /*
              * After cleaning up the backups remove the oldest backup until
              * this amount of megabytes has been reached.
              */
-            'delete_oldest_backups_when_using_more_megabytes_than' => 5000,
+            'delete_oldest_backups_when_using_more_megabytes_than' => (int)env('BACKUP_MAX_STORAGE_MB', 1024),
         ],
 
         /**

@@ -14,8 +14,6 @@ class Kernel extends ConsoleKernel
     {
         $schedule->useCache(config('cache.schedule_store', config('cache.default', 'file')));
 
-        $dbConnection = config('database.default', 'pgsql');
-
         $schedule->command('app:monitor-heartbeat')
             ->everyMinute();
 
@@ -72,8 +70,9 @@ class Kernel extends ConsoleKernel
             ->dailyAt(env('WORKFLOWS_DB_MAINTENANCE_TIME', '03:45'))
             ->withoutOverlapping();
 
-        $schedule->command('backup:run --db-name=' . $dbConnection . ' --only-db')
-            ->dailyAt('00:00');
+        $schedule->command('app:backup-db')
+            ->dailyAt(env('BACKUP_DB_TIME', '00:00'))
+            ->withoutOverlapping();
 
     }
 
