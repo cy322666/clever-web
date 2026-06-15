@@ -171,9 +171,31 @@ class ListYClients extends ListRecords
                     ->label('Выгружен')
                     ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
 
-                BooleanColumn::make('mapped_fields_updated')
+                TextColumn::make('mapped_fields_update_status')
                     ->label('Поля обновлены')
-                    ->state(fn(Record $record): bool => $record->mapped_fields_updated_at !== null)
+                    ->state(function (Record $record): string {
+                        if ($record->mapped_fields_updated_at !== null) {
+                            return 'Обновлено';
+                        }
+
+                        if (filled($record->mapped_fields_update_error)) {
+                            return 'Ошибка';
+                        }
+
+                        return 'Не запускалось';
+                    })
+                    ->badge()
+                    ->color(function (Record $record): string {
+                        if ($record->mapped_fields_updated_at !== null) {
+                            return 'success';
+                        }
+
+                        if (filled($record->mapped_fields_update_error)) {
+                            return 'danger';
+                        }
+
+                        return 'gray';
+                    })
                     ->toggleable(),
 
                 TextColumn::make('mapped_fields_updated_at')
