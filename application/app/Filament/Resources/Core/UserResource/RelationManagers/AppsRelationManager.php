@@ -79,12 +79,6 @@ SQL,
                     })
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('risk')
-                    ->label('Риск')
-                    ->badge()
-                    ->state(fn(App $app): string => self::riskLabel($app))
-                    ->color(fn(App $app): string => self::riskColor($app)),
-
                 Tables\Columns\TextColumn::make('expires_tariff_at')
                     ->label('Истекает')
                     ->state(fn(App $app): string => self::expiresLabel($app))
@@ -272,26 +266,6 @@ SQL,
         }
 
         return (int)$app->status;
-    }
-
-    private static function riskLabel(App $app): string
-    {
-        return match (self::effectiveStatus($app)) {
-            App::STATE_EXPIRES => 'Критичный',
-            App::STATE_INACTIVE => 'Средний',
-            App::STATE_ACTIVE => self::isExpiringSoon($app) ? 'Высокий' : 'Низкий',
-            default => 'Низкий',
-        };
-    }
-
-    private static function riskColor(App $app): string
-    {
-        return match (self::riskLabel($app)) {
-            'Критичный' => 'danger',
-            'Высокий' => 'warning',
-            'Средний' => 'info',
-            default => 'success',
-        };
     }
 
     private static function expiresLabel(App $app): string
