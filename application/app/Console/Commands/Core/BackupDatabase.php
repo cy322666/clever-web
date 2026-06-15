@@ -15,7 +15,7 @@ class BackupDatabase extends Command
         $connection = (string)($this->option('connection') ?: config('database.default', 'pgsql'));
 
         $backupExitCode = $this->call('backup:run', [
-            '--db-name' => $connection,
+            '--db-name' => [$connection],
             '--only-db' => true,
         ]);
 
