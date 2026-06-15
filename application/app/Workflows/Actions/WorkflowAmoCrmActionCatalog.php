@@ -427,9 +427,10 @@ abstract class WorkflowAmoCrmAction
     protected static function amoFieldOptions(string $entity): array
     {
         $userId = Auth::id();
+        $systemFields = static::amoSystemFieldOptions($entity);
 
         if (!$userId) {
-            return [];
+            return $systemFields;
         }
 
         $entityType = static::amoFieldEntityType($entity);
@@ -441,7 +442,7 @@ abstract class WorkflowAmoCrmAction
             $query->where('entity_type', $entityType);
         }
 
-        return $query
+        $customFields = $query
             ->whereNotNull('field_id')
             ->orderBy('sort')
             ->orderBy('name')
@@ -455,6 +456,42 @@ abstract class WorkflowAmoCrmAction
                 return [(string)$field->field_id => implode(' ', $labelParts)];
             })
             ->all();
+
+        return $systemFields + $customFields;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected static function amoSystemFieldOptions(string $entity): array
+    {
+        return match ($entity) {
+            'lead' => [
+                'system:name' => 'Название сделки',
+                'system:price' => 'Бюджет',
+                'system:responsible_user_id' => 'Ответственный',
+                'system:pipeline_id' => 'Воронка',
+                'system:status_id' => 'Статус',
+                'system:closed_at' => 'Дата закрытия',
+                'system:loss_reason_id' => 'Причина отказа',
+            ],
+            'contact' => [
+                'system:name' => 'Имя контакта',
+                'system:first_name' => 'Имя',
+                'system:last_name' => 'Фамилия',
+                'system:responsible_user_id' => 'Ответственный',
+            ],
+            'company' => [
+                'system:name' => 'Название компании',
+                'system:responsible_user_id' => 'Ответственный',
+            ],
+            'customer' => [
+                'system:name' => 'Название покупателя',
+                'system:next_price' => 'Ожидаемая сумма',
+                'system:responsible_user_id' => 'Ответственный',
+            ],
+            default => [],
+        };
     }
 
     protected static function amoFieldEntityType(string $entity): ?string

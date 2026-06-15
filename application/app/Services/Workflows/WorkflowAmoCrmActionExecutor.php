@@ -211,11 +211,15 @@ class WorkflowAmoCrmActionExecutor
             return $this->failure('Не найдена текущая сущность amoCRM: ' . $entity);
         }
 
-        $payload = [
-            'custom_fields_values' => $this->customFieldsPayload($account, $entity, $config['fields'] ?? []),
-        ];
+        $fields = $config['fields'] ?? [];
+        $payload = $this->systemFieldsPayload($entity, $fields);
+        $customFields = $this->customFieldsPayload($account, $entity, $fields);
 
-        if ($payload['custom_fields_values'] === []) {
+        if ($customFields !== []) {
+            $payload['custom_fields_values'] = $customFields;
+        }
+
+        if ($payload === []) {
             return $this->failure('Не указаны поля для изменения.');
         }
 
@@ -699,7 +703,7 @@ class WorkflowAmoCrmActionExecutor
         foreach ((array)$fields as $field) {
             $fieldId = (string)($field['field'] ?? '');
 
-            if ($fieldId === '') {
+            if ($fieldId === '' || str_starts_with($fieldId, 'system:')) {
                 continue;
             }
 
@@ -721,6 +725,71 @@ class WorkflowAmoCrmActionExecutor
         }
 
         return $payload;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>>|mixed $fields
+     * @return array<string, mixed>
+     */
+    private function systemFieldsPayload(string $entity, mixed $fields): array
+    {
+        $allowed = $this->systemFieldsForEntity($entity);
+        $payload = [];
+
+        foreach ((array)$fields as $field) {
+            $fieldKey = (string)($field['field'] ?? '');
+
+            if (!str_starts_with($fieldKey, 'system:')) {
+                continue;
+            }
+
+            $fieldName = substr($fieldKey, 7);
+
+            if (!in_array($fieldName, $allowed, true)) {
+                continue;
+            }
+
+            $payload[$fieldName] = $this->systemFieldValue($fieldName, $field['value'] ?? null);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function systemFieldsForEntity(string $entity): array
+    {
+        return match ($entity) {
+            'lead' => ['name', 'price', 'responsible_user_id', 'pipeline_id', 'status_id', 'closed_at', 'loss_reason_id'],
+            'contact' => ['name', 'first_name', 'last_name', 'responsible_user_id'],
+            'company' => ['name', 'responsible_user_id'],
+            'customer' => ['name', 'next_price', 'responsible_user_id'],
+            default => [],
+        };
+    }
+
+    private function systemFieldValue(string $fieldName, mixed $value): mixed
+    {
+        if ($fieldName === 'closed_at' && !is_numeric($value)) {
+            $timestamp = strtotime((string)$value);
+
+            return $timestamp !== false ? $timestamp : 0;
+        }
+
+        if (in_array($fieldName, [
+            'price',
+            'next_price',
+            'responsible_user_id',
+            'pipeline_id',
+            'status_id',
+            'closed_at',
+            'loss_reason_id',
+        ], true)) {
+            return (int)$value;
+        }
+
+        return $value;
     }
 
     /**
