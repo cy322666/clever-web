@@ -71,25 +71,16 @@ class Status extends Model
     {
         $pipelineArrays = [];
 
-        $pipelines = Status::getPipelines()
+        $statuses = Status::getWithoutUnsorted()
             ->where('active', true)
+            ->orderBy('pipeline_name')
+            ->orderBy('id')
             ->get();
 
-        foreach ($pipelines as $pipeline) {
-
-            $statuses = Status::getWithoutUnsorted()
-                ->where('active', true)
-                ->where('pipeline_id', $pipeline->pipeline_id)
-                ->get()
-                ->sortBy('id')
-                ->pluck('name', 'status_id')
-                ->toArray();
-
-            foreach ($statuses as $statusId => $statusName) {
-
-                $pipelineArrays[$pipeline->pipeline_name][$pipeline->pipeline_id.'.'.$statusId] = $statusName;
-            }
+        foreach ($statuses as $status) {
+            $pipelineArrays[$status->pipeline_name][$status->pipeline_id.'.'.$status->status_id] = $status->name;
         }
+
         return $pipelineArrays;
     }
 

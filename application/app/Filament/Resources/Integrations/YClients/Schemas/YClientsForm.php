@@ -24,6 +24,12 @@ class YClientsForm
 {
     public static function configure(Schema $schema): Schema
     {
+        $pipelineOptions = Status::getPipelines()->pluck('pipeline_name', 'pipeline_id');
+        $triggerStatusOptions = Status::getTriggerStatuses();
+        $leadFieldOptions = Field::getLeadSelectFields();
+        $contactFieldOptions = Field::getContactSelectFields();
+        $ycFieldOptions = Setting::YCfieldsSelect();
+
         return $schema
             ->components([
                 Section::make('')
@@ -62,7 +68,7 @@ class YClientsForm
 
                                 Select::make('pipelines')
                                     ->label('Воронки')
-                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'pipeline_id'))
+                                    ->options($pipelineOptions)
                                     ->multiple()
                                     ->helperText(
                                         'Выберите воронки, которые будут использоваться для синхронизации с amoCRM'
@@ -71,27 +77,27 @@ class YClientsForm
 
                                 Select::make('status_id_cancel')
                                     ->label('Этап клиент не пришел')
-                                    ->options(Status::getTriggerStatuses())
+                                    ->options($triggerStatusOptions)
                                     ->searchable(),
 
                                 Select::make('status_id_wait')
                                     ->label('Этап клиент записан')
-                                    ->options(Status::getTriggerStatuses())
+                                    ->options($triggerStatusOptions)
                                     ->searchable(),
 
                                 Select::make('status_id_came')
                                     ->label('Этап клиент пришел')
-                                    ->options(Status::getTriggerStatuses())
+                                    ->options($triggerStatusOptions)
                                     ->searchable(),
 
                                 Select::make('status_id_confirm')
                                     ->label('Этап клиент подтвердил')
-                                    ->options(Status::getTriggerStatuses())
+                                    ->options($triggerStatusOptions)
                                     ->searchable(),
 
                                 Select::make('status_id_delete')
                                     ->label('Этап запись удалена')
-                                    ->options(Status::getTriggerStatuses())
+                                    ->options($triggerStatusOptions)
                                     ->searchable(),
 
                     //TODO нужно ли вообще? при подключении выбираешь же филиалы
@@ -122,7 +128,7 @@ class YClientsForm
                                             ->schema([
                                                 Repeater::make('fields_lead')
                                                     ->hiddenLabel()
-                                                    ->schema(self::mappingFields(Field::getLeadSelectFields()))
+                                                    ->schema(self::mappingFields($leadFieldOptions, $ycFieldOptions))
                                                     ->columns(2)
                                                     ->defaultItems(0)
                                                     ->reorderable(false)
@@ -135,7 +141,7 @@ class YClientsForm
                                             ->schema([
                                                 Repeater::make('fields_contact')
                                                     ->hiddenLabel()
-                                                    ->schema(self::mappingFields(Field::getContactSelectFields()))
+                                                    ->schema(self::mappingFields($contactFieldOptions, $ycFieldOptions))
                                                     ->columns(2)
                                                     ->defaultItems(0)
                                                     ->reorderable(false)
@@ -172,13 +178,13 @@ class YClientsForm
             ])->columns(3);
     }
 
-    private static function mappingFields($amoFields): array
+    private static function mappingFields($amoFields, array $ycFields): array
     {
         return [
             Select::make('field_yc')
                 ->label('YClients')
                 ->searchable()
-                ->options(Setting::YCfieldsSelect()),
+                ->options($ycFields),
 
             Select::make('field_amo')
                 ->label('amoCRM')

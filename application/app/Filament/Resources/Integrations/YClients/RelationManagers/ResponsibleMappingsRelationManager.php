@@ -26,6 +26,12 @@ class ResponsibleMappingsRelationManager extends RelationManager
 
     protected static ?string $title = 'Соответствие ответственных amoCRM и пользователей YClients';
 
+    private ?Collection $amoStaffOptionsCache = null;
+
+    private ?Collection $yclientsUsersCache = null;
+
+    private ?Collection $reservedYclientsUserKeysCache = null;
+
     public function mount(): void
     {
         parent::mount();
@@ -87,10 +93,9 @@ class ResponsibleMappingsRelationManager extends RelationManager
             ->where('setting_id', $this->getOwnerRecord()->id)
             ->findOrFail($mappingId);
 
-        $reservedKeys = $mapping->reservedUserKeysByOtherMappings();
-        $allowedKeys = YClientsUser::query()
-            ->where('setting_id', $this->getOwnerRecord()->id)
-            ->get()
+        $currentKeys = collect($mapping->yc_user_keys ?? []);
+        $reservedKeys = $this->reservedYclientsUserKeys()->diff($currentKeys);
+        $allowedKeys = $this->yclientsUsers()
             ->map(fn(YClientsUser $user): string => $user->key())
             ->diff($reservedKeys);
 
@@ -102,6 +107,8 @@ class ResponsibleMappingsRelationManager extends RelationManager
                 ->values()
                 ->all(),
         ]);
+
+        $this->reservedYclientsUserKeysCache = null;
     }
 
     public function setDefaultResponsibleUser(int|string|null $amoUserId): void
@@ -188,6 +195,7 @@ class ResponsibleMappingsRelationManager extends RelationManager
         }
 
         $amoCreated = $this->ensureAmoMappingRows();
+        $this->resetCachedOptions();
 
         $notification = Notification::make()
             ->title('Пользователи обновлены')
@@ -207,7 +215,7 @@ class ResponsibleMappingsRelationManager extends RelationManager
 
     private function amoStaffOptions(): Collection
     {
-        return Staff::query()
+        return $this->amoStaffOptionsCache ??= Staff::query()
             ->where('user_id', $this->getOwnerRecord()->user_id)
             ->where('active', true)
             ->orderBy('name')
@@ -241,13 +249,9 @@ class ResponsibleMappingsRelationManager extends RelationManager
     private function yclientsUserOptions(ResponsibleMapping $mapping): array
     {
         $currentKeys = collect($mapping->yc_user_keys ?? []);
-        $reservedKeys = collect($mapping->reservedUserKeysByOtherMappings());
+        $reservedKeys = $this->reservedYclientsUserKeys();
 
-        return YClientsUser::query()
-            ->where('setting_id', $this->getOwnerRecord()->id)
-            ->orderBy('company_name')
-            ->orderBy('yc_user_name')
-            ->get()
+        return $this->yclientsUsers()
             ->filter(fn(YClientsUser $user): bool => $currentKeys->contains($user->key())
                 || !$reservedKeys->contains($user->key()))
             ->groupBy(fn(YClientsUser $user): string => $user->company_name ?: $user->company_id)
@@ -257,6 +261,32 @@ class ResponsibleMappingsRelationManager extends RelationManager
                 ])
                 ->all())
             ->all();
+    }
+
+    private function yclientsUsers(): Collection
+    {
+        return $this->yclientsUsersCache ??= YClientsUser::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->orderBy('company_name')
+            ->orderBy('yc_user_name')
+            ->get();
+    }
+
+    private function reservedYclientsUserKeys(): Collection
+    {
+        return $this->reservedYclientsUserKeysCache ??= ResponsibleMapping::query()
+            ->where('setting_id', $this->getOwnerRecord()->id)
+            ->get(['yc_user_keys'])
+            ->flatMap(fn(ResponsibleMapping $mapping): array => $mapping->yc_user_keys ?? [])
+            ->unique()
+            ->values();
+    }
+
+    private function resetCachedOptions(): void
+    {
+        $this->amoStaffOptionsCache = null;
+        $this->yclientsUsersCache = null;
+        $this->reservedYclientsUserKeysCache = null;
     }
 
 }
