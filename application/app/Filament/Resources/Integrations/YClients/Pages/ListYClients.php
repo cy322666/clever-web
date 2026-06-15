@@ -218,7 +218,8 @@ class ListYClients extends ListRecords
             ])
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
-            ->paginated([50, 100, 'all'])
+            ->paginated([50, 100])
+            ->defaultPaginationPageOption(50)
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
