@@ -59,18 +59,8 @@ class YClientsForm
 //                                    ->required(),
                             ]),
 
-                        Fieldset::make('Соотношение этапов amoCRM')
+                        Fieldset::make('Ответственные')
                             ->schema([
-
-                                Select::make('pipelines')
-                                    ->label('Воронки')
-                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'pipeline_id'))
-                                    ->multiple()
-                                    ->helperText(
-                                        'Выберите воронки, которые будут использоваться для синхронизации с amoCRM'
-                                    )
-                                    ->searchable(),
-
                                 Select::make('default_responsible_user_id')
                                     ->label('Ответственный по умолчанию')
                                     ->helperText('Используется, если для создателя записи YClients не найдено соответствие.')
@@ -82,6 +72,19 @@ class YClientsForm
                                     ->searchable()
                                     ->preload()
                                     ->native(false),
+                            ]),
+
+                        Fieldset::make('Соотношение этапов amoCRM')
+                            ->schema([
+
+                                Select::make('pipelines')
+                                    ->label('Воронки')
+                                    ->options(Status::getPipelines()->pluck('pipeline_name', 'pipeline_id'))
+                                    ->multiple()
+                                    ->helperText(
+                                        'Выберите воронки, которые будут использоваться для синхронизации с amoCRM'
+                                    )
+                                    ->searchable(),
 
                                 Select::make('status_id_cancel')
                                     ->label('Этап клиент не пришел')
