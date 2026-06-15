@@ -35,7 +35,6 @@ class WidgetShow extends TableWidget
                         TextColumn::make('title')
                             ->weight(FontWeight::Bold)
                             ->size(TextSize::Medium)
-                            ->tooltip(fn(?Widget $record) => $record?->title)
                             ->formatStateUsing(
                                 fn(string $state, Widget $record) => $record->is_featured ? $state . ' ★' : $state
                             ),

@@ -7,6 +7,7 @@ use App\Services\Workflows\WorkflowGenericWebhookService;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\View;
 use Illuminate\Support\HtmlString;
 use Leek\FilamentWorkflows\Triggers\Contracts\BaseTrigger;
 
@@ -69,6 +70,26 @@ class GenericWebhookTrigger implements BaseTrigger
                     'Используйте переменные вида <code>{{payload.key}}</code>, <code>{{query.key}}</code>, '
                     . '<code>{{headers.header_name}}</code>, <code>{{method}}</code>, <code>{{url}}</code>.'
                 )),
+
+            View::make('filament.workflow-builder.generic-webhook-preview')
+                ->viewData(function (mixed $livewire = null): array {
+                    $workflow = method_exists($livewire, 'getRecord') ? $livewire->getRecord() : null;
+
+                    if (!$workflow instanceof Workflow || !$workflow->exists) {
+                        return [
+                            'workflow' => null,
+                            'preview' => null,
+                            'url' => null,
+                        ];
+                    }
+
+                    return [
+                        'workflow' => $workflow,
+                        'preview' => app(WorkflowGenericWebhookService::class)->latestPreview($workflow),
+                        'url' => app(WorkflowGenericWebhookService::class)->callbackUrl($workflow),
+                    ];
+                })
+                ->poll('3s'),
         ];
     }
 

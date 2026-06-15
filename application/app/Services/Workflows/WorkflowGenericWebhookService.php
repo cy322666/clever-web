@@ -7,6 +7,7 @@ use App\Workflows\Context\WorkflowContext;
 use App\Workflows\Triggers\GenericWebhookTrigger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
@@ -14,6 +15,8 @@ use Leek\FilamentWorkflows\Enums\TriggerType;
 
 class WorkflowGenericWebhookService
 {
+    private const PREVIEW_TTL_SECONDS = 3600;
+
     public function __construct(
         private readonly WorkflowExecutor $executor,
     ) {
@@ -38,11 +41,53 @@ class WorkflowGenericWebhookService
             && data_get($workflow->definition, 'trigger.type') === GenericWebhookTrigger::type();
     }
 
+    public function canCapture(Workflow $workflow): bool
+    {
+        return data_get($workflow->definition, 'trigger.type') === GenericWebhookTrigger::type();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function latestPreview(Workflow $workflow): ?array
+    {
+        $preview = Cache::get($this->previewCacheKey($workflow));
+
+        return is_array($preview) ? $preview : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function captureIncomingWebhook(Workflow $workflow, Request $request): array
+    {
+        $triggerData = $this->triggerData($workflow, $request);
+        $preview = [
+            'id' => (string)Str::ulid(),
+            'workflow_id' => (int)$workflow->id,
+            'received_at' => $triggerData['received_at'],
+            'method' => $triggerData['method'],
+            'url' => $triggerData['url'],
+            'path' => $triggerData['path'],
+            'ip' => $triggerData['ip'],
+            'payload' => $triggerData['payload'],
+            'query' => $triggerData['query'],
+            'headers' => $this->maskSensitiveHeaders((array)$triggerData['headers']),
+            'raw_body' => Str::limit((string)$triggerData['raw_body'], 200_000, ''),
+            'variables' => $this->variablesFromTriggerData($triggerData),
+        ];
+
+        Cache::put($this->previewCacheKey($workflow), $preview, now()->addSeconds(self::PREVIEW_TTL_SECONDS));
+
+        return $preview;
+    }
+
     /**
      * @return array{run_id: int|null, run_ulid: string|null}
      */
     public function handleIncomingWebhook(Workflow $workflow, Request $request): array
     {
+        $preview = $this->captureIncomingWebhook($workflow, $request);
         $triggerData = $this->triggerData($workflow, $request);
         $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
 
@@ -66,6 +111,7 @@ class WorkflowGenericWebhookService
         return [
             'run_id' => (int)$run->id,
             'run_ulid' => $run->ulid,
+            'preview_id' => $preview['id'],
         ];
     }
 
@@ -113,9 +159,17 @@ class WorkflowGenericWebhookService
      */
     private function payload(Request $request): array
     {
-        $payload = $request->all();
+        if ($request->isJson()) {
+            $payload = $request->json()->all();
 
-        if (is_array($payload) && $payload !== []) {
+            if (is_array($payload)) {
+                return $payload;
+            }
+        }
+
+        $payload = $request->request->all();
+
+        if ($payload !== []) {
             return $payload;
         }
 
@@ -139,6 +193,74 @@ class WorkflowGenericWebhookService
         }
 
         return $headers;
+    }
+
+    /**
+     * @param array<string, mixed> $headers
+     * @return array<string, mixed>
+     */
+    private function maskSensitiveHeaders(array $headers): array
+    {
+        foreach (['authorization', 'cookie', 'set_cookie', 'x_api_key', 'x_auth_token'] as $key) {
+            if (array_key_exists($key, $headers)) {
+                $headers[$key] = '***';
+            }
+        }
+
+        return $headers;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<int, array{mask: string, path: string, value: string}>
+     */
+    private function variablesFromTriggerData(array $data): array
+    {
+        $paths = [
+            'method' => $data['method'] ?? null,
+            'url' => $data['url'] ?? null,
+            'path' => $data['path'] ?? null,
+            'ip' => $data['ip'] ?? null,
+            'received_at' => $data['received_at'] ?? null,
+        ];
+
+        foreach (['payload', 'body', 'query', 'headers'] as $root) {
+            $this->flattenVariables((array)($data[$root] ?? []), $root, $paths);
+        }
+
+        return collect($paths)
+            ->filter(fn(mixed $value, string $path): bool => $path !== '' && !is_array($value) && $value !== null && $value !== '')
+            ->map(fn(mixed $value, string $path): array => [
+                'mask' => '{{' . $path . '}}',
+                'path' => $path,
+                'value' => Str::limit((string)$value, 120),
+            ])
+            ->values()
+            ->take(120)
+            ->all();
+    }
+
+    /**
+     * @param array<string|int, mixed> $value
+     * @param array<string, mixed> $paths
+     */
+    private function flattenVariables(array $value, string $prefix, array &$paths): void
+    {
+        foreach ($value as $key => $item) {
+            $path = $prefix . '.' . $key;
+
+            if (is_array($item)) {
+                $this->flattenVariables($item, $path, $paths);
+                continue;
+            }
+
+            $paths[$path] = $item;
+        }
+    }
+
+    private function previewCacheKey(Workflow $workflow): string
+    {
+        return 'workflow-generic-webhook-preview:' . $workflow->getKey();
     }
 
     private function signature(Workflow $workflow): string

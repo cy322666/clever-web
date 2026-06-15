@@ -34,7 +34,6 @@ class Market extends TableWidget
                             ->label('Название')
                             ->weight(FontWeight::Bold)
                             ->size(TextSize::Medium)
-                            ->tooltip(fn(?App $app) => $app ? App::getTooltipText($app->name) : null)
                             ->limit(28)
                             ->state(fn(?App $app) => self::safeRecordTitle($app)),
 
