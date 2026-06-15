@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
 use Leek\FilamentWorkflows\Enums\RunStatus;
 use Leek\FilamentWorkflows\Enums\StepStatus;
@@ -24,6 +25,8 @@ class FailStuckWorkflowRuns extends Command
         {--dry-run : Только показать, ничего не менять}';
 
     protected $description = 'Закрывает зависшие выполнения процессов, которые остались активными после смерти воркера.';
+
+    private bool $queueLookupWarningShown = false;
 
     public function handle(): int
     {
@@ -48,10 +51,27 @@ class FailStuckWorkflowRuns extends Command
         }
 
         $failed = 0;
+        $skippedQueued = 0;
+        $failedCandidates = collect();
 
         foreach ($candidates as $candidate) {
             $reason = (string)$candidate->stuck_reason;
             $message = $this->failureMessage($reason, (int)$candidate->stuck_after_seconds);
+
+            if ($this->hasQueuedWorkflowJob((int)$candidate->id)) {
+                $skippedQueued++;
+
+                if ($dryRun) {
+                    $this->line(sprintf(
+                        '#%d workflow=%d status=%s skipped=queued_job_exists',
+                        $candidate->id,
+                        $candidate->workflow_id,
+                        $candidate->status,
+                    ));
+                }
+
+                continue;
+            }
 
             if ($dryRun) {
                 $this->line(sprintf(
@@ -68,18 +88,25 @@ class FailStuckWorkflowRuns extends Command
 
             if ($this->failRun((int)$candidate->id, $message, $reason)) {
                 $failed++;
+                $failedCandidates->push($candidate);
             }
         }
 
         if (!$dryRun && $failed > 0) {
-            $this->sendAlert($failed, $candidates);
+            $this->sendAlert($failed, $failedCandidates);
         }
+
+        $stuckCount = max(0, $candidates->count() - $skippedQueued);
 
         $this->info(sprintf(
             '%s: %d.',
             $dryRun ? 'Найдено зависших выполнений' : 'Закрыто зависших выполнений',
-            $dryRun ? $candidates->count() : $failed,
+            $dryRun ? $stuckCount : $failed,
         ));
+
+        if ($skippedQueued > 0) {
+            $this->info("Пропущено выполнений с живой задачей в очереди: {$skippedQueued}.");
+        }
 
         return self::SUCCESS;
     }
@@ -156,6 +183,78 @@ class FailStuckWorkflowRuns extends Command
             ->orderBy('updated_at')
             ->limit($limit)
             ->get();
+    }
+
+    private function hasQueuedWorkflowJob(int $runId): bool
+    {
+        $queueConnection = $this->workflowQueueConnection();
+
+        if ((string)config("queue.connections.{$queueConnection}.driver") !== 'redis') {
+            return false;
+        }
+
+        $queue = config('filament-workflows.queue.name', 'workflows');
+
+        if (!is_string($queue) || $queue === '') {
+            $queue = 'workflows';
+        }
+
+        $needles = [
+            "workflow_run:{$runId}",
+            'workflowRunId";i:' . $runId,
+            'workflowRunId";s:',
+        ];
+
+        try {
+            $connectionName = config("queue.connections.{$queueConnection}.connection", 'default');
+            $redis = Redis::connection(is_string($connectionName) ? $connectionName : 'default');
+
+            foreach ($this->workflowQueueKeys($queue) as $key => $type) {
+                $payloads = $type === 'zset'
+                    ? $redis->zrange($key, 0, -1)
+                    : $redis->lrange($key, 0, -1);
+
+                foreach ((array)$payloads as $payload) {
+                    if (!is_string($payload)) {
+                        continue;
+                    }
+
+                    if (str_contains($payload, $needles[0]) || str_contains($payload, $needles[1])) {
+                        return true;
+                    }
+
+                    if (str_contains($payload, $needles[2]) && str_contains($payload, ':' . strlen((string)$runId) . ':"' . $runId . '";')) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable $exception) {
+            if (!$this->queueLookupWarningShown) {
+                $this->warn('Не удалось проверить Redis-очередь workflows: ' . $exception->getMessage());
+                $this->queueLookupWarningShown = true;
+            }
+        }
+
+        return false;
+    }
+
+    private function workflowQueueConnection(): string
+    {
+        $connection = config('filament-workflows.queue.connection') ?: config('queue.default', 'redis');
+
+        return is_string($connection) && $connection !== '' ? $connection : 'redis';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function workflowQueueKeys(string $queue): array
+    {
+        return [
+            "queues:{$queue}" => 'list',
+            "queues:{$queue}:delayed" => 'zset',
+            "queues:{$queue}:reserved" => 'zset',
+        ];
     }
 
     private function failRun(int $runId, string $message, string $reason): bool
