@@ -216,7 +216,7 @@ class ListYClients extends ListRecords
             ])
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
-            ->paginated([20, 40, 'all'])
+            ->paginated([50, 100, 'all'])
             ->poll('5s')
             ->filters([
                 SelectFilter::make('status')
