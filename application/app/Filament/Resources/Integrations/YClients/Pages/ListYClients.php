@@ -31,7 +31,9 @@ class ListYClients extends ListRecords
 
     protected function getTableQuery(): ?Builder
     {
-        return Record::query()->where('user_id', Auth::user()->id);
+        return Record::query()
+            ->with(['account', 'client'])
+            ->where('user_id', Auth::user()->id);
     }
 
     protected function getHeaderActions(): array
@@ -217,7 +219,6 @@ class ListYClients extends ListRecords
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->paginated([50, 100, 'all'])
-            ->poll('5s')
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
