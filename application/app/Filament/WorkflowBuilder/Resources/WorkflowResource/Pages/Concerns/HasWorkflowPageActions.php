@@ -220,7 +220,7 @@ trait HasWorkflowPageActions
     public function refreshWorkflowReference(): void
     {
         try {
-            $account = Auth::user()?->resolveAmoAccountForWidget(null, false);
+            $account = Auth::user()?->resolveAmoAccountForWidget('workflows', false);
 
             if (!$account) {
                 Notification::make()
@@ -231,20 +231,13 @@ trait HasWorkflowPageActions
                 return;
             }
 
-            $amoApi = new Client($account);
-            $amoApi->init();
+            new Client($account);
 
-            if (!$amoApi->auth) {
-                Notification::make()
-                    ->title('Ошибка авторизации amoCRM')
-                    ->body('Подключите amoCRM заново и повторите обновление справочника.')
-                    ->danger()
-                    ->send();
+            $exitCode = Artisan::call('app:sync', ['account' => $account->id]);
 
-                return;
+            if ($exitCode !== 0) {
+                throw new \RuntimeException(trim(Artisan::output()) ?: 'Команда синхронизации завершилась с ошибкой.');
             }
-
-            Artisan::call('app:sync', ['account' => $account->id]);
 
             Notification::make()
                 ->title('Справочник обновлен')
@@ -254,12 +247,14 @@ trait HasWorkflowPageActions
         } catch (Throwable $e) {
             Log::error('Workflow reference refresh failed', [
                 'user_id' => Auth::id(),
+                'account_id' => $account->id ?? null,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             Notification::make()
                 ->title('Не удалось обновить справочник')
-                ->body('Попробуйте еще раз или проверьте подключение amoCRM.')
+                ->body($e->getMessage())
                 ->danger()
                 ->send();
         }

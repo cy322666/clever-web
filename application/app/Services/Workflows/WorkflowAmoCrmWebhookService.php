@@ -386,9 +386,14 @@ class WorkflowAmoCrmWebhookService
             ->where('user_id', $userId)
             ->where('active', true)
             ->where(function ($query): void {
-                $query->where('widget', Account::DEFAULT_WIDGET)
+                $query->where('widget', 'workflows')
+                    ->orWhere('widget', Account::DEFAULT_WIDGET)
                     ->orWhereNull('widget');
             })
+            ->orderByRaw("CASE WHEN widget = ? THEN 0 WHEN widget = ? OR widget IS NULL THEN 1 ELSE 2 END", [
+                'workflows',
+                Account::DEFAULT_WIDGET,
+            ])
             ->latest('id')
             ->first();
 

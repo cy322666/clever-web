@@ -48,6 +48,12 @@ class Kernel extends ConsoleKernel
             ->dailyAt('01:30')
             ->withoutOverlapping();
 
+        if ((bool)env('PLATFORM_TELEGRAM_DIGEST_ENABLED', true)) {
+            $schedule->command('platform:telegram-digest --hours=' . (int)env('PLATFORM_TELEGRAM_DIGEST_HOURS', 24))
+                ->dailyAt(env('PLATFORM_TELEGRAM_DIGEST_TIME', '09:00'))
+                ->withoutOverlapping();
+        }
+
         $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 

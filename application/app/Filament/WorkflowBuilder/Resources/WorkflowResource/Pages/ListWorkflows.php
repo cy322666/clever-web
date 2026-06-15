@@ -91,10 +91,12 @@ class ListWorkflows extends BaseListWorkflows
                 ->button()
                 ->color('gray'),
 
-            Action::make('connect_amocrm')
-                ->label('Подключить amoCRM')
-                ->icon('heroicon-o-link')
-                ->color('success')
+            Action::make('workflow_amocrm_connection')
+                ->label(fn(): string => $this->workflowAmoConnectionState()['label'])
+                ->icon(fn(): string => $this->workflowAmoConnectionState()['connected']
+                    ? 'heroicon-o-check-circle'
+                    : 'heroicon-o-link')
+                ->color(fn(): string => $this->workflowAmoConnectionState()['connected'] ? 'gray' : 'success')
                 ->action(function (): void {
                     $user = auth()->user();
 
@@ -130,6 +132,99 @@ class ListWorkflows extends BaseListWorkflows
                     );
                 }),
         ];
+    }
+
+    /**
+     * @return array{connected: bool, label: string}
+     */
+    private function workflowAmoConnectionState(): array
+    {
+        $account = $this->workflowAmoAccount();
+        $connected = $this->workflowAmoAccountIsConnected($account);
+
+        if (!$connected) {
+            return [
+                'connected' => false,
+                'label' => 'Подключить amoCRM',
+            ];
+        }
+
+        $subdomain = trim((string)$account?->subdomain);
+
+        return [
+            'connected' => true,
+            'label' => $subdomain !== '' ? 'amoCRM подключена: ' . $subdomain : 'amoCRM подключена',
+        ];
+    }
+
+    private function workflowAmoAccount(): ?Account
+    {
+        $userIds = $this->workflowAmoAccountOwnerIds();
+
+        if ($userIds === []) {
+            return null;
+        }
+
+        return $this->connectedWorkflowAmoAccountQuery()
+            ->whereIn('user_id', $userIds)
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function workflowAmoAccountOwnerIds(): array
+    {
+        $userIds = [];
+        $authUserId = auth()->id();
+
+        if ($authUserId) {
+            $userIds[] = (int)$authUserId;
+        }
+
+        $workflowModel = WorkflowResource::getModel();
+        $workflowUserIds = $workflowModel::query()
+            ->whereNotNull('user_id')
+            ->latest('id')
+            ->limit(10)
+            ->pluck('user_id')
+            ->filter()
+            ->map(fn(mixed $userId): int => (int)$userId)
+            ->all();
+
+        return array_values(array_unique([
+            ...$userIds,
+            ...$workflowUserIds,
+        ]));
+    }
+
+    private function connectedWorkflowAmoAccountQuery()
+    {
+        return Account::query()
+            ->where('widget', Account::normalizeWidget('workflows'))
+            ->where('active', true)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->where(function ($query): void {
+                $query->where(function ($query): void {
+                    $query->whereNotNull('access_token')
+                        ->where('access_token', '<>', '');
+                })->orWhere(function ($query): void {
+                    $query->whereNotNull('refresh_token')
+                        ->where('refresh_token', '<>', '');
+                });
+            });
+    }
+
+    private function workflowAmoAccountIsConnected(?Account $account = null): bool
+    {
+        $account ??= $this->workflowAmoAccount();
+
+        return $account instanceof Account
+            && (bool)$account->active
+            && filled($account->subdomain)
+            && (filled($account->refresh_token) || filled($account->access_token));
     }
 
     /**

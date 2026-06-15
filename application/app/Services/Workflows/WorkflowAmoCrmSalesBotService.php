@@ -54,7 +54,10 @@ class WorkflowAmoCrmSalesBotService
             ->where('active', true)
             ->whereNotNull('subdomain')
             ->whereNotNull('refresh_token')
-            ->orderByRaw("CASE WHEN widget = ? OR widget IS NULL THEN 0 ELSE 1 END", [Account::DEFAULT_WIDGET])
+            ->orderByRaw("CASE WHEN widget = ? THEN 0 WHEN widget = ? OR widget IS NULL THEN 1 ELSE 2 END", [
+                'workflows',
+                Account::DEFAULT_WIDGET,
+            ])
             ->latest('id')
             ->first();
     }
