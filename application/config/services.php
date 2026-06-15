@@ -44,6 +44,11 @@ return [
                 'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
             ],
+            'workflows' => [
+                'client_id' => env('AMO_WORKFLOWS_CLIENT_ID'),
+                'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),
+                'redirect_uri' => env('AMO_WORKFLOWS_REDIRECT_URI', env('AMO_REDIRECT_URI')),
+            ],
         ],
     ],
     'yandex' => [
