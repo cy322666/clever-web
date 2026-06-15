@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations\YClients\Schemas;
 
 use App\Models\amoCRM\Field;
+use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\YClients\Setting;
 use App\Support\Integrations\PricingView;
@@ -69,6 +70,18 @@ class YClientsForm
                                         'Выберите воронки, которые будут использоваться для синхронизации с amoCRM'
                                     )
                                     ->searchable(),
+
+                                Select::make('default_responsible_user_id')
+                                    ->label('Ответственный по умолчанию')
+                                    ->helperText('Используется, если для создателя записи YClients не найдено соответствие.')
+                                    ->options(fn() => Staff::query()
+                                        ->where('user_id', Auth::id())
+                                        ->where('active', true)
+                                        ->orderBy('name')
+                                        ->pluck('name', 'staff_id'))
+                                    ->searchable()
+                                    ->preload()
+                                    ->native(false),
 
                                 Select::make('status_id_cancel')
                                     ->label('Этап клиент не пришел')

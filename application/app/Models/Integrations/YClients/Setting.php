@@ -46,6 +46,7 @@ class Setting extends Model
         'account_id',
         'fields_contact',
         'fields_lead',
+        'default_responsible_user_id',
     ];
 
     protected $casts = [
@@ -180,9 +181,7 @@ class Setting extends Model
             ->first(fn(ResponsibleMapping $mapping): bool => in_array($ycUserKey, $mapping->yc_user_keys ?? [], true))
             ?->amo_user_id;
 
-        if ($amoUserId <= 0) {
-            return null;
-        }
+        $amoUserId = $amoUserId > 0 ? $amoUserId : (int)$this->default_responsible_user_id;
 
         return Staff::query()
             ->where('user_id', $this->user_id)
