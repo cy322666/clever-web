@@ -10,6 +10,7 @@ use App\Mail\SignUpWidget;
 use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
+use App\Services\Billing\WidgetSubscriptionAccessService;
 use App\Services\Core\PlatformTechnicalMonitor;
 use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\amoCRM\Client;
@@ -234,6 +235,8 @@ class AuthController extends Controller
                 'zone' => $account->zone,
                 'active' => $account->active,
             ]);
+
+            app(WidgetSubscriptionAccessService::class)->ensureTrialForWidget($user, $widget, 7);
 
             try {
                 Artisan::call('app:sync', ['account' => $account->id]);

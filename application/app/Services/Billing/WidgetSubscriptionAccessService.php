@@ -3,11 +3,13 @@
 namespace App\Services\Billing;
 
 use App\Models\App;
+use App\Models\Billing\SubscriptionPlan;
 use App\Models\Billing\WidgetSubscription;
 use App\Models\User;
 use App\Services\Core\PlatformTechnicalMonitor;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -98,6 +100,67 @@ class WidgetSubscriptionAccessService
             ->reject(fn(array $widget): bool => (bool)$widget['active'])
             ->values()
             ->all();
+    }
+
+    public function ensureTrialForWidget(User|int|null $user, string $widget, int $days = 7): ?WidgetSubscription
+    {
+        $userId = $this->resolveUserId($user);
+        $widget = trim($widget);
+        $days = max(1, $days);
+
+        if ($userId === null || $widget === '') {
+            return null;
+        }
+
+        $endsAt = now()->addDays($days)->toDateString();
+
+        if (!$this->manualSubscriptionsAvailable()) {
+            $app = $this->legacyApp($userId, $widget);
+
+            if ($app && (int)$app->status === App::STATE_CREATED) {
+                $app->status = App::STATE_ACTIVE;
+                $app->expires_tariff_at = $endsAt;
+                $app->installed_at = $app->installed_at ?: now();
+                $app->save();
+            }
+
+            return null;
+        }
+
+        return DB::transaction(function () use ($userId, $widget, $endsAt): ?WidgetSubscription {
+            $existing = $this->latestManualSubscription($userId, $widget);
+
+            if ($existing instanceof WidgetSubscription) {
+                if ($existing->isCurrentlyUsable()) {
+                    $this->syncSubscriptionToLegacyApp($existing);
+                }
+
+                return $existing;
+            }
+
+            $app = $this->legacyApp($userId, $widget);
+            $plan = SubscriptionPlan::query()
+                ->where('widget', $widget)
+                ->active()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->first();
+
+            $subscription = WidgetSubscription::query()->create([
+                'user_id' => $userId,
+                'app_id' => $app?->id,
+                'subscription_plan_id' => $plan?->id,
+                'widget' => $widget,
+                'status' => WidgetSubscription::STATUS_TRIAL,
+                'starts_at' => now()->toDateString(),
+                'ends_at' => $endsAt,
+                'notes' => 'Автоматический тестовый период при подключении amoCRM.',
+            ]);
+
+            $this->syncSubscriptionToLegacyApp($subscription);
+
+            return $subscription;
+        });
     }
 
     public function syncSubscriptionToLegacyApp(WidgetSubscription $subscription): void
