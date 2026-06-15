@@ -6,11 +6,16 @@ use App\Services\Core\AlertService;
 use App\Services\Core\MonitoringCache;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class QueueHealthCheck extends Command
 {
-    protected $signature = 'app:monitor-queue-health {--stuck-after=} {--sample=5}';
+    protected $signature = 'app:monitor-queue-health
+        {--stuck-after= : Порог для reserved jobs в секундах}
+        {--monitor-stuck-after= : Порог для orphan-записей queue_monitors в секундах}
+        {--sample=5}';
 
     protected $description = 'Detect new failed/stuck queue jobs and send alerts';
 
@@ -18,10 +23,12 @@ class QueueHealthCheck extends Command
     {
         $newFailedCount = $this->checkNewFailedJobs();
         $stuckCount = $this->checkStuckJobs();
+        $orphanedRunningMonitors = $this->closeOrphanedRunningMonitors();
 
         MonitoringCache::forever('monitoring:queue:health:last_run', now()->timestamp);
         MonitoringCache::forever('monitoring:queue:health:last_new_failed', $newFailedCount);
         MonitoringCache::forever('monitoring:queue:health:last_stuck', $stuckCount);
+        MonitoringCache::forever('monitoring:queue:health:last_orphaned_running_monitors', $orphanedRunningMonitors);
 
         return self::SUCCESS;
     }
@@ -207,5 +214,143 @@ class QueueHealthCheck extends Command
         );
 
         return count($releasedIds);
+    }
+
+    private function closeOrphanedRunningMonitors(): int
+    {
+        $monitorConnection = (string)(config('filament-jobs-monitor.connection') ?? config('database.default'));
+
+        if (!Schema::connection($monitorConnection)->hasTable('queue_monitors')) {
+            return 0;
+        }
+
+        $stuckAfter = (int)($this->option('monitor-stuck-after')
+            ?: config('alerts.queue.monitor_stuck_after_seconds', config('alerts.queue.stuck_after_seconds', 900)));
+        $stuckAfter = max(60, $stuckAfter);
+        $limit = max(1, (int)config('alerts.queue.monitor_auto_close_limit', 100));
+        $threshold = now()->subSeconds($stuckAfter);
+
+        $rows = DB::connection($monitorConnection)
+            ->table('queue_monitors')
+            ->whereNull('finished_at')
+            ->where('started_at', '<', $threshold)
+            ->orderBy('started_at')
+            ->limit($limit)
+            ->get(['id', 'job_id', 'name', 'queue', 'started_at']);
+
+        if ($rows->isEmpty()) {
+            return 0;
+        }
+
+        $orphanIds = [];
+
+        foreach ($rows as $row) {
+            if ($this->queueMonitorHasLiveJob((string)$row->job_id, (string)$row->queue)) {
+                continue;
+            }
+
+            $orphanIds[] = (int)$row->id;
+        }
+
+        if ($orphanIds === []) {
+            return 0;
+        }
+
+        DB::connection($monitorConnection)
+            ->table('queue_monitors')
+            ->whereIn('id', $orphanIds)
+            ->whereNull('finished_at')
+            ->update([
+                'finished_at' => now(),
+                'failed' => true,
+                'progress' => 0,
+                'exception_message' => 'Job monitor был закрыт автоматически: задача не найдена в активной очереди после '
+                    . $stuckAfter
+                    . ' сек. Вероятно, воркер был перезапущен или умер во время выполнения.',
+                'updated_at' => now(),
+            ]);
+
+        AlertService::warning(
+            title: 'Очередь: закрыты зависшие записи монитора',
+            message: 'Закрыты orphan-записи queue_monitors, которые висели как выполняющиеся без живой job.',
+            context: [
+                'closed_count' => count($orphanIds),
+                'threshold_seconds' => $stuckAfter,
+                'sample_monitor_ids' => array_slice($orphanIds, 0, 10),
+            ],
+            dedupeKey: 'queue:monitor-orphans:' . intdiv(now()->timestamp, 300) . ':' . count($orphanIds),
+            ttlSeconds: 300,
+        );
+
+        return count($orphanIds);
+    }
+
+    private function queueMonitorHasLiveJob(string $jobId, string $queue): bool
+    {
+        $jobId = trim($jobId);
+        $queue = trim($queue) !== '' ? trim($queue) : 'default';
+
+        if ($jobId === '') {
+            return false;
+        }
+
+        if ($this->databaseQueueHasJob($jobId, $queue)) {
+            return true;
+        }
+
+        return $this->redisQueueHasJob($jobId, $queue);
+    }
+
+    private function databaseQueueHasJob(string $jobId, string $queue): bool
+    {
+        if (!Schema::hasTable('jobs')) {
+            return false;
+        }
+
+        return DB::table('jobs')
+            ->where('queue', $queue)
+            ->where(function ($query) use ($jobId): void {
+                $query
+                    ->where('payload', 'like', '%' . $jobId . '%')
+                    ->orWhere('id', ctype_digit($jobId) ? (int)$jobId : 0);
+            })
+            ->exists();
+    }
+
+    private function redisQueueHasJob(string $jobId, string $queue): bool
+    {
+        $connection = (string)(config('queue.connections.redis.connection') ?: 'default');
+
+        try {
+            $redis = Redis::connection($connection);
+
+            foreach ($this->redisQueueKeys($queue) as $key => $type) {
+                $payloads = $type === 'zset'
+                    ? $redis->zrange($key, 0, -1)
+                    : $redis->lrange($key, 0, -1);
+
+                foreach ((array)$payloads as $payload) {
+                    if (is_string($payload) && str_contains($payload, $jobId)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable) {
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function redisQueueKeys(string $queue): array
+    {
+        return [
+            "queues:{$queue}" => 'list',
+            "queues:{$queue}:delayed" => 'zset',
+            "queues:{$queue}:reserved" => 'zset',
+        ];
     }
 }
