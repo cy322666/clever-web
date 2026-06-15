@@ -393,6 +393,8 @@ define(['jquery'], function ($) {
                 '</div>'
             ].join(''));
 
+            $('#' + BULK_MODAL_ID).data('lead-ids', leadIds);
+
             if (!leadIds.length) {
                 bulkMessage('Выберите сделки для запуска сценария.', true);
                 return;
@@ -442,9 +444,9 @@ define(['jquery'], function ($) {
         }
 
         function runBulkWorkflow($button) {
-            var leadIds = selectedLeadIds();
-            var workflowId = $button.data('workflow-id');
             var $modal = $('#' + BULK_MODAL_ID);
+            var leadIds = $modal.data('lead-ids') || [];
+            var workflowId = $button.data('workflow-id');
             var $buttons = $modal.find('.clever-workflow-bulk__scenario');
 
             if (!leadIds.length) {
