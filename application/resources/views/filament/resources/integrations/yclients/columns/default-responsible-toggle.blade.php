@@ -15,5 +15,5 @@
         aria-hidden="true"
     ></span>
 
-    {{ $isDefault ? 'Выбран' : 'Сделать' }}
+    {{ $isDefault ? 'Выбран' : 'Выбрать' }}
 </button>

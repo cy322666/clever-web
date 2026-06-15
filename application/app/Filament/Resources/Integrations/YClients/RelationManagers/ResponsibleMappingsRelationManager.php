@@ -37,7 +37,7 @@ class ResponsibleMappingsRelationManager extends RelationManager
     {
         return $table
             ->description(
-                'Для каждого ответственного amoCRM выберите пользователей YClients. Колонка «По умолчанию» используется, если соответствие не найдено.'
+                'Для каждого ответственного amoCRM выберите пользователей YClients. В колонке «По умолчанию» выберите одного amoCRM-пользователя на случай, если соответствие не найдено.'
             )
             ->columns([
                 Tables\Columns\TextColumn::make('amo_user_name')
