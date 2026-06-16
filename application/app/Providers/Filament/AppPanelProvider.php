@@ -110,7 +110,7 @@ class AppPanelProvider extends PanelProvider
                             NavigationItem::make('Subscriptions')
                                 ->label('Подписки')
                                 ->icon('heroicon-o-lock-open')
-                                ->visible(fn(): bool => (bool)auth()->user()?->is_root)
+                                ->visible(fn(): bool => auth()->check())
                                 ->url(fn(): string => WidgetSubscriptionResource::getUrl()),
 
                             NavigationItem::make('InvoiceRequests')

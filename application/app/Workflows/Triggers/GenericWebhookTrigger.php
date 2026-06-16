@@ -5,10 +5,8 @@ namespace App\Workflows\Triggers;
 use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowGenericWebhookService;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\View;
-use Illuminate\Support\HtmlString;
 use Leek\FilamentWorkflows\Triggers\Contracts\BaseTrigger;
 
 class GenericWebhookTrigger implements BaseTrigger
@@ -45,31 +43,6 @@ class GenericWebhookTrigger implements BaseTrigger
     {
         return [
             Hidden::make('source')->default('webhook'),
-
-            Placeholder::make('webhook_url')
-                ->label('URL вебхука')
-                ->content(function (mixed $livewire = null): HtmlString {
-                    $workflow = method_exists($livewire, 'getRecord') ? $livewire->getRecord() : null;
-
-                    if (!$workflow instanceof Workflow || !$workflow->exists) {
-                        return new HtmlString('URL появится после создания процесса.');
-                    }
-
-                    $url = app(WorkflowGenericWebhookService::class)->callbackUrl($workflow);
-
-                    return new HtmlString(
-                        '<code class="block break-all rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-900 dark:bg-gray-900 dark:text-gray-100">'
-                        . e($url)
-                        . '</code>'
-                    );
-                }),
-
-            Placeholder::make('variables_hint')
-                ->label('Данные запроса')
-                ->content(new HtmlString(
-                    'Используйте переменные вида <code>{{payload.key}}</code>, <code>{{query.key}}</code>, '
-                    . '<code>{{headers.header_name}}</code>, <code>{{method}}</code>, <code>{{url}}</code>.'
-                )),
 
             View::make('filament.workflow-builder.generic-webhook-preview')
                 ->viewData(function (mixed $livewire = null): array {

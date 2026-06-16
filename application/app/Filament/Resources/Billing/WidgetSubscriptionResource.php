@@ -19,6 +19,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class WidgetSubscriptionResource extends Resource
@@ -37,7 +38,7 @@ class WidgetSubscriptionResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return (bool)auth()->user()?->is_root;
+        return auth()->check();
     }
 
     public static function canCreate(): bool
@@ -53,6 +54,26 @@ class WidgetSubscriptionResource extends Resource
     public static function canDelete(Model $record): bool
     {
         return (bool)auth()->user()?->is_root;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        if ((bool)auth()->user()?->is_root) {
+            return true;
+        }
+
+        return auth()->check() && (int)$record->user_id === (int)auth()->id();
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ((bool)auth()->user()?->is_root) {
+            return $query;
+        }
+
+        return $query->where('user_id', auth()->id());
     }
 
     public static function form(Schema $schema): Schema
@@ -169,8 +190,10 @@ class WidgetSubscriptionResource extends Resource
                     ->label('Заявки на счет')
                     ->icon('heroicon-o-document-text')
                     ->color('gray')
+                    ->visible(fn(): bool => (bool)auth()->user()?->is_root)
                     ->url(fn(): string => InvoiceRequestResource::getUrl('index')),
-                CreateAction::make(),
+                CreateAction::make()
+                    ->visible(fn(): bool => (bool)auth()->user()?->is_root),
             ])
             ->recordActions([
                 Action::make('extend_30')
@@ -191,13 +214,20 @@ class WidgetSubscriptionResource extends Resource
                             ->title('Подписка продлена')
                             ->success()
                             ->send();
-                    }),
-                EditAction::make(),
-                DeleteAction::make(),
+                    })
+                    ->visible(fn(): bool => (bool)auth()->user()?->is_root),
+                EditAction::make()
+                    ->visible(fn(): bool => (bool)auth()->user()?->is_root),
+                DeleteAction::make()
+                    ->visible(fn(): bool => (bool)auth()->user()?->is_root),
             ])
+            ->recordUrl(fn(WidgetSubscription $record): ?string => (bool)auth()->user()?->is_root
+                ? static::getUrl('edit', ['record' => $record])
+                : null)
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn(): bool => (bool)auth()->user()?->is_root),
                 ]),
             ]);
     }

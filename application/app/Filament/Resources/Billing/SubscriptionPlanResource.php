@@ -39,12 +39,12 @@ class SubscriptionPlanResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return (bool)auth()->user()?->is_root;
+        return auth()->check();
     }
 
     public static function canViewAny(): bool
     {
-        return (bool)auth()->user()?->is_root;
+        return auth()->check();
     }
 
     public static function canCreate(): bool
@@ -66,7 +66,11 @@ class SubscriptionPlanResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        return $query;
+        if ((bool)auth()->user()?->is_root) {
+            return $query;
+        }
+
+        return $query->where('is_active', true);
     }
 
     public static function form(Schema $schema): Schema
@@ -169,9 +173,13 @@ class SubscriptionPlanResource extends Resource
                 DeleteAction::make()
                     ->visible(fn(): bool => (bool)auth()->user()?->is_root),
             ])
+            ->recordUrl(fn(SubscriptionPlan $record): ?string => (bool)auth()->user()?->is_root
+                ? static::getUrl('edit', ['record' => $record])
+                : null)
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn(): bool => (bool)auth()->user()?->is_root),
                 ]),
             ]);
     }
