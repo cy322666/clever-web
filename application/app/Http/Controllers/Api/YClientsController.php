@@ -20,7 +20,7 @@ class YClientsController extends Controller
             'user_id' => $user->id,
             'resource_id' => $request->input('resource_id'),
             'company_id' => $request->input('company_id'),
-            'body' => $request->toArray(),
+            'body' => $request->all(),
         ]);
 
         $resource = static::resolveResource($request);
