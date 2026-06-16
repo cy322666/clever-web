@@ -70,6 +70,8 @@ class ResponsibleMappingsRelationManager extends RelationManager
                     ]),
 
                 Tables\Columns\ToggleColumn::make('active')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->label('Активно'),
             ])
             ->defaultSort('amo_user_id')

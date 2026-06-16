@@ -70,7 +70,24 @@ class SubscriptionPlanResource extends Resource
             return $query;
         }
 
-        return $query->where('is_active', true);
+        $installedWidgets = App::query()
+            ->where('user_id', auth()->id())
+            ->where('status', '!=', App::STATE_CREATED)
+            ->whereNotNull('name')
+            ->pluck('name')
+            ->map(fn(mixed $name): string => (string)$name)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($installedWidgets === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query
+            ->where('is_active', true)
+            ->whereIn('widget', $installedWidgets);
     }
 
     public static function form(Schema $schema): Schema

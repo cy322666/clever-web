@@ -89,6 +89,8 @@ class TransactionsResource extends Resource
                     ->label('Контакт'),
 
                 Tables\Columns\ToggleColumn::make('status')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->label('Успешно'),
 

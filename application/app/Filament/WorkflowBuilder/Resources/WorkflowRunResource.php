@@ -362,6 +362,7 @@ class WorkflowRunResource extends Resource
 
         $entities = static::entityLinks($run)
             ->sortByDesc(fn(WorkflowRunEntity $entity): int => $entity->workflow_run_step_id ? 1 : 0)
+            ->unique(fn(WorkflowRunEntity $entity): string => (string)$entity->entity_type . ':' . (string)$entity->entity_id)
             ->take(2)
             ->map(fn(WorkflowRunEntity $entity): string => static::entityLinkHtml($entity))
             ->implode('<br>');

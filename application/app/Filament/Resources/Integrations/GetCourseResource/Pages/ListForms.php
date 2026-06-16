@@ -88,6 +88,8 @@ class ListForms extends ListRecords
                     ->label('Контакт'),
 
                 ToggleColumn::make('status')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->label('Выгружен'),
 

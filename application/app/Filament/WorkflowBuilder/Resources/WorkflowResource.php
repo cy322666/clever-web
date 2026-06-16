@@ -44,7 +44,7 @@ class WorkflowResource extends BaseWorkflowResource
                     ->label('Вкл')
                     ->alignCenter()
                     ->tooltip(fn(Workflow $record): string => $record->is_active ? 'Выключить процесс' : 'Включить процесс')
-                    ->onColor('success')
+                    ->onColor('primary')
                     ->offColor('gray')
                     ->onIcon('heroicon-m-check')
                     ->offIcon('heroicon-m-x-mark')

@@ -70,6 +70,8 @@ class FormResource extends Resource
 
                 Tables\Columns\ToggleColumn::make('status')
                     ->sortable()
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->label('Выгружен'),
 

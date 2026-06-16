@@ -171,6 +171,8 @@ class ListYClients extends ListRecords
 
                 ToggleColumn::make('status')
                     ->label('Выгружен')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
 

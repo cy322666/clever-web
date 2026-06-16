@@ -97,11 +97,15 @@ class UserResource extends Resource
 
                 Tables\Columns\ToggleColumn::make('active')
                     ->label('Статус')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->sortable(),
 
                 Tables\Columns\ToggleColumn::make('is_root')
                     ->label('Админ')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->sortable(),
 

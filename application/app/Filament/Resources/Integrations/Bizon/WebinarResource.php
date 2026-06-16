@@ -82,6 +82,8 @@ class WebinarResource extends Resource
                 //TODO relationship methods
                 Tables\Columns\ToggleColumn::make('status')
                     ->label('Выгружен')
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->state(fn(Webinar $webinar) =>
                         (int)$webinar->successful_viewers_count === (int)$webinar->viewers_count

@@ -111,11 +111,15 @@ class ListImport extends ListRecords
 
                 ToggleColumn::make('searched_contact')
                     ->toggleable(isToggledHiddenByDefault: true)
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->label('Найден контакт'),
 
                 ToggleColumn::make('searched_company')
                     ->toggleable(isToggledHiddenByDefault: true)
+                    ->onColor('primary')
+                    ->offColor('gray')
                     ->disabled()
                     ->label('Найдена компания'),
 
