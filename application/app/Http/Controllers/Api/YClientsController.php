@@ -16,17 +16,16 @@ class YClientsController extends Controller
 {
     public function hook(User $user, Request $request): JsonResponse
     {
-        $resource = static::resolveResource($request);
-
         Log::info('YClients api логирование', [
             'user_id' => $user->id,
             'user_uuid' => $user->uuid,
-            'resource' => $resource,
             'resource_id' => $request->input('resource_id'),
             'company_id' => $request->input('company_id'),
             'payload_keys' => array_keys($request->all()),
             'query_keys' => array_keys($request->query()),
         ]);
+
+        $resource = static::resolveResource($request);
 
         if (!$resource) {
 //            Log::warning('YClients webhook skipped: resource is missing', [
