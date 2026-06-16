@@ -84,26 +84,22 @@ class YClientsController extends Controller
 
         $clientId = data_get($request->data, 'client.id');
 
-        if (!$clientId) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'client.id is required',
-            ], 422);
+        if ($clientId) {
+            Client::query()
+                ->updateOrCreate([
+                    'client_id' => $clientId,
+                    'company_id' => $request->company_id,
+                    'user_id' => $user->id,
+                    'setting_id' => $setting->id,
+                    'account_id' => $account->id,
+                ], [
+                    'name' => data_get($request->data, 'client.name')
+                        ?: data_get($request->data, 'client.display_name'),
+                    'phone' => data_get($request->data, 'client.phone'),
+                    'email' => data_get($request->data, 'client.email'),
+                    'visits' => data_get($request->data, 'client.success_visits_count', 0),
+                ]);
         }
-
-        Client::query()
-            ->updateOrCreate([
-                'client_id' => $clientId,
-                'company_id' => $request->company_id,
-                'user_id' => $user->id,
-                'setting_id'   => $setting->id,
-                'account_id'   => $account->id,
-            ],[
-                'name'  => $request->data['client']['name'],
-                'phone' => $request->data['client']['phone'],
-                'email' => $request->data['client']['email'],
-                'visits'=> $request->data['client']['success_visits_count'] ?? 0,
-            ]);
 
         $record = Record::query()->updateOrCreate([
             'user_id' => $user->id,
@@ -114,17 +110,17 @@ class YClientsController extends Controller
         ], [
             'title' => Record::buildCommentServices($request->data),
             'cost' => Record::sumCostServices($request->data),
-            'staff_id' => $request->data['staff_id'],
-            'staff_name' => $request->data['staff']['name'],
-            'client_id' => $request->data['client']['id'],
+            'staff_id' => data_get($request->data, 'staff_id'),
+            'staff_name' => data_get($request->data, 'staff.name'),
+            'client_id' => $clientId,
             'created_user_id' => data_get($request->data, 'created_user_id'),
             'record_from' => data_get($request->data, 'record_from'),
             'create_date' => data_get($request->data, 'create_date'),
-            'visit_id' => $request->data['visit_id'],
-            'datetime' => Carbon::parse($request->data['datetime'])->format('Y.m.d H:i:s'),
-            'comment' => $request->data['comment'],
-            'seance_length' => $request->data['length'],
-            'attendance' => $request->data['attendance'],
+            'visit_id' => data_get($request->data, 'visit_id'),
+            'datetime' => Carbon::parse(data_get($request->data, 'datetime'))->format('Y.m.d H:i:s'),
+            'comment' => data_get($request->data, 'comment'),
+            'seance_length' => data_get($request->data, 'length'),
+            'attendance' => data_get($request->data, 'attendance'),
             'status' => Record::STATUS_PENDING,
         ]);
 

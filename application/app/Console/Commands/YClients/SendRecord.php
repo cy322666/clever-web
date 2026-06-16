@@ -85,29 +85,22 @@ class SendRecord extends Command
             'amo_responsible_user_id' => $responsibleUserId,
         ]);
 
-        if (!$client) {
-            Log::error('YClients client not found for record in scoped lookup.', [
-                'record_db_id' => $record->id,
-                'record_id' => $record->record_id,
-                'client_id' => $record->client_id,
-                'company_id' => $record->company_id,
-                'account_id' => $record->account_id,
-                'setting_id' => $record->setting_id,
-                'user_id' => $record->user_id,
-            ]);
-
+        if (!$client && !empty($record->client_id)) {
             return $this->failRecord($record, 'YClients client not found for record in scoped lookup.');
         }
 
         //CONTACT
 
-        if (!empty($client->contact_id)) {
+        if ($client && !empty($client->contact_id)) {
             $contact = ServiceContact::get($amoApi, $client->contact_id);
 
             if (!$contact)
                 $contact = ServiceContact::updateOrCreate($client, $amoApi, $responsibleUserId);
-        } else
+        } elseif ($client) {
             $contact = ServiceContact::updateOrCreate($client, $amoApi, $responsibleUserId);
+        } else {
+            $contact = null;
+        }
 
         // LEAD
 
@@ -145,8 +138,7 @@ class SendRecord extends Command
                 // уже привязывали сделку к записи
                 if ($lead)
                     $assignResponsible = false;
-
-            } else {
+            } elseif ($contact) {
                 // поиск открытой сделки у контакта в нужной воронке
                 $leadCollection = ServiceLead::searchAll($contact, $amoApi, $setting->pipelines);
 
@@ -160,8 +152,11 @@ class SendRecord extends Command
                             ->exists()
                     );
                     $assignResponsible = !empty($lead);
-                } else
+                } else {
                     $lead = null;
+                }
+            } else {
+                $lead = null;
             }
         }
 
@@ -174,7 +169,7 @@ class SendRecord extends Command
                     $assignResponsible ? $responsibleUserId : null
                 );
             } else {
-                $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId);
+                $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId, $amoApi);
             }
         } catch (Throwable $e) {
             Log::error('YClients lead sync failed during save()', [

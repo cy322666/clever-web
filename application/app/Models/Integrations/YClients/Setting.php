@@ -297,7 +297,11 @@ class Setting extends Model
     {
         $fields = static::YCfields();
 
-        $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
+        $clientYC = null;
+
+        if ((int)$record->client_id > 0) {
+            $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
+        }
         $recordYC = self::optionalYClientsRequest(
             fn() => $client->getRecord($record->company_id, $record->record_id),
             'record',
@@ -429,29 +433,29 @@ class Setting extends Model
                                         ?: $roleTitle
                                             ?: 'Сотрудник';
 
-            self::debugLog('YClients created user fields resolved.', [
-                'record_db_id' => $record->id,
-                'record_id' => $record->record_id,
-                'company_id' => $record->company_id,
-                'created_user_id' => $createdUserId,
-                'record_from' => $recordFrom,
-                'raw_user_role' => $role,
-                'role_title' => $roleTitle,
-                'staff_id' => $staffId,
-                'position_id' => $positionId,
-                'company_user_name' => data_get($companyUser, 'name'),
-                'staff_position_title' => data_get($staff, 'data.position.title')
-                    ?: data_get($staff, 'data.0.position.title')
-                        ?: data_get($staff, 'position.title'),
-                'staff_specialization' => data_get($staff, 'data.specialization')
-                    ?: data_get($staff, 'data.0.specialization')
-                        ?: data_get($staff, 'specialization'),
-                'resolved_name' => $fields['created_user_name'],
-                'resolved_role' => $fields['created_user_role_name'],
-                'resolved_department' => $fields['created_user_department'],
-                'permissions_success' => data_get($createdUser, 'success'),
-                'roles_success' => data_get($createdUserRoles, 'success'),
-            ]);
+//            self::debugLog('YClients created user fields resolved.', [
+//                'record_db_id' => $record->id,
+//                'record_id' => $record->record_id,
+//                'company_id' => $record->company_id,
+//                'created_user_id' => $createdUserId,
+//                'record_from' => $recordFrom,
+//                'raw_user_role' => $role,
+//                'role_title' => $roleTitle,
+//                'staff_id' => $staffId,
+//                'position_id' => $positionId,
+//                'company_user_name' => data_get($companyUser, 'name'),
+//                'staff_position_title' => data_get($staff, 'data.position.title')
+//                    ?: data_get($staff, 'data.0.position.title')
+//                        ?: data_get($staff, 'position.title'),
+//                'staff_specialization' => data_get($staff, 'data.specialization')
+//                    ?: data_get($staff, 'data.0.specialization')
+//                        ?: data_get($staff, 'specialization'),
+//                'resolved_name' => $fields['created_user_name'],
+//                'resolved_role' => $fields['created_user_role_name'],
+//                'resolved_department' => $fields['created_user_department'],
+//                'permissions_success' => data_get($createdUser, 'success'),
+//                'roles_success' => data_get($createdUserRoles, 'success'),
+//            ]);
         }
 
         // $fields['branches'] = $client->query()->state()->getData();
@@ -532,13 +536,13 @@ class Setting extends Model
             $fieldYc = $field['field_yc'] ?? null;
             $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
 
-            self::debugLog('YClients lead field mapping.', [
-                'setting_id' => $this->id,
-                'field_yc' => $fieldYc,
-                'field_amo' => $field['field_amo'] ?? null,
-                'field_name' => $amoField?->name,
-                'value' => $value,
-            ]);
+//            self::debugLog('YClients lead field mapping.', [
+//                'setting_id' => $this->id,
+//                'field_yc' => $fieldYc,
+//                'field_amo' => $field['field_amo'] ?? null,
+//                'field_name' => $amoField?->name,
+//                'value' => $value,
+//            ]);
 
             if (!$amoField) {
                 throw new RuntimeException('amoCRM lead field mapping not found: ' . ($field['field_amo'] ?? 'null'));

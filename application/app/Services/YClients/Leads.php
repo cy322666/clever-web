@@ -56,10 +56,11 @@ abstract class Leads
     }
 
     public static function create(
-        $contact,
+        ?Contact $contact,
         object $objectStatus,
         Record $record,
-        ?int $responsibleUserId = null
+        ?int $responsibleUserId = null,
+        ?\App\Services\amoCRM\Client $amoApi = null,
     ): Lead
     {
         $statusId = (int)($objectStatus->status_id ?? 0);
@@ -69,7 +70,9 @@ abstract class Leads
             throw new InvalidArgumentException('Invalid amoCRM status/pipeline mapping for YClients lead create.');
         }
 
-        $lead = $contact->createLead();
+        $lead = $contact
+            ? $contact->createLead()
+            : $amoApi->service->leads()->create();
 
         $lead->name = 'Запись #'.$record->record_id;
         $lead->sale = $record->cost;

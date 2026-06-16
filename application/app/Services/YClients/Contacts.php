@@ -60,8 +60,15 @@ abstract class Contacts
     public static function update($contact, Client $client)
     {
         $contact->name = $client->name;
-        $contact->cf('Email')->setValue($client->email);
-        $contact->cf('Телефон')->setValue(self::clearPhone($client->phone, true));
+
+        if (filled($client->email)) {
+            $contact->cf('Email')->setValue($client->email);
+        }
+
+        if (filled($client->phone)) {
+            $contact->cf('Телефон')->setValue(self::clearPhone($client->phone, true));
+        }
+
         $contact->save();
 
         return $contact;

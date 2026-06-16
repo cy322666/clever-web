@@ -64,10 +64,6 @@ class UpdateEntities extends Command
         $setting = Setting::query()->findOrFail($settingId);
         $client = $record->scopedClient();
 
-        if (!$client) {
-            return self::FAILURE;
-        }
-
         $amoApi = (new Client($account))->init();
 
         try {
@@ -77,7 +73,7 @@ class UpdateEntities extends Command
                 //заполненные поля с ключами
                 $arrayFields = Setting::YCGetFields($yc, $record);
 
-                $this->updateAmoEntitiesWithRetry($amoApi, $setting, $record, $client->contact_id, $arrayFields);
+                $this->updateAmoEntitiesWithRetry($amoApi, $setting, $record, $client?->contact_id, $arrayFields);
             }
         } catch (Throwable $e) {
             $this->failRecord($record, 'yc:update-entities failed.', [

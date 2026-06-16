@@ -4,6 +4,9 @@ services:
   app:
     build: ./docker/images/php82
     environment:
+      CACHE_STORE: database
+      SCHEDULE_CACHE_STORE: database
+      YCLIENTS_LOCK_CACHE_STORE: database
       QUEUE_CONNECTION: redis
       WORKFLOWS_QUEUE_CONNECTION: redis
       WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
@@ -73,6 +76,9 @@ services:
   supervisor:
     build: ./docker/images/supervisor
     environment:
+      CACHE_STORE: database
+      SCHEDULE_CACHE_STORE: database
+      YCLIENTS_LOCK_CACHE_STORE: database
       QUEUE_CONNECTION: redis
       WORKFLOWS_QUEUE_CONNECTION: redis
       WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
