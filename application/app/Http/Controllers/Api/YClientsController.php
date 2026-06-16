@@ -18,10 +18,9 @@ class YClientsController extends Controller
     {
         Log::info('YClients api логирование', [
             'user_id' => $user->id,
-            'user_uuid' => $user->uuid,
             'resource_id' => $request->input('resource_id'),
             'company_id' => $request->input('company_id'),
-            'payload_keys' => json_encode($request->toArray()),
+            'body' => json_encode($request->toArray()),
         ]);
 
         $resource = static::resolveResource($request);
