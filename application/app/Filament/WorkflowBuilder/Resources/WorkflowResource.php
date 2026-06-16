@@ -11,7 +11,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -40,13 +40,15 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return $table
             ->columns([
-                ViewColumn::make('is_active')
+                ToggleColumn::make('is_active')
                     ->label('Вкл')
-                    ->view('filament.workflow-builder.columns.workflow-status-toggle')
                     ->alignCenter()
                     ->tooltip(fn(Workflow $record): string => $record->is_active ? 'Выключить процесс' : 'Включить процесс')
-                    ->extraCellAttributes(['class' => 'workflow-list-status-toggle'])
-                    ->action(fn(Workflow $record) => static::toggleWorkflowActivation($record)),
+                    ->onColor('success')
+                    ->offColor('gray')
+                    ->onIcon('heroicon-m-check')
+                    ->offIcon('heroicon-m-x-mark')
+                    ->updateStateUsing(fn(Workflow $record, mixed $state): bool => static::updateWorkflowActivation($record, (bool)$state)),
 
                 TextColumn::make('name')
                     ->label(__('filament-workflows::workflows.fields.name.label'))
@@ -160,10 +162,8 @@ class WorkflowResource extends BaseWorkflowResource
             ->emptyStateIcon('heroicon-o-arrow-path');
     }
 
-    private static function toggleWorkflowActivation(Workflow $record): void
+    private static function updateWorkflowActivation(Workflow $record, bool $state): bool
     {
-        $state = !$record->is_active;
-
         if ($state && !static::canActivate($record)) {
             Notification::make()
                 ->danger()
@@ -171,7 +171,7 @@ class WorkflowResource extends BaseWorkflowResource
                 ->body('Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.')
                 ->send();
 
-            return;
+            return false;
         }
 
         $record->update([
@@ -183,7 +183,7 @@ class WorkflowResource extends BaseWorkflowResource
             ->title($state ? 'Процесс включён' : 'Процесс выключен')
             ->send();
 
-        return;
+        return $state;
     }
 
     private static function triggerLabel(Workflow $record): string

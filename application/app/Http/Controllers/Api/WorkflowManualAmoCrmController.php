@@ -324,6 +324,7 @@ class WorkflowManualAmoCrmController extends Controller
             leadId: $leadId,
             input: [
                 'lead_name' => (string)$this->firstFilled($payload, [
+                    'event.data.name',
                     'leads.status.0.name',
                     'leads.add.0.name',
                     'leads.update.0.name',
@@ -331,6 +332,7 @@ class WorkflowManualAmoCrmController extends Controller
                     'name',
                 ]),
                 'pipeline_id' => $this->firstInt($payload, [
+                    'event.data.pipeline_id',
                     'leads.status.0.pipeline_id',
                     'leads.add.0.pipeline_id',
                     'leads.update.0.pipeline_id',
@@ -338,6 +340,7 @@ class WorkflowManualAmoCrmController extends Controller
                     'pipeline_id',
                 ]),
                 'status_id' => $this->firstInt($payload, [
+                    'event.data.status_id',
                     'leads.status.0.status_id',
                     'leads.add.0.status_id',
                     'leads.update.0.status_id',
@@ -390,6 +393,7 @@ class WorkflowManualAmoCrmController extends Controller
             'data.lead_id',
             'data.entity_id',
             'data.entity.id',
+            'event.data.id',
             'leads.status.0.id',
             'leads.add.0.id',
             'leads.update.0.id',

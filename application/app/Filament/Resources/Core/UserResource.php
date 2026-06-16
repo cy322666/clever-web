@@ -95,12 +95,14 @@ class UserResource extends Resource
                     ->numeric()
                     ->sortable(),
 
-                Tables\Columns\BooleanColumn::make('active')
+                Tables\Columns\ToggleColumn::make('active')
                     ->label('Статус')
+                    ->disabled()
                     ->sortable(),
 
-                Tables\Columns\BooleanColumn::make('is_root')
+                Tables\Columns\ToggleColumn::make('is_root')
                     ->label('Админ')
+                    ->disabled()
                     ->sortable(),
 
                 //TODO нет иконки

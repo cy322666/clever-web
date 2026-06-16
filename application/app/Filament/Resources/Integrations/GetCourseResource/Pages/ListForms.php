@@ -6,8 +6,8 @@ use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Jobs\GetCourse\OrderSend;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -87,7 +87,8 @@ class ListForms extends ListRecords
                     }, true)
                     ->label('Контакт'),
 
-                BooleanColumn::make('status')
+                ToggleColumn::make('status')
+                    ->disabled()
                     ->label('Выгружен'),
 
 //                TextColumn::make('site')

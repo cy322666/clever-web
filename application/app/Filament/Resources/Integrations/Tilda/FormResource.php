@@ -68,8 +68,9 @@ class FormResource extends Resource
                     }, true)
                     ->label('Контакт'),
 
-                Tables\Columns\BooleanColumn::make('status')
+                Tables\Columns\ToggleColumn::make('status')
                     ->sortable()
+                    ->disabled()
                     ->label('Выгружен'),
 
                 Tables\Columns\TextColumn::make('site')

@@ -88,7 +88,8 @@ class TransactionsResource extends Resource
                     }, true)
                     ->label('Контакт'),
 
-                Tables\Columns\BooleanColumn::make('status')
+                Tables\Columns\ToggleColumn::make('status')
+                    ->disabled()
                     ->label('Успешно'),
 
                 Tables\Columns\TextColumn::make('template')

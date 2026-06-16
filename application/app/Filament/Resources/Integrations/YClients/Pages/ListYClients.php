@@ -15,8 +15,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
@@ -169,8 +169,9 @@ class ListYClients extends ListRecords
                     ->label('Событие')
                     ->state(fn(Record $record): string => $record->getEvent()),
 
-                BooleanColumn::make('status')
+                ToggleColumn::make('status')
                     ->label('Выгружен')
+                    ->disabled()
                     ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
 
                 TextColumn::make('mapped_fields_update_status')

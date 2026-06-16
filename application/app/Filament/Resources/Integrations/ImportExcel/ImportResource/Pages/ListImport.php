@@ -12,8 +12,8 @@ use Filament\Actions\BulkAction as ActionsBulkAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Actions\BulkAction;
-use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -109,12 +109,14 @@ class ListImport extends ListRecords
                     })
                     ->wrap(),
 
-                BooleanColumn::make('searched_contact')
+                ToggleColumn::make('searched_contact')
                     ->toggleable(isToggledHiddenByDefault: true)
+                    ->disabled()
                     ->label('Найден контакт'),
 
-                BooleanColumn::make('searched_company')
+                ToggleColumn::make('searched_company')
                     ->toggleable(isToggledHiddenByDefault: true)
+                    ->disabled()
                     ->label('Найдена компания'),
 
             ])
