@@ -502,13 +502,13 @@ class Setting extends Model
             $fieldYc = $field['field_yc'] ?? null;
             $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
 
-            self::debugLog('YClients contact field mapping.', [
-                'setting_id' => $this->id,
-                'field_yc' => $fieldYc,
-                'field_amo' => $field['field_amo'] ?? null,
-                'field_name' => $amoField?->name,
-                'value' => $value,
-            ]);
+//            self::debugLog('YClients contact field mapping.', [
+//                'setting_id' => $this->id,
+//                'field_yc' => $fieldYc,
+//                'field_amo' => $field['field_amo'] ?? null,
+//                'field_name' => $amoField?->name,
+//                'value' => $value,
+//            ]);
 
             if (!$amoField) {
                 throw new RuntimeException(

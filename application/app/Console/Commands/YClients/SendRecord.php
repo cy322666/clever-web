@@ -77,13 +77,13 @@ class SendRecord extends Command
         $responsibleUserId = $setting->responsibleUserIdForRecord($record);
         $client = $record->scopedClient();
 
-        Log::info('YClients responsible mapping resolved.', [
-            'record_db_id' => $record->id,
-            'record_id' => $record->record_id,
-            'company_id' => $record->company_id,
-            'created_user_id' => $record->created_user_id,
-            'amo_responsible_user_id' => $responsibleUserId,
-        ]);
+//        Log::info('YClients responsible mapping resolved.', [
+//            'record_db_id' => $record->id,
+//            'record_id' => $record->record_id,
+//            'company_id' => $record->company_id,
+//            'created_user_id' => $record->created_user_id,
+//            'amo_responsible_user_id' => $responsibleUserId,
+//        ]);
 
         if (!$client && !empty($record->client_id)) {
             return $this->failRecord($record, 'YClients client not found for record in scoped lookup.');
