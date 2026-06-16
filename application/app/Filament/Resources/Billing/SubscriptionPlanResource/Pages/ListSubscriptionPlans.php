@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Billing\SubscriptionPlanResource\Pages;
 
 use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\Resources\Billing\Widgets\BlockedSubscriptionsNotice;
+use App\Filament\Resources\Billing\Widgets\CurrentSubscriptionsTable;
 use Filament\Resources\Pages\ListRecords;
 
 class ListSubscriptionPlans extends ListRecords
@@ -17,11 +18,16 @@ class ListSubscriptionPlans extends ListRecords
 
     protected function getHeaderWidgets(): array
     {
+        $widgets = [
+            CurrentSubscriptionsTable::class,
+        ];
+
         if (!BlockedSubscriptionsNotice::canView()) {
-            return [];
+            return $widgets;
         }
 
         return [
+            ...$widgets,
             BlockedSubscriptionsNotice::class,
         ];
     }
