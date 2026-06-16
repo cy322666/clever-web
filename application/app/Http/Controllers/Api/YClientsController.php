@@ -18,19 +18,19 @@ class YClientsController extends Controller
     {
         $resource = static::resolveResource($request);
 
-        Log::info('YClients webhook received', [
-            'user_id' => $user->id,
-            'user_uuid' => $user->uuid,
-            'method' => $request->method(),
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'content_type' => $request->header('content-type'),
-            'resource' => $resource,
-            'resource_id' => $request->input('resource_id'),
-            'company_id' => $request->input('company_id'),
-            'payload_keys' => array_keys($request->all()),
-            'query_keys' => array_keys($request->query()),
-        ]);
+//        Log::info('YClients webhook received', [
+//            'user_id' => $user->id,
+//            'user_uuid' => $user->uuid,
+//            'method' => $request->method(),
+//            'ip' => $request->ip(),
+//            'user_agent' => $request->userAgent(),
+//            'content_type' => $request->header('content-type'),
+//            'resource' => $resource,
+//            'resource_id' => $request->input('resource_id'),
+//            'company_id' => $request->input('company_id'),
+//            'payload_keys' => array_keys($request->all()),
+//            'query_keys' => array_keys($request->query()),
+//        ]);
 
         if (!$resource) {
             Log::warning('YClients webhook skipped: resource is missing', [
