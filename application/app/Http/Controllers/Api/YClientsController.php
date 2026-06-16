@@ -21,8 +21,7 @@ class YClientsController extends Controller
             'user_uuid' => $user->uuid,
             'resource_id' => $request->input('resource_id'),
             'company_id' => $request->input('company_id'),
-            'payload_keys' => array_keys($request->all()),
-            'query_keys' => array_keys($request->query()),
+            'payload_keys' => json_encode($request->toArray()),
         ]);
 
         $resource = static::resolveResource($request);
