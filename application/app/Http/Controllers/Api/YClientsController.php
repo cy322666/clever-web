@@ -29,12 +29,12 @@ class YClientsController extends Controller
         ]);
 
         if (!$resource) {
-            Log::warning('YClients webhook skipped: resource is missing', [
-                'user_id' => $user->id,
-                'user_uuid' => $user->uuid,
-                'payload_keys' => array_keys($request->all()),
-                'query_keys' => array_keys($request->query()),
-            ]);
+//            Log::warning('YClients webhook skipped: resource is missing', [
+//                'user_id' => $user->id,
+//                'user_uuid' => $user->uuid,
+//                'payload_keys' => array_keys($request->all()),
+//                'query_keys' => array_keys($request->query()),
+//            ]);
 
             return response()->json([
                 'ok' => true,
