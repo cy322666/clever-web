@@ -10,25 +10,50 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class YClientsController extends Controller
 {
     public function hook(User $user, Request $request): JsonResponse
     {
-        if (!$request->post('resource')) {
+        $resource = static::resolveResource($request);
+
+        if (!$resource) {
+            Log::warning('YClients webhook skipped: resource is missing', [
+                'user_id' => $user->id,
+                'user_uuid' => $user->uuid,
+                'payload_keys' => array_keys($request->all()),
+                'query_keys' => array_keys($request->query()),
+            ]);
+
             return response()->json([
-                'ok' => false,
-                'message' => 'resource is required',
-            ], 422);
+                'ok' => true,
+                'message' => 'ignored: resource is required',
+            ], 202);
         }
 
-        return match ($request->post('resource')) {
+        return match ($resource) {
             'record' => static::record($user, $request),
             default => response()->json([
                 'ok' => false,
                 'message' => 'unsupported resource',
             ], 422),
         };
+    }
+
+    private static function resolveResource(Request $request): ?string
+    {
+        $resource = $request->input('resource');
+
+        if (is_string($resource) && trim($resource) !== '') {
+            return strtolower(trim($resource));
+        }
+
+        if ($request->filled('resource_id') && $request->filled('company_id') && $request->has('data')) {
+            return 'record';
+        }
+
+        return null;
     }
 
     public static function record(User $user, Request $request): JsonResponse
