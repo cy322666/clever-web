@@ -89,14 +89,14 @@
                             class="workflow-workbench__quick-action workflow-workbench__quick-action--warning"
                         >
                             <x-filament::icon icon="heroicon-o-beaker" class="h-4 w-4"/>
-                            <span>Запустить тест</span>
+                            <span>Тестировать</span>
                         </button>
                     @endif
 
                     @if ($workflowRunsUrl)
                         <a href="{{ $workflowRunsUrl }}" target="_blank" rel="noopener noreferrer" class="workflow-workbench__quick-action">
                             <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4"/>
-                            <span>Запуски</span>
+                            <span>История</span>
                         </a>
                     @endif
 
