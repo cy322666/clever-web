@@ -53,6 +53,7 @@
                 $config = $action['config'] ?? [];
                 $conditions = $config['conditions'] ?? [];
                 $logic = ($config['logic'] ?? 'and') === 'or' ? 'ИЛИ' : 'И';
+                $blockName = trim((string) ($action['name'] ?? ''));
                 $hasTrueBranch = (bool) ($config['has_true_branch'] ?? true);
                 $hasFalseBranch = (bool) ($config['has_false_branch'] ?? false);
                 $branchCount = (int) $hasTrueBranch + (int) $hasFalseBranch;
@@ -117,6 +118,14 @@
                                     {{ $logic }}
                                 </span>
                             </div>
+
+                            @if($blockName !== '')
+                                <div class="mt-1 flex min-w-0 items-center gap-1.5 text-sm leading-5 text-gray-500 dark:text-gray-400">
+                                    <x-filament::icon icon="heroicon-o-bookmark-square" class="h-3.5 w-3.5 shrink-0"/>
+                                    <span>Блок:</span>
+                                    <span class="truncate font-semibold text-slate-800 dark:text-gray-100">{{ $blockName }}</span>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

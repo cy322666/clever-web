@@ -9,7 +9,8 @@
 @php
     $actionId = $action['id'] ?? '';
     $actionType = $action['type'] ?? '';
-    $actionName = $action['name'] ?? $metadata['name'] ?? __('filament-workflows::workflows.builder.cards.unknown_action');
+    $actionName = $metadata['name'] ?? __('filament-workflows::workflows.builder.cards.unknown_action');
+    $blockName = trim((string) ($action['name'] ?? ''));
     $icon = $metadata['icon'] ?? 'heroicon-o-cog-6-tooth';
     $color = $metadata['color'] ?? '#6B7280';
     $category = $metadata['category'] ?? __('filament-workflows::workflows.builder.cards.general_category');
@@ -149,6 +150,14 @@
                     </span>
                 @endif
             </div>
+
+            @if($blockName !== '')
+                <div class="mt-1 flex min-w-0 items-center gap-1.5 text-sm leading-5 text-gray-500 dark:text-gray-400">
+                    <x-filament::icon icon="heroicon-o-bookmark-square" class="h-3.5 w-3.5 shrink-0"/>
+                    <span>Блок:</span>
+                    <span class="truncate font-semibold text-slate-800 dark:text-gray-100">{{ $blockName }}</span>
+                </div>
+            @endif
 
             @if(count($summaryItems) > 0 || count($dealSummaryItems) > 0)
                 @foreach([$summaryItems, $dealSummaryItems] as $rowItems)
