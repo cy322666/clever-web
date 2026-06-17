@@ -100,9 +100,59 @@
             <div
                 wire:click="openWorkflowActionEditor('{{ $action['id'] }}')"
                 @class([
-                    'workflow-condition-node cursor-pointer rounded-xl border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-900/60 dark:bg-amber-950/10',
+                    'workflow-condition-node group relative cursor-pointer rounded-xl border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-900/60 dark:bg-amber-950/10',
                     'workflow-condition-node--nested' => $nestingDepth > 0,
                 ])>
+                <div
+                    class="absolute right-3 top-3 z-10 flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                    x-on:click.stop
+                >
+                    <button
+                        type="button"
+                        wire:click="duplicateWorkflowActionStep('{{ $action['id'] }}')"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="opacity-50"
+                        wire:target="duplicateWorkflowActionStep('{{ $action['id'] }}')"
+                        class="rounded-md p-1.5 text-gray-400 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-950 dark:hover:text-primary-400"
+                        title="Копировать шаг"
+                    >
+                        <x-filament::icon
+                            icon="heroicon-o-document-duplicate"
+                            class="h-4 w-4"
+                            wire:loading.remove
+                            wire:target="duplicateWorkflowActionStep('{{ $action['id'] }}')"
+                        />
+                        <x-filament::loading-indicator
+                            class="h-4 w-4"
+                            wire:loading
+                            wire:target="duplicateWorkflowActionStep('{{ $action['id'] }}')"
+                        />
+                    </button>
+
+                    <button
+                        type="button"
+                        wire:click="removeWorkflowAction('{{ $action['id'] }}')"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="opacity-50"
+                        wire:target="removeWorkflowAction('{{ $action['id'] }}')"
+                        wire:confirm="{{ __('filament-workflows::workflows.messages.remove_action_confirmation') }}"
+                        class="rounded-md p-1.5 text-gray-400 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-950 dark:hover:text-danger-400"
+                        title="{{ __('filament-workflows::workflows.builder.tooltips.remove_action') }}"
+                    >
+                        <x-filament::icon
+                            icon="heroicon-o-trash"
+                            class="h-4 w-4"
+                            wire:loading.remove
+                            wire:target="removeWorkflowAction('{{ $action['id'] }}')"
+                        />
+                        <x-filament::loading-indicator
+                            class="h-4 w-4"
+                            wire:loading
+                            wire:target="removeWorkflowAction('{{ $action['id'] }}')"
+                        />
+                    </button>
+                </div>
+
                 <div class="mb-3 flex items-start gap-3">
                     <div class="flex items-center gap-2">
                         <span
