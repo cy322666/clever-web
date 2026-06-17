@@ -8,6 +8,7 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm
 use App\Services\Workflows\WorkflowDependencyMap;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -156,6 +157,17 @@ class WorkflowResource extends BaseWorkflowResource
                             ])
                             ->send();
                     }),
+
+                DeleteAction::make()
+                    ->label('Удалить сценарий')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->iconButton()
+                    ->requiresConfirmation()
+                    ->modalHeading('Удалить сценарий?')
+                    ->modalDescription('Сценарий и все его исполнения будут удалены безвозвратно.')
+                    ->modalSubmitActionLabel('Удалить')
+                    ->successNotificationTitle('Сценарий удалён'),
             ])
             ->emptyStateHeading(__('filament-workflows::workflows.empty_states.no_workflows.heading'))
             ->emptyStateDescription(__('filament-workflows::workflows.empty_states.no_workflows.description'))

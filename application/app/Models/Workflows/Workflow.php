@@ -5,11 +5,22 @@ namespace App\Models\Workflows;
 use App\Workflows\Triggers\GenericWebhookTrigger;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Leek\FilamentWorkflows\Enums\TriggerType;
 use Leek\FilamentWorkflows\Models\Workflow as BaseWorkflow;
 
 class Workflow extends BaseWorkflow
 {
+    protected static function booted(): void
+    {
+        parent::booted();
+
+        static::deleting(static function (Workflow $workflow): void {
+            static::deleteRuntimeData($workflow->getKey());
+        });
+    }
+
     /**
      * @return array<int, string>
      */
@@ -72,5 +83,50 @@ class Workflow extends BaseWorkflow
                 return $value !== '' ? $value : null;
             },
         );
+    }
+
+    private static function deleteRuntimeData(int|string $workflowId): void
+    {
+        if (!Schema::hasTable('workflow_runs')) {
+            return;
+        }
+
+        DB::table('workflow_runs')
+            ->where('workflow_id', $workflowId)
+            ->select('id')
+            ->orderBy('id')
+            ->chunkById(1000, static function ($runs): void {
+                $ids = $runs->pluck('id')->all();
+
+                if ($ids === []) {
+                    return;
+                }
+
+                if (Schema::hasTable('workflow_run_entities')) {
+                    DB::table('workflow_run_entities')
+                        ->whereIn('workflow_run_id', $ids)
+                        ->delete();
+                }
+
+                if (Schema::hasTable('workflow_run_steps')) {
+                    DB::table('workflow_run_steps')
+                        ->whereIn('workflow_run_id', $ids)
+                        ->delete();
+                }
+            });
+
+        foreach (['workflow_amo_crm_mutations', 'workflow_metrics'] as $table) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+
+            DB::table($table)
+                ->where('workflow_id', $workflowId)
+                ->delete();
+        }
+
+        DB::table('workflow_runs')
+            ->where('workflow_id', $workflowId)
+            ->delete();
     }
 }
