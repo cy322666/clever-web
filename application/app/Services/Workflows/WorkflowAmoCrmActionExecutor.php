@@ -282,12 +282,22 @@ class WorkflowAmoCrmActionExecutor
             return $this->failure('Не найдена сущность для примечания: ' . $entity);
         }
 
+        $text = trim((string)($config['text'] ?? ''));
+
+        if ($text === '') {
+            return $this->failure('Не заполнен текст примечания.');
+        }
+
+        $params = ['text' => $text];
+
+        if ((bool)($config['is_system'] ?? false)) {
+            $params['service'] = 'Clever';
+        }
+
         $payload = [
             [
                 'note_type' => (bool)($config['is_system'] ?? false) ? 'service_message' : 'common',
-                'params' => [
-                    'text' => (string)($config['text'] ?? ''),
-                ],
+                'params' => $params,
             ]
         ];
 
@@ -1048,9 +1058,7 @@ class WorkflowAmoCrmActionExecutor
 
     private function amoErrorMessage(string $method, string $path, Response $response, mixed $body): string
     {
-        $detail = is_array($body)
-            ? (Arr::get($body, 'detail') ?: Arr::get($body, 'title') ?: Arr::get($body, 'message'))
-            : null;
+        $detail = $this->amoErrorDetail($body);
 
         return trim(
             sprintf(
@@ -1061,6 +1069,35 @@ class WorkflowAmoCrmActionExecutor
                 $detail ? ': ' . $detail : ''
             )
         );
+    }
+
+    private function amoErrorDetail(mixed $body): ?string
+    {
+        if (!is_array($body)) {
+            return null;
+        }
+
+        $detail = Arr::get($body, 'detail') ?: Arr::get($body, 'title') ?: Arr::get($body, 'message');
+
+        if (is_string($detail) && trim($detail) !== '') {
+            return trim($detail);
+        }
+
+        $validationErrors = Arr::get($body, 'validation-errors');
+
+        if (is_array($validationErrors)) {
+            foreach ($validationErrors as $validationError) {
+                $message = Arr::get((array)$validationError, 'errors.0.detail')
+                    ?: Arr::get((array)$validationError, 'errors.0.message')
+                    ?: Arr::get((array)$validationError, 'errors.0.code');
+
+                if (is_string($message) && trim($message) !== '') {
+                    return trim($message);
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
