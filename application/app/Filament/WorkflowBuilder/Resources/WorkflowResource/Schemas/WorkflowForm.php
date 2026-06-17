@@ -24,7 +24,7 @@ class WorkflowForm
                     Section::make()
                         ->compact()
                         ->columnSpan(2)
-                        ->columns(3)
+                        ->columns(4)
                         ->schema(self::workflowDetailsFields()),
 
                     Section::make()
@@ -63,13 +63,13 @@ class WorkflowForm
                         ->maxLength(255),
                 ])
                 ->createOptionUsing(fn(array $data): string => trim($data['name']))
-                ->columnSpan($compact ? 2 : 1),
+                ->columnSpan($compact ? 2 : 2),
 
             Textarea::make('description')
                 ->label(__('filament-workflows::workflows.fields.description.label'))
                 ->rows($compact ? 3 : 2)
                 ->placeholder(__('filament-workflows::workflows.fields.description.placeholder'))
-                ->columnSpan($compact ? 2 : 3),
+                ->columnSpan($compact ? 2 : 4),
         ];
     }
 
