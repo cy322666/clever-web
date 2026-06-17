@@ -76,7 +76,7 @@ class AppStats extends TableWidget
 
                 TextColumn::make('last_install_at')
                     ->label('Последняя установка')
-                    ->dateTime('d.m.Y H:i')
+                    ->dateTime('Y-m-d H:i:s')
                     ->placeholder('—')
                     ->sortable(),
             ])

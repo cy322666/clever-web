@@ -32,7 +32,7 @@ class ListImport extends ListRecords
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Дата импорта')
-                    ->dateTime('d.m.Y H:i')
+                    ->dateTime('Y-m-d H:i:s')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
 

@@ -111,7 +111,7 @@ class InvoiceRequestResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Создана')
-                    ->dateTime('d.m.Y H:i')
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.email')
                     ->label('Клиент')

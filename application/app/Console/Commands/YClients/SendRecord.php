@@ -73,7 +73,6 @@ class SendRecord extends Command
         $ycApi = (new YClients($setting));
 
         $lead = null;
-        $assignResponsible = false;
         $responsibleUserId = $setting->responsibleUserIdForRecord($record);
         $client = $record->scopedClient();
 
@@ -135,9 +134,6 @@ class SendRecord extends Command
                     ? null
                     : ServiceLead::get($amoApi, $recordDouble->lead_id);
 
-                // уже привязывали сделку к записи
-                if ($lead)
-                    $assignResponsible = false;
             } elseif ($contact) {
                 // поиск открытой сделки у контакта в нужной воронке
                 $leadCollection = ServiceLead::searchAll($contact, $amoApi, $setting->pipelines);
@@ -151,7 +147,6 @@ class SendRecord extends Command
                             ->where('account_id', $account->id)
                             ->exists()
                     );
-                    $assignResponsible = !empty($lead);
                 } else {
                     $lead = null;
                 }
@@ -166,7 +161,7 @@ class SendRecord extends Command
                     $lead,
                     $objectStatus,
                     $record,
-                    $assignResponsible ? $responsibleUserId : null
+                    $responsibleUserId
                 );
             } else {
                 $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId, $amoApi);
@@ -200,6 +195,7 @@ class SendRecord extends Command
 
         $record->lead_id = $lead->id;
         $record->status = Record::STATUS_SUCCESS;
+        $record->error_message = null;
         $record->save();
 
         return self::SUCCESS;

@@ -50,12 +50,12 @@ class CurrentSubscriptionsTable extends TableWidget
                     ->sortable(),
                 Tables\Columns\TextColumn::make('ends_at')
                     ->label('Истекает')
-                    ->date('d.m.Y')
+                    ->dateTime('Y-m-d H:i:s')
                     ->placeholder('—')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('grace_until')
                     ->label('Льгота')
-                    ->date('d.m.Y')
+                    ->dateTime('Y-m-d H:i:s')
                     ->placeholder('—')
                     ->sortable(),
             ])

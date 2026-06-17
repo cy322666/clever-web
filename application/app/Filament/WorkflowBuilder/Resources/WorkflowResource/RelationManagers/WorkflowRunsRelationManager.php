@@ -3,7 +3,6 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\RelationManagers;
 
 use Filament\Actions\Action;
-use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,37 +18,18 @@ class WorkflowRunsRelationManager extends BaseWorkflowRunsRelationManager
         return $table
             ->recordTitleAttribute('ulid')
             ->columns([
-                TextColumn::make('ulid')
-                    ->label(__('filament-workflows::workflows.fields.ulid.label'))
-                    ->fontFamily('mono')
-                    ->size('sm')
-                    ->sortable()
-                    ->copyable()
-                    ->copyMessage(__('filament-workflows::workflows.messages.copy_success'))
-                    ->tooltip(__('filament-workflows::workflows.tooltips.copy_run_id')),
-
                 TextColumn::make('status')
                     ->label(__('filament-workflows::workflows.fields.status.label'))
                     ->badge()
                     ->sortable(),
 
-                TextColumn::make('trigger_source')
-                    ->label(__('filament-workflows::workflows.fields.trigger_source.label'))
-                    ->badge()
-                    ->color('gray')
-                    ->sortable(),
-
                 TextColumn::make('started_at')
                     ->label(__('filament-workflows::workflows.fields.started_at.label'))
-                    ->dateTime('M j, Y g:i A')
+                    ->state(fn (WorkflowRun $record): ?string => $record->started_at
+                        ?->timezone('Europe/Moscow')
+                        ->format('Y-m-d H:i:s'))
                     ->sortable()
                     ->placeholder(__('filament-workflows::workflows.placeholders.not_started')),
-
-                TextColumn::make('completed_at')
-                    ->label(__('filament-workflows::workflows.fields.completed_at.label'))
-                    ->dateTime('M j, Y g:i A')
-                    ->sortable()
-                    ->placeholder(__('filament-workflows::workflows.placeholders.completed')),
 
                 TextColumn::make('duration')
                     ->label(__('filament-workflows::workflows.fields.duration.label'))
@@ -75,13 +55,6 @@ class WorkflowRunsRelationManager extends BaseWorkflowRunsRelationManager
                     ->placeholder(__('filament-workflows::workflows.placeholders.duration'))
                     ->alignEnd(),
 
-                TextColumn::make('steps_count')
-                    ->label(__('filament-workflows::workflows.fields.steps_count.label'))
-                    ->counts('steps')
-                    ->alignCenter()
-                    ->badge()
-                    ->color('gray'),
-
                 TextColumn::make('retry_count')
                     ->label(__('filament-workflows::workflows.fields.retry_count.label'))
                     ->alignCenter()
@@ -93,21 +66,18 @@ class WorkflowRunsRelationManager extends BaseWorkflowRunsRelationManager
                     ->limit(50)
                     ->tooltip(fn (?string $state): ?string => $state)
                     ->color('danger')
-                    ->weight(FontWeight::Medium)
                     ->placeholder(__('filament-workflows::workflows.placeholders.error')),
-
-                TextColumn::make('triggeredBy.name')
-                    ->label(__('filament-workflows::workflows.fields.triggered_by.label'))
-                    ->placeholder(__('filament-workflows::workflows.placeholders.no_model')),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([])
             ->headerActions([])
+            ->recordAction('view_steps')
+            ->recordActionsColumnLabel('')
             ->recordActions([
                 Action::make('view_steps')
-                    ->label(__('filament-workflows::workflows.actions.view_steps.label'))
-                    ->icon('heroicon-o-list-bullet')
-                    ->color('gray')
+                    ->label('')
+                    ->icon(null)
+                    ->extraAttributes(['class' => 'hidden'])
                     ->modalHeading(fn (WorkflowRun $record): string => __('filament-workflows::workflows.modals.run_steps.heading', ['ulid' => $record->ulid]))
                     ->modalContent(fn (WorkflowRun $record) => view(
                         'filament-workflows::filament.partials.run-steps-modal',

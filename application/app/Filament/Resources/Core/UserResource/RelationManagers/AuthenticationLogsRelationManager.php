@@ -53,7 +53,7 @@ class AuthenticationLogsRelationManager extends RelationManager
 
                 TextColumn::make('login_at')
                     ->label('Время входа')
-                    ->since()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 IconColumn::make('login_successful')
@@ -63,7 +63,7 @@ class AuthenticationLogsRelationManager extends RelationManager
 
                 TextColumn::make('logout_at')
                     ->label('Время выхода')
-                    ->since()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 IconColumn::make('cleared_by_user')

@@ -222,6 +222,7 @@ class WorkflowGenericWebhookService
             'path' => $data['path'] ?? null,
             'ip' => $data['ip'] ?? null,
             'received_at' => $data['received_at'] ?? null,
+            'raw_body' => $data['raw_body'] ?? null,
         ];
 
         foreach (['payload', 'body', 'query', 'headers'] as $root) {

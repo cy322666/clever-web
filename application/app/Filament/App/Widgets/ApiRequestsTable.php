@@ -26,7 +26,7 @@ class ApiRequestsTable extends TableWidget
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Время')
-                    ->dateTime('d.m.Y H:i:s')
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 TextColumn::make('route_name')

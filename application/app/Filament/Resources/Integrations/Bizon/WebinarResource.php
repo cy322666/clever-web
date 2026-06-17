@@ -62,7 +62,7 @@ class WebinarResource extends Resource
 
                 Tables\Columns\TextColumn::make('created')
                     ->label('Создан')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('count')

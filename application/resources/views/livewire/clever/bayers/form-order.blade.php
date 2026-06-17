@@ -274,6 +274,8 @@
 
         .clever-order-actions {
             display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
             justify-content: flex-end;
             margin-top: 20px;
         }
@@ -297,6 +299,26 @@
             transform: translateY(-1px);
         }
 
+        .clever-order-secondary-button {
+            min-height: 42px;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px;
+            background: #ffffff !important;
+            padding: 10px 18px;
+            color: #111827 !important;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 20px;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+            transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .clever-order-secondary-button:hover {
+            background: #f9fafb !important;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12) !important;
+            transform: translateY(-1px);
+        }
+
         @media (max-width: 640px) {
             .clever-order-page {
                 padding: 24px 12px;
@@ -312,6 +334,10 @@
             }
 
             .clever-order-actions .fi-btn {
+                width: 100%;
+            }
+
+            .clever-order-secondary-button {
                 width: 100%;
             }
 
@@ -372,6 +398,16 @@
             </div>
         @endif
 
+        @if ($companyCreateError)
+            <div class="clever-order-company-search-note">
+                {{ $companyCreateError }}
+            </div>
+        @elseif ($companyCreateNotice)
+            <div class="clever-order-company-search-note">
+                {{ $companyCreateNotice }}
+            </div>
+        @endif
+
         @if (! empty($companyMatches))
             <div class="clever-order-company-search">
                 @foreach ($companyMatches as $company)
@@ -398,6 +434,16 @@
         @endif
 
         <div class="clever-order-actions">
+            <button
+                class="clever-order-secondary-button"
+                type="button"
+                wire:click="createCompany"
+                wire:loading.attr="disabled"
+                wire:target="createCompany"
+            >
+                Создать компанию
+            </button>
+
             <x-filament::button type="submit">
                 Выставить счет
             </x-filament::button>

@@ -2,6 +2,7 @@ define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
     var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
+    var CAPTION_LOGO_URL = 'https://app.clevercrm.pro/amocrm/workflows/manual-buttons/images/logo_small.png?v=1.0.19';
     var LOAD_RETRIES = 0;
 
     var Widget = function () {
@@ -79,18 +80,25 @@ define(['jquery'], function ($) {
 
             $('head').append(
                 '<style id="' + BLOCK_ID + '-styles">' +
-                '.clever-workflow-card{padding:14px 16px;border:0;background:#fff;color:#181411;font-family:inherit;box-shadow:none}' +
-                '.clever-workflow-card__head{display:flex;align-items:center;margin:0 0 8px}' +
+                '.clever_workflow_buttons_caption{display:flex!important;align-items:center!important;gap:9px!important;min-height:50px!important;margin:0!important;padding:0 18px!important;background:#fff!important;box-sizing:border-box!important;color:#2f343b!important;font-family:inherit!important}' +
+                '.clever-workflow-caption{display:flex;align-items:center;gap:9px;width:100%;margin:0;padding:0;background:#fff;color:#2f343b;font-family:inherit}' +
+                '.clever-workflow-caption__logo{display:block;width:34px;height:34px;flex:0 0 34px;object-fit:contain}' +
+                '.clever-workflow-caption__text{display:block;color:#2f343b;font-size:18px;font-weight:600;line-height:1.1;white-space:nowrap}' +
+                '.clever-workflow-widget-body{padding:0!important;margin:0!important;background:#fff!important}' +
+                '.clever-workflow-widget-shell{padding:0!important;margin:0!important;background:#fff!important}' +
+                '.clever-workflow-card{display:block;width:100%;margin:0!important;padding:0!important;border:0;background:#fff;color:#181411;font-family:inherit;box-shadow:none}' +
+                '.clever-workflow-card__head{display:none}' +
                 '.clever-workflow-card__mark{display:none}' +
-                '.clever-workflow-card__title{font-size:16px;font-weight:700;margin:0;color:#181411;letter-spacing:-.01em}' +
-                '.clever-workflow-card__list{display:flex;flex-direction:column;gap:0;border-top:1px solid #eee7e1}' +
-                '.clever-workflow-card__button{position:relative;width:100%;border:0;border-bottom:1px solid #eee7e1;background:#fff;color:#181411;min-height:38px;padding:9px 8px 9px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;box-shadow:none;transition:background .15s ease,color .15s ease}' +
-                '.clever-workflow-card__button:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;background:#f17822}' +
-                '.clever-workflow-card__button:hover{background:#fff8f3;color:#c95c16}' +
+                '.clever-workflow-card__title{display:none}' +
+                '.clever-workflow-card__list{display:flex;width:100%;flex-direction:column;gap:8px;border-top:0;background:#fff;padding:10px 14px 8px;box-sizing:border-box}' +
+                '.clever-workflow-card__button{position:relative;display:block;width:100%;border:1px solid #d8dde3;border-radius:4px;background:#fff;color:#1f2933;min-height:34px;padding:7px 12px;font-size:13px;font-weight:400;line-height:1.3;cursor:pointer;text-align:center;box-shadow:0 2px 7px rgba(27,39,51,.10);transition:background .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease}' +
+                '.clever-workflow-card__button:before{display:none}' +
+                '.clever-workflow-card__button:hover{background:#f7f8fa;border-color:#b8c0ca;color:#181411;box-shadow:0 3px 10px rgba(27,39,51,.14)}' +
                 '.clever-workflow-card__button:disabled{cursor:default;opacity:.65;transform:none}' +
                 '.clever-workflow-card__empty,.clever-workflow-card__status{font-size:13px;line-height:1.45;color:#7a7068}' +
-                '.clever-workflow-card__empty{padding:4px 0}' +
-                '.clever-workflow-card__status{margin-top:8px}' +
+                '.clever-workflow-card__empty{padding:14px 18px}' +
+                '.clever-workflow-card__status{margin:0;padding:8px 18px}' +
+                '.clever-workflow-card__status:empty{display:none}' +
                 '.clever-workflow-card__status--ok{color:#25884f}' +
                 '.clever-workflow-card__status--error{color:#d1453b}' +
                 '.clever-workflow-card__loader{display:inline-flex;align-items:center;gap:8px}' +
@@ -108,8 +116,8 @@ define(['jquery'], function ($) {
                 '.clever-workflow-bulk__body{padding:18px 20px 20px}' +
                 '.clever-workflow-bulk__meta{font-size:13px;color:#7a7068;margin-bottom:12px}' +
                 '.clever-workflow-bulk__list{display:flex;flex-direction:column;border-top:1px solid #eee7e1}' +
-                '.clever-workflow-bulk__scenario{position:relative;width:100%;border:0;border-bottom:1px solid #eee7e1;background:#fff;color:#181411;min-height:42px;padding:10px 10px 10px 18px;font-size:15px;font-weight:600;text-align:left;cursor:pointer}' +
-                '.clever-workflow-bulk__scenario:before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:3px;background:#f17822}' +
+                '.clever-workflow-bulk__scenario{position:relative;width:100%;border:0;border-bottom:1px solid #eee7e1;background:#fff;color:#181411;min-height:42px;padding:10px 12px;font-size:15px;font-weight:600;text-align:left;cursor:pointer}' +
+                '.clever-workflow-bulk__scenario:before{display:none}' +
                 '.clever-workflow-bulk__scenario:hover{background:#fff8f3;color:#c95c16}' +
                 '.clever-workflow-bulk__scenario:disabled{opacity:.55;cursor:default}' +
                 '.clever-workflow-bulk__message{font-size:14px;line-height:1.45;color:#7a7068}' +
@@ -124,16 +132,37 @@ define(['jquery'], function ($) {
 
             return [
                 '<div id="' + BLOCK_ID + '" class="clever-workflow-card">',
-                '<div class="clever-workflow-card__head">',
-                '<div class="clever-workflow-card__mark">C</div>',
-                '<div class="clever-workflow-card__title">Сценарии</div>',
-                '</div>',
                 '<div class="clever-workflow-card__list">',
                 '<div class="clever-workflow-card__empty clever-workflow-card__loader">Загрузка сценариев</div>',
                 '</div>',
                 '<div class="clever-workflow-card__status"></div>',
                 '</div>'
             ].join('');
+        }
+
+        function renderCaption() {
+            return [
+                '<div class="clever-workflow-caption">',
+                '<img class="clever-workflow-caption__logo" src="' + CAPTION_LOGO_URL + '" alt="">',
+                '<span class="clever-workflow-caption__text">Сценарии</span>',
+                '</div>'
+            ].join('');
+        }
+
+        function normalizeCaption() {
+            $('.clever_workflow_buttons_caption').html(renderCaption());
+        }
+
+        function decorateWidgetContainer() {
+            var $block = $('#' + BLOCK_ID);
+
+            if (!$block.length) {
+                return;
+            }
+
+            $block.parent().addClass('clever-workflow-widget-body');
+            $block.parent().parent().addClass('clever-workflow-widget-shell');
+            normalizeCaption();
         }
 
         function mount() {
@@ -143,7 +172,7 @@ define(['jquery'], function ($) {
                 self.render_template({
                     caption: {
                         class_name: 'clever_workflow_buttons_caption',
-                        html: ''
+                        html: renderCaption()
                     },
                     body: '',
                     render: html
@@ -152,6 +181,8 @@ define(['jquery'], function ($) {
                 $('.card-widgets__widgets, .widgets__list, .linked-form__right, body').first().prepend(html);
             }
 
+            decorateWidgetContainer();
+            window.setTimeout(decorateWidgetContainer, 250);
             scheduleLoadButtons();
         }
 

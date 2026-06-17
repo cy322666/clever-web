@@ -243,7 +243,7 @@ class CompanyCaseResource extends Resource
             Tables\Columns\IconColumn::make('is_featured')
                 ->boolean(),
             Tables\Columns\TextColumn::make('published_at')
-                ->dateTime()
+                ->dateTime('Y-m-d H:i:s')
                 ->sortable(),
             Tables\Columns\TextColumn::make('sort')
                 ->sortable()

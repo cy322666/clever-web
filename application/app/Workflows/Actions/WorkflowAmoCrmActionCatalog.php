@@ -1666,10 +1666,6 @@ class AmoCrmFindEntityAction extends WorkflowAmoCrmAction
             return 'found_' . $entity . '_' . (int)$matches['index'];
         }
 
-        if ($current !== '') {
-            return preg_replace('/[^a-zA-Z0-9_]/', '_', $current) ?: 'found_' . $entity . '_1';
-        }
-
         return 'found_' . $entity . '_1';
     }
 }

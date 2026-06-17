@@ -94,7 +94,7 @@ class AuthenticationLogResource extends Resource
 
                 TextColumn::make('login_at')
                     ->label('Время входа')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 IconColumn::make('login_successful')
@@ -104,7 +104,7 @@ class AuthenticationLogResource extends Resource
 
                 TextColumn::make('logout_at')
                     ->label('Время выхода')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 IconColumn::make('cleared_by_user')

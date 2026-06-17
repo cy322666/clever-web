@@ -85,6 +85,6 @@ class QueueOpsOverview extends StatsOverviewWidget
 
         return Carbon::createFromTimestamp($timestamp)
             ->timezone(config('app.timezone'))
-            ->diffForHumans();
+            ->format('Y-m-d H:i:s');
     }
 }

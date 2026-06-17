@@ -140,13 +140,6 @@ class WorkflowRunResource extends Resource
                     ->inline()
                     ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('latest_changes')
-                    ->label('Последние изменения')
-                    ->state(fn(WorkflowRun $record): HtmlString => static::latestChangesHtml($record))
-                    ->html()
-                    ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes()),
-
                 IconColumn::make('result_status')
                     ->label('')
                     ->state(fn(WorkflowRun $record): string => $record->status->value)
@@ -177,7 +170,11 @@ class WorkflowRunResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
-                    ->options(RunStatus::class)
+                    ->options([
+                        RunStatus::COMPLETED->value => 'Завершен',
+                        RunStatus::FAILED->value => 'Ошибка',
+                        RunStatus::CANCELLED->value => 'Отменен',
+                    ])
                     ->multiple(),
 
                 SelectFilter::make('workflow_id')
@@ -280,9 +277,9 @@ class WorkflowRunResource extends Resource
             return 'Ожидает запуска';
         }
 
-        return $date->isToday()
-            ? 'Сегодня, ' . $date->format('H:i')
-            : $date->format('d.m.Y H:i');
+        return $date
+            ->timezone('Europe/Moscow')
+            ->format('Y-m-d H:i:s');
     }
 
     private static function initiatorHtml(WorkflowRun $run): HtmlString
@@ -298,12 +295,6 @@ class WorkflowRunResource extends Resource
                 '<span class="workflow-run-history-muted">Сущность</span> <span class="workflow-run-history-strong">#%d</span>',
                 (int)$run->triggerable_id,
             ));
-        }
-
-        $triggeredBy = $run->triggeredBy?->name ?? null;
-
-        if ($triggeredBy !== null) {
-            return new HtmlString(e($triggeredBy));
         }
 
         return new HtmlString(e(static::triggerDescription($run)));
@@ -455,6 +446,7 @@ class WorkflowRunResource extends Resource
             'amocrm_link_entity' => 'Прикрепить сущность',
             'amocrm_unlink_entity' => 'Открепить сущность',
             'workflow_call' => 'Запустить процесс',
+            'run_workflow' => 'Запустить процесс',
             'send_email' => 'Отправить email',
             'send_telegram' => 'Отправить в Telegram',
         ];

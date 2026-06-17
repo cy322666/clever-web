@@ -22,6 +22,7 @@
                     'path',
                     'ip',
                     'received_at',
+                    'raw_body',
                 ], true))
                 ->values(),
         ],
@@ -59,11 +60,6 @@
                 <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Отправьте запрос на URL ниже. Панель обновляется автоматически.
                 </div>
-            </div>
-
-            <div class="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
-                <span class="h-2 w-2 animate-pulse rounded-full bg-sky-500"></span>
-                Ожидание запроса
             </div>
         </div>
 

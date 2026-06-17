@@ -113,13 +113,13 @@ class AccountResource extends Resource
 //
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Создан')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable()
                     ->toggleable(),
 //
 //                Tables\Columns\TextColumn::make('updated_at')
 //                    ->label('Обновлен')
-//                    ->dateTime()
+//                    ->dateTime('Y-m-d H:i:s')
 //                    ->sortable()
 //                    ->toggleable()
 //                    ->toggledHiddenByDefault(true),

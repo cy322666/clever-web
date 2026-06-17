@@ -176,16 +176,16 @@ class WidgetSubscriptionResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('ends_at')
                     ->label('Окончание')
-                    ->date('d.m.Y')
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('grace_until')
                     ->label('Льгота')
-                    ->date('d.m.Y')
+                    ->dateTime('Y-m-d H:i:s')
                     ->placeholder('—')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Обновлена')
-                    ->dateTime('d.m.Y H:i')
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

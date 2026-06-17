@@ -452,12 +452,6 @@ class WorkflowAmoCrmActionExecutor
      */
     private function findContextKey(string $entity, array $config, ?WorkflowContext $context): string
     {
-        $key = trim((string)($config['context_key'] ?? ''));
-
-        if ($key !== '') {
-            return $this->sanitizeContextKey($key);
-        }
-
         return $this->nextFindContextKey($entity, $context);
     }
 

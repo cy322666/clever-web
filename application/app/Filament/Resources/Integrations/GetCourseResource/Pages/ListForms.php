@@ -58,7 +58,7 @@ class ListForms extends ListRecords
 
                 TextColumn::make('created_at')
                     ->label('Создан')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 TextColumn::make('lead_id')

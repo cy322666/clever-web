@@ -1,7 +1,7 @@
 {
     "widget": {
-        "name": "Clever сценарии",
-        "short_description": "Ручной запуск сценариев",
+        "name": "Сценарии от Clever",
+        "short_description": "Ручной запуск",
         "description": "Кнопки запуска ручных сценариев Clever из карточки сделки amoCRM.",
         "tour_description": "Выберите ручной сценарий в карточке сделки и запустите его одной кнопкой."
     },

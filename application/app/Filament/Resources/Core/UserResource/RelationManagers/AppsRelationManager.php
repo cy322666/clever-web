@@ -145,7 +145,7 @@ SQL,
                                     sprintf(
                                         '%s до %s',
                                         $this->appTitle($updated),
-                                        self::parseDate($updated->expires_tariff_at)?->format('d.m.Y') ?? 'без даты',
+                                        self::parseDate($updated->expires_tariff_at)?->format('Y-m-d H:i:s') ?? 'без даты',
                                     )
                                 )
                                 ->success()
@@ -292,7 +292,7 @@ SQL,
 
         return $daysLeft > 0
             ? 'Через ' . $daysLeft . ' дн.'
-            : $expiresAt->format('d.m.Y');
+            : $expiresAt->format('Y-m-d H:i:s');
     }
 
     private static function expiresColor(App $app): string
@@ -312,7 +312,7 @@ SQL,
     {
         $expiresAt = self::parseDate($app->expires_tariff_at);
 
-        return $expiresAt?->format('d.m.Y');
+        return $expiresAt?->format('Y-m-d H:i:s');
     }
 
     private static function installedLabel(App $app): string
@@ -323,14 +323,14 @@ SQL,
             return '—';
         }
 
-        return $installedAt->diffForHumans();
+        return $installedAt->format('Y-m-d H:i:s');
     }
 
     private static function installedTooltip(App $app): ?string
     {
         $installedAt = self::parseDate($app->installed_at);
 
-        return $installedAt?->format('d.m.Y H:i');
+        return $installedAt?->format('Y-m-d H:i:s');
     }
 
     private static function isExpiringSoon(App $app): bool

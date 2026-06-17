@@ -20,7 +20,7 @@ class ListTransactions extends ListRecords
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Создан')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
 //                Tables\Columns\TextColumn::make('lead_id')

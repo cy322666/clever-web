@@ -31,6 +31,8 @@ class FormOrder extends Component implements HasForms
     public ?string $invoiceLink = null;
     public ?string $companySearchError = null;
     public ?string $companySearchNotice = null;
+    public ?string $companyCreateError = null;
+    public ?string $companyCreateNotice = null;
     public bool $amoConnectionChecked = false;
     public bool $amoConnected = false;
     public ?string $amoConnectionMessage = null;
@@ -280,6 +282,7 @@ class FormOrder extends Component implements HasForms
         if (!$this->amoConnected) {
             $this->companyMatches = [];
             $this->companySearchNotice = null;
+            $this->companyCreateNotice = null;
             $this->companySearchError = 'amoCRM не подключена. Поиск компаний недоступен.';
 
             return;
@@ -302,6 +305,8 @@ class FormOrder extends Component implements HasForms
             $this->companyMatches = [];
             $this->companySearchError = null;
             $this->companySearchNotice = null;
+            $this->companyCreateError = null;
+            $this->companyCreateNotice = null;
 
             return;
         }
@@ -324,6 +329,8 @@ class FormOrder extends Component implements HasForms
 
             $this->companyMatches = array_slice(array_values($matches), 0, 5);
             $this->companySearchError = null;
+            $this->companyCreateError = null;
+            $this->companyCreateNotice = null;
             $this->companySearchNotice = empty($this->companyMatches) ? 'В amoCRM ничего не найдено.' : null;
         } catch (\Throwable $e) {
             logger()->warning('Поиск компании Clever Bayers в amoCRM временно недоступен', [
@@ -331,7 +338,70 @@ class FormOrder extends Component implements HasForms
             ]);
             $this->companyMatches = [];
             $this->companySearchNotice = null;
+            $this->companyCreateNotice = null;
             $this->companySearchError = 'Поиск компаний amoCRM временно недоступен.';
+        }
+    }
+
+    public function createCompany(): void
+    {
+        $this->companyCreateError = null;
+        $this->companyCreateNotice = null;
+        $this->companySearchError = null;
+        $this->companySearchNotice = null;
+
+        if (!$this->amoConnected) {
+            $this->companyCreateError = 'amoCRM не подключена. Создание компании недоступно.';
+
+            return;
+        }
+
+        $state = $this->formRawState();
+        $companyName = trim((string)($this->company_name ?? $state['company_name'] ?? ''));
+        $inn = preg_replace('/\D+/', '', (string)($this->inn ?? $state['inn'] ?? ''));
+
+        if ($companyName === '') {
+            $this->companyCreateError = 'Введите название компании.';
+
+            return;
+        }
+
+        if ($inn === '') {
+            $this->companyCreateError = 'Введите ИНН компании.';
+
+            return;
+        }
+
+        try {
+            $amoApi = $this->amoClient();
+            $response = $amoApi->service->ajax()->postJson('/api/v4/companies', [
+                $this->companyPayload($amoApi, $companyName, $inn),
+            ]);
+
+            $company = $response->_embedded->companies[0] ?? null;
+            $companyId = isset($company->id) ? (int)$company->id : null;
+
+            if (!$companyId) {
+                $this->companyCreateError = 'amoCRM не вернула ID созданной компании.';
+
+                return;
+            }
+
+            $createdCompany = [
+                'id' => $companyId,
+                'name' => $companyName,
+                'inn' => $inn,
+            ];
+
+            $this->companyMatches = [$createdCompany];
+            $this->selectCompany($companyId);
+            $this->companySearchNotice = null;
+            $this->companyCreateNotice = 'Компания создана в amoCRM и подставлена в форму.';
+        } catch (\Throwable $e) {
+            logger()->warning('Не удалось создать компанию Clever Bayers в amoCRM', [
+                'subdomain' => self::AMO_SUBDOMAIN,
+            ]);
+            $this->companyCreateError = 'Не удалось создать компанию в amoCRM. Попробуйте позже.';
         }
     }
 
@@ -512,6 +582,53 @@ class FormOrder extends Component implements HasForms
                 ],
             ],
         ];
+    }
+
+    private function companyPayload(Client $amoApi, string $companyName, string $inn): array
+    {
+        $payload = [
+            'name' => $companyName,
+        ];
+
+        $innField = $this->companyInnCustomField($amoApi, $inn);
+
+        if ($innField !== null) {
+            $payload['custom_fields_values'] = [$innField];
+        }
+
+        return $payload;
+    }
+
+    private function companyInnCustomField(Client $amoApi, string $inn): ?array
+    {
+        $fieldId = $this->companyInnFieldId($amoApi);
+
+        if ($fieldId === null) {
+            return null;
+        }
+
+        return [
+            'field_id' => $fieldId,
+            'values' => [
+                ['value' => $inn],
+            ],
+        ];
+    }
+
+    private function companyInnFieldId(Client $amoApi): ?int
+    {
+        $response = $amoApi->service->ajax()->get('/api/v4/companies/custom_fields', ['limit' => 250]);
+
+        foreach (($response->_embedded->custom_fields ?? []) as $field) {
+            $code = mb_strtoupper((string)($field->field_code ?? $field->code ?? ''));
+            $name = mb_strtoupper((string)($field->name ?? ''));
+
+            if ($code === 'INN' || $name === 'ИНН' || str_contains($name, 'ИНН')) {
+                return (int)$field->id;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeInvoiceAmounts(array $data): array

@@ -15,8 +15,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
@@ -126,7 +126,7 @@ class ListYClients extends ListRecords
 
                 TextColumn::make('created_at')
                     ->label('Создан')
-                    ->dateTime()
+                    ->dateTime('Y-m-d H:i:s')
                     ->sortable(),
 
                 TextColumn::make('company_id')
@@ -169,50 +169,15 @@ class ListYClients extends ListRecords
                     ->label('Событие')
                     ->state(fn(Record $record): string => $record->getEvent()),
 
-                ToggleColumn::make('status')
+                IconColumn::make('status')
                     ->label('Выгружен')
-                    ->onColor('primary')
-                    ->offColor('gray')
-                    ->disabled()
-                    ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS),
-
-                TextColumn::make('mapped_fields_update_status')
-                    ->label('Поля обновлены')
-                    ->state(function (Record $record): string {
-                        if ($record->mapped_fields_updated_at !== null) {
-                            return 'Обновлено';
-                        }
-
-                        if (filled($record->mapped_fields_update_error)) {
-                            return 'Ошибка';
-                        }
-
-                        return 'Не запускалось';
-                    })
-                    ->badge()
-                    ->color(function (Record $record): string {
-                        if ($record->mapped_fields_updated_at !== null) {
-                            return 'success';
-                        }
-
-                        if (filled($record->mapped_fields_update_error)) {
-                            return 'danger';
-                        }
-
-                        return 'gray';
-                    })
-                    ->toggleable(),
-
-                TextColumn::make('mapped_fields_updated_at')
-                    ->label('Дата обновления полей')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('mapped_fields_update_error')
-                    ->label('Ошибка обновления полей')
-                    ->wrap()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS)
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->alignCenter(),
 
                 TextColumn::make('error_message')
                     ->label('Ошибка')
@@ -250,26 +215,6 @@ class ListYClients extends ListRecords
                                 };
                             }
                         );
-                    }),
-
-                SelectFilter::make('mapped_fields_updated_at')
-                    ->label('Повторное обновление полей')
-                    ->options([
-                        'success' => 'Обновлено',
-                        'failed' => 'Ошибка',
-                        'not_processed' => 'Не обработано',
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return match ($data['value'] ?? null) {
-                            'success' => $query->whereNotNull('mapped_fields_updated_at'),
-                            'failed' => $query
-                                ->whereNull('mapped_fields_updated_at')
-                                ->whereNotNull('mapped_fields_update_error'),
-                            'not_processed' => $query
-                                ->whereNull('mapped_fields_updated_at')
-                                ->whereNull('mapped_fields_update_error'),
-                            default => $query,
-                        };
                     }),
             ])
             ->actions([])

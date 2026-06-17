@@ -223,9 +223,7 @@ class WorkflowResource extends BaseWorkflowResource
             return 'Запуск без даты';
         }
 
-        return $date->isToday()
-            ? 'Сегодня, ' . $date->format('H:i')
-            : $date->format('d.m.Y H:i');
+        return $date->format('Y-m-d H:i:s');
     }
 
     private static function createdDescription(Workflow $record): string
@@ -236,7 +234,7 @@ class WorkflowResource extends BaseWorkflowResource
             return '—';
         }
 
-        return $date->format('d.m.Y H:i');
+        return $date->format('Y-m-d H:i:s');
     }
 
     private static function triggerIcon(Workflow $record): string

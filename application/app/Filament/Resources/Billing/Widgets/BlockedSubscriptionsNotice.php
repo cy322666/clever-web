@@ -115,7 +115,7 @@ class BlockedSubscriptionsNotice extends Widget
         }
 
         try {
-            return Carbon::parse($value)->format('d.m.Y');
+            return Carbon::parse($value)->format('Y-m-d H:i:s');
         } catch (\Throwable) {
             return null;
         }

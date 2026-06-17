@@ -2,8 +2,10 @@
 
 namespace App\Models\Workflows;
 
+use App\Workflows\Triggers\GenericWebhookTrigger;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Auth;
+use Leek\FilamentWorkflows\Enums\TriggerType;
 use Leek\FilamentWorkflows\Models\Workflow as BaseWorkflow;
 
 class Workflow extends BaseWorkflow
@@ -46,6 +48,19 @@ class Workflow extends BaseWorkflow
     protected static function getCurrentTenantId(): int|string|null
     {
         return Auth::id();
+    }
+
+    protected function syncTriggerMetadata(): void
+    {
+        parent::syncTriggerMetadata();
+
+        if (data_get($this->definition, 'trigger.type') !== GenericWebhookTrigger::type()) {
+            return;
+        }
+
+        $this->trigger_type = TriggerType::WEBHOOK;
+        $this->trigger_event = null;
+        $this->trigger_model_type = null;
     }
 
     protected function groupName(): Attribute

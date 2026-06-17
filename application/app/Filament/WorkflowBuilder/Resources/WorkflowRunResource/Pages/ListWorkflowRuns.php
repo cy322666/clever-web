@@ -6,6 +6,7 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Contracts\Support\Htmlable;
 
 class ListWorkflowRuns extends ListRecords
 {
@@ -14,6 +15,11 @@ class ListWorkflowRuns extends ListRecords
     protected static ?string $title = 'Исполнения процессов';
 
     protected ?string $subheading = null;
+
+    public function getHeading(): string|Htmlable|null
+    {
+        return null;
+    }
 
     /**
      * @return array<Action>
