@@ -182,9 +182,6 @@
 
                 @if(count($conditions) > 0)
                     <div class="workflow-condition-summary mb-4">
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Если
-                        </div>
                         <div class="space-y-1.5">
                             @foreach($conditions as $conditionIndex => $condition)
                                 @php
