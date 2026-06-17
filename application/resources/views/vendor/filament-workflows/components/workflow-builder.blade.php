@@ -109,7 +109,7 @@
                             class="workflow-workbench__quick-action"
                         >
                             <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
-                            <span>Копировать</span>
+                            <span>Дублировать</span>
                         </button>
                     @endif
 

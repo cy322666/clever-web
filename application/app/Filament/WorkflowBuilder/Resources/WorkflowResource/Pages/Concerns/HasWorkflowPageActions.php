@@ -103,7 +103,7 @@ trait HasWorkflowPageActions
     protected function duplicateWorkflowAction(): Action
     {
         return Action::make('duplicate_workflow')
-            ->label('Копировать')
+            ->label('Дублировать')
             ->icon('heroicon-o-document-duplicate')
             ->color('gray')
             ->action(fn() => $this->duplicateCurrentWorkflow());

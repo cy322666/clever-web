@@ -138,7 +138,7 @@ class WorkflowResource extends BaseWorkflowResource
             ->deferFilters(false)
             ->recordActions([
                 Action::make('duplicate_workflow')
-                    ->label('Копировать сценарий')
+                    ->label('Дублировать сценарий')
                     ->icon('heroicon-o-document-duplicate')
                     ->color('gray')
                     ->iconButton()
