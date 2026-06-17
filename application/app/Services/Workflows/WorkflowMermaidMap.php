@@ -39,7 +39,7 @@ class WorkflowMermaidMap
 
         $currentId = $this->processNodeId($workflow);
 
-        $this->addProcessNode($workflow, 'currentNode', 'текущий процесс');
+        $this->addProcessNode($workflow, 'currentNode', 'Текущий');
         $this->addIncomingNodes($workflow, $map['incoming'] ?? []);
         $this->addActionsForWorkflow($workflow, $currentId);
         $this->addClassDefinitions();
@@ -62,13 +62,13 @@ class WorkflowMermaidMap
                 $parentId = $parent ? $this->processNodeId($parent) : $this->nodeId('parent', $workflowId);
 
                 if ($parent) {
-                    $this->addProcessNode($parent, 'parentNode', $this->statusLabel($parent));
+                    $this->addProcessNode($parent, 'parentNode', 'Родитель');
                     $this->addProcessClick($parent);
                 } else {
                     $this->addNode(
                         $parentId,
                         (string)($link['workflow_name'] ?? 'Процесс #' . $workflowId),
-                        'родительский процесс'
+                        'Родитель'
                     );
                     $this->lines[] = '    class ' . $parentId . ' parentNode';
                 }
@@ -79,7 +79,7 @@ class WorkflowMermaidMap
             }
 
             $triggerId = $this->nodeId('trigger', $index);
-            $this->addNode($triggerId, (string)($link['workflow_name'] ?? 'Триггер'), 'триггер');
+            $this->addNode($triggerId, '⚡ ' . (string)($link['workflow_name'] ?? 'Триггер'), 'Триггер');
             $this->lines[] = '    ' . $triggerId . ' --> ' . $currentId;
             $this->lines[] = '    class ' . $triggerId . ' triggerNode';
         }
@@ -191,7 +191,7 @@ class WorkflowMermaidMap
 
         $targetNodeId = $this->processNodeId($targetWorkflow);
 
-        $this->addProcessNode($targetWorkflow, 'childNode', $this->statusLabel($targetWorkflow));
+        $this->addProcessNode($targetWorkflow, 'childNode', 'Дочерний');
         $this->addProcessClick($targetWorkflow);
         $this->lines[] = '    ' . $actionNodeId . ' --> ' . $targetNodeId;
         $this->addActionsForWorkflow($targetWorkflow, $targetNodeId, $depth + 1);
@@ -207,14 +207,16 @@ class WorkflowMermaidMap
 
         $this->renderedProcesses[$workflowId] = true;
 
+        $title = $this->processTitle($workflow, $class);
+
         if ($class === 'childNode') {
             $this->addSubprocessNode(
                 $this->processNodeId($workflow),
-                (string)$workflow->getAttribute('name'),
+                $title,
                 $subLabel
             );
         } else {
-            $this->addNode($this->processNodeId($workflow), (string)$workflow->getAttribute('name'), $subLabel);
+            $this->addNode($this->processNodeId($workflow), $title, $subLabel);
         }
 
         $this->lines[] = '    class ' . $this->processNodeId($workflow) . ' ' . $class;
@@ -239,7 +241,7 @@ class WorkflowMermaidMap
 
     private function addActionNode(string $id, string $title, string $subLabel, string $type): void
     {
-        $label = $this->label($title) . '<br/><small>' . $this->label($subLabel) . '</small>';
+        $label = $this->label($this->actionIcon($type) . ' ' . $title) . '<br/><small>' . $this->label($subLabel) . '</small>';
 
         $this->lines[] = match ($this->actionShape($type)) {
             'rounded' => '    ' . $id . '(["' . $label . '"])',
@@ -259,7 +261,7 @@ class WorkflowMermaidMap
 
     private function addDiamondNode(string $id, string $title): void
     {
-        $this->lines[] = '    ' . $id . '{"' . $this->label($title) . '"}';
+        $this->lines[] = '    ' . $id . '{"' . $this->label('◇ ' . $title) . '"}';
     }
 
     private function actionName(array $action, string $type, array $config): string
@@ -305,6 +307,33 @@ class WorkflowMermaidMap
             'amocrm_copy_lead' => 'копирование сделки',
             'send_notification', 'send_email', 'multi_channel_notification' => 'уведомление',
             default => 'действие',
+        };
+    }
+
+    private function actionIcon(string $type): string
+    {
+        return match (true) {
+            in_array($type, ['condition', 'control-condition'], true) => '◇',
+            $type === 'run_workflow' => '↳',
+            $this->isTaskOrNoteAction($type) => '☑',
+            $this->isCreateAction($type) => '+',
+            $this->isUpdateAction($type) => '✎',
+            $this->isRelationAction($type) => '⛓',
+            $this->isNotificationAction($type) => '✉',
+            str_starts_with($type, 'amocrm_') => '•',
+            default => '•',
+        };
+    }
+
+    private function processTitle(Model $workflow, string $class): string
+    {
+        $name = (string)$workflow->getAttribute('name');
+
+        return match ($class) {
+            'currentNode' => '▣ ' . $name,
+            'parentNode' => '↲ ' . $name,
+            'childNode' => '↳ ' . $name,
+            default => '▣ ' . $name,
         };
     }
 
@@ -448,18 +477,18 @@ class WorkflowMermaidMap
 
     private function addClassDefinitions(): void
     {
-        $this->lines[] = '    classDef currentNode fill:#eef5ff,stroke:#2563eb,stroke-width:2.5px,color:#0f172a';
-        $this->lines[] = '    classDef triggerNode fill:#fff7ed,stroke:#fb923c,stroke-width:1.8px,color:#7c2d12';
-        $this->lines[] = '    classDef parentNode fill:#edfdf6,stroke:#34d399,stroke-width:1.8px,color:#064e3b';
-        $this->lines[] = '    classDef childNode fill:#f8fafc,stroke:#64748b,stroke-width:2.2px,color:#0f172a,stroke-dasharray:6 4';
-        $this->lines[] = '    classDef actionNode fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155';
-        $this->lines[] = '    classDef amoActionNode fill:#f0fdf4,stroke:#86efac,stroke-width:1.5px,color:#14532d';
-        $this->lines[] = '    classDef createActionNode fill:#ecfdf5,stroke:#10b981,stroke-width:1.8px,color:#064e3b';
-        $this->lines[] = '    classDef updateActionNode fill:#eff6ff,stroke:#3b82f6,stroke-width:1.8px,color:#1e3a8a';
-        $this->lines[] = '    classDef taskActionNode fill:#fff7ed,stroke:#f97316,stroke-width:1.8px,color:#7c2d12';
-        $this->lines[] = '    classDef relationActionNode fill:#f5f3ff,stroke:#8b5cf6,stroke-width:1.8px,color:#4c1d95';
-        $this->lines[] = '    classDef notificationActionNode fill:#fdf2f8,stroke:#ec4899,stroke-width:1.8px,color:#831843';
-        $this->lines[] = '    classDef runWorkflowNode fill:#ecfeff,stroke:#0891b2,stroke-width:2.1px,color:#164e63';
-        $this->lines[] = '    classDef conditionNode fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f';
+        $this->lines[] = '    classDef currentNode fill:#f8fafc,stroke:#334155,stroke-width:2.6px,color:#111827';
+        $this->lines[] = '    classDef triggerNode fill:#f8fafc,stroke:#94a3b8,stroke-width:1.8px,color:#111827';
+        $this->lines[] = '    classDef parentNode fill:#f8fafc,stroke:#94a3b8,stroke-width:1.8px,color:#111827';
+        $this->lines[] = '    classDef childNode fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#111827,stroke-dasharray:6 4';
+        $this->lines[] = '    classDef actionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef amoActionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef createActionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef updateActionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef taskActionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef relationActionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef notificationActionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.6px,color:#111827';
+        $this->lines[] = '    classDef runWorkflowNode fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#111827,stroke-dasharray:6 4';
+        $this->lines[] = '    classDef conditionNode fill:#ffffff,stroke:#cbd5e1,stroke-width:1.8px,color:#111827';
     }
 }

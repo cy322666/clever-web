@@ -3,8 +3,42 @@ let mermaidRenderScheduled = false;
 let mermaidModulePromise = null;
 
 const currentMermaidTheme = () => (
-    document.documentElement.classList.contains('dark') ? 'dark' : 'base'
+    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 );
+
+const mermaidThemeVariables = () => {
+    if (currentMermaidTheme() === 'dark') {
+        return {
+            fontFamily: 'inherit',
+            primaryColor: '#111827',
+            primaryBorderColor: '#475569',
+            primaryTextColor: '#f8fafc',
+            lineColor: '#64748b',
+            secondaryColor: '#0f172a',
+            tertiaryColor: '#111827',
+            mainBkg: '#111827',
+            nodeBorder: '#475569',
+            clusterBkg: '#0f172a',
+            clusterBorder: '#334155',
+            edgeLabelBackground: '#111827',
+        };
+    }
+
+    return {
+        fontFamily: 'inherit',
+        primaryColor: '#ffffff',
+        primaryBorderColor: '#cbd5e1',
+        primaryTextColor: '#111827',
+        lineColor: '#64748b',
+        secondaryColor: '#f8fafc',
+        tertiaryColor: '#ffffff',
+        mainBkg: '#ffffff',
+        nodeBorder: '#cbd5e1',
+        clusterBkg: '#f8fafc',
+        clusterBorder: '#e2e8f0',
+        edgeLabelBackground: '#ffffff',
+    };
+};
 
 const getMermaid = async () => {
     mermaidModulePromise ??= import('mermaid').then((module) => module.default);
@@ -16,7 +50,7 @@ const configureMermaid = (mermaid) => {
     mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'loose',
-        theme: currentMermaidTheme(),
+        theme: 'base',
         flowchart: {
             curve: 'linear',
             htmlLabels: true,
@@ -25,15 +59,7 @@ const configureMermaid = (mermaid) => {
             nodeSpacing: 64,
             rankSpacing: 96,
         },
-        themeVariables: {
-            fontFamily: 'inherit',
-            primaryColor: '#eff6ff',
-            primaryBorderColor: '#93c5fd',
-            primaryTextColor: '#0f172a',
-            lineColor: '#94a3b8',
-            secondaryColor: '#f8fafc',
-            tertiaryColor: '#ecfdf5',
-        },
+        themeVariables: mermaidThemeVariables(),
     });
 };
 
