@@ -178,6 +178,8 @@ class ControlConditionAction extends ConditionAction
                             $set($name . '_source', $source);
                             $set($name . '_mask', $source === 'mask' ? $value : null);
                             $set($name . '_amo_field', $source === 'amo_field' ? $value : null);
+                            $set($name . '_amo_pipeline', $source === 'amo_pipeline' ? $value : null);
+                            $set($name . '_amo_status', $source === 'amo_status' ? $value : null);
                             $set($name . '_static', $source === 'static' ? $value : null);
                             $set($name . '_manual', $source === 'manual' ? $value : null);
                         }
@@ -195,6 +197,18 @@ class ControlConditionAction extends ConditionAction
                     ->label('Поле')
                     ->dehydrated(false)
                     ->visible(fn(Get $get): bool => $get($name . '_source') === 'amo_field')
+                    ->live()
+                    ->afterStateUpdated(fn(?string $state, Set $set): mixed => $set($name, $state)),
+                static::conditionAmoPipelineSelect($name . '_amo_pipeline')
+                    ->label('Воронка')
+                    ->dehydrated(false)
+                    ->visible(fn(Get $get): bool => $get($name . '_source') === 'amo_pipeline')
+                    ->live()
+                    ->afterStateUpdated(fn(?string $state, Set $set): mixed => $set($name, $state)),
+                static::conditionAmoStatusSelect($name . '_amo_status')
+                    ->label('Этап')
+                    ->dehydrated(false)
+                    ->visible(fn(Get $get): bool => $get($name . '_source') === 'amo_status')
                     ->live()
                     ->afterStateUpdated(fn(?string $state, Set $set): mixed => $set($name, $state)),
                 VariableTextInput::make($name . '_static')
@@ -220,6 +234,8 @@ class ControlConditionAction extends ConditionAction
         $options = [
             'mask' => 'Переменная',
             'amo_field' => 'Поле amoCRM',
+            'amo_pipeline' => 'Воронка amoCRM',
+            'amo_status' => 'Этап amoCRM',
             'manual' => 'Вручную',
         ];
 
@@ -227,6 +243,8 @@ class ControlConditionAction extends ConditionAction
             $options = [
                 'mask' => 'Переменная',
                 'amo_field' => 'Поле amoCRM',
+                'amo_pipeline' => 'Воронка amoCRM',
+                'amo_status' => 'Этап amoCRM',
                 'static' => 'Готовое значение',
                 'manual' => 'Вручную',
             ];
@@ -269,6 +287,42 @@ class ControlConditionAction extends ConditionAction
             ->placeholder('');
     }
 
+    protected static function conditionAmoPipelineSelect(string $name): Select
+    {
+        return Select::make($name)
+            ->options(WorkflowTriggerConditionVariableCatalog::groupedAmoPipelineOptions())
+            ->getSearchResultsUsing(
+                fn(string $search): array => WorkflowTriggerConditionVariableCatalog::searchAmoPipelines($search)
+            )
+            ->getOptionLabelUsing(
+                fn(?string $value): ?string => $value !== null
+                    ? (WorkflowTriggerConditionVariableCatalog::amoPipelineLabel($value) ?? $value)
+                    : null
+            )
+            ->searchable()
+            ->searchValues()
+            ->native(false)
+            ->placeholder('');
+    }
+
+    protected static function conditionAmoStatusSelect(string $name): Select
+    {
+        return Select::make($name)
+            ->options(WorkflowTriggerConditionVariableCatalog::groupedAmoStatusOptions())
+            ->getSearchResultsUsing(
+                fn(string $search): array => WorkflowTriggerConditionVariableCatalog::searchAmoStatuses($search)
+            )
+            ->getOptionLabelUsing(
+                fn(?string $value): ?string => $value !== null
+                    ? (WorkflowTriggerConditionVariableCatalog::amoStatusLabel($value) ?? $value)
+                    : null
+            )
+            ->searchable()
+            ->searchValues()
+            ->native(false)
+            ->placeholder('');
+    }
+
     protected static function conditionValueSource(string $value, bool $includeStaticValues): string
     {
         if ($value === '') {
@@ -281,6 +335,14 @@ class ControlConditionAction extends ConditionAction
 
         if (array_key_exists($value, WorkflowTriggerConditionVariableCatalog::flatAmoFieldOptions())) {
             return 'amo_field';
+        }
+
+        if (array_key_exists($value, WorkflowTriggerConditionVariableCatalog::flatAmoPipelineOptions())) {
+            return 'amo_pipeline';
+        }
+
+        if (array_key_exists($value, WorkflowTriggerConditionVariableCatalog::flatAmoStatusOptions())) {
+            return 'amo_status';
         }
 
         if ($includeStaticValues && array_key_exists(

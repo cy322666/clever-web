@@ -15,7 +15,12 @@ class WorkflowTriggerConditionVariableCatalog
      */
     public static function groupedOptions(bool $includeStaticValues = false): array
     {
-        $options = array_replace_recursive(static::groupedMaskOptions(), static::amoCrmCustomFieldOptions());
+        $options = array_replace_recursive(
+            static::groupedMaskOptions(),
+            static::amoCrmCustomFieldOptions(),
+            static::groupedAmoPipelineOptions(),
+            static::groupedAmoStatusOptions(),
+        );
 
         if ($includeStaticValues) {
             $options['Готовые значения'] = static::staticValueOptions();
@@ -180,6 +185,69 @@ class WorkflowTriggerConditionVariableCatalog
     /**
      * @return array<string, array<string, string>>
      */
+    public static function groupedAmoPipelineOptions(): array
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return [];
+        }
+
+        $pipelines = AmoCrmStatus::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->whereNotNull('pipeline_id')
+            ->orderBy('pipeline_name')
+            ->get(['pipeline_id', 'pipeline_name'])
+            ->unique('pipeline_id')
+            ->mapWithKeys(static fn(AmoCrmStatus $status): array => [
+                (string)$status->pipeline_id => (string)($status->pipeline_name ?: 'Воронка ' . $status->pipeline_id),
+            ])
+            ->all();
+
+        return $pipelines === [] ? [] : ['Воронки amoCRM' => $pipelines];
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    public static function groupedAmoStatusOptions(): array
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return [];
+        }
+
+        $options = [];
+
+        $statuses = AmoCrmStatus::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->whereNotNull('status_id')
+            ->orderBy('pipeline_name')
+            ->orderBy('sort')
+            ->get(['status_id', 'name', 'pipeline_name']);
+
+        foreach ($statuses as $status) {
+            $pipelineName = (string)($status->pipeline_name ?: 'Без воронки');
+            $statusId = trim((string)$status->status_id);
+
+            if ($statusId === '') {
+                continue;
+            }
+
+            $options[$pipelineName][$statusId] = (string)($status->name ?: 'Этап ' . $statusId);
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
     private static function amoCrmCustomFieldOptions(): array
     {
         $userId = Auth::id();
@@ -259,6 +327,26 @@ class WorkflowTriggerConditionVariableCatalog
     /**
      * @return array<string, string>
      */
+    public static function flatAmoPipelineOptions(): array
+    {
+        return collect(static::groupedAmoPipelineOptions())
+            ->flatMap(fn(array $options): array => $options)
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function flatAmoStatusOptions(): array
+    {
+        return collect(static::groupedAmoStatusOptions())
+            ->flatMap(fn(array $options): array => $options)
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
     public static function search(string $query, bool $includeStaticValues = false): array
     {
         return static::searchInOptions(static::flatOptions($includeStaticValues), $query, true);
@@ -278,6 +366,22 @@ class WorkflowTriggerConditionVariableCatalog
     public static function searchAmoFields(string $query): array
     {
         return static::searchInOptions(static::flatAmoFieldOptions(), $query);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function searchAmoPipelines(string $query): array
+    {
+        return static::searchInOptions(static::flatAmoPipelineOptions(), $query);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function searchAmoStatuses(string $query): array
+    {
+        return static::searchInOptions(static::flatAmoStatusOptions(), $query);
     }
 
     /**
@@ -311,7 +415,24 @@ class WorkflowTriggerConditionVariableCatalog
             return $value;
         }
 
-        return static::flatOptions($includeStaticValues)[$value] ?? $value;
+        return static::flatOptions($includeStaticValues)[$value]
+            ?? static::amoPipelineLabel($value)
+            ?? static::amoStatusLabel($value)
+            ?? $value;
+    }
+
+    public static function amoPipelineLabel(string $pipelineId): ?string
+    {
+        $label = static::flatAmoPipelineOptions()[$pipelineId] ?? null;
+
+        return $label !== null ? 'Воронка: ' . $label : null;
+    }
+
+    public static function amoStatusLabel(string $statusId): ?string
+    {
+        $label = static::flatAmoStatusOptions()[$statusId] ?? null;
+
+        return $label !== null ? 'Этап: ' . $label : null;
     }
 
     /**
