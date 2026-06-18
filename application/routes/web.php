@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\System\IntegrationOpenController;
 use App\Http\Controllers\System\MetricsController;
+use App\Http\Controllers\WorkflowDocumentationController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,12 @@ Route::get('/metrics', MetricsController::class)->name('metrics');
 Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
     ->name('integrations.open')
     ->middleware('auth');
+Route::middleware('auth')->group(function (): void {
+    Route::get('/workflow-builder/documentation.pdf', [WorkflowDocumentationController::class, 'account'])
+        ->name('workflow-builder.documentation.account');
+    Route::get('/workflow-builder/workflows/{workflow}/documentation.pdf', [WorkflowDocumentationController::class, 'workflow'])
+        ->name('workflow-builder.documentation.workflow');
+});
 
 Route::get('/auto-login/{user}', function (Request $request, User $user) {
 

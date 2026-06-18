@@ -100,6 +100,22 @@ trait HasWorkflowPageActions
             });
     }
 
+    protected function workflowDocumentationAction(): Action
+    {
+        return Action::make('workflow_documentation')
+            ->label('PDF')
+            ->icon('heroicon-o-document-text')
+            ->color('gray')
+            ->url(function (): string {
+                $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
+
+                return $record
+                    ? route('workflow-builder.documentation.workflow', ['workflow' => $record])
+                    : '#';
+            })
+            ->openUrlInNewTab();
+    }
+
     protected function duplicateWorkflowAction(): Action
     {
         return Action::make('duplicate_workflow')
