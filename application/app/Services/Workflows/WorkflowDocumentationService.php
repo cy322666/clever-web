@@ -653,12 +653,36 @@ class WorkflowDocumentationService
             return 'не выбрано';
         }
 
+        if (str_starts_with($fieldId, 'system:')) {
+            return $this->systemFieldName($fieldId);
+        }
+
+        if (!is_numeric($fieldId)) {
+            return $fieldId;
+        }
+
         $field = AmoCrmField::query()
             ->where('user_id', $userId)
-            ->where('field_id', $fieldId)
+            ->where('field_id', (int)$fieldId)
             ->first(['name']);
 
         return $field ? $field->name . ' · ID ' . $fieldId : 'ID ' . $fieldId;
+    }
+
+    private function systemFieldName(string $field): string
+    {
+        return [
+            'system:name' => 'Название / имя',
+            'system:first_name' => 'Имя',
+            'system:last_name' => 'Фамилия',
+            'system:price' => 'Бюджет',
+            'system:responsible_user_id' => 'Ответственный',
+            'system:pipeline_id' => 'Воронка',
+            'system:status_id' => 'Статус',
+            'system:closed_at' => 'Дата закрытия',
+            'system:loss_reason_id' => 'Причина отказа',
+            'system:next_price' => 'Ожидаемая сумма',
+        ][$field] ?? $field;
     }
 
     private function staffName(mixed $staffId, int $userId): string
