@@ -16,8 +16,8 @@ class WorkflowDocumentationController extends Controller
         $this->authorizeWorkflow($workflow);
 
         return $this->pdf(
-            $documentation->singleDocument($workflow),
-            'scenario-' . $workflow->getKey() . '-documentation.pdf'
+            $documentation->accountDocument((int)auth()->id()),
+            'scenarios-documentation.pdf'
         );
     }
 

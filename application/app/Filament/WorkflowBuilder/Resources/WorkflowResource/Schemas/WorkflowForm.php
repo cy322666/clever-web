@@ -81,7 +81,7 @@ class WorkflowForm
         return [
             Toggle::make('is_active')
                 ->label(__('filament-workflows::workflows.fields.is_active.label'))
-                ->default(true)
+                ->default(false)
                 ->columnSpan($compact ? 1 : 1),
 
             Select::make('failure_strategy')

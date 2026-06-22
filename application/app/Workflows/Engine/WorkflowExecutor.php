@@ -107,6 +107,90 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         }
     }
 
+    /**
+     * @param array<string, mixed> $step
+     * @return array{success: bool, output?: mixed, error?: string}
+     */
+    protected function runActionStep(array $step, WorkflowContext $context): array
+    {
+        $actionType = $step['type'] ?? null;
+
+        if (!$actionType) {
+            return [
+                'success' => false,
+                'error' => __('filament-workflows::workflows.executor.errors.missing_action_type'),
+            ];
+        }
+
+        if (!$this->actionRegistry->has($actionType)) {
+            return [
+                'success' => false,
+                'error' => __('filament-workflows::workflows.executor.errors.unknown_action_type', ['type' => $actionType]),
+            ];
+        }
+
+        $action = $this->actionRegistry->resolve($actionType);
+        $rawConfig = $step['config'] ?? $step['properties'] ?? [];
+
+        /** @var array<string, mixed> $config */
+        $config = $context->resolve($rawConfig);
+        $config = $this->normalizeStepDelayConfig($config);
+
+        $validation = $this->validateActionConfig($action, $config);
+        if (!$validation['valid']) {
+            return [
+                'success' => false,
+                'error' => __('filament-workflows::workflows.executor.errors.config_validation_failed', ['errors' => implode(', ', $validation['errors'])]),
+            ];
+        }
+
+        $this->sleepBeforeStep($config);
+
+        return $this->executeAction($action, $config, $context);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    protected function normalizeStepDelayConfig(array $config): array
+    {
+        $delay = is_array($config['delay'] ?? null) ? $config['delay'] : [];
+        $mode = (string)($delay['mode'] ?? 'immediate');
+
+        if ($mode !== 'after_seconds') {
+            $config['delay'] = ['mode' => 'immediate'];
+
+            return $config;
+        }
+
+        $seconds = min(30, max(1, (int)($delay['seconds'] ?? 0)));
+        $config['delay'] = [
+            'mode' => 'after_seconds',
+            'seconds' => $seconds,
+        ];
+
+        return $config;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    protected function sleepBeforeStep(array $config): void
+    {
+        $delay = is_array($config['delay'] ?? null) ? $config['delay'] : [];
+
+        if (($delay['mode'] ?? 'immediate') !== 'after_seconds') {
+            return;
+        }
+
+        $seconds = min(30, max(1, (int)($delay['seconds'] ?? 0)));
+
+        if ($seconds > 0) {
+            sleep($seconds);
+        }
+    }
+
     protected function handleException(WorkflowRun $run, Throwable $exception): void
     {
         parent::handleException($run, $exception);

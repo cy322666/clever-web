@@ -1,5 +1,21 @@
 @php
+    $hiddenReferenceGroups = [
+        'Беседа / чат',
+        'Задача',
+        'Компания',
+        'Контакт',
+        'Покупатель',
+        'Примечание',
+        'Сделка',
+        'Поля компании',
+        'Поля контакта',
+        'Поля покупателя',
+        'Поля сделки',
+        'Воронка',
+    ];
+
     $masks = collect($groups)
+        ->reject(fn (array $items, string $group): bool => in_array($group, $hiddenReferenceGroups, true))
         ->flatMap(fn (array $items, string $group): array => collect($items)
             ->map(fn (string $label, string $mask): array => [
                 'group' => $group,
@@ -21,6 +37,7 @@
                 'subtitle' => (string) ($item['subtitle'] ?? ''),
                 'entity' => (string) ($item['entity'] ?? ''),
                 'options' => array_values($item['options'] ?? []),
+                'kind' => (string) ($item['kind'] ?? 'id'),
             ])
             ->filter(fn (array $item): bool => $item['id'] !== '')
             ->values()
@@ -46,6 +63,46 @@
         '{{event}}',
         '{{received_at}}',
     ];
+
+    $modifierGroups = [
+        [
+            'title' => 'Дата и время',
+            'items' => [
+                ['expression' => '{{now:date(d.m.Y)}}', 'label' => 'Сегодня в формате 19.06.2026'],
+                ['expression' => '{{now:datetime(d.m.Y H:i)}}', 'label' => 'Дата и время в формате 19.06.2026 14:30'],
+                ['expression' => '{{now:timestamp}}', 'label' => 'Unix timestamp'],
+                ['expression' => '{{now:add(1 day):date(d.m.Y)}}', 'label' => 'Завтра'],
+                ['expression' => '{{now:add(30 minutes):datetime(d.m.Y H:i)}}', 'label' => 'Через 30 минут'],
+                ['expression' => '{{lead.created_at:date(d.m.Y)}}', 'label' => 'Дата создания сделки'],
+            ],
+        ],
+        [
+            'title' => 'Текст',
+            'items' => [
+                ['expression' => '{{lead.name:trim}}', 'label' => 'Убрать пробелы по краям'],
+                ['expression' => '{{lead.name:upper}}', 'label' => 'В верхний регистр'],
+                ['expression' => '{{lead.name:lower}}', 'label' => 'В нижний регистр'],
+                ['expression' => '{{lead.name:default(Без названия)}}', 'label' => 'Значение, если пусто'],
+            ],
+        ],
+        [
+            'title' => 'Телефон и числа',
+            'items' => [
+                ['expression' => '{{contact.phone:digits}}', 'label' => 'Оставить только цифры'],
+                ['expression' => '{{contact.phone:phone_ru}}', 'label' => 'Привести номер к 79991234567'],
+                ['expression' => '{{lead.price:number(0)}}', 'label' => 'Число без копеек'],
+                ['expression' => '{{lead.price:number(2)}}', 'label' => 'Число с двумя знаками'],
+            ],
+        ],
+        [
+            'title' => 'Списки и webhook',
+            'items' => [
+                ['expression' => '{{lead.tags:join(, )}}', 'label' => 'Список тегов через запятую'],
+                ['expression' => '{{payload:json}}', 'label' => 'Тело webhook как JSON'],
+                ['expression' => '{{payload.client.phone:digits}}', 'label' => 'Телефон из webhook без лишних символов'],
+            ],
+        ],
+    ];
 @endphp
 
 <div
@@ -57,11 +114,13 @@
         selectedSystemGroup: '',
         selectedFieldEntity: '',
         expandedFields: {},
+        expandedMaskGroups: {},
         systemIdGroupNames: @js($systemIdGroupNames),
         popularMasks: @js($popularMasks),
+        modifierGroups: @js($modifierGroups),
         fieldEntities() {
             return [...new Set(this.systemIds
-                .filter((item) => item.group === 'Поля amoCRM' && item.entity !== '')
+                .filter((item) => item.group === 'Поля' && item.entity !== '')
                 .map((item) => item.entity)
             )].sort();
         },
@@ -89,7 +148,7 @@
 
             items = items.filter((item) => item.group === this.selectedSystemGroup);
 
-            if (this.selectedSystemGroup === 'Поля amoCRM' && this.selectedFieldEntity !== '') {
+            if (this.selectedSystemGroup === 'Поля' && this.selectedFieldEntity !== '') {
                 items = items.filter((item) => item.entity === this.selectedFieldEntity);
             }
 
@@ -125,9 +184,36 @@
                 ? {}
                 : { [this.selectedSystemGroup]: this.filteredSystemIds() };
         },
+        filteredModifierGroups() {
+            const query = this.query.trim().toLowerCase();
+
+            return this.modifierGroups
+                .map((group) => ({
+                    ...group,
+                    items: query === ''
+                        ? group.items
+                        : group.items.filter((item) =>
+                            group.title.toLowerCase().includes(query) ||
+                            item.label.toLowerCase().includes(query) ||
+                            item.expression.toLowerCase().includes(query)
+                        ),
+                }))
+                .filter((group) => group.items.length > 0);
+        },
+        isMaskGroupOpen(group) {
+            return this.query.trim() !== '' || this.expandedMaskGroups[group] === true;
+        },
+        toggleMaskGroup(group) {
+            this.expandedMaskGroups[group] = !this.expandedMaskGroups[group];
+        },
         copy(mask) {
             navigator.clipboard?.writeText(mask.mask);
             this.copied = mask.mask;
+            setTimeout(() => this.copied = null, 1400);
+        },
+        copyExpression(expression) {
+            navigator.clipboard?.writeText(expression);
+            this.copied = expression;
             setTimeout(() => this.copied = null, 1400);
         },
         copyId(item) {
@@ -196,7 +282,7 @@
             </x-filament::input.select>
         </x-filament::input.wrapper>
 
-        <div x-show="selectedSystemGroup === 'Поля amoCRM'" x-cloak class="mt-2">
+        <div x-show="selectedSystemGroup === 'Поля'" x-cloak class="mt-2">
             <x-filament::input.wrapper>
                 <x-filament::input.select x-model="selectedFieldEntity">
                     <option value="">Все сущности</option>
@@ -217,7 +303,8 @@
                             <div class="text-sm font-medium text-gray-950 dark:text-white" x-text="item.name"></div>
                             <div class="mt-0.5 text-xs text-slate-500 dark:text-gray-400" x-text="item.subtitle"></div>
                             <code class="mt-1 block break-all text-xs font-semibold text-amber-700 dark:text-amber-300">
-                                ID: <span x-text="item.id"></span>
+                                <span x-text="item.kind === 'variable' ? 'Переменная:' : 'ID:'"></span>
+                                <span x-text="item.id"></span>
                             </code>
                         </div>
 
@@ -227,7 +314,7 @@
                                 type="button"
                                 x-on:click.stop="toggleFieldOptions(item)"
                                 class="rounded-md p-1.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                                :title="selectedSystemGroup === 'Воронки amoCRM'
+                                :title="selectedSystemGroup === 'Воронки'
                                     ? (expandedFields[item.id] ? 'Скрыть этапы' : 'Показать этапы')
                                     : (expandedFields[item.id] ? 'Скрыть варианты' : 'Показать варианты')"
                             >
@@ -242,7 +329,9 @@
                                 type="button"
                                 x-on:click.stop="copyId(item)"
                                 class="rounded-md p-1.5 text-amber-600 transition hover:bg-amber-100 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                                :title="selectedSystemGroup === 'Воронки amoCRM' ? 'Копировать ID воронки' : 'Копировать ID поля'"
+                                :title="item.kind === 'variable'
+                                    ? 'Копировать переменную'
+                                    : (selectedSystemGroup === 'Воронки' ? 'Копировать ID воронки' : 'Копировать ID')"
                             >
                                 <x-filament::icon icon="heroicon-o-clipboard-document" class="h-4 w-4"/>
                             </button>
@@ -257,7 +346,7 @@
                         <div
                             class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                             <span
-                                x-text="selectedSystemGroup === 'Воронки amoCRM' ? 'Этапы воронки' : 'Варианты поля'"></span>
+                                x-text="selectedSystemGroup === 'Воронки' ? 'Этапы воронки' : 'Варианты поля'"></span>
                         </div>
 
                         <div class="space-y-1">
@@ -266,7 +355,7 @@
                                     type="button"
                                     x-on:click.stop="copyId(option)"
                                     class="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-amber-100/70 dark:hover:bg-amber-900/30"
-                                    :title="selectedSystemGroup === 'Воронки amoCRM' ? 'Копировать ID этапа' : 'Копировать ID варианта'"
+                                    :title="selectedSystemGroup === 'Воронки' ? 'Копировать ID этапа' : 'Копировать ID варианта'"
                                 >
                                     <span class="min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200"
                                           x-text="option.name"></span>
@@ -291,16 +380,90 @@
     </section>
 
     <div class="workflow-mask-reference-list min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        <section class="rounded-md border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+            <button
+                type="button"
+                x-on:click="toggleMaskGroup('Модификаторы')"
+                class="flex w-full items-center justify-between gap-2 text-left"
+            >
+                <span class="text-sm font-semibold text-gray-950 dark:text-white">Модификаторы</span>
+
+                <span class="flex items-center gap-2">
+                    <span
+                        class="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        x-text="filteredModifierGroups().reduce((count, group) => count + group.items.length, 0)"></span>
+                    <x-filament::icon
+                        icon="heroicon-o-chevron-down"
+                        class="h-4 w-4 text-amber-500 transition dark:text-amber-400"
+                        x-bind:class="{ 'rotate-180': isMaskGroupOpen('Модификаторы') }"
+                    />
+                </span>
+            </button>
+
+            <div
+                x-show="isMaskGroupOpen('Модификаторы')"
+                x-collapse
+                class="mt-3 space-y-4"
+            >
+                <template x-for="group in filteredModifierGroups()" :key="group.title">
+                    <div>
+                        <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                             x-text="group.title"></div>
+
+                        <div class="space-y-1.5">
+                            <template x-for="item in group.items" :key="item.expression">
+                                <button
+                                    type="button"
+                                    x-on:click="copyExpression(item.expression)"
+                                    class="group w-full rounded-md border border-transparent px-2.5 py-2 text-left transition hover:border-amber-300 hover:bg-white dark:hover:border-amber-800 dark:hover:bg-gray-900/70"
+                                >
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-medium text-gray-950 dark:text-white"
+                                                 x-text="item.label"></div>
+                                            <code class="mt-0.5 block break-all text-xs text-amber-700 dark:text-amber-300"
+                                                  x-text="item.expression"></code>
+                                        </div>
+
+                                        <span
+                                            class="shrink-0 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 opacity-0 transition group-hover:opacity-100 dark:bg-amber-900/40 dark:text-amber-300">
+                                            копировать
+                                        </span>
+                                    </div>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </section>
+
         <template x-for="[group, items] in Object.entries(filteredGroups())" :key="group">
             <section class="rounded-md border border-slate-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white" x-text="group"></h3>
-                    <span
-                        class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-gray-800 dark:text-gray-400"
-                        x-text="items.length"></span>
-                </div>
+                <button
+                    type="button"
+                    x-on:click="toggleMaskGroup(group)"
+                    class="flex w-full items-center justify-between gap-2 text-left"
+                >
+                    <span class="text-sm font-semibold text-gray-950 dark:text-white" x-text="group"></span>
 
-                <div class="space-y-1.5">
+                    <span class="flex items-center gap-2">
+                        <span
+                            class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-gray-800 dark:text-gray-400"
+                            x-text="items.length"></span>
+                        <x-filament::icon
+                            icon="heroicon-o-chevron-down"
+                            class="h-4 w-4 text-slate-400 transition dark:text-gray-500"
+                            x-bind:class="{ 'rotate-180': isMaskGroupOpen(group) }"
+                        />
+                    </span>
+                </button>
+
+                <div
+                    x-show="isMaskGroupOpen(group)"
+                    x-collapse
+                    class="mt-2 space-y-1.5"
+                >
                     <template x-for="mask in items" :key="mask.mask">
                         <button
                             type="button"

@@ -28,6 +28,10 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     protected function gate(): void
     {
         Gate::define('viewHorizon', function ($user = null) {
+            if (in_array(request()->ip(), ['127.0.0.1', '::1'], true)) {
+                return true;
+            }
+
             if ((bool)optional($user)->is_root) {
                 return true;
             }

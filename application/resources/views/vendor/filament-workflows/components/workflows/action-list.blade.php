@@ -61,11 +61,75 @@
                     ? 'workflow-condition-branches workflow-condition-branches--single'
                     : 'workflow-condition-branches workflow-condition-branches--split';
 
-                $valueLabel = static function (mixed $value): string {
+                $isPipelineSide = static function (array $condition, string $side): bool {
+                    $source = (string) ($condition[$side . '_source'] ?? '');
+                    $value = (string) ($condition[$side] ?? '');
+
+                    return $source === 'amo_pipeline' || str_contains($value, 'pipeline_id');
+                };
+
+                $isStatusSide = static function (array $condition, string $side): bool {
+                    $source = (string) ($condition[$side . '_source'] ?? '');
+                    $value = (string) ($condition[$side] ?? '');
+
+                    return $source === 'amo_status' || str_contains($value, 'status_id');
+                };
+
+                $pipelineIdFromConditions = static function (array $conditions) use ($isPipelineSide): ?string {
+                    foreach ($conditions as $condition) {
+                        if (! is_array($condition)) {
+                            continue;
+                        }
+
+                        $operator = (string) ($condition['operator'] ?? 'equals');
+
+                        if (! in_array($operator, ['equals', 'strict_equals'], true)) {
+                            continue;
+                        }
+
+                        foreach ([['left', 'right'], ['right', 'left']] as [$pipelineSide, $valueSide]) {
+                            if (! $isPipelineSide($condition, $pipelineSide)) {
+                                continue;
+                            }
+
+                            $pipelineId = trim((string) ($condition[$valueSide] ?? ''));
+
+                            if ($pipelineId !== '' && ! str_contains($pipelineId, '{{')) {
+                                return $pipelineId;
+                            }
+                        }
+                    }
+
+                    return null;
+                };
+
+                $conditionPipelineId = $pipelineIdFromConditions($conditions);
+
+                $valueLabel = static function (mixed $value, ?array $condition = null, ?string $side = null) use ($conditionPipelineId, $isStatusSide): string {
                     $value = trim((string) $value);
 
                     if ($value === '') {
                         return '-';
+                    }
+
+                    if ($condition !== null && $side !== null) {
+                        $pipelineId = filled($condition[$side . '_status_pipeline_id'] ?? null)
+                            ? (string) $condition[$side . '_status_pipeline_id']
+                            : $conditionPipelineId;
+
+                        if ($pipelineId === null) {
+                            return \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::label($value, true) ?? $value;
+                        }
+
+                        $source = (string) ($condition[$side . '_source'] ?? '');
+                        $isSelectedStatus = $source === 'amo_status';
+                        $isPlainStatusValue = ! str_contains($value, '{{') && ! str_contains($value, 'status_id');
+                        $oppositeSide = $side === 'left' ? 'right' : 'left';
+
+                        if ($isSelectedStatus || ($isStatusSide($condition, $oppositeSide) && $isPlainStatusValue)) {
+                            return \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::amoStatusName($value, $pipelineId)
+                                ?? (\App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::label($value, true) ?? $value);
+                        }
                     }
 
                     return \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::label($value, true) ?? $value;
@@ -104,7 +168,7 @@
                     'workflow-condition-node--nested' => $nestingDepth > 0,
                 ])>
                 <div
-                    class="absolute right-3 top-3 z-10 flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                    class="workflow-condition-actions absolute z-10 flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                     x-on:click.stop
                 >
                     <button
@@ -196,7 +260,7 @@
                                     @endif
 
                                     <span class="font-semibold text-amber-700 dark:text-amber-300">
-                                        {{ $valueLabel($condition['left'] ?? '') }}
+                                        {{ $valueLabel($condition['left'] ?? '', (array) $condition, 'left') }}
                                     </span>
 
                                     <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -205,7 +269,7 @@
 
                                     @if(!in_array($operator, $unaryOperators, true))
                                         <span class="font-semibold text-slate-700 dark:text-gray-200">
-                                            {{ $valueLabel($condition['right'] ?? '') }}
+                                            {{ $valueLabel($condition['right'] ?? '', (array) $condition, 'right') }}
                                         </span>
                                     @endif
                                 </div>

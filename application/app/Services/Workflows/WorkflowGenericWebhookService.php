@@ -3,6 +3,7 @@
 namespace App\Services\Workflows;
 
 use App\Models\Workflows\Workflow;
+use App\Models\Workflows\WorkflowRun;
 use App\Workflows\Context\WorkflowContext;
 use App\Workflows\Triggers\GenericWebhookTrigger;
 use Illuminate\Http\Request;
@@ -53,7 +54,24 @@ class WorkflowGenericWebhookService
     {
         $preview = Cache::get($this->previewCacheKey($workflow));
 
-        return is_array($preview) ? $preview : null;
+        if (is_array($preview)) {
+            return $preview;
+        }
+
+        $run = WorkflowRun::query()
+            ->where('workflow_id', $workflow->getKey())
+            ->where('trigger_source', TriggerType::WEBHOOK->value)
+            ->whereNotNull('context_data')
+            ->latest('created_at')
+            ->first(['id', 'workflow_id', 'context_data']);
+
+        $triggerData = (array)data_get($run?->context_data, 'trigger_data', []);
+
+        if ($triggerData === []) {
+            return null;
+        }
+
+        return $this->previewFromTriggerData($workflow, $triggerData, 'run-' . $run->id);
     }
 
     /**
@@ -62,24 +80,33 @@ class WorkflowGenericWebhookService
     public function captureIncomingWebhook(Workflow $workflow, Request $request): array
     {
         $triggerData = $this->triggerData($workflow, $request);
-        $preview = [
-            'id' => (string)Str::ulid(),
-            'workflow_id' => (int)$workflow->id,
-            'received_at' => $triggerData['received_at'],
-            'method' => $triggerData['method'],
-            'url' => $triggerData['url'],
-            'path' => $triggerData['path'],
-            'ip' => $triggerData['ip'],
-            'payload' => $triggerData['payload'],
-            'query' => $triggerData['query'],
-            'headers' => $this->maskSensitiveHeaders((array)$triggerData['headers']),
-            'raw_body' => Str::limit((string)$triggerData['raw_body'], 200_000, ''),
-            'variables' => $this->variablesFromTriggerData($triggerData),
-        ];
+        $preview = $this->previewFromTriggerData($workflow, $triggerData);
 
         Cache::put($this->previewCacheKey($workflow), $preview, now()->addSeconds(self::PREVIEW_TTL_SECONDS));
 
         return $preview;
+    }
+
+    /**
+     * @param array<string, mixed> $triggerData
+     * @return array<string, mixed>
+     */
+    private function previewFromTriggerData(Workflow $workflow, array $triggerData, ?string $id = null): array
+    {
+        return [
+            'id' => $id ?: (string)Str::ulid(),
+            'workflow_id' => (int)$workflow->id,
+            'received_at' => $triggerData['received_at'] ?? null,
+            'method' => $triggerData['method'] ?? 'REQUEST',
+            'url' => $triggerData['url'] ?? null,
+            'path' => $triggerData['path'] ?? null,
+            'ip' => $triggerData['ip'] ?? null,
+            'payload' => (array)($triggerData['payload'] ?? []),
+            'query' => (array)($triggerData['query'] ?? []),
+            'headers' => $this->maskSensitiveHeaders((array)($triggerData['headers'] ?? [])),
+            'raw_body' => Str::limit((string)($triggerData['raw_body'] ?? ''), 200_000, ''),
+            'variables' => $this->variablesFromTriggerData($triggerData),
+        ];
     }
 
     /**

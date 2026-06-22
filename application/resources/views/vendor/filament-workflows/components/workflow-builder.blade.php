@@ -9,11 +9,6 @@
         $workflowRecord = null;
     }
     $workflowActionsCount = count($this->workflowActions);
-    $workflowRunsUrl = $workflowRecord
-        ? \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::getUrl('index', [
-            'workflow_id' => $workflowRecord->getKey(),
-        ])
-        : null;
 @endphp
 
 <div
@@ -93,11 +88,15 @@
                         </button>
                     @endif
 
-                    @if ($workflowRunsUrl)
-                        <a href="{{ $workflowRunsUrl }}" target="_blank" rel="noopener noreferrer" class="workflow-workbench__quick-action">
+                    @if ($workflowRecord)
+                        <button
+                            type="button"
+                            wire:click="mountAction('workflowHistory')"
+                            class="workflow-workbench__quick-action"
+                        >
                             <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4"/>
                             <span>История</span>
-                        </a>
+                        </button>
                     @endif
 
                     @if ($workflowRecord)

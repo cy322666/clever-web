@@ -2,6 +2,7 @@
 
 use App\Filament\Resources\Integrations\AlfaResource;
 use App\Filament\Resources\Integrations\BizonResource;
+use App\Filament\Resources\Integrations\CalculatorResource;
 use App\Filament\Resources\Integrations\CallTranscriptionResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use App\Filament\Resources\Integrations\GetCourseResource;
@@ -43,6 +44,12 @@ return [
         'call-transcription' => [
             'resource' => CallTranscriptionResource::class,
             'public' => true,
+        ],
+        'calculator' => [
+            'resource' => CalculatorResource::class,
+            'public' => true,
+            'title' => 'Калькулятор полей',
+            'description' => 'Расчет значений по формулам и автоматическая запись результата в поля amoCRM.',
         ],
         'workflows' => [
             'resource' => WorkflowResource::class,

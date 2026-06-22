@@ -223,7 +223,8 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
                 $account
             ),
             'amocrm_copy_lead',
-            'amocrm_change_lead_status' => $this->appendCurrentEntity(
+            'amocrm_change_lead_status',
+            'amocrm_distribution_queue' => $this->appendCurrentEntity(
                 $entities,
                 'lead',
                 $config,
@@ -346,6 +347,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             'updated' => 'Изменена',
             'tags_changed' => 'Изменены теги',
             'status_changed' => 'Изменён статус',
+            'distributed' => 'Распределена',
             'task_created' => 'Создана',
             'note_created' => 'Создано',
             'found' => 'Найдена',

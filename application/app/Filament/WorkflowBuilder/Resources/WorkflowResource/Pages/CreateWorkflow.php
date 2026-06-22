@@ -40,6 +40,6 @@ class CreateWorkflow extends BaseCreateWorkflow
             $data['is_active'] = false;
         }
 
-        return $data;
+        return WorkflowResource::forceInactiveWithoutActions($data, notify: true);
     }
 }

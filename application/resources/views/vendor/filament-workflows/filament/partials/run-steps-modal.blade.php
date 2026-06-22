@@ -22,6 +22,7 @@
         'amocrm_add_note' => 'Добавить примечание',
         'amocrm_change_tags' => 'Сменить теги',
         'amocrm_change_lead_status' => 'Сменить статус сделки',
+        'amocrm_distribution_queue' => 'Распределить сделку',
         'amocrm_find_entity' => 'Найти сущность',
         'amocrm_link_entity' => 'Прикрепить сущность',
         'amocrm_unlink_entity' => 'Открепить сущность',
@@ -75,6 +76,45 @@
         }
 
         return \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::label($value, true) ?? $value;
+    };
+    $conditionActualValueLabel = static function (mixed $value): string {
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '-';
+        }
+
+        $value = trim((string)$value);
+
+        return $value === '' ? 'пусто' : $value;
+    };
+    $findSearchFieldDisplayLabel = static function (mixed $label, mixed $field): string {
+        $label = trim((string)$label);
+        $field = trim((string)$field);
+
+        if ($label === '') {
+            return '';
+        }
+
+        if (is_numeric($label)) {
+            return '[' . $label . ']';
+        }
+
+        if (preg_match('/^ID\s+(\d+)$/u', $label, $matches)) {
+            return '[' . $matches[1] . ']';
+        }
+
+        if (is_numeric($field) && !str_contains($label, '[' . $field . ']')) {
+            return $label . ' [' . $field . ']';
+        }
+
+        return $label;
     };
     $humanVariableLabel = static function (mixed $value) use ($entityLabel, $conditionValueLabel): string {
         $value = trim((string)$value);
@@ -215,6 +255,16 @@
                     $foundEntityType = (string)($outputData['entity_type'] ?? $inputData['target_entity'] ?? '');
                     $foundEntityId = $outputData['entity_id'] ?? null;
                     $foundEntityState = array_key_exists('found', $outputData) ? (bool)$outputData['found'] : null;
+                    $findSearch = (array)($outputData['search'] ?? []);
+                    $findSearchCondition = (array)(array_values((array)($inputData['conditions'] ?? []))[0] ?? []);
+                    $findSearchEntityLabel = (string)($findSearch['entity_label'] ?? $entityLabel($foundEntityType));
+                    $findSearchField = $findSearch['field'] ?? $findSearchCondition['field'] ?? null;
+                    $findSearchFieldLabel = $findSearchFieldDisplayLabel(
+                        $findSearch['field_label'] ?? $findSearchCondition['field'] ?? '',
+                        $findSearchField,
+                    );
+                    $findSearchOperator = (string)($findSearch['operator'] ?? $findSearchCondition['operator'] ?? '');
+                    $findSearchValue = $findSearch['value'] ?? $outputData['query'] ?? $findSearchCondition['value'] ?? null;
                     $conditionPassed = array_key_exists('passed', $outputData) ? (bool)$outputData['passed'] : null;
                     $conditionBranch = ($outputData['branch'] ?? null) === 'false' ? 'Нет' : 'Да';
                     $conditionLogic = ($inputData['logic'] ?? 'and') === 'or' ? 'ИЛИ' : 'И';
@@ -271,6 +321,31 @@
                                         @if($foundEntityId)
                                             <span class="ml-2 font-mono text-xs text-gray-500 dark:text-gray-400">#{{ $foundEntityId }}</span>
                                         @endif
+                                        @if($findSearchValue !== null || $findSearchFieldLabel !== '')
+                                            <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                                <span>
+                                                    <span class="text-gray-400 dark:text-gray-500">Сущность:</span>
+                                                    <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $findSearchEntityLabel }}</span>
+                                                </span>
+                                                @if($findSearchFieldLabel !== '')
+                                                    <span>
+                                                        <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $findSearchFieldLabel }}</span>
+                                                    </span>
+                                                @endif
+                                                @if($findSearchOperator !== '')
+                                                    <span>
+                                                        <span class="text-gray-400 dark:text-gray-500">Сравнение:</span>
+                                                        <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $operatorLabel($findSearchOperator) }}</span>
+                                                    </span>
+                                                @endif
+                                                @if($findSearchValue !== null)
+                                                    <span>
+                                                        <span class="text-gray-400 dark:text-gray-500">Значение:</span>
+                                                        <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $conditionActualValueLabel($findSearchValue) }}</span>
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
                                 @endif
 
@@ -297,14 +372,40 @@
                                             <div class="mt-2 space-y-1">
                                                 @foreach($conditionRows as $conditionIndex => $condition)
                                                     @php
-                                                        $conditionResult = $conditionResults[$conditionIndex] ?? null;
+                                                        $conditionEvaluation = $conditionResults[$conditionIndex] ?? null;
+                                                        $conditionResult = is_array($conditionEvaluation)
+                                                            ? ($conditionEvaluation['passed'] ?? null)
+                                                            : $conditionEvaluation;
                                                         $conditionHasResult = is_bool($conditionResult);
                                                         $conditionResultText = $conditionResult ? 'Да' : 'Нет';
                                                         $conditionText = $conditionRowLabel((array)$condition);
                                                         $conditionReadableText = $conditionResultLabel((array)$condition, $conditionResult);
+                                                        $conditionOperator = is_array($conditionEvaluation)
+                                                            ? (string)($conditionEvaluation['operator'] ?? $condition['operator'] ?? '')
+                                                            : (string)($condition['operator'] ?? '');
+                                                        $conditionLeftValueExists = is_array($conditionEvaluation) && array_key_exists('left_value', $conditionEvaluation);
+                                                        $conditionRightValueExists = is_array($conditionEvaluation) && array_key_exists('right_value', $conditionEvaluation);
+                                                        $conditionLeftLabel = $humanVariableLabel($condition['left'] ?? '');
+                                                        $conditionLeftActual = $conditionLeftValueExists ? $conditionActualValueLabel($conditionEvaluation['left_value']) : null;
+                                                        $conditionRightActual = $conditionRightValueExists ? $conditionActualValueLabel($conditionEvaluation['right_value']) : null;
+                                                        $conditionShowsRight = !in_array($conditionOperator, ['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false'], true);
                                                     @endphp
                                                     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                                                        @if($conditionReadableText !== null)
+                                                        @if($conditionLeftValueExists)
+                                                            @if($conditionHasResult)
+                                                                <span @class([
+                                                                    'font-semibold',
+                                                                    'text-green-700 dark:text-green-300' => $conditionResult,
+                                                                    'text-red-700 dark:text-red-300' => !$conditionResult,
+                                                                ])>{{ $conditionResultText }}</span>
+                                                            @endif
+                                                            <span class="font-medium text-gray-500 dark:text-gray-400">{{ $conditionLeftLabel }}:</span>
+                                                            <span class="font-semibold text-gray-900 dark:text-white">{{ $conditionLeftActual }}</span>
+                                                            <span class="text-gray-500 dark:text-gray-400">{{ $operatorLabel($conditionOperator) }}</span>
+                                                            @if($conditionShowsRight && $conditionRightValueExists)
+                                                                <span class="font-semibold text-gray-900 dark:text-white">{{ $conditionRightActual }}</span>
+                                                            @endif
+                                                        @elseif($conditionReadableText !== null)
                                                             <span @class([
                                                                 'font-semibold',
                                                                 'text-green-700 dark:text-green-300' => $conditionResult,

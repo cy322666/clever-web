@@ -1,6 +1,6 @@
 @php
     $groupOptions = \App\Models\Workflows\Workflow::groupOptions();
-    $triggerOptions = app(\Leek\FilamentWorkflows\Triggers\TriggerRegistry::class)->getSelectOptions();
+    $triggerOptions = \App\Filament\WorkflowBuilder\Resources\WorkflowResource::triggerFilterOptions();
     $createUrl = \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('create');
 @endphp
 
@@ -36,8 +36,12 @@
             <x-filament::input.select wire:model.live="tableFilters.workflow_trigger.value">
                 <option value="">Все триггеры</option>
 
-                @foreach ($triggerOptions as $value => $label)
-                    <option value="{{ $value }}">{{ $label }}</option>
+                @foreach ($triggerOptions as $group => $options)
+                    <optgroup label="{{ $group }}">
+                        @foreach ($options as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </optgroup>
                 @endforeach
             </x-filament::input.select>
         </span>

@@ -5,7 +5,10 @@ namespace App\Filament\WorkflowBuilder\Resources;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\RelationManagers\WorkflowRunsRelationManager;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm;
+use App\Models\Core\Account;
+use App\Models\Workflows\Workflow as AppWorkflow;
 use App\Services\Workflows\WorkflowDependencyMap;
+use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -20,6 +23,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Leek\FilamentWorkflows\Models\Workflow;
+use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Resources\WorkflowResource as BaseWorkflowResource;
 use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
 
@@ -125,7 +129,7 @@ class WorkflowResource extends BaseWorkflowResource
 
                 SelectFilter::make('workflow_trigger')
                     ->label(__('filament-workflows::workflows.filters.trigger_type.label'))
-                    ->options(fn(): array => app(TriggerRegistry::class)->getSelectOptions())
+                    ->options(fn(): array => static::triggerFilterOptions())
                     ->query(fn(Builder $query, array $data): Builder => $query->when(
                         filled($data['value'] ?? null),
                         fn(Builder $query): Builder => $query->where(
@@ -174,16 +178,87 @@ class WorkflowResource extends BaseWorkflowResource
             ->emptyStateIcon('heroicon-o-arrow-path');
     }
 
+    /**
+     * @return array<string, array<string, string>>
+     */
+    public static function triggerFilterOptions(): array
+    {
+        $groups = [
+            'Основные' => [],
+            'Внешний запуск' => [],
+            'amoCRM · Ответственные' => [],
+            'amoCRM · Создание' => [],
+            'amoCRM · Изменение' => [],
+            'amoCRM · Удаление' => [],
+            'amoCRM · Восстановление' => [],
+            'amoCRM · Примечания и сообщения' => [],
+            'Другое' => [],
+        ];
+
+        foreach (app(TriggerRegistry::class)->getSelectOptions() as $value => $label) {
+            $label = (string)$label;
+            $group = static::triggerFilterGroup((string)$value);
+            $groups[$group][(string)$value] = static::triggerFilterLabel($label);
+        }
+
+        return array_filter($groups, static fn(array $options): bool => $options !== []);
+    }
+
+    private static function triggerFilterGroup(string $value): string
+    {
+        if (in_array($value, ['manual', 'schedule', 'date-condition'], true)) {
+            return 'Основные';
+        }
+
+        if (in_array($value, ['workflow-completed', 'generic-webhook'], true)) {
+            return 'Внешний запуск';
+        }
+
+        if (str_starts_with($value, 'amocrm-responsible-')) {
+            return 'amoCRM · Ответственные';
+        }
+
+        if (str_starts_with($value, 'amocrm-add-')) {
+            return in_array($value, ['amocrm-add-talk', 'amocrm-add-chat-template-review'], true)
+                ? 'amoCRM · Примечания и сообщения'
+                : 'amoCRM · Создание';
+        }
+
+        if (str_starts_with($value, 'amocrm-update-') || $value === 'amocrm-status-lead') {
+            return 'amoCRM · Изменение';
+        }
+
+        if (str_starts_with($value, 'amocrm-delete-')) {
+            return 'amoCRM · Удаление';
+        }
+
+        if (str_starts_with($value, 'amocrm-restore-')) {
+            return 'amoCRM · Восстановление';
+        }
+
+        if (str_starts_with($value, 'amocrm-note-')) {
+            return 'amoCRM · Примечания и сообщения';
+        }
+
+        return 'Другое';
+    }
+
+    private static function triggerFilterLabel(string $label): string
+    {
+        return trim(preg_replace('/^amoCRM:\s*/u', '', $label) ?: $label);
+    }
+
     private static function updateWorkflowActivation(Workflow $record, bool $state): bool
     {
-        if ($state && !static::canActivate($record)) {
-            Notification::make()
-                ->danger()
-                ->title('Процесс не подключён к родителю')
-                ->body('Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.')
-                ->send();
+        if ($state) {
+            $issues = static::activationIssuesForWorkflow($record);
 
-            return false;
+            if ($issues !== []) {
+                static::sendActivationBlockedNotification($issues);
+                $record->forceFill(['is_active' => false])->save();
+
+                return false;
+            }
         }
 
         $record->update([
@@ -196,6 +271,239 @@ class WorkflowResource extends BaseWorkflowResource
             ->send();
 
         return $state;
+    }
+
+    public static function forceInactiveWithoutActions(array $data, bool $notify = false): array
+    {
+        return static::forceInactiveWhenActivationInvalid($data, null, $notify);
+    }
+
+    public static function forceInactiveWhenActivationInvalid(array $data, ?Workflow $record = null, bool $notify = false): array
+    {
+        if (!($data['is_active'] ?? false)) {
+            return $data;
+        }
+
+        $issues = static::activationIssuesForDefinition($data['definition'] ?? null, $record, $data);
+
+        if ($issues === []) {
+            return $data;
+        }
+
+        $data['is_active'] = false;
+
+        if ($notify) {
+            static::sendActivationBlockedNotification($issues, 'Процесс сохранён выключенным');
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function activationIssuesForWorkflow(Workflow $workflow): array
+    {
+        return static::activationIssuesForDefinition($workflow->definition, $workflow);
+    }
+
+    /**
+     * @param array<string, mixed>|null $definition
+     * @param array<string, mixed> $data
+     * @return array<int, string>
+     */
+    private static function activationIssuesForDefinition(mixed $definition, ?Workflow $record = null, array $data = []): array
+    {
+        $definition = is_array($definition) ? $definition : [];
+        $issues = [];
+
+        if (!AppWorkflow::definitionHasConfiguredActions($definition)) {
+            $issues[] = 'Добавьте хотя бы одно действие.';
+        }
+
+        $triggerType = (string)data_get($definition, 'trigger.type');
+        $actionTypes = static::workflowActionTypes((array)data_get($definition, 'actions', []));
+        $unsupportedTypes = array_values(array_intersect(
+            $actionTypes,
+            WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(),
+        ));
+
+        if ($unsupportedTypes !== []) {
+            $issues[] = 'Удалите неподдержанные действия: ' . implode(', ', static::workflowActionLabels($unsupportedTypes)) . '.';
+        }
+
+        $unknownTypes = static::unknownActionTypes($actionTypes);
+
+        if ($unknownTypes !== []) {
+            $issues[] = 'Удалите неизвестные действия: ' . implode(', ', $unknownTypes) . '.';
+        }
+
+        if (static::hasNestedCondition((array)data_get($definition, 'actions', []))) {
+            $issues[] = 'Вложенные условия временно отключены. Уберите условие внутри ветки Да/Нет.';
+        }
+
+        if ($triggerType === WorkflowCompletedTrigger::type() && $record instanceof Workflow && static::workflowCallParents($record) === []) {
+            $issues[] = 'Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.';
+        }
+
+        if (static::definitionUsesAmoCrm($definition, $actionTypes) && !static::hasWorkflowAmoAccount($record, $data)) {
+            $issues[] = 'Подключите amoCRM для виджета сценариев.';
+        }
+
+        return array_values(array_unique($issues));
+    }
+
+    /**
+     * @param array<int, string> $issues
+     */
+    private static function sendActivationBlockedNotification(array $issues, string $title = 'Сценарий не включён'): void
+    {
+        Notification::make()
+            ->warning()
+            ->title($title)
+            ->body(implode("\n", $issues))
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * @param array<int, mixed> $actions
+     * @return array<int, string>
+     */
+    private static function workflowActionTypes(array $actions): array
+    {
+        $types = [];
+
+        foreach ($actions as $action) {
+            if (!is_array($action)) {
+                continue;
+            }
+
+            $type = (string)($action['type'] ?? '');
+
+            if ($type !== '') {
+                $types[] = $type;
+            }
+
+            $config = (array)($action['config'] ?? []);
+
+            foreach (['true_actions', 'false_actions'] as $branchKey) {
+                $types = array_merge($types, static::workflowActionTypes((array)($config[$branchKey] ?? [])));
+            }
+        }
+
+        return array_values(array_unique($types));
+    }
+
+    /**
+     * @param array<int, string> $types
+     * @return array<int, string>
+     */
+    private static function unknownActionTypes(array $types): array
+    {
+        $registry = app(ActionRegistry::class);
+
+        return array_values(array_filter(
+            $types,
+            static fn(string $type): bool => $type !== '' && !$registry->has($type),
+        ));
+    }
+
+    /**
+     * @param array<int, string> $types
+     * @return array<int, string>
+     */
+    private static function workflowActionLabels(array $types): array
+    {
+        $registry = app(ActionRegistry::class);
+
+        return array_map(static function (string $type) use ($registry): string {
+            $class = $registry->get($type);
+
+            if (is_string($class) && method_exists($class, 'name')) {
+                return (string)$class::name();
+            }
+
+            if (is_string($class) && method_exists($class, 'workflowName')) {
+                return (string)$class::workflowName();
+            }
+
+            return $type;
+        }, $types);
+    }
+
+    /**
+     * @param array<int, mixed> $actions
+     */
+    private static function hasNestedCondition(array $actions, bool $insideConditionBranch = false): bool
+    {
+        foreach ($actions as $action) {
+            if (!is_array($action)) {
+                continue;
+            }
+
+            $isCondition = in_array((string)($action['type'] ?? ''), ['condition', 'control-condition'], true)
+                || ($action['componentType'] ?? null) === 'control-condition';
+
+            if ($insideConditionBranch && $isCondition) {
+                return true;
+            }
+
+            $config = (array)($action['config'] ?? []);
+
+            foreach (['true_actions', 'false_actions'] as $branchKey) {
+                if (static::hasNestedCondition((array)($config[$branchKey] ?? []), $insideConditionBranch || $isCondition)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @param array<int, string> $actionTypes
+     */
+    private static function definitionUsesAmoCrm(array $definition, array $actionTypes): bool
+    {
+        $triggerType = (string)data_get($definition, 'trigger.type');
+
+        if (str_starts_with($triggerType, 'amocrm-')) {
+            return true;
+        }
+
+        foreach ($actionTypes as $type) {
+            if (str_starts_with($type, 'amocrm_')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function hasWorkflowAmoAccount(?Workflow $record = null, array $data = []): bool
+    {
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
+        $userId = (int)($record?->{$tenantColumn} ?? ($data[$tenantColumn] ?? 0) ?: auth()->id());
+
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $query = Account::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->whereNotNull('refresh_token');
+
+        if ($userId !== 1) {
+            $query->where('widget', 'workflows');
+        }
+
+        return $query->exists();
     }
 
     private static function triggerLabel(Workflow $record): string
@@ -290,6 +598,11 @@ class WorkflowResource extends BaseWorkflowResource
     private static function isWorkflowCallTrigger(Workflow $record): bool
     {
         return data_get($record->definition, 'trigger.type') === WorkflowCompletedTrigger::type();
+    }
+
+    private static function hasConfiguredActions(Workflow $record): bool
+    {
+        return AppWorkflow::definitionHasConfiguredActions($record->definition);
     }
 
     private static function canActivate(Workflow $record): bool

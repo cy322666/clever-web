@@ -4,9 +4,12 @@ namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns
 
 use App\Filament\App\Pages\WorkflowHelp;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
+use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
+use App\Models\Workflows\WorkflowRun;
 use App\Services\amoCRM\Client;
 use App\Services\Workflows\WorkflowDependencyMap;
 use App\Workflows\Engine\WorkflowTestRunner;
+use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Component;
 use Filament\Notifications\Notification;
@@ -14,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema as SchemaFacade;
 use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
@@ -24,6 +28,11 @@ trait HasWorkflowPageActions
     public ?string $insertActionPath = null;
 
     public ?int $insertActionIndex = null;
+
+    public function cacheHasWorkflowPageActions(): void
+    {
+        $this->cacheAction($this->workflowHistoryAction());
+    }
 
     public function selectTriggerType(string $type): void
     {
@@ -106,14 +115,31 @@ trait HasWorkflowPageActions
             ->label('PDF')
             ->icon('heroicon-o-document-text')
             ->color('gray')
-            ->url(function (): string {
+            ->url(route('workflow-builder.documentation.account'))
+            ->openUrlInNewTab();
+    }
+
+    protected function workflowHistoryAction(): Action
+    {
+        return Action::make('workflowHistory')
+            ->label('История')
+            ->icon('heroicon-o-clock')
+            ->color('gray')
+            ->modalHeading('История запусков')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Закрыть')
+            ->modalWidth('7xl')
+            ->modalContent(function () {
                 $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
 
-                return $record
-                    ? route('workflow-builder.documentation.workflow', ['workflow' => $record])
-                    : '#';
-            })
-            ->openUrlInNewTab();
+                return view('filament.workflow-builder.workflow-history-modal', [
+                    'workflow' => $record,
+                    'runs' => $record ? $this->workflowHistoryRuns((int)$record->getKey()) : collect(),
+                    'fullHistoryUrl' => $record
+                        ? WorkflowRunResource::getUrl('index', ['workflow_id' => $record->getKey()])
+                        : null,
+                ]);
+            });
     }
 
     protected function duplicateWorkflowAction(): Action
@@ -231,6 +257,23 @@ trait HasWorkflowPageActions
             ->icon('heroicon-o-arrow-left')
             ->color('gray')
             ->url(WorkflowResource::getUrl('index'));
+    }
+
+    private function workflowHistoryRuns(int $workflowId)
+    {
+        $query = WorkflowRun::query()
+            ->where('user_id', Auth::id())
+            ->where('workflow_id', $workflowId)
+            ->with(['workflow', 'latestStep', 'triggeredBy'])
+            ->withCount('steps')
+            ->latest('created_at')
+            ->limit(50);
+
+        if (SchemaFacade::hasTable('workflow_run_entities')) {
+            $query->with('entityLinks');
+        }
+
+        return $query->get();
     }
 
     public function refreshWorkflowReference(): void
@@ -394,6 +437,16 @@ trait HasWorkflowPageActions
     public function selectActionType(string $type): void
     {
         $registry = app(ActionRegistry::class);
+
+        if (in_array($type, WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), true)) {
+            Notification::make()
+                ->warning()
+                ->title('Действие пока недоступно')
+                ->body('Мы скрыли его из выбора, пока для него нет стабильного исполнителя.')
+                ->send();
+
+            return;
+        }
 
         if (!$registry->has($type)) {
             Notification::make()

@@ -19,6 +19,8 @@ class EditDistribution extends EditRecord
 
     protected static string $resource = DistributionResource::class;
 
+    protected ?string $heading = '';
+
     protected function getHeaderActions(): array
     {
         return [

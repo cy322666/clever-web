@@ -9,6 +9,7 @@ use App\Observers\QueueMonitorObserver;
 use App\Services\Core\MonitoringCache;
 use App\Services\Workflows\WorkflowRunEntityIndexService;
 use App\Services\Workflows\WorkflowVariableService;
+use App\Support\View\SafeBladeCompiler;
 use App\Workflows\Actions\ControlConditionAction;
 use App\Workflows\Actions\MultiChannelNotificationAction;
 use App\Workflows\Actions\RunWorkflowAction;
@@ -31,6 +32,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\DynamicComponent;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Triggers\DateConditionTrigger;
@@ -53,6 +55,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->registerSafeBladeCompiler();
+
         if (!$this->workflowsAvailable()) {
             return;
         }
@@ -71,6 +75,24 @@ class AppServiceProvider extends ServiceProvider
             \Leek\FilamentWorkflows\Services\WorkflowVariableService::class,
             WorkflowVariableService::class,
         );
+    }
+
+    private function registerSafeBladeCompiler(): void
+    {
+        $this->app->forgetInstance('blade.compiler');
+
+        $this->app->singleton('blade.compiler', function ($app) {
+            return tap(new SafeBladeCompiler(
+                $app['files'],
+                $app['config']['view.compiled'],
+                $app['config']->get('view.relative_hash', false) ? $app->basePath() : '',
+                $app['config']->get('view.cache', true),
+                $app['config']->get('view.compiled_extension', 'php'),
+                $app['config']->get('view.check_cache_timestamps', true),
+            ), function (SafeBladeCompiler $blade): void {
+                $blade->component('dynamic-component', DynamicComponent::class);
+            });
+        });
     }
 
     /**
@@ -189,6 +211,7 @@ class AppServiceProvider extends ServiceProvider
                 'amocrm_add_note',
                 'amocrm_change_tags',
                 'amocrm_change_lead_status',
+                'amocrm_distribution_queue',
                 'amocrm_start_salesbot',
                 'amocrm_stop_salesbot',
                 'amocrm_manage_subscription',

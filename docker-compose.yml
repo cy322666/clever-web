@@ -10,6 +10,7 @@ services:
       QUEUE_CONNECTION: redis
       WORKFLOWS_QUEUE_CONNECTION: redis
       WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
     command: >
       sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)
@@ -82,6 +83,7 @@ services:
       QUEUE_CONNECTION: redis
       WORKFLOWS_QUEUE_CONNECTION: redis
       WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
     command: >
       sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)

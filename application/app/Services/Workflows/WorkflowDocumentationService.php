@@ -69,6 +69,14 @@ class WorkflowDocumentationService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function compactAccountDocument(int $userId): array
+    {
+        return $this->accountDocument($userId);
+    }
+
+    /**
      * @param EloquentCollection<int, Workflow> $workflows
      */
     private function primeCache(EloquentCollection $workflows): void
@@ -210,6 +218,11 @@ class WorkflowDocumentationService
         $description = $class && method_exists($class, 'getConfiguredDescription')
             ? trim(strip_tags((string)$class::getConfiguredDescription($config)))
             : $this->fallbackTriggerDescription($type, $config);
+        $event = trim((string)($config['event'] ?? ''));
+
+        if ($event !== '') {
+            $description = trim((string)preg_replace('/(?:Код события amoCRM:\s*)?' . preg_quote($event, '/') . '\.?$/u', '', $description));
+        }
 
         return [
             'type' => $type,
@@ -302,6 +315,10 @@ class WorkflowDocumentationService
                 continue;
             }
 
+            if ($this->isNoisySetting((string)$key, $value, $type)) {
+                continue;
+            }
+
             if ($key === 'delay') {
                 $delay = $this->delay($value);
 
@@ -337,7 +354,48 @@ class WorkflowDocumentationService
         return array_values(array_filter(
             $rows,
             fn(array $row): bool => trim((string)$row['value']) !== ''
+                && !($row['label'] === 'Тип задачи' && (int)$row['value'] <= 0)
         ));
+    }
+
+    private function isNoisySetting(string $key, mixed $value, string $type): bool
+    {
+        if ($type === 'trigger' && in_array($key, ['source', 'event', 'entity', 'action'], true)) {
+            return true;
+        }
+
+        if ($key === 'delay') {
+            return $this->delay($value) === null;
+        }
+
+        if (is_bool($value) && $value === false) {
+            return true;
+        }
+
+        if ($key === 'target_entity_id') {
+            $value = trim((string)$value);
+
+            return in_array($value, ['{{lead.id}}', '{{contact.id}}', '{{company.id}}', '{{customer.id}}'], true);
+        }
+
+        if (in_array($key, ['logic', 'has_true_branch', 'has_false_branch'], true)) {
+            return true;
+        }
+
+        if (in_array($key, ['task_type_id', 'new_task_type_id'], true) && (int)$value <= 0) {
+            return true;
+        }
+
+        return in_array($key, [
+            'store_result',
+            'context_key',
+            'pass_context',
+            'pass_trigger_model',
+            'pass_step_outputs',
+            'pass_variables',
+            'wait_for_completion',
+            'fail_on_child_failure',
+        ], true);
     }
 
     /**
@@ -473,6 +531,8 @@ class WorkflowDocumentationService
             'task_type_id', 'new_task_type_id' => 'Тип задачи',
             'complete_till' => 'Срок выполнения',
             'text' => str_contains($type, 'note') ? 'Текст примечания' : 'Текст',
+            'normalize_phone' => 'Телефон',
+            'normalize_email' => 'E-mail',
             'name' => 'Название',
             'tags', 'tags_to_add' => 'Теги добавить',
             'tags_to_remove' => 'Теги удалить',
@@ -507,8 +567,51 @@ class WorkflowDocumentationService
             'target_entity', 'entity', 'linked_entity' => $this->entityLabel((string)$value),
             'responsible_user_id' => $this->staffName($value, $userId),
             'workflow_id' => $this->workflowName((int)$value),
+            'complete_till' => $this->relativeTimeLabel($value),
             default => $this->humanValue($value, $userId),
         };
+    }
+
+    private function relativeTimeLabel(mixed $value): string
+    {
+        $raw = trim((string)$value);
+
+        if ($raw === '') {
+            return '—';
+        }
+
+        if (preg_match('/^\+?\s*(\d+)\s*(seconds?|minutes?|hours?|days?)$/i', $raw, $matches) === 1) {
+            $count = (int)$matches[1];
+            $unit = strtolower($matches[2]);
+
+            $label = match (true) {
+                str_starts_with($unit, 'second') => $this->pluralRu($count, 'секунда', 'секунды', 'секунд'),
+                str_starts_with($unit, 'minute') => $this->pluralRu($count, 'минута', 'минуты', 'минут'),
+                str_starts_with($unit, 'hour') => $this->pluralRu($count, 'час', 'часа', 'часов'),
+                str_starts_with($unit, 'day') => $this->pluralRu($count, 'день', 'дня', 'дней'),
+                default => $unit,
+            };
+
+            return 'через ' . $count . ' ' . $label;
+        }
+
+        return $raw;
+    }
+
+    private function pluralRu(int $count, string $one, string $few, string $many): string
+    {
+        $mod10 = $count % 10;
+        $mod100 = $count % 100;
+
+        if ($mod10 === 1 && $mod100 !== 11) {
+            return $one;
+        }
+
+        if ($mod10 >= 2 && $mod10 <= 4 && ($mod100 < 12 || $mod100 > 14)) {
+            return $few;
+        }
+
+        return $many;
     }
 
     private function humanValue(mixed $value, int $userId): string
@@ -561,7 +664,7 @@ class WorkflowDocumentationService
         $mode = (string)($delay['mode'] ?? 'immediate');
 
         if ($mode === 'immediate') {
-            return 'Сразу';
+            return null;
         }
 
         if (in_array($mode, ['seconds', 'after_seconds'], true)) {

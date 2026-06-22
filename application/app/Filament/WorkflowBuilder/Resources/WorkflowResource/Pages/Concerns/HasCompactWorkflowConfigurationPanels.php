@@ -16,6 +16,6 @@ trait HasCompactWorkflowConfigurationPanels
     {
         return parent::configureWorkflowActionAction()
             ->modalContent(fn() => view('filament.workflow-builder.mask-reference-action-button'))
-            ->modalWidth('3xl');
+            ->modalWidth(fn() => ($this->getEditingWorkflowAction()['type'] ?? null) === 'control-condition' ? '6xl' : '3xl');
     }
 }

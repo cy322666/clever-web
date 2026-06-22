@@ -46,7 +46,7 @@ class ListWorkflows extends BaseListWorkflows
     {
         return [
             Action::make('workflow_runs')
-                ->label('Исполнения')
+                ->label('История')
                 ->icon('heroicon-o-play-circle')
                 ->color('gray')
                 ->url(WorkflowRunResource::getUrl()),
@@ -160,7 +160,7 @@ class ListWorkflows extends BaseListWorkflows
 
         return [
             'connected' => true,
-            'label' => $subdomain !== '' ? 'amoCRM подключена: ' . $subdomain : 'amoCRM подключена',
+            'label' => $subdomain !== '' ? 'amoCRM: ' . $subdomain : 'amoCRM',
         ];
     }
 

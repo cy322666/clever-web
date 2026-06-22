@@ -46,11 +46,12 @@
             'items' => [],
         ],
         'automation' => [
-            'title' => 'Статусы, теги и боты',
+            'title' => 'Статусы, теги и распределение',
             'icon' => 'heroicon-o-bolt',
             'types' => [
                 'amocrm_change_tags',
                 'amocrm_change_lead_status',
+                'amocrm_distribution_queue',
                 'amocrm_start_salesbot',
                 'amocrm_stop_salesbot',
                 'amocrm_manage_subscription',
@@ -91,10 +92,16 @@
         }
     }
 
+    $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
+
     foreach ($actions as $action) {
         $type = $action['type'] ?? '';
 
         if ($isInsideConditionBranch && $type === 'control-condition') {
+            continue;
+        }
+
+        if (in_array($type, $unsupportedActionTypes, true)) {
             continue;
         }
 

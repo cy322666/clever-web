@@ -122,6 +122,18 @@ jobs:
       - name: Run Migrations
         run: php artisan migrate --force
 
+      - name: Run Workflow Widget Tests
+        run: |
+          ./vendor/bin/phpunit --stop-on-failure \
+            tests/Unit/WorkflowVariableModifiersTest.php \
+            tests/Unit/Workflows/WorkflowGenericWebhookServiceTest.php \
+            tests/Unit/Workflows/WorkflowReferencePanelTest.php \
+            tests/Unit/Workflows/WorkflowScenarioDefinitionTest.php \
+            tests/Unit/Workflows/ControlConditionActionTest.php \
+            tests/Unit/Workflows/WorkflowExecutorConfigTest.php \
+            tests/Unit/Workflows/RunWorkflowActionTest.php \
+            tests/Unit/Workflows/WorkflowMermaidMapTest.php
+
       - name: Run Test Suite
         run: |
           if php artisan test --help >/dev/null 2>&1; then
@@ -133,6 +145,8 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
+    needs:
+      - ci-tests
     environment:
       name: production
 

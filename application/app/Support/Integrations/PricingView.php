@@ -14,26 +14,25 @@ class PricingView
 
         return new HtmlString(
             <<<HTML
-<div style="display:grid; gap:10px;">
-    <div style="border:1px solid #E5E7EB; border-radius:12px; padding:12px 14px; background:#FFFFFF;">
-        <div style="font-size:12px; color:#6B7280; line-height:16px;">1 месяц</div>
-        <div style="font-size:22px; font-weight:700; line-height:28px; color:#111827; margin-top:2px;">{$month1}</div>
+<div class="integration-pricing">
+    <div class="integration-pricing__card">
+        <div class="integration-pricing__period">1 месяц</div>
+        <div class="integration-pricing__price">{$month1}</div>
     </div>
 
-    <div style="border:1px solid #CFE3FF; border-radius:12px; padding:12px 14px; background:#F6FAFF;">
-        <div style="font-size:12px; color:#4B5563; line-height:16px;">6 месяцев</div>
-        <div style="font-size:22px; font-weight:700; line-height:28px; color:#111827; margin-top:2px;">{$month6}</div>
-        <div style="margin-top:6px; font-size:12px; color:#1D4ED8; line-height:16px;">2 483 ₽/мес · экономия 3 000 ₽</div>
+    <div class="integration-pricing__card integration-pricing__card--accent">
+        <div class="integration-pricing__period">6 месяцев</div>
+        <div class="integration-pricing__price">{$month6}</div>
+        <div class="integration-pricing__note">2 483 ₽/мес · экономия 3 000 ₽</div>
     </div>
 
-    <div style="border:1px solid #BFE7CF; border-radius:12px; padding:12px 14px; background:#F3FCF6;">
-        <div style="font-size:12px; color:#4B5563; line-height:16px;">12 месяцев</div>
-        <div style="font-size:22px; font-weight:700; line-height:28px; color:#111827; margin-top:2px;">{$month12}</div>
-        <div style="margin-top:6px; font-size:12px; color:#166534; line-height:16px;">2 075 ₽/мес · экономия 7 000 ₽</div>
+    <div class="integration-pricing__card integration-pricing__card--best">
+        <div class="integration-pricing__period">12 месяцев</div>
+        <div class="integration-pricing__price">{$month12}</div>
+        <div class="integration-pricing__note">2 075 ₽/мес · экономия 7 000 ₽</div>
     </div>
 </div>
 HTML
         );
     }
 }
-

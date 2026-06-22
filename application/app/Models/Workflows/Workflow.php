@@ -16,6 +16,12 @@ class Workflow extends BaseWorkflow
     {
         parent::booted();
 
+        static::saving(static function (Workflow $workflow): void {
+            if ($workflow->is_active && ! static::definitionHasConfiguredActions($workflow->definition)) {
+                $workflow->is_active = false;
+            }
+        });
+
         static::deleting(static function (Workflow $workflow): void {
             static::deleteRuntimeData($workflow->getKey());
         });
@@ -44,6 +50,42 @@ class Workflow extends BaseWorkflow
             ->orderBy('group_name')
             ->pluck('group_name', 'group_name')
             ->all();
+    }
+
+    /**
+     * @param array<string, mixed>|null $definition
+     */
+    public static function definitionHasConfiguredActions(?array $definition): bool
+    {
+        $actions = data_get($definition, 'actions', []);
+
+        return is_array($actions) && static::actionListHasConfiguredAction($actions);
+    }
+
+    /**
+     * @param array<int, mixed> $actions
+     */
+    private static function actionListHasConfiguredAction(array $actions): bool
+    {
+        foreach ($actions as $action) {
+            if (! is_array($action)) {
+                continue;
+            }
+
+            if (filled($action['type'] ?? null)) {
+                return true;
+            }
+
+            foreach (['true_actions', 'false_actions'] as $branchKey) {
+                $branchActions = data_get($action, 'config.' . $branchKey, []);
+
+                if (is_array($branchActions) && static::actionListHasConfiguredAction($branchActions)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

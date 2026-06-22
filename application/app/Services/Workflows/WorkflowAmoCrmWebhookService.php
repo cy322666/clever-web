@@ -382,23 +382,15 @@ class WorkflowAmoCrmWebhookService
 
     private function resolvePrimaryAccount(int $userId): ?Account
     {
-        $account = Account::query()
+        $workflowAccount = Account::query()
             ->where('user_id', $userId)
             ->where('active', true)
-            ->where(function ($query): void {
-                $query->where('widget', 'workflows')
-                    ->orWhere('widget', Account::DEFAULT_WIDGET)
-                    ->orWhereNull('widget');
-            })
-            ->orderByRaw("CASE WHEN widget = ? THEN 0 WHEN widget = ? OR widget IS NULL THEN 1 ELSE 2 END", [
-                'workflows',
-                Account::DEFAULT_WIDGET,
-            ])
+            ->where('widget', 'workflows')
             ->latest('id')
             ->first();
 
-        if ($account instanceof Account) {
-            return $account;
+        if ($workflowAccount instanceof Account || $userId !== 1) {
+            return $workflowAccount;
         }
 
         return Account::query()

@@ -43,6 +43,14 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{received_at}}' => 'Дата получения',
                 '{{now}}' => 'Текущая дата и время',
             ],
+            'Быстрые значения' => [
+                '{{item.id}}' => 'ID текущей сущности',
+                '{{item.name}}' => 'Название / имя текущей сущности',
+                '{{item.responsible_user_id}}' => 'Текущий ответственный',
+                '{{item.created_user_id}}' => 'Создавший пользователь',
+                '{{item.updated_user_id}}' => 'Изменивший пользователь',
+                '{{item.tags}}' => 'Теги текущей сущности',
+            ],
             'Вебхук' => [
                 '{{payload}}' => 'Тело запроса',
                 '{{payload.key}}' => 'Значение из тела запроса',
@@ -53,6 +61,31 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{url}}' => 'URL запроса',
                 '{{ip}}' => 'IP отправителя',
                 '{{raw_body}}' => 'Сырое тело запроса',
+            ],
+            'Дата / время' => [
+                '{{current.date}}' => 'Текущая дата',
+                '{{current.time}}' => 'Текущее время',
+                '{{current.datetime}}' => 'Текущие дата и время',
+                '{{current.weekday}}' => 'Текущий день недели',
+                '{{current.weekday_number}}' => 'Номер текущего дня недели',
+                '{{item.created_at}}' => 'Дата создания',
+                '{{item.updated_at}}' => 'Дата изменения',
+                '{{item.closest_task_at}}' => 'Дата ближайшей задачи',
+                '{{lead.created_at}}' => 'Дата создания сделки',
+                '{{lead.updated_at}}' => 'Дата изменения сделки',
+                '{{lead.closest_task_at}}' => 'Дата ближайшей задачи сделки',
+            ],
+            'Пользователь' => [
+                '{{item.created_user_id}}' => 'Создавший пользователь',
+                '{{item.updated_user_id}}' => 'Изменивший пользователь',
+                '{{item.responsible_user_id}}' => 'Текущий ответственный',
+                '{{lead.responsible_user_id}}' => 'Ответственный сделки',
+                '{{contact.responsible_user_id}}' => 'Ответственный контакта',
+                '{{company.responsible_user_id}}' => 'Ответственный компании',
+                '{{customer.responsible_user_id}}' => 'Ответственный покупателя',
+                '{{status.responsible_user_id}}' => 'Ответственный при смене статуса',
+                '{{responsible.old_responsible_user_id}}' => 'Старый ответственный',
+                '{{responsible.responsible_user_id}}' => 'Новый ответственный',
             ],
             'Текущая сущность' => [
                 '{{item.id}}' => 'ID',
@@ -134,6 +167,11 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{task.responsible_user_id}}' => 'Ответственный',
                 '{{task.created_at}}' => 'Дата создания',
                 '{{task.updated_at}}' => 'Дата изменения',
+                '{{lead.open_tasks_count}}' => 'Кол-во открытых задач сделки',
+                '{{lead.overdue_tasks_count}}' => 'Кол-во просроченных задач сделки',
+                '{{lead.tasks_count}}' => 'Количество задач сделки',
+                '{{contact.open_tasks_count}}' => 'Кол-во открытых задач контакта',
+                '{{company.open_tasks_count}}' => 'Кол-во открытых задач компании',
             ],
             'Примечание' => [
                 '{{note.id}}' => 'ID примечания',
@@ -143,6 +181,17 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{note.text}}' => 'Текст примечания',
                 '{{note.responsible_user_id}}' => 'Ответственный',
                 '{{note.created_at}}' => 'Дата создания',
+            ],
+            'Счетчики' => [
+                '{{lead.open_tasks_count}}' => 'Кол-во открытых задач',
+                '{{lead.overdue_tasks_count}}' => 'Кол-во просроченных задач',
+                '{{lead.tasks_count}}' => 'Количество задач',
+                '{{lead.contacts_count}}' => 'Количество контактов',
+                '{{lead.notes_count}}' => 'Количество примечаний',
+                '{{contact.leads_count}}' => 'Количество сделок контакта',
+                '{{company.leads_count}}' => 'Количество сделок компании',
+                '{{company.contacts_count}}' => 'Количество контактов компании',
+                '{{item.tags_count}}' => 'Количество тегов',
             ],
             'Беседа / чат' => [
                 '{{talk.id}}' => 'ID беседы',
@@ -206,7 +255,7 @@ class WorkflowTriggerConditionVariableCatalog
             ])
             ->all();
 
-        return $pipelines === [] ? [] : ['Воронки amoCRM' => $pipelines];
+        return $pipelines === [] ? [] : ['Воронка' => $pipelines];
     }
 
     /**
@@ -240,6 +289,44 @@ class WorkflowTriggerConditionVariableCatalog
             }
 
             $options[$pipelineName][$statusId] = (string)($status->name ?: 'Этап ' . $statusId);
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    public static function groupedAmoStatusConditionOptions(): array
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return [];
+        }
+
+        $options = [];
+
+        $statuses = AmoCrmStatus::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->whereNotNull('pipeline_id')
+            ->whereNotNull('status_id')
+            ->orderBy('pipeline_name')
+            ->orderBy('sort')
+            ->get(['pipeline_id', 'status_id', 'name', 'pipeline_name']);
+
+        foreach ($statuses as $status) {
+            $pipelineId = trim((string)$status->pipeline_id);
+            $statusId = trim((string)$status->status_id);
+
+            if ($pipelineId === '' || $statusId === '') {
+                continue;
+            }
+
+            $pipelineName = (string)($status->pipeline_name ?: 'Без воронки');
+            $options[$pipelineName][$pipelineId . '.' . $statusId] = (string)($status->name ?: 'Этап ' . $statusId);
         }
 
         return $options;
@@ -347,6 +434,16 @@ class WorkflowTriggerConditionVariableCatalog
     /**
      * @return array<string, string>
      */
+    public static function flatAmoStatusConditionOptions(): array
+    {
+        return collect(static::groupedAmoStatusConditionOptions())
+            ->flatMap(fn(array $options): array => $options)
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
     public static function search(string $query, bool $includeStaticValues = false): array
     {
         return static::searchInOptions(static::flatOptions($includeStaticValues), $query, true);
@@ -382,6 +479,14 @@ class WorkflowTriggerConditionVariableCatalog
     public static function searchAmoStatuses(string $query): array
     {
         return static::searchInOptions(static::flatAmoStatusOptions(), $query);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function searchAmoStatusConditions(string $query): array
+    {
+        return static::searchInOptions(static::flatAmoStatusConditionOptions(), $query);
     }
 
     /**
@@ -430,9 +535,43 @@ class WorkflowTriggerConditionVariableCatalog
 
     public static function amoStatusLabel(string $statusId): ?string
     {
-        $label = static::flatAmoStatusOptions()[$statusId] ?? null;
+        $label = static::amoStatusName($statusId);
 
         return $label !== null ? 'Этап: ' . $label : null;
+    }
+
+    public static function amoStatusName(string $statusId, mixed $pipelineId = null): ?string
+    {
+        if ($statusId === '') {
+            return null;
+        }
+
+        $pipelineId = filled($pipelineId) ? (string)$pipelineId : null;
+        $cacheKey = (string)Auth::id() . ':' . ($pipelineId ?? '*') . ':' . $statusId;
+
+        static $cache = [];
+
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        if ($pipelineId === null) {
+            $cache[$cacheKey] = static::flatAmoStatusOptions()[$statusId] ?? null;
+
+            return $cache[$cacheKey];
+        }
+
+        $status = AmoCrmStatus::query()
+            ->where('user_id', Auth::id())
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->where('pipeline_id', $pipelineId)
+            ->where('status_id', $statusId)
+            ->first(['name']);
+
+        $cache[$cacheKey] = filled($status?->name) ? (string)$status->name : null;
+
+        return $cache[$cacheKey];
     }
 
     /**
@@ -447,12 +586,35 @@ class WorkflowTriggerConditionVariableCatalog
         }
 
         return array_filter([
-            'Поля amoCRM' => static::amoFieldIdItems($userId),
-            'Воронки amoCRM' => static::amoPipelineIdItems($userId),
-            'Этапы amoCRM' => static::amoStatusIdItems($userId),
-            'Группы пользователей amoCRM' => static::amoStaffGroupIdItems($userId),
-            'Ответственные amoCRM' => static::amoStaffIdItems($userId),
+            'Сделка' => static::amoEntityVariableItems('Сделка'),
+            'Контакт' => static::amoEntityVariableItems('Контакт'),
+            'Компания' => static::amoEntityVariableItems('Компания'),
+            'Покупатель' => static::amoEntityVariableItems('Покупатель'),
+            'Задача' => static::amoEntityVariableItems('Задача'),
+            'Примечание' => static::amoEntityVariableItems('Примечание'),
+            'Беседа / чат' => static::amoEntityVariableItems('Беседа / чат'),
+            'Поля' => static::amoFieldIdItems($userId),
+            'Воронки' => static::amoPipelineIdItems($userId),
+            'Этапы' => static::amoStatusIdItems($userId),
+            'Группы пользователей' => static::amoStaffGroupIdItems($userId),
+            'Ответственные' => static::amoStaffIdItems($userId),
         ]);
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string, subtitle: string, kind: string}>
+     */
+    private static function amoEntityVariableItems(string $group): array
+    {
+        return collect(static::groupedMaskOptions()[$group] ?? [])
+            ->map(fn(string $label, string $mask): array => [
+                'id' => $mask,
+                'name' => $label,
+                'subtitle' => 'Переменная',
+                'kind' => 'variable',
+            ])
+            ->values()
+            ->all();
     }
 
     /**

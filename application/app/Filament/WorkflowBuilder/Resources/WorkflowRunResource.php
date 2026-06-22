@@ -269,7 +269,7 @@ class WorkflowRunResource extends Resource
             : floor($seconds / 60) . ' мин. ' . ($seconds % 60) . ' сек.';
     }
 
-    private static function startedDescription(WorkflowRun $run): string
+    public static function startedDescription(WorkflowRun $run): string
     {
         $date = $run->started_at ?? $run->created_at;
 
@@ -282,7 +282,7 @@ class WorkflowRunResource extends Resource
             ->format('Y-m-d H:i:s');
     }
 
-    private static function initiatorHtml(WorkflowRun $run): HtmlString
+    public static function initiatorHtml(WorkflowRun $run): HtmlString
     {
         $triggerEntity = static::firstEntityLink($run, 'trigger');
 
@@ -323,7 +323,7 @@ class WorkflowRunResource extends Resource
         ));
     }
 
-    private static function latestBlockHtml(WorkflowRun $run): HtmlString
+    public static function latestBlockHtml(WorkflowRun $run): HtmlString
     {
         $step = $run->latestStep;
 
@@ -442,6 +442,7 @@ class WorkflowRunResource extends Resource
             'amocrm_add_note' => 'Добавить примечание',
             'amocrm_change_tags' => 'Сменить теги',
             'amocrm_change_lead_status' => 'Сменить статус сделки',
+            'amocrm_distribution_queue' => 'Распределить сделку',
             'amocrm_find_entity' => 'Найти сущность',
             'amocrm_link_entity' => 'Прикрепить сущность',
             'amocrm_unlink_entity' => 'Открепить сущность',

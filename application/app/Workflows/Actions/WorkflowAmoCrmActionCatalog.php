@@ -7,8 +7,11 @@ namespace App\Workflows\Actions;
 use App\Models\amoCRM\Field as AmoCrmField;
 use App\Models\amoCRM\Staff as AmoCrmStaff;
 use App\Models\amoCRM\Status as AmoCrmStatus;
+use App\Models\Integrations\Distribution\Setting as DistributionSetting;
+use App\Forms\Components\WorkflowMaskTextarea;
 use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
 use App\Services\Workflows\WorkflowAmoCrmSalesBotService;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Hidden;
@@ -41,6 +44,11 @@ class WorkflowAmoCrmActionCatalog
     private static array $statusNameCache = [];
 
     /**
+     * @var array<string, string|null>
+     */
+    private static array $distributionQueueNameCache = [];
+
+    /**
      * @return array<int, class-string>
      */
     public static function classes(): array
@@ -53,10 +61,12 @@ class WorkflowAmoCrmActionCatalog
             AmoCrmUpdateLeadFieldsAction::class,
             AmoCrmUpdateContactFieldsAction::class,
             AmoCrmUpdateCompanyFieldsAction::class,
+            AmoCrmCalculateFieldAction::class,
             AmoCrmCreateTaskAction::class,
             AmoCrmAddNoteAction::class,
             AmoCrmChangeTagsAction::class,
             AmoCrmChangeLeadStatusAction::class,
+            AmoCrmDistributionQueueAction::class,
             AmoCrmStartSalesBotAction::class,
             AmoCrmStopSalesBotAction::class,
             AmoCrmManageSubscriptionAction::class,
@@ -68,6 +78,26 @@ class WorkflowAmoCrmActionCatalog
             AmoCrmFindEntityAction::class,
             AmoCrmLinkEntityAction::class,
             AmoCrmUnlinkEntityAction::class,
+        ];
+    }
+
+    /**
+     * These cards may stay registered so old definitions can still be opened,
+     * but they must not be offered for new scenarios until an executor exists.
+     *
+     * @return array<int, string>
+     */
+    public static function unsupportedWorkflowTypes(): array
+    {
+        return [
+            'amocrm_start_salesbot',
+            'amocrm_stop_salesbot',
+            'amocrm_manage_subscription',
+            'amocrm_update_task',
+            'amocrm_cancel_delayed_action',
+            'amocrm_normalize_contact_data',
+            'amocrm_add_products',
+            'amocrm_remove_products',
         ];
     }
 
@@ -129,6 +159,79 @@ class WorkflowAmoCrmActionCatalog
 
         return self::$statusNameCache[$cacheKey];
     }
+
+    public static function resolveDistributionQueueName(mixed $queueUuid): ?string
+    {
+        if (blank($queueUuid)) {
+            return null;
+        }
+
+        $cacheKey = (string)Auth::id() . ':' . (string)$queueUuid;
+
+        if (array_key_exists($cacheKey, self::$distributionQueueNameCache)) {
+            return self::$distributionQueueNameCache[$cacheKey];
+        }
+
+        self::$distributionQueueNameCache[$cacheKey] = self::distributionQueueOptions()[(string)$queueUuid] ?? null;
+
+        return self::$distributionQueueNameCache[$cacheKey];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function distributionQueueOptions(): array
+    {
+        $userId = Auth::id();
+
+        if (!$userId) {
+            return [];
+        }
+
+        $setting = DistributionSetting::query()
+            ->where('user_id', $userId)
+            ->latest('id')
+            ->first(['settings']);
+
+        $settings = json_decode($setting?->settings ?? '[]', true);
+
+        if (!is_array($settings)) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach ($settings as $index => $queue) {
+            if (!is_array($queue)) {
+                continue;
+            }
+
+            $key = (string)($queue['queue_uuid'] ?? $index);
+            $options[$key] = self::distributionQueueLabel($queue, (int)$index);
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $queue
+     */
+    private static function distributionQueueLabel(array $queue, int $index): string
+    {
+        $name = trim((string)($queue['name'] ?? ''));
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        $strategy = match ((string)($queue['strategy'] ?? '')) {
+            DistributionSetting::STRATEGY_ROTATION => 'по очереди',
+            DistributionSetting::STRATEGY_RANDOM => 'вразброс',
+            default => null,
+        };
+
+        return trim('Очередь #' . ($index + 1) . ($strategy ? ' · ' . $strategy : ''));
+    }
 }
 
 abstract class WorkflowAmoCrmAction
@@ -184,11 +287,18 @@ abstract class WorkflowAmoCrmAction
         }
 
         $details = [];
+        $queueName = WorkflowAmoCrmActionCatalog::resolveDistributionQueueName(
+            $config['distribution_queue_uuid'] ?? $config['queue_uuid'] ?? null,
+        );
         $pipelineName = WorkflowAmoCrmActionCatalog::resolvePipelineName($config['pipeline_id'] ?? null);
         $statusName = WorkflowAmoCrmActionCatalog::resolveStatusName(
             $config['status_id'] ?? null,
             $config['pipeline_id'] ?? null,
         );
+
+        if ($queueName !== null) {
+            $details[] = 'Очередь: <strong>' . e($queueName) . '</strong>';
+        }
 
         if ($pipelineName !== null) {
             $details[] = 'Воронка: <strong>' . e($pipelineName) . '</strong>';
@@ -322,10 +432,16 @@ abstract class WorkflowAmoCrmAction
                     ->options([
                         'immediate' => 'Сразу',
                         'after_seconds' => 'Через N секунд',
-                        'date_field' => 'В дату из поля',
                     ])
                     ->default('immediate')
                     ->afterStateHydrated(function (?string $state, Set $set, Get $get): void {
+                        if ($state === 'date_field') {
+                            $set('delay.mode', 'immediate');
+                            $set('delay.date_field', null);
+
+                            return;
+                        }
+
                         if ($state !== 'after_minutes') {
                             return;
                         }
@@ -333,7 +449,7 @@ abstract class WorkflowAmoCrmAction
                         $minutes = (int)($get('delay.minutes') ?: 0);
 
                         $set('delay.mode', 'after_seconds');
-                        $set('delay.seconds', max(1, $minutes * 60));
+                        $set('delay.seconds', min(30, max(1, $minutes * 60)));
                     })
                     ->live()
                     ->native(false),
@@ -342,13 +458,42 @@ abstract class WorkflowAmoCrmAction
                     ->label('Задержка, секунд')
                     ->numeric()
                     ->minValue(1)
-                    ->visible(fn(Get $get): bool => $get('delay.mode') === 'after_seconds'),
+                    ->maxValue(30)
+                    ->rule('integer')
+                    ->rule('min:1')
+                    ->rule('max:30')
+                    ->afterStateHydrated(function (mixed $state, Set $set): void {
+                        if ($state === null || $state === '') {
+                            return;
+                        }
 
-                VariableTextInput::make('delay.date_field')
-                    ->label('Поле/переменная с датой')
-                    ->placeholder('{{payload.leads.add.0.created_at}}')
-                    ->visible(fn(Get $get): bool => $get('delay.mode') === 'date_field'),
+                        $set('delay.seconds', min(30, max(1, (int)$state)));
+                    })
+                    ->afterStateUpdated(function (mixed $state, Set $set): void {
+                        if ($state === null || $state === '') {
+                            return;
+                        }
+
+                        $set('delay.seconds', min(30, max(1, (int)$state)));
+                    })
+                    ->visible(fn(Get $get): bool => $get('delay.mode') === 'after_seconds'),
             ]);
+    }
+
+    protected static function variablesAction(string $name): Action
+    {
+        return Action::make($name)
+            ->label('Переменные')
+            ->icon('heroicon-o-variable')
+            ->color('gray')
+            ->modalHeading('Справочник переменных и ID')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Закрыть')
+            ->modalWidth('5xl')
+            ->modalContent(fn() => view('filament.workflow-builder.mask-reference', [
+                'groups' => WorkflowTriggerConditionVariableCatalog::groupedOptions(false),
+                'systemIdGroups' => WorkflowTriggerConditionVariableCatalog::systemIdGroups(),
+            ]));
     }
 
     protected static function fieldMappingsSection(string $label = 'Поля', string $entity = 'lead'): Section
@@ -527,7 +672,7 @@ abstract class WorkflowAmoCrmAction
         ];
     }
 
-    protected static function pipelineFields(): array
+    protected static function pipelineFields(bool $required = false): array
     {
         return [
             Select::make('pipeline_id')
@@ -537,6 +682,7 @@ abstract class WorkflowAmoCrmAction
                 ->preload()
                 ->live()
                 ->native(false)
+                ->required($required)
                 ->afterStateUpdated(fn(Set $set): null => $set('status_id', null))
                 ->placeholder('Выберите воронку'),
 
@@ -546,9 +692,18 @@ abstract class WorkflowAmoCrmAction
                 ->searchable()
                 ->preload()
                 ->native(false)
+                ->required($required)
                 ->disabled(fn(Get $get): bool => blank($get('pipeline_id')))
                 ->placeholder('Сначала выберите воронку'),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected static function distributionQueueOptions(): array
+    {
+        return WorkflowAmoCrmActionCatalog::distributionQueueOptions();
     }
 
     protected static function createLeadSection(): Section
@@ -981,6 +1136,83 @@ class AmoCrmUpdateCompanyFieldsAction extends AmoCrmUpdateEntityFieldsAction
     }
 }
 
+class AmoCrmCalculateFieldAction extends WorkflowAmoCrmAction
+{
+    public static function workflowType(): string
+    {
+        return 'amocrm_calculate_field';
+    }
+
+    public static function workflowName(): string
+    {
+        return 'Калькулятор полей';
+    }
+
+    public static function workflowDescription(): string
+    {
+        return 'Считает формулу и записывает результат в выбранное поле amoCRM.';
+    }
+
+    public static function workflowIcon(): string
+    {
+        return 'heroicon-o-calculator';
+    }
+
+    public static function workflowColor(): string
+    {
+        return '#0891B2';
+    }
+
+    protected static function defaults(): array
+    {
+        return [
+            'target_entity' => 'lead',
+            'target_entity_id' => static::entityIdMask('lead'),
+            'round_precision' => 2,
+        ];
+    }
+
+    protected static function schema(): array
+    {
+        return [
+            Section::make('Расчет')
+                ->compact()
+                ->headerActions([
+                    static::variablesAction('amocrm_calculate_field_variables'),
+                ])
+                ->schema(
+                    array_merge(static::targetEntityFields(['lead', 'contact', 'company'],
+                        fn(Set $set): mixed => $set('result_field', null)), [
+                        Select::make('result_field')
+                            ->label('Поле результата')
+                            ->options(fn(Get $get): array => static::amoFieldOptions((string)($get('target_entity') ?: 'lead')))
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->required(),
+
+                        TextInput::make('round_precision')
+                            ->label('Округление')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(6)
+                            ->default(2),
+
+                        WorkflowMaskTextarea::make('expression')
+                            ->label('Формула')
+                            ->placeholder('({{lead.price}} - {{lead.cf_cost}}) / {{lead.price}} * 100')
+                            ->helperText('Введите {{, чтобы открыть подстановку переменных. Поддерживаются +, -, *, /, %, ^, скобки и функции round, ceil, floor, abs, min, max.')
+                            ->rows(3)
+                            ->monospace()
+                            ->required()
+                            ->columnSpanFull(),
+                    ])
+                ),
+            static::delaySection(),
+        ];
+    }
+}
+
 class AmoCrmCreateTaskAction extends WorkflowAmoCrmAction
 {
     public static function workflowType(): string
@@ -1165,6 +1397,59 @@ class AmoCrmChangeLeadStatusAction extends WorkflowAmoCrmAction
             Section::make('Статус сделки')->schema(array_merge([
                 static::targetEntityIdInput('lead', 'ID сделки'),
             ], static::pipelineFields())),
+            static::delaySection(),
+        ];
+    }
+}
+
+class AmoCrmDistributionQueueAction extends WorkflowAmoCrmAction
+{
+    public static function workflowType(): string
+    {
+        return 'amocrm_distribution_queue';
+    }
+
+    public static function workflowName(): string
+    {
+        return 'Распределить сделку';
+    }
+
+    public static function workflowDescription(): string
+    {
+        return 'Передает сделку в выбранную очередь распределения и переводит ее в этап воронки.';
+    }
+
+    public static function workflowIcon(): string
+    {
+        return 'heroicon-o-users';
+    }
+
+    public static function workflowColor(): string
+    {
+        return '#EA580C';
+    }
+
+    protected static function schema(): array
+    {
+        return [
+            Section::make('Распределение сделки')
+                ->columns(2)
+                ->schema([
+                    static::targetEntityIdInput('lead', 'ID сделки'),
+
+                    Select::make('distribution_queue_uuid')
+                        ->label('Очередь распределения')
+                        ->options(fn(): array => static::distributionQueueOptions())
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->required()
+                        ->placeholder('Выберите очередь'),
+
+                    Grid::make(2)
+                        ->columnSpanFull()
+                        ->schema(static::pipelineFields(true)),
+                ]),
             static::delaySection(),
         ];
     }

@@ -24,7 +24,7 @@
         'task' => 'Задача',
     ];
 
-    $targetEntity = (string) ($config['target_entity'] ?? ($actionType === 'amocrm_change_lead_status' ? 'lead' : ''));
+    $targetEntity = (string) ($config['target_entity'] ?? (in_array($actionType, ['amocrm_change_lead_status', 'amocrm_distribution_queue'], true) ? 'lead' : ''));
     $targetEntityLabel = $entityLabels[$targetEntity] ?? null;
     $targetEntityId = trim((string) ($config['target_entity_id'] ?? ''));
     $delay = $config['delay'] ?? [];
@@ -32,13 +32,12 @@
     $delayLabel = null;
 
     if ($delayMode === 'after_seconds' && filled($delay['seconds'] ?? null)) {
-        $delayLabel = $delay['seconds'] . ' сек.';
-    } elseif ($delayMode === 'date_field' && filled($delay['date_field'] ?? null)) {
-        $delayLabel = 'в дату из ' . $delay['date_field'];
+        $delayLabel = min(30, max(1, (int) $delay['seconds'])) . ' сек.';
     }
 
     $summaryItems = [];
     $dealSummaryItems = [];
+    $noteSummaryItems = [];
 
     if ($targetEntityLabel) {
         $summaryItems[] = [
@@ -58,6 +57,17 @@
         $dealSummaryItems[] = [
             'icon' => 'heroicon-o-funnel',
             'label' => 'Воронка: ' . ($pipelineName ?? 'не найдена'),
+        ];
+    }
+
+    if (filled($config['distribution_queue_uuid'] ?? $config['queue_uuid'] ?? null)) {
+        $queueName = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::resolveDistributionQueueName(
+            $config['distribution_queue_uuid'] ?? $config['queue_uuid'],
+        );
+
+        $dealSummaryItems[] = [
+            'icon' => 'heroicon-o-users',
+            'label' => 'Очередь: ' . ($queueName ?? 'не найдена'),
         ];
     }
 
@@ -81,10 +91,16 @@
     }
 
     if (filled($config['text'] ?? null)) {
-        $summaryItems[] = [
+        $textSummaryItem = [
             'icon' => 'heroicon-o-chat-bubble-left-ellipsis',
             'label' => Str::limit((string) $config['text'], 46),
         ];
+
+        if ($actionType === 'amocrm_add_note') {
+            $noteSummaryItems[] = $textSummaryItem;
+        } else {
+            $summaryItems[] = $textSummaryItem;
+        }
     }
 
     if (in_array($actionType, ['amocrm_start_salesbot', 'amocrm_stop_salesbot'], true)) {
@@ -159,8 +175,8 @@
                 </div>
             @endif
 
-            @if(count($summaryItems) > 0 || count($dealSummaryItems) > 0)
-                @foreach([$summaryItems, $dealSummaryItems] as $rowItems)
+            @if(count($summaryItems) > 0 || count($dealSummaryItems) > 0 || count($noteSummaryItems) > 0)
+                @foreach([$summaryItems, $dealSummaryItems, $noteSummaryItems] as $rowItems)
                     @if(count($rowItems) > 0)
                         <div
                             @class([
