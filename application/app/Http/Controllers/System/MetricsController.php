@@ -16,6 +16,9 @@ class MetricsController extends Controller
     private const DB_SLOW_QUERY_TOTAL_KEY = 'monitoring:db:slow_queries:total';
     private const DB_SLOW_QUERY_LAST_MS_KEY = 'monitoring:db:slow_queries:last_ms';
     private const DB_SLOW_QUERY_LAST_SEEN_KEY = 'monitoring:db:slow_queries:last_seen_unixtime';
+    private const DB_SLOW_QUERY_LAST_CONTEXT_KEY = 'monitoring:db:slow_queries:last_context';
+    private const DB_SLOW_QUERY_CONTEXT_INDEX_KEY = 'monitoring:db:slow_queries:context_index';
+    private const DB_SLOW_QUERY_CONTEXT_COUNTER_PREFIX = 'monitoring:db:slow_queries:context_total:';
 
     public function __invoke(Request $request): Response
     {
@@ -93,10 +96,24 @@ class MetricsController extends Controller
         $slowQueriesTotal = (int)MonitoringCache::get(self::DB_SLOW_QUERY_TOTAL_KEY, 0);
         $lastSlowQueryMs = (float)MonitoringCache::get(self::DB_SLOW_QUERY_LAST_MS_KEY, 0);
         $lastSlowQuerySeenAt = (int)MonitoringCache::get(self::DB_SLOW_QUERY_LAST_SEEN_KEY, 0);
+        $lastSlowQueryAge = $lastSlowQuerySeenAt > 0 ? max(0, now()->timestamp - $lastSlowQuerySeenAt) : -1;
+        $slowQueryThresholdMs = (int)config('database.monitoring.slow_query_threshold_ms', 1000);
 
         $lines[] = '# HELP clever_db_slow_queries_total Total number of DB queries above configured slow threshold.';
         $lines[] = '# TYPE clever_db_slow_queries_total counter';
         $lines[] = 'clever_db_slow_queries_total ' . $slowQueriesTotal;
+
+        $lines[] = '# HELP clever_db_slow_queries_by_context_total Total slow DB queries split by connection and source.';
+        $lines[] = '# TYPE clever_db_slow_queries_by_context_total counter';
+        foreach ($this->slowQueryContextStats() as $stats) {
+            $lines[] = sprintf(
+                'clever_db_slow_queries_by_context_total{connection="%s",source="%s",name="%s"} %d',
+                $this->escapeLabel($stats['connection']),
+                $this->escapeLabel($stats['source']),
+                $this->escapeLabel($stats['name']),
+                $stats['total'],
+            );
+        }
 
         $lines[] = '# HELP clever_db_last_slow_query_ms Duration of the latest detected slow DB query in milliseconds.';
         $lines[] = '# TYPE clever_db_last_slow_query_ms gauge';
@@ -105,6 +122,26 @@ class MetricsController extends Controller
         $lines[] = '# HELP clever_db_last_slow_query_unixtime Unix timestamp of the latest detected slow DB query.';
         $lines[] = '# TYPE clever_db_last_slow_query_unixtime gauge';
         $lines[] = 'clever_db_last_slow_query_unixtime ' . $lastSlowQuerySeenAt;
+
+        $lines[] = '# HELP clever_db_last_slow_query_age_seconds Age of the latest detected slow DB query in seconds. -1 means no recent slow query.';
+        $lines[] = '# TYPE clever_db_last_slow_query_age_seconds gauge';
+        $lines[] = 'clever_db_last_slow_query_age_seconds ' . $lastSlowQueryAge;
+
+        $lines[] = '# HELP clever_db_slow_query_threshold_ms Configured slow DB query threshold in milliseconds.';
+        $lines[] = '# TYPE clever_db_slow_query_threshold_ms gauge';
+        $lines[] = 'clever_db_slow_query_threshold_ms ' . $slowQueryThresholdMs;
+
+        $lastSlowQueryContext = MonitoringCache::get(self::DB_SLOW_QUERY_LAST_CONTEXT_KEY, []);
+        if (is_array($lastSlowQueryContext) && $lastSlowQuerySeenAt > 0) {
+            $lines[] = '# HELP clever_db_last_slow_query_info Labels describing the latest detected slow DB query.';
+            $lines[] = '# TYPE clever_db_last_slow_query_info gauge';
+            $lines[] = sprintf(
+                'clever_db_last_slow_query_info{connection="%s",source="%s",name="%s"} 1',
+                $this->escapeLabel((string)($lastSlowQueryContext['connection'] ?? 'unknown')),
+                $this->escapeLabel((string)($lastSlowQueryContext['source'] ?? 'unknown')),
+                $this->escapeLabel((string)($lastSlowQueryContext['name'] ?? 'unknown')),
+            );
+        }
 
         $lines[] = '# HELP clever_metrics_up 1 when app metrics collection works, 0 on collection errors.';
         $lines[] = '# TYPE clever_metrics_up gauge';
@@ -169,6 +206,37 @@ class MetricsController extends Controller
         }
 
         ksort($stats);
+
+        return $stats;
+    }
+
+    /**
+     * @return list<array{connection: string, source: string, name: string, total: int}>
+     */
+    private function slowQueryContextStats(): array
+    {
+        $index = MonitoringCache::get(self::DB_SLOW_QUERY_CONTEXT_INDEX_KEY, []);
+
+        if (!is_array($index)) {
+            return [];
+        }
+
+        $stats = [];
+
+        foreach ($index as $contextKey => $labels) {
+            if (!is_string($contextKey) || !is_array($labels)) {
+                continue;
+            }
+
+            $stats[] = [
+                'connection' => (string)($labels['connection'] ?? 'unknown'),
+                'source' => (string)($labels['source'] ?? 'unknown'),
+                'name' => (string)($labels['name'] ?? 'unknown'),
+                'total' => (int)MonitoringCache::get(self::DB_SLOW_QUERY_CONTEXT_COUNTER_PREFIX . $contextKey, 0),
+            ];
+        }
+
+        usort($stats, static fn(array $a, array $b): int => $b['total'] <=> $a['total']);
 
         return $stats;
     }

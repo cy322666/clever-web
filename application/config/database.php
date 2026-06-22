@@ -147,6 +147,7 @@ return [
     'monitoring' => [
         'slow_query_threshold_ms' => (int)env('DB_SLOW_QUERY_THRESHOLD_MS', 1000),
         'slow_query_sample_sql' => filter_var(env('DB_SLOW_QUERY_SAMPLE_SQL', false), FILTER_VALIDATE_BOOLEAN),
+        'slow_query_last_ttl_seconds' => (int)env('DB_SLOW_QUERY_LAST_TTL_SECONDS', 3600),
     ],
 
     /*

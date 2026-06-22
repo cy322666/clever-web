@@ -400,7 +400,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "increase(clever_db_slow_queries_total[10m])",
+          "expr": "(sum(increase(clever_db_slow_queries_by_context_total[10m])) or increase(clever_db_slow_queries_total[10m]))",
           "legendFormat": "",
           "range": true,
           "refId": "A"
@@ -780,7 +780,7 @@
         },
         {
           "editorMode": "code",
-          "expr": "increase(clever_db_slow_queries_total[15m])",
+          "expr": "(sum(increase(clever_db_slow_queries_by_context_total[15m])) or increase(clever_db_slow_queries_total[15m]))",
           "legendFormat": "slow SQL/15m",
           "range": true,
           "refId": "C"
@@ -854,7 +854,7 @@
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "tooltip": {
           "mode": "single",
@@ -865,12 +865,63 @@
         {
           "editorMode": "code",
           "expr": "clever_db_last_slow_query_ms",
-          "legendFormat": "last",
+          "legendFormat": "длительность",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "clever_db_last_slow_query_age_seconds",
+          "legendFormat": "возраст",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Последний медленный SQL",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 29
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(10, sum by (connection, source, name) (increase(clever_db_slow_queries_by_context_total[1h])))",
+          "legendFormat": "{{source}} / {{name}} / {{connection}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Длительность последнего медленного SQL",
+      "title": "Медленные SQL по источникам",
       "type": "timeseries"
     },
     {

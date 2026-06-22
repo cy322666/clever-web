@@ -74,7 +74,7 @@ groups:
           description: "Prometheus не может собрать метрики postgres-exporter более 2 минут."
 
       - alert: DbSlowQueriesBurst
-        expr: increase(clever_db_slow_queries_total[10m]) > 10
+        expr: (sum(increase(clever_db_slow_queries_by_context_total[10m])) or increase(clever_db_slow_queries_total[10m])) > 10
         for: 5m
         labels:
           severity: warning

@@ -31,6 +31,17 @@ class MonitoringCache
         }
     }
 
+    public static function put(string $key, mixed $value, int $ttlSeconds): bool
+    {
+        try {
+            Cache::store(self::storeName())->put($key, $value, $ttlSeconds);
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public static function forget(string $key): bool
     {
         try {

@@ -50,6 +50,12 @@ class AppServiceProvider extends ServiceProvider
 
     private const DB_SLOW_QUERY_LAST_SEEN_KEY = 'monitoring:db:slow_queries:last_seen_unixtime';
 
+    private const DB_SLOW_QUERY_LAST_CONTEXT_KEY = 'monitoring:db:slow_queries:last_context';
+
+    private const DB_SLOW_QUERY_CONTEXT_INDEX_KEY = 'monitoring:db:slow_queries:context_index';
+
+    private const DB_SLOW_QUERY_CONTEXT_COUNTER_PREFIX = 'monitoring:db:slow_queries:context_total:';
+
     /**
      * Register any application services.
      */
@@ -379,20 +385,38 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $sampleSql = (bool)config('database.monitoring.slow_query_sample_sql', false);
+        $lastTtlSeconds = max(60, (int)config('database.monitoring.slow_query_last_ttl_seconds', 3600));
 
-        DB::listen(function (QueryExecuted $query) use ($thresholdMs, $sampleSql): void {
+        DB::listen(function (QueryExecuted $query) use ($thresholdMs, $sampleSql, $lastTtlSeconds): void {
             if ($query->time < $thresholdMs) {
                 return;
             }
 
+            $source = $this->resolveSlowQuerySource();
+            $connection = $query->connectionName ?: 'default';
+            $timeMs = round((float)$query->time, 2);
+            $seenAt = now()->timestamp;
+
             MonitoringCache::add(self::DB_SLOW_QUERY_TOTAL_KEY, 0, 31536000);
             MonitoringCache::increment(self::DB_SLOW_QUERY_TOTAL_KEY);
-            MonitoringCache::forever(self::DB_SLOW_QUERY_LAST_MS_KEY, (float)$query->time);
-            MonitoringCache::forever(self::DB_SLOW_QUERY_LAST_SEEN_KEY, now()->timestamp);
+            MonitoringCache::put(self::DB_SLOW_QUERY_LAST_MS_KEY, $timeMs, $lastTtlSeconds);
+            MonitoringCache::put(self::DB_SLOW_QUERY_LAST_SEEN_KEY, $seenAt, $lastTtlSeconds);
+            MonitoringCache::put(self::DB_SLOW_QUERY_LAST_CONTEXT_KEY, [
+                'connection' => $connection,
+                'source' => $source['type'],
+                'name' => $source['name'],
+                'time_ms' => $timeMs,
+                'seen_at' => $seenAt,
+            ], $lastTtlSeconds);
+
+            $this->incrementSlowQueryContextCounter($connection, $source['type'], $source['name']);
 
             $context = [
-                'time_ms' => round((float)$query->time, 2),
-                'connection' => $query->connectionName,
+                'time_ms' => $timeMs,
+                'threshold_ms' => $thresholdMs,
+                'connection' => $connection,
+                'source' => $source['type'],
+                'source_name' => $source['name'],
             ];
 
             if ($sampleSql) {
@@ -401,5 +425,93 @@ class AppServiceProvider extends ServiceProvider
 
             Log::warning('Slow database query detected.', $context);
         });
+    }
+
+    /**
+     * @return array{type: string, name: string}
+     */
+    private function resolveSlowQuerySource(): array
+    {
+        if ($this->app->bound('request')) {
+            /** @var Request $request */
+            $request = $this->app->make('request');
+
+            if ($request->server->has('REQUEST_METHOD')) {
+                $route = $request->route();
+                $routeName = is_object($route) && method_exists($route, 'getName') ? $route->getName() : null;
+                $routeUri = is_object($route) && method_exists($route, 'uri') ? $route->uri() : null;
+                $name = $routeName ?: trim($request->method() . ' ' . ($routeUri ?: $request->path()));
+
+                return [
+                    'type' => 'http',
+                    'name' => $this->normalizeMetricLabelValue($name),
+                ];
+            }
+        }
+
+        if (!$this->app->runningInConsole()) {
+            return ['type' => 'unknown', 'name' => 'unknown'];
+        }
+
+        return [
+            'type' => 'console',
+            'name' => $this->normalizeMetricLabelValue($this->resolveConsoleCommandName()),
+        ];
+    }
+
+    private function resolveConsoleCommandName(): string
+    {
+        $argv = $_SERVER['argv'] ?? [];
+
+        if (!is_array($argv) || $argv === []) {
+            return 'artisan';
+        }
+
+        $parts = array_values(array_filter(
+            array_map(static fn(mixed $part): string => trim((string)$part), $argv),
+            static fn(string $part): bool => $part !== '' && !str_starts_with($part, '--')
+        ));
+
+        $command = $parts[1] ?? $parts[0] ?? 'artisan';
+
+        if ($command === 'horizon' || $command === 'queue:work') {
+            return $command;
+        }
+
+        return str_starts_with($command, 'artisan') ? 'artisan' : $command;
+    }
+
+    private function normalizeMetricLabelValue(string $value): string
+    {
+        $value = preg_replace('/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i', '{uuid}', $value) ?? $value;
+        $value = preg_replace('/\b\d{4,}\b/', '{id}', $value) ?? $value;
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+        $value = trim($value);
+
+        return mb_substr($value === '' ? 'unknown' : $value, 0, 120);
+    }
+
+    private function incrementSlowQueryContextCounter(string $connection, string $source, string $name): void
+    {
+        $contextKey = sha1($connection . '|' . $source . '|' . $name);
+        $index = MonitoringCache::get(self::DB_SLOW_QUERY_CONTEXT_INDEX_KEY, []);
+
+        if (!is_array($index)) {
+            $index = [];
+        }
+
+        $index[$contextKey] = [
+            'connection' => $connection,
+            'source' => $source,
+            'name' => $name,
+        ];
+
+        if (count($index) > 100) {
+            $index = array_slice($index, -100, null, true);
+        }
+
+        MonitoringCache::forever(self::DB_SLOW_QUERY_CONTEXT_INDEX_KEY, $index);
+        MonitoringCache::add(self::DB_SLOW_QUERY_CONTEXT_COUNTER_PREFIX . $contextKey, 0, 31536000);
+        MonitoringCache::increment(self::DB_SLOW_QUERY_CONTEXT_COUNTER_PREFIX . $contextKey);
     }
 }
