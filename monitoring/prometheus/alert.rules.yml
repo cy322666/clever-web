@@ -73,6 +73,51 @@ groups:
           summary: "Недоступен Postgres exporter"
           description: "Prometheus не может собрать метрики postgres-exporter более 2 минут."
 
+      - alert: ContainerExporterDown
+        expr: up{job="cadvisor"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Недоступен cAdvisor"
+          description: "Prometheus не может собрать docker/container метрики более 2 минут."
+
+      - alert: AppStackContainerNotSeen
+        expr: time() - max by (container_label_com_docker_compose_service) (container_last_seen{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}) > 120
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Контейнер app-стека не виден"
+          description: "cAdvisor не видел контейнер {{ $labels.container_label_com_docker_compose_service }} более 2 минут."
+
+      - alert: AppStackContainerRestarted
+        expr: changes(container_start_time_seconds{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Рестарт контейнера app-стека"
+          description: "Контейнер {{ $labels.container_label_com_docker_compose_service }} перезапускался за последние 15 минут."
+
+      - alert: AppStackContainerHighCpu
+        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}[5m])) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокая CPU-нагрузка контейнера"
+          description: "Контейнер {{ $labels.container_label_com_docker_compose_service }} использует больше 1.5 CPU cores более 10 минут."
+
+      - alert: AppStackContainerHighMemory
+        expr: sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}) > 1.5e9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокое потребление памяти контейнера"
+          description: "Контейнер {{ $labels.container_label_com_docker_compose_service }} использует больше 1.5 ГБ RAM более 10 минут."
+
       - alert: DbSlowQueriesBurst
         expr: (sum(increase(clever_db_slow_queries_by_context_total[10m])) or increase(clever_db_slow_queries_total[10m])) > 10
         for: 5m

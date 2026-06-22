@@ -24,6 +24,7 @@ services:
     depends_on:
       - alertmanager
       - blackbox
+      - cadvisor
       - postgres-exporter
 
   alertmanager:
@@ -52,6 +53,23 @@ services:
       - --config.file=/etc/blackbox_exporter/config.yml
     ports:
       - "9115:9115"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.2
+    restart: unless-stopped
+    privileged: true
+    command:
+      - --docker_only=true
+      - --store_container_labels=true
+      - --housekeeping_interval=30s
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    ports:
+      - "8089:8080"
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.16.0
