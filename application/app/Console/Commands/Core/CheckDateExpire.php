@@ -3,7 +3,6 @@
 namespace App\Console\Commands\Core;
 
 use App\Mail\AppSubscriptionExpired;
-use App\Mail\AppStatusDailySyncReport;
 use App\Models\App;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -25,17 +24,14 @@ class CheckDateExpire extends Command
         $stats = [
             'processed' => 0,
             'updated' => 0,
-            'summary_emails' => 0,
             'expired_emails' => 0,
             'errors' => 0,
         ];
 
-        $changesByUser = [];
-
         App::query()
             ->with('user')
             ->orderBy('id')
-            ->chunkById(200, function ($apps) use (&$stats, &$changesByUser, $today, $dryRun): void {
+            ->chunkById(200, function ($apps) use (&$stats, $today, $dryRun): void {
                 foreach ($apps as $app) {
                     $stats['processed']++;
 
@@ -77,13 +73,6 @@ class CheckDateExpire extends Command
                                 ]);
                             }
                         }
-
-                        $changesByUser[$user->id] ??= [
-                            'user' => $user,
-                            'items' => [],
-                        ];
-
-                        $changesByUser[$user->id]['items'][] = $changes;
                     } catch (Throwable $e) {
                         $stats['errors']++;
                         Log::error('app:check-date-expire sync failed', [
@@ -95,35 +84,9 @@ class CheckDateExpire extends Command
                 }
             });
 
-        if (!$dryRun) {
-            foreach ($changesByUser as $payload) {
-                try {
-                    Mail::mailer('failover')
-                        ->to($payload['user']->email)
-                        ->queue(
-                            new AppStatusDailySyncReport(
-                                user: $payload['user'],
-                                items: $payload['items'],
-                                syncDate: $today->copy(),
-                            )
-                        );
-
-                    $stats['summary_emails']++;
-                } catch (Throwable $e) {
-                    $stats['errors']++;
-                    Log::error('app:check-date-expire email failed', [
-                        'user_id' => $payload['user']->id,
-                        'email' => $payload['user']->email,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
-        }
-
         $this->info('Синхронизация apps завершена.');
         $this->line('Обработано: ' . $stats['processed']);
         $this->line('Обновлено: ' . $stats['updated']);
-        $this->line('Писем в очередь (сводка): ' . $stats['summary_emails']);
         $this->line('Писем в очередь (истечение): ' . $stats['expired_emails']);
         $this->line('Ошибок: ' . $stats['errors']);
 
