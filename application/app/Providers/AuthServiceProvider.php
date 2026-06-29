@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Mail\PasswordResetLink;
 // use Illuminate\Support\Facades\Gate;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -26,5 +27,13 @@ class AuthServiceProvider extends ServiceProvider
         ResetPassword::createUrlUsing(
             fn ($user, string $token): string => Filament::getPanel('app')->getResetPasswordUrl($token, $user),
         );
+
+        ResetPassword::toMailUsing(function ($user, string $token): PasswordResetLink {
+            return new PasswordResetLink(
+                user: $user,
+                url: Filament::getPanel('app')->getResetPasswordUrl($token, $user),
+                expiresInMinutes: (int) config('auth.passwords.' . config('auth.defaults.passwords') . '.expire'),
+            );
+        });
     }
 }
