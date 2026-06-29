@@ -43,8 +43,13 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'auth_mode' => null,
-
-            'verify_peer' => false,
+            'stream' => [
+                'ssl' => [
+                    'allow_self_signed' => ! filter_var(env('MAIL_VERIFY_PEER', false), FILTER_VALIDATE_BOOLEAN),
+                    'verify_peer' => filter_var(env('MAIL_VERIFY_PEER', false), FILTER_VALIDATE_BOOLEAN),
+                    'verify_peer_name' => filter_var(env('MAIL_VERIFY_PEER', false), FILTER_VALIDATE_BOOLEAN),
+                ],
+            ],
         ],
 
         'ses' => [
