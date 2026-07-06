@@ -7,6 +7,7 @@ use App\Models\Integrations\Distribution\Setting;
 use App\Models\Integrations\Distribution\Transaction;
 use App\Models\User;
 use App\Services\Distribution\ScheduleEvaluator;
+use App\Services\Distribution\ScheduleSettingsService;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Leads;
 use Carbon\Carbon;
@@ -94,13 +95,16 @@ class BaseStrategy
 
             //отбираем только тех, кто работает по графику сейчас
             foreach ($this->staffs as $staffId) {
-                $staff = Staff::query()->where('staff_id', $staffId)->first();
+                $staff = Staff::query()
+                    ->where('user_id', $this->user->id)
+                    ->where('staff_id', $staffId)
+                    ->first();
                 if (!$staff) {
                     continue;
                 }
 
                 if (ScheduleEvaluator::isWorkingNow(
-                    $staff->schedule->settings ?? null,
+                    $this->scheduleSettingsForStaff($staff),
                     $now,
                     $this->resolveTimezone()
                 )) {
@@ -288,5 +292,14 @@ class BaseStrategy
     protected function resolveTimezone(): string
     {
         return (string)(config('app.timezone') ?: 'Europe/Moscow');
+    }
+
+    protected function scheduleSettingsForStaff(Staff $staff): ?string
+    {
+        return app(ScheduleSettingsService::class)->settingsForStaff(
+            $staff,
+            $this->queueUuid,
+            $this->templateIndex,
+        );
     }
 }

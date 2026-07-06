@@ -33,13 +33,16 @@ class ScheduleStrategy extends BaseStrategy
 
         //отбираем только тех, кто работает по графику сейчас
         foreach ($this->staffs as $staffId) {
-            $staff = Staff::query()->where('staff_id', $staffId)->first();
+            $staff = Staff::query()
+                ->where('user_id', $this->user->id)
+                ->where('staff_id', $staffId)
+                ->first();
             if (!$staff) {
                 continue;
             }
 
             $isWork = ScheduleEvaluator::isWorkingNow(
-                $staff->schedule->settings ?? null,
+                $this->scheduleSettingsForStaff($staff),
                 $now,
                 $this->resolveTimezone()
             );

@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Документация сценариев</title>
+    <style>
+        @page {
+            margin: 22px 26px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            color: #111827;
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 9px;
+            line-height: 1.32;
+        }
+
+        h1, h2, h3, p {
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 19px;
+        }
+
+        h2 {
+            font-size: 12px;
+            line-height: 1.25;
+        }
+
+        .cover {
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+        }
+
+        .meta {
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .workflow {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            padding: 8px 9px;
+            page-break-inside: avoid;
+        }
+
+        .workflow__head {
+            display: table;
+            width: 100%;
+        }
+
+        .workflow__title,
+        .workflow__meta {
+            display: table-cell;
+            vertical-align: top;
+        }
+
+        .workflow__meta {
+            color: #6b7280;
+            text-align: right;
+            white-space: nowrap;
+            width: 35%;
+        }
+
+        .badge {
+            border-radius: 999px;
+            display: inline-block;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 2px 6px;
+        }
+
+        .badge--on {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge--off {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .line {
+            margin-top: 5px;
+        }
+
+        .label {
+            color: #6b7280;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-top: 6px;
+            width: 100%;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #6b7280;
+            font-size: 8px;
+            letter-spacing: .03em;
+            text-align: left;
+            text-transform: uppercase;
+        }
+
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 4px 5px;
+            vertical-align: top;
+        }
+
+        .num {
+            color: #ea580c;
+            font-weight: 700;
+            white-space: nowrap;
+            width: 26px;
+        }
+
+        .step-name {
+            font-weight: 700;
+        }
+
+        .muted {
+            color: #6b7280;
+        }
+
+        .settings {
+            margin: 2px 0 0;
+            padding: 0;
+        }
+
+        .settings li {
+            list-style-position: inside;
+            margin: 0 0 2px;
+        }
+
+        .condition {
+            background: #fffbeb;
+            border-left: 2px solid #f59e0b;
+            margin-bottom: 3px;
+            padding: 3px 5px;
+        }
+
+        .warning {
+            color: #b91c1c;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+<section class="cover">
+    <h1>Сценарии автоматизации</h1>
+    <div class="meta">
+        19.06.2026 01:54
+        · сценариев: 3
+    </div>
+</section>
+
+<section class="workflow">
+    <div class="workflow__head">
+        <div class="workflow__title">
+            <h2>Продление Сопровождения</h2>
+        </div>
+        <div class="workflow__meta">
+                <span class="badge badge--on">
+                    включён
+                </span>
+            · ID 16
+            · Сопровождение
+        </div>
+    </div>
+
+    <div class="line">
+        <span class="label">Триггер:</span>
+        amoCRM: сменился статус сделки
+        <span class="muted">· Запускается, когда у сделки в amoCRM меняется статус.</span>
+    </div>
+
+
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 8%;">№</th>
+            <th style="width: 30%;">Шаг</th>
+            <th>Ключевые настройки</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td class="num">1</td>
+            <td>
+                <div class="step-name">Воронка Сопровождение</div>
+            </td>
+            <td>
+                <div class="condition">
+                    Воронка
+                    равно
+                    Сопровождение · ID 10654346
+                </div>
+                <div class="condition">
+                    И
+                    Новый статус
+                    равно
+                    Продление сегодня · Сопровождение · ID 83974762
+                </div>
+
+            </td>
+        </tr>
+        <tr>
+            <td class="num">1.1</td>
+            <td>
+                <div class="muted">Да</div>
+                <div class="step-name">Поставить задачу</div>
+            </td>
+            <td>
+
+                <ul class="settings">
+                    <li><strong>Применить к:</strong> Сделка</li>
+                    <li><strong>Ответственный:</strong> Трофимов Вячеслав · ID 5998951</li>
+                    <li><strong>Срок выполнения:</strong> +30 minutes</li>
+                    <li><strong>Текст:</strong> Клиент 2 дня после продления не проведен, почему?</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td>
+                <div class="step-name">За 7 дней до продления</div>
+            </td>
+            <td>
+                <div class="condition">
+                    Воронка
+                    равно
+                    Сопровождение · ID 10654346
+                </div>
+                <div class="condition">
+                    И
+                    Новый статус
+                    равно
+                    ID 52
+                </div>
+
+            </td>
+        </tr>
+        <tr>
+            <td class="num">2.1</td>
+            <td>
+                <div class="muted">Да</div>
+                <div class="step-name">Запустить SalesBot</div>
+            </td>
+            <td>
+
+                <ul class="settings">
+                    <li><strong>SalesBot:</strong> 13023</li>
+                </ul>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+<section class="workflow">
+    <div class="workflow__head">
+        <div class="workflow__title">
+            <h2>Автосчет покупателю</h2>
+        </div>
+        <div class="workflow__meta">
+                <span class="badge badge--on">
+                    включён
+                </span>
+            · ID 18
+            · Без группы
+        </div>
+    </div>
+
+    <div class="line">
+        <span class="label">Триггер:</span>
+        Ручной запуск
+        <span class="muted">· Запуск вручную из интерфейса или API</span>
+    </div>
+
+
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 8%;">№</th>
+            <th style="width: 30%;">Шаг</th>
+            <th>Ключевые настройки</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td class="num">1</td>
+            <td>
+                <div class="step-name">Запустить SalesBot</div>
+            </td>
+            <td>
+
+                <ul class="settings">
+                    <li><strong>SalesBot:</strong> 13023</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td>
+                <div class="step-name">Добавить примечание</div>
+            </td>
+            <td>
+
+                <ul class="settings">
+                    <li><strong>Применить к:</strong> Покупатель</li>
+                    <li><strong>Текст примечания:</strong> Выставлен счет</li>
+                </ul>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+<section class="workflow">
+    <div class="workflow__head">
+        <div class="workflow__title">
+            <h2>Основная воронка (автозакрытие)</h2>
+        </div>
+        <div class="workflow__meta">
+                <span class="badge badge--on">
+                    включён
+                </span>
+            · ID 17
+            · Без группы
+        </div>
+    </div>
+
+    <div class="line">
+        <span class="label">Триггер:</span>
+        Ручной запуск
+        <span class="muted">· Запуск вручную из интерфейса или API</span>
+    </div>
+
+
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 8%;">№</th>
+            <th style="width: 30%;">Шаг</th>
+            <th>Ключевые настройки</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td class="num">1</td>
+            <td>
+                <div class="step-name">Сменить статус сделки</div>
+            </td>
+            <td>
+
+                <ul class="settings">
+                    <li><strong>Воронка:</strong> Базы · ID 9683890</li>
+                    <li><strong>Статус:</strong> Первичный контакт · Базы · ID 77213586</li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td>
+                <div class="step-name">Добавить примечание</div>
+            </td>
+            <td>
+
+                <ul class="settings">
+                    <li><strong>Применить к:</strong> Сделка</li>
+                    <li><strong>Текст примечания:</strong> Автоперевод из главной</li>
+                </ul>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+</body>
+</html>

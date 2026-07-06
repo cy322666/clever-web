@@ -95,23 +95,31 @@ class ScheduleSettingsService
         return $payload;
     }
 
-    public function saveForStaff(Staff $staff, array $payload): Scheduler
+    public function saveForStaff(
+        Staff $staff,
+        array $payload,
+        ?string $queueUuid = null,
+        ?int $template = null
+    ): Scheduler
     {
         $this->validatePayload($payload);
 
-        return Scheduler::query()->updateOrCreate([
-            'staff_id' => $staff->id,
-        ], [
+        return Scheduler::query()->updateOrCreate($this->schedulerLookup($staff, $queueUuid, $template), [
             'settings' => json_encode($payload, JSON_UNESCAPED_UNICODE),
             'user_id' => $staff->user_id,
+            'queue_uuid' => $queueUuid,
+            'template' => $template,
         ]);
     }
 
-    public function addException(Staff $staff, array $exception): Scheduler
+    public function addException(
+        Staff $staff,
+        array $exception,
+        ?string $queueUuid = null,
+        ?int $template = null
+    ): Scheduler
     {
-        $scheduler = Scheduler::query()->firstOrNew([
-            'staff_id' => $staff->id,
-        ]);
+        $scheduler = Scheduler::query()->firstOrNew($this->schedulerLookup($staff, $queueUuid, $template));
 
         $settings = $this->decodeSettings($scheduler->settings);
         $settings['timezone'] ??= config('app.timezone') ?: 'Europe/Moscow';
@@ -145,9 +153,175 @@ class ScheduleSettingsService
         $scheduler->fill([
             'settings' => json_encode($settings, JSON_UNESCAPED_UNICODE),
             'user_id' => $staff->user_id,
+            'queue_uuid' => $queueUuid,
+            'template' => $template,
         ])->save();
 
         return $scheduler;
+    }
+
+    public function removeException(
+        Staff $staff,
+        string $type,
+        string $from,
+        string $to,
+        ?string $queueUuid = null,
+        ?int $template = null
+    ): bool {
+        $scheduler = $this->findScheduler($staff, $queueUuid, $template);
+
+        if (!$scheduler) {
+            return false;
+        }
+
+        $settings = $this->decodeSettings($scheduler->settings);
+        $exceptions = $this->normalizeExceptions($settings['exceptions'] ?? []);
+        $target = [
+            'type' => in_array($type, ['work', 'free'], true) ? $type : 'work',
+            'from' => Carbon::parse($from)->format('Y-m-d H:i:s'),
+            'to' => Carbon::parse($to)->format('Y-m-d H:i:s'),
+        ];
+        $removed = false;
+
+        $settings['exceptions'] = array_values(
+            array_filter(
+                $exceptions,
+                static function (array $exception) use (&$removed, $target): bool {
+                    if ($removed) {
+                        return true;
+                    }
+
+                    $matches = $exception['type'] === $target['type']
+                        && Carbon::parse($exception['from'])->format('Y-m-d H:i:s') === $target['from']
+                        && Carbon::parse($exception['to'])->format('Y-m-d H:i:s') === $target['to'];
+
+                    if ($matches) {
+                        $removed = true;
+
+                        return false;
+                    }
+
+                    return true;
+                }
+            )
+        );
+
+        if (!$removed) {
+            return false;
+        }
+
+        $scheduler->fill([
+            'settings' => json_encode($settings, JSON_UNESCAPED_UNICODE),
+            'user_id' => $staff->user_id,
+        ])->save();
+
+        return true;
+    }
+
+    public function replaceException(
+        Staff $staff,
+        string $type,
+        string $oldFrom,
+        string $oldTo,
+        string $newFrom,
+        string $newTo,
+        ?string $queueUuid = null,
+        ?int $template = null
+    ): bool {
+        $scheduler = $this->findScheduler($staff, $queueUuid, $template);
+
+        if (!$scheduler) {
+            return false;
+        }
+
+        $settings = $this->decodeSettings($scheduler->settings);
+        $exceptions = $this->normalizeExceptions($settings['exceptions'] ?? []);
+        $target = [
+            'type' => in_array($type, ['work', 'free'], true) ? $type : 'work',
+            'from' => Carbon::parse($oldFrom)->format('Y-m-d H:i:s'),
+            'to' => Carbon::parse($oldTo)->format('Y-m-d H:i:s'),
+        ];
+        $replacement = [
+            'type' => $target['type'],
+            'from' => Carbon::parse($newFrom)->format('Y-m-d H:i:s'),
+            'to' => Carbon::parse($newTo)->format('Y-m-d H:i:s'),
+        ];
+        $removed = false;
+        $remaining = [];
+
+        foreach ($exceptions as $exception) {
+            $matches = !$removed
+                && $exception['type'] === $target['type']
+                && Carbon::parse($exception['from'])->format('Y-m-d H:i:s') === $target['from']
+                && Carbon::parse($exception['to'])->format('Y-m-d H:i:s') === $target['to'];
+
+            if ($matches) {
+                $removed = true;
+                continue;
+            }
+
+            $remaining[] = $exception;
+        }
+
+        if (!$removed) {
+            return false;
+        }
+
+        $errors = [];
+        $this->validateDateTimeRanges([$replacement], 'exception', $errors, 'Исключение');
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        if ($this->overlapsExistingException($remaining, $replacement)) {
+            throw ValidationException::withMessages([
+                'from' => 'Период пересекается с другим исключением.',
+            ]);
+        }
+
+        $settings['exceptions'] = [...$remaining, $replacement];
+        usort(
+            $settings['exceptions'],
+            fn(array $left, array $right): int => strcmp($left['from'], $right['from'])
+        );
+
+        $scheduler->fill([
+            'settings' => json_encode($settings, JSON_UNESCAPED_UNICODE),
+            'user_id' => $staff->user_id,
+        ])->save();
+
+        return true;
+    }
+
+    public function settingsForStaff(Staff $staff, ?string $queueUuid = null, ?int $template = null): ?string
+    {
+        return $this->findScheduler($staff, $queueUuid, $template)?->settings;
+    }
+
+    private function findScheduler(Staff $staff, ?string $queueUuid = null, ?int $template = null): ?Scheduler
+    {
+        return Scheduler::query()
+            ->where($this->schedulerLookup($staff, $queueUuid, $template))
+            ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function schedulerLookup(Staff $staff, ?string $queueUuid = null, ?int $template = null): array
+    {
+        if ($queueUuid !== null) {
+            return [
+                'staff_id' => $staff->id,
+                'queue_uuid' => $queueUuid,
+            ];
+        }
+
+        return [
+            'staff_id' => $staff->id,
+            'queue_uuid' => null,
+            'template' => $template,
+        ];
     }
 
     public function decodeSettings(?string $settingsJson): array

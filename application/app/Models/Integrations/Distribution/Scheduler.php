@@ -15,5 +15,7 @@ class Scheduler extends Model
         'settings',
         'user_id',
         'staff_id',
+        'queue_uuid',
+        'template',
     ];
 }

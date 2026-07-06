@@ -331,6 +331,7 @@
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/leek/filament-workflows" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/horizon" />
       <excludeFolder url="file://$MODULE_DIR$/application/vendor/laravel/sentinel" />
+      <excludeFolder url="file://$MODULE_DIR$/application/vendor/guava/calendar" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

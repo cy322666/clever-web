@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Integrations\Distribution\ScheduleResource\Widgets;
 
 use App\Models\amoCRM\Staff;
+use App\Models\Integrations\Distribution\Setting as DistributionSetting;
 use App\Services\Distribution\ScheduleSettingsService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -21,11 +22,16 @@ use Guava\Calendar\Filament\CalendarWidget;
 use Guava\Calendar\ValueObjects\CalendarEvent;
 use Guava\Calendar\ValueObjects\CalendarResource;
 use Guava\Calendar\ValueObjects\DateSelectInfo;
+use Guava\Calendar\ValueObjects\EventDropInfo;
+use Guava\Calendar\ValueObjects\EventClickInfo;
+use Guava\Calendar\ValueObjects\EventResizeInfo;
 use Guava\Calendar\ValueObjects\FetchInfo;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
+use Throwable;
 
 class DistributionScheduleCalendar extends CalendarWidget
 {
@@ -38,7 +44,17 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     protected CalendarViewType $calendarView = CalendarViewType::ResourceTimelineWeek;
 
+    public ?string $scheduleQueue = null;
+
     protected bool $dateSelectEnabled = true;
+
+    protected bool $eventClickEnabled = true;
+
+    protected bool $eventDragEnabled = true;
+
+    protected bool $eventResizeEnabled = true;
+
+    protected ?string $defaultEventClickAction = null;
 
     protected array $options = [
         'height' => 'auto',
@@ -60,7 +76,27 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     public function getHeaderActions(): array
     {
-        return [];
+        return [
+            Action::make('selectQueue')
+                ->label(fn(): string => 'Очередь: ' . $this->selectedQueueLabel())
+                ->icon('heroicon-o-queue-list')
+                ->modalHeading('График очереди распределения')
+                ->form([
+                    Select::make('schedule_queue')
+                        ->label('Очередь')
+                        ->options(fn(): array => $this->queueOptions())
+                        ->required()
+                        ->native(false)
+                        ->searchable(),
+                ])
+                ->fillForm(fn(): array => [
+                    'schedule_queue' => $this->currentScheduleQueue(),
+                ])
+                ->action(function (array $data): void {
+                    $this->scheduleQueue = (string)($data['schedule_queue'] ?? $this->currentScheduleQueue());
+                    $this->refreshRecords();
+                }),
+        ];
     }
 
     public function configureScheduleAction(): Action
@@ -75,7 +111,7 @@ class DistributionScheduleCalendar extends CalendarWidget
             ->form($this->scheduleFormSchema())
             ->fillForm(fn(): array => $this->defaultScheduleActionData())
             ->action(function (array $data): void {
-                $staff = $this->activeStaffQuery()->find($data['staff_id'] ?? null);
+                $staff = $this->selectedStaffQuery()->find($data['staff_id'] ?? null);
 
                 if (!$staff) {
                     Notification::make()
@@ -87,7 +123,13 @@ class DistributionScheduleCalendar extends CalendarWidget
                 }
 
                 $payload = $this->scheduleSettings()->buildPayload($data);
-                $this->scheduleSettings()->saveForStaff($staff, $payload);
+                $queue = $this->selectedQueue();
+                $this->scheduleSettings()->saveForStaff(
+                    $staff,
+                    $payload,
+                    $queue['queue_uuid'] ?? null,
+                    $queue['template'] ?? null,
+                );
 
                 $this->refreshRecords();
 
@@ -136,10 +178,7 @@ class DistributionScheduleCalendar extends CalendarWidget
                     return;
                 }
 
-                $staff = Staff::query()
-                    ->where('user_id', Auth::id())
-                    ->where('active', true)
-                    ->find($dateSelect->resource->getId());
+                $staff = $this->selectedStaffQuery()->find($dateSelect->resource->getId());
 
                 if (!$staff) {
                     Notification::make()
@@ -162,11 +201,12 @@ class DistributionScheduleCalendar extends CalendarWidget
                     return;
                 }
 
+                $queue = $this->selectedQueue();
                 $this->scheduleSettings()->addException($staff, [
                     'type' => 'work',
                     'from' => $from->format('Y-m-d H:i:s'),
                     'to' => $to->format('Y-m-d H:i:s'),
-                ]);
+                ], $queue['queue_uuid'] ?? null, $queue['template'] ?? null);
 
                 $this->refreshRecords();
 
@@ -179,7 +219,303 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     protected function onDateSelect(DateSelectInfo $info): void
     {
-        $this->mountAction('createException');
+        $staff = $this->staffFromResourceId($info->resource?->getId());
+
+        if (!$staff) {
+            Notification::make()
+                ->title('Выберите диапазон на строке сотрудника')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $from = Carbon::parse($info->start);
+        $to = Carbon::parse($info->end);
+
+        if ($from->gte($to)) {
+            Notification::make()
+                ->title('Конец периода должен быть позже начала')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        try {
+            $queue = $this->selectedQueue();
+            $this->scheduleSettings()->addException($staff, [
+                'type' => 'work',
+                'from' => $from->format('Y-m-d H:i:s'),
+                'to' => $to->format('Y-m-d H:i:s'),
+            ], $queue['queue_uuid'] ?? null, $queue['template'] ?? null);
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->title($exception->getMessage() ?: 'Не удалось добавить период')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->refreshRecords();
+
+        Notification::make()
+            ->title('Период добавлен')
+            ->success()
+            ->send();
+    }
+
+    protected function onEventClick(EventClickInfo $info, Model $event, ?string $action = null): void
+    {
+        $staff = $event instanceof Staff && (int)$event->user_id === (int)Auth::id() && (bool)$event->active
+            ? $event
+            : $this->staffFromResourceId((int)($info->event->getResourceIds()[0] ?? 0));
+
+        if (!$staff) {
+            Notification::make()
+                ->title('Сотрудник не найден')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $props = $info->event->getExtendedProps();
+        $kind = (string)($props['distribution_schedule_kind'] ?? 'base');
+        $from = Carbon::parse($props['distribution_exception_from'] ?? $info->event->getStart())
+            ->format('Y-m-d H:i:s');
+        $to = Carbon::parse($props['distribution_exception_to'] ?? $info->event->getEnd())
+            ->format('Y-m-d H:i:s');
+
+        try {
+            if ($kind === 'work_exception') {
+                $queue = $this->selectedQueue();
+                $removed = $this->scheduleSettings()->removeException(
+                    $staff,
+                    'work',
+                    $from,
+                    $to,
+                    $queue['queue_uuid'] ?? null,
+                    $queue['template'] ?? null,
+                );
+
+                if (!$removed) {
+                    Notification::make()
+                        ->title('Период уже не найден')
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+            } else {
+                $queue = $this->selectedQueue();
+                $this->scheduleSettings()->addException($staff, [
+                    'type' => 'free',
+                    'from' => $from,
+                    'to' => $to,
+                ], $queue['queue_uuid'] ?? null, $queue['template'] ?? null);
+            }
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->title($exception->getMessage() ?: 'Не удалось удалить период')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->refreshRecords();
+
+        Notification::make()
+            ->title('Период удален')
+            ->success()
+            ->send();
+    }
+
+    protected function onEventDrop(EventDropInfo $info, Model $event): bool
+    {
+        return $this->updateWorkExceptionPeriod($info->oldEvent, $info->event, $event);
+    }
+
+    protected function onEventResize(EventResizeInfo $info, Model $event): bool
+    {
+        return $this->updateWorkExceptionPeriod($info->oldEvent, $info->event, $event);
+    }
+
+    private function updateWorkExceptionPeriod(CalendarEvent $oldEvent, CalendarEvent $newEvent, Model $event): bool
+    {
+        $props = $oldEvent->getExtendedProps();
+
+        if (($props['distribution_schedule_kind'] ?? null) !== 'work_exception') {
+            return false;
+        }
+
+        $staff = $event instanceof Staff && (int)$event->user_id === (int)Auth::id() && (bool)$event->active
+            ? $event
+            : $this->staffFromResourceId((int)($oldEvent->getResourceIds()[0] ?? 0));
+
+        if (!$staff) {
+            Notification::make()
+                ->title('Сотрудник не найден')
+                ->danger()
+                ->send();
+
+            return false;
+        }
+
+        $oldFrom = Carbon::parse($props['distribution_exception_from'] ?? $oldEvent->getStart())
+            ->format('Y-m-d H:i:s');
+        $oldTo = Carbon::parse($props['distribution_exception_to'] ?? $oldEvent->getEnd())
+            ->format('Y-m-d H:i:s');
+        $newFrom = Carbon::parse($newEvent->getStart())->format('Y-m-d H:i:s');
+        $newTo = Carbon::parse($newEvent->getEnd())->format('Y-m-d H:i:s');
+
+        try {
+            $queue = $this->selectedQueue();
+            $updated = $this->scheduleSettings()->replaceException(
+                $staff,
+                'work',
+                $oldFrom,
+                $oldTo,
+                $newFrom,
+                $newTo,
+                $queue['queue_uuid'] ?? null,
+                $queue['template'] ?? null,
+            );
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->title($exception->getMessage() ?: 'Не удалось изменить период')
+                ->danger()
+                ->send();
+
+            return false;
+        }
+
+        if (!$updated) {
+            Notification::make()
+                ->title('Период уже не найден')
+                ->warning()
+                ->send();
+
+            return false;
+        }
+
+        $this->refreshRecords();
+
+        Notification::make()
+            ->title('Период изменен')
+            ->success()
+            ->send();
+
+        return true;
+    }
+
+    private function staffFromResourceId(mixed $resourceId): ?Staff
+    {
+        if (!$resourceId) {
+            return null;
+        }
+
+        return $this->selectedStaffQuery()
+            ->find($resourceId);
+    }
+
+    private function currentScheduleQueue(): ?string
+    {
+        if (filled($this->scheduleQueue) && array_key_exists($this->scheduleQueue, $this->queueOptions())) {
+            return $this->scheduleQueue;
+        }
+
+        $this->scheduleQueue = array_key_first($this->queueOptions());
+
+        return $this->scheduleQueue;
+    }
+
+    /**
+     * @return array{key: string|null, label: string, queue_uuid: string|null, template: int|null, staffs: array<int, int>}
+     */
+    private function selectedQueue(): array
+    {
+        $key = $this->currentScheduleQueue();
+        $queues = $this->distributionQueues();
+
+        return $key !== null && isset($queues[$key])
+            ? $queues[$key]
+            : [
+                'key' => null,
+                'label' => 'Очередь не выбрана',
+                'queue_uuid' => null,
+                'template' => null,
+                'staffs' => [],
+            ];
+    }
+
+    private function selectedQueueLabel(): string
+    {
+        return $this->selectedQueue()['label'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function queueOptions(): array
+    {
+        return collect($this->distributionQueues())
+            ->mapWithKeys(fn(array $queue): array => [$queue['key'] => $queue['label']])
+            ->all();
+    }
+
+    /**
+     * @return array<string, array{key: string, label: string, queue_uuid: string|null, template: int|null, staffs: array<int, int>}>
+     */
+    private function distributionQueues(): array
+    {
+        $setting = DistributionSetting::query()
+            ->where('user_id', Auth::id())
+            ->latest('id')
+            ->first(['settings']);
+
+        $settings = json_decode($setting?->settings ?? '[]', true);
+
+        if (!is_array($settings)) {
+            return [];
+        }
+
+        $queues = [];
+
+        foreach ($settings as $index => $queue) {
+            if (!is_array($queue)) {
+                continue;
+            }
+
+            $queueUuid = is_string($queue['queue_uuid'] ?? null) && $queue['queue_uuid'] !== ''
+                ? $queue['queue_uuid']
+                : null;
+            $key = $queueUuid ?? (string)$index;
+            $queues[$key] = [
+                'key' => $key,
+                'label' => $this->queueLabel($queue, (int)$index),
+                'queue_uuid' => $queueUuid,
+                'template' => (int)$index,
+                'staffs' => array_values(array_filter(array_map('intval', (array)($queue['staffs'] ?? [])))),
+            ];
+        }
+
+        return $queues;
+    }
+
+    private function queueLabel(array $queue, int $index): string
+    {
+        $name = trim((string)($queue['name'] ?? ''));
+        $strategy = match ((string)($queue['strategy'] ?? '')) {
+            DistributionSetting::STRATEGY_ROTATION => 'по очереди',
+            DistributionSetting::STRATEGY_RANDOM => 'вразброс',
+            DistributionSetting::STRATEGY_SCHEDULE => 'по графику',
+            default => null,
+        };
+
+        return trim(($name !== '' ? $name : 'Очередь #' . ($index + 1)) . ($strategy ? ' · ' . $strategy : ''));
     }
 
     private function currentDateSelectInfo(): ?DateSelectInfo
@@ -408,7 +744,7 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     private function staffCollection(): Collection
     {
-        return $this->activeStaffQuery()
+        return $this->selectedStaffQuery()
             ->orderBy('group_name')
             ->orderBy('name')
             ->get();
@@ -426,9 +762,7 @@ class DistributionScheduleCalendar extends CalendarWidget
         $rangeStart = Carbon::parse($info->start);
         $rangeEnd = Carbon::parse($info->end);
 
-        return $this->activeStaffQuery()
-            ->with('schedule')
-            ->get()
+        return $this->staffCollection()
             ->flatMap(fn(Staff $staff): array => $this->eventsForStaff($staff, $rangeStart, $rangeEnd))
             ->values()
             ->all();
@@ -436,8 +770,7 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     private function defaultScheduleActionData(): array
     {
-        $staff = $this->activeStaffQuery()
-            ->with('schedule')
+        $staff = $this->selectedStaffQuery()
             ->orderBy('group_name')
             ->orderBy('name')
             ->first();
@@ -448,12 +781,12 @@ class DistributionScheduleCalendar extends CalendarWidget
     private function scheduleActionDataForStaff(?int $staffId): array
     {
         $staff = $staffId
-            ? $this->activeStaffQuery()->with('schedule')->find($staffId)
+            ? $this->selectedStaffQuery()->find($staffId)
             : null;
 
         return [
             'staff_id' => $staff?->id,
-            ...$this->scheduleSettings()->prepareFormData($staff?->schedule?->settings),
+            ...$this->scheduleSettings()->prepareFormData($staff ? $this->selectedScheduleSettings($staff) : null),
         ];
     }
 
@@ -473,14 +806,37 @@ class DistributionScheduleCalendar extends CalendarWidget
             ->where('active', true);
     }
 
+    private function selectedStaffQuery(): Builder
+    {
+        $staffIds = $this->selectedQueue()['staffs'];
+
+        return $this->activeStaffQuery()
+            ->when(
+                $staffIds !== [],
+                fn(Builder $query): Builder => $query->whereIn('staff_id', $staffIds),
+                fn(Builder $query): Builder => $query->whereRaw('1 = 0'),
+            );
+    }
+
     private function scheduleSettings(): ScheduleSettingsService
     {
         return app(ScheduleSettingsService::class);
     }
 
+    private function selectedScheduleSettings(Staff $staff): ?string
+    {
+        $queue = $this->selectedQueue();
+
+        return $this->scheduleSettings()->settingsForStaff(
+            $staff,
+            $queue['queue_uuid'] ?? null,
+            $queue['template'] ?? null,
+        );
+    }
+
     private function eventsForStaff(Staff $staff, CarbonInterface $rangeStart, CarbonInterface $rangeEnd): array
     {
-        $settings = $this->scheduleSettings()->decodeSettings($staff->schedule?->settings);
+        $settings = $this->scheduleSettings()->decodeSettings($this->selectedScheduleSettings($staff));
         if ($settings === []) {
             return [];
         }
@@ -589,13 +945,21 @@ class DistributionScheduleCalendar extends CalendarWidget
         return collect($this->scheduleSettings()->normalizeExceptions($settings['exceptions'] ?? []))
             ->filter(fn(array $exception): bool => ($exception['type'] ?? null) === 'work')
             ->map(function (array $exception) use ($staff, $timezone): CalendarEvent {
+                $from = Carbon::parse($exception['from'], $timezone);
+                $to = Carbon::parse($exception['to'], $timezone);
+
                 return $this->event(
                     $staff,
                     'Работает',
-                    Carbon::parse($exception['from'], $timezone),
-                    Carbon::parse($exception['to'], $timezone),
+                    $from,
+                    $to,
                     $timezone,
-                    self::COLOR_PRIMARY_DARK
+                    self::COLOR_PRIMARY_DARK,
+                    [
+                        'distribution_schedule_kind' => 'work_exception',
+                        'distribution_exception_from' => $from->format('Y-m-d H:i:s'),
+                        'distribution_exception_to' => $to->format('Y-m-d H:i:s'),
+                    ],
                 );
             })
             ->all();
@@ -725,20 +1089,30 @@ class DistributionScheduleCalendar extends CalendarWidget
         CarbonInterface $start,
         CarbonInterface $end,
         string $timezone,
-        string $color
+        string $color,
+        array $extendedProps = []
     ): CalendarEvent {
-        return CalendarEvent::make()
+        $extendedProps = [
+            'distribution_schedule_kind' => 'base',
+            ...$extendedProps,
+        ];
+        $editable = ($extendedProps['distribution_schedule_kind'] ?? null) === 'work_exception';
+
+        return CalendarEvent::make($staff)
             ->title($title)
             ->start(Carbon::parse($start)->timezone($timezone))
             ->end(Carbon::parse($end)->timezone($timezone))
             ->timezone($timezone)
             ->resourceId($staff->id)
+            ->extendedProps($extendedProps)
             ->backgroundColor($color)
             ->textColor(self::COLOR_TEXT_ON_PRIMARY)
             ->styles([
                 'border-color' => $color,
                 'box-shadow' => '0 1px 2px rgb(15 15 15 / 0.08)',
             ])
-            ->editable(false);
+            ->editable($editable)
+            ->startEditable($editable)
+            ->durationEditable($editable);
     }
 }

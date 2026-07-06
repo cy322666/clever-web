@@ -458,6 +458,7 @@
       <path value="$PROJECT_DIR$/../rain/colors/vendor/psr/http-factory" />
       <path value="$PROJECT_DIR$/../rain/colors/vendor/psr/http-client" />
       <path value="$PROJECT_DIR$/../rain/colors/vendor/psr/http-message" />
+      <path value="$PROJECT_DIR$/application/vendor/guava/calendar" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">

@@ -86,18 +86,25 @@ class ScheduleSaveValidationTest extends TestCase
             ]);
         });
 
-        Setting::query()->create([
-            'user_id' => $user->id,
-            'active' => true,
-            'settings' => '{}',
-        ]);
-
         $staff = Staff::query()->create([
             'user_id' => $user->id,
             'staff_id' => 102,
             'name' => 'Manager',
             'active' => true,
             'login' => 'manager-action@example.com',
+        ]);
+
+        Setting::query()->create([
+            'user_id' => $user->id,
+            'active' => true,
+            'settings' => json_encode([
+                [
+                    'queue_uuid' => 'queue-action',
+                    'name' => 'Основная',
+                    'strategy' => Setting::STRATEGY_ROTATION,
+                    'staffs' => [$staff->staff_id],
+                ]
+            ], JSON_UNESCAPED_UNICODE),
         ]);
 
         $this->actingAs($user);
@@ -126,12 +133,6 @@ class ScheduleSaveValidationTest extends TestCase
             ]);
         });
 
-        Setting::query()->create([
-            'user_id' => $user->id,
-            'active' => true,
-            'settings' => '{}',
-        ]);
-
         $staff = Staff::query()->create([
             'user_id' => $user->id,
             'staff_id' => 103,
@@ -140,25 +141,43 @@ class ScheduleSaveValidationTest extends TestCase
             'login' => 'manager-free-exception@example.com',
         ]);
 
-        app(ScheduleSettingsService::class)->saveForStaff($staff, app(ScheduleSettingsService::class)->buildPayload([
-            'advanced_mode' => true,
-            'mode' => 'weekly',
-            'timezone' => 'Europe/Moscow',
-            'weekly_rules' => [
+        Setting::query()->create([
+            'user_id' => $user->id,
+            'active' => true,
+            'settings' => json_encode([
                 [
-                    'day' => 1,
-                    'from' => '08:00:00',
-                    'to' => '18:00:00',
+                    'queue_uuid' => 'queue-free-exception',
+                    'name' => 'Основная',
+                    'strategy' => Setting::STRATEGY_ROTATION,
+                    'staffs' => [$staff->staff_id],
+                ]
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        app(ScheduleSettingsService::class)->saveForStaff(
+            $staff,
+            app(ScheduleSettingsService::class)->buildPayload([
+                'advanced_mode' => true,
+                'mode' => 'weekly',
+                'timezone' => 'Europe/Moscow',
+                'weekly_rules' => [
+                    [
+                        'day' => 1,
+                        'from' => '08:00:00',
+                        'to' => '18:00:00',
+                    ],
                 ],
-            ],
-            'exceptions' => [
-                [
-                    'from' => '2026-04-06 13:00:00',
-                    'to' => '2026-04-06 14:00:00',
-                    'type' => 'free',
+                'exceptions' => [
+                    [
+                        'from' => '2026-04-06 13:00:00',
+                        'to' => '2026-04-06 14:00:00',
+                        'type' => 'free',
+                    ],
                 ],
-            ],
-        ]));
+            ]),
+            'queue-free-exception',
+            0,
+        );
 
         $this->actingAs($user);
 
@@ -182,6 +201,140 @@ class ScheduleSaveValidationTest extends TestCase
             ])
             ->values()
             ->all());
+    }
+
+    public function test_schedule_service_removes_matching_exception(): void
+    {
+        $user = User::withoutEvents(function (): User {
+            return User::query()->create([
+                'name' => 'Test User',
+                'email' => 'schedule-remove-exception@example.com',
+                'password' => 'secret',
+            ]);
+        });
+
+        $staff = Staff::query()->create([
+            'user_id' => $user->id,
+            'staff_id' => 104,
+            'name' => 'Manager',
+            'active' => true,
+            'login' => 'manager-remove-exception@example.com',
+        ]);
+
+        $service = app(ScheduleSettingsService::class);
+        $service->addException($staff, [
+            'type' => 'work',
+            'from' => '2026-04-06 10:00:00',
+            'to' => '2026-04-06 12:00:00',
+        ]);
+
+        $this->assertTrue(
+            $service->removeException(
+                $staff,
+                'work',
+                '2026-04-06 10:00:00',
+                '2026-04-06 12:00:00',
+            )
+        );
+
+        $settings = json_decode(Scheduler::query()->first()->settings, true);
+
+        $this->assertSame([], $settings['exceptions']);
+    }
+
+    public function test_schedule_service_replaces_matching_exception(): void
+    {
+        $user = User::withoutEvents(function (): User {
+            return User::query()->create([
+                'name' => 'Test User',
+                'email' => 'schedule-replace-exception@example.com',
+                'password' => 'secret',
+            ]);
+        });
+
+        $staff = Staff::query()->create([
+            'user_id' => $user->id,
+            'staff_id' => 105,
+            'name' => 'Manager',
+            'active' => true,
+            'login' => 'manager-replace-exception@example.com',
+        ]);
+
+        $service = app(ScheduleSettingsService::class);
+        $service->addException($staff, [
+            'type' => 'work',
+            'from' => '2026-04-06 10:00:00',
+            'to' => '2026-04-06 12:00:00',
+        ]);
+
+        $this->assertTrue(
+            $service->replaceException(
+                $staff,
+                'work',
+                '2026-04-06 10:00:00',
+                '2026-04-06 12:00:00',
+                '2026-04-06 11:00:00',
+                '2026-04-06 13:30:00',
+            )
+        );
+
+        $settings = json_decode(Scheduler::query()->first()->settings, true);
+
+        $this->assertSame([
+            [
+                'type' => 'work',
+                'from' => '2026-04-06 11:00:00',
+                'to' => '2026-04-06 13:30:00',
+            ]
+        ], $settings['exceptions']);
+    }
+
+    public function test_schedule_service_keeps_separate_queue_schedules_for_same_staff(): void
+    {
+        $user = User::withoutEvents(function (): User {
+            return User::query()->create([
+                'name' => 'Test User',
+                'email' => 'schedule-queue-scope@example.com',
+                'password' => 'secret',
+            ]);
+        });
+
+        $staff = Staff::query()->create([
+            'user_id' => $user->id,
+            'staff_id' => 106,
+            'name' => 'Manager',
+            'active' => true,
+            'login' => 'manager-queue-scope@example.com',
+        ]);
+
+        $service = app(ScheduleSettingsService::class);
+        $service->saveForStaff($staff, [
+            'mode' => 'always',
+            'timezone' => 'UTC',
+            'exceptions' => [],
+        ], 'queue-a', 0);
+        $service->saveForStaff($staff, [
+            'mode' => 'weekly',
+            'timezone' => 'UTC',
+            'weekly_rules' => [
+                [
+                    'day' => 1,
+                    'from' => '09:00:00',
+                    'to' => '18:00:00',
+                ]
+            ],
+            'exceptions' => [],
+        ], 'queue-b', 1);
+
+        $this->assertSame(2, Scheduler::query()->count());
+        $this->assertSame(
+            'always',
+            json_decode($service->settingsForStaff($staff, 'queue-a', 0), true)['mode']
+        );
+        $this->assertSame(
+            'weekly',
+            json_decode($service->settingsForStaff($staff, 'queue-b', 1), true)['mode']
+        );
     }
 
     protected function setUp(): void
@@ -234,6 +387,8 @@ class ScheduleSaveValidationTest extends TestCase
             $table->longText('settings')->nullable();
             $table->unsignedInteger('user_id');
             $table->unsignedInteger('staff_id');
+            $table->string('queue_uuid', 36)->nullable();
+            $table->integer('template')->nullable();
             $table->timestamps();
         });
 
