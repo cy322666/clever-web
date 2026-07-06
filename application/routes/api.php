@@ -103,6 +103,14 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::post('workflows/manual-buttons/digital-pipeline', [WorkflowManualAmoCrmController::class, 'digitalPipeline'])
         ->middleware('throttle:120,1')
         ->name('amocrm.workflows.manual-buttons.digital-pipeline');
+
+    Route::match(['get', 'post'], 'distribution', [DistributionController::class, 'index'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.distribution.index');
+
+    Route::post('distribution/digital-pipeline', [DistributionController::class, 'digitalPipeline'])
+        ->middleware('throttle:120,1')
+        ->name('amocrm.distribution.digital-pipeline');
 });
 
 Route::match(['get', 'post', 'put', 'patch', 'delete'], 'workflows/webhook/{workflow}/{signature}', [WorkflowWebhookController::class, 'generic'])

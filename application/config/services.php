@@ -44,6 +44,10 @@ return [
                 'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
             ],
+            'distribution' => [
+                'client_id' => env('AMO_DISTRIBUTION_CLIENT_ID'),
+                'client_secret' => env('AMO_DISTRIBUTION_CLIENT_SECRET'),
+            ],
             'workflows' => [
                 'client_id' => env('AMO_WORKFLOWS_CLIENT_ID'),
                 'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),

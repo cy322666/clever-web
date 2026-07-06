@@ -1,0 +1,15 @@
+{
+    "widget": {
+        "name": "Распределение Clever",
+        "short_description": "Распределение сделок",
+        "description": "Гибкое распределение сделок amoCRM между менеджерами по очереди, вразброс или с учетом графика.",
+        "tour_description": "Подключите виджет, откройте настройки Clever и скопируйте webhook-ссылки очередей в нужные этапы amoCRM."
+    },
+    "settings": {
+        "api_base_url": "API Clever"
+    },
+    "dp": {
+        "title": "Распределение Clever",
+        "queue_uuid": "Очередь"
+    }
+}

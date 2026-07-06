@@ -1,0 +1,51 @@
+{
+    "widget": {
+        "name": "widget.name",
+        "description": "widget.description",
+        "short_description": "widget.short_description",
+        "version": "1.0.1",
+        "interface_version": 2,
+        "init_once": false,
+        "locale": [
+            "ru"
+        ],
+        "installation": true,
+        "support": {
+            "link": "https://clevercrm.pro",
+            "email": "support@clevercrm.pro"
+        }
+    },
+    "locations": [
+        "settings",
+        "lcard-1",
+        "digital_pipeline"
+    ],
+    "tour": {
+        "is_tour": true,
+        "tour_images": {
+            "ru": [
+                "/images/tour_1_ru.png"
+            ]
+        },
+        "tour_description": "widget.tour_description"
+    },
+    "settings": {
+        "api_base_url": {
+            "name": "settings.api_base_url",
+            "type": "text",
+            "required": false
+        }
+    },
+    "dp": {
+        "title": "dp.title",
+        "settings": {
+            "queue_uuid": {
+                "name": "dp.queue_uuid",
+                "type": "text",
+                "required": true
+            }
+        },
+        "action_multiple": false,
+        "webhook_url": "https://app.clevercrm.pro/api/amocrm/distribution/digital-pipeline"
+    }
+}
