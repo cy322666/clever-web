@@ -1516,3 +1516,51 @@ body:has(.workflow-builder) .fi-modal-slide-over .fi-section-header {
 .dark .integration-pricing__card--best .integration-pricing__note {
     color: rgb(134 239 172);
 }
+
+.distribution-schedule-event {
+    cursor: pointer;
+    min-height: 1.125rem;
+    height: 1.125rem;
+    border-radius: 0.25rem;
+    transition: filter 120ms ease, box-shadow 120ms ease;
+}
+
+.distribution-schedule-event-fill {
+    display: block;
+    min-height: 1.125rem;
+}
+
+.distribution-schedule-event.gu-hover {
+    filter: brightness(1.06);
+    box-shadow: 0 1px 5px rgb(15 15 15 / 0.12);
+}
+
+.ec-resource-month-view .ec-header .ec-day,
+.ec-resource-month-view .ec-header .ec-day-head {
+    min-height: 2rem;
+    line-height: 2rem;
+}
+
+.ec-resource-month-view .ec-body .ec-days,
+.ec-resource-month-view .ec-sidebar .ec-resource {
+    flex-basis: 2.25rem !important;
+    min-height: 2.25rem;
+}
+
+.ec-resource-month-view .ec-sidebar .ec-resource span {
+    padding-top: 0.375rem;
+}
+
+.ec-resource-month-view .distribution-schedule-event {
+    min-height: 1rem;
+    height: 1rem;
+    padding-block: 0;
+}
+
+.ec-resource-month-view .distribution-schedule-event-fill {
+    min-height: 1rem;
+}
+
+.ec-timeline .ec-sidebar .ec-resource:last-child {
+    flex-basis: auto !important;
+}

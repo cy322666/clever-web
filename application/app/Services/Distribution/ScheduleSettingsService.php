@@ -138,13 +138,7 @@ class ScheduleSettingsService
             throw ValidationException::withMessages($errors);
         }
 
-        if ($this->overlapsExistingException($settings['exceptions'], $normalized)) {
-            throw ValidationException::withMessages([
-                'from' => 'Период пересекается с другим исключением.',
-            ]);
-        }
-
-        $settings['exceptions'][] = $normalized;
+        $settings['exceptions'] = $this->reconcileExceptionRanges($settings['exceptions'], $normalized);
         usort(
             $settings['exceptions'],
             fn(array $left, array $right): int => strcmp($left['from'], $right['from'])
@@ -273,13 +267,7 @@ class ScheduleSettingsService
             throw ValidationException::withMessages($errors);
         }
 
-        if ($this->overlapsExistingException($remaining, $replacement)) {
-            throw ValidationException::withMessages([
-                'from' => 'Период пересекается с другим исключением.',
-            ]);
-        }
-
-        $settings['exceptions'] = [...$remaining, $replacement];
+        $settings['exceptions'] = $this->reconcileExceptionRanges($remaining, $replacement);
         usort(
             $settings['exceptions'],
             fn(array $left, array $right): int => strcmp($left['from'], $right['from'])
@@ -745,20 +733,108 @@ class ScheduleSettingsService
         return $hours * 3600 + $minutes * 60 + $seconds;
     }
 
-    private function overlapsExistingException(array $exceptions, array $candidate): bool
+    /**
+     * @param array<int, array{type: string, from: string, to: string}> $exceptions
+     * @param array{type: string, from: string, to: string} $candidate
+     * @return array<int, array{type: string, from: string, to: string}>
+     */
+    private function reconcileExceptionRanges(array $exceptions, array $candidate): array
     {
+        $candidateType = $candidate['type'];
         $candidateStart = Carbon::parse($candidate['from']);
         $candidateEnd = Carbon::parse($candidate['to']);
+        $mergedStart = $candidateStart->copy();
+        $mergedEnd = $candidateEnd->copy();
+        $result = [];
 
         foreach ($exceptions as $exception) {
+            $type = $exception['type'] ?? null;
+            if (!in_array($type, ['work', 'free'], true)) {
+                continue;
+            }
+
             $start = Carbon::parse($exception['from']);
             $end = Carbon::parse($exception['to']);
 
-            if ($candidateStart->lt($end) && $candidateEnd->gt($start)) {
-                return true;
+            if ($type === $candidateType && $this->rangesTouchOrOverlap($start, $end, $mergedStart, $mergedEnd)) {
+                $mergedStart = $start->lt($mergedStart) ? $start : $mergedStart;
+                $mergedEnd = $end->gt($mergedEnd) ? $end : $mergedEnd;
+
+                continue;
             }
+
+            if ($type !== $candidateType) {
+                foreach ($this->subtractRange($start, $end, $candidateStart, $candidateEnd) as $segment) {
+                    $result[] = [
+                        'type' => $type,
+                        'from' => $segment['start']->format('Y-m-d H:i:s'),
+                        'to' => $segment['end']->format('Y-m-d H:i:s'),
+                    ];
+                }
+
+                continue;
+            }
+
+            $result[] = [
+                'type' => $type,
+                'from' => $start->format('Y-m-d H:i:s'),
+                'to' => $end->format('Y-m-d H:i:s'),
+            ];
         }
 
-        return false;
+        $result[] = [
+            'type' => $candidateType,
+            'from' => $mergedStart->format('Y-m-d H:i:s'),
+            'to' => $mergedEnd->format('Y-m-d H:i:s'),
+        ];
+
+        return $this->normalizeExceptions($result);
+    }
+
+    private function rangesTouchOrOverlap(
+        Carbon $leftStart,
+        Carbon $leftEnd,
+        Carbon $rightStart,
+        Carbon $rightEnd
+    ): bool {
+        return $leftStart->lte($rightEnd) && $leftEnd->gte($rightStart);
+    }
+
+    /**
+     * @return array<int, array{start: Carbon, end: Carbon}>
+     */
+    private function subtractRange(Carbon $start, Carbon $end, Carbon $cutStart, Carbon $cutEnd): array
+    {
+        if ($cutEnd->lte($start) || $cutStart->gte($end)) {
+            return [
+                [
+                    'start' => $start,
+                    'end' => $end,
+                ],
+            ];
+        }
+
+        $segments = [];
+
+        if ($cutStart->gt($start)) {
+            $segments[] = [
+                'start' => $start,
+                'end' => $cutStart->copy()->min($end),
+            ];
+        }
+
+        if ($cutEnd->lt($end)) {
+            $segments[] = [
+                'start' => $cutEnd->copy()->max($start),
+                'end' => $end,
+            ];
+        }
+
+        return array_values(
+            array_filter(
+                $segments,
+                static fn(array $segment): bool => $segment['start']->lt($segment['end'])
+            )
+        );
     }
 }

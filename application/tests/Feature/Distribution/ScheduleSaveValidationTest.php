@@ -242,6 +242,98 @@ class ScheduleSaveValidationTest extends TestCase
         $this->assertSame([], $settings['exceptions']);
     }
 
+    public function test_schedule_service_merges_overlapping_work_periods(): void
+    {
+        $user = User::withoutEvents(function (): User {
+            return User::query()->create([
+                'name' => 'Test User',
+                'email' => 'schedule-merge-work-periods@example.com',
+                'password' => 'secret',
+            ]);
+        });
+
+        $staff = Staff::query()->create([
+            'user_id' => $user->id,
+            'staff_id' => 107,
+            'name' => 'Manager',
+            'active' => true,
+            'login' => 'manager-merge-work-periods@example.com',
+        ]);
+
+        $service = app(ScheduleSettingsService::class);
+        $service->addException($staff, [
+            'type' => 'work',
+            'from' => '2026-04-06 10:00:00',
+            'to' => '2026-04-06 12:00:00',
+        ]);
+        $service->addException($staff, [
+            'type' => 'work',
+            'from' => '2026-04-06 11:00:00',
+            'to' => '2026-04-06 14:00:00',
+        ]);
+
+        $settings = json_decode(Scheduler::query()->first()->settings, true);
+
+        $this->assertSame([
+            [
+                'type' => 'work',
+                'from' => '2026-04-06 10:00:00',
+                'to' => '2026-04-06 14:00:00',
+            ],
+        ], $settings['exceptions']);
+    }
+
+    public function test_schedule_service_cuts_hidden_free_periods_when_work_period_is_added(): void
+    {
+        $user = User::withoutEvents(function (): User {
+            return User::query()->create([
+                'name' => 'Test User',
+                'email' => 'schedule-cut-free-periods@example.com',
+                'password' => 'secret',
+            ]);
+        });
+
+        $staff = Staff::query()->create([
+            'user_id' => $user->id,
+            'staff_id' => 108,
+            'name' => 'Manager',
+            'active' => true,
+            'login' => 'manager-cut-free-periods@example.com',
+        ]);
+
+        $service = app(ScheduleSettingsService::class);
+        $service->addException($staff, [
+            'type' => 'free',
+            'from' => '2026-04-06 09:00:00',
+            'to' => '2026-04-06 17:00:00',
+        ]);
+        $service->addException($staff, [
+            'type' => 'work',
+            'from' => '2026-04-06 11:00:00',
+            'to' => '2026-04-06 14:00:00',
+        ]);
+
+        $settings = json_decode(Scheduler::query()->first()->settings, true);
+
+        $this->assertSame([
+            [
+                'type' => 'free',
+                'from' => '2026-04-06 09:00:00',
+                'to' => '2026-04-06 11:00:00',
+            ],
+            [
+                'type' => 'work',
+                'from' => '2026-04-06 11:00:00',
+                'to' => '2026-04-06 14:00:00',
+            ],
+            [
+                'type' => 'free',
+                'from' => '2026-04-06 14:00:00',
+                'to' => '2026-04-06 17:00:00',
+            ],
+        ], $settings['exceptions']);
+    }
+
     public function test_schedule_service_replaces_matching_exception(): void
     {
         $user = User::withoutEvents(function (): User {

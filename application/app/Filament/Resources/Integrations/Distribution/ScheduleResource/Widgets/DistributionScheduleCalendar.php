@@ -35,8 +35,8 @@ use Throwable;
 
 class DistributionScheduleCalendar extends CalendarWidget
 {
-    private const COLOR_PRIMARY = '#ff6a00';
-    private const COLOR_PRIMARY_DARK = '#cf5200';
+    private const COLOR_PRIMARY = '#fb923c';
+    private const COLOR_PRIMARY_DARK = '#f97316';
     private const COLOR_MUTED_DARK = '#51463d';
     private const COLOR_TEXT_ON_PRIMARY = '#ffffff';
 
@@ -63,12 +63,11 @@ class DistributionScheduleCalendar extends CalendarWidget
         'resourceAreaWidth' => '360px',
         'eventMinWidth' => 16,
         'headerToolbar' => [
-            'start' => 'prev,next today',
+            'start' => 'prev,next',
             'center' => 'title',
             'end' => 'resourceTimelineWeek,resourceTimelineMonth',
         ],
         'buttonText' => [
-            'today' => 'Сегодня',
             'resourceTimelineWeek' => 'Неделя',
             'resourceTimelineMonth' => 'Месяц',
         ],
@@ -76,27 +75,12 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     public function getHeaderActions(): array
     {
-        return [
-            Action::make('selectQueue')
-                ->label(fn(): string => 'Очередь: ' . $this->selectedQueueLabel())
-                ->icon('heroicon-o-queue-list')
-                ->modalHeading('График очереди распределения')
-                ->form([
-                    Select::make('schedule_queue')
-                        ->label('Очередь')
-                        ->options(fn(): array => $this->queueOptions())
-                        ->required()
-                        ->native(false)
-                        ->searchable(),
-                ])
-                ->fillForm(fn(): array => [
-                    'schedule_queue' => $this->currentScheduleQueue(),
-                ])
-                ->action(function (array $data): void {
-                    $this->scheduleQueue = (string)($data['schedule_queue'] ?? $this->currentScheduleQueue());
-                    $this->refreshRecords();
-                }),
-        ];
+        return [];
+    }
+
+    public function getHeading(): null|string|HtmlString
+    {
+        return 'График очереди: ' . $this->selectedQueueLabel();
     }
 
     public function configureScheduleAction(): Action
@@ -137,6 +121,20 @@ class DistributionScheduleCalendar extends CalendarWidget
                     ->title('График сохранен')
                     ->success()
                     ->send();
+            });
+    }
+
+    public function deleteSchedulePeriodAction(): Action
+    {
+        return Action::make('deleteSchedulePeriod')
+            ->label('Удалить период')
+            ->color('danger')
+            ->modalHeading('Удалить период?')
+            ->modalDescription('Период будет удален из графика сотрудника.')
+            ->modalSubmitActionLabel('Удалить')
+            ->requiresConfirmation()
+            ->action(function (array $arguments): void {
+                $this->deleteSchedulePeriodFromArguments($arguments);
             });
     }
 
@@ -267,6 +265,63 @@ class DistributionScheduleCalendar extends CalendarWidget
     }
 
     protected function onEventClick(EventClickInfo $info, Model $event, ?string $action = null): void
+    {
+        if ($action === 'deleteSchedulePeriod') {
+            $arguments = $this->getRawCalendarContextData() ?? [];
+
+            if (($arguments['context'] ?? null) instanceof \BackedEnum) {
+                $arguments['context'] = $arguments['context']->value;
+            }
+
+            $this->mountAction('deleteSchedulePeriod', $arguments);
+
+            return;
+        }
+    }
+
+    private function deleteSchedulePeriodFromArguments(array $arguments): void
+    {
+        $context = $arguments['context'] ?? null;
+        $context = $context instanceof \BackedEnum ? $context->value : $context;
+
+        if ($context !== 'eventClick') {
+            Notification::make()
+                ->title('Период не выбран')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->rawCalendarContextData = $arguments;
+
+        try {
+            $this->resolveEventRecord();
+        } catch (Throwable) {
+            Notification::make()
+                ->title('Период не выбран')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $info = $this->getCalendarContextInfo();
+        $event = $this->getEventRecord();
+
+        if (!$info instanceof EventClickInfo || !$event instanceof Model) {
+            Notification::make()
+                ->title('Период не выбран')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->deleteSchedulePeriod($info, $event);
+    }
+
+    private function deleteSchedulePeriod(EventClickInfo $info, Model $event): void
     {
         $staff = $event instanceof Staff && (int)$event->user_id === (int)Auth::id() && (bool)$event->active
             ? $event
@@ -423,13 +478,36 @@ class DistributionScheduleCalendar extends CalendarWidget
 
     private function currentScheduleQueue(): ?string
     {
-        if (filled($this->scheduleQueue) && array_key_exists($this->scheduleQueue, $this->queueOptions())) {
+        $options = $this->queueOptions();
+        $queryQueue = request()->query('queue');
+
+        if (is_string($queryQueue) && array_key_exists($queryQueue, $options)) {
+            $this->scheduleQueue = $queryQueue;
+            session([$this->scheduleQueueSessionKey() => $queryQueue]);
+
             return $this->scheduleQueue;
         }
 
-        $this->scheduleQueue = array_key_first($this->queueOptions());
+        if (filled($this->scheduleQueue) && array_key_exists($this->scheduleQueue, $options)) {
+            return $this->scheduleQueue;
+        }
+
+        $sessionQueue = session($this->scheduleQueueSessionKey());
+
+        if (is_string($sessionQueue) && array_key_exists($sessionQueue, $options)) {
+            $this->scheduleQueue = $sessionQueue;
+
+            return $this->scheduleQueue;
+        }
+
+        $this->scheduleQueue = array_key_first($options);
 
         return $this->scheduleQueue;
+    }
+
+    private function scheduleQueueSessionKey(): string
+    {
+        return 'distribution.schedule.queue.' . (string)Auth::id();
     }
 
     /**
@@ -735,6 +813,11 @@ class DistributionScheduleCalendar extends CalendarWidget
                 ->title($this->staffResourceTitle($staff)))
             ->values()
             ->all();
+    }
+
+    protected function eventContent(): string
+    {
+        return '<span class="distribution-schedule-event-fill" aria-hidden="true"></span>';
     }
 
     private function staffResourceTitle(Staff $staff): string
@@ -1107,8 +1190,11 @@ class DistributionScheduleCalendar extends CalendarWidget
             ->extendedProps($extendedProps)
             ->backgroundColor($color)
             ->textColor(self::COLOR_TEXT_ON_PRIMARY)
+            ->action('deleteSchedulePeriod')
+            ->classes(['distribution-schedule-event'])
             ->styles([
                 'border-color' => $color,
+                'cursor' => 'pointer',
                 'box-shadow' => '0 1px 2px rgb(15 15 15 / 0.08)',
             ])
             ->editable($editable)
