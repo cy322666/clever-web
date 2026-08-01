@@ -63,8 +63,7 @@ class WorkflowResource extends BaseWorkflowResource
                             : 'workflow-list-name-cell workflow-list-name-cell--inactive',
                     ])
                     ->description(fn(Workflow $record): ?string => $record->description)
-                    ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
-                    ->openUrlInNewTab(),
+                    ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
 
                 TextColumn::make('group_name')
                     ->label('Группа')
@@ -158,8 +157,7 @@ class WorkflowResource extends BaseWorkflowResource
                             ->actions([
                                 Action::make('open_copy')
                                     ->label('Открыть копию')
-                                    ->url(static::getUrl('edit', ['record' => $copy]))
-                                    ->openUrlInNewTab(),
+                                    ->url(static::getUrl('edit', ['record' => $copy])),
                             ])
                             ->send();
                     }),
