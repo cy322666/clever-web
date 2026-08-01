@@ -2,7 +2,6 @@
 
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns;
 
-use App\Filament\App\Pages\WorkflowHelp;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Models\Workflows\WorkflowRun;
@@ -65,15 +64,6 @@ trait HasWorkflowPageActions
         }
 
         $this->mountAction('configureTrigger');
-    }
-
-    protected function workflowHelpAction(): Action
-    {
-        return Action::make('workflow_help')
-            ->label('Справка')
-            ->icon('heroicon-o-question-mark-circle')
-            ->color('gray')
-            ->url(WorkflowHelp::getUrl());
     }
 
     protected function workflowMasksAction(): Action

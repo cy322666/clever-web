@@ -26,7 +26,6 @@ class CreateWorkflow extends BaseCreateWorkflow
     {
         return [
             $this->workflowMasksAction(),
-            $this->workflowHelpAction(),
             $this->backToWorkflowListAction(),
         ];
     }
