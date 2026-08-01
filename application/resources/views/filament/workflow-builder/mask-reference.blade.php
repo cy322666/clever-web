@@ -51,19 +51,6 @@
         ->values()
         ->all();
 
-    $popularMasks = [
-        '{{lead.id}}',
-        '{{lead.name}}',
-        '{{lead.status_id}}',
-        '{{lead.responsible_user_id}}',
-        '{{contact.id}}',
-        '{{contact.name}}',
-        '{{item.id}}',
-        '{{item.name}}',
-        '{{event}}',
-        '{{received_at}}',
-    ];
-
     $modifierGroups = [
         [
             'title' => 'Дата и время',
@@ -116,7 +103,6 @@
         expandedFields: {},
         expandedMaskGroups: {},
         systemIdGroupNames: @js($systemIdGroupNames),
-        popularMasks: @js($popularMasks),
         modifierGroups: @js($modifierGroups),
         fieldEntities() {
             return [...new Set(this.systemIds
@@ -234,24 +220,6 @@
             placeholder="Поиск: сделка, поле, воронка, этап, status_id, lead.id..."
         />
     </x-filament::input.wrapper>
-
-    <div class="space-y-2">
-        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Часто используются
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-            <template x-for="maskValue in popularMasks" :key="maskValue">
-                <button
-                    type="button"
-                    x-on:click="copy(masks.find((mask) => mask.mask === maskValue) || { mask: maskValue })"
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-primary-300 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-primary-700 dark:hover:text-primary-300"
-                >
-                    <span x-text="maskValue"></span>
-                </button>
-            </template>
-        </div>
-    </div>
 
     <div
         x-show="copied"
