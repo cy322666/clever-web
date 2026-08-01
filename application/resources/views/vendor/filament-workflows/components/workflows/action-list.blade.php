@@ -54,10 +54,7 @@
                 $conditions = $config['conditions'] ?? [];
                 $logic = ($config['logic'] ?? 'and') === 'or' ? 'ИЛИ' : 'И';
                 $blockName = trim((string) ($action['name'] ?? ''));
-                $hasTrueBranch = (bool) ($config['has_true_branch'] ?? true);
-                $hasFalseBranch = (bool) ($config['has_false_branch'] ?? false);
-                $branchCount = (int) $hasTrueBranch + (int) $hasFalseBranch;
-                $branchGridClass = $nestingDepth > 0 || $branchCount < 2
+                $branchGridClass = $nestingDepth > 0
                     ? 'workflow-condition-branches workflow-condition-branches--single'
                     : 'workflow-condition-branches workflow-condition-branches--split';
 
@@ -285,9 +282,7 @@
                     </div>
                 @endif
 
-                @if($branchCount > 0)
-                    <div class="{{ $branchGridClass }}" x-on:click.stop>
-                        @if($hasTrueBranch)
+                <div class="{{ $branchGridClass }}" x-on:click.stop>
                             <div class="condition-branch">
                                 <div
                                     class="mb-3 flex items-center justify-center gap-2 text-xs font-semibold text-success-700 dark:text-success-300">
@@ -314,9 +309,7 @@
                                 </div>
                                 @endif
                             </div>
-                        @endif
 
-                        @if($hasFalseBranch)
                             <div class="condition-branch">
                                 <div
                                     class="mb-3 flex items-center justify-center gap-2 text-xs font-semibold text-danger-700 dark:text-danger-300">
@@ -343,14 +336,7 @@
                                 </div>
                                 @endif
                             </div>
-                        @endif
-                    </div>
-                @else
-                    <div
-                        class="rounded-lg border border-dashed border-slate-300 bg-white/50 p-3 text-center text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
-                        Действия по результату условия отключены.
-                    </div>
-                @endif
+                </div>
             </div>
         @else
             <div @class([

@@ -108,19 +108,6 @@ class ControlConditionAction extends ConditionAction
                         ->defaultItems(1),
                 ]),
 
-            Section::make(static::workflowTrans('sections.branches.label'))
-                ->compact()
-                ->schema([
-                    Toggle::make('has_true_branch')
-                        ->label(static::workflowTrans('fields.has_true_branch.label'))
-                        ->default(true),
-
-                    Toggle::make('has_false_branch')
-                        ->label(static::workflowTrans('fields.has_false_branch.label'))
-                        ->default(false),
-                ])
-                ->collapsed(),
-
             Section::make(static::actionCommonTrans('sections.output'))
                 ->compact()
                 ->collapsed()
