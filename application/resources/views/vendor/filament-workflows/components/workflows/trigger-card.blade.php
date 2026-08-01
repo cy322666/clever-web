@@ -109,31 +109,5 @@
             @endif
         </div>
 
-        @if(!$readOnly)
-            <div
-                class="flex shrink-0 items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                @if($type !== 'manual')
-                    <button
-                        type="button"
-                        wire:click="mountAction('configureTrigger')"
-                        x-on:click.stop
-                        class="rounded-md p-1.5 text-gray-400 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-950 dark:hover:text-primary-400"
-                        title="{{ __('filament-workflows::workflows.builder.tooltips.configure_trigger') }}"
-                    >
-                        <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/>
-                    </button>
-                @endif
-
-                <button
-                    type="button"
-                    wire:click="mountAction('changeTrigger')"
-                    x-on:click.stop
-                    class="rounded-md p-1.5 text-gray-400 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-950 dark:hover:text-danger-400"
-                    title="{{ __('filament-workflows::workflows.builder.tooltips.delete_trigger') }}"
-                >
-                    <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
-                </button>
-            </div>
-        @endif
     </div>
 </div>

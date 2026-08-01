@@ -97,7 +97,12 @@ class ListWorkflows extends BaseListWorkflows
                     ? 'heroicon-o-check-circle'
                     : 'heroicon-o-link')
                 ->color(fn(): string => $this->workflowAmoConnectionState()['connected'] ? 'gray' : 'success')
+                ->disabled(fn(): bool => $this->workflowAmoConnectionState()['connected'])
                 ->action(function (): void {
+                    if ($this->workflowAmoConnectionState()['connected']) {
+                        return;
+                    }
+
                     $user = auth()->user();
 
                     if (!$user) {
