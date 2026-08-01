@@ -108,21 +108,6 @@ class ControlConditionAction extends ConditionAction
                         ->defaultItems(1),
                 ]),
 
-            Section::make(static::actionCommonTrans('sections.output'))
-                ->compact()
-                ->collapsed()
-                ->schema([
-                    Toggle::make('store_result')
-                        ->label(static::workflowTrans('fields.store_result.label'))
-                        ->default(true)
-                        ->live(),
-
-                    TextInput::make('context_key')
-                        ->label(static::actionCommonTrans('fields.context_key.label'))
-                        ->placeholder('condition_result')
-                        ->default('condition_result')
-                        ->visible(fn(Get $get): bool => (bool)$get('store_result')),
-                ]),
         ];
     }
 
