@@ -584,8 +584,8 @@ body.fi-body {
 }
 
 .fi-ta-table .workflow-list-row > td {
-    padding-top: 0.72rem;
-    padding-bottom: 0.72rem;
+    padding-top: 0.42rem;
+    padding-bottom: 0.42rem;
 }
 
 .fi-resource-workflow-runs .fi-ta-table td {

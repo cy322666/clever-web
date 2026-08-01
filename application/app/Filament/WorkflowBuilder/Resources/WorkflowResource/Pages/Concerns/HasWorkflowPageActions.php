@@ -7,7 +7,6 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Models\Workflows\WorkflowRun;
 use App\Services\amoCRM\Client;
-use App\Services\Workflows\WorkflowDependencyMap;
 use App\Workflows\Engine\WorkflowTestRunner;
 use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use Filament\Actions\Action;
@@ -84,39 +83,6 @@ trait HasWorkflowPageActions
             ->icon('heroicon-o-variable')
             ->color('gray')
             ->alpineClickHandler("window.dispatchEvent(new CustomEvent('workflow-masks-open'))");
-    }
-
-    protected function workflowDependencyMapAction(): Action
-    {
-        return Action::make('workflow_dependency_map')
-            ->label('Карта связей')
-            ->icon('heroicon-o-map')
-            ->color('gray')
-            ->modalHeading('Карта связей процесса')
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Закрыть')
-            ->modalWidth('5xl')
-            ->modalContent(function () {
-                $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-
-                return view('filament.workflow-builder.dependency-map', [
-                    'workflow' => $record,
-                    'map' => $record ? app(WorkflowDependencyMap::class)->forWorkflow($record) : [
-                        'incoming' => [],
-                        'outgoing' => [],
-                    ],
-                ]);
-            });
-    }
-
-    protected function workflowDocumentationAction(): Action
-    {
-        return Action::make('workflow_documentation')
-            ->label('PDF')
-            ->icon('heroicon-o-document-text')
-            ->color('gray')
-            ->url(route('workflow-builder.documentation.account'))
-            ->openUrlInNewTab();
     }
 
     protected function workflowHistoryAction(): Action

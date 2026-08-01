@@ -51,13 +51,6 @@ class ListWorkflows extends BaseListWorkflows
                 ->color('gray')
                 ->url(WorkflowRunResource::getUrl()),
 
-            Action::make('workflow_documentation')
-                ->label('PDF')
-                ->icon('heroicon-o-document-text')
-                ->color('gray')
-                ->url(route('workflow-builder.documentation.account'))
-                ->openUrlInNewTab(),
-
             ActionGroup::make([
                 Action::make('check_amocrm_webhooks')
                     ->label('Проверить')

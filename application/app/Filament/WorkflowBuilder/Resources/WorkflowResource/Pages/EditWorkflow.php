@@ -27,8 +27,6 @@ class EditWorkflow extends BaseEditWorkflow
     {
         return [
             $this->workflowMasksAction(),
-            $this->workflowDependencyMapAction(),
-            $this->workflowDocumentationAction(),
             $this->workflowHelpAction(),
             $this->backToWorkflowListAction(),
             $this->deleteAction(),

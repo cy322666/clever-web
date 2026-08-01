@@ -75,7 +75,6 @@ class WorkflowResource extends BaseWorkflowResource
                 TextColumn::make('workflow_trigger')
                     ->label('Событие')
                     ->state(fn(Workflow $record): string => static::triggerLabel($record))
-                    ->description(fn(Workflow $record): string => static::latestRunDescription($record))
                     ->icon(fn(Workflow $record): string => static::triggerIcon($record))
                     ->color(fn(Workflow $record): string => static::triggerColor($record))
                     ->sortable(false),
@@ -527,23 +526,6 @@ class WorkflowResource extends BaseWorkflowResource
         }
 
         return $record->trigger_type?->getLabel() ?? '—';
-    }
-
-    private static function latestRunDescription(Workflow $record): string
-    {
-        $latestRun = $record->latestRun;
-
-        if ($latestRun === null) {
-            return 'Не запускался';
-        }
-
-        $date = $latestRun->created_at;
-
-        if ($date === null) {
-            return 'Запуск без даты';
-        }
-
-        return $date->format('Y-m-d H:i:s');
     }
 
     private static function createdDescription(Workflow $record): string
