@@ -62,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->registerSafeBladeCompiler();
+        $this->registerFilamentAuthResponses();
 
         if (!$this->workflowsAvailable()) {
             return;
@@ -80,6 +81,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             \Leek\FilamentWorkflows\Services\WorkflowVariableService::class,
             WorkflowVariableService::class,
+        );
+    }
+
+    private function registerFilamentAuthResponses(): void
+    {
+        $this->app->bind(
+            \Filament\Auth\Http\Responses\Contracts\LoginResponse::class,
+            \App\Http\Responses\Filament\LoginResponse::class,
+        );
+
+        $this->app->bind(
+            \Filament\Auth\Http\Responses\Contracts\RegistrationResponse::class,
+            \App\Http\Responses\Filament\RegistrationResponse::class,
         );
     }
 
