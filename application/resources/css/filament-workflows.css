@@ -1121,9 +1121,43 @@ body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
     box-shadow: 0 4px 14px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.04) !important;
 }
 
+body:has(.workflow-builder) .fi-modal-slide-over .fi-input-wrp,
+body:has(.workflow-builder) .fi-modal-slide-over .fi-select-input,
+body:has(.workflow-builder) .fi-modal-slide-over .fi-tags-input,
+body:has(.workflow-builder) .fi-modal-slide-over .choices__inner {
+    border-color: rgb(196 188 176 / 0.98) !important;
+    background-color: rgb(242 239 234 / 0.98) !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.64) !important;
+}
+
+body:has(.workflow-builder) .fi-modal-slide-over .fi-input-wrp:hover,
+body:has(.workflow-builder) .fi-modal-slide-over .fi-select-input:hover,
+body:has(.workflow-builder) .fi-modal-slide-over .fi-tags-input:hover,
+body:has(.workflow-builder) .fi-modal-slide-over .choices__inner:hover {
+    border-color: rgb(175 166 153 / 1) !important;
+    background-color: rgb(238 234 228 / 1) !important;
+}
+
+body:has(.workflow-builder) .fi-modal-slide-over .fi-input-wrp:focus-within,
+body:has(.workflow-builder) .fi-modal-slide-over .fi-select-input:focus,
+body:has(.workflow-builder) .fi-modal-slide-over .choices.is-focused .choices__inner {
+    border-color: rgb(255 106 0 / 0.62) !important;
+    background-color: rgb(255 252 248 / 1) !important;
+    box-shadow: 0 0 0 1px rgb(255 106 0 / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.72) !important;
+}
+
 .dark body:has(.workflow-builder) .fi-modal-slide-over .fi-section {
     border-color: rgb(55 65 81) !important;
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.14), 0 1px 2px rgb(0 0 0 / 0.16) !important;
+}
+
+.dark body:has(.workflow-builder) .fi-modal-slide-over .fi-input-wrp,
+.dark body:has(.workflow-builder) .fi-modal-slide-over .fi-select-input,
+.dark body:has(.workflow-builder) .fi-modal-slide-over .fi-tags-input,
+.dark body:has(.workflow-builder) .fi-modal-slide-over .choices__inner {
+    border-color: rgb(82 74 65 / 0.98) !important;
+    background-color: rgb(31 29 26 / 0.98) !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035) !important;
 }
 
 body:has(.workflow-builder) .fi-modal-slide-over .fi-section-header {
