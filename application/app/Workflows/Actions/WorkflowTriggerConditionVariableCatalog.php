@@ -587,7 +587,6 @@ class WorkflowTriggerConditionVariableCatalog
             'Беседа / чат' => static::amoEntityVariableItems('Беседа / чат'),
             'Поля' => static::amoFieldIdItems($userId),
             'Воронки' => static::amoPipelineIdItems($userId),
-            'Этапы' => static::amoStatusIdItems($userId),
             'Группы пользователей' => static::amoStaffGroupIdItems($userId),
             'Ответственные' => static::amoStaffIdItems($userId),
         ]);
