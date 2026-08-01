@@ -9,7 +9,6 @@ use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Integrations\Alfa\TransactionResource;
-use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
@@ -59,6 +58,7 @@ class AppPanelProvider extends PanelProvider
             ->id('app')
             ->default()
             ->path('panel')
+            ->homeUrl(fn(): string => Dashboard::getUrl())
             ->login()
             ->registration()
             ->passwordReset()
@@ -91,15 +91,15 @@ class AppPanelProvider extends PanelProvider
 
                     NavigationGroup::make('')
                         ->items([
-                            NavigationItem::make('Home')
-                                ->label('Аккаунт')
-                                ->icon('heroicon-o-home')
-                                ->url(fn(): string => UserResource::getUrl('view', ['record' => Auth::id()])),
-
                             NavigationItem::make('Market')
                                 ->label('Магазин')
                                 ->icon('heroicon-o-shopping-bag')
                                 ->url(fn (): string => Dashboard::getUrl()),
+
+                            NavigationItem::make('Home')
+                                ->label('Аккаунт')
+                                ->icon('heroicon-o-home')
+                                ->url(fn(): string => UserResource::getUrl('view', ['record' => Auth::id()])),
 
                             NavigationItem::make('Tariffs')
                                 ->label('Тарифы')
