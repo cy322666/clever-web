@@ -82,7 +82,11 @@ class WorkflowResource extends BaseWorkflowResource
                 TextColumn::make('runs_count')
                     ->label('Запусков')
                     ->sortable()
-                    ->alignCenter(),
+                    ->alignCenter()
+                    ->url(fn(Workflow $record): string => WorkflowRunResource::getUrl('index', [
+                        'workflow_id' => $record->getKey(),
+                    ]))
+                    ->openUrlInNewTab(),
 
                 TextColumn::make('created_at')
                     ->label(__('filament-workflows::workflows.fields.created_at.label'))
