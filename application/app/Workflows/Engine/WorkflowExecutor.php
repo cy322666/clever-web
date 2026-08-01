@@ -88,7 +88,10 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         $output = $result['output'] ?? [];
         $passed = $output['passed'] ?? false;
         $config = $step['config'] ?? $step['properties'] ?? [];
-        $branchActions = ConditionAction::getBranchActions($config, (bool)$passed);
+        $branchEnabled = (bool)$passed
+            ? (bool)($config['has_true_branch'] ?? true)
+            : (bool)($config['has_false_branch'] ?? false);
+        $branchActions = $branchEnabled ? ConditionAction::getBranchActions($config, (bool)$passed) : [];
 
         if (isset($step['id'])) {
             $context->setStepOutput($step['id'], $output);

@@ -440,6 +440,7 @@ trait HasWorkflowPageActions
         ];
 
         array_splice($actions, $index, 0, [$newAction]);
+        $this->enableConditionBranchForPath($path);
         $this->setArrayAtPath($path, $actions);
 
         $this->insertActionPath = null;
@@ -459,6 +460,21 @@ trait HasWorkflowPageActions
             || str_contains($path, '.config.false_actions')
             || str_starts_with($path, 'config.true_actions')
             || str_starts_with($path, 'config.false_actions');
+    }
+
+    private function enableConditionBranchForPath(string $path): void
+    {
+        if (!preg_match('/^(.*)\\.config\\.(true_actions|false_actions)(?:\\.|$)/', $path, $matches)) {
+            return;
+        }
+
+        $conditionPath = trim((string)($matches[1] ?? ''), '.');
+        $branchKey = $matches[2] === 'false_actions' ? 'has_false_branch' : 'has_true_branch';
+        $flagPath = $conditionPath !== ''
+            ? $conditionPath . '.config.' . $branchKey
+            : 'config.' . $branchKey;
+
+        data_set($this->workflowActions, $flagPath, true);
     }
 
     /**
