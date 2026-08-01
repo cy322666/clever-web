@@ -13,8 +13,5 @@
         "postcss": "^8.4.14",
         "tailwindcss": "^3.1",
         "vite": "^4.0.0"
-    },
-    "dependencies": {
-        "mermaid": "^11.15.0"
     }
 }
