@@ -111,7 +111,7 @@
         copied: null,
         masks: @js($masks),
         systemIds: @js($systemIds),
-        selectedSystemGroup: '',
+        selectedSystemGroup: 'Воронки',
         selectedFieldEntity: '',
         expandedFields: {},
         expandedMaskGroups: {},
