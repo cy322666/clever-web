@@ -3,6 +3,7 @@
 namespace App\Filament\WorkflowBuilder\Resources;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource\Pages;
+use App\Models\Core\Account;
 use App\Models\Workflows\WorkflowRun;
 use App\Models\Workflows\WorkflowRunEntity;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
@@ -394,16 +395,88 @@ class WorkflowRunResource extends Resource
     {
         $label = static::entityLabel((string)$entity->entity_type);
         $text = sprintf('%s #%d', $label, (int)$entity->entity_id);
+        $url = filled($entity->url)
+            ? (string)$entity->url
+            : static::amoEntityUrl((string)$entity->entity_type, (int)$entity->entity_id, (int)$entity->user_id);
 
-        if (filled($entity->url)) {
+        if ($url !== null) {
             return sprintf(
-                '<a class="workflow-run-history-link" href="%s" target="_blank" rel="noopener noreferrer">%s</a>',
-                e((string)$entity->url),
+                '<a class="workflow-run-history-link" href="%s" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">%s</a>',
+                e($url),
                 e($text),
             );
         }
 
         return sprintf('<span class="workflow-run-history-strong">%s</span>', e($text));
+    }
+
+    private static function amoEntityUrl(string $entity, int $entityId, int $userId): ?string
+    {
+        if ($entityId <= 0 || $userId <= 0) {
+            return null;
+        }
+
+        $path = [
+            'lead' => 'leads/detail',
+            'contact' => 'contacts/detail',
+            'company' => 'companies/detail',
+            'customer' => 'customers/detail',
+        ][$entity] ?? null;
+
+        if ($path === null) {
+            return null;
+        }
+
+        $account = static::amoAccountForWorkflowUser($userId);
+        $subdomain = trim((string)($account?->subdomain ?? ''));
+
+        if ($subdomain === '') {
+            return null;
+        }
+
+        $endpoint = trim((string)($account?->endpoint ?? ''));
+        if ($endpoint !== '') {
+            return rtrim($endpoint, '/') . '/' . $path . '/' . $entityId;
+        }
+
+        $zone = trim((string)($account?->zone ?: 'ru'));
+        $domain = str_contains($zone, '.')
+            ? $zone
+            : match ($zone) {
+                'com' => 'amocrm.com',
+                'ru' => 'amocrm.ru',
+                default => 'amocrm.' . $zone,
+            };
+
+        return sprintf('https://%s.%s/%s/%d', $subdomain, $domain, $path, $entityId);
+    }
+
+    private static function amoAccountForWorkflowUser(int $userId): ?Account
+    {
+        static $accounts = [];
+
+        if (array_key_exists($userId, $accounts)) {
+            return $accounts[$userId];
+        }
+
+        return $accounts[$userId] = Account::query()
+            ->where('user_id', $userId)
+            ->whereNotNull('subdomain')
+            ->where('subdomain', '<>', '')
+            ->get()
+            ->sortBy(function (Account $account): int {
+                $widget = Account::normalizeWidget($account->widget);
+                $active = (bool)$account->active;
+
+                return match (true) {
+                    $widget === 'workflows' && $active => 0,
+                    $widget === 'workflows' => 1,
+                    $active => 2,
+                    $widget === Account::DEFAULT_WIDGET => 3,
+                    default => 4,
+                };
+            })
+            ->first();
     }
 
     private static function entityLabel(string $entity): string
