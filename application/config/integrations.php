@@ -1,9 +1,7 @@
 <?php
 
 use App\Filament\Resources\Integrations\AlfaResource;
-use App\Filament\Resources\Integrations\BizonResource;
 use App\Filament\Resources\Integrations\CalculatorResource;
-use App\Filament\Resources\Integrations\CallTranscriptionResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
@@ -15,10 +13,6 @@ return [
     'definitions' => [
         'alfacrm' => [
             'resource' => AlfaResource::class,
-            'public' => true,
-        ],
-        'bizon' => [
-            'resource' => BizonResource::class,
             'public' => true,
         ],
         'getcourse' => [
@@ -39,10 +33,6 @@ return [
         ],
         'import-excel' => [
             'resource' => ImportResource::class,
-            'public' => true,
-        ],
-        'call-transcription' => [
-            'resource' => CallTranscriptionResource::class,
             'public' => true,
         ],
         'calculator' => [
