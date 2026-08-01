@@ -105,19 +105,6 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{lead.closest_task_at}}' => 'Ближайшая задача',
                 '{{lead.tags}}' => 'Теги сделки',
             ],
-            'Смена статуса сделки' => [
-                '{{status.old_status_id}}' => 'Старый статус',
-                '{{status.status_id}}' => 'Новый статус',
-                '{{status.old_pipeline_id}}' => 'Старая воронка',
-                '{{status.pipeline_id}}' => 'Новая воронка',
-                '{{status.responsible_user_id}}' => 'Ответственный',
-                '{{status.updated_at}}' => 'Дата смены статуса',
-            ],
-            'Смена ответственного' => [
-                '{{responsible.old_responsible_user_id}}' => 'Старый ответственный',
-                '{{responsible.responsible_user_id}}' => 'Новый ответственный',
-                '{{responsible.updated_at}}' => 'Дата смены ответственного',
-            ],
             'Контакт' => [
                 '{{contact.id}}' => 'ID контакта',
                 '{{contact.name}}' => 'Имя контакта',
