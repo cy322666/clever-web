@@ -245,7 +245,9 @@ class WorkflowResource extends BaseWorkflowResource
 
     private static function triggerFilterLabel(string $label): string
     {
-        return trim(preg_replace('/^amoCRM:\s*/u', '', $label) ?: $label);
+        $label = trim(preg_replace('/^amoCRM:\s*/u', '', $label) ?: $label);
+
+        return mb_strtoupper(mb_substr($label, 0, 1)) . mb_substr($label, 1);
     }
 
     private static function updateWorkflowActivation(Workflow $record, bool $state): bool
