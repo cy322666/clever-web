@@ -3,7 +3,6 @@
 namespace App\Filament\WorkflowBuilder\Resources;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
-use App\Filament\WorkflowBuilder\Resources\WorkflowResource\RelationManagers\WorkflowRunsRelationManager;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow as AppWorkflow;
@@ -637,9 +636,7 @@ class WorkflowResource extends BaseWorkflowResource
      */
     public static function getRelations(): array
     {
-        return [
-            WorkflowRunsRelationManager::class,
-        ];
+        return [];
     }
 
     /**
