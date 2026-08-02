@@ -407,6 +407,24 @@ body.fi-body {
     color: rgb(156 163 175) !important;
 }
 
+.workflow-list-group-select .fi-input-wrp,
+.workflow-list-group-select .fi-select-input {
+    min-width: 10rem;
+    max-width: 14rem;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.workflow-list-group-select .fi-input-wrp:hover,
+.workflow-list-group-select .fi-input-wrp:focus-within,
+.workflow-list-group-select .fi-select-input:hover,
+.workflow-list-group-select .fi-select-input:focus {
+    border-color: rgb(255 106 0 / 0.22) !important;
+    background: rgb(255 106 0 / 0.045) !important;
+    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.08) !important;
+}
+
 .workflow-list-badge .fi-badge,
 .workflow-list-badge.fi-badge {
     border: 1px solid color-mix(in oklab, currentColor 12%, transparent);
@@ -914,6 +932,22 @@ body.fi-body {
 
 .dark .workflow-list-name-cell--inactive .fi-ta-text-description {
     color: rgb(100 116 139) !important;
+}
+
+.dark .workflow-list-group-select .fi-input-wrp,
+.dark .workflow-list-group-select .fi-select-input {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.dark .workflow-list-group-select .fi-input-wrp:hover,
+.dark .workflow-list-group-select .fi-input-wrp:focus-within,
+.dark .workflow-list-group-select .fi-select-input:hover,
+.dark .workflow-list-group-select .fi-select-input:focus {
+    border-color: rgb(255 106 0 / 0.24) !important;
+    background: rgb(255 106 0 / 0.07) !important;
+    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.1) !important;
 }
 
 .dark .workflow-list-status-toggle button,

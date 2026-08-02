@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
@@ -64,9 +65,13 @@ class WorkflowResource extends BaseWorkflowResource
                     ->description(fn(Workflow $record): ?string => $record->description)
                     ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
 
-                TextColumn::make('group_name')
+                SelectColumn::make('group_name')
                     ->label('Группа')
                     ->placeholder('Без группы')
+                    ->options(fn(): array => AppWorkflow::groupOptions())
+                    ->searchableOptions()
+                    ->native(false)
+                    ->extraAttributes(['class' => 'workflow-list-group-select'])
                     ->sortable(),
 
                 TextColumn::make('workflow_trigger')
