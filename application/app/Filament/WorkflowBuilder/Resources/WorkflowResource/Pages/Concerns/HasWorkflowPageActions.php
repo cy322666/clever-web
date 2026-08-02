@@ -380,6 +380,11 @@ trait HasWorkflowPageActions
 
     public function addWorkflowBlock(): void
     {
+        $this->addWorkflowBlockAt(count($this->getArrayAtPath('')));
+    }
+
+    public function addWorkflowBlockAt(int $index): void
+    {
         if (!$this->trigger) {
             $this->mountAction('selectTrigger');
 
@@ -399,7 +404,7 @@ trait HasWorkflowPageActions
         }
 
         $actions = $this->getArrayAtPath('');
-        $index = count($actions);
+        $index = min(count($actions), max(0, $index));
         $actionId = 'step_' . Str::lower(Str::ulid()->toBase32());
         $config = $this->prepareWorkflowActionConfig($type, $registry->getDefaultConfig($type), '', $index);
         $config['logic'] = $config['logic'] ?? 'and';
@@ -407,13 +412,36 @@ trait HasWorkflowPageActions
         $config['true_actions'] = [];
         $config['false_actions'] = [];
 
-        $actions[] = [
+        $action = [
             'id' => $actionId,
             'type' => $type,
             'componentType' => $type,
             'name' => null,
             'config' => $config,
         ];
+
+        array_splice($actions, $index, 0, [$action]);
+
+        $this->setArrayAtPath('', $actions);
+        $this->syncDefinition();
+    }
+
+    public function updateWorkflowBlockDelay(string $actionId, mixed $seconds): void
+    {
+        $seconds = max(0, min(30, (int)$seconds));
+        $actions = $this->getArrayAtPath('');
+
+        foreach ($actions as $index => $action) {
+            if (($action['id'] ?? null) !== $actionId) {
+                continue;
+            }
+
+            $actions[$index]['config']['delay'] = $seconds > 0
+                ? ['mode' => 'after_seconds', 'seconds' => $seconds]
+                : ['mode' => 'immediate'];
+
+            break;
+        }
 
         $this->setArrayAtPath('', $actions);
         $this->syncDefinition();

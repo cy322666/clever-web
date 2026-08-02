@@ -198,18 +198,46 @@
                 @foreach($conditionActions as $conditionAction)
                     @php
                         $conditionConfig = $conditionAction['config'] ?? [];
+                        $delay = is_array($conditionConfig['delay'] ?? null) ? $conditionConfig['delay'] : [];
+                        $blockDelaySeconds = ($delay['mode'] ?? 'immediate') === 'after_seconds'
+                            ? min(30, max(1, (int)($delay['seconds'] ?? 0)))
+                            : 0;
                         $conditionPreviewRows = \App\Workflows\Actions\WorkflowConditionPreview::rows($conditionConfig, 4);
                         $conditionRemainingCount = \App\Workflows\Actions\WorkflowConditionPreview::remainingCount($conditionConfig, 4);
                         $conditionActionsPath = $conditionAction['__workflowIndex'] . '.config.true_actions';
                         $blockActions = $conditionConfig['true_actions'] ?? [];
                     @endphp
 
+                    <div class="workflow-block-connector">
+                        <button
+                            type="button"
+                            wire:click="addWorkflowBlockAt({{ $conditionAction['__workflowIndex'] }})"
+                            title="Добавить блок здесь"
+                            class="workflow-block-connector__add"
+                        >
+                            <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                        </button>
+
+                        <label class="workflow-block-connector__delay">
+                            <span>Задержка</span>
+                            <select
+                                wire:change="updateWorkflowBlockDelay('{{ $conditionAction['id'] }}', $event.target.value)"
+                            >
+                                @foreach([0, 5, 10, 15, 30] as $delayOption)
+                                    <option value="{{ $delayOption }}" @selected($blockDelaySeconds === $delayOption)>
+                                        {{ $delayOption }} сек.
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+
                     <section class="workflow-rule-block">
                         <div class="workflow-rule-block__topline">
                             <div>
                                 <div class="workflow-rule-block__name">Блок #{{ $loop->iteration + 1 }}</div>
                                 <div class="workflow-rule-block__meta">
-                                    через <span>0</span> сек.
+                                    через <span>{{ $blockDelaySeconds }}</span> сек.
                                 </div>
                             </div>
                         </div>
@@ -294,14 +322,16 @@
                 @endforeach
 
                 @if ($this->trigger)
-                    <button
-                        type="button"
-                        wire:click="addWorkflowBlock"
-                        class="workflow-add-block"
-                    >
-                        <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                        <span>Добавить блок</span>
-                    </button>
+                    <div class="workflow-block-connector workflow-block-connector--tail">
+                        <button
+                            type="button"
+                            wire:click="addWorkflowBlock"
+                            class="workflow-add-block"
+                        >
+                            <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                            <span>Добавить блок</span>
+                        </button>
+                    </div>
                 @endif
             </main>
         </div>

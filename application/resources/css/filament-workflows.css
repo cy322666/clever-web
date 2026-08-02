@@ -2519,6 +2519,58 @@ body:has(.workflow-builder) .fi-textarea,
     color: rgb(234 88 12);
 }
 
+.workflow-block-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 0.25rem 0;
+}
+
+.workflow-block-connector__add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px dashed rgb(216 208 197);
+    border-radius: 0.375rem;
+    background: rgb(255 255 255);
+    color: rgb(100 116 139);
+    transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.workflow-block-connector__add:hover {
+    border-color: rgb(255 106 0 / 0.45);
+    background: rgb(255 247 237);
+    color: rgb(234 88 12);
+}
+
+.workflow-block-connector__delay {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: rgb(120 113 108);
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1rem;
+}
+
+.workflow-block-connector__delay select {
+    width: 5rem;
+    border: 1px solid rgb(229 224 216);
+    border-radius: 0.375rem;
+    background: rgb(255 255 255);
+    padding: 0.375rem 1.75rem 0.375rem 0.625rem;
+    color: rgb(31 41 55);
+    font-size: 0.8125rem;
+    line-height: 1rem;
+}
+
+.workflow-block-connector--tail {
+    margin-top: 0.5rem;
+}
+
 .workflow-add-block {
     display: inline-flex;
     align-items: center;
@@ -2597,6 +2649,8 @@ body:has(.workflow-builder) .fi-textarea,
 .dark .workflow-rule-condition-card,
 .dark .workflow-rule-empty,
 .dark .workflow-rule-add,
+.dark .workflow-block-connector__add,
+.dark .workflow-block-connector__delay select,
 .dark .workflow-add-block {
     border-color: rgb(73 60 48 / 0.78);
     background: rgb(30 28 25);
@@ -2605,9 +2659,18 @@ body:has(.workflow-builder) .fi-textarea,
 .dark .workflow-rules-empty-trigger:hover,
 .dark .workflow-rule-condition-card:hover,
 .dark .workflow-rule-add:hover,
+.dark .workflow-block-connector__add:hover,
 .dark .workflow-add-block:hover {
     border-color: rgb(255 106 0 / 0.5);
     background: rgb(39 31 25);
+}
+
+.dark .workflow-block-connector__delay {
+    color: rgb(168 162 158);
+}
+
+.dark .workflow-block-connector__delay select {
+    color: rgb(245 245 244);
 }
 
 .dark .workflow-rule-block__topline {
