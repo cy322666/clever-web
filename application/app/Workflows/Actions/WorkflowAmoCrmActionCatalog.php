@@ -11,7 +11,6 @@ use App\Models\Integrations\Distribution\Setting as DistributionSetting;
 use App\Forms\Components\WorkflowMaskTextarea;
 use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
 use App\Services\Workflows\WorkflowAmoCrmSalesBotService;
-use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Hidden;
@@ -478,22 +477,6 @@ abstract class WorkflowAmoCrmAction
                     })
                     ->visible(fn(Get $get): bool => $get('delay.mode') === 'after_seconds'),
             ]);
-    }
-
-    protected static function variablesAction(string $name): Action
-    {
-        return Action::make($name)
-            ->label('Переменные')
-            ->icon('heroicon-o-variable')
-            ->color('gray')
-            ->modalHeading('Справочник переменных и ID')
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Закрыть')
-            ->modalWidth('5xl')
-            ->modalContent(fn() => view('filament.workflow-builder.mask-reference', [
-                'groups' => WorkflowTriggerConditionVariableCatalog::groupedOptions(false),
-                'systemIdGroups' => WorkflowTriggerConditionVariableCatalog::systemIdGroups(),
-            ]));
     }
 
     protected static function fieldMappingsSection(string $label = 'Поля', string $entity = 'lead'): Section
@@ -1177,9 +1160,6 @@ class AmoCrmCalculateFieldAction extends WorkflowAmoCrmAction
         return [
             Section::make('Расчет')
                 ->compact()
-                ->headerActions([
-                    static::variablesAction('amocrm_calculate_field_variables'),
-                ])
                 ->schema(
                     array_merge(static::targetEntityFields(['lead', 'contact', 'company'],
                         fn(Set $set): mixed => $set('result_field', null)), [

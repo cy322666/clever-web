@@ -110,6 +110,16 @@
                         </button>
                     @endif
 
+                    <button
+                        type="button"
+                        x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open'))"
+                        aria-label="Переменные"
+                        title="Переменные"
+                        class="workflow-workbench__quick-action"
+                    >
+                        <x-filament::icon icon="heroicon-o-variable" class="h-4 w-4"/>
+                    </button>
+
                     @if ($workflowRecord)
                         <button
                             type="button"
