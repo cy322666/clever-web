@@ -1,36 +1,46 @@
 @php
-    $triggerOptions = \App\Filament\WorkflowBuilder\Resources\WorkflowResource::triggerFilterOptions();
     $createUrl = \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('create');
+    $activeFilter = data_get($this->tableFilters, 'is_active.value');
+    $showsAll = $activeFilter === null || $activeFilter === '';
+    $showsActive = in_array($activeFilter, [true, 1, '1'], true);
+    $showsInactive = in_array($activeFilter, [false, 0, '0'], true);
 @endphp
 
 <div class="workflow-list-controls">
-    <label class="workflow-list-controls__field workflow-list-controls__field--compact">
-        <span class="workflow-list-controls__label">Активность</span>
-        <span class="workflow-list-controls__select">
-            <x-filament::input.select wire:model.live="tableFilters.is_active.value">
-                <option value="">Все</option>
-                <option value="1">Включены</option>
-                <option value="0">Выключены</option>
-            </x-filament::input.select>
-        </span>
-    </label>
+    <div class="workflow-list-activity" aria-label="Фильтр активности">
+        <button
+            type="button"
+            wire:click="$set('tableFilters.is_active.value', '')"
+            @class([
+                'workflow-list-activity__button',
+                'workflow-list-activity__button--active' => $showsAll,
+            ])
+        >
+            Все
+        </button>
 
-    <label class="workflow-list-controls__field workflow-list-controls__field--wide">
-        <span class="workflow-list-controls__label">Триггер</span>
-        <span class="workflow-list-controls__select">
-            <x-filament::input.select wire:model.live="tableFilters.workflow_trigger.value">
-                <option value="">Все триггеры</option>
+        <button
+            type="button"
+            wire:click="$set('tableFilters.is_active.value', '1')"
+            @class([
+                'workflow-list-activity__button',
+                'workflow-list-activity__button--active' => $showsActive,
+            ])
+        >
+            Активные
+        </button>
 
-                @foreach ($triggerOptions as $group => $options)
-                    <optgroup label="{{ $group }}">
-                        @foreach ($options as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </optgroup>
-                @endforeach
-            </x-filament::input.select>
-        </span>
-    </label>
+        <button
+            type="button"
+            wire:click="$set('tableFilters.is_active.value', '0')"
+            @class([
+                'workflow-list-activity__button',
+                'workflow-list-activity__button--active' => $showsInactive,
+            ])
+        >
+            Неактивные
+        </button>
+    </div>
 
     <div class="workflow-list-controls__spacer"></div>
 

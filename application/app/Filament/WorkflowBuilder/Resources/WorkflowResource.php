@@ -16,7 +16,6 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -125,18 +124,6 @@ class WorkflowResource extends BaseWorkflowResource
                     ->placeholder(__('filament-workflows::workflows.filters.active.all'))
                     ->trueLabel(__('filament-workflows::workflows.filters.active.active_only'))
                     ->falseLabel(__('filament-workflows::workflows.filters.active.inactive_only'))
-                    ->indicateUsing(fn(): array => []),
-
-                SelectFilter::make('workflow_trigger')
-                    ->label(__('filament-workflows::workflows.filters.trigger_type.label'))
-                    ->options(fn(): array => static::triggerFilterOptions())
-                    ->query(fn(Builder $query, array $data): Builder => $query->when(
-                        filled($data['value'] ?? null),
-                        fn(Builder $query): Builder => $query->where(
-                            'definition->trigger->type',
-                            $data['value'],
-                        ),
-                    ))
                     ->indicateUsing(fn(): array => []),
             ], layout: FiltersLayout::Hidden)
             ->deferFilters(false)

@@ -504,7 +504,7 @@ body.fi-body {
 
 .workflow-list-controls {
     display: grid;
-    grid-template-columns: 12rem minmax(18rem, 24rem) 1fr auto;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     justify-content: start;
     gap: 0.5rem;
@@ -516,6 +516,50 @@ body.fi-body {
     margin-bottom: -1px;
     position: relative;
     z-index: 2;
+}
+
+.workflow-list-activity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid rgb(216 208 197 / 0.85);
+    border-radius: 0.5rem;
+    background: rgb(255 255 255 / 0.78);
+}
+
+.workflow-list-activity__button {
+    border: 0;
+    border-right: 1px solid rgb(216 208 197 / 0.72);
+    background: transparent;
+    color: rgb(111 111 111);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1;
+    min-height: 2.35rem;
+    padding: 0 0.9rem;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.workflow-list-activity__button:last-child {
+    border-right: 0;
+}
+
+.workflow-list-activity__button:hover {
+    background: rgb(250 248 245);
+    color: rgb(35 38 43);
+}
+
+.workflow-list-activity__button--active {
+    background: var(--clever-orange);
+    color: #ffffff;
+}
+
+.workflow-list-activity__button--active:hover {
+    background: var(--clever-orange);
+    color: #ffffff;
 }
 
 .fi-resource-workflows .fi-sc:has(.workflow-list-controls):has(.workflow-list-groups) {
@@ -1611,10 +1655,35 @@ body:has(.workflow-builder) .fi-page,
 }
 
 .workflow-list-controls {
-    grid-template-columns: 11rem minmax(18rem, 25rem) 1fr auto !important;
+    grid-template-columns: auto 1fr auto !important;
     border-radius: 0.25rem 0.25rem 0 0 !important;
     background: #ffffff !important;
     padding: 0.45rem !important;
+}
+
+.workflow-list-activity {
+    border-color: var(--workflow-lite-line) !important;
+    border-radius: 0.22rem !important;
+    background: #ffffff !important;
+}
+
+.workflow-list-activity__button {
+    border-color: var(--workflow-lite-line) !important;
+    min-height: 2.1rem !important;
+    color: #8f969d !important;
+    font-weight: 500 !important;
+    padding-inline: 0.8rem !important;
+}
+
+.workflow-list-activity__button:hover {
+    background: #fafafa !important;
+    color: #353b45 !important;
+}
+
+.workflow-list-activity__button--active,
+.workflow-list-activity__button--active:hover {
+    background: var(--workflow-lite-orange) !important;
+    color: #ffffff !important;
 }
 
 .workflow-list-groups {
@@ -1751,6 +1820,27 @@ body:has(.workflow-builder) .fi-page,
     background: var(--workflow-lite-panel) !important;
     color: var(--workflow-lite-text) !important;
     box-shadow: none !important;
+}
+
+.dark .workflow-list-activity {
+    border-color: var(--workflow-lite-line) !important;
+    background: var(--workflow-lite-panel) !important;
+}
+
+.dark .workflow-list-activity__button {
+    border-color: var(--workflow-lite-line) !important;
+    color: var(--workflow-lite-muted) !important;
+}
+
+.dark .workflow-list-activity__button:hover {
+    background: var(--workflow-lite-block) !important;
+    color: var(--workflow-lite-text) !important;
+}
+
+.dark .workflow-list-activity__button--active,
+.dark .workflow-list-activity__button--active:hover {
+    background: var(--workflow-lite-orange) !important;
+    color: #ffffff !important;
 }
 
 .dark .workflow-builder .workflow-condition-node,
