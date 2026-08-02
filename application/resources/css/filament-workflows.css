@@ -2201,6 +2201,10 @@ body:has(.workflow-builder) .fi-textarea,
     padding-inline: 0.125rem;
 }
 
+body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
+    display: none !important;
+}
+
 .workflow-editor-modal-shell .workflow-workbench__toolbar {
     border-bottom: 0 !important;
     background: transparent !important;
