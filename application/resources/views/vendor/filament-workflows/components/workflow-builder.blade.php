@@ -9,6 +9,12 @@
         $workflowRecord = null;
     }
     $workflowActionsCount = count($this->workflowActions);
+    $conditionActions = collect($this->workflowActions)
+        ->filter(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
+        ->values();
+    $regularActions = collect($this->workflowActions)
+        ->reject(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
+        ->values();
 @endphp
 
 <div
@@ -116,102 +122,144 @@
             </div>
         </div>
 
-        <div class="workflow-workbench__layout">
-            <main id="workflow-canvas" class="workflow-workbench__canvas">
-                <div class="workflow-builder w-full">
-        {{-- Trigger Section --}}
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
-                {{ __('filament-workflows::workflows.messages.when_this_happens') }}
-            </h3>
-
-            @if ($this->trigger)
-                <x-filament-workflows::workflows.trigger-card :type="$this->trigger['type']"
-                                                              :config="$this->trigger['config'] ?? []"
-                                                              :metadata="$this->getTriggerMetadata($this->trigger['type'], $this->trigger['config'] ?? [])"
-                                                              :read-only="false"/>
-            @else
-                <x-filament-workflows::workflows.empty-state icon="heroicon-o-bolt"
-                                                             :message="__('filament-workflows::workflows.builder.empty_state.no_trigger')"
-                                                             :description="__('filament-workflows::workflows.messages.trigger_empty_description')">
-                    <x-filament::button wire:click="mountAction('selectTrigger')" icon="heroicon-o-plus"
-                                        color="primary">
-                        {{ __('filament-workflows::workflows.actions.select_trigger.label') }}
-                    </x-filament::button>
-                </x-filament-workflows::workflows.empty-state>
-            @endif
-        </div>
-
-        {{-- Connector (only if trigger exists) --}}
-        @if ($this->trigger)
-            <x-filament-workflows::workflows.connector/>
-        @endif
-
-        {{-- Actions Section --}}
-        <div class="mb-6">
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
-                {{ __('filament-workflows::workflows.messages.then_do_this') }}
-            </h3>
-
-            @if (count($this->workflowActions) > 0)
-                {{-- Render existing actions --}}
-                <x-filament-workflows::workflows.action-list :actions="$this->workflowActions"/>
-            @else
-                @if ($this->trigger)
-                    <x-filament-workflows::workflows.empty-state icon="heroicon-o-sparkles"
-                                                                 :message="__('filament-workflows::workflows.builder.empty_state.add_first_action')"
-                                                                 :description="__('filament-workflows::workflows.messages.first_action_description')">
-                        <div class="flex flex-col items-center gap-3">
-                            <x-filament::button wire:click="mountAction('addWorkflowAction')" icon="heroicon-o-plus"
-                                                color="primary" size="lg">
-                                {{ __('filament-workflows::workflows.actions.add_action.label') }}
-                            </x-filament::button>
-                            <p class="text-xs text-gray-400 dark:text-gray-500">
-                                {{ __('filament-workflows::workflows.messages.action_examples') }}
-                            </p>
-                        </div>
-                    </x-filament-workflows::workflows.empty-state>
-                @else
-                    <div class="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                        {{ __('filament-workflows::workflows.messages.select_trigger_first') }}
+        <div class="workflow-workbench__layout workflow-workbench__layout--rules">
+            <main id="workflow-canvas" class="workflow-workbench__canvas workflow-rules-editor">
+                <div class="workflow-rules-editor__header">
+                    <div>
+                        <div class="workflow-rules-editor__eyebrow">Сценарий</div>
+                        <div class="workflow-rules-editor__title">Настройка запуска и действий</div>
                     </div>
-                @endif
-            @endif
-        </div>
 
-        {{-- Validation Status --}}
-        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between text-sm">
-                <div class="flex items-center gap-2">
                     @if ($this->isWorkflowValid())
-                        <span class="inline-flex items-center gap-1.5 text-success-600 dark:text-success-400">
-                            <x-filament::icon icon="heroicon-o-check-circle" class="w-4 h-4"/>
-                            {{ __('filament-workflows::workflows.messages.workflow_valid') }}
+                        <span class="workflow-rules-editor__status workflow-rules-editor__status--success">
+                            <x-filament::icon icon="heroicon-o-check-circle" class="h-4 w-4"/>
+                            Готов
                         </span>
                     @elseif($this->trigger || count($this->workflowActions) > 0)
-                        <span class="inline-flex items-center gap-1.5 text-warning-600 dark:text-warning-400">
-                            <x-filament::icon icon="heroicon-o-exclamation-triangle" class="w-4 h-4"/>
-                            {{ __('filament-workflows::workflows.messages.configure_all_steps') }}
-                        </span>
-                    @else
-                        <span class="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-                            <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4"/>
-                            {{ __('filament-workflows::workflows.messages.add_trigger_and_actions') }}
+                        <span class="workflow-rules-editor__status workflow-rules-editor__status--warning">
+                            <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-4 w-4"/>
+                            Нужно настроить
                         </span>
                     @endif
                 </div>
 
-                <div class="flex items-center gap-3">
-                    <div class="text-xs text-gray-400 dark:text-gray-500">
-                        {{ __('filament-workflows::workflows.messages.action_count', ['count' => count($this->workflowActions)]) }}
+                <section class="workflow-rules-trigger">
+                    <div class="workflow-rules-section-label">Когда запускается</div>
+
+                    @if ($this->trigger)
+                        <x-filament-workflows::workflows.trigger-card
+                            :type="$this->trigger['type']"
+                            :config="$this->trigger['config'] ?? []"
+                            :metadata="$this->getTriggerMetadata($this->trigger['type'], $this->trigger['config'] ?? [])"
+                            :read-only="false"
+                        />
+                    @else
+                        <button
+                            type="button"
+                            wire:click="mountAction('selectTrigger')"
+                            class="workflow-rules-empty-trigger"
+                        >
+                            <span class="workflow-rules-empty-trigger__icon">
+                                <x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/>
+                            </span>
+                            <span>
+                                <span class="workflow-rules-empty-trigger__title">Выбрать триггер</span>
+                                <span class="workflow-rules-empty-trigger__text">Что должно запускать сценарий</span>
+                            </span>
+                        </button>
+                    @endif
+                </section>
+
+                <section class="workflow-rule-block">
+                    <div class="workflow-rule-block__topline">
+                        <div>
+                            <div class="workflow-rule-block__name">Блок условий #1</div>
+                            <div class="workflow-rule-block__meta">
+                                через <span>0</span> сек.
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-                </div>
-                </div>
+                    <div class="workflow-rule-block__grid">
+                        <div class="workflow-rule-column workflow-rule-column--conditions">
+                            <div class="workflow-rule-column__header">
+                                <span>Условия</span>
+                                <span>{{ $conditionActions->count() ?: 'нет' }}</span>
+                            </div>
+
+                            @if($conditionActions->isNotEmpty())
+                                <div class="workflow-rule-condition-list">
+                                    @foreach($conditionActions as $conditionAction)
+                                        @php
+                                            $conditionConfig = $conditionAction['config'] ?? [];
+                                            $conditions = $conditionConfig['conditions'] ?? [];
+                                            $logic = ($conditionConfig['logic'] ?? 'and') === 'or' ? 'ИЛИ' : 'И';
+                                        @endphp
+
+                                        <button
+                                            type="button"
+                                            wire:click="openWorkflowActionEditor('{{ $conditionAction['id'] }}')"
+                                            class="workflow-rule-condition-card"
+                                        >
+                                            <span class="workflow-rule-condition-card__title">
+                                                {{ filled($conditionAction['name'] ?? null) ? $conditionAction['name'] : 'Условие' }}
+                                            </span>
+                                            <span class="workflow-rule-condition-card__text">
+                                                {{ count($conditions) }} услов. · {{ $logic }}
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="workflow-rule-empty">
+                                    <span>Выполнять всегда</span>
+                                </div>
+                            @endif
+
+                            @if ($this->trigger)
+                                <button
+                                    type="button"
+                                    wire:click="mountAction('addWorkflowAction')"
+                                    class="workflow-rule-add workflow-rule-add--condition"
+                                >
+                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                                    <span>Условие</span>
+                                </button>
+                            @endif
+                        </div>
+
+                        <div class="workflow-rule-column workflow-rule-column--actions">
+                            <div class="workflow-rule-column__header">
+                                <span>Действия</span>
+                                <span>{{ $regularActions->count() ?: 'нет' }}</span>
+                            </div>
+
+                            @if ($regularActions->isNotEmpty())
+                                <x-filament-workflows::workflows.action-list :actions="$regularActions->all()"/>
+                            @elseif ($this->trigger)
+                                <div class="workflow-rule-empty">
+                                    <span>Добавьте первое действие</span>
+                                </div>
+                            @else
+                                <div class="workflow-rule-empty">
+                                    <span>Сначала выберите триггер</span>
+                                </div>
+                            @endif
+
+                            @if ($this->trigger)
+                                <button
+                                    type="button"
+                                    wire:click="mountAction('addWorkflowAction')"
+                                    class="workflow-rule-add"
+                                >
+                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                                    <span>Действие</span>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </section>
             </main>
-
         </div>
     </div>
 </div>
