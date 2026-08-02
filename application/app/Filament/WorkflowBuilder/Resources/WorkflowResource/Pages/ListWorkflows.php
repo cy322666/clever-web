@@ -10,10 +10,9 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\EmbeddedTable;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\RenderHook;
-use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Redirect;
@@ -23,6 +22,8 @@ use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as Bas
 class ListWorkflows extends BaseListWorkflows
 {
     protected static string $resource = WorkflowResource::class;
+
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     public function getHeading(): string|Htmlable|null
     {
@@ -35,24 +36,7 @@ class ListWorkflows extends BaseListWorkflows
             ->components([
                 $this->getTabsContentComponent(),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE),
-                View::make('filament.workflow-builder.workflow-list-controls'),
-                Grid::make([
-                    'default' => 1,
-                    'lg' => 12,
-                ])
-                    ->schema([
-                        View::make('filament.workflow-builder.workflow-list-groups')
-                            ->columnSpan([
-                                'default' => 1,
-                                'lg' => 3,
-                            ]),
-                        EmbeddedTable::make()
-                            ->columnSpan([
-                                'default' => 1,
-                                'lg' => 9,
-                            ]),
-                    ])
-                    ->extraAttributes(['class' => 'workflow-list-layout']),
+                EmbeddedTable::make(),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER),
             ]);
     }
@@ -116,6 +100,12 @@ class ListWorkflows extends BaseListWorkflows
                 ->icon('heroicon-o-signal')
                 ->button()
                 ->color('gray'),
+
+            Action::make('create_workflow')
+                ->label('Создать')
+                ->icon('heroicon-o-plus')
+                ->color('warning')
+                ->url(fn(): string => WorkflowResource::getUrl('create')),
 
             Action::make('workflow_amocrm_connection')
                 ->label(fn(): string => $this->workflowAmoConnectionState()['label'])
