@@ -52,18 +52,6 @@ trait HasWorkflowPageActions
 
         $this->syncDefinition();
         $this->unmountAction();
-
-        if ($type === 'manual') {
-            Notification::make()
-                ->success()
-                ->title('Ручной запуск выбран')
-                ->body('У ручного запуска нет дополнительных настроек.')
-                ->send();
-
-            return;
-        }
-
-        $this->mountAction('configureTrigger');
     }
 
     protected function workflowMasksAction(): Action
