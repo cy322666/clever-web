@@ -160,7 +160,7 @@ class WorkflowResource extends BaseWorkflowResource
                 [
                     Action::make('configure_workflow')
                         ->label('Настроить сценарий')
-                        ->modalHeading(fn(Workflow $record): string => $record->name ?: 'Настройка сценария')
+                        ->modalHeading(null)
                         ->modalSubmitAction(false)
                         ->modalCancelAction(false)
                         ->modalWidth('7xl')

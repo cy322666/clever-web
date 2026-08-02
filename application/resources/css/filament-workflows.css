@@ -2201,6 +2201,12 @@ body:has(.workflow-builder) .fi-textarea,
     padding-inline: 0.125rem;
 }
 
+.workflow-editor-modal-shell .workflow-workbench__toolbar {
+    border-bottom: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+}
+
 .workflow-editor-modal-content {
     background: rgb(248 246 243);
 }
@@ -2704,6 +2710,11 @@ body:has(.workflow-builder) .fi-textarea,
 
 .dark .workflow-editor-modal-content {
     background: rgb(18 17 16);
+}
+
+.dark .workflow-editor-modal-shell .workflow-workbench__toolbar {
+    border-bottom: 0 !important;
+    background: transparent !important;
 }
 
 .dark .workflow-workbench__layout--rules {
