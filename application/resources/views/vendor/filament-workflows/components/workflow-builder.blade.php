@@ -209,8 +209,8 @@
                         $conditionConfig = $conditionAction['config'] ?? [];
                         $delay = is_array($conditionConfig['delay'] ?? null) ? $conditionConfig['delay'] : [];
                         $blockDelaySeconds = ($delay['mode'] ?? 'immediate') === 'after_seconds'
-                            ? min(30, max(1, (int)($delay['seconds'] ?? 0)))
-                            : 0;
+                            ? min(15, max(5, (int)($delay['seconds'] ?? 5)))
+                            : 5;
                         $conditionPreviewRows = \App\Workflows\Actions\WorkflowConditionPreview::rows($conditionConfig, 4);
                         $conditionRemainingCount = \App\Workflows\Actions\WorkflowConditionPreview::remainingCount($conditionConfig, 4);
                         $conditionActionsPath = $conditionAction['__workflowIndex'] . '.config.true_actions';
@@ -218,21 +218,12 @@
                     @endphp
 
                     <div class="workflow-block-connector">
-                        <button
-                            type="button"
-                            wire:click="addWorkflowBlockAt({{ $conditionAction['__workflowIndex'] }})"
-                            title="Добавить блок здесь"
-                            class="workflow-block-connector__add"
-                        >
-                            <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                        </button>
-
                         <label class="workflow-block-connector__delay">
                             <span>Задержка</span>
                             <select
                                 wire:change="updateWorkflowBlockDelay('{{ $conditionAction['id'] }}', $event.target.value)"
                             >
-                                @foreach([0, 5, 10, 15, 30] as $delayOption)
+                                @foreach([5, 10, 15] as $delayOption)
                                     <option value="{{ $delayOption }}" @selected($blockDelaySeconds === $delayOption)>
                                         {{ $delayOption }} сек.
                                     </option>
