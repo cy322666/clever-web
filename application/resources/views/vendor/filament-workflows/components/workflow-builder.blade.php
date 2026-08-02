@@ -124,37 +124,10 @@
 
         <div class="workflow-workbench__layout workflow-workbench__layout--rules">
             <main id="workflow-canvas" class="workflow-workbench__canvas workflow-rules-editor">
-                <section class="workflow-rules-trigger">
-                    <div class="workflow-rules-section-label">Когда запускается</div>
-
-                    @if ($this->trigger)
-                        <x-filament-workflows::workflows.trigger-card
-                            :type="$this->trigger['type']"
-                            :config="$this->trigger['config'] ?? []"
-                            :metadata="$this->getTriggerMetadata($this->trigger['type'], $this->trigger['config'] ?? [])"
-                            :read-only="false"
-                        />
-                    @else
-                        <button
-                            type="button"
-                            wire:click="mountAction('selectTrigger')"
-                            class="workflow-rules-empty-trigger"
-                        >
-                            <span class="workflow-rules-empty-trigger__icon">
-                                <x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/>
-                            </span>
-                            <span>
-                                <span class="workflow-rules-empty-trigger__title">Выбрать триггер</span>
-                                <span class="workflow-rules-empty-trigger__text">Что должно запускать сценарий</span>
-                            </span>
-                        </button>
-                    @endif
-                </section>
-
                 <section class="workflow-rule-block">
                     <div class="workflow-rule-block__topline">
                         <div>
-                            <div class="workflow-rule-block__name">Блок условий #1</div>
+                            <div class="workflow-rule-block__name">Блок #1</div>
                             <div class="workflow-rule-block__meta">
                                 через <span>0</span> сек.
                             </div>
@@ -164,8 +137,31 @@
                     <div class="workflow-rule-block__grid">
                         <div class="workflow-rule-column workflow-rule-column--conditions">
                             <div class="workflow-rule-column__header">
-                                <span>Условия</span>
+                                <span>Триггер и условия</span>
                             </div>
+
+                            @if ($this->trigger)
+                                <x-filament-workflows::workflows.trigger-card
+                                    :type="$this->trigger['type']"
+                                    :config="$this->trigger['config'] ?? []"
+                                    :metadata="$this->getTriggerMetadata($this->trigger['type'], $this->trigger['config'] ?? [])"
+                                    :read-only="false"
+                                />
+                            @else
+                                <button
+                                    type="button"
+                                    wire:click="mountAction('selectTrigger')"
+                                    class="workflow-rules-empty-trigger"
+                                >
+                                    <span class="workflow-rules-empty-trigger__icon">
+                                        <x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/>
+                                    </span>
+                                    <span>
+                                        <span class="workflow-rules-empty-trigger__title">Выбрать триггер</span>
+                                        <span class="workflow-rules-empty-trigger__text">Что запускает сценарий</span>
+                                    </span>
+                                </button>
+                            @endif
 
                             @if($conditionActions->isNotEmpty())
                                 <div class="workflow-rule-condition-list">
