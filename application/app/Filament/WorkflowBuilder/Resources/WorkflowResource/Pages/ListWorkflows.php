@@ -3,8 +3,8 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
-use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Models\Core\Account;
+use App\Models\Workflows\WorkflowRun;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -16,6 +16,7 @@ use Filament\Schemas\Schema;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Schema as SchemaFacade;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as BaseListWorkflows;
 
 class ListWorkflows extends BaseListWorkflows
@@ -50,7 +51,15 @@ class ListWorkflows extends BaseListWorkflows
                 ->label('История')
                 ->icon('heroicon-o-play-circle')
                 ->color('gray')
-                ->url(WorkflowRunResource::getUrl()),
+                ->modalHeading('История запусков')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Закрыть')
+                ->modalWidth('7xl')
+                ->modalContent(fn() => view('filament.workflow-builder.workflow-history-modal', [
+                    'workflow' => null,
+                    'runs' => $this->workflowHistoryRuns(),
+                    'fullHistoryUrl' => null,
+                ])),
 
             ActionGroup::make([
                 Action::make('check_amocrm_webhooks')
@@ -138,6 +147,22 @@ class ListWorkflows extends BaseListWorkflows
                     );
                 }),
         ];
+    }
+
+    private function workflowHistoryRuns()
+    {
+        $query = WorkflowRun::query()
+            ->where('user_id', auth()->id())
+            ->with(['workflow', 'latestStep', 'triggeredBy'])
+            ->withCount('steps')
+            ->latest('created_at')
+            ->limit(50);
+
+        if (SchemaFacade::hasTable('workflow_run_entities')) {
+            $query->with('entityLinks');
+        }
+
+        return $query->get();
     }
 
     /**

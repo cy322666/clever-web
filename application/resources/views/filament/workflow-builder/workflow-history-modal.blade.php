@@ -9,17 +9,19 @@
         'paused' => 'bg-slate-50 text-slate-700 ring-slate-600/20 dark:bg-slate-400/10 dark:text-slate-300 dark:ring-slate-400/20',
         'cancelled' => 'bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-400/10 dark:text-gray-300 dark:ring-gray-400/20',
     ];
+
+    $isWorkflowScoped = filled($workflow);
 @endphp
 
 <div class="space-y-4">
-    <div>
+    @if($isWorkflowScoped)
         <div>
             <div class="text-sm text-gray-500 dark:text-gray-400">Сценарий</div>
             <div class="text-base font-semibold text-gray-950 dark:text-white">
                 {{ $workflow?->name ?? 'Процесс' }}
             </div>
         </div>
-    </div>
+    @endif
 
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
         @if($runs->isEmpty())
@@ -36,6 +38,9 @@
                     <thead class="sticky top-0 z-10 bg-gray-50/95 backdrop-blur dark:bg-gray-900/95">
                     <tr>
                         <th class="w-44 whitespace-nowrap px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Дата</th>
+                        @unless($isWorkflowScoped)
+                            <th class="w-56 px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Сценарий</th>
+                        @endunless
                         <th class="w-40 px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Инициатор</th>
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Блок / шаг</th>
                         <th class="w-40 whitespace-nowrap px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-200">Статус</th>
@@ -54,6 +59,11 @@
                             <td class="whitespace-nowrap px-4 py-2.5 text-gray-700 dark:text-gray-200">
                                 {{ WorkflowRunResource::startedDescription($run) }}
                             </td>
+                            @unless($isWorkflowScoped)
+                                <td class="truncate px-4 py-2.5 text-gray-700 dark:text-gray-200">
+                                    {{ $run->workflow?->name ?? 'Процесс удалён' }}
+                                </td>
+                            @endunless
                             <td class="truncate px-4 py-2.5 text-gray-700 dark:text-gray-200">
                                 {!! WorkflowRunResource::initiatorHtml($run) !!}
                             </td>
