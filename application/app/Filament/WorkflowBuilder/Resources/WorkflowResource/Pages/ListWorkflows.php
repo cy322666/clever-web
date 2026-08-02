@@ -35,6 +35,7 @@ class ListWorkflows extends BaseListWorkflows
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE),
                 View::make('filament.workflow-builder.workflow-list-controls'),
                 EmbeddedTable::make(),
+                View::make('filament.workflow-builder.workflow-list-groups'),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER),
             ]);
     }
