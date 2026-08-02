@@ -180,14 +180,12 @@
                         <div class="workflow-rule-column workflow-rule-column--actions">
                             @if ($regularActions->isNotEmpty())
                                 <x-filament-workflows::workflows.action-list :actions="$regularActions->all()"/>
-                            @elseif ($this->trigger)
-                                <div class="workflow-rule-empty">
-                                    <span>Добавьте первое действие</span>
-                                </div>
                             @else
-                                <div class="workflow-rule-empty">
-                                    <span>Сначала выберите триггер</span>
-                                </div>
+                                @unless ($this->trigger)
+                                    <div class="workflow-rule-empty">
+                                        <span>Сначала выберите триггер</span>
+                                    </div>
+                                @endunless
                             @endif
 
                             @if ($this->trigger)
@@ -341,10 +339,6 @@
                                         :actions="$blockActions"
                                         :parent-path="$conditionActionsPath"
                                     />
-                                @else
-                                    <div class="workflow-rule-empty">
-                                        <span>Добавьте первое действие</span>
-                                    </div>
                                 @endif
 
                                 <button
