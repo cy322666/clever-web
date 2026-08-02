@@ -1359,15 +1359,18 @@ body:has(.workflow-builder) .fi-main,
 body:has(.workflow-builder) .fi-page,
 .fi-resource-workflows .fi-main,
 .fi-resource-workflows .fi-page {
-    background: #f1ede7 !important;
+    background: #efe9e1 !important;
 }
 
 .workflow-workbench {
-    --workflow-lite-bg: #f1ede7;
+    --workflow-lite-bg: #efe9e1;
     --workflow-lite-panel: #ffffff;
-    --workflow-lite-block: #f8f6f2;
-    --workflow-lite-line: #ded6ca;
-    --workflow-lite-line-strong: #cfc5b7;
+    --workflow-lite-panel-alt: #fbfaf7;
+    --workflow-lite-block: #f7f3ed;
+    --workflow-lite-line: #d7ccbd;
+    --workflow-lite-line-strong: #bfb2a1;
+    --workflow-lite-shadow: 0 1px 0 rgb(255 255 255 / 0.88), 0 4px 14px rgb(54 43 31 / 0.07);
+    --workflow-lite-shadow-hover: 0 1px 0 rgb(255 255 255 / 0.92), 0 7px 20px rgb(54 43 31 / 0.09);
     --workflow-lite-text: #353b45;
     --workflow-lite-muted: #9aa0a6;
     --workflow-lite-orange: #ff6a00;
@@ -1378,7 +1381,7 @@ body:has(.workflow-builder) .fi-section,
 .fi-resource-workflows .fi-section {
     border-color: var(--workflow-lite-line) !important;
     background: #ffffff !important;
-    box-shadow: 0 2px 10px rgb(31 26 20 / 0.045) !important;
+    box-shadow: var(--workflow-lite-shadow) !important;
 }
 
 body:has(.workflow-builder) .fi-input-wrp,
@@ -1474,13 +1477,13 @@ body:has(.workflow-builder) .fi-textarea,
     border: 1px solid var(--workflow-lite-line) !important;
     border-radius: 0.3rem !important;
     background: var(--workflow-lite-panel) !important;
-    box-shadow: 0 2px 9px rgb(31 26 20 / 0.055) !important;
+    box-shadow: var(--workflow-lite-shadow) !important;
 }
 
 .workflow-builder .workflow-card:hover,
 .workflow-builder .workflow-empty-state:hover {
     border-color: var(--workflow-lite-line-strong) !important;
-    box-shadow: 0 4px 14px rgb(31 26 20 / 0.075) !important;
+    box-shadow: var(--workflow-lite-shadow-hover) !important;
 }
 
 .workflow-action-row-wrap {
@@ -1494,8 +1497,8 @@ body:has(.workflow-builder) .fi-textarea,
 }
 
 .workflow-builder .workflow-trigger-card {
-    border-color: var(--workflow-lite-line) !important;
-    background: #ffffff !important;
+    border-color: #cfc3b3 !important;
+    background: var(--workflow-lite-panel-alt) !important;
 }
 
 .workflow-builder .workflow-card h4,
@@ -1545,14 +1548,14 @@ body:has(.workflow-builder) .fi-textarea,
     max-width: none !important;
     border: 1px solid var(--workflow-lite-line) !important;
     border-radius: 0.3rem !important;
-    background: var(--workflow-lite-block) !important;
-    box-shadow: 0 2px 9px rgb(31 26 20 / 0.05) !important;
+    background: linear-gradient(180deg, #fbf7ef 0%, var(--workflow-lite-block) 100%) !important;
+    box-shadow: var(--workflow-lite-shadow) !important;
     padding: 0.95rem !important;
 }
 
 .workflow-builder .workflow-condition-node:hover {
     border-color: var(--workflow-lite-line-strong) !important;
-    box-shadow: 0 4px 14px rgb(31 26 20 / 0.07) !important;
+    box-shadow: var(--workflow-lite-shadow-hover) !important;
 }
 
 .workflow-builder .workflow-condition-summary {
@@ -1569,10 +1572,11 @@ body:has(.workflow-builder) .fi-textarea,
 .workflow-builder .workflow-condition-summary .space-y-1\.5 > div {
     min-height: 2.25rem;
     align-items: center;
-    border: 1px solid var(--workflow-lite-line);
+    border: 1px solid #d4c8b8;
     border-radius: 0.22rem;
     background: #ffffff;
     padding: 0.42rem 0.65rem;
+    box-shadow: 0 1px 3px rgb(54 43 31 / 0.035);
 }
 
 .workflow-builder .workflow-condition-summary .text-amber-700,
@@ -1594,10 +1598,11 @@ body:has(.workflow-builder) .fi-textarea,
 
 .workflow-builder .condition-branch {
     min-width: 0 !important;
-    border: 1px solid var(--workflow-lite-line) !important;
+    border: 1px solid #d4c8b8 !important;
     border-radius: 0.25rem !important;
-    background: #ffffff !important;
+    background: #fffdf9 !important;
     padding: 0.75rem !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 2px 8px rgb(54 43 31 / 0.035) !important;
 }
 
 .workflow-builder .condition-branch .workflow-card {
@@ -1605,6 +1610,7 @@ body:has(.workflow-builder) .fi-textarea,
     max-width: none !important;
     border-radius: 0.22rem !important;
     background: #ffffff !important;
+    box-shadow: 0 1px 6px rgb(54 43 31 / 0.045) !important;
 }
 
 .workflow-builder .condition-branch > .mb-3 {
@@ -1624,7 +1630,7 @@ body:has(.workflow-builder) .fi-textarea,
 .workflow-builder .workflow-connector > div {
     width: 2px !important;
     height: 1.3rem !important;
-    background: #c9c0b4 !important;
+    background: #bfb2a1 !important;
 }
 
 .workflow-builder button[title="Добавить шаг здесь"] {
@@ -1777,9 +1783,12 @@ body:has(.workflow-builder) .fi-textarea,
 .dark .workflow-workbench {
     --workflow-lite-bg: #171512;
     --workflow-lite-panel: #1d1b18;
+    --workflow-lite-panel-alt: #201e1a;
     --workflow-lite-block: #24211d;
     --workflow-lite-line: #3a342d;
     --workflow-lite-line-strong: #51483e;
+    --workflow-lite-shadow: 0 1px 0 rgb(255 255 255 / 0.025), 0 5px 16px rgb(0 0 0 / 0.28);
+    --workflow-lite-shadow-hover: 0 1px 0 rgb(255 255 255 / 0.035), 0 8px 22px rgb(0 0 0 / 0.36);
     --workflow-lite-text: #eee8df;
     --workflow-lite-muted: #a49b91;
 }
@@ -1796,16 +1805,22 @@ body:has(.workflow-builder) .fi-textarea,
 }
 
 .dark .workflow-workbench__quick-action,
-.dark .workflow-builder .workflow-card,
-.dark .workflow-builder .workflow-empty-state,
-.dark .workflow-builder .condition-branch,
-.dark .workflow-builder .workflow-condition-summary .space-y-1\.5 > div,
 .dark .workflow-list-controls,
 .dark .workflow-list-controls__field {
     border-color: var(--workflow-lite-line) !important;
     background: var(--workflow-lite-panel) !important;
     color: var(--workflow-lite-text) !important;
     box-shadow: none !important;
+}
+
+.dark .workflow-builder .workflow-card,
+.dark .workflow-builder .workflow-empty-state,
+.dark .workflow-builder .condition-branch,
+.dark .workflow-builder .workflow-condition-summary .space-y-1\.5 > div {
+    border-color: var(--workflow-lite-line) !important;
+    background: var(--workflow-lite-panel) !important;
+    color: var(--workflow-lite-text) !important;
+    box-shadow: var(--workflow-lite-shadow) !important;
 }
 
 .dark .workflow-list-activity {
@@ -1834,7 +1849,14 @@ body:has(.workflow-builder) .fi-textarea,
 .dark .workflow-builder .workflow-condition-node--nested {
     border-color: var(--workflow-lite-line) !important;
     background: var(--workflow-lite-block) !important;
-    box-shadow: none !important;
+    box-shadow: var(--workflow-lite-shadow) !important;
+}
+
+.dark .workflow-builder .workflow-card:hover,
+.dark .workflow-builder .workflow-empty-state:hover,
+.dark .workflow-builder .workflow-condition-node:hover {
+    border-color: var(--workflow-lite-line-strong) !important;
+    box-shadow: var(--workflow-lite-shadow-hover) !important;
 }
 
 .dark .workflow-builder .workflow-card h4,
