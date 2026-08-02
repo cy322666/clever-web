@@ -124,25 +124,6 @@
 
         <div class="workflow-workbench__layout workflow-workbench__layout--rules">
             <main id="workflow-canvas" class="workflow-workbench__canvas workflow-rules-editor">
-                <div class="workflow-rules-editor__header">
-                    <div>
-                        <div class="workflow-rules-editor__eyebrow">Сценарий</div>
-                        <div class="workflow-rules-editor__title">Настройка запуска и действий</div>
-                    </div>
-
-                    @if ($this->isWorkflowValid())
-                        <span class="workflow-rules-editor__status workflow-rules-editor__status--success">
-                            <x-filament::icon icon="heroicon-o-check-circle" class="h-4 w-4"/>
-                            Готов
-                        </span>
-                    @elseif($this->trigger || count($this->workflowActions) > 0)
-                        <span class="workflow-rules-editor__status workflow-rules-editor__status--warning">
-                            <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-4 w-4"/>
-                            Нужно настроить
-                        </span>
-                    @endif
-                </div>
-
                 <section class="workflow-rules-trigger">
                     <div class="workflow-rules-section-label">Когда запускается</div>
 
@@ -184,7 +165,6 @@
                         <div class="workflow-rule-column workflow-rule-column--conditions">
                             <div class="workflow-rule-column__header">
                                 <span>Условия</span>
-                                <span>{{ $conditionActions->count() ?: 'нет' }}</span>
                             </div>
 
                             @if($conditionActions->isNotEmpty())
@@ -231,7 +211,6 @@
                         <div class="workflow-rule-column workflow-rule-column--actions">
                             <div class="workflow-rule-column__header">
                                 <span>Действия</span>
-                                <span>{{ $regularActions->count() ?: 'нет' }}</span>
                             </div>
 
                             @if ($regularActions->isNotEmpty())

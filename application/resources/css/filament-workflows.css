@@ -2217,7 +2217,7 @@ body:has(.workflow-builder) .fi-textarea,
     display: grid;
     gap: 0.875rem;
     margin-inline: auto;
-    max-width: 72rem;
+    max-width: 68rem;
 }
 
 .workflow-rules-editor__header {
@@ -2280,7 +2280,7 @@ body:has(.workflow-builder) .fi-textarea,
 .workflow-rules-trigger {
     display: grid;
     gap: 0.625rem;
-    padding: 0.875rem;
+    padding: 0.75rem;
 }
 
 .workflow-rules-trigger .workflow-trigger-card,
@@ -2288,6 +2288,10 @@ body:has(.workflow-builder) .fi-textarea,
 .workflow-rule-column .workflow-condition-node {
     border-radius: 0.375rem !important;
     box-shadow: none !important;
+}
+
+.workflow-rules-trigger .workflow-trigger-card {
+    border-color: rgb(222 216 207) !important;
 }
 
 .workflow-rules-trigger .workflow-trigger-card:hover,
@@ -2342,7 +2346,7 @@ body:has(.workflow-builder) .fi-textarea,
 }
 
 .workflow-rule-block {
-    padding: 0.875rem;
+    padding: 0.75rem;
 }
 
 .workflow-rule-block__topline {
@@ -2376,7 +2380,7 @@ body:has(.workflow-builder) .fi-textarea,
     display: grid;
     grid-template-columns: minmax(16rem, 0.95fr) minmax(22rem, 1.25fr);
     gap: 1rem;
-    padding-top: 0.875rem;
+    padding-top: 0.75rem;
 }
 
 .workflow-rule-column {
@@ -2394,12 +2398,6 @@ body:has(.workflow-builder) .fi-textarea,
     font-size: 0.875rem;
     font-weight: 650;
     line-height: 1.25rem;
-}
-
-.workflow-rule-column__header span:last-child {
-    color: rgb(156 163 175);
-    font-size: 0.75rem;
-    font-weight: 650;
 }
 
 .workflow-rule-condition-list {
@@ -2476,16 +2474,21 @@ body:has(.workflow-builder) .fi-textarea,
 }
 
 .workflow-rule-column .workflow-sortable-list > .my-2 {
-    margin-block: 0.125rem !important;
-}
-
-.workflow-rule-column .workflow-sortable-list > .my-2 .workflow-connector {
     display: none;
 }
 
-.workflow-rule-column .workflow-sortable-list > .my-2 button {
-    width: 1.75rem;
-    height: 1.75rem;
+.workflow-rule-column--actions .workflow-card {
+    padding: 0.75rem !important;
+}
+
+.workflow-rule-column--actions .workflow-card .h-9.w-9 {
+    width: 2rem !important;
+    height: 2rem !important;
+}
+
+.workflow-rule-column--actions .workflow-card h4 {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
 }
 
 @media (max-width: 900px) {
