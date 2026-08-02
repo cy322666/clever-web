@@ -17,6 +17,7 @@
     $regularActions = $workflowActionItems
         ->reject(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
         ->values();
+    $firstBlockInsertIndex = $regularActions->count();
 @endphp
 
 <div
@@ -162,6 +163,17 @@
                             <div class="workflow-rule-empty">
                                 <span>Выполнять всегда</span>
                             </div>
+
+                            @if ($this->trigger)
+                                <button
+                                    type="button"
+                                    wire:click="addWorkflowBlockAt({{ $firstBlockInsertIndex }})"
+                                    class="workflow-rule-condition-add"
+                                >
+                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                                    <span>Условие</span>
+                                </button>
+                            @endif
 
                         </div>
 
