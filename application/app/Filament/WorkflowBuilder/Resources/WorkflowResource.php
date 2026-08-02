@@ -164,7 +164,6 @@ class WorkflowResource extends BaseWorkflowResource
                         ->modalSubmitAction(false)
                         ->modalCancelAction(false)
                         ->modalWidth('7xl')
-                        ->closeModalByClickingAway(false)
                         ->modalContent(fn(Workflow $record) => view('filament.workflow-builder.workflow-editor-modal', [
                             'record' => $record,
                             'title' => $record->name ?: 'Настройка сценария',
