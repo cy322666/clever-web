@@ -17,6 +17,7 @@ use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -132,38 +133,41 @@ class WorkflowResource extends BaseWorkflowResource
                     ->indicateUsing(fn(): array => []),
             ], layout: FiltersLayout::Hidden)
             ->deferFilters(false)
-            ->recordActions([
-                Action::make('duplicate_workflow')
-                    ->label('Дублировать сценарий')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->color('gray')
-                    ->iconButton()
-                    ->action(function (Workflow $record): void {
-                        $copy = static::duplicateWorkflow($record);
+            ->recordActions(
+                [
+                    Action::make('duplicate_workflow')
+                        ->label('Дублировать сценарий')
+                        ->icon('heroicon-o-document-duplicate')
+                        ->color('gray')
+                        ->iconButton()
+                        ->action(function (Workflow $record): void {
+                            $copy = static::duplicateWorkflow($record);
 
-                        Notification::make()
-                            ->success()
-                            ->title('Копия процесса создана')
-                            ->body($copy->name)
-                            ->actions([
-                                Action::make('open_copy')
-                                    ->label('Открыть копию')
-                                    ->url(static::getUrl('edit', ['record' => $copy])),
-                            ])
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->success()
+                                ->title('Копия процесса создана')
+                                ->body($copy->name)
+                                ->actions([
+                                    Action::make('open_copy')
+                                        ->label('Открыть копию')
+                                        ->url(static::getUrl('edit', ['record' => $copy])),
+                                ])
+                                ->send();
+                        }),
 
-                DeleteAction::make()
-                    ->label('Удалить сценарий')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->iconButton()
-                    ->requiresConfirmation()
-                    ->modalHeading('Удалить сценарий?')
-                    ->modalDescription('Сценарий и все его исполнения будут удалены безвозвратно.')
-                    ->modalSubmitActionLabel('Удалить')
-                    ->successNotificationTitle('Сценарий удалён'),
-            ])
+                    DeleteAction::make()
+                        ->label('Удалить сценарий')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->iconButton()
+                        ->requiresConfirmation()
+                        ->modalHeading('Удалить сценарий?')
+                        ->modalDescription('Сценарий и все его исполнения будут удалены безвозвратно.')
+                        ->modalSubmitActionLabel('Удалить')
+                        ->successNotificationTitle('Сценарий удалён'),
+                ],
+                position: RecordActionsPosition::BeforeColumns,
+            )
             ->emptyStateHeading(__('filament-workflows::workflows.empty_states.no_workflows.heading'))
             ->emptyStateDescription(__('filament-workflows::workflows.empty_states.no_workflows.description'))
             ->emptyStateIcon('heroicon-o-arrow-path');
