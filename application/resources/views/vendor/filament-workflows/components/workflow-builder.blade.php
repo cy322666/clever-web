@@ -133,10 +133,6 @@
                 <section class="workflow-rule-block">
                     <div class="workflow-rule-block__grid">
                         <div class="workflow-rule-column workflow-rule-column--conditions">
-                            <div class="workflow-rule-column__header">
-                                <span>Условия</span>
-                            </div>
-
                             @unless ($this->trigger)
                                 <button
                                     type="button"
@@ -254,10 +250,6 @@
 
                         <div class="workflow-rule-block__grid">
                             <div class="workflow-rule-column workflow-rule-column--conditions">
-                                <div class="workflow-rule-column__header">
-                                    <span>Условия</span>
-                                </div>
-
                                 <div class="workflow-rule-condition-preview">
                                     <button
                                         type="button"
