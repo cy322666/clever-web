@@ -421,6 +421,7 @@ body.fi-body {
 .workflow-list-group-select .fi-select-input {
     min-width: 10rem;
     max-width: 14rem;
+    min-height: 1.9rem !important;
     border-color: transparent !important;
     background: transparent !important;
     box-shadow: none !important;
@@ -449,7 +450,7 @@ body.fi-body {
 }
 
 .workflow-list-status-toggle {
-    width: 4.25rem;
+    width: 3.65rem;
 }
 
 .workflow-list-status-toggle button,
@@ -471,8 +472,8 @@ body.fi-body {
 
 .workflow-list-status-control {
     display: inline-flex;
-    width: 2.7rem;
-    height: 1.55rem;
+    width: 2.35rem;
+    height: 1.28rem;
     align-items: center;
     justify-content: center;
     border-radius: 0.42rem;
@@ -495,8 +496,8 @@ body.fi-body {
 }
 
 .workflow-list-status-control__icon {
-    width: 1rem !important;
-    height: 1rem !important;
+    width: 0.82rem !important;
+    height: 0.82rem !important;
 }
 
 .workflow-run-history-link {
@@ -1750,8 +1751,8 @@ body:has(.workflow-builder) .fi-textarea,
 .fi-resource-workflows .fi-ta-table td {
     border-color: #f0f0f0 !important;
     background: #ffffff !important;
-    padding-top: 0.42rem !important;
-    padding-bottom: 0.42rem !important;
+    padding-top: 0.26rem !important;
+    padding-bottom: 0.26rem !important;
 }
 
 .fi-resource-workflows .fi-ta-table tr:hover td {
@@ -1759,8 +1760,21 @@ body:has(.workflow-builder) .fi-textarea,
 }
 
 .fi-resource-workflows .workflow-list-row > td {
-    padding-top: 0.28rem !important;
-    padding-bottom: 0.28rem !important;
+    padding-top: 0.16rem !important;
+    padding-bottom: 0.16rem !important;
+}
+
+.fi-resource-workflows .fi-ta-text,
+.fi-resource-workflows .fi-ta-text-item,
+.fi-resource-workflows .fi-ta-text-description {
+    line-height: 1.15 !important;
+}
+
+.fi-resource-workflows .workflow-list-group-select .fi-input,
+.fi-resource-workflows .workflow-list-group-select select {
+    min-height: 1.85rem !important;
+    padding-top: 0.18rem !important;
+    padding-bottom: 0.18rem !important;
 }
 
 @media (max-width: 1023px) {
