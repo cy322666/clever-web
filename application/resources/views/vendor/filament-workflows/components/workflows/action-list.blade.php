@@ -341,7 +341,7 @@
         @else
             <div @class([
                 'mx-auto w-full' => $parentPath === null,
-                'max-w-3xl' => $parentPath === null,
+                'workflow-action-row-wrap' => $parentPath === null,
             ])>
                 <x-filament-workflows::workflows.action-card
                     :action="$action"
