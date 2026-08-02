@@ -317,6 +317,15 @@
                                         />
                                     </button>
                                 </div>
+
+                                <button
+                                    type="button"
+                                    wire:click="openWorkflowActionEditor('{{ $conditionAction['id'] }}')"
+                                    class="workflow-rule-condition-add"
+                                >
+                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                                    <span>Условие</span>
+                                </button>
                             </div>
 
                             <div class="workflow-rule-column workflow-rule-column--actions">
