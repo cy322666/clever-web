@@ -6,7 +6,6 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasCompactWorkflowConfigurationPanels;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowPageActions;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
-use Filament\Actions\Action;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\EditWorkflow as BaseEditWorkflow;
@@ -20,16 +19,9 @@ class EditWorkflow extends BaseEditWorkflow
 
     protected Width|string|null $maxContentWidth = Width::FiveExtraLarge;
 
-    /**
-     * @return array<Action>
-     */
     protected function getHeaderActions(): array
     {
-        return [
-            $this->workflowMasksAction(),
-            $this->backToWorkflowListAction(),
-            $this->deleteAction(),
-        ];
+        return [];
     }
 
     public function getTitle(): string
