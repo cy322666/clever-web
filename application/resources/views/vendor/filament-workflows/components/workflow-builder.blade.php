@@ -238,10 +238,34 @@
 
                     <section class="workflow-rule-block">
                         <div class="workflow-rule-block__topline">
-                            <div>
-                                <div class="workflow-rule-block__name">Блок #{{ $loop->iteration + 1 }}</div>
-                                <div class="workflow-rule-block__meta">
-                                    через <span>{{ $blockDelaySeconds }}</span> сек.
+                            <div class="workflow-rule-block__heading">
+                                <button
+                                    type="button"
+                                    wire:click="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                    wire:loading.attr="disabled"
+                                    wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                    class="workflow-rule-block__delete"
+                                    title="Удалить блок"
+                                    aria-label="Удалить блок"
+                                >
+                                    <x-filament::icon
+                                        icon="heroicon-o-trash"
+                                        class="h-4 w-4"
+                                        wire:loading.remove
+                                        wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                    />
+                                    <x-filament::loading-indicator
+                                        class="h-4 w-4"
+                                        wire:loading
+                                        wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                    />
+                                </button>
+
+                                <div>
+                                    <div class="workflow-rule-block__name">Блок #{{ $loop->iteration + 1 }}</div>
+                                    <div class="workflow-rule-block__meta">
+                                        через <span>{{ $blockDelaySeconds }}</span> сек.
+                                    </div>
                                 </div>
                             </div>
                         </div>
