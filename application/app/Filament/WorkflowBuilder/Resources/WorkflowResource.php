@@ -162,7 +162,7 @@ class WorkflowResource extends BaseWorkflowResource
                         ->label('Настроить сценарий')
                         ->modalHeading(fn(Workflow $record): string => $record->name ?: 'Настройка сценария')
                         ->modalSubmitAction(false)
-                        ->modalCancelActionLabel('Закрыть')
+                        ->modalCancelAction(false)
                         ->modalWidth('7xl')
                         ->closeModalByClickingAway(false)
                         ->modalContent(fn(Workflow $record) => view('filament.workflow-builder.workflow-editor-modal', [

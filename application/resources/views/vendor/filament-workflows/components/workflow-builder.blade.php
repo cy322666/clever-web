@@ -131,15 +131,6 @@
         <div class="workflow-workbench__layout workflow-workbench__layout--rules">
             <main id="workflow-canvas" class="workflow-workbench__canvas workflow-rules-editor">
                 <section class="workflow-rule-block">
-                    <div class="workflow-rule-block__topline">
-                        <div>
-                            <div class="workflow-rule-block__name">Блок #1</div>
-                            <div class="workflow-rule-block__meta">
-                                через <span>0</span> сек.
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="workflow-rule-block__grid">
                         <div class="workflow-rule-column workflow-rule-column--conditions">
                             <div class="workflow-rule-column__header">
@@ -238,36 +229,27 @@
 
                     <section class="workflow-rule-block">
                         <div class="workflow-rule-block__topline">
-                            <div class="workflow-rule-block__heading">
-                                <button
-                                    type="button"
-                                    wire:click="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                    wire:loading.attr="disabled"
+                            <button
+                                type="button"
+                                wire:click="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                wire:loading.attr="disabled"
+                                wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                class="workflow-rule-block__delete"
+                                title="Удалить блок"
+                                aria-label="Удалить блок"
+                            >
+                                <x-filament::icon
+                                    icon="heroicon-o-trash"
+                                    class="h-4 w-4"
+                                    wire:loading.remove
                                     wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                    class="workflow-rule-block__delete"
-                                    title="Удалить блок"
-                                    aria-label="Удалить блок"
-                                >
-                                    <x-filament::icon
-                                        icon="heroicon-o-trash"
-                                        class="h-4 w-4"
-                                        wire:loading.remove
-                                        wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                    />
-                                    <x-filament::loading-indicator
-                                        class="h-4 w-4"
-                                        wire:loading
-                                        wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                    />
-                                </button>
-
-                                <div>
-                                    <div class="workflow-rule-block__name">Блок #{{ $loop->iteration + 1 }}</div>
-                                    <div class="workflow-rule-block__meta">
-                                        через <span>{{ $blockDelaySeconds }}</span> сек.
-                                    </div>
-                                </div>
-                            </div>
+                                />
+                                <x-filament::loading-indicator
+                                    class="h-4 w-4"
+                                    wire:loading
+                                    wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
+                                />
+                            </button>
                         </div>
 
                         <div class="workflow-rule-block__grid">
