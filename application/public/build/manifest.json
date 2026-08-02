@@ -1,0 +1,17 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-f2d067fd.css",
+    "isEntry": true,
+    "src": "resources/css/app.css"
+  },
+  "resources/css/filament-workflows.css": {
+    "file": "assets/filament-workflows-1e168ec5.css",
+    "isEntry": true,
+    "src": "resources/css/filament-workflows.css"
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-91daf3b5.js",
+    "isEntry": true,
+    "src": "resources/js/app.js"
+  }
+}
