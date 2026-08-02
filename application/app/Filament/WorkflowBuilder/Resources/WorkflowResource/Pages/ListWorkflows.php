@@ -108,10 +108,9 @@ class ListWorkflows extends BaseListWorkflows
                 ->modalHeading('Создать сценарий')
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Закрыть')
-                ->modalWidth(Width::Screen)
+                ->modalWidth('7xl')
                 ->closeModalByClickingAway(false)
-                ->modalContent(fn() => view('filament.workflow-builder.workflow-editor-frame', [
-                    'url' => WorkflowResource::getUrl('create', ['embedded' => 1]),
+                ->modalContent(fn() => view('filament.workflow-builder.workflow-create-modal', [
                     'title' => 'Создать сценарий',
                 ])),
 

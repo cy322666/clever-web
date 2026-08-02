@@ -2186,26 +2186,28 @@ body:has(.workflow-builder) .fi-textarea,
     flex-basis: auto !important;
 }
 
-.workflow-editor-modal-frame {
-    height: min(78vh, 58rem);
-    overflow: hidden;
-    border: 1px solid rgb(231 226 219);
-    background: rgb(246 244 241);
-}
-
-.workflow-editor-modal-frame__iframe {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: transparent;
-}
-
 .workflow-list-configure-action {
     display: none !important;
 }
 
-.dark .workflow-editor-modal-frame {
-    border-color: rgb(68 60 51);
-    background: rgb(24 22 20);
+.workflow-editor-modal-shell {
+    max-height: min(74vh, 46rem);
+    overflow: auto;
+    padding-inline: 0.125rem;
+}
+
+.workflow-editor-modal-content {
+    background: rgb(248 246 243);
+}
+
+.workflow-editor-modal-content .workflow-builder-canvas {
+    padding-block: 1.25rem;
+}
+
+.workflow-editor-modal-content .workflow-step-card {
+    max-width: 48rem;
+}
+
+.dark .workflow-editor-modal-content {
+    background: rgb(18 17 16);
 }

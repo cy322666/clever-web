@@ -13,7 +13,6 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -164,13 +163,10 @@ class WorkflowResource extends BaseWorkflowResource
                         ->modalHeading(fn(Workflow $record): string => $record->name ?: 'Настройка сценария')
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Закрыть')
-                        ->modalWidth(Width::Screen)
+                        ->modalWidth('7xl')
                         ->closeModalByClickingAway(false)
-                        ->modalContent(fn(Workflow $record) => view('filament.workflow-builder.workflow-editor-frame', [
-                            'url' => static::getUrl('edit', [
-                                'record' => $record,
-                                'embedded' => 1,
-                            ]),
+                        ->modalContent(fn(Workflow $record) => view('filament.workflow-builder.workflow-editor-modal', [
+                            'record' => $record,
                             'title' => $record->name ?: 'Настройка сценария',
                         ]))
                         ->extraAttributes(['class' => 'workflow-list-configure-action']),
