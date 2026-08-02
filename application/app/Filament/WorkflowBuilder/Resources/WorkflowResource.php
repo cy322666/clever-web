@@ -18,10 +18,12 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Enums\RecordActionsPosition;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Leek\FilamentWorkflows\Models\Workflow;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Resources\WorkflowResource as BaseWorkflowResource;
@@ -67,13 +69,14 @@ class WorkflowResource extends BaseWorkflowResource
                     ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
 
                 SelectColumn::make('group_name')
-                    ->label('Группа')
+                    ->label(fn(): HtmlString => new HtmlString(view('filament.workflow-builder.workflow-list-group-header', [
+                        'options' => static::workflowGroupFilterOptions(),
+                    ])->render()))
                     ->placeholder('Без группы')
                     ->options(fn(): array => AppWorkflow::groupOptions())
                     ->searchableOptions()
                     ->native(false)
-                    ->extraAttributes(['class' => 'workflow-list-group-select'])
-                    ->sortable(),
+                    ->extraAttributes(['class' => 'workflow-list-group-select']),
 
                 TextColumn::make('workflow_trigger')
                     ->label('Событие')
@@ -130,6 +133,26 @@ class WorkflowResource extends BaseWorkflowResource
                     ->placeholder(__('filament-workflows::workflows.filters.active.all'))
                     ->trueLabel(__('filament-workflows::workflows.filters.active.active_only'))
                     ->falseLabel(__('filament-workflows::workflows.filters.active.inactive_only'))
+                    ->indicateUsing(fn(): array => []),
+
+                SelectFilter::make('group_name')
+                    ->label('Группа')
+                    ->options(fn(): array => static::workflowGroupFilterOptions())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = (string)($data['value'] ?? '');
+
+                        if ($value === '') {
+                            return $query;
+                        }
+
+                        if ($value === '__without_group__') {
+                            return $query->where(fn(Builder $query): Builder => $query
+                                ->whereNull('group_name')
+                                ->orWhere('group_name', ''));
+                        }
+
+                        return $query->where('group_name', $value);
+                    })
                     ->indicateUsing(fn(): array => []),
             ], layout: FiltersLayout::Hidden)
             ->deferFilters(false)
@@ -243,6 +266,18 @@ class WorkflowResource extends BaseWorkflowResource
         $label = trim(preg_replace('/^amoCRM:\s*/u', '', $label) ?: $label);
 
         return mb_strtoupper(mb_substr($label, 0, 1)) . mb_substr($label, 1);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function workflowGroupFilterOptions(): array
+    {
+        return [
+            '' => 'Все',
+            '__without_group__' => 'Без группы',
+            ...AppWorkflow::groupOptions(),
+        ];
     }
 
     private static function updateWorkflowActivation(Workflow $record, bool $state): bool
