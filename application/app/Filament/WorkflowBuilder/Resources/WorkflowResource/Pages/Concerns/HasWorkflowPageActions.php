@@ -378,6 +378,43 @@ trait HasWorkflowPageActions
         $this->mountAction('addWorkflowAction');
     }
 
+    public function addWorkflowBlock(): void
+    {
+        if (!$this->trigger) {
+            $this->mountAction('selectTrigger');
+
+            return;
+        }
+
+        $registry = app(ActionRegistry::class);
+        $type = 'control-condition';
+
+        if (!$registry->has($type)) {
+            Notification::make()
+                ->danger()
+                ->title('Блок условий недоступен')
+                ->send();
+
+            return;
+        }
+
+        $actions = $this->getArrayAtPath('');
+        $index = count($actions);
+        $actionId = 'step_' . Str::lower(Str::ulid()->toBase32());
+
+        $actions[] = [
+            'id' => $actionId,
+            'type' => $type,
+            'componentType' => $type,
+            'name' => null,
+            'config' => $this->prepareWorkflowActionConfig($type, $registry->getDefaultConfig($type), '', $index),
+        ];
+
+        $this->setArrayAtPath('', $actions);
+        $this->syncDefinition();
+        $this->mountAction('configureWorkflowAction', ['actionId' => $actionId]);
+    }
+
     public function selectActionType(string $type): void
     {
         $registry = app(ActionRegistry::class);

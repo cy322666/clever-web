@@ -2485,6 +2485,28 @@ body:has(.workflow-builder) .fi-textarea,
     color: rgb(180 83 9);
 }
 
+.workflow-add-block {
+    display: inline-flex;
+    align-items: center;
+    justify-self: center;
+    gap: 0.5rem;
+    border: 1px dashed rgb(216 208 197);
+    border-radius: 0.375rem;
+    background: rgb(255 255 255);
+    padding: 0.5rem 0.75rem;
+    color: rgb(100 116 139);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1rem;
+    transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.workflow-add-block:hover {
+    border-color: rgb(255 106 0 / 0.45);
+    background: rgb(255 247 237);
+    color: rgb(234 88 12);
+}
+
 .workflow-rule-column .workflow-sortable-list {
     display: grid;
     gap: 0.5rem;
@@ -2539,14 +2561,16 @@ body:has(.workflow-builder) .fi-textarea,
 .dark .workflow-rules-empty-trigger,
 .dark .workflow-rule-condition-card,
 .dark .workflow-rule-empty,
-.dark .workflow-rule-add {
+.dark .workflow-rule-add,
+.dark .workflow-add-block {
     border-color: rgb(73 60 48 / 0.78);
     background: rgb(30 28 25);
 }
 
 .dark .workflow-rules-empty-trigger:hover,
 .dark .workflow-rule-condition-card:hover,
-.dark .workflow-rule-add:hover {
+.dark .workflow-rule-add:hover,
+.dark .workflow-add-block:hover {
     border-color: rgb(255 106 0 / 0.5);
     background: rgb(39 31 25);
 }

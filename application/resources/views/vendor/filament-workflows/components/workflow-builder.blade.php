@@ -137,17 +137,10 @@
                     <div class="workflow-rule-block__grid">
                         <div class="workflow-rule-column workflow-rule-column--conditions">
                             <div class="workflow-rule-column__header">
-                                <span>Триггер и условия</span>
+                                <span>Условия</span>
                             </div>
 
-                            @if ($this->trigger)
-                                <x-filament-workflows::workflows.trigger-card
-                                    :type="$this->trigger['type']"
-                                    :config="$this->trigger['config'] ?? []"
-                                    :metadata="$this->getTriggerMetadata($this->trigger['type'], $this->trigger['config'] ?? [])"
-                                    :read-only="false"
-                                />
-                            @else
+                            @unless ($this->trigger)
                                 <button
                                     type="button"
                                     wire:click="mountAction('selectTrigger')"
@@ -161,7 +154,7 @@
                                         <span class="workflow-rules-empty-trigger__text">Что запускает сценарий</span>
                                     </span>
                                 </button>
-                            @endif
+                            @endunless
 
                             @if($conditionActions->isNotEmpty())
                                 <div class="workflow-rule-condition-list">
@@ -234,6 +227,17 @@
                         </div>
                     </div>
                 </section>
+
+                @if ($this->trigger)
+                    <button
+                        type="button"
+                        wire:click="addWorkflowBlock"
+                        class="workflow-add-block"
+                    >
+                        <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                        <span>Добавить блок</span>
+                    </button>
+                @endif
             </main>
         </div>
     </div>
