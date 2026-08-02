@@ -166,10 +166,6 @@
                         </div>
 
                         <div class="workflow-rule-column workflow-rule-column--actions">
-                            <div class="workflow-rule-column__header">
-                                <span>Действия</span>
-                            </div>
-
                             @if ($regularActions->isNotEmpty())
                                 <x-filament-workflows::workflows.action-list :actions="$regularActions->all()"/>
                             @elseif ($this->trigger)
@@ -337,10 +333,6 @@
                             </div>
 
                             <div class="workflow-rule-column workflow-rule-column--actions">
-                                <div class="workflow-rule-column__header">
-                                    <span>Действия</span>
-                                </div>
-
                                 @if (!empty($blockActions))
                                     <x-filament-workflows::workflows.action-list
                                         :actions="$blockActions"
