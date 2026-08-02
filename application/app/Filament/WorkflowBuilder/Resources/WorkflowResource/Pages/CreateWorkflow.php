@@ -5,6 +5,7 @@ namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasCompactWorkflowConfigurationPanels;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowPageActions;
+use App\Workflows\FailureStrategies;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Support\Enums\Width;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\CreateWorkflow as BaseCreateWorkflow;
@@ -26,6 +27,9 @@ class CreateWorkflow extends BaseCreateWorkflow
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data = parent::mutateFormDataBeforeCreate($data);
+        $data['name'] = filled($data['name'] ?? null) ? $data['name'] : 'Новый процесс';
+        $data['is_active'] = (bool)($data['is_active'] ?? false);
+        $data['failure_strategy'] = $data['failure_strategy'] ?? FailureStrategies::STOP;
 
         if (data_get($data, 'definition.trigger.type') === WorkflowCompletedTrigger::type()) {
             data_set($data, 'definition.trigger.config', []);
