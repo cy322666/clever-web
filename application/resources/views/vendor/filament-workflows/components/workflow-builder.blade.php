@@ -79,20 +79,22 @@
                 <div class="workflow-workbench__quick-actions ml-auto flex flex-wrap items-center gap-2">
                     <button
                         type="submit"
+                        aria-label="{{ $submitLabel }}"
+                        title="{{ $submitLabel }}"
                         class="workflow-workbench__quick-action workflow-workbench__quick-action--primary"
                     >
                         <x-filament::icon icon="heroicon-o-check" class="h-4 w-4"/>
-                        <span>{{ $submitLabel }}</span>
                     </button>
 
                     @if ($this->trigger && $workflowActionsCount > 0)
                         <button
                             type="button"
                             wire:click="mountAction('testWorkflow')"
+                            aria-label="Тестировать"
+                            title="Тестировать"
                             class="workflow-workbench__quick-action workflow-workbench__quick-action--warning"
                         >
                             <x-filament::icon icon="heroicon-o-beaker" class="h-4 w-4"/>
-                            <span>Тестировать</span>
                         </button>
                     @endif
 
@@ -100,10 +102,11 @@
                         <button
                             type="button"
                             wire:click="mountAction('workflowHistory')"
+                            aria-label="История"
+                            title="История"
                             class="workflow-workbench__quick-action"
                         >
                             <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4"/>
-                            <span>История</span>
                         </button>
                     @endif
 
@@ -113,10 +116,11 @@
                             wire:click="duplicateCurrentWorkflow"
                             wire:loading.attr="disabled"
                             wire:target="duplicateCurrentWorkflow"
+                            aria-label="Дублировать"
+                            title="Дублировать"
                             class="workflow-workbench__quick-action"
                         >
                             <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
-                            <span>Дублировать</span>
                         </button>
                     @endif
 

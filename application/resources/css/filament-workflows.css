@@ -1420,14 +1420,19 @@ body:has(.workflow-builder) .fi-textarea,
 }
 
 .workflow-workbench__quick-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 2.25rem !important;
     min-height: 2rem !important;
+    aspect-ratio: 1 / 1 !important;
     border-color: var(--workflow-lite-line-strong) !important;
     border-radius: 0.28rem !important;
     background: #ffffff !important;
     color: var(--workflow-lite-text) !important;
     font-size: 0.8rem !important;
     font-weight: 600 !important;
-    padding: 0.45rem 0.65rem !important;
+    padding: 0 !important;
     box-shadow: none !important;
 }
 
