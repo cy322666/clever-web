@@ -179,6 +179,7 @@ trait HasWorkflowPageActions
     private function cloneWorkflowActionTree(array $action): array
     {
         $action['id'] = 'step_' . Str::lower(Str::ulid()->toBase32());
+        unset($action['name']);
 
         foreach (['true_actions', 'false_actions'] as $branchKey) {
             if (!isset($action['config'][$branchKey]) || !is_array($action['config'][$branchKey])) {
@@ -416,7 +417,6 @@ trait HasWorkflowPageActions
             'id' => $actionId,
             'type' => $type,
             'componentType' => $type,
-            'name' => null,
             'config' => $config,
         ];
 
@@ -492,7 +492,6 @@ trait HasWorkflowPageActions
             'id' => $actionId,
             'type' => $type,
             'componentType' => str_starts_with($type, 'control-') ? $type : 'task',
-            'name' => null,
             'config' => $config,
         ];
 
@@ -567,5 +566,53 @@ trait HasWorkflowPageActions
         }
 
         return 'found_' . $entity . '_' . ($count + 1);
+    }
+
+    /**
+     * @return array<int, Component>
+     */
+    protected function getWorkflowActionConfigSchema(): array
+    {
+        $action = $this->getEditingWorkflowAction();
+
+        if (!$action) {
+            return [];
+        }
+
+        return app(ActionRegistry::class)->getConfigSchema(
+            $action['type'],
+            $this->getTriggerModelClass(),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    protected function updateWorkflowActionConfig(string $actionId, array $config, ?string $name = null): void
+    {
+        $path = $this->findActionPathById($actionId);
+
+        if ($path === null) {
+            return;
+        }
+
+        $data = &$this->workflowActions;
+
+        foreach (explode('.', $path) as $key) {
+            $data = &$data[$key];
+        }
+
+        unset($data['name']);
+
+        $existingConfig = $data['config'] ?? [];
+
+        foreach (['true_actions', 'false_actions'] as $key) {
+            if (isset($existingConfig[$key]) && !isset($config[$key])) {
+                $config[$key] = $existingConfig[$key];
+            }
+        }
+
+        $data['config'] = $config;
+        $this->syncDefinition();
     }
 }
