@@ -580,34 +580,33 @@ body.fi-body {
     color: #ffffff;
 }
 
-.fi-resource-workflows .fi-sc:has(.workflow-list-controls):has(.workflow-list-groups) {
+.fi-resource-workflows .workflow-list-layout {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 15rem;
+    grid-template-columns: 15rem minmax(0, 1fr);
     align-items: start;
     column-gap: 0.75rem !important;
     row-gap: 0 !important;
 }
 
-.fi-resource-workflows .fi-sc:has(.workflow-list-controls):has(.workflow-list-groups) > * {
-    grid-column: 1 / -1;
-}
-
 .fi-resource-workflows .workflow-list-controls {
-    grid-column: 1 / -1 !important;
+    width: 100%;
 }
 
-.fi-resource-workflows .workflow-list-controls + * {
-    grid-column: 1 !important;
+.fi-resource-workflows .workflow-list-layout > * {
     min-width: 0;
 }
 
 .workflow-list-groups {
-    grid-column: 2 !important;
-    grid-row: auto / span 1;
+    grid-column: 1 !important;
     border: 1px solid var(--clever-border);
     border-radius: 0.5rem;
     background: rgb(255 255 255 / 0.94);
     overflow: hidden;
+}
+
+.fi-resource-workflows .workflow-list-layout .fi-ta {
+    grid-column: 2 !important;
+    min-width: 0;
 }
 
 .workflow-list-groups__title {
@@ -739,12 +738,12 @@ body.fi-body {
 }
 
 @media (max-width: 1023px) {
-    .fi-resource-workflows .fi-sc:has(.workflow-list-controls):has(.workflow-list-groups) {
+    .fi-resource-workflows .workflow-list-layout {
         grid-template-columns: minmax(0, 1fr);
     }
 
     .workflow-list-groups,
-    .fi-resource-workflows .workflow-list-controls + * {
+    .fi-resource-workflows .workflow-list-layout .fi-ta {
         grid-column: 1 !important;
     }
 
@@ -774,29 +773,23 @@ body.fi-body {
     margin-top: 0 !important;
 }
 
-.fi-resource-workflows .workflow-list-controls + *,
-.fi-resource-workflows .workflow-list-controls + * > * {
+.fi-resource-workflows .workflow-list-layout,
+.fi-resource-workflows .workflow-list-layout > * {
     margin-top: 0 !important;
 }
 
-.fi-resource-workflows .workflow-list-controls + .fi-ta,
-.fi-resource-workflows .workflow-list-controls ~ .fi-ta,
-.fi-resource-workflows .workflow-list-controls + * .fi-ta {
+.fi-resource-workflows .workflow-list-layout .fi-ta {
     border-top-left-radius: 0 !important;
     border-top-right-radius: 0 !important;
     margin-top: 0 !important;
 }
 
-.fi-resource-workflows .workflow-list-controls + .fi-ta .fi-ta-header,
-.fi-resource-workflows .workflow-list-controls ~ .fi-ta .fi-ta-header,
-.fi-resource-workflows .workflow-list-controls + * .fi-ta .fi-ta-header {
+.fi-resource-workflows .workflow-list-layout .fi-ta .fi-ta-header {
     border-top-left-radius: 0 !important;
     border-top-right-radius: 0 !important;
 }
 
-.fi-resource-workflows .workflow-list-controls + .fi-ta .fi-ta-ctn,
-.fi-resource-workflows .workflow-list-controls ~ .fi-ta .fi-ta-ctn,
-.fi-resource-workflows .workflow-list-controls + * .fi-ta .fi-ta-ctn {
+.fi-resource-workflows .workflow-list-layout .fi-ta .fi-ta-ctn {
     border-top-left-radius: 0 !important;
     border-top-right-radius: 0 !important;
 }

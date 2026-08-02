@@ -10,6 +10,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
@@ -35,8 +36,23 @@ class ListWorkflows extends BaseListWorkflows
                 $this->getTabsContentComponent(),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE),
                 View::make('filament.workflow-builder.workflow-list-controls'),
-                EmbeddedTable::make(),
-                View::make('filament.workflow-builder.workflow-list-groups'),
+                Grid::make([
+                    'default' => 1,
+                    'lg' => 12,
+                ])
+                    ->schema([
+                        View::make('filament.workflow-builder.workflow-list-groups')
+                            ->columnSpan([
+                                'default' => 1,
+                                'lg' => 3,
+                            ]),
+                        EmbeddedTable::make()
+                            ->columnSpan([
+                                'default' => 1,
+                                'lg' => 9,
+                            ]),
+                    ])
+                    ->extraAttributes(['class' => 'workflow-list-layout']),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER),
             ]);
     }
