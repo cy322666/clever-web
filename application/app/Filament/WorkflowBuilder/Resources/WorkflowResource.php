@@ -19,7 +19,6 @@ use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Leek\FilamentWorkflows\Models\Workflow;
@@ -58,11 +57,6 @@ class WorkflowResource extends BaseWorkflowResource
                 TextColumn::make('name')
                     ->label(__('filament-workflows::workflows.fields.name.label'))
                     ->sortable()
-                    ->extraCellAttributes(fn(Workflow $record): array => [
-                        'class' => $record->is_active
-                            ? 'workflow-list-name-cell'
-                            : 'workflow-list-name-cell workflow-list-name-cell--inactive',
-                    ])
                     ->description(fn(Workflow $record): ?string => $record->description)
                     ->action(Action::make('configure_workflow')),
 
@@ -72,7 +66,6 @@ class WorkflowResource extends BaseWorkflowResource
                     ->options(fn(): array => AppWorkflow::groupOptions())
                     ->searchableOptions()
                     ->native(false)
-                    ->extraAttributes(['class' => 'workflow-list-group-select'])
                     ->sortable(),
 
                 TextColumn::make('workflow_trigger')
@@ -100,30 +93,6 @@ class WorkflowResource extends BaseWorkflowResource
             ->recordAction('configure_workflow')
             ->defaultSort('updated_at', 'desc')
             ->paginated(false)
-            ->groups([
-                Group::make('group_name')
-                    ->label('Группа')
-                    ->titlePrefixedWithLabel(false)
-                    ->getKeyFromRecordUsing(fn(Workflow $record): string => $record->group_name ?: '__without_group__')
-                    ->getTitleFromRecordUsing(fn(Workflow $record): string => $record->group_name ?: 'Без группы')
-                    ->scopeQueryByKeyUsing(function (Builder $query, ?string $key): Builder {
-                        if ($key === '__without_group__') {
-                            return $query->where(fn(Builder $query): Builder => $query
-                                ->whereNull('group_name')
-                                ->orWhere('group_name', ''));
-                        }
-
-                        return $query->where('group_name', $key);
-                    })
-                    ->collapsible(),
-            ])
-            ->groupingSettingsHidden()
-            ->groupingDirectionSettingHidden()
-            ->recordClasses(fn(Workflow $record): string => match (true) {
-                static::isWorkflowCallTrigger($record) && !static::canActivate($record) => 'workflow-list-row workflow-list-row--warning',
-                $record->is_active => 'workflow-list-row workflow-list-row--active',
-                default => 'workflow-list-row workflow-list-row--inactive',
-            })
             ->filters([
                 TernaryFilter::make('is_active')
                     ->label(__('filament-workflows::workflows.filters.active.label'))

@@ -100,7 +100,6 @@ body.fi-body {
 }
 
 .fi-header-heading,
-.fi-ta-header-heading,
 .fi-section-header-heading {
     color: var(--clever-ink) !important;
     font-family: var(--font-sans);
@@ -117,7 +116,6 @@ body.fi-body {
 }
 
 .fi-section,
-.fi-ta,
 .fi-wi-widget,
 .fi-dropdown-panel,
 .fi-modal-window {
@@ -127,7 +125,6 @@ body.fi-body {
 }
 
 .fi-section,
-.fi-ta,
 .fi-wi-widget,
 .fi-dropdown-panel,
 .fi-modal-window {
@@ -157,27 +154,9 @@ body.fi-body {
     box-shadow: 0 4px 14px rgb(15 15 15 / 0.045), 0 1px 2px rgb(15 15 15 / 0.025) !important;
 }
 
-.fi-section-header,
-.fi-ta-header {
+.fi-section-header {
     border-color: rgb(226 220 211 / 0.86) !important;
     background: rgb(255 255 255 / 0.94);
-}
-
-.fi-ta-table th {
-    color: rgb(111 111 111) !important;
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0;
-}
-
-.fi-ta-row,
-.fi-ta-table td {
-    border-color: rgb(232 225 215 / 0.72) !important;
-}
-
-.fi-ta-row:hover > td {
-    background: rgb(255 106 0 / 0.055) !important;
 }
 
 .fi-btn {
@@ -346,19 +325,9 @@ body.fi-body {
     box-shadow: none !important;
 }
 
-.dark .fi-section-header,
-.dark .fi-ta-header {
+.dark .fi-section-header {
     border-color: var(--clever-border) !important;
     background: #1d1d1d;
-}
-
-.dark .fi-ta-row,
-.dark .fi-ta-table td {
-    border-color: var(--clever-border) !important;
-}
-
-.dark .fi-ta-row:hover > td {
-    background: rgb(255 255 255 / 0.035) !important;
 }
 
 .dark .fi-input-wrp,
@@ -386,56 +355,6 @@ body.fi-body {
     box-shadow: 0 0 0 1px rgb(255 106 0 / 0.18) !important;
 }
 
-.workflow-list-row > td {
-    transition: background-color 150ms ease;
-}
-
-.workflow-list-row--active > td {
-    background-color: rgb(34 197 94 / 0.018);
-}
-
-.workflow-list-row--inactive > td {
-    background-color: rgb(100 116 139 / 0.018);
-}
-
-.workflow-list-row--warning > td {
-    background-color: rgb(239 68 68 / 0.025);
-}
-
-.workflow-list-row:hover > td {
-    background-color: rgb(255 106 0 / 0.035);
-}
-
-.workflow-list-name-cell--inactive,
-.workflow-list-name-cell--inactive a,
-.workflow-list-name-cell--inactive .fi-ta-text-item,
-.workflow-list-name-cell--inactive .fi-ta-text-item-label {
-    color: rgb(107 114 128) !important;
-}
-
-.workflow-list-name-cell--inactive .fi-ta-text-description {
-    color: rgb(156 163 175) !important;
-}
-
-.workflow-list-group-select .fi-input-wrp,
-.workflow-list-group-select .fi-select-input {
-    min-width: 10rem;
-    max-width: 14rem;
-    min-height: 1.9rem !important;
-    border-color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-.workflow-list-group-select .fi-input-wrp:hover,
-.workflow-list-group-select .fi-input-wrp:focus-within,
-.workflow-list-group-select .fi-select-input:hover,
-.workflow-list-group-select .fi-select-input:focus {
-    border-color: rgb(255 106 0 / 0.22) !important;
-    background: rgb(255 106 0 / 0.045) !important;
-    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.08) !important;
-}
-
 .workflow-list-badge .fi-badge,
 .workflow-list-badge.fi-badge {
     border: 1px solid color-mix(in oklab, currentColor 12%, transparent);
@@ -447,57 +366,6 @@ body.fi-body {
 .workflow-list-count-badge.fi-badge {
     border-color: rgb(148 163 184 / 0.18);
     background-color: rgb(148 163 184 / 0.08);
-}
-
-.workflow-list-status-toggle {
-    width: 3.65rem;
-}
-
-.workflow-list-status-toggle button,
-.workflow-list-status-toggle a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    transition: transform 150ms ease;
-}
-
-.workflow-list-status-toggle button:hover,
-.workflow-list-status-toggle a:hover {
-    transform: translateY(-1px);
-}
-
-.workflow-list-status-control {
-    display: inline-flex;
-    width: 2.35rem;
-    height: 1.28rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.42rem;
-    border: 1px solid rgb(209 213 219 / 0.82);
-    background: rgb(255 255 255 / 0.88);
-    color: rgb(107 114 128);
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
-}
-
-.workflow-list-status-control--active {
-    border-color: rgb(255 106 0 / 0.42);
-    background: rgb(255 106 0);
-    color: rgb(24 24 24);
-}
-
-.workflow-list-status-control--inactive {
-    border-color: rgb(148 163 184 / 0.34);
-    background: rgb(248 250 252 / 0.78);
-    color: rgb(100 116 139);
-}
-
-.workflow-list-status-control__icon {
-    width: 0.82rem !important;
-    height: 0.82rem !important;
 }
 
 .workflow-run-history-link {
@@ -529,224 +397,6 @@ body.fi-body {
 .workflow-run-history-error {
     color: rgb(220 38 38);
     font-weight: 500;
-}
-
-.workflow-list-controls {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    justify-content: start;
-    gap: 0.5rem;
-    border: 1px solid var(--clever-border);
-    border-bottom: 0;
-    border-radius: 0.5rem 0.5rem 0 0;
-    background: rgb(255 255 255 / 0.92);
-    padding: 0.35rem 0.5rem;
-    margin-bottom: -1px;
-    position: relative;
-    z-index: 2;
-}
-
-.workflow-list-activity {
-    display: inline-flex;
-    align-items: center;
-    gap: 0;
-    overflow: hidden;
-    border: 1px solid rgb(216 208 197 / 0.85);
-    border-radius: 0.5rem;
-    background: rgb(255 255 255 / 0.78);
-}
-
-.workflow-list-activity__button {
-    border: 0;
-    border-right: 1px solid rgb(216 208 197 / 0.72);
-    background: transparent;
-    color: rgb(111 111 111);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.88rem;
-    font-weight: 600;
-    line-height: 1;
-    min-height: 2.35rem;
-    padding: 0 0.9rem;
-    transition: background-color 150ms ease, color 150ms ease;
-}
-
-.workflow-list-activity__button:last-child {
-    border-right: 0;
-}
-
-.workflow-list-activity__button:hover {
-    background: rgb(250 248 245);
-    color: rgb(35 38 43);
-}
-
-.workflow-list-activity__button--active {
-    background: var(--clever-orange);
-    color: #ffffff;
-}
-
-.workflow-list-activity__button--active:hover {
-    background: var(--clever-orange);
-    color: #ffffff;
-}
-
-.workflow-list-groups {
-    border: 1px solid var(--clever-border);
-    border-radius: 0.5rem;
-    background: rgb(255 255 255 / 0.94);
-    overflow: hidden;
-}
-
-.workflow-list-groups__title {
-    border-bottom: 1px solid rgb(232 226 218);
-    background: rgb(250 248 245);
-    color: rgb(148 151 156);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1;
-    padding: 0.8rem 0.9rem;
-    text-transform: uppercase;
-}
-
-.workflow-list-groups__items {
-    display: flex;
-    flex-direction: column;
-}
-
-.workflow-list-groups__item {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    border: 0;
-    border-bottom: 1px solid rgb(240 238 235);
-    background: transparent;
-    color: rgb(91 96 103);
-    cursor: pointer;
-    font: inherit;
-    min-height: 2.8rem;
-    padding: 0.55rem 0.85rem;
-    text-align: left;
-    transition: background-color 150ms ease, color 150ms ease;
-}
-
-.workflow-list-groups__item:last-child {
-    border-bottom: 0;
-}
-
-.workflow-list-groups__item:hover {
-    background: rgb(250 248 245);
-    color: rgb(35 38 43);
-}
-
-.workflow-list-groups__item--active {
-    background: rgb(255 246 239);
-    color: var(--clever-orange);
-}
-
-.workflow-list-groups__name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.workflow-list-groups__count {
-    color: rgb(168 172 177);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.workflow-list-groups__item--active .workflow-list-groups__count {
-    color: var(--clever-orange);
-}
-
-.workflow-list-controls__field {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    min-height: 2.35rem;
-    min-width: 0 !important;
-    width: 100%;
-    overflow: hidden;
-    border: 1px solid rgb(216 208 197 / 0.85);
-    border-radius: 0.5rem;
-    background: rgb(255 255 255 / 0.78);
-    box-shadow: none;
-    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
-}
-
-.workflow-list-controls__field:hover,
-.workflow-list-controls__field:focus-within {
-    border-color: rgb(255 106 0 / 0.48);
-    background: rgb(255 255 255 / 0.96);
-    box-shadow: 0 0 0 1px rgb(255 106 0 / 0.16);
-}
-
-.workflow-list-controls__label {
-    align-self: stretch;
-    display: inline-flex;
-    align-items: center;
-    border-right: 1px solid rgb(216 208 197 / 0.82);
-    background: rgb(247 244 239 / 0.7);
-    color: rgb(111 111 111);
-    font-size: 0.82rem;
-    font-weight: 600;
-    padding-inline: 0.65rem;
-    white-space: nowrap;
-}
-
-.workflow-list-controls__select {
-    min-width: 0;
-}
-
-.workflow-list-controls__field .fi-input-wrp {
-    border: 0 !important;
-    border-radius: 0 !important;
-    width: 100%;
-    min-height: 2.25rem !important;
-    min-width: 0;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-.workflow-list-controls__field .fi-input,
-.workflow-list-controls__field select {
-    min-width: 0;
-    min-height: 2.25rem !important;
-    padding-block: 0.25rem !important;
-    cursor: pointer;
-    font-weight: 650;
-}
-
-.workflow-list-controls__create {
-    justify-self: end;
-    white-space: nowrap;
-}
-
-@media (max-width: 1023px) {
-    .workflow-list-groups {
-        margin-top: 0.75rem;
-    }
-
-    .workflow-list-controls {
-        grid-template-columns: 1fr;
-    }
-
-    .workflow-list-controls__spacer {
-        display: none;
-    }
-
-    .workflow-list-controls__create {
-        justify-self: stretch;
-    }
-}
-
-.fi-ta-table .workflow-list-row > td {
-    padding-top: 0.32rem;
-    padding-bottom: 0.32rem;
 }
 
 .fi-resource-workflow-runs .fi-ta-table td {
@@ -843,87 +493,6 @@ body.fi-body {
     }
 }
 
-.dark .workflow-list-row--active > td {
-    border-color: var(--clever-border) !important;
-    background-color: rgb(34 197 94 / 0.025);
-}
-
-.dark .workflow-list-row--inactive > td {
-    border-color: var(--clever-border) !important;
-    background-color: rgb(148 163 184 / 0.018);
-}
-
-.dark .workflow-list-row--warning > td {
-    border-color: rgb(127 29 29 / 0.38) !important;
-    background-color: rgb(239 68 68 / 0.035);
-}
-
-.dark .fi-resource-workflows .fi-ta-row.workflow-list-row:hover > td,
-.dark .fi-resource-workflows .workflow-list-row:hover > td,
-.dark .workflow-list-row:hover > td {
-    border-color: var(--clever-border-strong) !important;
-    background-color: #202020 !important;
-    color: rgb(245 245 244) !important;
-}
-
-.dark .workflow-list-name-cell--inactive,
-.dark .workflow-list-name-cell--inactive a,
-.dark .workflow-list-name-cell--inactive .fi-ta-text-item,
-.dark .workflow-list-name-cell--inactive .fi-ta-text-item-label {
-    color: rgb(148 163 184) !important;
-}
-
-.dark .workflow-list-name-cell--inactive .fi-ta-text-description {
-    color: rgb(100 116 139) !important;
-}
-
-.dark .workflow-list-group-select .fi-input-wrp,
-.dark .workflow-list-group-select .fi-select-input {
-    border-color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-.dark .workflow-list-group-select .fi-input-wrp:hover,
-.dark .workflow-list-group-select .fi-input-wrp:focus-within,
-.dark .workflow-list-group-select .fi-select-input:hover,
-.dark .workflow-list-group-select .fi-select-input:focus {
-    border-color: rgb(255 106 0 / 0.24) !important;
-    background: rgb(255 106 0 / 0.07) !important;
-    box-shadow: inset 0 0 0 1px rgb(255 106 0 / 0.1) !important;
-}
-
-.dark .workflow-list-status-toggle button,
-.dark .workflow-list-status-toggle a {
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.dark .workflow-list-status-toggle button:hover,
-.dark .workflow-list-status-toggle a:hover {
-    background: transparent;
-}
-
-.dark .workflow-list-status-control {
-    border-color: var(--clever-border);
-    background: #1b1b1b;
-    color: rgb(168 162 158);
-    box-shadow: none;
-}
-
-.dark .workflow-list-status-control--active {
-    border-color: rgb(255 106 0 / 0.5);
-    background: rgb(255 106 0);
-    color: rgb(17 17 17);
-}
-
-.dark .workflow-list-status-control--inactive {
-    border-color: var(--clever-border);
-    background: #1b1b1b;
-    color: rgb(120 113 108);
-}
-
 .dark .workflow-run-history-link {
     color: rgb(255 163 87);
 }
@@ -970,32 +539,6 @@ body.fi-body {
 
 .dark .fi-resource-workflow-runs .fi-ta-filters input::placeholder {
     color: rgb(168 162 158) !important;
-}
-
-.dark .fi-resource-workflows .workflow-list-controls,
-.dark .workflow-list-controls {
-    border-color: var(--clever-border) !important;
-    background: #191919 !important;
-    box-shadow: none !important;
-}
-
-.dark .workflow-list-controls__field {
-    border-color: var(--clever-border);
-    background: #1b1b1b;
-    box-shadow: none;
-}
-
-.dark .workflow-list-controls__field:hover,
-.dark .workflow-list-controls__field:focus-within {
-    border-color: rgb(255 106 0 / 0.5);
-    background: #202020;
-    box-shadow: 0 0 0 1px rgb(255 106 0 / 0.18);
-}
-
-.dark .workflow-list-controls__label {
-    border-right-color: var(--clever-border);
-    background: #202020;
-    color: var(--clever-muted);
 }
 
 .workflow-workbench__shell {
@@ -1660,133 +1203,7 @@ body:has(.workflow-builder) .fi-textarea,
     display: none !important;
 }
 
-.workflow-list-controls {
-    grid-template-columns: auto 1fr auto !important;
-    border-radius: 0.25rem 0.25rem 0 0 !important;
-    background: #ffffff !important;
-    padding: 0.45rem !important;
-}
-
-.workflow-list-activity {
-    border-color: var(--workflow-lite-line) !important;
-    border-radius: 0.22rem !important;
-    background: #ffffff !important;
-}
-
-.workflow-list-activity__button {
-    border-color: var(--workflow-lite-line) !important;
-    min-height: 2.1rem !important;
-    color: #8f969d !important;
-    font-weight: 500 !important;
-    padding-inline: 0.8rem !important;
-}
-
-.workflow-list-activity__button:hover {
-    background: #fafafa !important;
-    color: #353b45 !important;
-}
-
-.workflow-list-activity__button--active,
-.workflow-list-activity__button--active:hover {
-    background: var(--workflow-lite-orange) !important;
-    color: #ffffff !important;
-}
-
-.workflow-list-groups {
-    border-color: var(--workflow-lite-line) !important;
-    border-radius: 0.25rem !important;
-    background: #ffffff !important;
-    box-shadow: none !important;
-}
-
-.workflow-list-groups__title {
-    border-color: #f0f0f0 !important;
-    background: #ffffff !important;
-    color: #b3b6ba !important;
-}
-
-.workflow-list-groups__item {
-    border-color: #f0f0f0 !important;
-    min-height: 2.65rem !important;
-    padding: 0.5rem 0.8rem !important;
-}
-
-.workflow-list-groups__item:hover {
-    background: #fafafa !important;
-}
-
-.workflow-list-groups__item--active {
-    background: #fff6ef !important;
-    color: var(--workflow-lite-orange) !important;
-}
-
-.workflow-list-controls__field {
-    min-height: 2.1rem !important;
-    border-color: var(--workflow-lite-line) !important;
-    border-radius: 0.22rem !important;
-    background: #ffffff !important;
-}
-
-.workflow-list-controls__field:hover,
-.workflow-list-controls__field:focus-within {
-    border-color: var(--workflow-lite-line-strong) !important;
-    background: #ffffff !important;
-    box-shadow: none !important;
-}
-
-.workflow-list-controls__label {
-    background: #f6f6f6 !important;
-    color: #8f969d !important;
-    font-weight: 500 !important;
-}
-
-.workflow-list-controls__field .fi-input,
-.workflow-list-controls__field select {
-    min-height: 2.05rem !important;
-    font-weight: 500 !important;
-}
-
-.fi-resource-workflows .fi-ta,
-.fi-resource-workflows .fi-ta-ctn,
-.fi-resource-workflows .fi-ta-table {
-    border-radius: 0 !important;
-    box-shadow: none !important;
-}
-
-.fi-resource-workflows .fi-ta-table td {
-    border-color: #f0f0f0 !important;
-    background: #ffffff !important;
-    padding-top: 0.26rem !important;
-    padding-bottom: 0.26rem !important;
-}
-
-.fi-resource-workflows .fi-ta-table tr:hover td {
-    background: #fafafa !important;
-}
-
-.fi-resource-workflows .workflow-list-row > td {
-    padding-top: 0.16rem !important;
-    padding-bottom: 0.16rem !important;
-}
-
-.fi-resource-workflows .fi-ta-text,
-.fi-resource-workflows .fi-ta-text-item,
-.fi-resource-workflows .fi-ta-text-description {
-    line-height: 1.15 !important;
-}
-
-.fi-resource-workflows .workflow-list-group-select .fi-input,
-.fi-resource-workflows .workflow-list-group-select select {
-    min-height: 1.85rem !important;
-    padding-top: 0.18rem !important;
-    padding-bottom: 0.18rem !important;
-}
-
 @media (max-width: 1023px) {
-    .workflow-list-controls {
-        grid-template-columns: 1fr !important;
-    }
-
     .workflow-builder .workflow-condition-branches--split {
         grid-template-columns: minmax(0, 1fr) !important;
     }
@@ -1823,9 +1240,7 @@ body:has(.workflow-builder) .fi-textarea,
     background: rgb(23 21 18 / 0.92) !important;
 }
 
-.dark .workflow-workbench__quick-action,
-.dark .workflow-list-controls,
-.dark .workflow-list-controls__field {
+.dark .workflow-workbench__quick-action {
     border-color: var(--workflow-lite-line) !important;
     background: var(--workflow-lite-panel) !important;
     color: var(--workflow-lite-text) !important;
@@ -1840,27 +1255,6 @@ body:has(.workflow-builder) .fi-textarea,
     background: var(--workflow-lite-panel) !important;
     color: var(--workflow-lite-text) !important;
     box-shadow: var(--workflow-lite-shadow) !important;
-}
-
-.dark .workflow-list-activity {
-    border-color: var(--workflow-lite-line) !important;
-    background: var(--workflow-lite-panel) !important;
-}
-
-.dark .workflow-list-activity__button {
-    border-color: var(--workflow-lite-line) !important;
-    color: var(--workflow-lite-muted) !important;
-}
-
-.dark .workflow-list-activity__button:hover {
-    background: var(--workflow-lite-block) !important;
-    color: var(--workflow-lite-text) !important;
-}
-
-.dark .workflow-list-activity__button--active,
-.dark .workflow-list-activity__button--active:hover {
-    background: var(--workflow-lite-orange) !important;
-    color: #ffffff !important;
 }
 
 .dark .workflow-builder .workflow-condition-node,
@@ -1893,23 +1287,6 @@ body:has(.workflow-builder) .fi-textarea,
 .dark .workflow-builder .workflow-condition-node .text-slate-400,
 .dark .workflow-builder .workflow-condition-node .dark\:text-gray-400 {
     color: var(--workflow-lite-muted) !important;
-}
-
-.dark .workflow-list-controls__label {
-    background: #24211d !important;
-    color: #a49b91 !important;
-}
-
-.dark .fi-resource-workflows .fi-ta,
-.dark .fi-resource-workflows .fi-ta-ctn,
-.dark .fi-resource-workflows .fi-ta-table,
-.dark .fi-resource-workflows .fi-ta-table td {
-    border-color: var(--workflow-lite-line) !important;
-    background: #1d1b18 !important;
-}
-
-.dark .fi-resource-workflows .fi-ta-table tr:hover td {
-    background: #25221e !important;
 }
 
 .workflow-sortable-item--over::before {
