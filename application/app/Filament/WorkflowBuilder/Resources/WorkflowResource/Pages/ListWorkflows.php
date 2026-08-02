@@ -105,7 +105,15 @@ class ListWorkflows extends BaseListWorkflows
                 ->label('Создать')
                 ->icon('heroicon-o-plus')
                 ->color('warning')
-                ->url(fn(): string => WorkflowResource::getUrl('create')),
+                ->modalHeading('Создать сценарий')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Закрыть')
+                ->modalWidth(Width::Screen)
+                ->closeModalByClickingAway(false)
+                ->modalContent(fn() => view('filament.workflow-builder.workflow-editor-frame', [
+                    'url' => WorkflowResource::getUrl('create', ['embedded' => 1]),
+                    'title' => 'Создать сценарий',
+                ])),
 
             Action::make('workflow_amocrm_connection')
                 ->label(fn(): string => $this->workflowAmoConnectionState()['label'])

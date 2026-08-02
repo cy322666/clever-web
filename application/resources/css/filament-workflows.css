@@ -2185,3 +2185,27 @@ body:has(.workflow-builder) .fi-textarea,
 .ec-timeline .ec-sidebar .ec-resource:last-child {
     flex-basis: auto !important;
 }
+
+.workflow-editor-modal-frame {
+    height: min(78vh, 58rem);
+    overflow: hidden;
+    border: 1px solid rgb(231 226 219);
+    background: rgb(246 244 241);
+}
+
+.workflow-editor-modal-frame__iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: transparent;
+}
+
+.workflow-list-configure-action {
+    display: none !important;
+}
+
+.dark .workflow-editor-modal-frame {
+    border-color: rgb(68 60 51);
+    background: rgb(24 22 20);
+}

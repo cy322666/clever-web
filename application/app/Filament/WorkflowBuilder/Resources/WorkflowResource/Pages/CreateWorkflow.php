@@ -38,4 +38,16 @@ class CreateWorkflow extends BaseCreateWorkflow
 
         return WorkflowResource::forceInactiveWithoutActions($data, notify: true);
     }
+
+    protected function getRedirectUrl(): string
+    {
+        if (request()->boolean('embedded') && $this->record !== null) {
+            return WorkflowResource::getUrl('edit', [
+                'record' => $this->record,
+                'embedded' => 1,
+            ]);
+        }
+
+        return parent::getRedirectUrl();
+    }
 }

@@ -47,4 +47,16 @@ class EditWorkflow extends BaseEditWorkflow
 
         return $data;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        if (request()->boolean('embedded')) {
+            return WorkflowResource::getUrl('edit', [
+                'record' => $this->record,
+                'embedded' => 1,
+            ]);
+        }
+
+        return parent::getRedirectUrl();
+    }
 }

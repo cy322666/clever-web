@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -64,7 +65,7 @@ class WorkflowResource extends BaseWorkflowResource
                             : 'workflow-list-name-cell workflow-list-name-cell--inactive',
                     ])
                     ->description(fn(Workflow $record): ?string => $record->description)
-                    ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
+                    ->action(Action::make('configure_workflow')),
 
                 SelectColumn::make('group_name')
                     ->label('Группа')
@@ -96,8 +97,8 @@ class WorkflowResource extends BaseWorkflowResource
                     ->state(fn(Workflow $record): string => static::createdDescription($record))
                     ->sortable(),
             ])
-            ->recordUrl(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
-            ->openRecordUrlInNewTab()
+            ->recordUrl(null)
+            ->recordAction('configure_workflow')
             ->defaultSort('updated_at', 'desc')
             ->paginated(false)
             ->groups([
@@ -158,6 +159,22 @@ class WorkflowResource extends BaseWorkflowResource
             ->deferFilters(false)
             ->recordActions(
                 [
+                    Action::make('configure_workflow')
+                        ->label('Настроить сценарий')
+                        ->modalHeading(fn(Workflow $record): string => $record->name ?: 'Настройка сценария')
+                        ->modalSubmitAction(false)
+                        ->modalCancelActionLabel('Закрыть')
+                        ->modalWidth(Width::Screen)
+                        ->closeModalByClickingAway(false)
+                        ->modalContent(fn(Workflow $record) => view('filament.workflow-builder.workflow-editor-frame', [
+                            'url' => static::getUrl('edit', [
+                                'record' => $record,
+                                'embedded' => 1,
+                            ]),
+                            'title' => $record->name ?: 'Настройка сценария',
+                        ]))
+                        ->extraAttributes(['class' => 'workflow-list-configure-action']),
+
                     Action::make('duplicate_workflow')
                         ->label('Дублировать сценарий')
                         ->icon('heroicon-o-document-duplicate')
