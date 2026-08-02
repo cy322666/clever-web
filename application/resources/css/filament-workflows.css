@@ -1723,19 +1723,11 @@ body:has(.workflow-builder) .fi-page,
     box-shadow: none !important;
 }
 
-.fi-resource-workflows .fi-ta-table th {
-    background: #ffffff !important;
-    color: #b3b6ba !important;
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-}
-
 .fi-resource-workflows .fi-ta-table td {
     border-color: #f0f0f0 !important;
     background: #ffffff !important;
-    padding-top: 0.55rem !important;
-    padding-bottom: 0.55rem !important;
+    padding-top: 0.42rem !important;
+    padding-bottom: 0.42rem !important;
 }
 
 .fi-resource-workflows .fi-ta-table tr:hover td {
@@ -1743,8 +1735,8 @@ body:has(.workflow-builder) .fi-page,
 }
 
 .fi-resource-workflows .workflow-list-row > td {
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
+    padding-top: 0.28rem !important;
+    padding-bottom: 0.28rem !important;
 }
 
 @media (max-width: 1023px) {
@@ -1844,8 +1836,7 @@ body:has(.workflow-builder) .fi-page,
     color: var(--workflow-lite-muted) !important;
 }
 
-.dark .workflow-list-controls__label,
-.dark .fi-resource-workflows .fi-ta-table th {
+.dark .workflow-list-controls__label {
     background: #24211d !important;
     color: #a49b91 !important;
 }
