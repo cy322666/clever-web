@@ -185,16 +185,6 @@
                                 </div>
                             @endif
 
-                            @if ($this->trigger)
-                                <button
-                                    type="button"
-                                    wire:click="mountAction('addWorkflowAction')"
-                                    class="workflow-rule-add workflow-rule-add--condition"
-                                >
-                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                                    <span>Условие</span>
-                                </button>
-                            @endif
                         </div>
 
                         <div class="workflow-rule-column workflow-rule-column--actions">

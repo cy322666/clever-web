@@ -2479,12 +2479,6 @@ body:has(.workflow-builder) .fi-textarea,
     color: rgb(234 88 12);
 }
 
-.workflow-rule-add--condition:hover {
-    border-color: rgb(245 158 11 / 0.45);
-    background: rgb(255 251 235);
-    color: rgb(180 83 9);
-}
-
 .workflow-add-block {
     display: inline-flex;
     align-items: center;
