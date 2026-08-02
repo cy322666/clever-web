@@ -8,11 +8,13 @@
     } catch (\Throwable) {
         $workflowRecord = null;
     }
-    $workflowActionsCount = count($this->workflowActions);
-    $conditionActions = collect($this->workflowActions)
+    $workflowActionItems = collect($this->workflowActions)->values();
+    $workflowActionsCount = $workflowActionItems->count();
+    $conditionActions = $workflowActionItems
+        ->map(fn (array $action, int $index): array => $action + ['__workflowIndex' => $index])
         ->filter(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
         ->values();
-    $regularActions = collect($this->workflowActions)
+    $regularActions = $workflowActionItems
         ->reject(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
         ->values();
 @endphp
@@ -156,64 +158,9 @@
                                 </button>
                             @endunless
 
-                            @if($conditionActions->isNotEmpty())
-                                <div class="workflow-rule-condition-list">
-                                    @foreach($conditionActions as $conditionAction)
-                                        @php
-                                            $conditionConfig = $conditionAction['config'] ?? [];
-                                            $conditionPreviewRows = \App\Workflows\Actions\WorkflowConditionPreview::rows($conditionConfig, 4);
-                                            $conditionRemainingCount = \App\Workflows\Actions\WorkflowConditionPreview::remainingCount($conditionConfig, 4);
-                                        @endphp
-
-                                        <button
-                                            type="button"
-                                            wire:click="openWorkflowActionEditor('{{ $conditionAction['id'] }}')"
-                                            class="workflow-rule-condition-card"
-                                        >
-                                            @if($conditionPreviewRows !== [])
-                                                <span class="workflow-rule-condition-card__rows">
-                                                    @foreach($conditionPreviewRows as $conditionPreviewRow)
-                                                        <span class="workflow-rule-condition-card__row">
-                                                            @if($conditionPreviewRow['connector'])
-                                                                <span class="workflow-rule-condition-card__connector">
-                                                                    {{ $conditionPreviewRow['connector'] }}
-                                                                </span>
-                                                            @endif
-
-                                                            <span class="workflow-rule-condition-card__value">
-                                                                {{ $conditionPreviewRow['left'] }}
-                                                            </span>
-                                                            <span class="workflow-rule-condition-card__operator">
-                                                                {{ $conditionPreviewRow['operator'] }}
-                                                            </span>
-                                                            @if($conditionPreviewRow['right'] !== null)
-                                                                <span class="workflow-rule-condition-card__value">
-                                                                    {{ $conditionPreviewRow['right'] }}
-                                                                </span>
-                                                            @endif
-                                                        </span>
-                                                    @endforeach
-
-                                                    @if($conditionRemainingCount > 0)
-                                                        <span class="workflow-rule-condition-card__more">
-                                                            ещё {{ $conditionRemainingCount }} услов.
-                                                        </span>
-                                                    @endif
-                                                </span>
-                                            @else
-                                                <span class="workflow-rule-condition-card__title">Выполнять всегда</span>
-                                                <span class="workflow-rule-condition-card__text">
-                                                    Условия не настроены
-                                                </span>
-                                            @endif
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @else
-                                <div class="workflow-rule-empty">
-                                    <span>Выполнять всегда</span>
-                                </div>
-                            @endif
+                            <div class="workflow-rule-empty">
+                                <span>Выполнять всегда</span>
+                            </div>
 
                         </div>
 
@@ -247,6 +194,104 @@
                         </div>
                     </div>
                 </section>
+
+                @foreach($conditionActions as $conditionAction)
+                    @php
+                        $conditionConfig = $conditionAction['config'] ?? [];
+                        $conditionPreviewRows = \App\Workflows\Actions\WorkflowConditionPreview::rows($conditionConfig, 4);
+                        $conditionRemainingCount = \App\Workflows\Actions\WorkflowConditionPreview::remainingCount($conditionConfig, 4);
+                        $conditionActionsPath = $conditionAction['__workflowIndex'] . '.config.true_actions';
+                        $blockActions = $conditionConfig['true_actions'] ?? [];
+                    @endphp
+
+                    <section class="workflow-rule-block">
+                        <div class="workflow-rule-block__topline">
+                            <div>
+                                <div class="workflow-rule-block__name">Блок #{{ $loop->iteration + 1 }}</div>
+                                <div class="workflow-rule-block__meta">
+                                    через <span>0</span> сек.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="workflow-rule-block__grid">
+                            <div class="workflow-rule-column workflow-rule-column--conditions">
+                                <div class="workflow-rule-column__header">
+                                    <span>Условия</span>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    wire:click="openWorkflowActionEditor('{{ $conditionAction['id'] }}')"
+                                    class="workflow-rule-condition-card"
+                                >
+                                    @if($conditionPreviewRows !== [])
+                                        <span class="workflow-rule-condition-card__rows">
+                                            @foreach($conditionPreviewRows as $conditionPreviewRow)
+                                                <span class="workflow-rule-condition-card__row">
+                                                    @if($conditionPreviewRow['connector'])
+                                                        <span class="workflow-rule-condition-card__connector">
+                                                            {{ $conditionPreviewRow['connector'] }}
+                                                        </span>
+                                                    @endif
+
+                                                    <span class="workflow-rule-condition-card__value">
+                                                        {{ $conditionPreviewRow['left'] }}
+                                                    </span>
+                                                    <span class="workflow-rule-condition-card__operator">
+                                                        {{ $conditionPreviewRow['operator'] }}
+                                                    </span>
+                                                    @if($conditionPreviewRow['right'] !== null)
+                                                        <span class="workflow-rule-condition-card__value">
+                                                            {{ $conditionPreviewRow['right'] }}
+                                                        </span>
+                                                    @endif
+                                                </span>
+                                            @endforeach
+
+                                            @if($conditionRemainingCount > 0)
+                                                <span class="workflow-rule-condition-card__more">
+                                                    ещё {{ $conditionRemainingCount }} услов.
+                                                </span>
+                                            @endif
+                                        </span>
+                                    @else
+                                        <span class="workflow-rule-condition-card__title">Условие не настроено</span>
+                                        <span class="workflow-rule-condition-card__text">
+                                            Нажмите, чтобы настроить
+                                        </span>
+                                    @endif
+                                </button>
+                            </div>
+
+                            <div class="workflow-rule-column workflow-rule-column--actions">
+                                <div class="workflow-rule-column__header">
+                                    <span>Действия</span>
+                                </div>
+
+                                @if (!empty($blockActions))
+                                    <x-filament-workflows::workflows.action-list
+                                        :actions="$blockActions"
+                                        :parent-path="$conditionActionsPath"
+                                    />
+                                @else
+                                    <div class="workflow-rule-empty">
+                                        <span>Добавьте первое действие</span>
+                                    </div>
+                                @endif
+
+                                <button
+                                    type="button"
+                                    wire:click="openAddActionForPath('{{ $conditionActionsPath }}')"
+                                    class="workflow-rule-add"
+                                >
+                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                                    <span>Действие</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                @endforeach
 
                 @if ($this->trigger)
                     <button

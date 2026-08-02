@@ -401,18 +401,22 @@ trait HasWorkflowPageActions
         $actions = $this->getArrayAtPath('');
         $index = count($actions);
         $actionId = 'step_' . Str::lower(Str::ulid()->toBase32());
+        $config = $this->prepareWorkflowActionConfig($type, $registry->getDefaultConfig($type), '', $index);
+        $config['logic'] = $config['logic'] ?? 'and';
+        $config['conditions'] = [];
+        $config['true_actions'] = [];
+        $config['false_actions'] = [];
 
         $actions[] = [
             'id' => $actionId,
             'type' => $type,
             'componentType' => $type,
             'name' => null,
-            'config' => $this->prepareWorkflowActionConfig($type, $registry->getDefaultConfig($type), '', $index),
+            'config' => $config,
         ];
 
         $this->setArrayAtPath('', $actions);
         $this->syncDefinition();
-        $this->mountAction('configureWorkflowAction', ['actionId' => $actionId]);
     }
 
     public function selectActionType(string $type): void
