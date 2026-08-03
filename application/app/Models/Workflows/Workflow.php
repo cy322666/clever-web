@@ -20,6 +20,15 @@ class Workflow extends BaseWorkflow
             if ($workflow->is_active && ! static::definitionHasConfiguredActions($workflow->definition)) {
                 $workflow->is_active = false;
             }
+
+            if ($workflow->is_active && static::activeDuplicateForUniqueTrigger(
+                    (string)data_get($workflow->definition, 'trigger.type'),
+                    $workflow->account_id,
+                    $workflow->user_id,
+                    $workflow->exists ? $workflow->getKey() : null,
+                )) {
+                $workflow->is_active = false;
+            }
         });
 
         static::deleting(static function (Workflow $workflow): void {
@@ -60,6 +69,40 @@ class Workflow extends BaseWorkflow
         $actions = data_get($definition, 'actions', []);
 
         return is_array($actions) && static::actionListHasConfiguredAction($actions);
+    }
+
+    public static function requiresUniqueActiveTrigger(string $triggerType): bool
+    {
+        return str_starts_with($triggerType, 'amocrm-');
+    }
+
+    public static function activeDuplicateForUniqueTrigger(
+        string $triggerType,
+        int|string|null $accountId = null,
+        int|string|null $userId = null,
+        int|string|null $exceptWorkflowId = null,
+    ): ?self {
+        if (!static::requiresUniqueActiveTrigger($triggerType)) {
+            return null;
+        }
+
+        $query = static::query()
+            ->where('is_active', true)
+            ->where('definition->trigger->type', $triggerType);
+
+        if (filled($accountId)) {
+            $query->where('account_id', $accountId);
+        } elseif (filled($userId)) {
+            $query->where('user_id', $userId);
+        } else {
+            return null;
+        }
+
+        if (filled($exceptWorkflowId)) {
+            $query->whereKeyNot($exceptWorkflowId);
+        }
+
+        return $query->first(['id', 'name', 'definition']);
     }
 
     /**

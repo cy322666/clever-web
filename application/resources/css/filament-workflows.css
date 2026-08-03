@@ -1583,6 +1583,10 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
     display: none !important;
 }
 
+body:has(.workflow-editor-modal-shell) .fi-modal-footer {
+    display: none !important;
+}
+
 .workflow-editor-modal-shell .workflow-workbench__toolbar {
     border-bottom: 0 !important;
     background: transparent !important;
@@ -1756,6 +1760,23 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
     line-height: 1.125rem;
 }
 
+.workflow-inline-trigger-list {
+    max-height: 22rem;
+    overflow-y: auto;
+    border: 1px solid rgb(222 216 207);
+    border-radius: 0.5rem;
+    background: #fff;
+    box-shadow: 0 10px 26px rgb(15 15 15 / 0.08);
+}
+
+.workflow-trigger-selection--compact section {
+    box-shadow: none;
+}
+
+.workflow-trigger-selection--compact button {
+    min-height: 2.75rem;
+}
+
 .workflow-rule-block {
     padding: 0.625rem;
 }
@@ -1847,6 +1868,10 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
     gap: 0.625rem;
 }
 
+[x-cloak] {
+    display: none !important;
+}
+
 .workflow-inline-condition-editor__logic {
     display: flex;
     align-items: center;
@@ -1857,7 +1882,7 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 }
 
 .workflow-inline-condition-editor__logic select {
-    min-width: 5.75rem;
+    min-width: 4.25rem;
     border: 1px solid rgb(229 224 216);
     border-radius: 0.375rem;
     background: #ffffff;
@@ -1901,7 +1926,8 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 
 .workflow-inline-condition-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.55fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 3.5rem minmax(0, 1fr);
+    align-items: start;
     gap: 0.5rem;
 }
 
@@ -1918,8 +1944,17 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
     line-height: 1rem;
 }
 
+.workflow-inline-condition-value {
+    display: grid;
+    gap: 0.375rem;
+    min-width: 0;
+}
+
 .workflow-inline-condition-field select,
-.workflow-inline-condition-field input {
+.workflow-inline-condition-field input,
+.workflow-inline-condition-value select,
+.workflow-inline-condition-value input,
+.workflow-inline-condition-operator select {
     width: 100%;
     min-width: 0;
     border: 1px solid rgb(229 224 216);
@@ -1931,12 +1966,35 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
     line-height: 1.125rem;
 }
 
-.workflow-inline-condition-field input {
+.workflow-inline-condition-field input,
+.workflow-inline-condition-value input {
     color: rgb(68 64 60);
 }
 
-.workflow-inline-condition-field input::placeholder {
+.workflow-inline-condition-field input::placeholder,
+.workflow-inline-condition-value input::placeholder {
     color: rgb(168 162 158);
+}
+
+.workflow-inline-condition-operator {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+}
+
+.workflow-inline-condition-operator select {
+    width: 3.5rem;
+    padding-inline: 0.375rem;
+    color: rgb(55 65 81);
+    font-size: 1rem;
+    font-weight: 750;
+    text-align: center;
+}
+
+.workflow-inline-condition-operator option {
+    font-size: 1rem;
+    font-weight: 650;
 }
 
 .workflow-rule-condition-card,
@@ -2219,12 +2277,16 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 }
 
 .dark .workflow-rules-empty-trigger,
+.dark .workflow-inline-trigger-list,
 .dark .workflow-rule-condition-card,
 .dark .workflow-rule-empty,
 .dark .workflow-inline-condition-editor__logic select,
 .dark .workflow-inline-condition-row,
 .dark .workflow-inline-condition-field select,
 .dark .workflow-inline-condition-field input,
+.dark .workflow-inline-condition-value select,
+.dark .workflow-inline-condition-value input,
+.dark .workflow-inline-condition-operator select,
 .dark .workflow-rule-add,
 .dark .workflow-rule-condition-add,
 .dark .workflow-block-connector__add,
@@ -2279,11 +2341,15 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 
 .dark .workflow-inline-condition-field select,
 .dark .workflow-inline-condition-field input,
+.dark .workflow-inline-condition-value select,
+.dark .workflow-inline-condition-value input,
+.dark .workflow-inline-condition-operator select,
 .dark .workflow-inline-condition-editor__logic select {
     color: rgb(245 245 244);
 }
 
-.dark .workflow-inline-condition-field input::placeholder {
+.dark .workflow-inline-condition-field input::placeholder,
+.dark .workflow-inline-condition-value input::placeholder {
     color: rgb(120 113 108);
 }
 

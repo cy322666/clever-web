@@ -11,29 +11,22 @@
     $workflowActionItems = collect($this->workflowActions)->values();
     $workflowActionsCount = $workflowActionItems->count();
     $conditionValueGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedOptions(true);
+    $conditionValueGroupByOption = [];
+    foreach ($conditionValueGroups as $groupLabel => $groupOptions) {
+        foreach ($groupOptions as $optionValue => $optionLabel) {
+            $conditionValueGroupByOption[(string) $optionValue] = (string) $groupLabel;
+        }
+    }
+
     $conditionOperatorOptions = [
-        'equals' => 'Равно',
-        'not_equals' => 'Не равно',
-        'strict_equals' => 'Строго равно',
-        'gt' => 'Больше',
-        'gte' => 'Больше или равно',
-        'lt' => 'Меньше',
-        'lte' => 'Меньше или равно',
-        'contains' => 'Содержит',
-        'not_contains' => 'Не содержит',
-        'starts_with' => 'Начинается с',
-        'ends_with' => 'Заканчивается на',
-        'in' => 'В списке',
-        'not_in' => 'Не в списке',
-        'is_empty' => 'Пусто',
-        'is_not_empty' => 'Не пусто',
-        'is_null' => 'Нет значения',
-        'is_not_null' => 'Есть значение',
-        'is_true' => 'Да',
-        'is_false' => 'Нет',
-        'matches' => 'Регулярное выражение',
+        'equals' => ['label' => 'Равно', 'symbol' => '='],
+        'not_equals' => ['label' => 'Не равно', 'symbol' => '≠'],
+        'is_empty' => ['label' => 'Пусто', 'symbol' => '∅'],
+        'is_not_empty' => ['label' => 'Не пусто', 'symbol' => '!∅'],
+        'lt' => ['label' => 'Меньше', 'symbol' => '<'],
+        'gt' => ['label' => 'Больше', 'symbol' => '>'],
     ];
-    $conditionUnaryOperators = ['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false'];
+    $conditionUnaryOperators = ['is_empty', 'is_not_empty'];
     $conditionActions = $workflowActionItems
         ->map(fn (array $action, int $index): array => $action + ['__workflowIndex' => $index])
         ->filter(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
@@ -167,11 +160,12 @@
             <main id="workflow-canvas" class="workflow-workbench__canvas workflow-rules-editor">
                 <section class="workflow-rule-block">
                     <div class="workflow-rule-block__grid">
-                        <div class="workflow-rule-column workflow-rule-column--conditions">
+                        <div class="workflow-rule-column workflow-rule-column--conditions"
+                             x-data="{ triggerListOpen: false }">
                             @unless ($this->trigger)
                                 <button
                                     type="button"
-                                    wire:click="mountAction('selectTrigger')"
+                                    x-on:click="triggerListOpen = ! triggerListOpen"
                                     class="workflow-rules-empty-trigger"
                                 >
                                     <span class="workflow-rules-empty-trigger__icon">
@@ -182,6 +176,19 @@
                                         <span class="workflow-rules-empty-trigger__text">Что запускает сценарий</span>
                                     </span>
                                 </button>
+
+                                <div
+                                    x-cloak
+                                    x-show="triggerListOpen"
+                                    x-transition
+                                    x-on:click.outside="triggerListOpen = false"
+                                    class="workflow-inline-trigger-list"
+                                >
+                                    @include('filament-workflows::filament.partials.trigger-selection-grid', [
+                                        'triggers' => $this->getAvailableTriggers(),
+                                        'compact' => true,
+                                    ])
+                                </div>
                             @endunless
 
                             <div class="workflow-rule-empty">
@@ -229,10 +236,6 @@
                 @foreach($conditionActions as $conditionAction)
                     @php
                         $conditionConfig = $conditionAction['config'] ?? [];
-                        $delay = is_array($conditionConfig['delay'] ?? null) ? $conditionConfig['delay'] : [];
-                        $blockDelaySeconds = ($delay['mode'] ?? 'immediate') === 'after_seconds'
-                            ? min(15, max(5, (int)($delay['seconds'] ?? 5)))
-                            : 5;
                         $conditionRows = array_values(array_filter(
                             (array)($conditionConfig['conditions'] ?? []),
                             fn ($conditionRow): bool => is_array($conditionRow),
@@ -241,21 +244,6 @@
                         $conditionActionsPath = $conditionAction['__workflowIndex'] . '.config.true_actions';
                         $blockActions = $conditionConfig['true_actions'] ?? [];
                     @endphp
-
-                    <div class="workflow-block-connector">
-                        <label class="workflow-block-connector__delay">
-                            <span>Задержка</span>
-                            <select
-                                wire:change="updateWorkflowBlockDelay('{{ $conditionAction['id'] }}', $event.target.value)"
-                            >
-                                @foreach([5, 10, 15] as $delayOption)
-                                    <option value="{{ $delayOption }}" @selected($blockDelaySeconds === $delayOption)>
-                                        {{ $delayOption }} сек.
-                                    </option>
-                                @endforeach
-                            </select>
-                        </label>
-                    </div>
 
                     <section class="workflow-rule-block">
                         <div class="workflow-rule-block__topline">
@@ -291,8 +279,8 @@
                                         </div>
                                     @else
                                         <label class="workflow-inline-condition-editor__logic">
-                                            <span>Логика</span>
                                             <select
+                                                aria-label="И или ИЛИ"
                                                 wire:change="updateWorkflowInlineConditionLogic('{{ $conditionAction['id'] }}', $event.target.value)"
                                             >
                                                 <option value="and" @selected($conditionLogic !== 'or')>И</option>
@@ -305,6 +293,10 @@
                                                 @php
                                                     $operator = (string)($conditionRow['operator'] ?? 'equals');
                                                     $isUnaryOperator = in_array($operator, $conditionUnaryOperators, true);
+                                                    $leftValue = (string)($conditionRow['left'] ?? '');
+                                                    $rightValue = (string)($conditionRow['right'] ?? '');
+                                                    $leftGroup = $conditionValueGroupByOption[$leftValue] ?? ($leftValue !== '' ? '__custom' : '');
+                                                    $rightGroup = $conditionValueGroupByOption[$rightValue] ?? ($rightValue !== '' ? '__custom' : '');
                                                 @endphp
 
                                                 <div class="workflow-inline-condition-row">
@@ -319,71 +311,106 @@
                                                     </button>
 
                                                     <div class="workflow-inline-condition-grid">
-                                                        <label class="workflow-inline-condition-field">
-                                                            <span>Что проверяем</span>
+                                                        <div
+                                                            class="workflow-inline-condition-value"
+                                                            x-data="{ group: @js($leftGroup) }"
+                                                        >
                                                             <select
-                                                                wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
+                                                                x-model="group"
+                                                                aria-label="Группа значения"
                                                             >
                                                                 <option value="">Выберите</option>
                                                                 @foreach($conditionValueGroups as $groupLabel => $groupOptions)
-                                                                    <optgroup label="{{ $groupLabel }}">
-                                                                        @foreach($groupOptions as $optionValue => $optionLabel)
-                                                                            <option
-                                                                                value="{{ $optionValue }}" @selected(($conditionRow['left'] ?? '') === $optionValue)>
-                                                                                {{ $optionLabel }}
-                                                                            </option>
-                                                                        @endforeach
-                                                                    </optgroup>
+                                                                    <option
+                                                                        value="{{ $groupLabel }}">{{ $groupLabel }}</option>
                                                                 @endforeach
+                                                                <option value="__custom">Свое значение</option>
                                                             </select>
+
+                                                            @foreach($conditionValueGroups as $groupLabel => $groupOptions)
+                                                                <select
+                                                                    x-cloak
+                                                                    x-show="group === @js((string) $groupLabel)"
+                                                                    wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
+                                                                    aria-label="Значение"
+                                                                >
+                                                                    <option value="">Выберите</option>
+                                                                    @foreach($groupOptions as $optionValue => $optionLabel)
+                                                                        <option
+                                                                            value="{{ $optionValue }}" @selected($leftValue === (string) $optionValue)>
+                                                                            {{ $optionLabel }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                </select>
+                                                            @endforeach
+
                                                             <input
+                                                                x-cloak
+                                                                x-show="group === '__custom'"
                                                                 type="text"
-                                                                value="{{ $conditionRow['left'] ?? '' }}"
+                                                                value="{{ $leftValue }}"
                                                                 wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
                                                                 placeholder="Свое значение"
                                                             />
-                                                        </label>
+                                                        </div>
 
-                                                        <label
-                                                            class="workflow-inline-condition-field workflow-inline-condition-field--operator">
-                                                            <span>Оператор</span>
+                                                        <label class="workflow-inline-condition-operator">
                                                             <select
+                                                                aria-label="Сравнение"
                                                                 wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'operator', $event.target.value)"
                                                             >
-                                                                @foreach($conditionOperatorOptions as $optionValue => $optionLabel)
+                                                                @foreach($conditionOperatorOptions as $optionValue => $operatorOption)
                                                                     <option
                                                                         value="{{ $optionValue }}" @selected($operator === $optionValue)>
-                                                                        {{ $optionLabel }}
+                                                                        {{ $operatorOption['symbol'] }}
                                                                     </option>
                                                                 @endforeach
                                                             </select>
                                                         </label>
 
                                                         @unless($isUnaryOperator)
-                                                            <label class="workflow-inline-condition-field">
-                                                                <span>С чем сравниваем</span>
+                                                            <div
+                                                                class="workflow-inline-condition-value"
+                                                                x-data="{ group: @js($rightGroup) }"
+                                                            >
                                                                 <select
-                                                                    wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
+                                                                    x-model="group"
+                                                                    aria-label="Группа значения для сравнения"
                                                                 >
                                                                     <option value="">Выберите</option>
                                                                     @foreach($conditionValueGroups as $groupLabel => $groupOptions)
-                                                                        <optgroup label="{{ $groupLabel }}">
-                                                                            @foreach($groupOptions as $optionValue => $optionLabel)
-                                                                                <option
-                                                                                    value="{{ $optionValue }}" @selected(($conditionRow['right'] ?? '') === $optionValue)>
-                                                                                    {{ $optionLabel }}
-                                                                                </option>
-                                                                            @endforeach
-                                                                        </optgroup>
+                                                                        <option
+                                                                            value="{{ $groupLabel }}">{{ $groupLabel }}</option>
                                                                     @endforeach
+                                                                    <option value="__custom">Свое значение</option>
                                                                 </select>
+
+                                                                @foreach($conditionValueGroups as $groupLabel => $groupOptions)
+                                                                    <select
+                                                                        x-cloak
+                                                                        x-show="group === @js((string) $groupLabel)"
+                                                                        wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
+                                                                        aria-label="Значение для сравнения"
+                                                                    >
+                                                                        <option value="">Выберите</option>
+                                                                        @foreach($groupOptions as $optionValue => $optionLabel)
+                                                                            <option
+                                                                                value="{{ $optionValue }}" @selected($rightValue === (string) $optionValue)>
+                                                                                {{ $optionLabel }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                @endforeach
+
                                                                 <input
+                                                                    x-cloak
+                                                                    x-show="group === '__custom'"
                                                                     type="text"
-                                                                    value="{{ $conditionRow['right'] ?? '' }}"
+                                                                    value="{{ $rightValue }}"
                                                                     wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
                                                                     placeholder="Свое значение"
                                                                 />
-                                                            </label>
+                                                            </div>
                                                         @endunless
                                                     </div>
                                                 </div>
