@@ -85,6 +85,111 @@ window.workflowSortableList = (path) => ({
     },
 });
 
+window.workflowWorkbench = () => ({
+    masksOpen: false,
+    maskDock: {
+        x: 16,
+        y: 16,
+        dragging: false,
+        offsetX: 0,
+        offsetY: 0,
+        pointerId: null,
+    },
+    maskDockStorageKey: 'clever.workflow.maskDockPosition',
+
+    initMaskDock() {
+        this.restoreMaskDockPosition();
+        this.$nextTick(() => this.keepMasksDockInViewport());
+    },
+
+    openMasksDock() {
+        this.masksOpen = true;
+        this.$nextTick(() => this.keepMasksDockInViewport());
+    },
+
+    maskDockStyle() {
+        return `left: ${this.maskDock.x}px; top: ${this.maskDock.y}px;`;
+    },
+
+    restoreMaskDockPosition() {
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(this.maskDockStorageKey) || '{}');
+
+            if (Number.isFinite(stored.x) && Number.isFinite(stored.y)) {
+                this.maskDock.x = stored.x;
+                this.maskDock.y = stored.y;
+            }
+        } catch {
+            this.maskDock.x = 16;
+            this.maskDock.y = 16;
+        }
+    },
+
+    saveMaskDockPosition() {
+        window.localStorage.setItem(this.maskDockStorageKey, JSON.stringify({
+            x: this.maskDock.x,
+            y: this.maskDock.y,
+        }));
+    },
+
+    startMaskDockDrag(event) {
+        if (event.button !== undefined && event.button !== 0) {
+            return;
+        }
+
+        if (event.target.closest('button, a, input, textarea, select, [role="button"]')) {
+            return;
+        }
+
+        const rect = this.$refs.maskDock?.getBoundingClientRect();
+
+        if (!rect) {
+            return;
+        }
+
+        this.maskDock.dragging = true;
+        this.maskDock.pointerId = event.pointerId;
+        this.maskDock.offsetX = event.clientX - rect.left;
+        this.maskDock.offsetY = event.clientY - rect.top;
+        this.$refs.maskDock?.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+    },
+
+    dragMaskDock(event) {
+        if (!this.maskDock.dragging || event.pointerId !== this.maskDock.pointerId) {
+            return;
+        }
+
+        this.setMaskDockPosition(event.clientX - this.maskDock.offsetX, event.clientY - this.maskDock.offsetY);
+    },
+
+    stopMaskDockDrag(event) {
+        if (!this.maskDock.dragging || event.pointerId !== this.maskDock.pointerId) {
+            return;
+        }
+
+        this.maskDock.dragging = false;
+        this.maskDock.pointerId = null;
+        this.$refs.maskDock?.releasePointerCapture?.(event.pointerId);
+        this.keepMasksDockInViewport();
+        this.saveMaskDockPosition();
+    },
+
+    setMaskDockPosition(x, y) {
+        const rect = this.$refs.maskDock?.getBoundingClientRect();
+        const width = rect?.width || 448;
+        const height = rect?.height || Math.min(window.innerHeight - 32, 720);
+        const gap = 8;
+
+        this.maskDock.x = Math.min(Math.max(gap, x), Math.max(gap, window.innerWidth - width - gap));
+        this.maskDock.y = Math.min(Math.max(gap, y), Math.max(gap, window.innerHeight - height - gap));
+    },
+
+    keepMasksDockInViewport() {
+        this.setMaskDockPosition(this.maskDock.x, this.maskDock.y);
+    },
+});
+
 window.lockCleverSidebarCollapsed = () => {
     const sidebar = window.Alpine?.store?.('sidebar');
 

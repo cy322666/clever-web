@@ -14,7 +14,7 @@ class WorkflowConditionPreview
             (array)($config['conditions'] ?? []),
             static fn (mixed $condition): bool => is_array($condition),
         ));
-        $logic = static::logicLabel((string)($config['logic'] ?? 'and'));
+        $fallbackLogic = (string)($config['logic'] ?? 'and');
         $pipelineId = static::pipelineIdFromConditions($conditions);
         $rows = [];
 
@@ -27,7 +27,9 @@ class WorkflowConditionPreview
                 'right' => in_array($operator, static::unaryOperators(), true)
                     ? null
                     : static::valueLabel($condition['right'] ?? '', $condition, 'right', $pipelineId),
-                'connector' => $index > 0 ? $logic : null,
+                'connector' => $index > 0
+                    ? static::logicLabel((string)($condition['join'] ?? $fallbackLogic))
+                    : null,
             ];
         }
 
@@ -119,26 +121,13 @@ class WorkflowConditionPreview
     private static function operatorLabel(string $operator): string
     {
         return [
-            'equals' => 'равно',
-            'not_equals' => 'не равно',
-            'strict_equals' => 'строго равно',
-            'gt' => 'больше',
-            'gte' => 'больше или равно',
-            'lt' => 'меньше',
-            'lte' => 'меньше или равно',
-            'contains' => 'содержит',
-            'not_contains' => 'не содержит',
-            'starts_with' => 'начинается с',
-            'ends_with' => 'заканчивается на',
-            'in' => 'в списке',
-            'not_in' => 'не в списке',
-            'is_empty' => 'пусто',
-            'is_not_empty' => 'не пусто',
-            'is_null' => 'не заполнено',
-            'is_not_null' => 'заполнено',
-            'is_true' => 'истина',
-            'is_false' => 'ложь',
-            'matches' => 'соответствует шаблону',
+            'equals' => '=',
+            'strict_equals' => '=',
+            'not_equals' => '≠',
+            'gt' => '>',
+            'lt' => '<',
+            'is_empty' => '∅',
+            'is_not_empty' => '!∅',
         ][$operator] ?? $operator;
     }
 

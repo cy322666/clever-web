@@ -1,5 +1,6 @@
 @props([
     'triggers' => [],
+    'compact' => false,
 ])
 
 @php
@@ -87,25 +88,50 @@
     $groups = array_filter($groups, static fn (array $group): bool => count($group['items']) > 0);
 @endphp
 
-<div class="workflow-trigger-selection space-y-5 p-4">
+<div @class([
+    'workflow-trigger-selection',
+    'workflow-trigger-selection--compact' => $compact,
+    'space-y-5 p-4' => ! $compact,
+    'space-y-2 p-2' => $compact,
+])>
     @foreach($groups as $group)
         <section
-            class="rounded-2xl border border-slate-300 bg-white p-3.5 shadow-sm dark:border-gray-600 dark:bg-gray-900/60">
-            <div class="mb-3 flex items-center justify-between gap-3">
+            @class([
+                'border border-slate-300 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-900/60',
+                'rounded-2xl p-3.5' => ! $compact,
+                'rounded-lg p-2.5' => $compact,
+            ])>
+            <div @class([
+                'flex items-center justify-between gap-3',
+                'mb-3' => ! $compact,
+                'mb-2' => $compact,
+            ])>
                 <div class="flex min-w-0 items-center gap-2">
                     <div
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-primary-600 ring-1 ring-slate-300 dark:bg-gray-950 dark:text-primary-400 dark:ring-gray-600">
+                        @class([
+                            'flex shrink-0 items-center justify-center bg-slate-50 text-primary-600 ring-1 ring-slate-300 dark:bg-gray-950 dark:text-primary-400 dark:ring-gray-600',
+                            'h-8 w-8 rounded-lg' => ! $compact,
+                            'h-6 w-6 rounded-md' => $compact,
+                        ])>
                         @svg($group['icon'], 'h-4 w-4')
                     </div>
 
-                    <h3 class="truncate text-sm font-semibold leading-5 text-slate-950 dark:text-white">
+                    <h3 @class([
+                        'truncate font-semibold leading-5 text-slate-950 dark:text-white',
+                        'text-sm' => ! $compact,
+                        'text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400' => $compact,
+                    ])>
                         {{ $group['title'] }}
                     </h3>
                 </div>
 
             </div>
 
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div @class([
+                'grid gap-2',
+                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' => ! $compact,
+                'grid-cols-1' => $compact,
+            ])>
                 @foreach($group['items'] as $trigger)
                     @php
                         $type = $trigger['type'] ?? '';
@@ -120,10 +146,18 @@
                     <button
                         type="button"
                         wire:click="selectTriggerType('{{ $type }}')"
-                        class="group relative flex min-h-20 items-center gap-2.5 rounded-lg border border-slate-200 bg-white p-3 text-left transition-all hover:border-slate-400 hover:ring-1 hover:ring-slate-300/70 dark:border-gray-700 dark:bg-gray-950/60 dark:hover:border-gray-500"
+                        @class([
+                            'group relative flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white text-left transition-all hover:border-slate-400 hover:ring-1 hover:ring-slate-300/70 dark:border-gray-700 dark:bg-gray-950/60 dark:hover:border-gray-500',
+                            'min-h-20 p-3' => ! $compact,
+                            'min-h-0 p-2' => $compact,
+                        ])
                     >
                         <div
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                            @class([
+                                'flex shrink-0 items-center justify-center rounded-md',
+                                'h-8 w-8' => ! $compact,
+                                'h-7 w-7' => $compact,
+                            ])
                             style="background-color: {{ $color }}20;"
                         >
                             @svg($icon, 'h-4 w-4', ['style' => 'color: ' . $color])

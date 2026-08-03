@@ -32,6 +32,30 @@ class WorkflowTriggerConditionVariableCatalog
     /**
      * @return array<string, array<string, string>>
      */
+    public static function groupedConditionPickerOptions(bool $includeStaticValues = false): array
+    {
+        $options = array_replace_recursive(
+            static::groupedMaskOptions(),
+            static::amoCrmCustomFieldOptions(),
+            static::groupedAmoPipelineOptions(),
+        );
+
+        $statusOptions = static::flattenGroupedOptionsWithPrefix(static::groupedAmoStatusOptions());
+
+        if ($statusOptions !== []) {
+            $options['Этап'] = $statusOptions;
+        }
+
+        if ($includeStaticValues) {
+            $options['Готовые значения'] = static::staticValueOptions();
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
     public static function groupedMaskOptions(): array
     {
         return [
@@ -426,6 +450,26 @@ class WorkflowTriggerConditionVariableCatalog
     public static function search(string $query, bool $includeStaticValues = false): array
     {
         return static::searchInOptions(static::flatOptions($includeStaticValues), $query, true);
+    }
+
+    /**
+     * @param array<string, array<string, string>> $groups
+     * @return array<string, string>
+     */
+    private static function flattenGroupedOptionsWithPrefix(array $groups): array
+    {
+        $options = [];
+
+        foreach ($groups as $groupLabel => $groupOptions) {
+            foreach ($groupOptions as $optionValue => $optionLabel) {
+                $prefix = trim((string)$groupLabel);
+                $label = trim((string)$optionLabel);
+
+                $options[(string)$optionValue] = $prefix === '' ? $label : $prefix . ' - ' . $label;
+            }
+        }
+
+        return $options;
     }
 
     /**

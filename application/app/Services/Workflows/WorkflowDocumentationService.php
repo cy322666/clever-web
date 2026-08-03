@@ -284,17 +284,19 @@ class WorkflowDocumentationService
      */
     private function conditions(array $config, int $userId): array
     {
-        $logic = ((string)($config['logic'] ?? 'and')) === 'or' ? 'ИЛИ' : 'И';
+        $fallbackLogic = (string)($config['logic'] ?? 'and');
 
         return collect((array)($config['conditions'] ?? []))
             ->filter(fn(mixed $condition): bool => is_array($condition))
-            ->map(fn(array $condition): array => [
+            ->values()
+            ->map(fn(array $condition, int $index): array => [
                 'left' => $this->humanValue($condition['left'] ?? '', $userId),
                 'operator' => $this->operator((string)($condition['operator'] ?? 'equals')),
                 'right' => $this->conditionRightValue($condition, $userId),
-                'logic' => $logic,
+                'logic' => $index > 0
+                    ? (((string)($condition['join'] ?? $fallbackLogic)) === 'or' ? 'ИЛИ' : 'И')
+                    : '',
             ])
-            ->values()
             ->all();
     }
 
@@ -320,12 +322,6 @@ class WorkflowDocumentationService
             }
 
             if ($key === 'delay') {
-                $delay = $this->delay($value);
-
-                if ($delay !== null) {
-                    $rows[] = ['label' => 'Когда выполнить', 'value' => $delay];
-                }
-
                 continue;
             }
 

@@ -54,32 +54,12 @@ class ControlConditionAction extends ConditionAction
                                     Select::make('operator')
                                         ->label(static::actionCommonTrans('fields.operator.label'))
                                         ->options([
-                                            'equals' => static::actionCommonTrans('operators.equals') . ' (==)',
-                                            'not_equals' => static::actionCommonTrans('operators.not_equals') . ' (!=)',
-                                            'strict_equals' => static::actionCommonTrans(
-                                                    'operators.strict_equals'
-                                                ) . ' (===)',
-                                            'gt' => static::actionCommonTrans('operators.greater_than') . ' (>)',
-                                            'gte' => static::actionCommonTrans(
-                                                    'operators.greater_than_or_equal'
-                                                ) . ' (>=)',
-                                            'lt' => static::actionCommonTrans('operators.less_than') . ' (<)',
-                                            'lte' => static::actionCommonTrans(
-                                                    'operators.less_than_or_equal'
-                                                ) . ' (<=)',
-                                            'contains' => static::actionCommonTrans('operators.contains'),
-                                            'not_contains' => static::actionCommonTrans('operators.not_contains'),
-                                            'starts_with' => static::actionCommonTrans('operators.starts_with'),
-                                            'ends_with' => static::actionCommonTrans('operators.ends_with'),
-                                            'in' => static::actionCommonTrans('operators.in_array'),
-                                            'not_in' => static::actionCommonTrans('operators.not_in_array'),
+                                            'equals' => static::actionCommonTrans('operators.equals'),
+                                            'not_equals' => static::actionCommonTrans('operators.not_equals'),
                                             'is_empty' => static::actionCommonTrans('operators.is_empty'),
                                             'is_not_empty' => static::actionCommonTrans('operators.is_not_empty'),
-                                            'is_null' => static::actionCommonTrans('operators.is_null'),
-                                            'is_not_null' => static::actionCommonTrans('operators.is_not_null'),
-                                            'is_true' => static::actionCommonTrans('operators.is_true'),
-                                            'is_false' => static::actionCommonTrans('operators.is_false'),
-                                            'matches' => static::actionCommonTrans('operators.matches_regex'),
+                                            'lt' => static::actionCommonTrans('operators.less_than'),
+                                            'gt' => static::actionCommonTrans('operators.greater_than'),
                                         ])
                                         ->default('equals')
                                         ->required()
@@ -143,9 +123,7 @@ class ControlConditionAction extends ConditionAction
                 $conditionResults
             );
 
-            $passed = $logic === 'and'
-                ? !in_array(false, $results, true)
-                : in_array(true, $results, true);
+            $passed = $this->combineConditionResults($conditions, $results, (string)$logic);
 
             $branch = $passed ? 'true' : 'false';
 
@@ -186,6 +164,32 @@ class ControlConditionAction extends ConditionAction
                 'error' => static::workflowTrans('errors.evaluation_failed', ['error' => $e->getMessage()]),
             ];
         }
+    }
+
+    /**
+     * @param array<int, mixed> $conditions
+     * @param array<int, bool> $results
+     */
+    private function combineConditionResults(array $conditions, array $results, string $fallbackLogic): bool
+    {
+        if ($results === []) {
+            return false;
+        }
+
+        $passed = array_shift($results);
+        $conditions = array_values($conditions);
+
+        foreach ($results as $offset => $result) {
+            $conditionIndex = $offset + 1;
+            $condition = $conditions[$conditionIndex] ?? [];
+            $join = is_array($condition) && ($condition['join'] ?? $fallbackLogic) === 'or' ? 'or' : 'and';
+
+            $passed = $join === 'or'
+                ? ($passed || $result)
+                : ($passed && $result);
+        }
+
+        return (bool)$passed;
     }
 
     /**

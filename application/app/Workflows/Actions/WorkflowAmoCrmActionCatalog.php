@@ -421,62 +421,10 @@ abstract class WorkflowAmoCrmAction
         return '{{' . $entity . '.id}}';
     }
 
-    protected static function delaySection(): Section
+    protected static function delaySection(): Component
     {
-        return Section::make('Запуск')
-            ->compact()
-            ->schema([
-                Select::make('delay.mode')
-                    ->label('Когда выполнить')
-                    ->options([
-                        'immediate' => 'Сразу',
-                        'after_seconds' => 'Через N секунд',
-                    ])
-                    ->default('immediate')
-                    ->afterStateHydrated(function (?string $state, Set $set, Get $get): void {
-                        if ($state === 'date_field') {
-                            $set('delay.mode', 'immediate');
-                            $set('delay.date_field', null);
-
-                            return;
-                        }
-
-                        if ($state !== 'after_minutes') {
-                            return;
-                        }
-
-                        $minutes = (int)($get('delay.minutes') ?: 0);
-
-                        $set('delay.mode', 'after_seconds');
-                        $set('delay.seconds', min(30, max(1, $minutes * 60)));
-                    })
-                    ->live()
-                    ->native(false),
-
-                TextInput::make('delay.seconds')
-                    ->label('Задержка, секунд')
-                    ->numeric()
-                    ->minValue(1)
-                    ->maxValue(30)
-                    ->rule('integer')
-                    ->rule('min:1')
-                    ->rule('max:30')
-                    ->afterStateHydrated(function (mixed $state, Set $set): void {
-                        if ($state === null || $state === '') {
-                            return;
-                        }
-
-                        $set('delay.seconds', min(30, max(1, (int)$state)));
-                    })
-                    ->afterStateUpdated(function (mixed $state, Set $set): void {
-                        if ($state === null || $state === '') {
-                            return;
-                        }
-
-                        $set('delay.seconds', min(30, max(1, (int)$state)));
-                    })
-                    ->visible(fn(Get $get): bool => $get('delay.mode') === 'after_seconds'),
-            ]);
+        return Hidden::make('__workflow_action_delay_placeholder')
+            ->dehydrated(false);
     }
 
     protected static function fieldMappingsSection(string $label = 'Поля', string $entity = 'lead'): Section

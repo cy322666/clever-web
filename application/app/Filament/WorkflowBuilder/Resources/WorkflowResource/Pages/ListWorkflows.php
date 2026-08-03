@@ -15,6 +15,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Schema as SchemaFacade;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as BaseListWorkflows;
@@ -25,9 +27,22 @@ class ListWorkflows extends BaseListWorkflows
 
     protected Width|string|null $maxContentWidth = Width::Full;
 
+    public ?string $workflowGroupFilter = null;
+
     public function getHeading(): string|Htmlable|null
     {
         return null;
+    }
+
+    protected function getTableQuery(): Builder|Relation|null
+    {
+        $query = parent::getTableQuery();
+
+        if ($query instanceof Builder) {
+            return WorkflowResource::applyGroupHeaderFilter($query, $this->workflowGroupFilter);
+        }
+
+        return $query;
     }
 
     public function content(Schema $schema): Schema
@@ -61,104 +76,107 @@ class ListWorkflows extends BaseListWorkflows
                     'fullHistoryUrl' => null,
                 ])),
 
-            ActionGroup::make([
-                Action::make('check_amocrm_webhooks')
-                    ->label('Проверить')
-                    ->icon('heroicon-o-magnifying-glass')
-                    ->action(function (): void {
-                        $this->notifyWebhookResult(
-                            app(WorkflowAmoCrmWebhookService::class)->statusForUser((int)auth()->id()),
-                        );
-                    }),
-
-                Action::make('sync_amocrm_webhooks')
-                    ->label('Установить или обновить')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('success')
-                    ->action(function (): void {
-                        $this->notifyWebhookResult(
-                            app(WorkflowAmoCrmWebhookService::class)->synchronizeUser((int)auth()->id()),
-                        );
-                    }),
-
-                Action::make('remove_amocrm_webhooks')
-                    ->label('Удалить')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Удалить вебхуки процессов из amoCRM?')
-                    ->modalDescription(
-                        'Процессы перестанут запускаться по событиям amoCRM, пока вебхуки не будут установлены снова.'
-                    )
-                    ->action(function (): void {
-                        $this->notifyWebhookResult(
-                            app(WorkflowAmoCrmWebhookService::class)->removeUser((int)auth()->id()),
-                        );
-                    }),
-            ])
-                ->label('Вебхуки amoCRM')
-                ->icon('heroicon-o-signal')
-                ->button()
-                ->color('gray'),
-
             Action::make('create_workflow')
                 ->label('Создать')
                 ->icon('heroicon-o-plus')
                 ->color('warning')
                 ->modalHeading('Создать сценарий')
                 ->modalSubmitAction(false)
-                ->modalCancelActionLabel('Закрыть')
+                ->modalCancelAction(false)
                 ->modalWidth('7xl')
                 ->modalContent(fn() => view('filament.workflow-builder.workflow-create-modal', [
                     'title' => 'Создать сценарий',
                 ])),
 
-            Action::make('workflow_amocrm_connection')
+            $this->workflowAmoCrmHeaderAction(),
+        ];
+    }
+
+    private function workflowAmoCrmHeaderAction(): Action|ActionGroup
+    {
+        if (!$this->workflowAmoConnectionState()['connected']) {
+            return Action::make('workflow_amocrm_connection')
                 ->label(fn(): string => $this->workflowAmoConnectionState()['label'])
-                ->icon(fn(): string => $this->workflowAmoConnectionState()['connected']
-                    ? 'heroicon-o-check-circle'
-                    : 'heroicon-o-link')
-                ->color(fn(): string => $this->workflowAmoConnectionState()['connected'] ? 'gray' : 'success')
-                ->disabled(fn(): bool => $this->workflowAmoConnectionState()['connected'])
+                ->icon('heroicon-o-link')
+                ->color('success')
+                ->action(fn(): mixed => $this->redirectToWorkflowAmoOAuth());
+        }
+
+        return ActionGroup::make([
+            Action::make('check_amocrm_webhooks')
+                ->label('Проверить подключение и хуки')
+                ->icon('heroicon-o-check-circle')
                 ->action(function (): void {
-                    if ($this->workflowAmoConnectionState()['connected']) {
-                        return;
-                    }
-
-                    $user = auth()->user();
-
-                    if (!$user) {
-                        Notification::make()
-                            ->title('Пользователь не найден')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    $widget = Account::normalizeWidget('workflows');
-                    $clientId = (string)config('services.amocrm.widgets.workflows.client_id', '');
-
-                    if ($clientId === '') {
-                        Notification::make()
-                            ->title('Не настроен client_id для процессов')
-                            ->body('Укажите AMO_WORKFLOWS_CLIENT_ID.')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    $state = $user->uuid . '|' . $widget;
-                    $url = WorkflowResource::getUrl();
-
-                    Redirect::to(
-                        'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
-                        . '&client_id=' . urlencode($clientId)
-                        . '&uri=' . urlencode($url)
+                    $this->notifyWebhookResult(
+                        app(WorkflowAmoCrmWebhookService::class)->statusForUser((int)auth()->id()),
                     );
                 }),
-        ];
+
+            Action::make('sync_amocrm_webhooks')
+                ->label('Установить или обновить хуки')
+                ->icon('heroicon-o-arrow-path')
+                ->color('success')
+                ->action(function (): void {
+                    $this->notifyWebhookResult(
+                        app(WorkflowAmoCrmWebhookService::class)->synchronizeUser((int)auth()->id()),
+                    );
+                }),
+
+            Action::make('remove_amocrm_webhooks')
+                ->label('Удалить хуки')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Удалить вебхуки процессов из amoCRM?')
+                ->modalDescription(
+                    'Процессы перестанут запускаться по событиям amoCRM, пока вебхуки не будут установлены снова.'
+                )
+                ->action(function (): void {
+                    $this->notifyWebhookResult(
+                        app(WorkflowAmoCrmWebhookService::class)->removeUser((int)auth()->id()),
+                    );
+                }),
+        ])
+            ->label(fn(): string => $this->workflowAmoConnectionState()['label'])
+            ->icon('heroicon-o-check-circle')
+            ->button()
+            ->color('gray');
+    }
+
+    private function redirectToWorkflowAmoOAuth(): mixed
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            Notification::make()
+                ->title('Пользователь не найден')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        $widget = Account::normalizeWidget('workflows');
+        $clientId = (string)config('services.amocrm.widgets.workflows.client_id', '');
+
+        if ($clientId === '') {
+            Notification::make()
+                ->title('Не настроен client_id для процессов')
+                ->body('Укажите AMO_WORKFLOWS_CLIENT_ID.')
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        $state = $user->uuid . '|' . $widget;
+        $url = WorkflowResource::getUrl();
+
+        return Redirect::to(
+            'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
+            . '&client_id=' . urlencode($clientId)
+            . '&uri=' . urlencode($url)
+        );
     }
 
     private function workflowHistoryRuns()

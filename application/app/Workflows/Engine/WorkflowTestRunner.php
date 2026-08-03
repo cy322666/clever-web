@@ -102,9 +102,33 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             $results[] = $this->evaluateSingleCondition($left, $operator, $right);
         }
 
-        return ($config['logic'] ?? 'and') === 'or'
-            ? in_array(true, $results, true)
-            : !in_array(false, $results, true);
+        return $this->combineConditionResults($conditions, $results, (string)($config['logic'] ?? 'and'));
+    }
+
+    /**
+     * @param array<int, mixed> $conditions
+     * @param array<int, bool> $results
+     */
+    private function combineConditionResults(array $conditions, array $results, string $fallbackLogic): bool
+    {
+        if ($results === []) {
+            return false;
+        }
+
+        $passed = array_shift($results);
+        $conditions = array_values($conditions);
+
+        foreach ($results as $offset => $result) {
+            $conditionIndex = $offset + 1;
+            $condition = $conditions[$conditionIndex] ?? [];
+            $join = is_array($condition) && ($condition['join'] ?? $fallbackLogic) === 'or' ? 'or' : 'and';
+
+            $passed = $join === 'or'
+                ? ($passed || $result)
+                : ($passed && $result);
+        }
+
+        return (bool)$passed;
     }
 
     protected function evaluateSingleCondition(mixed $fieldValue, string $operator, mixed $comparisonValue): bool
@@ -148,15 +172,14 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             return 'Условия не заданы';
         }
 
-        $logic = ($config['logic'] ?? 'and') === 'or' ? ' ИЛИ ' : ' И ';
         $parts = [];
 
-        foreach ($conditions as $condition) {
+        foreach ($conditions as $index => $condition) {
             $operator = (string)($condition['operator'] ?? 'equals');
             $left = $this->humanConditionValue($condition['left'] ?? '');
             $right = $this->humanConditionValue($condition['right'] ?? '');
 
-            $parts[] = in_array($operator, [
+            $part = in_array($operator, [
                 'is_empty',
                 'is_not_empty',
                 'is_null',
@@ -166,9 +189,16 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             ], true)
                 ? trim($left . ' ' . $this->humanOperator($operator))
                 : trim($left . ' ' . $this->humanOperator($operator) . ' ' . $right);
+
+            if ($index > 0) {
+                $join = ($condition['join'] ?? $config['logic'] ?? 'and') === 'or' ? 'ИЛИ' : 'И';
+                $part = $join . ' ' . $part;
+            }
+
+            $parts[] = $part;
         }
 
-        return implode($logic, $parts) . ' => ' . ($passed ? 'условие выполнено' : 'условие не выполнено');
+        return implode(' ', $parts) . ' => ' . ($passed ? 'условие выполнено' : 'условие не выполнено');
     }
 
     /**

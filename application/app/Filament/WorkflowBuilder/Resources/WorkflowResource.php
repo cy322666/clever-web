@@ -6,6 +6,7 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow as AppWorkflow;
+use App\Models\Workflows\WorkflowRun;
 use App\Services\Workflows\WorkflowDependencyMap;
 use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
@@ -17,17 +18,21 @@ use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Models\Workflow;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Resources\WorkflowResource as BaseWorkflowResource;
 use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
+use Throwable;
 
 class WorkflowResource extends BaseWorkflowResource
 {
+    public const GROUP_FILTER_EMPTY = '__without_group__';
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -61,7 +66,12 @@ class WorkflowResource extends BaseWorkflowResource
                     ->action(Action::make('configure_workflow')),
 
                 SelectColumn::make('group_name')
-                    ->label('Группа')
+                    ->label(fn(): HtmlString => new HtmlString(
+                        view('filament.workflow-builder.table.group-header-filter', [
+                            'emptyValue' => static::GROUP_FILTER_EMPTY,
+                            'options' => static::workflowGroupFilterOptions(),
+                        ])->render()
+                    ))
                     ->placeholder('Без группы')
                     ->options(fn(): array => AppWorkflow::groupOptions())
                     ->searchableOptions()
@@ -79,10 +89,30 @@ class WorkflowResource extends BaseWorkflowResource
                     ->label('Запусков')
                     ->sortable()
                     ->alignCenter()
-                    ->url(fn(Workflow $record): string => WorkflowRunResource::getUrl('index', [
-                        'workflow_id' => $record->getKey(),
-                    ]))
-                    ->openUrlInNewTab(),
+                    ->formatStateUsing(fn(mixed $state): HtmlString => new HtmlString(
+                        '<span class="workflow-runs-count-link">' . e((string)((int)$state)) . '</span>',
+                    ))
+                    ->html()
+                    ->action(
+                        Action::make('show_workflow_runs')
+                            ->modalHeading('История запусков')
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel('Закрыть')
+                            ->modalWidth('6xl')
+                            ->modalContent(
+                                fn(Workflow $record) => view('filament.workflow-builder.workflow-history-modal', [
+                                    'workflow' => $record,
+                                    'runs' => WorkflowRun::query()
+                                        ->where('user_id', Auth::id())
+                                        ->where('workflow_id', $record->getKey())
+                                        ->with(['workflow', 'latestStep', 'triggeredBy'])
+                                        ->withCount('steps')
+                                        ->latest('created_at')
+                                        ->limit(20)
+                                        ->get(),
+                                ])
+                            ),
+                    ),
 
                 TextColumn::make('created_at')
                     ->label(__('filament-workflows::workflows.fields.created_at.label'))
@@ -92,39 +122,9 @@ class WorkflowResource extends BaseWorkflowResource
             ->recordUrl(null)
             ->recordAction('configure_workflow')
             ->defaultSort('updated_at', 'desc')
+            ->filters([])
+            ->filtersTriggerAction(fn(Action $action): Action => $action->hidden())
             ->paginated(false)
-            ->filters([
-                TernaryFilter::make('is_active')
-                    ->label(__('filament-workflows::workflows.filters.active.label'))
-                    ->placeholder(__('filament-workflows::workflows.filters.active.all'))
-                    ->trueLabel(__('filament-workflows::workflows.filters.active.active_only'))
-                    ->falseLabel(__('filament-workflows::workflows.filters.active.inactive_only'))
-                    ->indicateUsing(fn(): array => []),
-
-                SelectFilter::make('group_name')
-                    ->label('Группа')
-                    ->placeholder('Все группы')
-                    ->options(fn(): array => static::workflowGroupFilterOptions())
-                    ->native(false)
-                    ->searchable()
-                    ->query(function (Builder $query, array $data): Builder {
-                        $value = (string)($data['value'] ?? '');
-
-                        if ($value === '') {
-                            return $query;
-                        }
-
-                        if ($value === '__without_group__') {
-                            return $query->where(fn(Builder $query): Builder => $query
-                                ->whereNull('group_name')
-                                ->orWhere('group_name', ''));
-                        }
-
-                        return $query->where('group_name', $value);
-                    })
-                    ->indicateUsing(fn(): array => []),
-            ])
-            ->deferFilters(false)
             ->recordActions(
                 [
                     Action::make('configure_workflow')
@@ -145,7 +145,19 @@ class WorkflowResource extends BaseWorkflowResource
                         ->color('gray')
                         ->iconButton()
                         ->action(function (Workflow $record): void {
-                            $copy = static::duplicateWorkflow($record);
+                            try {
+                                $copy = static::duplicateWorkflow($record);
+                            } catch (Throwable $exception) {
+                                report($exception);
+
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Не удалось скопировать процесс')
+                                    ->body('Ошибка записана в лог. Обновите страницу и попробуйте ещё раз.')
+                                    ->send();
+
+                                return;
+                            }
 
                             Notification::make()
                                 ->success()
@@ -178,86 +190,32 @@ class WorkflowResource extends BaseWorkflowResource
     }
 
     /**
-     * @return array<string, array<string, string>>
-     */
-    public static function triggerFilterOptions(): array
-    {
-        $groups = [
-            'Основные' => [],
-            'Внешний запуск' => [],
-            'amoCRM · Ответственные' => [],
-            'amoCRM · Создание' => [],
-            'amoCRM · Изменение' => [],
-            'amoCRM · Удаление' => [],
-            'amoCRM · Восстановление' => [],
-            'amoCRM · Примечания и сообщения' => [],
-            'Другое' => [],
-        ];
-
-        foreach (app(TriggerRegistry::class)->getSelectOptions() as $value => $label) {
-            $label = (string)$label;
-            $group = static::triggerFilterGroup((string)$value);
-            $groups[$group][(string)$value] = static::triggerFilterLabel($label);
-        }
-
-        return array_filter($groups, static fn(array $options): bool => $options !== []);
-    }
-
-    private static function triggerFilterGroup(string $value): string
-    {
-        if (in_array($value, ['manual', 'schedule', 'date-condition'], true)) {
-            return 'Основные';
-        }
-
-        if (in_array($value, ['workflow-completed', 'generic-webhook'], true)) {
-            return 'Внешний запуск';
-        }
-
-        if (str_starts_with($value, 'amocrm-responsible-')) {
-            return 'amoCRM · Ответственные';
-        }
-
-        if (str_starts_with($value, 'amocrm-add-')) {
-            return in_array($value, ['amocrm-add-talk', 'amocrm-add-chat-template-review'], true)
-                ? 'amoCRM · Примечания и сообщения'
-                : 'amoCRM · Создание';
-        }
-
-        if (str_starts_with($value, 'amocrm-update-') || $value === 'amocrm-status-lead') {
-            return 'amoCRM · Изменение';
-        }
-
-        if (str_starts_with($value, 'amocrm-delete-')) {
-            return 'amoCRM · Удаление';
-        }
-
-        if (str_starts_with($value, 'amocrm-restore-')) {
-            return 'amoCRM · Восстановление';
-        }
-
-        if (str_starts_with($value, 'amocrm-note-')) {
-            return 'amoCRM · Примечания и сообщения';
-        }
-
-        return 'Другое';
-    }
-
-    private static function triggerFilterLabel(string $label): string
-    {
-        $label = trim(preg_replace('/^amoCRM:\s*/u', '', $label) ?: $label);
-
-        return mb_strtoupper(mb_substr($label, 0, 1)) . mb_substr($label, 1);
-    }
-
-    /**
      * @return array<string, string>
      */
-    private static function workflowGroupFilterOptions(): array
+    public static function workflowGroupFilterOptions(): array
     {
-        return [
-            '__without_group__' => 'Без группы',
-            ...AppWorkflow::groupOptions(),
-        ];
+        $options = AppWorkflow::groupOptions();
+
+        asort($options);
+
+        return $options;
+    }
+
+    public static function applyGroupHeaderFilter(Builder $query, ?string $group): Builder
+    {
+        if ($group === static::GROUP_FILTER_EMPTY) {
+            return $query->where(function (Builder $query): void {
+                $query
+                    ->whereNull('group_name')
+                    ->orWhere('group_name', '');
+            });
+        }
+
+        if (filled($group)) {
+            return $query->where('group_name', $group);
+        }
+
+        return $query;
     }
 
     private static function updateWorkflowActivation(Workflow $record, bool $state): bool
@@ -334,6 +292,11 @@ class WorkflowResource extends BaseWorkflowResource
         }
 
         $triggerType = (string)data_get($definition, 'trigger.type');
+
+        if ($duplicateIssue = static::uniqueAmoTriggerIssue($triggerType, $record, $data)) {
+            $issues[] = $duplicateIssue;
+        }
+
         $actionTypes = static::workflowActionTypes((array)data_get($definition, 'actions', []));
         $unsupportedTypes = array_values(array_intersect(
             $actionTypes,
@@ -363,6 +326,53 @@ class WorkflowResource extends BaseWorkflowResource
         }
 
         return array_values(array_unique($issues));
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function uniqueAmoTriggerIssue(
+        string $triggerType,
+        ?Workflow $record = null,
+        array $data = []
+    ): ?string {
+        if (!AppWorkflow::requiresUniqueActiveTrigger($triggerType)) {
+            return null;
+        }
+
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
+        $accountId = $record?->account_id ?? ($data['account_id'] ?? null);
+        $userId = $record?->{$tenantColumn} ?? ($data[$tenantColumn] ?? auth()->id());
+
+        $duplicate = AppWorkflow::activeDuplicateForUniqueTrigger(
+            $triggerType,
+            $accountId,
+            $userId,
+            $record?->getKey(),
+        );
+
+        if (!$duplicate instanceof AppWorkflow) {
+            return null;
+        }
+
+        $duplicateName = filled($duplicate->name) ? $duplicate->name : '#' . $duplicate->getKey();
+
+        return sprintf(
+            'Триггер «%s» уже используется активным сценарием «%s». Выключите его или выберите другой amoCRM-триггер.',
+            static::triggerTypeName($triggerType),
+            $duplicateName,
+        );
+    }
+
+    private static function triggerTypeName(string $triggerType): string
+    {
+        $triggerClass = app(TriggerRegistry::class)->get($triggerType);
+
+        if (is_string($triggerClass) && method_exists($triggerClass, 'name')) {
+            return (string)$triggerClass::name();
+        }
+
+        return $triggerType;
     }
 
     /**
@@ -611,19 +621,84 @@ class WorkflowResource extends BaseWorkflowResource
 
     public static function duplicateWorkflow(Workflow $record): Workflow
     {
-        $copy = $record->replicate();
-        $copy->name = static::copyName($record->name);
+        $name = static::copyName($record->name);
+
+        $copy = $record->replicate(static::workflowCopyExcludedColumns($record));
+        $copy->name = $name;
         $copy->is_active = false;
         $copy->created_by = auth()->id();
         $copy->updated_by = auth()->id();
+
+        foreach (static::workflowCopyUniqueValues($record, $name) as $column => $value) {
+            $copy->{$column} = $value;
+        }
+
         $copy->save();
 
         return $copy;
     }
 
-    private static function copyName(string $name): string
+    /**
+     * @return array<int, string>
+     */
+    private static function workflowCopyExcludedColumns(Workflow $record): array
     {
-        $name = trim($name);
+        return array_values(array_unique(array_filter([
+            $record->getKeyName(),
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            ...static::workflowCopyUniqueColumns($record),
+        ])));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function workflowCopyUniqueColumns(Workflow $record): array
+    {
+        $attributes = $record->getAttributes();
+
+        return array_values(array_filter([
+            'uuid',
+            'ulid',
+            'public_id',
+            'workflow_uuid',
+            'slug',
+            'token',
+            'secret',
+            'webhook_secret',
+        ], fn(string $column): bool => array_key_exists($column, $attributes)));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function workflowCopyUniqueValues(Workflow $record, string $name): array
+    {
+        $values = [];
+
+        foreach (static::workflowCopyUniqueColumns($record) as $column) {
+            $values[$column] = match ($column) {
+                'uuid', 'workflow_uuid' => (string)Str::uuid(),
+                'ulid', 'public_id' => (string)Str::ulid(),
+                'slug' => (Str::slug($name) ?: 'workflow-copy') . '-' . Str::lower(Str::random(6)),
+                'token' => Str::random(40),
+                'secret', 'webhook_secret' => Str::random(48),
+                default => Str::random(32),
+            };
+        }
+
+        return $values;
+    }
+
+    private static function copyName(?string $name): string
+    {
+        $name = trim((string)$name);
+
+        if ($name === '') {
+            return 'Копия процесса';
+        }
 
         return str($name)->startsWith('Копия: ')
             ? $name . ' (копия)'

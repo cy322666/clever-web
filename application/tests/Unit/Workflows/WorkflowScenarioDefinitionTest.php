@@ -63,4 +63,16 @@ class WorkflowScenarioDefinitionTest extends TestCase
 
         $this->assertTrue(Workflow::definitionHasConfiguredActions($definition));
     }
+
+    public function test_only_amocrm_event_triggers_require_unique_active_workflow(): void
+    {
+        $this->assertTrue(Workflow::requiresUniqueActiveTrigger('amocrm-add-lead'));
+        $this->assertTrue(Workflow::requiresUniqueActiveTrigger('amocrm-status-lead'));
+
+        $this->assertFalse(Workflow::requiresUniqueActiveTrigger('manual'));
+        $this->assertFalse(Workflow::requiresUniqueActiveTrigger('generic-webhook'));
+        $this->assertFalse(Workflow::requiresUniqueActiveTrigger('schedule'));
+        $this->assertFalse(Workflow::requiresUniqueActiveTrigger('date-condition'));
+        $this->assertFalse(Workflow::requiresUniqueActiveTrigger('workflow-completed'));
+    }
 }

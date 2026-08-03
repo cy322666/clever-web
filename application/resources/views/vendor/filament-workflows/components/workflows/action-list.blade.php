@@ -3,6 +3,9 @@
 @php
     $listPath = $parentPath ?? '';
     $nestingDepth = $parentPath ? preg_match_all('/config\.(true_actions|false_actions)/', $parentPath) : 0;
+    $inlineActionItems = method_exists($this, 'getInlineWorkflowActionOptions')
+        ? $this->getInlineWorkflowActionOptions()
+        : [];
 @endphp
 
 <div
@@ -18,7 +21,13 @@
         $insertPath = $parentPath ?? '';
     @endphp
 
-    @if($index > 0)
+        @if($index > 0)
+            @php
+                $insertInlineActionPickerKey = method_exists($this, 'inlineActionPickerKey')
+                    ? $this->inlineActionPickerKey($insertPath, $index)
+                    : $insertPath . ':' . $index;
+            @endphp
+
         <div class="my-2 flex flex-col items-center">
             <x-filament-workflows::workflows.connector/>
             <button
@@ -29,6 +38,11 @@
             >
                 <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
             </button>
+            @if (($this->inlineActionPickerKey ?? null) === $insertInlineActionPickerKey)
+                <div class="workflow-inline-action-picker-wrap">
+                    <x-filament-workflows::workflows.inline-action-picker :actions="$inlineActionItems"/>
+                </div>
+            @endif
             <x-filament-workflows::workflows.connector/>
         </div>
     @endif
@@ -56,6 +70,14 @@
                 $branchGridClass = $nestingDepth > 0
                     ? 'workflow-condition-branches workflow-condition-branches--single'
                     : 'workflow-condition-branches workflow-condition-branches--split';
+                $trueBranchPath = $currentPath . '.config.true_actions';
+                $falseBranchPath = $currentPath . '.config.false_actions';
+                $trueInlineActionPickerKey = method_exists($this, 'inlineActionPickerKey')
+                    ? $this->inlineActionPickerKey($trueBranchPath)
+                    : $trueBranchPath . ':end';
+                $falseInlineActionPickerKey = method_exists($this, 'inlineActionPickerKey')
+                    ? $this->inlineActionPickerKey($falseBranchPath)
+                    : $falseBranchPath . ':end';
 
                 $isPipelineSide = static function (array $condition, string $side): bool {
                     $source = (string) ($condition[$side . '_source'] ?? '');
@@ -283,13 +305,13 @@
 
                                 <x-filament-workflows::workflows.action-list
                                     :actions="$config['true_actions'] ?? []"
-                                    :parent-path="$currentPath . '.config.true_actions'"
+                                    :parent-path="$trueBranchPath"
                                 />
 
                                 @if(empty($config['true_actions'] ?? []))
                                 <div class="mt-3 flex justify-center">
                                     <x-filament::button
-                                        wire:click="openAddActionForPath('{{ $currentPath }}.config.true_actions')"
+                                        wire:click="openAddActionForPath('{{ $trueBranchPath }}')"
                                         icon="heroicon-o-plus"
                                         size="xs"
                                         color="success"
@@ -298,6 +320,12 @@
                                         {{ __('filament-workflows::workflows.actions.add.label') }}
                                     </x-filament::button>
                                 </div>
+                                @endif
+                                @if (($this->inlineActionPickerKey ?? null) === $trueInlineActionPickerKey)
+                                    <div class="workflow-inline-action-picker-wrap">
+                                        <x-filament-workflows::workflows.inline-action-picker
+                                            :actions="$inlineActionItems"/>
+                                    </div>
                                 @endif
                             </div>
 
@@ -310,13 +338,13 @@
 
                                 <x-filament-workflows::workflows.action-list
                                     :actions="$config['false_actions'] ?? []"
-                                    :parent-path="$currentPath . '.config.false_actions'"
+                                    :parent-path="$falseBranchPath"
                                 />
 
                                 @if(empty($config['false_actions'] ?? []))
                                 <div class="mt-3 flex justify-center">
                                     <x-filament::button
-                                        wire:click="openAddActionForPath('{{ $currentPath }}.config.false_actions')"
+                                        wire:click="openAddActionForPath('{{ $falseBranchPath }}')"
                                         icon="heroicon-o-plus"
                                         size="xs"
                                         color="danger"
@@ -325,6 +353,12 @@
                                         {{ __('filament-workflows::workflows.actions.add.label') }}
                                     </x-filament::button>
                                 </div>
+                                @endif
+                                @if (($this->inlineActionPickerKey ?? null) === $falseInlineActionPickerKey)
+                                    <div class="workflow-inline-action-picker-wrap">
+                                        <x-filament-workflows::workflows.inline-action-picker
+                                            :actions="$inlineActionItems"/>
+                                    </div>
                                 @endif
                             </div>
                 </div>
@@ -346,7 +380,13 @@
         @endif
     </div>
 
-    @if($loop->last)
+        @if($loop->last)
+            @php
+                $tailInlineActionPickerKey = method_exists($this, 'inlineActionPickerKey')
+                    ? $this->inlineActionPickerKey($insertPath, count($actions))
+                    : $insertPath . ':' . count($actions);
+            @endphp
+
         <div class="my-2 flex flex-col items-center">
             <x-filament-workflows::workflows.connector/>
             <button
@@ -357,6 +397,11 @@
             >
                 <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
             </button>
+            @if (($this->inlineActionPickerKey ?? null) === $tailInlineActionPickerKey)
+                <div class="workflow-inline-action-picker-wrap">
+                    <x-filament-workflows::workflows.inline-action-picker :actions="$inlineActionItems"/>
+                </div>
+            @endif
         </div>
     @endif
 

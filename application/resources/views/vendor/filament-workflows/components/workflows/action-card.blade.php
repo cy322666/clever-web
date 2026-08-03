@@ -26,14 +26,6 @@
     $targetEntity = (string) ($config['target_entity'] ?? (in_array($actionType, ['amocrm_change_lead_status', 'amocrm_distribution_queue'], true) ? 'lead' : ''));
     $targetEntityLabel = $entityLabels[$targetEntity] ?? null;
     $targetEntityId = trim((string) ($config['target_entity_id'] ?? ''));
-    $delay = $config['delay'] ?? [];
-    $delayMode = $delay['mode'] ?? 'immediate';
-    $delayLabel = null;
-
-    if ($delayMode === 'after_seconds' && filled($delay['seconds'] ?? null)) {
-        $delayLabel = min(30, max(1, (int) $delay['seconds'])) . ' сек.';
-    }
-
     $summaryItems = [];
     $dealSummaryItems = [];
     $noteSummaryItems = [];
@@ -239,13 +231,6 @@
         </div>
 
         <div class="flex shrink-0 flex-col items-end gap-2">
-            @if($delayLabel)
-                <span class="inline-flex items-center gap-1.5 text-sm font-medium leading-5 text-amber-600 dark:text-amber-300">
-                    <x-filament::icon icon="heroicon-o-clock" class="h-3.5 w-3.5 shrink-0"/>
-                    {{ $delayLabel }}
-                </span>
-            @endif
-
             @if(!$readOnly)
                 <div
                     class="flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">

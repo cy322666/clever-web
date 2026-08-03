@@ -9,6 +9,7 @@ use App\Services\amoCRM\Client;
 use App\Workflows\Engine\WorkflowTestRunner;
 use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Component;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,12 @@ trait HasWorkflowPageActions
     public ?string $insertActionPath = null;
 
     public ?int $insertActionIndex = null;
+
+    public ?string $inlineActionPickerKey = null;
+
+    public ?string $inlineActionPickerPath = null;
+
+    public ?int $inlineActionPickerIndex = null;
 
     public function cacheHasWorkflowPageActions(): void
     {
@@ -95,6 +102,20 @@ trait HasWorkflowPageActions
             ->action(fn() => $this->duplicateCurrentWorkflow());
     }
 
+    protected function deleteWorkflowAction(): DeleteAction
+    {
+        return DeleteAction::make('deleteWorkflow')
+            ->label('Удалить сценарий')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Удалить сценарий?')
+            ->modalDescription('Сценарий и все его исполнения будут удалены безвозвратно.')
+            ->modalSubmitActionLabel('Удалить')
+            ->successNotificationTitle('Сценарий удалён')
+            ->successRedirectUrl(WorkflowResource::getUrl('index'));
+    }
+
     public function duplicateCurrentWorkflow(): void
     {
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
@@ -103,7 +124,19 @@ trait HasWorkflowPageActions
             return;
         }
 
-        $copy = WorkflowResource::duplicateWorkflow($record);
+        try {
+            $copy = WorkflowResource::duplicateWorkflow($record);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            Notification::make()
+                ->danger()
+                ->title('Не удалось скопировать процесс')
+                ->body('Ошибка записана в лог. Обновите страницу и попробуйте ещё раз.')
+                ->send();
+
+            return;
+        }
 
         Notification::make()
             ->success()
@@ -372,16 +405,124 @@ trait HasWorkflowPageActions
 
     public function openAddActionAtPath(string $path, int $index): void
     {
-        $this->insertActionPath = $path;
-        $this->insertActionIndex = max(0, $index);
-        $this->targetPath = $path !== '' ? $path : null;
+        $this->toggleInlineActionPicker($path, max(0, $index));
+    }
 
-        $this->mountAction('addWorkflowAction');
+    public function openAddActionForPath(string $path): void
+    {
+        $this->toggleInlineActionPicker($path);
+    }
+
+    public function toggleInlineActionPicker(?string $path = '', ?int $index = null): void
+    {
+        $path = (string)($path ?? '');
+        $index = $index === null ? null : max(0, (int)$index);
+        $key = $this->inlineActionPickerKey($path, $index);
+
+        if ($this->inlineActionPickerKey === $key) {
+            $this->closeInlineActionPicker();
+
+            return;
+        }
+
+        $this->inlineActionPickerKey = $key;
+        $this->inlineActionPickerPath = $path;
+        $this->inlineActionPickerIndex = $index;
+        $this->insertActionPath = $path;
+        $this->insertActionIndex = $index;
+        $this->targetPath = $path !== '' ? $path : null;
+    }
+
+    public function closeInlineActionPicker(): void
+    {
+        $this->inlineActionPickerKey = null;
+        $this->inlineActionPickerPath = null;
+        $this->inlineActionPickerIndex = null;
+        $this->insertActionPath = null;
+        $this->insertActionIndex = null;
+        $this->targetPath = null;
+    }
+
+    public function inlineActionPickerKey(string $path = '', ?int $index = null): string
+    {
+        return $path . ':' . ($index === null ? 'end' : (string)max(0, $index));
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getInlineWorkflowActionOptions(): array
+    {
+        return app(ActionRegistry::class)->getAllWithMetadata();
     }
 
     public function addWorkflowBlock(): void
     {
         $this->addWorkflowBlockAt(count($this->getArrayAtPath('')));
+    }
+
+    public function addWorkflowRootCondition(): void
+    {
+        if (!$this->trigger) {
+            $this->mountAction('selectTrigger');
+
+            return;
+        }
+
+        $actions = array_values($this->getArrayAtPath(''));
+        $rootAction = $actions[0] ?? null;
+
+        if (is_array($rootAction) && ($rootAction['type'] ?? null) === 'control-condition') {
+            $rootActionId = (string)($rootAction['id'] ?? '');
+
+            if ($rootActionId !== '') {
+                $this->addWorkflowInlineCondition($rootActionId);
+            }
+
+            return;
+        }
+
+        $registry = app(ActionRegistry::class);
+        $type = 'control-condition';
+
+        if (!$registry->has($type)) {
+            Notification::make()
+                ->danger()
+                ->title('Блок условий недоступен')
+                ->send();
+
+            return;
+        }
+
+        $actionId = 'step_' . Str::lower(Str::ulid()->toBase32());
+        $config = $this->prepareWorkflowActionConfig($type, $registry->getDefaultConfig($type), '', 0);
+        $config['logic'] = $config['logic'] ?? 'and';
+        $config['conditions'] = [];
+        $config['true_actions'] = array_values(
+            array_filter(
+                $actions,
+                fn(mixed $action): bool => is_array($action) && ($action['type'] ?? null) !== $type,
+            )
+        );
+        $config['false_actions'] = [];
+
+        $rootCondition = [
+            'id' => $actionId,
+            'type' => $type,
+            'componentType' => $type,
+            'config' => $config,
+        ];
+
+        $conditionBlocks = array_values(
+            array_filter(
+                $actions,
+                fn(mixed $action): bool => is_array($action) && ($action['type'] ?? null) === $type,
+            )
+        );
+
+        $this->setArrayAtPath('', array_merge([$rootCondition], $conditionBlocks));
+        $this->syncDefinition();
+        $this->addWorkflowInlineCondition($actionId);
     }
 
     public function addWorkflowBlockAt(int $index): void
@@ -464,12 +605,13 @@ trait HasWorkflowPageActions
         );
 
         $conditions[] = [
+            'join' => ($config['logic'] ?? 'and') === 'or' ? 'or' : 'and',
             'left' => '',
             'operator' => 'equals',
             'right' => '',
         ];
 
-        $config['conditions'] = $conditions;
+        $config['conditions'] = $this->normalizeInlineConditionJoins($conditions);
         $this->setWorkflowConditionConfig($actionId, $config);
     }
 
@@ -493,7 +635,7 @@ trait HasWorkflowPageActions
         }
 
         unset($conditions[$conditionIndex]);
-        $config['conditions'] = array_values($conditions);
+        $config['conditions'] = $this->normalizeInlineConditionJoins(array_values($conditions));
         $this->setWorkflowConditionConfig($actionId, $config);
     }
 
@@ -506,6 +648,18 @@ trait HasWorkflowPageActions
         }
 
         $config['logic'] = $logic === 'or' ? 'or' : 'and';
+        $conditions = array_values(
+            array_filter(
+                (array)($config['conditions'] ?? []),
+                fn($condition): bool => is_array($condition),
+            )
+        );
+
+        foreach ($conditions as $index => $condition) {
+            $conditions[$index]['join'] = $index === 0 ? 'and' : $config['logic'];
+        }
+
+        $config['conditions'] = $conditions;
         $this->setWorkflowConditionConfig($actionId, $config);
     }
 
@@ -515,7 +669,7 @@ trait HasWorkflowPageActions
         string $field,
         mixed $value
     ): void {
-        if (!in_array($field, ['left', 'operator', 'right'], true)) {
+        if (!in_array($field, ['left', 'operator', 'right', 'join'], true)) {
             return;
         }
 
@@ -536,7 +690,13 @@ trait HasWorkflowPageActions
             return;
         }
 
-        $conditions[$conditionIndex][$field] = is_scalar($value) ? trim((string)$value) : '';
+        if ($field === 'join') {
+            $conditions[$conditionIndex][$field] = $conditionIndex === 0
+                ? 'and'
+                : ($value === 'or' ? 'or' : 'and');
+        } else {
+            $conditions[$conditionIndex][$field] = is_scalar($value) ? trim((string)$value) : '';
+        }
 
         if ($field === 'operator' && in_array($conditions[$conditionIndex][$field], [
                 'is_empty',
@@ -549,8 +709,23 @@ trait HasWorkflowPageActions
             $conditions[$conditionIndex]['right'] = '';
         }
 
-        $config['conditions'] = $conditions;
+        $config['conditions'] = $this->normalizeInlineConditionJoins($conditions);
         $this->setWorkflowConditionConfig($actionId, $config);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $conditions
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeInlineConditionJoins(array $conditions): array
+    {
+        foreach ($conditions as $index => $condition) {
+            $conditions[$index]['join'] = $index === 0
+                ? 'and'
+                : (($condition['join'] ?? 'and') === 'or' ? 'or' : 'and');
+        }
+
+        return $conditions;
     }
 
     /**
@@ -643,6 +818,9 @@ trait HasWorkflowPageActions
         $this->insertActionPath = null;
         $this->insertActionIndex = null;
         $this->targetPath = null;
+        $this->inlineActionPickerKey = null;
+        $this->inlineActionPickerPath = null;
+        $this->inlineActionPickerIndex = null;
         $this->editingActionId = $actionId;
         $this->isNewAction = true;
 
