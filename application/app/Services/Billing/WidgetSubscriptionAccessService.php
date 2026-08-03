@@ -25,7 +25,19 @@ class WidgetSubscriptionAccessService
         }
 
         if ($this->manualSubscriptionsAvailable() && $this->hasManualSubscription($userId, $widget)) {
-            return $this->latestManualSubscription($userId, $widget)?->isCurrentlyUsable() === true;
+            if ($this->latestManualSubscription($userId, $widget)?->isCurrentlyUsable() === true) {
+                return true;
+            }
+
+            $legacyApp = $this->legacyApp($userId, $widget);
+
+            if ($legacyApp !== null && $this->legacyAppRecordIsActive($legacyApp)) {
+                $this->syncLegacyAppToManualSubscription($legacyApp);
+
+                return true;
+            }
+
+            return false;
         }
 
         return $this->legacyAppIsActive($userId, $widget);
@@ -45,6 +57,14 @@ class WidgetSubscriptionAccessService
 
         if ($this->manualSubscriptionsAvailable() && $this->hasManualSubscription($userId, $widget)) {
             $subscription = $this->latestManualSubscription($userId, $widget);
+
+            if ($subscription?->isCurrentlyUsable() !== true) {
+                $legacyApp = $this->legacyApp($userId, $widget);
+
+                if ($legacyApp !== null && $this->legacyAppRecordIsActive($legacyApp)) {
+                    $subscription = $this->syncLegacyAppToManualSubscription($legacyApp) ?: $subscription;
+                }
+            }
 
             return [
                 'active' => $subscription?->isCurrentlyUsable() === true,
@@ -180,6 +200,40 @@ class WidgetSubscriptionAccessService
         $app->save();
 
         $this->syncSettingActive($app, $isActive);
+    }
+
+    public function syncLegacyAppToManualSubscription(App $app): ?WidgetSubscription
+    {
+        if (!$this->manualSubscriptionsAvailable() || blank($app->name) || blank($app->user_id)) {
+            return null;
+        }
+
+        $subscription = $this->latestManualSubscription((int)$app->user_id, (string)$app->name);
+
+        if (!$subscription instanceof WidgetSubscription) {
+            return null;
+        }
+
+        $isActive = $this->legacyAppRecordIsActive($app);
+        $expiresAt = $this->parseLegacyExpiresAt($app);
+
+        $subscription->app_id = $app->id;
+        $subscription->ends_at = $expiresAt?->toDateString();
+
+        if ($isActive) {
+            $subscription->status = WidgetSubscription::STATUS_ACTIVE;
+            $subscription->blocked_at = null;
+            $subscription->starts_at = $subscription->starts_at ?: now()->toDateString();
+        } else {
+            $subscription->status = (int)$app->status === App::STATE_INACTIVE
+                ? WidgetSubscription::STATUS_BLOCKED
+                : WidgetSubscription::STATUS_EXPIRED;
+            $subscription->blocked_at = $subscription->blocked_at ?: now();
+        }
+
+        $subscription->save();
+
+        return $subscription->refresh();
     }
 
     public function expireOverdueSubscriptions(bool $dryRun = false): array
@@ -323,10 +377,25 @@ class WidgetSubscriptionAccessService
             return true;
         }
 
-        try {
-            return !Carbon::parse($app->expires_tariff_at)->startOfDay()->lt(now()->startOfDay());
-        } catch (Throwable) {
+        $expiresAt = $this->parseLegacyExpiresAt($app);
+
+        if ($expiresAt === null) {
             return false;
+        }
+
+        return !$expiresAt->startOfDay()->lt(now()->startOfDay());
+    }
+
+    private function parseLegacyExpiresAt(App $app): ?Carbon
+    {
+        if (blank($app->expires_tariff_at)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($app->expires_tariff_at);
+        } catch (Throwable) {
+            return null;
         }
     }
 

@@ -11,13 +11,11 @@ return new class extends Migration {
     {
         $commands = [
             'install:alfa',
-            'install:bizon',
             'install:getcourse',
             'install:tilda',
             'install:distribution',
             'install:yclients',
             'install:import-excel',
-            'install:call-transcription',
         ];
 
         foreach ($commands as $command) {

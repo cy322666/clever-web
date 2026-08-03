@@ -73,8 +73,6 @@ class Kernel extends HttpKernel
         'user.active' => CheckActiveUser::class,
         'user.inputs' => InputCountUser::class,
         'integration.active' => CheckActiveIntegration::class,
-//        'bizon' => BizonAuthenticate::class,
-
 //        'input' => LogInput::class,
     ];
 }

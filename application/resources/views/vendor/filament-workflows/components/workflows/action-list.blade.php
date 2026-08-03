@@ -158,9 +158,8 @@
             @endphp
 
             <div
-                wire:click="openWorkflowActionEditor('{{ $action['id'] }}')"
                 @class([
-                    'workflow-condition-node group relative cursor-pointer rounded-xl border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-900/60 dark:bg-amber-950/10',
+                    'workflow-condition-node group relative rounded-xl border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-900/60 dark:bg-amber-950/10',
                     'workflow-condition-node--nested' => $nestingDepth > 0,
                 ])>
                 <div

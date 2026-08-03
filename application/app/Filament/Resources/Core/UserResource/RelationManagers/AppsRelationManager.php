@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Core\UserResource\RelationManagers;
 
 use App\Models\App;
+use App\Services\Billing\WidgetSubscriptionAccessService;
 use App\Services\Core\PlatformTechnicalMonitor;
 use App\Services\Integrations\IntegrationProvisioningService;
 use Exception;
@@ -197,6 +198,7 @@ SQL,
         $app->save();
 
         $this->syncSettingActive($app, true);
+        app(WidgetSubscriptionAccessService::class)->syncLegacyAppToManualSubscription($app);
 
         return $app->refresh();
     }
@@ -207,6 +209,7 @@ SQL,
         $app->save();
 
         $this->syncSettingActive($app, false);
+        app(WidgetSubscriptionAccessService::class)->syncLegacyAppToManualSubscription($app);
     }
 
     private function syncSettingActive(App $app, bool $isActive): void

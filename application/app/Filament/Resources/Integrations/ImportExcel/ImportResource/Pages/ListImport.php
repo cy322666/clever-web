@@ -29,6 +29,7 @@ class ListImport extends ListRecords
     public function table(Table $table): Table
     {
         return $table
+            ->poll('5s')
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Дата импорта')

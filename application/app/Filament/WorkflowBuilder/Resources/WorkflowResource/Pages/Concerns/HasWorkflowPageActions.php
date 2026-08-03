@@ -447,6 +447,147 @@ trait HasWorkflowPageActions
         $this->syncDefinition();
     }
 
+    public function addWorkflowInlineCondition(string $actionId): void
+    {
+        $config = $this->getWorkflowConditionConfig($actionId);
+
+        if ($config === null) {
+            return;
+        }
+
+        $config['logic'] = $config['logic'] ?? 'and';
+        $conditions = array_values(
+            array_filter(
+                (array)($config['conditions'] ?? []),
+                fn($condition): bool => is_array($condition),
+            )
+        );
+
+        $conditions[] = [
+            'left' => '',
+            'operator' => 'equals',
+            'right' => '',
+        ];
+
+        $config['conditions'] = $conditions;
+        $this->setWorkflowConditionConfig($actionId, $config);
+    }
+
+    public function removeWorkflowInlineCondition(string $actionId, int $conditionIndex): void
+    {
+        $config = $this->getWorkflowConditionConfig($actionId);
+
+        if ($config === null) {
+            return;
+        }
+
+        $conditions = array_values(
+            array_filter(
+                (array)($config['conditions'] ?? []),
+                fn($condition): bool => is_array($condition),
+            )
+        );
+
+        if (!array_key_exists($conditionIndex, $conditions)) {
+            return;
+        }
+
+        unset($conditions[$conditionIndex]);
+        $config['conditions'] = array_values($conditions);
+        $this->setWorkflowConditionConfig($actionId, $config);
+    }
+
+    public function updateWorkflowInlineConditionLogic(string $actionId, mixed $logic): void
+    {
+        $config = $this->getWorkflowConditionConfig($actionId);
+
+        if ($config === null) {
+            return;
+        }
+
+        $config['logic'] = $logic === 'or' ? 'or' : 'and';
+        $this->setWorkflowConditionConfig($actionId, $config);
+    }
+
+    public function updateWorkflowInlineCondition(
+        string $actionId,
+        int $conditionIndex,
+        string $field,
+        mixed $value
+    ): void {
+        if (!in_array($field, ['left', 'operator', 'right'], true)) {
+            return;
+        }
+
+        $config = $this->getWorkflowConditionConfig($actionId);
+
+        if ($config === null) {
+            return;
+        }
+
+        $conditions = array_values(
+            array_filter(
+                (array)($config['conditions'] ?? []),
+                fn($condition): bool => is_array($condition),
+            )
+        );
+
+        if (!array_key_exists($conditionIndex, $conditions)) {
+            return;
+        }
+
+        $conditions[$conditionIndex][$field] = is_scalar($value) ? trim((string)$value) : '';
+
+        if ($field === 'operator' && in_array($conditions[$conditionIndex][$field], [
+                'is_empty',
+                'is_not_empty',
+                'is_null',
+                'is_not_null',
+                'is_true',
+                'is_false',
+            ], true)) {
+            $conditions[$conditionIndex]['right'] = '';
+        }
+
+        $config['conditions'] = $conditions;
+        $this->setWorkflowConditionConfig($actionId, $config);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function getWorkflowConditionConfig(string $actionId): ?array
+    {
+        $path = $this->findActionPathById($actionId);
+
+        if ($path === null) {
+            return null;
+        }
+
+        $action = data_get($this->workflowActions, $path);
+
+        if (!is_array($action) || ($action['type'] ?? null) !== 'control-condition') {
+            return null;
+        }
+
+        return is_array($action['config'] ?? null) ? $action['config'] : [];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function setWorkflowConditionConfig(string $actionId, array $config): void
+    {
+        $path = $this->findActionPathById($actionId);
+
+        if ($path === null) {
+            return;
+        }
+
+        data_set($this->workflowActions, $path . '.config', $config);
+        $this->syncDefinition();
+    }
+
     public function selectActionType(string $type): void
     {
         $registry = app(ActionRegistry::class);
@@ -507,7 +648,10 @@ trait HasWorkflowPageActions
 
         $this->syncDefinition();
         $this->unmountAction();
-        $this->mountAction('configureWorkflowAction', ['actionId' => $actionId]);
+
+        if ($type !== 'control-condition') {
+            $this->mountAction('configureWorkflowAction', ['actionId' => $actionId]);
+        }
     }
 
     private function isConditionBranchPath(string $path): bool

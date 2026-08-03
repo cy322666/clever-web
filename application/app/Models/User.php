@@ -9,8 +9,6 @@ use App\Models\Billing\SubscriptionInvoiceRequest;
 use App\Models\Billing\WidgetSubscription;
 use App\Models\Core\Account;
 use App\Models\Integrations\Alfa\Branch;
-use App\Models\Integrations\Bizon\Setting;
-use App\Models\Integrations\Bizon\Webinar;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -75,12 +73,6 @@ class User extends Authenticatable implements FilamentUser
         return !$this->is_root;
     }
 
-    //TODO упростить
-    public function bizon_settings(): HasOne
-    {
-        return $this->hasOne(Setting::class);
-    }
-
     public function getcourse_settings(): HasOne
     {
         return $this->hasOne(Integrations\GetCourse\Setting::class);
@@ -119,11 +111,6 @@ class User extends Authenticatable implements FilamentUser
     public function accounts(): HasMany
     {
         return $this->hasMany(Account::class);
-    }
-
-    public function webinars(): HasMany
-    {
-        return $this->hasMany(Webinar::class);
     }
 
     public function apps(): HasMany

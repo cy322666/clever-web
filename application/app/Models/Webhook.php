@@ -28,11 +28,6 @@ class Webhook extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function bizonSetting()
-    {
-        return $this->belongsTo(\App\Models\Bizon\Setting::class, 'setting_id', 'id');
-    }
-
     public function alfaSetting()
     {
         return $this->belongsTo(Setting::class, 'setting_id', 'id');

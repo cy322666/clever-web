@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Integrations\Tilda;
 use App\Helpers\Traits\TenantResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource\Pages;
 use App\Jobs\Tilda\FormSend;
-use App\Models\Integrations\Bizon\Webinar;
 use App\Models\Integrations\Tilda\Form;
 use Filament\Actions\BulkAction;
 use Filament\Forms;

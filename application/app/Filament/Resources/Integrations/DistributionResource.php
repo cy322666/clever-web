@@ -6,7 +6,6 @@ use App\Filament\Resources\Integrations\DistributionResource\Pages;
 use App\Helpers\Traits\SettingResource;
 use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
-use App\Models\Integrations\Bizon\Viewer;
 use App\Models\Integrations\Distribution;
 use App\Support\Integrations\PricingView;
 use Carbon\Carbon;

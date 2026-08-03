@@ -2,8 +2,6 @@
 
 use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\BizonController;
-use App\Http\Controllers\Api\CallTranscriptionController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
@@ -13,12 +11,6 @@ use App\Http\Controllers\Api\YClientsController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
-
-    Route::group(['prefix' => 'bizon', 'middleware' => ['integration.active:bizon']], function () {
-        Route::post('hook/{user:uuid}', [BizonController::class, 'hook'])->name('bizon.hook');
-
-        Route::post('form/{user:uuid}', [BizonController::class, 'form'])->name('bizon.form');
-    });
 
     Route::group(['prefix' => 'getcourse', 'middleware' => ['integration.active:getcourse']], function () {
 
@@ -55,10 +47,6 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
     Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
         ->middleware(['integration.active:yclients'])
         ->name('yclients.hook');
-
-    Route::post('amocrm/call-transcription/{user:uuid}/{setting}', [CallTranscriptionController::class, 'hook'])
-        ->middleware(['integration.active:call-transcription'])
-        ->name('amocrm.call-transcription');
 
 });
 

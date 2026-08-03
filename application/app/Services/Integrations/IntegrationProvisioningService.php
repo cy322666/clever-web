@@ -22,7 +22,17 @@ class IntegrationProvisioningService
 
     public function syncCatalogForUser(User $user): void
     {
-        foreach ($this->definitions() as $definition) {
+        $definitions = $this->definitions();
+        $validNames = $definitions->pluck('name')->all();
+
+        if ($validNames !== []) {
+            App::query()
+                ->where('user_id', $user->id)
+                ->whereNotIn('name', $validNames)
+                ->delete();
+        }
+
+        foreach ($definitions as $definition) {
             $app = App::query()->firstOrNew([
                 'user_id' => $user->id,
                 'name' => $definition['name'],

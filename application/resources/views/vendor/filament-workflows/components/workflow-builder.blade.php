@@ -10,6 +10,30 @@
     }
     $workflowActionItems = collect($this->workflowActions)->values();
     $workflowActionsCount = $workflowActionItems->count();
+    $conditionValueGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedOptions(true);
+    $conditionOperatorOptions = [
+        'equals' => 'Равно',
+        'not_equals' => 'Не равно',
+        'strict_equals' => 'Строго равно',
+        'gt' => 'Больше',
+        'gte' => 'Больше или равно',
+        'lt' => 'Меньше',
+        'lte' => 'Меньше или равно',
+        'contains' => 'Содержит',
+        'not_contains' => 'Не содержит',
+        'starts_with' => 'Начинается с',
+        'ends_with' => 'Заканчивается на',
+        'in' => 'В списке',
+        'not_in' => 'Не в списке',
+        'is_empty' => 'Пусто',
+        'is_not_empty' => 'Не пусто',
+        'is_null' => 'Нет значения',
+        'is_not_null' => 'Есть значение',
+        'is_true' => 'Да',
+        'is_false' => 'Нет',
+        'matches' => 'Регулярное выражение',
+    ];
+    $conditionUnaryOperators = ['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false'];
     $conditionActions = $workflowActionItems
         ->map(fn (array $action, int $index): array => $action + ['__workflowIndex' => $index])
         ->filter(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
@@ -209,8 +233,11 @@
                         $blockDelaySeconds = ($delay['mode'] ?? 'immediate') === 'after_seconds'
                             ? min(15, max(5, (int)($delay['seconds'] ?? 5)))
                             : 5;
-                        $conditionPreviewRows = \App\Workflows\Actions\WorkflowConditionPreview::rows($conditionConfig, 4);
-                        $conditionRemainingCount = \App\Workflows\Actions\WorkflowConditionPreview::remainingCount($conditionConfig, 4);
+                        $conditionRows = array_values(array_filter(
+                            (array)($conditionConfig['conditions'] ?? []),
+                            fn ($conditionRow): bool => is_array($conditionRow),
+                        ));
+                        $conditionLogic = (string)($conditionConfig['logic'] ?? 'and');
                         $conditionActionsPath = $conditionAction['__workflowIndex'] . '.config.true_actions';
                         $blockActions = $conditionConfig['true_actions'] ?? [];
                     @endphp
@@ -257,80 +284,122 @@
 
                         <div class="workflow-rule-block__grid">
                             <div class="workflow-rule-column workflow-rule-column--conditions">
-                                <div class="workflow-rule-condition-preview">
+                                <div class="workflow-inline-condition-editor">
+                                    @if($conditionRows === [])
+                                        <div class="workflow-rule-empty">
+                                            <span>Выполнять всегда</span>
+                                        </div>
+                                    @else
+                                        <label class="workflow-inline-condition-editor__logic">
+                                            <span>Логика</span>
+                                            <select
+                                                wire:change="updateWorkflowInlineConditionLogic('{{ $conditionAction['id'] }}', $event.target.value)"
+                                            >
+                                                <option value="and" @selected($conditionLogic !== 'or')>И</option>
+                                                <option value="or" @selected($conditionLogic === 'or')>ИЛИ</option>
+                                            </select>
+                                        </label>
+
+                                        <div class="workflow-inline-condition-editor__rows">
+                                            @foreach($conditionRows as $conditionIndex => $conditionRow)
+                                                @php
+                                                    $operator = (string)($conditionRow['operator'] ?? 'equals');
+                                                    $isUnaryOperator = in_array($operator, $conditionUnaryOperators, true);
+                                                @endphp
+
+                                                <div class="workflow-inline-condition-row">
+                                                    <button
+                                                        type="button"
+                                                        wire:click="removeWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }})"
+                                                        class="workflow-inline-condition-row__delete"
+                                                        title="Удалить условие"
+                                                        aria-label="Удалить условие"
+                                                    >
+                                                        <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
+                                                    </button>
+
+                                                    <div class="workflow-inline-condition-grid">
+                                                        <label class="workflow-inline-condition-field">
+                                                            <span>Что проверяем</span>
+                                                            <select
+                                                                wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
+                                                            >
+                                                                <option value="">Выберите</option>
+                                                                @foreach($conditionValueGroups as $groupLabel => $groupOptions)
+                                                                    <optgroup label="{{ $groupLabel }}">
+                                                                        @foreach($groupOptions as $optionValue => $optionLabel)
+                                                                            <option
+                                                                                value="{{ $optionValue }}" @selected(($conditionRow['left'] ?? '') === $optionValue)>
+                                                                                {{ $optionLabel }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </optgroup>
+                                                                @endforeach
+                                                            </select>
+                                                            <input
+                                                                type="text"
+                                                                value="{{ $conditionRow['left'] ?? '' }}"
+                                                                wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
+                                                                placeholder="Свое значение"
+                                                            />
+                                                        </label>
+
+                                                        <label
+                                                            class="workflow-inline-condition-field workflow-inline-condition-field--operator">
+                                                            <span>Оператор</span>
+                                                            <select
+                                                                wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'operator', $event.target.value)"
+                                                            >
+                                                                @foreach($conditionOperatorOptions as $optionValue => $optionLabel)
+                                                                    <option
+                                                                        value="{{ $optionValue }}" @selected($operator === $optionValue)>
+                                                                        {{ $optionLabel }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                        </label>
+
+                                                        @unless($isUnaryOperator)
+                                                            <label class="workflow-inline-condition-field">
+                                                                <span>С чем сравниваем</span>
+                                                                <select
+                                                                    wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
+                                                                >
+                                                                    <option value="">Выберите</option>
+                                                                    @foreach($conditionValueGroups as $groupLabel => $groupOptions)
+                                                                        <optgroup label="{{ $groupLabel }}">
+                                                                            @foreach($groupOptions as $optionValue => $optionLabel)
+                                                                                <option
+                                                                                    value="{{ $optionValue }}" @selected(($conditionRow['right'] ?? '') === $optionValue)>
+                                                                                    {{ $optionLabel }}
+                                                                                </option>
+                                                                            @endforeach
+                                                                        </optgroup>
+                                                                    @endforeach
+                                                                </select>
+                                                                <input
+                                                                    type="text"
+                                                                    value="{{ $conditionRow['right'] ?? '' }}"
+                                                                    wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
+                                                                    placeholder="Свое значение"
+                                                                />
+                                                            </label>
+                                                        @endunless
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+
                                     <button
                                         type="button"
-                                        wire:click="openWorkflowActionEditor('{{ $conditionAction['id'] }}')"
-                                        class="workflow-rule-condition-card"
+                                        wire:click="addWorkflowInlineCondition('{{ $conditionAction['id'] }}')"
+                                        class="workflow-rule-condition-add"
                                     >
-                                        @if($conditionPreviewRows !== [])
-                                            <span class="workflow-rule-condition-card__rows">
-                                                @foreach($conditionPreviewRows as $conditionPreviewRow)
-                                                    <span class="workflow-rule-condition-card__row">
-                                                        @if($conditionPreviewRow['connector'])
-                                                            <span class="workflow-rule-condition-card__connector">
-                                                                {{ $conditionPreviewRow['connector'] }}
-                                                            </span>
-                                                        @endif
-
-                                                        <span class="workflow-rule-condition-card__value">
-                                                            {{ $conditionPreviewRow['left'] }}
-                                                        </span>
-                                                        <span class="workflow-rule-condition-card__operator">
-                                                            {{ $conditionPreviewRow['operator'] }}
-                                                        </span>
-                                                        @if($conditionPreviewRow['right'] !== null)
-                                                            <span class="workflow-rule-condition-card__value">
-                                                                {{ $conditionPreviewRow['right'] }}
-                                                            </span>
-                                                        @endif
-                                                    </span>
-                                                @endforeach
-
-                                                @if($conditionRemainingCount > 0)
-                                                    <span class="workflow-rule-condition-card__more">
-                                                        ещё {{ $conditionRemainingCount }} услов.
-                                                    </span>
-                                                @endif
-                                            </span>
-                                        @else
-                                            <span class="workflow-rule-condition-card__title">Условие не настроено</span>
-                                            <span class="workflow-rule-condition-card__text">
-                                                Нажмите, чтобы настроить
-                                            </span>
-                                        @endif
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        wire:click.stop="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                        wire:loading.attr="disabled"
-                                        wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                        class="workflow-rule-condition-preview__delete"
-                                        title="Удалить условие"
-                                    >
-                                        <x-filament::icon
-                                            icon="heroicon-o-trash"
-                                            class="h-4 w-4"
-                                            wire:loading.remove
-                                            wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                        />
-                                        <x-filament::loading-indicator
-                                            class="h-4 w-4"
-                                            wire:loading
-                                            wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                                        />
+                                        <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
+                                        <span>Условие</span>
                                     </button>
                                 </div>
-
-                                <button
-                                    type="button"
-                                    wire:click="openWorkflowActionEditor('{{ $conditionAction['id'] }}')"
-                                    class="workflow-rule-condition-add"
-                                >
-                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                                    <span>Условие</span>
-                                </button>
                             </div>
 
                             <div class="workflow-rule-column workflow-rule-column--actions">

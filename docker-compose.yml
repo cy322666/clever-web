@@ -12,7 +12,7 @@ services:
       WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
       REDIS_HOST: redis
     command: >
-      sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+      sh -lc "mkdir -p storage/framework/cache/data storage/framework/cache/laravel-excel storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)
       && php artisan package:discover --ansi
       && php artisan serve --host=0.0.0.0 --port=8000"
@@ -85,7 +85,7 @@ services:
       WORKFLOW_WEBHOOKS_QUEUE_CONNECTION: redis
       REDIS_HOST: redis
     command: >
-      sh -lc "mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+      sh -lc "mkdir -p storage/framework/cache/data storage/framework/cache/laravel-excel storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)
       && php artisan package:discover --ansi
       && /usr/bin/supervisord -n"

@@ -12,19 +12,7 @@ return new class extends Migration {
         $this->addUserCreatedIndex('getcourse_orders', 'getcourse_orders_user_created_idx');
         $this->addUserCreatedIndex('getcourse_forms', 'getcourse_forms_user_created_idx');
         $this->addUserCreatedIndex('alfacrm_transactions', 'alfacrm_transactions_user_created_idx');
-        $this->addUserCreatedIndex('call_transactions', 'call_transactions_user_created_idx');
         $this->addUserCreatedIndex('import_records', 'import_records_user_created_idx');
-
-        if (
-            Schema::hasTable('bizon_webinars')
-            && Schema::hasColumn('bizon_webinars', 'user_id')
-            && Schema::hasColumn('bizon_webinars', 'created_at')
-            && !$this->indexExists('bizon_webinars', 'bizon_webinars_user_created_idx')
-        ) {
-            Schema::table('bizon_webinars', function (Blueprint $table): void {
-                $table->index(['user_id', 'created_at', 'id'], 'bizon_webinars_user_created_idx');
-            });
-        }
     }
 
     public function down(): void
@@ -34,9 +22,7 @@ return new class extends Migration {
         $this->dropIndexIfTableExists('getcourse_orders', 'getcourse_orders_user_created_idx');
         $this->dropIndexIfTableExists('getcourse_forms', 'getcourse_forms_user_created_idx');
         $this->dropIndexIfTableExists('alfacrm_transactions', 'alfacrm_transactions_user_created_idx');
-        $this->dropIndexIfTableExists('call_transactions', 'call_transactions_user_created_idx');
         $this->dropIndexIfTableExists('import_records', 'import_records_user_created_idx');
-        $this->dropIndexIfTableExists('bizon_webinars', 'bizon_webinars_user_created_idx');
     }
 
     private function addUserCreatedIndex(string $tableName, string $indexName): void

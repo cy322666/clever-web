@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -64,6 +65,17 @@ class ParseImportFile implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        $this->prepareTemporaryDirectory();
+
         Excel::import(new ExcelImport($setting), $path);
+    }
+
+    private function prepareTemporaryDirectory(): void
+    {
+        $path = sys_get_temp_dir() . '/clever-laravel-excel';
+
+        File::ensureDirectoryExists($path, 0775, true);
+
+        config(['excel.temporary_files.local_path' => $path]);
     }
 }

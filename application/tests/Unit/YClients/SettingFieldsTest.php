@@ -4,6 +4,7 @@ namespace Tests\Unit\YClients;
 
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
+use App\Models\amoCRM\Field as AmoField;
 use App\Services\YClients\YClients as YClientsService;
 use PHPUnit\Framework\TestCase;
 
@@ -34,6 +35,22 @@ class SettingFieldsTest extends TestCase
             [['field_yc' => 'services', 'field_amo' => 123]],
             $method->invoke(null, '[{"field_yc":"services","field_amo":123}]')
         );
+    }
+
+    public function test_amo_enum_value_is_normalized_before_mapping(): void
+    {
+        $method = new \ReflectionMethod(Setting::class, 'normalizeAmoEnumValue');
+        $customField = (object)[
+            'field' => (object)[
+                'enums' => (object)[
+                    473099 => 'QC  ХОДЫНКА',
+                ],
+            ],
+        ];
+
+        $value = $method->invoke(null, $customField, new AmoField(), 'QC ХОДЫНКА');
+
+        $this->assertSame('QC  ХОДЫНКА', $value);
     }
 
     public function test_yc_fields_select_shows_system_keys_in_labels(): void

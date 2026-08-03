@@ -5,6 +5,7 @@ KEY="/Users/integrator/.ssh/clever_prod_codex"
 PLIST="/Library/LaunchDaemons/com.clevercrm.local-tunnel.plist"
 HOSTS=(
   "clevercrm.pro"
+  "www.clevercrm.pro"
   "app.clevercrm.pro"
   "back.clevercrm.pro"
   "n8n.clevercrm.pro"
@@ -19,7 +20,7 @@ if [[ ! -f "$KEY" ]]; then
 fi
 
 echo "Updating /etc/hosts..."
-sudo perl -0pi -e 's/^127\.0\.0\.1\s+(clevercrm\.pro|app\.clevercrm\.pro|back\.clevercrm\.pro|n8n\.clevercrm\.pro|grafana\.clevercrm\.pro|prometheus\.clevercrm\.pro|alerts\.clevercrm\.pro)\n//mg' /etc/hosts
+sudo perl -0pi -e 's/^(127\.0\.0\.1|45\.12\.74\.216)\s+(clevercrm\.pro|www\.clevercrm\.pro|app\.clevercrm\.pro|back\.clevercrm\.pro|n8n\.clevercrm\.pro|grafana\.clevercrm\.pro|prometheus\.clevercrm\.pro|alerts\.clevercrm\.pro)\n//mg' /etc/hosts
 for host in "${HOSTS[@]}"; do
   echo "127.0.0.1 ${host}" | sudo tee -a /etc/hosts >/dev/null
 done

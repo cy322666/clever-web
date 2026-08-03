@@ -15,6 +15,8 @@ class YClients
 
     private string $userToken;
 
+    private ?array $branches = null;
+
     public function __construct(Setting $setting)
     {
         $this->userToken = $setting->user_token;
@@ -153,9 +155,13 @@ class YClients
      */
     public function getBranches(): array
     {
+        if ($this->branches !== null) {
+            return $this->branches;
+        }
+
         $branches = data_get($this->get('companies?my=1'), 'data', []);
 
-        return is_array($branches) ? $branches : [];
+        return $this->branches = is_array($branches) ? $branches : [];
     }
 
     /**

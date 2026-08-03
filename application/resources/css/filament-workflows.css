@@ -1842,6 +1842,103 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
     gap: 0.5rem;
 }
 
+.workflow-inline-condition-editor {
+    display: grid;
+    gap: 0.625rem;
+}
+
+.workflow-inline-condition-editor__logic {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: rgb(87 83 78);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.workflow-inline-condition-editor__logic select {
+    min-width: 5.75rem;
+    border: 1px solid rgb(229 224 216);
+    border-radius: 0.375rem;
+    background: #ffffff;
+    padding: 0.375rem 0.625rem;
+    color: rgb(31 41 55);
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+}
+
+.workflow-inline-condition-editor__rows {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.workflow-inline-condition-row {
+    position: relative;
+    border: 1px solid rgb(229 224 216);
+    border-radius: 0.375rem;
+    background: #ffffff;
+    padding: 0.625rem 2.375rem 0.625rem 0.625rem;
+}
+
+.workflow-inline-condition-row__delete {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.3125rem;
+    color: rgb(156 163 175);
+    transition: color 120ms ease, background 120ms ease;
+}
+
+.workflow-inline-condition-row__delete:hover {
+    background: rgb(254 242 242);
+    color: rgb(220 38 38);
+}
+
+.workflow-inline-condition-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.55fr) minmax(0, 1fr);
+    gap: 0.5rem;
+}
+
+.workflow-inline-condition-field {
+    display: grid;
+    gap: 0.375rem;
+    min-width: 0;
+}
+
+.workflow-inline-condition-field span {
+    color: rgb(87 83 78);
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1rem;
+}
+
+.workflow-inline-condition-field select,
+.workflow-inline-condition-field input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgb(229 224 216);
+    border-radius: 0.375rem;
+    background: #ffffff;
+    padding: 0.375rem 0.5rem;
+    color: rgb(31 41 55);
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+}
+
+.workflow-inline-condition-field input {
+    color: rgb(68 64 60);
+}
+
+.workflow-inline-condition-field input::placeholder {
+    color: rgb(168 162 158);
+}
+
 .workflow-rule-condition-card,
 .workflow-rule-empty {
     border: 1px solid rgb(229 224 216);
@@ -2087,7 +2184,8 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 }
 
 @media (max-width: 900px) {
-    .workflow-rule-block__grid {
+    .workflow-rule-block__grid,
+    .workflow-inline-condition-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -2123,6 +2221,10 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 .dark .workflow-rules-empty-trigger,
 .dark .workflow-rule-condition-card,
 .dark .workflow-rule-empty,
+.dark .workflow-inline-condition-editor__logic select,
+.dark .workflow-inline-condition-row,
+.dark .workflow-inline-condition-field select,
+.dark .workflow-inline-condition-field input,
 .dark .workflow-rule-add,
 .dark .workflow-rule-condition-add,
 .dark .workflow-block-connector__add,
@@ -2168,6 +2270,30 @@ body:has(.workflow-editor-modal-shell) .fi-modal-header .fi-modal-heading {
 
 .dark .workflow-block-connector__delay select {
     color: rgb(245 245 244);
+}
+
+.dark .workflow-inline-condition-editor__logic,
+.dark .workflow-inline-condition-field span {
+    color: rgb(168 162 158);
+}
+
+.dark .workflow-inline-condition-field select,
+.dark .workflow-inline-condition-field input,
+.dark .workflow-inline-condition-editor__logic select {
+    color: rgb(245 245 244);
+}
+
+.dark .workflow-inline-condition-field input::placeholder {
+    color: rgb(120 113 108);
+}
+
+.dark .workflow-inline-condition-row__delete {
+    color: rgb(120 113 108);
+}
+
+.dark .workflow-inline-condition-row__delete:hover {
+    background: rgb(69 26 26 / 0.34);
+    color: rgb(248 113 113);
 }
 
 .dark .workflow-rule-block__topline {

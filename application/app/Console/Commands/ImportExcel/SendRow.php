@@ -3,6 +3,7 @@
 namespace App\Console\Commands\ImportExcel;
 
 use App\Models\amoCRM\Field;
+use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\ImportExcel\ImportSetting;
@@ -76,22 +77,12 @@ class SendRow extends Command
 
             $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
             $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
+            $responsibleUserId = $this->resolveResponsibleUserId($setting, $importRecord);
 
             $objectStatus = Status::getObject($setting->default_status_id);
 
-            $lead = Leads::create(null, [
-                'responsible_user_id' => $setting->default_responsible_user_id,
-                'pipeline_id' => $objectStatus->pipeline_id,
-                'status_id' => $objectStatus->status_id,
-                'sale' => $leadSale,
-            ], $leadName, $amoApi);
-
-            $lead = Leads::update($lead, [], $rowDataLeads ?: []);
-
-            Tags::add($lead, $setting->tag);
-
-            if ($rowDataContacts) {
-                $contact = Contacts::search($rowDataContacts, $amoApi);
+            if ($rowDataContacts || $contactName) {
+                $contact = $rowDataContacts ? Contacts::search($rowDataContacts, $amoApi) : null;
 
                 if (!$contact) {
                     $contact = Contacts::create($amoApi, $contactName);
@@ -101,20 +92,29 @@ class SendRow extends Command
 
                 $contact = Contacts::update(
                     $contact,
-                    $rowDataContacts + [
-                        'Имя' => $contactName,
-                        'Ответственный' => $setting->default_responsible_user_id,
-                    ]
+                    ($rowDataContacts ?: [])
+                    + ['Имя' => $contactName]
+                    + ($responsibleUserId !== null ? ['Ответственный' => $responsibleUserId] : [])
                 );
 
                 $importRecord->contact_id = $contact->id;
 
-                $contact->attachTag($setting->tag);
-                $contact->save();
-
-                $lead->attachContact($contact->id);
-                $lead->save();
+                if ($setting->tag) {
+                    $contact->attachTag($setting->tag);
+                    $contact->save();
+                }
             }
+
+            $lead = Leads::create($contact ?? null, [
+                'responsible_user_id' => $responsibleUserId,
+                'pipeline_id' => $objectStatus->pipeline_id,
+                'status_id' => $objectStatus->status_id,
+                'sale' => $leadSale,
+            ], $leadName, $amoApi);
+
+            $lead = Leads::update($lead, [], $rowDataLeads ?: []);
+
+            Tags::add($lead, $setting->tag);
 
             if ($rowDataCompanies) {
                 $company = Companies::search($rowDataCompanies, $amoApi);
@@ -126,10 +126,9 @@ class SendRow extends Command
 
                 $company = Companies::update(
                     $company,
-                    $rowDataCompanies + [
-                        'Имя' => $companyName,
-                        'Ответственный' => $setting->default_responsible_user_id,
-                    ]
+                    $rowDataCompanies
+                    + ['Имя' => $companyName]
+                    + ($responsibleUserId !== null ? ['Ответственный' => $responsibleUserId] : [])
                 );
 
                 $importRecord->company_id = $company->id;
@@ -155,6 +154,54 @@ class SendRow extends Command
         } finally {
             optional($lock)->release();
         }
+    }
+
+    protected function resolveResponsibleUserId(ImportSetting $setting, ImportRecord $importRecord): ?int
+    {
+        $defaultResponsibleId = $setting->default_responsible_user_id
+            ? (int)$setting->default_responsible_user_id
+            : null;
+
+        $responsibleValue = $importRecord->getValueForDefaultKey($setting->responsible_user_column);
+
+        if ($responsibleValue === null || trim((string)$responsibleValue) === '') {
+            return $defaultResponsibleId;
+        }
+
+        $responsibleValue = trim((string)$responsibleValue);
+
+        if (ctype_digit($responsibleValue)) {
+            $staff = Staff::query()
+                ->where('user_id', $setting->user_id)
+                ->where('active', true)
+                ->where('staff_id', (int)$responsibleValue)
+                ->first();
+
+            if ($staff) {
+                return (int)$staff->staff_id;
+            }
+        }
+
+        $normalizedResponsible = $this->normalizeResponsibleName($responsibleValue);
+
+        $staff = Staff::query()
+            ->where('user_id', $setting->user_id)
+            ->where('active', true)
+            ->get()
+            ->first(function (Staff $staff) use ($normalizedResponsible): bool {
+                return $this->normalizeResponsibleName($staff->name) === $normalizedResponsible
+                    || $this->normalizeResponsibleName($staff->login) === $normalizedResponsible;
+            });
+
+        return $staff ? (int)$staff->staff_id : $defaultResponsibleId;
+    }
+
+    protected function normalizeResponsibleName(?string $name): string
+    {
+        $name = mb_strtolower(trim((string)$name));
+        $name = str_replace('ё', 'е', $name);
+
+        return preg_replace('/\s+/u', ' ', $name) ?? $name;
     }
 
     protected function prepareRowData(array $mapping): bool|array

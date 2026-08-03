@@ -145,7 +145,113 @@ class Setting extends Model
             );
         }
 
+        $value = self::normalizeAmoEnumValue($customField, $field, $value);
+
         $customField->setValue($value);
+    }
+
+    private static function normalizeAmoEnumValue(object $customField, Field $field, mixed $value): mixed
+    {
+        $enumValues = self::amoEnumValues($customField, $field);
+
+        if (!$enumValues) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            return array_map(
+                fn(mixed $item): mixed => self::canonicalAmoEnumValue($enumValues, $item),
+                $value
+            );
+        }
+
+        return self::canonicalAmoEnumValue($enumValues, $value);
+    }
+
+    private static function canonicalAmoEnumValue(array $enumValues, mixed $value): mixed
+    {
+        if (!is_scalar($value)) {
+            return $value;
+        }
+
+        $value = (string)$value;
+
+        foreach ($enumValues as $enumValue) {
+            if ((string)$enumValue === $value) {
+                return $enumValue;
+            }
+        }
+
+        $normalizedValue = self::normalizeEnumText($value);
+
+        foreach ($enumValues as $enumValue) {
+            if (self::normalizeEnumText((string)$enumValue) === $normalizedValue) {
+                return $enumValue;
+            }
+        }
+
+        return $value;
+    }
+
+    private static function amoEnumValues(object $customField, Field $field): array
+    {
+        try {
+            $runtimeEnums = $customField->field->enums ?? null;
+        } catch (Throwable) {
+            $runtimeEnums = null;
+        }
+
+        $values = self::extractEnumValues($runtimeEnums);
+
+        if ($values) {
+            return $values;
+        }
+
+        $storedEnums = is_string($field->enums)
+            ? json_decode($field->enums, true)
+            : $field->enums;
+
+        return self::extractEnumValues($storedEnums);
+    }
+
+    private static function extractEnumValues(mixed $enums): array
+    {
+        if ($enums instanceof \stdClass) {
+            $enums = get_object_vars($enums);
+        }
+
+        if (!is_array($enums)) {
+            return [];
+        }
+
+        $values = [];
+
+        foreach ($enums as $key => $enum) {
+            if (is_array($enum) || $enum instanceof \stdClass) {
+                $enumValue = data_get($enum, 'value');
+                $enumKey = data_get($enum, 'id', $key);
+            } else {
+                $enumValue = $enum;
+                $enumKey = $key;
+            }
+
+            if ($enumValue === null || $enumValue === '') {
+                continue;
+            }
+
+            $values[(string)$enumKey] = (string)$enumValue;
+        }
+
+        return $values;
+    }
+
+    private static function normalizeEnumText(string $value): string
+    {
+        $value = trim((string)preg_replace('/[\s\x{00A0}]+/u', ' ', $value));
+
+        return function_exists('mb_strtoupper')
+            ? mb_strtoupper($value)
+            : strtoupper($value);
     }
 
     private static function mappingRows(mixed $mapping): array

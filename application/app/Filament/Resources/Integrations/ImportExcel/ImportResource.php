@@ -21,15 +21,16 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
-use Maatwebsite\Excel\HeadingRowImport;
 
 class ImportResource extends Resource
 {
@@ -88,20 +89,64 @@ class ImportResource extends Resource
                                     ->searchable()
                                     ->nullable(),
 
-                                Forms\Components\TextInput::make('default_sale')
+                                Forms\Components\Select::make('responsible_user_column')
+                                    ->label('Столбец ответственного')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
+                                    ->nullable(),
+
+                                Forms\Components\Select::make('default_sale')
                                     ->label('Бюджет')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
                                     ->nullable(),
 
-                                Forms\Components\TextInput::make('contact_name')
+                                Forms\Components\Select::make('contact_name')
                                     ->label('Название контакта')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
                                     ->nullable(),
 
-                                Forms\Components\TextInput::make('company_name')
+                                Forms\Components\Select::make('company_name')
                                     ->label('Название компании')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
                                     ->nullable(),
 
-                                Forms\Components\TextInput::make('lead_name')
+                                Forms\Components\Select::make('lead_name')
                                     ->label('Название сделки')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
                                     ->nullable(),
                             ])->columns(2),
 
@@ -144,11 +189,21 @@ class ImportResource extends Resource
                         Section::make('Соотношение полей')
                             ->description('Настройте соответствие столбцов Excel и полей в amoCRM')
                             ->schema([
+                                Forms\Components\Hidden::make('headers'),
+
                                 Forms\Components\Repeater::make('fields_leads')
                                     ->label('Поля сделки')
                                     ->schema([
-                                        Forms\Components\TextInput::make('excel_column')
+                                        Forms\Components\Select::make('excel_column')
                                             ->label('Столбец Excel')
+                                            ->options(
+                                                fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                                    $get,
+                                                    $record
+                                                )
+                                            )
+                                            ->searchable()
+                                            ->native(false)
                                             ->required(),
 
                                         Forms\Components\Select::make('field_id')
@@ -176,8 +231,16 @@ class ImportResource extends Resource
                                 Forms\Components\Repeater::make('fields_contacts')
                                     ->label('Поля контакта')
                                     ->schema([
-                                        Forms\Components\TextInput::make('excel_column')
+                                        Forms\Components\Select::make('excel_column')
                                             ->label('Столбец Excel')
+                                            ->options(
+                                                fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                                    $get,
+                                                    $record
+                                                )
+                                            )
+                                            ->searchable()
+                                            ->native(false)
                                             ->required(),
 
                                         Forms\Components\Select::make('field_id')
@@ -205,8 +268,16 @@ class ImportResource extends Resource
                                 Forms\Components\Repeater::make('fields_companies')
                                     ->label('Поля компании')
                                     ->schema([
-                                        Forms\Components\TextInput::make('excel_column')
+                                        Forms\Components\Select::make('excel_column')
                                             ->label('Столбец Excel')
+                                            ->options(
+                                                fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                                    $get,
+                                                    $record
+                                                )
+                                            )
+                                            ->searchable()
+                                            ->native(false)
                                             ->required(),
 
                                         Forms\Components\Select::make('field_id')
@@ -248,6 +319,9 @@ class ImportResource extends Resource
                                     ->disk('exports')
                                     ->preserveFilenames()
                                     ->live()
+                                    ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                        $set('headers', static::extractHeadersFromFileState($state));
+                                    })
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
                             ]),
 
@@ -313,5 +387,103 @@ class ImportResource extends Resource
         return ImportRecord::query()
             ->where('user_id', \Illuminate\Support\Facades\Auth::id())
             ->count();
+    }
+
+    private static function headerOptions(Get $get, ?ImportSetting $record): array
+    {
+        foreach (['headers', '../headers', '../../headers', '../../../headers'] as $path) {
+            $headers = $get($path);
+
+            if (is_array($headers) && $headers !== []) {
+                return static::headersToOptions($headers);
+            }
+        }
+
+        if (is_array($record?->headers) && $record->headers !== []) {
+            return static::headersToOptions($record->headers);
+        }
+
+        if (filled($record?->file_path)) {
+            return static::headersToOptions(static::extractHeadersFromFileState($record->file_path));
+        }
+
+        return [];
+    }
+
+    private static function extractHeadersFromFileState(mixed $state): array
+    {
+        $path = static::resolveFilePath($state);
+
+        if ($path === null || !is_file($path)) {
+            return [];
+        }
+
+        try {
+            static::prepareExcelTemporaryDirectory();
+
+            $rows = Excel::toArray(
+                new class implements \Maatwebsite\Excel\Concerns\ToArray {
+                    public function array(array $array)
+                    {
+                    }
+                },
+                $path
+            );
+
+            $headers = collect(data_get($rows, '0.0', []))
+                ->map(fn(mixed $header): string => trim((string)$header))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            return $headers;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private static function resolveFilePath(mixed $state): ?string
+    {
+        if (is_string($state) && $state !== '') {
+            return Storage::disk('exports')->path($state);
+        }
+
+        if (is_object($state) && method_exists($state, 'getRealPath')) {
+            $path = $state->getRealPath();
+
+            return is_string($path) ? $path : null;
+        }
+
+        if (is_array($state)) {
+            foreach ($state as $value) {
+                $path = static::resolveFilePath($value);
+
+                if ($path !== null) {
+                    return $path;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function headersToOptions(array $headers): array
+    {
+        return collect($headers)
+            ->map(fn(mixed $header): string => trim((string)$header))
+            ->filter()
+            ->unique()
+            ->mapWithKeys(fn(string $header): array => [$header => $header])
+            ->all();
+    }
+
+    private static function prepareExcelTemporaryDirectory(): void
+    {
+        $path = sys_get_temp_dir() . '/clever-laravel-excel';
+
+        File::ensureDirectoryExists($path, 0775, true);
+
+        config(['excel.temporary_files.local_path' => $path]);
     }
 }

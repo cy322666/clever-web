@@ -24,10 +24,6 @@ class YClientsForm
 {
     public static function configure(Schema $schema): Schema
     {
-        $pipelineOptions = Status::getPipelines()->pluck('pipeline_name', 'pipeline_id');
-        $triggerStatusOptions = Status::getTriggerStatuses();
-        $leadFieldOptions = Field::getLeadSelectFields();
-        $contactFieldOptions = Field::getContactSelectFields();
         $ycFieldOptions = Setting::YCfieldsSelect();
 
         return $schema
@@ -68,7 +64,7 @@ class YClientsForm
 
                                 Select::make('pipelines')
                                     ->label('Воронки')
-                                    ->options($pipelineOptions)
+                                    ->options(fn($record = null): array => self::pipelineOptions($record))
                                     ->multiple()
                                     ->helperText(
                                         'Выберите воронки, которые будут использоваться для синхронизации с amoCRM'
@@ -77,27 +73,27 @@ class YClientsForm
 
                                 Select::make('status_id_cancel')
                                     ->label('Этап клиент не пришел')
-                                    ->options($triggerStatusOptions)
+                                    ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_wait')
                                     ->label('Этап клиент записан')
-                                    ->options($triggerStatusOptions)
+                                    ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_came')
                                     ->label('Этап клиент пришел')
-                                    ->options($triggerStatusOptions)
+                                    ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_confirm')
                                     ->label('Этап клиент подтвердил')
-                                    ->options($triggerStatusOptions)
+                                    ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_delete')
                                     ->label('Этап запись удалена')
-                                    ->options($triggerStatusOptions)
+                                    ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                     //TODO нужно ли вообще? при подключении выбираешь же филиалы
@@ -128,7 +124,15 @@ class YClientsForm
                                             ->schema([
                                                 Repeater::make('fields_lead')
                                                     ->hiddenLabel()
-                                                    ->schema(self::mappingFields($leadFieldOptions, $ycFieldOptions))
+                                                    ->schema(
+                                                        self::mappingFields(
+                                                            fn($record = null): array => self::fieldOptions(
+                                                                $record,
+                                                                'leads'
+                                                            ),
+                                                            $ycFieldOptions
+                                                        )
+                                                    )
                                                     ->columns(2)
                                                     ->defaultItems(0)
                                                     ->reorderable(false)
@@ -141,7 +145,15 @@ class YClientsForm
                                             ->schema([
                                                 Repeater::make('fields_contact')
                                                     ->hiddenLabel()
-                                                    ->schema(self::mappingFields($contactFieldOptions, $ycFieldOptions))
+                                                    ->schema(
+                                                        self::mappingFields(
+                                                            fn($record = null): array => self::fieldOptions(
+                                                                $record,
+                                                                'contacts'
+                                                            ),
+                                                            $ycFieldOptions
+                                                        )
+                                                    )
                                                     ->columns(2)
                                                     ->defaultItems(0)
                                                     ->reorderable(false)
@@ -176,6 +188,79 @@ class YClientsForm
                     ->columnSpan(1),
 
             ])->columns(3);
+    }
+
+    private static function ownerUserId(mixed $record = null): ?int
+    {
+        if ($record instanceof Setting && filled($record->user_id)) {
+            return (int)$record->user_id;
+        }
+
+        $authId = auth()->id();
+
+        return $authId ? (int)$authId : null;
+    }
+
+    private static function pipelineOptions(mixed $record = null): array
+    {
+        $userId = self::ownerUserId($record);
+
+        if (!$userId) {
+            return [];
+        }
+
+        return Status::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->select('pipeline_id', 'pipeline_name')
+            ->groupBy('pipeline_id', 'pipeline_name')
+            ->orderBy('pipeline_name')
+            ->pluck('pipeline_name', 'pipeline_id')
+            ->toArray();
+    }
+
+    private static function triggerStatusOptions(mixed $record = null): array
+    {
+        $userId = self::ownerUserId($record);
+
+        if (!$userId) {
+            return [];
+        }
+
+        $pipelineArrays = [];
+
+        $statuses = Status::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->where('name', '!=', 'Неразобранное')
+            ->orderBy('pipeline_name')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($statuses as $status) {
+            $pipelineArrays[$status->pipeline_name][$status->pipeline_id . '.' . $status->status_id] = $status->name;
+        }
+
+        return $pipelineArrays;
+    }
+
+    private static function fieldOptions(mixed $record, string $entityType): array
+    {
+        $userId = self::ownerUserId($record);
+
+        if (!$userId) {
+            return [];
+        }
+
+        return Field::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('entity_type', $entityType)
+            ->orderBy('name')
+            ->pluck('name', 'field_id')
+            ->toArray();
     }
 
     private static function mappingFields($amoFields, array $ycFields): array

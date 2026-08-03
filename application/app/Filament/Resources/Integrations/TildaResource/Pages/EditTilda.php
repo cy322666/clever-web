@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Integrations\TildaResource\Pages;
 
-use App\Filament\Resources\Integrations\Bizon\WebinarResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Helpers\Actions\UpdateButton;

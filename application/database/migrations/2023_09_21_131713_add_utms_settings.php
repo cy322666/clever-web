@@ -15,11 +15,6 @@ return new class extends Migration
 
             $table->string('utms')->default('merge');
         });
-
-        Schema::table('bizon_settings', function (Blueprint $table) {
-
-            $table->string('utms')->default('merge');
-        });
     }
 
     /**
@@ -28,11 +23,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tilda_settings', function (Blueprint $table) {
-
-            $table->dropColumn('utms');
-        });
-
-        Schema::table('bizon_settings', function (Blueprint $table) {
 
             $table->dropColumn('utms');
         });
