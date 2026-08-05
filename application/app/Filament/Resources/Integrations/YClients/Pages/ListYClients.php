@@ -150,13 +150,25 @@ class ListYClients extends ListRecords
                     ->label('ID клиента'),
 
                 TextColumn::make('lead_id')
-                    ->url(fn(Record $order) => 'https://'.$order->account->subdomain.'.amocrm.ru/leads/detail/'.$order->lead_id, true)
+                    ->url(
+                        fn(Record $order): ?string => $order->lead_id && $order->account
+                            ? 'https://' . $order->account->subdomain . '.amocrm.ru/leads/detail/' . $order->lead_id
+                            : null,
+                        true
+                    )
                     ->label('Сделка')
                     ->searchable(),
 
-//                TextColumn::make('client.contact_id')
-//                    ->url(fn(Record $order) => 'https://'.$order->account->subdomain.'.amocrm.ru/contacts/detail/'.$order->lead_id, true)
-//                    ->label('Контакт'),
+                TextColumn::make('client_contact_id')
+                    ->state(fn(Record $record): ?int => $record->scopedClient()?->contact_id)
+                    ->url(
+                        fn(Record $record): ?string => $record->scopedClient()?->contact_id && $record->account
+                            ? 'https://' . $record->account->subdomain . '.amocrm.ru/contacts/detail/' . $record->scopedClient(
+                            )->contact_id
+                            : null,
+                        true
+                    )
+                    ->label('Контакт'),
 
                 TextColumn::make('title')
                     ->hidden()
