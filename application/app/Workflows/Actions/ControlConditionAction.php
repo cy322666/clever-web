@@ -251,9 +251,9 @@ class ControlConditionAction extends ConditionAction
     protected static function conditionValueSelect(string $name, bool $includeStaticValues): Select
     {
         return Select::make($name)
-            ->options(WorkflowTriggerConditionVariableCatalog::groupedOptions($includeStaticValues))
+            ->options(WorkflowTriggerConditionVariableCatalog::groupedConditionPickerOptions($includeStaticValues))
             ->getSearchResultsUsing(
-                fn(string $search): array => WorkflowTriggerConditionVariableCatalog::search(
+                fn(string $search): array => WorkflowTriggerConditionVariableCatalog::searchConditionPicker(
                     $search,
                     $includeStaticValues
                 )

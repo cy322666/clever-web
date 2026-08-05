@@ -37,14 +37,7 @@ class WorkflowTriggerConditionVariableCatalog
         $options = array_replace_recursive(
             static::groupedMaskOptions(),
             static::amoCrmCustomFieldOptions(),
-            static::groupedAmoPipelineOptions(),
         );
-
-        $statusOptions = static::flattenGroupedOptionsWithPrefix(static::groupedAmoStatusOptions());
-
-        if ($statusOptions !== []) {
-            $options['Этап'] = $statusOptions;
-        }
 
         if ($includeStaticValues) {
             $options['Готовые значения'] = static::staticValueOptions();
@@ -397,6 +390,16 @@ class WorkflowTriggerConditionVariableCatalog
     /**
      * @return array<string, string>
      */
+    public static function flatConditionPickerOptions(bool $includeStaticValues = false): array
+    {
+        return collect(static::groupedConditionPickerOptions($includeStaticValues))
+            ->flatMap(fn(array $options): array => $options)
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
     public static function flatMaskOptions(): array
     {
         return collect(static::groupedMaskOptions())
@@ -450,6 +453,14 @@ class WorkflowTriggerConditionVariableCatalog
     public static function search(string $query, bool $includeStaticValues = false): array
     {
         return static::searchInOptions(static::flatOptions($includeStaticValues), $query, true);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function searchConditionPicker(string $query, bool $includeStaticValues = false): array
+    {
+        return static::searchInOptions(static::flatConditionPickerOptions($includeStaticValues), $query, true);
     }
 
     /**
