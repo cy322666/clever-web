@@ -320,6 +320,17 @@ class ImportResource extends Resource
                                     ->preserveFilenames()
                                     ->deletable()
                                     ->removeUploadedFileButtonPosition('right')
+                                    ->fetchFileInformation(false)
+                                    ->getUploadedFileUsing(function (string $file): array {
+                                        return [
+                                            'name' => basename($file),
+                                            'size' => Storage::disk('exports')->exists($file)
+                                                ? Storage::disk('exports')->size($file)
+                                                : 0,
+                                            'type' => null,
+                                            'url' => Storage::disk('exports')->url($file),
+                                        ];
+                                    })
                                     ->live()
                                     ->deleteUploadedFileUsing(function (string $file): void {
                                         Storage::disk('exports')->delete($file);
