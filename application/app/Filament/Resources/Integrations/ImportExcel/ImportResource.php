@@ -339,6 +339,35 @@ class ImportResource extends Resource
                                         $set('headers', static::extractHeadersFromFileState($state));
                                     })
                                     ->helperText('Поддерживаются файлы .xlsx / .xls / .csv (до 10 МБ)'),
+
+                                Action::make('delete_import_file')
+                                    ->label('Удалить загруженный файл')
+                                    ->icon('heroicon-o-trash')
+                                    ->color('danger')
+                                    ->requiresConfirmation()
+                                    ->visible(fn(?ImportSetting $record): bool => filled($record?->file_path))
+                                    ->action(function (?ImportSetting $record, Set $set): void {
+                                        $filePath = $record?->file_path;
+
+                                        if (!is_string($filePath) || blank($filePath)) {
+                                            return;
+                                        }
+
+                                        Storage::disk('exports')->delete($filePath);
+
+                                        $record->forceFill([
+                                            'file_path' => null,
+                                            'headers' => null,
+                                        ])->save();
+
+                                        $set('file_path', null);
+                                        $set('headers', []);
+
+                                        Notification::make()
+                                            ->title('Файл удален')
+                                            ->success()
+                                            ->send();
+                                    }),
                             ]),
 
                     ])
