@@ -318,7 +318,12 @@ class ImportResource extends Resource
                                     ->maxSize(10240)
                                     ->disk('exports')
                                     ->preserveFilenames()
+                                    ->deletable()
+                                    ->removeUploadedFileButtonPosition('right')
                                     ->live()
+                                    ->deleteUploadedFileUsing(function (string $file): void {
+                                        Storage::disk('exports')->delete($file);
+                                    })
                                     ->afterStateUpdated(function (mixed $state, Set $set): void {
                                         $set('headers', static::extractHeadersFromFileState($state));
                                     })
