@@ -35,10 +35,10 @@ class ListYClients extends ListRecords
             ->with(['account', 'client'])
             ->where('user_id', Auth::user()->id);
 
-        $accountId = $this->currentAccountId();
+        $accountIds = $this->currentAccountIds();
 
-        return $accountId
-            ? $query->where('account_id', $accountId)
+        return $accountIds
+            ? $query->whereIn('account_id', $accountIds)
             : $query->whereRaw('1 = 0');
     }
 
@@ -332,16 +332,36 @@ class ListYClients extends ListRecords
         ($failed > 0 ? $notification->warning() : $notification->success())->send();
     }
 
-    private function currentAccountId(): ?int
+    /**
+     * @return array<int>
+     */
+    private function currentAccountIds(): array
     {
-        $setting = Setting::query()
+        $settings = Setting::query()
             ->where('user_id', Auth::id())
-            ->latest('id')
-            ->first();
+            ->get();
 
-        return $setting?->account_id
-            ?: $setting?->amoAccount(false, 'yclients')?->id
-            ?: Auth::user()?->resolveAmoAccountForWidget('yclients')?->id;
+        $accountIds = $settings
+            ->pluck('account_id')
+            ->filter()
+            ->map(fn($accountId): int => (int)$accountId)
+            ->all();
+
+        foreach ($settings as $setting) {
+            $accountId = $setting->amoAccount(false, 'yclients')?->id;
+
+            if ($accountId) {
+                $accountIds[] = (int)$accountId;
+            }
+        }
+
+        $fallbackAccountId = Auth::user()?->resolveAmoAccountForWidget('yclients')?->id;
+
+        if ($fallbackAccountId) {
+            $accountIds[] = (int)$fallbackAccountId;
+        }
+
+        return array_values(array_unique($accountIds));
     }
 
     private static function searchNumericColumn(Builder $query, string $column, string $search): Builder
