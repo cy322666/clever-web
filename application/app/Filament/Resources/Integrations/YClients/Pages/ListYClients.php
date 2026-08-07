@@ -31,9 +31,15 @@ class ListYClients extends ListRecords
 
     protected function getTableQuery(): ?Builder
     {
-        return Record::query()
+        $query = Record::query()
             ->with(['account', 'client'])
             ->where('user_id', Auth::user()->id);
+
+        $accountId = $this->currentAccountId();
+
+        return $accountId
+            ? $query->where('account_id', $accountId)
+            : $query->whereRaw('1 = 0');
     }
 
     protected function getHeaderActions(): array
@@ -131,11 +137,23 @@ class ListYClients extends ListRecords
 
                 TextColumn::make('company_id')
                     ->label('ID филиала')
-                    ->searchable(),
+                    ->searchable(
+                        query: fn(Builder $query, string $search): Builder => static::searchNumericColumn(
+                            $query,
+                            'company_id',
+                            $search,
+                        ),
+                    ),
 
                 TextColumn::make('record_id')
                     ->label('ID записи')
-                    ->searchable(),
+                    ->searchable(
+                        query: fn(Builder $query, string $search): Builder => static::searchNumericColumn(
+                            $query,
+                            'record_id',
+                            $search,
+                        ),
+                    ),
 
                 TextColumn::make('staff_name')
                     ->label('Специалист')
@@ -157,7 +175,13 @@ class ListYClients extends ListRecords
                         true
                     )
                     ->label('Сделка')
-                    ->searchable(),
+                    ->searchable(
+                        query: fn(Builder $query, string $search): Builder => static::searchNumericColumn(
+                            $query,
+                            'lead_id',
+                            $search,
+                        ),
+                    ),
 
                 TextColumn::make('client_contact_id')
                     ->state(fn(Record $record): ?int => $record->scopedClient()?->contact_id)
@@ -306,5 +330,25 @@ class ListYClients extends ListRecords
             ->body(sprintf('Поставлено в очередь: %d. Пропущено с ошибкой настройки: %d.', $queued, $failed));
 
         ($failed > 0 ? $notification->warning() : $notification->success())->send();
+    }
+
+    private function currentAccountId(): ?int
+    {
+        $setting = Setting::query()
+            ->where('user_id', Auth::id())
+            ->latest('id')
+            ->first();
+
+        return $setting?->account_id
+            ?: $setting?->amoAccount(false, 'yclients')?->id
+            ?: Auth::user()?->resolveAmoAccountForWidget('yclients')?->id;
+    }
+
+    private static function searchNumericColumn(Builder $query, string $column, string $search): Builder
+    {
+        $wrappedColumn = $query->getQuery()->getGrammar()->wrap("yclients_records.{$column}");
+        $castType = $query->getConnection()->getDriverName() === 'mysql' ? 'CHAR' : 'TEXT';
+
+        return $query->whereRaw("CAST({$wrappedColumn} AS {$castType}) LIKE ?", ["%{$search}%"]);
     }
 }
