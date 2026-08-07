@@ -154,6 +154,13 @@ class SendRecord extends Command
             }
         }
 
+        if (empty($lead) && (int)$record->attendance === 3) {
+            return $this->failRecord(
+                $record,
+                'YClients delete webhook cannot move amoCRM lead because existing lead was not found.'
+            );
+        }
+
         try {
             if (!empty($lead)) {
                 $lead = ServiceLead::update(

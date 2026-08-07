@@ -6,10 +6,17 @@ use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\ResponsibleMapping;
 use App\Models\Integrations\YClients\Setting;
+use App\Models\Core\Account;
+use App\Models\User;
+use App\Http\Controllers\Api\YClientsController;
+use App\Jobs\YClients\RecordSend;
 use App\Models\amoCRM\Staff;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RecordClientRelationTest extends TestCase
@@ -394,6 +401,76 @@ class RecordClientRelationTest extends TestCase
         $this->assertDatabaseHas('yclients_records', ['id' => $futureAppointmentOldRecord->id]);
     }
 
+    public function test_yclients_delete_webhook_marks_record_deleted_without_erasing_existing_lead_link(): void
+    {
+        Queue::fake();
+
+        $user = User::withoutEvents(fn() => User::query()->create([
+            'uuid' => (string)Str::uuid(),
+            'name' => 'YClients user',
+            'email' => 'yc@example.test',
+            'password' => 'secret',
+            'active' => true,
+        ]));
+
+        $account = Account::query()->forceCreate([
+            'user_id' => $user->id,
+            'subdomain' => 'test',
+            'active' => true,
+            'widget' => 'yclients',
+        ]);
+
+        Setting::query()->create([
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'active' => true,
+            'status_id_delete' => '9955494.143',
+        ]);
+
+        $record = Record::query()->create([
+            'record_id' => 1792150137,
+            'client_id' => 360604959,
+            'company_id' => 331981,
+            'lead_id' => 33073703,
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'setting_id' => 1,
+            'staff_name' => 'Дашкова Екатерина Вадимовна',
+            'datetime' => now()->addDay(),
+            'attendance' => 0,
+            'status' => Record::STATUS_SUCCESS,
+        ]);
+
+        $request = Request::create('/api/yclients/hook/' . $user->uuid, 'POST', [
+            'company_id' => 331981,
+            'resource' => 'record',
+            'resource_id' => 1792150137,
+            'status' => 'delete',
+            'data' => [
+                'id' => 1792150137,
+                'deleted' => true,
+            ],
+        ]);
+
+        $response = YClientsController::record($user->fresh(), $request);
+
+        $this->assertSame(201, $response->getStatusCode());
+
+        $record->refresh();
+
+        $this->assertSame(3, (int)$record->attendance);
+        $this->assertSame(33073703, (int)$record->lead_id);
+        $this->assertSame('Дашкова Екатерина Вадимовна', $record->staff_name);
+        $this->assertSame(Record::STATUS_PENDING, $record->status);
+
+        Queue::assertPushed(
+            RecordSend::class,
+            fn(RecordSend $job): bool => $job->record->id === $record->id
+                && $job->account->id === $account->id
+                && $job->setting->id === 1
+        );
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -403,6 +480,43 @@ class RecordClientRelationTest extends TestCase
 
         DB::purge('sqlite');
         DB::reconnect('sqlite');
+
+        Schema::create('users', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('uuid')->nullable();
+            $table->string('name')->nullable();
+            $table->string('email')->nullable();
+            $table->string('password')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+        });
+
+        Schema::create('accounts', function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedBigInteger('user_id');
+            $table->string('subdomain')->nullable();
+            $table->boolean('active')->default(false);
+            $table->string('widget')->nullable();
+            $table->integer('created_at')->nullable();
+        });
+
+        Schema::create('apps', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('name');
+            $table->string('resource_name')->nullable();
+            $table->unsignedBigInteger('setting_id')->nullable();
+            $table->unsignedBigInteger('user_id');
+            $table->timestamps();
+        });
+
+        Schema::create('yclients_settings', function (Blueprint $table) {
+            $table->increments('id');
+            $table->boolean('active')->default(false);
+            $table->string('status_id_delete')->nullable();
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('account_id');
+            $table->timestamps();
+        });
 
         Schema::create('yclients_clients', function (Blueprint $table) {
             $table->increments('id');
@@ -425,6 +539,8 @@ class RecordClientRelationTest extends TestCase
             $table->integer('client_id')->nullable();
             $table->integer('company_id')->nullable();
             $table->integer('lead_id')->nullable();
+            $table->string('staff_name')->nullable();
+            $table->integer('attendance')->nullable();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('account_id');
             $table->unsignedBigInteger('setting_id');

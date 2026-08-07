@@ -75,47 +75,41 @@ class YClientsController extends Controller
             ], 422);
         }
 
-        $clientId = data_get($request->data, 'client.id');
+        $data = $request->input('data', []);
+        $isDeleted = static::isDeletedRecordWebhook($request);
+        $clientId = data_get($data, 'client.id');
 
         if ($clientId) {
             Client::query()
                 ->updateOrCreate([
                     'client_id' => $clientId,
-                    'company_id' => $request->company_id,
+                    'company_id' => $request->input('company_id'),
                     'user_id' => $user->id,
                     'setting_id' => $setting->id,
                     'account_id' => $account->id,
                 ], [
-                    'name' => data_get($request->data, 'client.name')
-                        ?: data_get($request->data, 'client.display_name'),
-                    'phone' => data_get($request->data, 'client.phone'),
-                    'email' => data_get($request->data, 'client.email'),
-                    'visits' => data_get($request->data, 'client.success_visits_count', 0),
+                    'name' => data_get($data, 'client.name')
+                        ?: data_get($data, 'client.display_name'),
+                    'phone' => data_get($data, 'client.phone'),
+                    'email' => data_get($data, 'client.email'),
+                    'visits' => data_get($data, 'client.success_visits_count', 0),
                 ]);
         }
 
-        $record = Record::query()->updateOrCreate([
+        $record = Record::query()->firstOrNew([
             'user_id' => $user->id,
-            'record_id' => $request->resource_id,
-            'company_id' => $request->company_id,
+            'record_id' => $request->input('resource_id'),
+            'company_id' => $request->input('company_id'),
             'setting_id' => $setting->id,
             'account_id' => $account->id,
-        ], [
-            'title' => Record::buildCommentServices($request->data),
-            'cost' => Record::sumCostServices($request->data),
-            'staff_id' => data_get($request->data, 'staff_id'),
-            'staff_name' => data_get($request->data, 'staff.name'),
-            'client_id' => $clientId,
-            'created_user_id' => data_get($request->data, 'created_user_id'),
-            'record_from' => data_get($request->data, 'record_from'),
-            'create_date' => data_get($request->data, 'create_date'),
-            'visit_id' => data_get($request->data, 'visit_id'),
-            'datetime' => Carbon::parse(data_get($request->data, 'datetime'))->format('Y.m.d H:i:s'),
-            'comment' => data_get($request->data, 'comment'),
-            'seance_length' => data_get($request->data, 'length'),
-            'attendance' => data_get($request->data, 'attendance'),
+        ]);
+
+        $record->fill([
             'status' => Record::STATUS_PENDING,
         ]);
+
+        $record->fill(static::recordAttributes($data, $isDeleted));
+        $record->save();
 
         RecordSend::dispatch($record, $account, $setting, $record->wasRecentlyCreated);
 
@@ -123,5 +117,59 @@ class YClientsController extends Controller
             'ok' => true,
             'record_id' => $record->id,
         ], 201);
+    }
+
+    private static function isDeletedRecordWebhook(Request $request): bool
+    {
+        $deleted = data_get($request->input('data', []), 'deleted');
+
+        return strtolower((string)$request->input('status')) === 'delete'
+            || in_array($deleted, [true, 1, '1', 'true'], true);
+    }
+
+    private static function recordAttributes(array $data, bool $isDeleted): array
+    {
+        $attributes = [];
+
+        if ($isDeleted) {
+            $attributes['attendance'] = 3;
+        } elseif (array_key_exists('attendance', $data)) {
+            $attributes['attendance'] = data_get($data, 'attendance');
+        }
+
+        foreach ([
+            'title' => fn(): string => Record::buildCommentServices($data),
+            'cost' => fn(): int => Record::sumCostServices($data),
+            'staff_id' => fn(): mixed => data_get($data, 'staff_id'),
+            'staff_name' => fn(): mixed => data_get($data, 'staff.name'),
+            'client_id' => fn(): mixed => data_get($data, 'client.id'),
+            'created_user_id' => fn(): mixed => data_get($data, 'created_user_id'),
+            'record_from' => fn(): mixed => data_get($data, 'record_from'),
+            'create_date' => fn(): mixed => data_get($data, 'create_date'),
+            'visit_id' => fn(): mixed => data_get($data, 'visit_id'),
+            'datetime' => fn(): string => Carbon::parse(data_get($data, 'datetime') ?: data_get($data, 'date'))
+                ->format('Y.m.d H:i:s'),
+            'comment' => fn(): mixed => data_get($data, 'comment'),
+            'seance_length' => fn(): mixed => data_get($data, 'length'),
+        ] as $attribute => $value) {
+            if (!static::hasWebhookDataForAttribute($data, $attribute)) {
+                continue;
+            }
+
+            $attributes[$attribute] = $value();
+        }
+
+        return $attributes;
+    }
+
+    private static function hasWebhookDataForAttribute(array $data, string $attribute): bool
+    {
+        return match ($attribute) {
+            'title', 'cost' => array_key_exists('services', $data),
+            'staff_name' => data_get($data, 'staff.name') !== null,
+            'client_id' => data_get($data, 'client.id') !== null,
+            'datetime' => data_get($data, 'datetime') !== null || data_get($data, 'date') !== null,
+            default => array_key_exists($attribute, $data),
+        };
     }
 }
