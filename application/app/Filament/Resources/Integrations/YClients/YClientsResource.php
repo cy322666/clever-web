@@ -47,10 +47,8 @@ class YClientsResource extends Resource
     public static function clearTransactions(int $days = 7): bool
     {
         YClients\Record::query()
-            ->where('created_at', '<', Carbon::now()
-                ->subDays($days)
-                ->format('Y-m-d')
-            )->delete();
+            ->prunableOlderThan(Carbon::now()->subDays($days))
+            ->delete();
 
         return true;
     }

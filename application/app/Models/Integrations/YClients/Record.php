@@ -152,6 +152,22 @@ class Record extends Model
         return $includeUpdated ? $query : $query->whereNull('mapped_fields_updated_at');
     }
 
+    public function scopePrunableOlderThan(Builder $query, \DateTimeInterface $threshold): Builder
+    {
+        return $query
+            ->where('created_at', '<', $threshold)
+            ->where(function (Builder $query) use ($threshold): void {
+                $query
+                    ->whereNull('updated_at')
+                    ->orWhere('updated_at', '<', $threshold);
+            })
+            ->where(function (Builder $query) use ($threshold): void {
+                $query
+                    ->whereNull('datetime')
+                    ->orWhere('datetime', '<', $threshold);
+            });
+    }
+
     public function leadOwnerRecord(): ?self
     {
         if (empty($this->lead_id)) {

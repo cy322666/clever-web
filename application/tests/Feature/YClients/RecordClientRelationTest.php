@@ -358,11 +358,40 @@ class RecordClientRelationTest extends TestCase
             'updated_at' => now()->subDays(4),
         ])->save();
 
+        $recentlyUpdatedOldRecord = Record::query()->create([
+            'record_id' => 1003,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+        ]);
+        $recentlyUpdatedOldRecord->forceFill([
+            'created_at' => now()->subDays(20),
+            'updated_at' => now()->subDay(),
+        ])->save();
+
+        $futureAppointmentOldRecord = Record::query()->create([
+            'record_id' => 1004,
+            'client_id' => 100500,
+            'company_id' => 10,
+            'user_id' => 1,
+            'account_id' => 11,
+            'setting_id' => 111,
+            'datetime' => now()->addDay(),
+        ]);
+        $futureAppointmentOldRecord->forceFill([
+            'created_at' => now()->subDays(20),
+            'updated_at' => now()->subDays(20),
+        ])->save();
+
         $this->artisan('yc:prune-records', ['--days' => 5, '--chunk' => 1])
             ->assertSuccessful();
 
         $this->assertDatabaseMissing('yclients_records', ['id' => $oldRecord->id]);
         $this->assertDatabaseHas('yclients_records', ['id' => $freshRecord->id]);
+        $this->assertDatabaseHas('yclients_records', ['id' => $recentlyUpdatedOldRecord->id]);
+        $this->assertDatabaseHas('yclients_records', ['id' => $futureAppointmentOldRecord->id]);
     }
 
     protected function setUp(): void
@@ -406,6 +435,7 @@ class RecordClientRelationTest extends TestCase
             $table->text('lead_fields_replay_error')->nullable();
             $table->timestamp('mapped_fields_updated_at')->nullable();
             $table->text('mapped_fields_update_error')->nullable();
+            $table->timestamp('datetime')->nullable();
             $table->timestamps();
         });
 

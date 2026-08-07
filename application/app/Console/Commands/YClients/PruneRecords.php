@@ -20,7 +20,7 @@ class PruneRecords extends Command
 
         do {
             $ids = Record::query()
-                ->where('created_at', '<', $threshold)
+                ->prunableOlderThan($threshold)
                 ->orderBy('id')
                 ->limit($chunk)
                 ->pluck('id');
