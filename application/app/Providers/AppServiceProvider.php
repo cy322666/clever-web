@@ -326,6 +326,10 @@ class AppServiceProvider extends ServiceProvider
 
     private function dispatchWorkflowWebhookSynchronization(int $userId): void
     {
+        if ($this->app->environment('testing')) {
+            return;
+        }
+
         $dispatch = SynchronizeAmoCrmWebhooks::dispatch($userId);
 
         if (!$this->app->runningInConsole()) {

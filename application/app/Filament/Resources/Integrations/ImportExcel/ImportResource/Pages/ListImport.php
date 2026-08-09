@@ -57,15 +57,6 @@ class ListImport extends ListRecords
                         default => 'В процессе',
                     }),
 
-                TextColumn::make('error_message')
-                    ->label('Ошибка')
-                    ->placeholder('—')
-                    ->limit(120)
-                    ->tooltip(fn(?string $state): ?string => $state)
-                    ->wrap()
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: false),
-
                 TextColumn::make('lead_id')
                     ->label('Сделка')
                     ->url(function (ImportRecord $order): string {
@@ -104,6 +95,15 @@ class ListImport extends ListRecords
                             ? 'https://' . $subdomain . '.amocrm.ru/companies/detail/' . $order->company_id
                             : '#';
                     }, true),
+
+                TextColumn::make('error_message')
+                    ->label('Ошибка')
+                    ->placeholder('—')
+                    ->limit(120)
+                    ->tooltip(fn(?string $state): ?string => $state)
+                    ->wrap()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('row_data') // имя колонки в БД, где лежит JSON-строка
                 ->label('Строка')
