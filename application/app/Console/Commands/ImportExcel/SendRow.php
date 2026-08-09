@@ -15,7 +15,6 @@ use App\Services\amoCRM\Models\Notes;
 use App\Services\amoCRM\Models\Tags;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 class SendRow extends Command
 {
@@ -73,9 +72,9 @@ class SendRow extends Command
             $contactName = $importRecord->getValueForDefaultKey($setting->contact_name);
             $companyName = $importRecord->getValueForDefaultKey($setting->company_name);
 
-            $rowDataLeads = $this->prepareRowData($setting->fields_leads, $amoApi);
-            $rowDataContacts = $this->prepareRowData($setting->fields_contacts, $amoApi);
-            $rowDataCompanies = $this->prepareRowData($setting->fields_companies, $amoApi);
+            $rowDataLeads = $this->prepareRowData($setting->fields_leads);
+            $rowDataContacts = $this->prepareRowData($setting->fields_contacts);
+            $rowDataCompanies = $this->prepareRowData($setting->fields_companies);
 
             $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
             $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
@@ -242,7 +241,7 @@ class SendRow extends Command
         return preg_replace('/\s+/u', ' ', $name) ?? $name;
     }
 
-    protected function prepareRowData(array $mapping, Client $amoApi): bool|array
+    protected function prepareRowData(array $mapping): bool|array
     {
         $data = [];
         $multiPhoneNames = ['Телефон', 'Phone'];
@@ -270,7 +269,7 @@ class SendRow extends Command
             }
 
             $name = $field->name;
-            $value = $this->normalizeMappedFieldValue($field, $value, $amoApi);
+            $value = $this->normalizeMappedFieldValue($field, $value);
 
             if ($value === null || $value === '' || $value === []) {
                 continue;
@@ -290,19 +289,19 @@ class SendRow extends Command
         return $data ?: false;
     }
 
-    protected function normalizeMappedFieldValue(Field $field, mixed $value, Client $amoApi): mixed
+    protected function normalizeMappedFieldValue(Field $field, mixed $value): mixed
     {
         return match ($field->type) {
             'numeric', 'monetary' => $this->normalizeNumericValue($value),
             'date', 'birthday' => $this->normalizeDateValue($value, false),
             'date_time' => $this->normalizeDateValue($value, true),
             'checkbox' => $this->normalizeCheckboxValue($value),
-            'select', 'multiselect', 'radiobutton', 'category' => $this->normalizeEnumFieldValue($field, $value, $amoApi),
+            'select', 'multiselect', 'radiobutton', 'category' => $this->normalizeEnumFieldValue($field, $value),
             default => $this->normalizeTextValue($value),
         };
     }
 
-    protected function normalizeEnumFieldValue(Field $field, mixed $value, Client $amoApi): mixed
+    protected function normalizeEnumFieldValue(Field $field, mixed $value): mixed
     {
         if ($field->type === 'multiselect') {
             $values = $this->normalizeTagValues($value);
@@ -310,8 +309,7 @@ class SendRow extends Command
             $resolvedValues = [];
 
             foreach ($values as $item) {
-                $resolvedValue = $this->resolveEnumValue($field, $item)
-                    ?? $this->createEnumValue($field, $item, $amoApi);
+                $resolvedValue = $this->resolveEnumValue($field, $item);
 
                 if ($resolvedValue !== null) {
                     $resolvedValues[] = $resolvedValue;
@@ -323,9 +321,7 @@ class SendRow extends Command
 
         $value = $this->normalizeTextValue($value);
 
-        return $value !== null
-            ? ($this->resolveEnumValue($field, $value) ?? $this->createEnumValue($field, $value, $amoApi))
-            : null;
+        return $value !== null ? $this->resolveEnumValue($field, $value) : null;
     }
 
     protected function normalizeNumericValue(mixed $value): int|float|null
@@ -432,55 +428,6 @@ class SendRow extends Command
         }
 
         return count($candidates) === 1 ? reset($candidates) : null;
-    }
-
-    protected function createEnumValue(Field $field, string $value, Client $amoApi): ?string
-    {
-        $value = $this->normalizeTextValue($value);
-
-        if ($value === null) {
-            return null;
-        }
-
-        $enums = json_decode($field->enums ?: '[]', true) ?: [];
-        $nextSort = ((int)collect($enums)->max('sort')) + 1;
-
-        $payloadEnums = collect($enums)
-            ->map(static fn(array $enum): array => array_filter([
-                'id' => $enum['id'] ?? null,
-                'value' => $enum['value'] ?? $enum['name'] ?? null,
-                'sort' => $enum['sort'] ?? null,
-            ], static fn($item): bool => $item !== null && $item !== ''))
-            ->values()
-            ->all();
-
-        $payloadEnums[] = [
-            'value' => $value,
-            'sort' => max($nextSort, count($payloadEnums) + 1),
-        ];
-
-        try {
-            $response = $amoApi->service->ajax()->patch(
-                "/api/v4/{$field->entity_type}/custom_fields/{$field->field_id}",
-                [
-                    'name' => $field->name,
-                    'type' => $field->type,
-                    'enums' => $payloadEnums,
-                ]
-            );
-
-            $freshEnums = data_get($response, 'enums');
-
-            if (is_array($freshEnums)) {
-                $field->enums = json_encode($freshEnums, JSON_UNESCAPED_UNICODE);
-                $field->save();
-            }
-
-            return $this->resolveEnumValue($field->refresh(), $value);
-        } catch (\Throwable $e) {
-            Log::error(__METHOD__ . ' ' . $e->getMessage() . ' field_id: ' . $field->field_id);
-            return null;
-        }
     }
 
     protected function normalizeEnumText(string $value): string
