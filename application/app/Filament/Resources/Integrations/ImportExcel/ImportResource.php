@@ -513,6 +513,41 @@ class ImportResource extends Resource
         }
     }
 
+    public static function normalizeFilePathState(mixed $state): ?string
+    {
+        if (is_string($state)) {
+            $state = trim($state);
+
+            if ($state === '' || $state === '[object Object]' || str_starts_with($state, 'http')) {
+                return null;
+            }
+
+            return $state;
+        }
+
+        if (is_array($state)) {
+            foreach ($state as $value) {
+                if (is_string($value) && Storage::disk('exports')->exists($value)) {
+                    return $value;
+                }
+            }
+
+            foreach ($state as $key => $value) {
+                if ($key === 'url') {
+                    continue;
+                }
+
+                $path = static::normalizeFilePathState($value);
+
+                if ($path !== null) {
+                    return $path;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static function resolveFilePath(mixed $state): ?string
     {
         if (is_string($state) && $state !== '') {

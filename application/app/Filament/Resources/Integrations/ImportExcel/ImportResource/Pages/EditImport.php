@@ -83,18 +83,12 @@ class EditImport extends EditRecord
         ];
     }
 
-//    protected function mutateFormDataBeforeFill(array $data): array
-//    {
-////        if (isset($data['fields_mapping']) && is_string($data['fields_mapping'])) {
-////            $data['fields_mapping'] = json_decode($data['fields_mapping'], true) ?? [];
-////        }
-//
-//        $data['fields_leads'] = json_decode($data['fields_leads'], true) ?? [];
-//        $data['fields_contacts'] = json_decode($data['fields_contacts'], true) ?? [];
-//        $data['fields_companies'] = json_decode($data['fields_companies'], true) ?? [];
-//
-//        return $data;
-//    }
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['file_path'] = ImportResource::normalizeFilePathState($data['file_path'] ?? null);
+
+        return $data;
+    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
@@ -106,6 +100,14 @@ class EditImport extends EditRecord
 //        $data['fields_contacts'] = json_encode($data['fields_contacts'], JSON_UNESCAPED_UNICODE);
 //        $data['fields_companies'] = json_encode($data['fields_companies'], JSON_UNESCAPED_UNICODE);
 
+        $data['file_path'] = ImportResource::normalizeFilePathState($data['file_path'] ?? null);
+
         return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        $this->record->refresh();
+        $this->refreshFormData(['file_path']);
     }
 }
