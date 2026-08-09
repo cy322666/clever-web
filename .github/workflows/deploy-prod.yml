@@ -56,6 +56,10 @@ jobs:
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
       MAIL_MAILER: array
+      MAIL_ADMIN: ci@example.com
+      MAIL_FROM_ADDRESS: ci@example.com
+      MAIL_FROM_NAME: Clever CI
+      MAIL_FROM_REPORT: Clever CI
       FILESYSTEM_DISK: local
       TELESCOPE_ENABLED: false
       COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
