@@ -78,6 +78,9 @@ class SendRow extends Command
             $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
             $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
             $responsibleUserId = $this->resolveResponsibleUserId($setting, $importRecord);
+            $leadTag = $this->normalizeTagValue(
+                $importRecord->getValueForDefaultKey($setting->lead_tag_column)
+            );
 
             $objectStatus = Status::getObject($setting->default_status_id);
 
@@ -115,6 +118,7 @@ class SendRow extends Command
             $lead = Leads::update($lead, [], $rowDataLeads ?: []);
 
             Tags::add($lead, $setting->tag);
+            Tags::add($lead, $leadTag);
 
             if ($rowDataCompanies) {
                 $company = Companies::search($rowDataCompanies, $amoApi);
@@ -194,6 +198,17 @@ class SendRow extends Command
             });
 
         return $staff ? (int)$staff->staff_id : $defaultResponsibleId;
+    }
+
+    protected function normalizeTagValue(mixed $value): ?string
+    {
+        if ($value === null || is_array($value)) {
+            return null;
+        }
+
+        $value = trim((string)$value);
+
+        return $value !== '' ? $value : null;
     }
 
     protected function normalizeResponsibleName(?string $name): string

@@ -42,6 +42,7 @@ class ImportSetting extends Model
         'default_pipeline_id',
         'default_responsible_user_id',
         'responsible_user_column',
+        'lead_tag_column',
         'default_lead_name',
         'default_sale',
         'contact_name',
