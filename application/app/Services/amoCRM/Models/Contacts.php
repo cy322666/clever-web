@@ -200,11 +200,16 @@ abstract class Contacts extends Client
 
         if (key_exists('cf', $arrayFields)) {
             foreach ($arrayFields['cf'] as $fieldsName => $fieldValue) {
+                $customField = $contact->cf($fieldsName);
+
                 if (strpos($fieldsName, 'Дата') == true) {
 
-                    $contact->cf($fieldsName)->setData($fieldValue);
+                    $customField->setData($fieldValue);
+                } elseif (is_array($fieldValue) && method_exists($customField, 'setValues')) {
+                    $customField->setValues($fieldValue);
+                } else {
+                    $customField->setValue($fieldValue);
                 }
-                $contact->cf($fieldsName)->setValue($fieldValue);
             }
         }
         $contact->save();

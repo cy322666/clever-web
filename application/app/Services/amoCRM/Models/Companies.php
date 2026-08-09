@@ -263,10 +263,14 @@ abstract class Companies extends Client
         if (!empty($arrayFields) && is_array($arrayFields)) {
             foreach ($arrayFields as $fieldsName => $fieldValue) {
                 try {
+                    $customField = $company->cf($fieldsName);
+
                     if (strpos($fieldsName, 'Дата') !== false) {
-                        $company->cf($fieldsName)->setData($fieldValue);
+                        $customField->setData($fieldValue);
+                    } elseif (is_array($fieldValue) && method_exists($customField, 'setValues')) {
+                        $customField->setValues($fieldValue);
                     } else {
-                        $company->cf($fieldsName)->setValue($fieldValue);
+                        $customField->setValue($fieldValue);
                     }
                 } catch (\Throwable $e) {
                     Log::error(__METHOD__ . ' ' . $e->getMessage());

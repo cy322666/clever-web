@@ -269,6 +269,11 @@ class SendRow extends Command
             }
 
             $name = $field->name;
+            $value = $this->normalizeMappedFieldValue($field, $value);
+
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
 
             if (in_array($name, $multiPhoneNames, true)) {
                 $data['Телефоны'] = $data['Телефоны'] ?? [];
@@ -282,5 +287,74 @@ class SendRow extends Command
         }
 
         return $data ?: false;
+    }
+
+    protected function normalizeMappedFieldValue(Field $field, mixed $value): mixed
+    {
+        if (!in_array($field->type, ['select', 'multiselect', 'radiobutton'], true)) {
+            return $value;
+        }
+
+        $values = $field->type === 'multiselect'
+            ? $this->normalizeTagValues($value)
+            : [$this->normalizeTextValue($value)];
+
+        $resolvedValues = [];
+
+        foreach ($values as $item) {
+            if ($item === null || $item === '') {
+                continue;
+            }
+
+            $resolvedValue = $this->resolveEnumValue($field, $item);
+
+            if ($resolvedValue !== null) {
+                $resolvedValues[] = $resolvedValue;
+            }
+        }
+
+        return $field->type === 'multiselect'
+            ? array_values(array_unique($resolvedValues))
+            : ($resolvedValues[0] ?? null);
+    }
+
+    protected function resolveEnumValue(Field $field, string $value): ?string
+    {
+        $enums = json_decode($field->enums ?: '[]', true) ?: [];
+        $normalizedValue = $this->normalizeEnumText($value);
+
+        if ($normalizedValue === '') {
+            return null;
+        }
+
+        $candidates = [];
+
+        foreach ($enums as $enum) {
+            $enumValue = trim((string)($enum['value'] ?? $enum['name'] ?? ''));
+            $normalizedEnum = $this->normalizeEnumText($enumValue);
+
+            if ($normalizedEnum === '') {
+                continue;
+            }
+
+            if ($normalizedEnum === $normalizedValue) {
+                return $enumValue;
+            }
+
+            if (str_contains($normalizedEnum, $normalizedValue) || str_contains($normalizedValue, $normalizedEnum)) {
+                $candidates[$enumValue] = $enumValue;
+            }
+        }
+
+        return count($candidates) === 1 ? reset($candidates) : null;
+    }
+
+    protected function normalizeEnumText(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = str_replace(["\xc2\xa0", 'ё'], [' ', 'е'], $value);
+        $value = preg_replace('/[^а-яa-z0-9]+/u', ' ', $value) ?? $value;
+
+        return preg_replace('/\s+/u', ' ', trim($value)) ?? trim($value);
     }
 }
