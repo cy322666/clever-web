@@ -57,6 +57,15 @@ class ListImport extends ListRecords
                         default => 'В процессе',
                     }),
 
+                TextColumn::make('error_message')
+                    ->label('Ошибка')
+                    ->placeholder('—')
+                    ->limit(120)
+                    ->tooltip(fn(?string $state): ?string => $state)
+                    ->wrap()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: false),
+
                 TextColumn::make('lead_id')
                     ->label('Сделка')
                     ->url(function (ImportRecord $order): string {
