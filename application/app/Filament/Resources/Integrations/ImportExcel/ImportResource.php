@@ -137,41 +137,6 @@ class ImportResource extends Resource
                                     ->native(false)
                                     ->nullable(),
 
-                                Forms\Components\Select::make('contact_name')
-                                    ->label('Название контакта')
-                                    ->options(
-                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
-                                            $get,
-                                            $record
-                                        )
-                                    )
-                                    ->searchable()
-                                    ->native(false)
-                                    ->nullable(),
-
-                                Forms\Components\Select::make('company_name')
-                                    ->label('Название компании')
-                                    ->options(
-                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
-                                            $get,
-                                            $record
-                                        )
-                                    )
-                                    ->searchable()
-                                    ->native(false)
-                                    ->nullable(),
-
-                                Forms\Components\Select::make('lead_name')
-                                    ->label('Название сделки')
-                                    ->options(
-                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
-                                            $get,
-                                            $record
-                                        )
-                                    )
-                                    ->searchable()
-                                    ->native(false)
-                                    ->nullable(),
                             ])->columns(2),
 
                         Section::make('Поведение при дублях')
@@ -215,6 +180,18 @@ class ImportResource extends Resource
                             ->schema([
                                 Forms\Components\Hidden::make('headers'),
 
+                                Forms\Components\Select::make('lead_name')
+                                    ->label('Столбец названия сделки')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
+                                    ->nullable(),
+
                                 Forms\Components\Repeater::make('fields_leads')
                                     ->label('Поля сделки')
                                     ->schema([
@@ -252,6 +229,18 @@ class ImportResource extends Resource
                                             } . ' (' . ($state['special_field'] ?? 'поле') . ')'
                                     ),
 
+                                Forms\Components\Select::make('contact_name')
+                                    ->label('Столбец имени контакта')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
+                                    ->nullable(),
+
                                 Forms\Components\Repeater::make('fields_contacts')
                                     ->label('Поля контакта')
                                     ->schema([
@@ -288,6 +277,18 @@ class ImportResource extends Resource
                                                 default => '?'
                                             } . ' (' . ($state['special_field'] ?? 'поле') . ')'
                                     ),
+
+                                Forms\Components\Select::make('company_name')
+                                    ->label('Столбец названия компании')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
+                                    ->nullable(),
 
                                 Forms\Components\Repeater::make('fields_companies')
                                     ->label('Поля компании')
