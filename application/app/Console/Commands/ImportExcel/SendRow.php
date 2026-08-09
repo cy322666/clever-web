@@ -291,31 +291,112 @@ class SendRow extends Command
 
     protected function normalizeMappedFieldValue(Field $field, mixed $value): mixed
     {
-        if (!in_array($field->type, ['select', 'multiselect', 'radiobutton'], true)) {
-            return $value;
-        }
+        return match ($field->type) {
+            'numeric', 'monetary' => $this->normalizeNumericValue($value),
+            'date', 'birthday' => $this->normalizeDateValue($value, false),
+            'date_time' => $this->normalizeDateValue($value, true),
+            'checkbox' => $this->normalizeCheckboxValue($value),
+            'select', 'multiselect', 'radiobutton', 'category' => $this->normalizeEnumFieldValue($field, $value),
+            default => $this->normalizeTextValue($value),
+        };
+    }
 
-        $values = $field->type === 'multiselect'
-            ? $this->normalizeTagValues($value)
-            : [$this->normalizeTextValue($value)];
+    protected function normalizeEnumFieldValue(Field $field, mixed $value): mixed
+    {
+        if ($field->type === 'multiselect') {
+            $values = $this->normalizeTagValues($value);
 
-        $resolvedValues = [];
+            $resolvedValues = [];
 
-        foreach ($values as $item) {
-            if ($item === null || $item === '') {
-                continue;
+            foreach ($values as $item) {
+                $resolvedValue = $this->resolveEnumValue($field, $item);
+
+                if ($resolvedValue !== null) {
+                    $resolvedValues[] = $resolvedValue;
+                }
             }
 
-            $resolvedValue = $this->resolveEnumValue($field, $item);
+            return array_values(array_unique($resolvedValues));
+        }
 
-            if ($resolvedValue !== null) {
-                $resolvedValues[] = $resolvedValue;
+        $value = $this->normalizeTextValue($value);
+
+        return $value !== null ? $this->resolveEnumValue($field, $value) : null;
+    }
+
+    protected function normalizeNumericValue(mixed $value): int|float|null
+    {
+        $value = $this->normalizeTextValue($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $value = str_replace(["\xc2\xa0", ' '], '', $value);
+        $value = str_replace(',', '.', $value);
+        $value = preg_replace('/[^0-9.\-]/', '', $value) ?? '';
+
+        if ($value === '' || !is_numeric($value)) {
+            return null;
+        }
+
+        $number = (float)$value;
+
+        return floor($number) === $number ? (int)$number : $number;
+    }
+
+    protected function normalizeDateValue(mixed $value, bool $withTime): ?string
+    {
+        $value = $this->normalizeTextValue($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            $timestamp = ((float)$value - 25569) * 86400;
+
+            if ($timestamp > 0) {
+                return gmdate($withTime ? 'Y-m-d H:i:s' : 'Y-m-d', (int)$timestamp);
             }
         }
 
-        return $field->type === 'multiselect'
-            ? array_values(array_unique($resolvedValues))
-            : ($resolvedValues[0] ?? null);
+        $formats = [
+            'd.m.Y H:i:s',
+            'd.m.Y H:i',
+            'd.m.Y',
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
+            'Y-m-d',
+            'd/m/Y H:i:s',
+            'd/m/Y H:i',
+            'd/m/Y',
+        ];
+
+        foreach ($formats as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $value);
+
+            if ($date instanceof \DateTimeImmutable) {
+                return $date->format($withTime ? 'Y-m-d H:i:s' : 'Y-m-d');
+            }
+        }
+
+        $timestamp = strtotime($value);
+
+        return $timestamp ? date($withTime ? 'Y-m-d H:i:s' : 'Y-m-d', $timestamp) : null;
+    }
+
+    protected function normalizeCheckboxValue(mixed $value): ?int
+    {
+        $value = $this->normalizeTextValue($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $value = $this->normalizeEnumText($value);
+
+        return in_array($value, ['1', 'yes', 'y', 'true', 'да', 'д', 'истина'], true) ? 1 : 0;
     }
 
     protected function resolveEnumValue(Field $field, string $value): ?string

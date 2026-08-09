@@ -281,17 +281,7 @@ abstract class Leads
 
         if ($fields) {
             foreach ($fields as $key => $field) {
-                try {
-                    $customField = $lead->cf($key);
-
-                    if (is_array($field) && method_exists($customField, 'setValues')) {
-                        $customField->setValues($field);
-                    } else {
-                        $customField->setValue($field);
-                    }
-                } catch (\Throwable $e) {
-                    Log::error(__METHOD__ . ' ' . $e->getMessage() . ' field_name: ' . $key);
-                }
+                CustomFields::set($lead, $key, $field);
             }
         }
 
