@@ -11,6 +11,7 @@ use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Companies;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
+use App\Services\amoCRM\Models\Notes;
 use App\Services\amoCRM\Models\Tags;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -78,9 +79,10 @@ class SendRow extends Command
             $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
             $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
             $responsibleUserId = $this->resolveResponsibleUserId($setting, $importRecord);
-            $leadTag = $this->normalizeTagValue(
+            $leadTags = $this->normalizeTagValues(
                 $importRecord->getValueForDefaultKey($setting->lead_tag_column)
             );
+            $leadNote = $this->normalizeTextValue($importRecord->getValueForDefaultKey($setting->lead_note_column));
 
             $objectStatus = Status::getObject($setting->default_status_id);
 
@@ -118,7 +120,11 @@ class SendRow extends Command
             $lead = Leads::update($lead, [], $rowDataLeads ?: []);
 
             Tags::add($lead, $setting->tag);
-            Tags::add($lead, $leadTag);
+            Tags::add($lead, $leadTags);
+
+            if ($leadNote !== null) {
+                Notes::addOne($lead, $leadNote);
+            }
 
             if ($rowDataCompanies) {
                 $company = Companies::search($rowDataCompanies, $amoApi);
@@ -200,7 +206,26 @@ class SendRow extends Command
         return $staff ? (int)$staff->staff_id : $defaultResponsibleId;
     }
 
-    protected function normalizeTagValue(mixed $value): ?string
+    /**
+     * One Excel cell can contain several lead tags separated by comma.
+     *
+     * @return array<int, string>
+     */
+    protected function normalizeTagValues(mixed $value): array
+    {
+        $value = $this->normalizeTextValue($value);
+
+        if ($value === null) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn(string $tag): string => trim($tag), explode(',', $value)),
+            static fn(string $tag): bool => $tag !== ''
+        )));
+    }
+
+    protected function normalizeTextValue(mixed $value): ?string
     {
         if ($value === null || is_array($value)) {
             return null;

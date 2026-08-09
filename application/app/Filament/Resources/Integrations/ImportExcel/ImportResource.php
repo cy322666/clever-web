@@ -113,6 +113,18 @@ class ImportResource extends Resource
                                     ->native(false)
                                     ->nullable(),
 
+                                Forms\Components\Select::make('lead_note_column')
+                                    ->label('Столбец примечания сделки')
+                                    ->options(
+                                        fn(Get $get, ?ImportSetting $record): array => static::headerOptions(
+                                            $get,
+                                            $record
+                                        )
+                                    )
+                                    ->searchable()
+                                    ->native(false)
+                                    ->nullable(),
+
                                 Forms\Components\Select::make('default_sale')
                                     ->label('Бюджет')
                                     ->options(
