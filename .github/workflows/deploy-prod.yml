@@ -111,6 +111,15 @@ jobs:
       - name: Validate Composer Files
         run: composer validate --no-interaction --no-check-publish
 
+      - name: Prepare Laravel Runtime Directories
+        run: |
+          mkdir -p \
+            bootstrap/cache \
+            storage/framework/cache/data \
+            storage/framework/sessions \
+            storage/framework/testing \
+            storage/framework/views
+
       - name: Install Composer Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress --no-ansi
 
