@@ -131,8 +131,7 @@ jobs:
             tests/Unit/Workflows/WorkflowScenarioDefinitionTest.php \
             tests/Unit/Workflows/ControlConditionActionTest.php \
             tests/Unit/Workflows/WorkflowExecutorConfigTest.php \
-            tests/Unit/Workflows/RunWorkflowActionTest.php \
-            tests/Unit/Workflows/WorkflowMermaidMapTest.php
+            tests/Unit/Workflows/RunWorkflowActionTest.php
 
       - name: Run Test Suite
         run: |
