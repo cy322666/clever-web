@@ -79,6 +79,7 @@ class SendRow extends Command
             $leadSale = $importRecord->getValueForDefaultKey($setting->default_sale);
             $leadName = $importRecord->getValueForDefaultKey($setting->lead_name);
             $responsibleUserId = $this->resolveResponsibleUserId($setting, $importRecord);
+            $entityTags = $this->normalizeTagValues($setting->tag);
             $leadTags = $this->normalizeTagValues(
                 $importRecord->getValueForDefaultKey($setting->lead_tag_column)
             );
@@ -104,10 +105,7 @@ class SendRow extends Command
 
                 $importRecord->contact_id = $contact->id;
 
-                if ($setting->tag) {
-                    $contact->attachTag($setting->tag);
-                    $contact->save();
-                }
+                Tags::add($contact, $entityTags);
             }
 
             $lead = Leads::create($contact ?? null, [
@@ -119,7 +117,7 @@ class SendRow extends Command
 
             $lead = Leads::update($lead, [], $rowDataLeads ?: []);
 
-            Tags::add($lead, $setting->tag);
+            Tags::add($lead, $entityTags);
             Tags::add($lead, $leadTags);
 
             if ($leadNote !== null) {
@@ -144,8 +142,7 @@ class SendRow extends Command
                 $importRecord->company_id = $company->id;
                 $importRecord->save();
 
-                $company->attachTag($setting->tag);
-                $company->save();
+                Tags::add($company, $entityTags);
 
                 $lead->attachCompany($company->id);
                 $lead->save();
