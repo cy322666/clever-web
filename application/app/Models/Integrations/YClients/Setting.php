@@ -151,6 +151,12 @@ class Setting extends Model
         $customField = $entity->customFields->byId((int)$field->field_id);
 
         if (!$customField) {
+            if ($amoApi && $entityType) {
+                self::setAmoFieldViaApi($amoApi, $entity, $field, $value, $entityType);
+
+                return;
+            }
+
             throw new RuntimeException(
                 "amoCRM custom field not found on entity: {$field->name} ({$field->field_id})"
             );
@@ -192,6 +198,105 @@ class Setting extends Model
         }
 
         $customField->setValue($value);
+    }
+
+    private static function setAmoFieldViaApi(
+        AmoClient $amoApi,
+        Contact|Lead $entity,
+        Field $field,
+        mixed $value,
+        string $entityType
+    ): void {
+        $values = is_array($value) ? $value : [$value];
+        $values = collect($values)
+            ->filter(fn(mixed $item): bool => is_scalar($item) && trim((string)$item) !== '')
+            ->map(fn(mixed $item): string => trim((string)$item))
+            ->values()
+            ->all();
+
+        if (!$values) {
+            return;
+        }
+
+        if (self::isEnumField($field)) {
+            self::ensureAmoEnumValues($amoApi, $field, $entityType, $values);
+            $apiValues = self::enumApiValues($field, $values);
+        } else {
+            $apiValues = array_map(fn(string $item): array => ['value' => $item], $values);
+        }
+
+        if (!$apiValues) {
+            return;
+        }
+
+        $amoApi->service->ajax()->patch(
+            sprintf('/api/v4/%s/%d', $entityType, (int)$entity->id),
+            [
+                'custom_fields_values' => [
+                    [
+                        'field_id' => (int)$field->field_id,
+                        'values' => $apiValues,
+                    ],
+                ],
+            ]
+        );
+    }
+
+    private static function ensureAmoEnumValues(
+        AmoClient $amoApi,
+        Field $field,
+        string $entityType,
+        array $values
+    ): void {
+        $enumValues = self::extractEnumValues(
+            is_string($field->enums) ? json_decode($field->enums, true) : $field->enums
+        );
+        $missingValues = collect($values)
+            ->reject(fn(string $item): bool => self::enumValueExists($enumValues, $item))
+            ->unique(fn(string $item): string => self::normalizeEnumText($item))
+            ->values()
+            ->all();
+
+        if ($missingValues) {
+            self::appendAmoEnumValues($amoApi, $field, $entityType, $missingValues);
+        }
+    }
+
+    private static function enumApiValues(Field $field, array $values): array
+    {
+        $enumValues = self::extractEnumValues(
+            is_string($field->enums) ? json_decode($field->enums, true) : $field->enums
+        );
+
+        return collect($values)
+            ->map(function (string $item) use ($enumValues): ?array {
+                $enumId = self::enumIdForValue($enumValues, $item);
+
+                if (!$enumId) {
+                    return null;
+                }
+
+                return [
+                    'value' => $enumValues[$enumId],
+                    'enum_id' => (int)$enumId,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private static function enumIdForValue(array $enumValues, string $value): ?string
+    {
+        $normalizedValue = self::normalizeEnumText($value);
+
+        foreach ($enumValues as $enumId => $enumValue) {
+            if (self::normalizeEnumText((string)$enumValue) === $normalizedValue) {
+                return (string)$enumId;
+            }
+        }
+
+        return null;
     }
 
     private static function isEnumNotFound(Throwable $e): bool
