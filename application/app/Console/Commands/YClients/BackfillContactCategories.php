@@ -154,7 +154,8 @@ class BackfillContactCategories extends Command
             return 'skipped';
         }
 
-        $category = $this->category($setting, $record);
+        $categoryFields = $this->categoryFields($setting, $record);
+        $category = $categoryFields[self::YC_FIELD] ?? null;
 
         if (blank($category) && !$this->option('include-empty')) {
             $this->line($this->recordLine($record, 'skipped-empty-category', $contactId, $category));
@@ -172,7 +173,7 @@ class BackfillContactCategories extends Command
             $setting,
             $this->amoApi((int)$record->account_id),
             $contactId,
-            [self::YC_FIELD => $category],
+            $categoryFields,
             $record
         );
 
@@ -220,7 +221,7 @@ class BackfillContactCategories extends Command
         return $this->settings[$settingId];
     }
 
-    private function category(Setting $setting, Record $record): ?string
+    private function categoryFields(Setting $setting, Record $record): array
     {
         $key = implode(':', [
             $setting->id,
@@ -229,7 +230,7 @@ class BackfillContactCategories extends Command
         ]);
 
         if (!array_key_exists($key, $this->categoryCache)) {
-            $this->categoryCache[$key] = Setting::YCGetClientCategories($this->ycApi($setting), $record);
+            $this->categoryCache[$key] = Setting::YCGetClientCategoryFields($this->ycApi($setting), $record);
         }
 
         return $this->categoryCache[$key];
@@ -273,7 +274,7 @@ class BackfillContactCategories extends Command
                     throw new RuntimeException('amoCRM contact not found: ' . $contactId);
                 }
 
-                $setting->YCSetContactFields($contact, $ycFields, [self::YC_FIELD]);
+                $setting->YCSetContactFields($contact, $ycFields, [self::YC_FIELD], $amoApi);
 
                 return;
             } catch (Throwable $e) {

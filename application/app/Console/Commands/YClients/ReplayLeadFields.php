@@ -281,7 +281,7 @@ class ReplayLeadFields extends Command
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $setting->YCSetLeadFields($currentLead, $ycFields);
+                $setting->YCSetLeadFields($currentLead, $ycFields, $amoApi);
 
                 return;
             } catch (Throwable $e) {
@@ -323,7 +323,7 @@ class ReplayLeadFields extends Command
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $setting->YCSetContactFields($currentContact, $ycFields);
+                $setting->YCSetContactFields($currentContact, $ycFields, null, $amoApi);
 
                 return;
             } catch (Throwable $e) {

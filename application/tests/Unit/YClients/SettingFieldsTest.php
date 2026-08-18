@@ -176,6 +176,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Да', $fields['sms_check']);
         $this->assertSame('Да', $fields['sms_not']);
         $this->assertSame('БЛОГЕР, РЖД (Антон)', $fields['categories']);
+        $this->assertSame(['БЛОГЕР', 'РЖД (Антон)'], $fields['categories_values']);
     }
 
     public function test_yc_get_fields_resolves_created_user_role_and_department_from_permissions(): void

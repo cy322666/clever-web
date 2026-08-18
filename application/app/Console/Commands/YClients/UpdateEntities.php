@@ -130,7 +130,7 @@ class UpdateEntities extends Command
                     $contact = Contacts::get($amoApi, $contactId);
 
                     if ($contact) {
-                        $setting->YCSetContactFields($contact, $arrayFields);
+                        $setting->YCSetContactFields($contact, $arrayFields, null, $amoApi);
                     }
                 }
 
@@ -138,7 +138,7 @@ class UpdateEntities extends Command
                     $lead = Leads::get($amoApi, $record->lead_id);
 
                     if ($lead) {
-                        $setting->YCSetLeadFields($lead, $arrayFields);
+                        $setting->YCSetLeadFields($lead, $arrayFields, $amoApi);
                     }
                 }
 

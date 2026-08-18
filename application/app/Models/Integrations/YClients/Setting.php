@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Helpers\Traits\SettingRelation;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
+use App\Services\amoCRM\Client as AmoClient;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -131,9 +132,19 @@ class Setting extends Model
         }
     }
 
-    private static function setAmoFieldById(Contact|Lead $entity, Field $field, mixed $value): void
+    private static function setAmoFieldById(
+        Contact|Lead $entity,
+        Field $field,
+        mixed $value,
+        ?AmoClient $amoApi = null,
+        ?string $entityType = null
+    ): void
     {
         if ($value === null || $value === '') {
+            return;
+        }
+
+        if (is_array($value) && $value === []) {
             return;
         }
 
@@ -147,7 +158,189 @@ class Setting extends Model
 
         $value = self::normalizeAmoEnumValue($customField, $field, $value);
 
+        try {
+            self::setCustomFieldValue($customField, $value);
+        } catch (Throwable $e) {
+            if (!$amoApi || !$entityType || !self::isEnumNotFound($e) || !self::isEnumField($field)) {
+                throw $e;
+            }
+
+            $missingValues = self::missingEnumValues($customField, $field, $value);
+
+            if (!$missingValues) {
+                throw $e;
+            }
+
+            self::appendAmoEnumValues($amoApi, $field, $entityType, $missingValues);
+            self::refreshRuntimeEnums($customField, $field);
+
+            $value = self::normalizeAmoEnumValue($customField, $field, $value);
+            self::setCustomFieldValue($customField, $value);
+        }
+    }
+
+    private static function setCustomFieldValue(object $customField, mixed $value): void
+    {
+        if (is_array($value) && method_exists($customField, 'setValues')) {
+            if (method_exists($customField, 'reset')) {
+                $customField->reset();
+            }
+
+            $customField->setValues($value);
+
+            return;
+        }
+
         $customField->setValue($value);
+    }
+
+    private static function isEnumNotFound(Throwable $e): bool
+    {
+        return stripos($e->getMessage(), 'enum not found') !== false;
+    }
+
+    private static function isEnumField(Field $field): bool
+    {
+        return in_array((string)$field->type, ['select', 'multiselect', 'radiobutton'], true);
+    }
+
+    private static function isMultiEnumField(Field $field): bool
+    {
+        return (string)$field->type === 'multiselect';
+    }
+
+    private static function amoEntityCustomFieldsEndpoint(string $entityType, int $fieldId): string
+    {
+        return sprintf('/api/v4/%s/custom_fields/%d', $entityType, $fieldId);
+    }
+
+    private static function missingEnumValues(object $customField, Field $field, mixed $value): array
+    {
+        $enumValues = self::amoEnumValues($customField, $field);
+        $values = is_array($value) ? $value : [$value];
+
+        return collect($values)
+            ->filter(fn(mixed $item): bool => is_scalar($item) && trim((string)$item) !== '')
+            ->map(fn(mixed $item): string => trim((string)$item))
+            ->reject(fn(string $item): bool => self::enumValueExists($enumValues, $item))
+            ->unique(fn(string $item): string => self::normalizeEnumText($item))
+            ->values()
+            ->all();
+    }
+
+    private static function enumValueExists(array $enumValues, string $value): bool
+    {
+        $normalizedValue = self::normalizeEnumText($value);
+
+        foreach ($enumValues as $enumValue) {
+            if (self::normalizeEnumText((string)$enumValue) === $normalizedValue) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function appendAmoEnumValues(
+        AmoClient $amoApi,
+        Field $field,
+        string $entityType,
+        array $values
+    ): void {
+        $endpoint = self::amoEntityCustomFieldsEndpoint($entityType, (int)$field->field_id);
+        $remoteField = $amoApi->service->ajax()->get($endpoint);
+        $enums = self::amoEnumPayload($remoteField->enums ?? null);
+        $knownValues = self::extractEnumValues($remoteField->enums ?? null);
+        $sort = collect($enums)->max('sort') ?: 0;
+
+        foreach ($values as $value) {
+            if (self::enumValueExists($knownValues, $value)) {
+                continue;
+            }
+
+            $sort += 10;
+            $enums[] = [
+                'value' => $value,
+                'sort' => $sort,
+            ];
+            $knownValues[] = $value;
+        }
+
+        if (!$enums) {
+            return;
+        }
+
+        $updatedField = $amoApi->service->ajax()->patch($endpoint, [
+            'enums' => $enums,
+        ]);
+
+        $updatedEnums = $updatedField->enums ?? null;
+
+        if (!$updatedEnums) {
+            $updatedEnums = $amoApi->service->ajax()->get($endpoint)->enums ?? null;
+        }
+
+        $field->enums = json_encode($updatedEnums, JSON_UNESCAPED_UNICODE);
+        $field->save();
+    }
+
+    private static function amoEnumPayload(mixed $enums): array
+    {
+        if ($enums instanceof \stdClass) {
+            $enums = get_object_vars($enums);
+        }
+
+        if (!is_array($enums)) {
+            return [];
+        }
+
+        $payload = [];
+        $sort = 0;
+
+        foreach ($enums as $key => $enum) {
+            $value = is_array($enum) || $enum instanceof \stdClass
+                ? data_get($enum, 'value')
+                : $enum;
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $row = ['value' => (string)$value];
+            $id = is_array($enum) || $enum instanceof \stdClass
+                ? data_get($enum, 'id')
+                : (is_numeric($key) ? (int)$key : null);
+
+            if ($id) {
+                $row['id'] = (int)$id;
+            }
+
+            $enumSort = is_array($enum) || $enum instanceof \stdClass
+                ? data_get($enum, 'sort')
+                : null;
+
+            $sort = (int)($enumSort ?: $sort + 10);
+            $row['sort'] = $sort;
+
+            $payload[] = $row;
+        }
+
+        return $payload;
+    }
+
+    private static function refreshRuntimeEnums(object $customField, Field $field): void
+    {
+        try {
+            $enumValues = self::extractEnumValues(
+                is_string($field->enums) ? json_decode($field->enums, true) : $field->enums
+            );
+
+            if ($enumValues) {
+                $customField->field->enums = (object)$enumValues;
+            }
+        } catch (Throwable) {
+            //
+        }
     }
 
     private static function normalizeAmoEnumValue(object $customField, Field $field, mixed $value): mixed
@@ -582,7 +775,9 @@ class Setting extends Model
         $fields['sms_not'] = data_get($clientYC, 'sms_not') !== null
             ? ((int)data_get($clientYC, 'sms_not') === 1 ? 'Нет' : 'Да')
             : null;
-        $fields['categories'] = self::YCGetClientCategories($client, $record, $clientYC, $recordYC);
+        $categoryFields = self::YCGetClientCategoryFields($client, $record, $clientYC, $recordYC);
+        $fields['categories'] = $categoryFields['categories'];
+        $fields['categories_values'] = $categoryFields['categories_values'];
 
         $fields['visits'] = data_get($clientYC, 'visits');
         $fields['services'] = trim((string)$record->title);
@@ -594,20 +789,23 @@ class Setting extends Model
         return $fields;
     }
 
-    public static function YCGetClientCategories(
+    public static function YCGetClientCategoryFields(
         \App\Services\YClients\YClients $client,
         Record $record,
         mixed $clientYC = null,
         mixed $recordYC = null
-    ): ?string {
+    ): array {
         if ($clientYC === null && (int)$record->client_id > 0) {
             $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
         }
 
-        $categories = self::clientCategories($clientYC, $recordYC);
+        $values = self::clientCategoryValues($clientYC, $recordYC);
 
-        if ($categories || $recordYC !== null) {
-            return $categories;
+        if ($values || $recordYC !== null) {
+            return [
+                'categories' => $values ? implode(', ', $values) : null,
+                'categories_values' => $values,
+            ];
         }
 
         $recordYC = self::optionalYClientsRequest(
@@ -616,10 +814,31 @@ class Setting extends Model
             $record
         )?->data ?? null;
 
-        return self::clientCategories($clientYC, $recordYC);
+        $values = self::clientCategoryValues($clientYC, $recordYC);
+
+        return [
+            'categories' => $values ? implode(', ', $values) : null,
+            'categories_values' => $values,
+        ];
+    }
+
+    public static function YCGetClientCategories(
+        \App\Services\YClients\YClients $client,
+        Record $record,
+        mixed $clientYC = null,
+        mixed $recordYC = null
+    ): ?string {
+        return self::YCGetClientCategoryFields($client, $record, $clientYC, $recordYC)['categories'];
     }
 
     private static function clientCategories(mixed $clientYC, mixed $recordYC = null): ?string
+    {
+        $values = self::clientCategoryValues($clientYC, $recordYC);
+
+        return $values ? implode(', ', $values) : null;
+    }
+
+    private static function clientCategoryValues(mixed $clientYC, mixed $recordYC = null): array
     {
         $categories = data_get($clientYC, 'categories')
             ?? data_get($clientYC, 'category')
@@ -629,14 +848,16 @@ class Setting extends Model
             ?? data_get($recordYC, 'client.client_tags');
 
         if ($categories === null || $categories === '') {
-            return null;
+            return [];
         }
 
         if (is_scalar($categories)) {
-            return trim((string)$categories) ?: null;
+            $value = trim((string)$categories);
+
+            return $value === '' ? [] : [$value];
         }
 
-        $values = collect(is_array($categories) ? $categories : [$categories])
+        return collect(is_array($categories) ? $categories : [$categories])
             ->map(function (mixed $category): ?string {
                 if (is_scalar($category)) {
                     return trim((string)$category);
@@ -652,11 +873,27 @@ class Setting extends Model
             ->unique()
             ->values()
             ->all();
-
-        return $values ? implode(', ', $values) : null;
     }
 
-    public function YCSetContactFields(Contact $contact, array $ycFields, ?array $onlyYcFields = null): Contact
+    private static function valueForAmoField(?string $fieldYc, Field $amoField, mixed $value, array $ycFields): mixed
+    {
+        if ($fieldYc === 'categories' && self::isMultiEnumField($amoField)) {
+            $values = $ycFields['categories_values'] ?? null;
+
+            if (is_array($values)) {
+                return $values;
+            }
+        }
+
+        return $value;
+    }
+
+    public function YCSetContactFields(
+        Contact $contact,
+        array $ycFields,
+        ?array $onlyYcFields = null,
+        ?AmoClient $amoApi = null
+    ): Contact
     {
         $body = self::mappingRows($this->fields_contact);
 
@@ -691,7 +928,8 @@ class Setting extends Model
                 );
             }
 
-            self::setAmoFieldById($contact, $amoField, $value);
+            $value = self::valueForAmoField($fieldYc, $amoField, $value, $ycFields);
+            self::setAmoFieldById($contact, $amoField, $value, $amoApi, 'contacts');
             $applied = true;
         }
 
@@ -702,7 +940,7 @@ class Setting extends Model
         return $contact;
     }
 
-    public function YCSetLeadFields(Lead $lead, array $ycFields): Lead
+    public function YCSetLeadFields(Lead $lead, array $ycFields, ?AmoClient $amoApi = null): Lead
     {
         $body = self::mappingRows($this->fields_lead);
 
@@ -727,7 +965,8 @@ class Setting extends Model
                 throw new RuntimeException('amoCRM lead field mapping not found: ' . ($field['field_amo'] ?? 'null'));
             }
 
-            self::setAmoFieldById($lead, $amoField, $value);
+            $value = self::valueForAmoField($fieldYc, $amoField, $value, $ycFields);
+            self::setAmoFieldById($lead, $amoField, $value, $amoApi, 'leads');
         }
         $lead->save();
 
