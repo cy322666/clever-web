@@ -277,6 +277,17 @@ class Setting extends Model
         );
     }
 
+    public function hasContactFieldMapping(string $fieldYc): bool
+    {
+        foreach (self::mappingRows($this->fields_contact) as $field) {
+            if (($field['field_yc'] ?? null) === $fieldYc && !blank($field['field_amo'] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function responsibleUserIdForRecord(Record $record): ?int
     {
         $ycUserKey = (string)$record->company_id . ':' . (string)$record->created_user_id;
@@ -571,7 +582,7 @@ class Setting extends Model
         $fields['sms_not'] = data_get($clientYC, 'sms_not') !== null
             ? ((int)data_get($clientYC, 'sms_not') === 1 ? 'Нет' : 'Да')
             : null;
-        $fields['categories'] = self::clientCategories($clientYC, $recordYC);
+        $fields['categories'] = self::YCGetClientCategories($client, $record, $clientYC, $recordYC);
 
         $fields['visits'] = data_get($clientYC, 'visits');
         $fields['services'] = trim((string)$record->title);
@@ -581,6 +592,31 @@ class Setting extends Model
         $fields['client_id'] = $record->client_id;
 
         return $fields;
+    }
+
+    public static function YCGetClientCategories(
+        \App\Services\YClients\YClients $client,
+        Record $record,
+        mixed $clientYC = null,
+        mixed $recordYC = null
+    ): ?string {
+        if ($clientYC === null && (int)$record->client_id > 0) {
+            $clientYC = data_get($client->getClient($record->company_id, $record->client_id), 'data');
+        }
+
+        $categories = self::clientCategories($clientYC, $recordYC);
+
+        if ($categories || $recordYC !== null) {
+            return $categories;
+        }
+
+        $recordYC = self::optionalYClientsRequest(
+            fn() => $client->getRecord($record->company_id, $record->record_id),
+            'record-categories',
+            $record
+        )?->data ?? null;
+
+        return self::clientCategories($clientYC, $recordYC);
     }
 
     private static function clientCategories(mixed $clientYC, mixed $recordYC = null): ?string
@@ -620,7 +656,7 @@ class Setting extends Model
         return $values ? implode(', ', $values) : null;
     }
 
-    public function YCSetContactFields(Contact $contact, array $ycFields): Contact
+    public function YCSetContactFields(Contact $contact, array $ycFields, ?array $onlyYcFields = null): Contact
     {
         $body = self::mappingRows($this->fields_contact);
 
@@ -629,9 +665,16 @@ class Setting extends Model
         }
 
         // field_amo stores amoCRM field_id, not the local amocrm_fields primary key.
+        $applied = false;
+
         foreach ($body as $field) {
             $amoField = $this->amoField($field['field_amo'] ?? null, 'contacts');
             $fieldYc = $field['field_yc'] ?? null;
+
+            if ($onlyYcFields !== null && !in_array($fieldYc, $onlyYcFields, true)) {
+                continue;
+            }
+
             $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
 
 //            self::debugLog('YClients contact field mapping.', [
@@ -649,8 +692,12 @@ class Setting extends Model
             }
 
             self::setAmoFieldById($contact, $amoField, $value);
+            $applied = true;
         }
-        $contact->save();
+
+        if ($applied) {
+            $contact->save();
+        }
 
         return $contact;
     }
