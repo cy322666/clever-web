@@ -343,7 +343,7 @@ class Setting extends Model
             'comment' => self::fieldLabel('Комментарий', 'comment', 'строка'),
             'sms_check' => self::fieldLabel('Поздравлять с ДР', 'sms_check', 'флаг/строка'),
             'sms_not' => self::fieldLabel('Отправлять рассылку', 'sms_not', 'флаг/строка'),
-//            'categories' => 'Категории клиента (строка)',
+            'categories' => self::fieldLabel('Категория', 'categories', 'строка'),
             'branch' => self::humanFieldLabel('Филиал'),
             'company_id' => self::humanFieldLabel('Филиал записи'),
             'record_id' => self::humanFieldLabel('Запись'),
@@ -374,7 +374,7 @@ class Setting extends Model
             'comment',
             'sms_check',
             'sms_not',
-//            'categories',
+            'categories',
             'branch',
             'company_id',
             'record_id',
@@ -431,18 +431,6 @@ class Setting extends Model
                 'create_date' => $createDate,
             ])->save();
         }
-
-//        $categories = '';
-//
-//        if (count($clientYC->object()->getCategories()) > 0) {
-//            if (is_array($clientYC->object()->getCategories()) && count($clientYC->object()->getCategories())) {
-//                foreach ($clientYC->object()->getCategories() as $category) {
-//
-//                    $categories .= $category['title'] ?? null . ', ';
-//                }
-//                $categories = str_replace(',', '', $categories);
-//            }
-//        }
 
         $fields['branch'] = self::optionalYClientsRequest(
             fn() => $client->getBranchTitle($record->company_id),
@@ -583,6 +571,7 @@ class Setting extends Model
         $fields['sms_not'] = data_get($clientYC, 'sms_not') !== null
             ? ((int)data_get($clientYC, 'sms_not') === 1 ? 'Нет' : 'Да')
             : null;
+        $fields['categories'] = self::clientCategories($clientYC, $recordYC);
 
         $fields['visits'] = data_get($clientYC, 'visits');
         $fields['services'] = trim((string)$record->title);
@@ -592,6 +581,43 @@ class Setting extends Model
         $fields['client_id'] = $record->client_id;
 
         return $fields;
+    }
+
+    private static function clientCategories(mixed $clientYC, mixed $recordYC = null): ?string
+    {
+        $categories = data_get($clientYC, 'categories')
+            ?? data_get($clientYC, 'category')
+            ?? data_get($clientYC, 'client_tags')
+            ?? data_get($recordYC, 'client.categories')
+            ?? data_get($recordYC, 'client.category')
+            ?? data_get($recordYC, 'client.client_tags');
+
+        if ($categories === null || $categories === '') {
+            return null;
+        }
+
+        if (is_scalar($categories)) {
+            return trim((string)$categories) ?: null;
+        }
+
+        $values = collect(is_array($categories) ? $categories : [$categories])
+            ->map(function (mixed $category): ?string {
+                if (is_scalar($category)) {
+                    return trim((string)$category);
+                }
+
+                $value = data_get($category, 'title')
+                    ?? data_get($category, 'name')
+                    ?? data_get($category, 'label');
+
+                return is_scalar($value) ? trim((string)$value) : null;
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return $values ? implode(', ', $values) : null;
     }
 
     public function YCSetContactFields(Contact $contact, array $ycFields): Contact

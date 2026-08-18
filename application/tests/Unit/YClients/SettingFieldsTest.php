@@ -70,6 +70,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Услуги (services)', $fields['services']);
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
         $this->assertSame('Сумма покупок (paid)', $fields['paid']);
+        $this->assertSame('Категория (categories) - строка', $fields['categories']);
     }
 
     public function test_yc_get_fields_includes_record_and_company_ids(): void
@@ -91,6 +92,10 @@ class SettingFieldsTest extends TestCase
                     'comment' => 'Карта пациента',
                     'sms_check' => 1,
                     'sms_not' => 0,
+                    'categories' => [
+                        (object)['title' => 'БЛОГЕР'],
+                        (object)['title' => 'РЖД (Антон)'],
+                    ],
                 ],
             ]
         );
@@ -170,6 +175,7 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Карта пациента', $fields['comment']);
         $this->assertSame('Да', $fields['sms_check']);
         $this->assertSame('Да', $fields['sms_not']);
+        $this->assertSame('БЛОГЕР, РЖД (Антон)', $fields['categories']);
     }
 
     public function test_yc_get_fields_resolves_created_user_role_and_department_from_permissions(): void
