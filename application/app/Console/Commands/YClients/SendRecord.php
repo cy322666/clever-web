@@ -155,10 +155,16 @@ class SendRecord extends Command
         }
 
         if (empty($lead) && (int)$record->attendance === 3) {
-            return $this->failRecord(
-                $record,
-                'YClients delete webhook cannot move amoCRM lead because existing lead was not found.'
-            );
+            Log::info('YClients delete webhook ignored because existing amoCRM lead was not found.', [
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'account_id' => $account->id,
+                'setting_id' => $setting->id,
+                'company_id' => $record->company_id,
+                'client_id' => $record->client_id,
+            ]);
+
+            return $this->completeRecordWithoutLead($record);
         }
 
         try {
@@ -214,6 +220,15 @@ class SendRecord extends Command
         $record->save();
 
         return self::FAILURE;
+    }
+
+    private function completeRecordWithoutLead(Record $record): int
+    {
+        $record->status = Record::STATUS_SUCCESS;
+        $record->error_message = null;
+        $record->save();
+
+        return self::SUCCESS;
     }
 
     private function formatErrorMessage(string $message, array $context = []): string
