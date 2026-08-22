@@ -64,12 +64,6 @@ class ReconcileLeadStatuses extends Command
                 continue;
             }
 
-            if ($this->option('limit') !== null && $stats['inspected'] >= (int)$this->option('limit')) {
-                break;
-            }
-
-            $stats['inspected']++;
-
             try {
                 $currentStatusId = (int)data_get($lead, 'status_id');
                 $mappedStatusIds = [(int)$waitStatus->status_id, (int)$confirmStatus->status_id];
@@ -86,6 +80,12 @@ class ReconcileLeadStatuses extends Command
                     $this->line($this->leadLine($lead, 'skipped-no-record-id'));
                     continue;
                 }
+
+                if ($this->option('limit') !== null && $stats['inspected'] >= (int)$this->option('limit')) {
+                    break;
+                }
+
+                $stats['inspected']++;
 
                 $localRecord = Record::query()
                     ->where('setting_id', $setting->id)
