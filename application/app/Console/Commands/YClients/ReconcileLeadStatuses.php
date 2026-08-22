@@ -11,7 +11,6 @@ use App\Services\amoCRM\Client as AmoClient;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
 use Throwable;
-use Ufee\Amo\Models\Lead;
 
 class ReconcileLeadStatuses extends Command
 {
@@ -72,7 +71,7 @@ class ReconcileLeadStatuses extends Command
             $stats['inspected']++;
 
             try {
-                $currentStatusId = (int)$lead->status_id;
+                $currentStatusId = (int)data_get($lead, 'status_id');
                 $mappedStatusIds = [(int)$waitStatus->status_id, (int)$confirmStatus->status_id];
 
                 if (!$this->option('all-stages') && !in_array($currentStatusId, $mappedStatusIds, true)) {
@@ -136,9 +135,9 @@ class ReconcileLeadStatuses extends Command
                     . sprintf(' status=%d->%d attendance=%d', $currentStatusId, $targetStatusId, $attendance));
 
                 if ($this->option('apply')) {
-                    $lead->status_id = $targetStatusId;
-                    $lead->pipeline_id = (int)$targetStatus->pipeline_id;
-                    $lead->save();
+                    $amo->requestV4('PATCH', '/api/v4/leads/' . (int)data_get($lead, 'id'), [
+                        'status_id' => $targetStatusId,
+                    ]);
                     $stats['updated']++;
                 }
             } catch (Throwable $e) {
@@ -232,36 +231,45 @@ class ReconcileLeadStatuses extends Command
         return $status;
     }
 
-    private function leadBelongsToPipelines(Lead $lead, array $pipelineIds): bool
+    private function leadBelongsToPipelines(array $lead, array $pipelineIds): bool
     {
-        return in_array((int)$lead->pipeline_id, $pipelineIds, true);
+        return in_array((int)data_get($lead, 'pipeline_id'), $pipelineIds, true);
     }
 
-    /** @return \Generator<int, Lead> */
+    /** @return \Generator<int, array<string, mixed>> */
     private function leadPages(AmoClient $amo): \Generator
     {
-        $offset = 0;
-        $pageSize = 100;
+        $page = 1;
+        $pageSize = 250;
 
         do {
-            $page = $amo->service->leads()->list->call([
-                'limit_rows' => $pageSize,
-                'limit_offset' => $offset,
+            $response = $amo->requestV4('GET', '/api/v4/leads', [], [
+                'page' => $page,
+                'limit' => $pageSize,
             ]);
+            $items = data_get($response, '_embedded.leads', []);
 
-            foreach ($page as $lead) {
-                yield $lead;
+            foreach ($items as $lead) {
+                yield (array)$lead;
             }
 
-            $count = $page->count();
-            $offset += $pageSize;
+            $count = count($items);
+            $page++;
         } while ($count === $pageSize);
     }
 
-    private function leadFieldValue(Lead $lead, int $fieldId): ?string
+    private function leadFieldValue(array $lead, int $fieldId): ?string
     {
-        $field = $lead->customFields->byId($fieldId);
-        $value = $field?->getValue();
+        $value = null;
+
+        foreach ((array)data_get($lead, 'custom_fields_values', []) as $field) {
+            if ((int)data_get($field, 'field_id') !== $fieldId) {
+                continue;
+            }
+
+            $value = data_get((array)data_get($field, 'values', []), '0.value');
+            break;
+        }
 
         if ($value === null || trim((string)$value) === '') {
             return null;
@@ -270,15 +278,15 @@ class ReconcileLeadStatuses extends Command
         return (string)(int)trim((string)$value);
     }
 
-    private function leadLine(Lead $lead, string $state, ?string $recordId = null): string
+    private function leadLine(array $lead, string $state, ?string $recordId = null): string
     {
         return sprintf(
             '[%s] lead_id=%s record_id=%s pipeline_id=%s status_id=%s',
             $state,
-            $lead->id,
+            data_get($lead, 'id'),
             $recordId ?: '-',
-            $lead->pipeline_id,
-            $lead->status_id,
+            data_get($lead, 'pipeline_id'),
+            data_get($lead, 'status_id'),
         );
     }
 }
