@@ -51,7 +51,6 @@ class ReconcileLeadStatuses extends Command
 
         $amo = (new AmoClient($account))->init();
         $yc = new YClients($setting);
-        $leads = $amo->service->leads()->recursiveCall();
         $stats = [
             'inspected' => 0,
             'matched' => 0,
@@ -61,7 +60,7 @@ class ReconcileLeadStatuses extends Command
             'failed' => 0,
         ];
 
-        foreach ($leads as $lead) {
+        foreach ($this->leadPages($amo) as $lead) {
             if (!$this->leadBelongsToPipelines($lead, $pipelineIds)) {
                 continue;
             }
@@ -236,6 +235,27 @@ class ReconcileLeadStatuses extends Command
     private function leadBelongsToPipelines(Lead $lead, array $pipelineIds): bool
     {
         return in_array((int)$lead->pipeline_id, $pipelineIds, true);
+    }
+
+    /** @return \Generator<int, Lead> */
+    private function leadPages(AmoClient $amo): \Generator
+    {
+        $offset = 0;
+        $pageSize = 100;
+
+        do {
+            $page = $amo->service->leads()->list->call([
+                'limit_rows' => $pageSize,
+                'limit_offset' => $offset,
+            ]);
+
+            foreach ($page as $lead) {
+                yield $lead;
+            }
+
+            $count = $page->count();
+            $offset += $pageSize;
+        } while ($count === $pageSize);
     }
 
     private function leadFieldValue(Lead $lead, int $fieldId): ?string
