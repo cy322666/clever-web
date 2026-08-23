@@ -3,11 +3,9 @@
 namespace App\Console\Commands\YClients;
 
 use App\Models\Core\Account;
-use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Models\amoCRM\Status;
 use App\Services\amoCRM\Client as AmoClient;
-use App\Services\amoCRM\Models\Leads as AmoLeads;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
 use Throwable;
@@ -19,9 +17,10 @@ class ReconcileLeadStatuses extends Command
         {--account-id= : Limit to amoCRM account id}
         {--setting-id= : Limit to YClients setting id}
         {--pipeline-id= : Override the pipeline id to scan}
-        {--record-field-id= : Deprecated compatibility option; local YClients links are used}
-        {--all-stages : Reconcile every lead in the selected pipeline, not only the two mapped stages}
-        {--limit= : Max leads to inspect}
+        {--record-field-id=617051 : amoCRM lead field containing the YClients record id}
+        {--company-field-id=617053 : amoCRM lead field containing the YClients company id}
+        {--all-stages : Reconcile every lead in the selected pipeline}
+        {--limit= : Max amoCRM leads to inspect}
         {--apply : Apply status changes; without this flag the command is a dry run}';
 
     protected $description = 'Reconcile amoCRM lead stages with current YClients record attendance.';
@@ -40,24 +39,22 @@ class ReconcileLeadStatuses extends Command
             return self::FAILURE;
         }
 
+        $statusMap = [
+            (int)$waitStatus->status_id => 0,
+            (int)$confirmStatus->status_id => 2,
+        ];
+
         $this->line(sprintf(
-            'Scanning linked amoCRM leads: pipelines=%s mode=%s',
+            'Scanning amoCRM leads: pipelines=%s stages=%s mode=%s',
             implode(',', $pipelineIds),
+            $this->option('all-stages') ? 'all' : implode(',', array_keys($statusMap)),
             $this->option('apply') ? 'apply' : 'dry-run',
         ));
 
         $amo = (new AmoClient($account))->init();
         $yc = new YClients($setting);
-        $records = Record::query()
-            ->where('user_id', $setting->user_id)
-            ->where('account_id', $account->id)
-            ->where('setting_id', $setting->id)
-            ->whereNotNull('lead_id')
-            ->where('lead_id', '>', 0)
-            ->orderByDesc('updated_at')
-            ->cursor();
-        $seenLeadIds = [];
         $stats = [
+            'fetched' => 0,
             'inspected' => 0,
             'matched' => 0,
             'updated' => 0,
@@ -65,98 +62,37 @@ class ReconcileLeadStatuses extends Command
             'skipped' => 0,
             'failed' => 0,
         ];
+        $seenLeadIds = [];
+        $limit = $this->option('limit') !== null ? (int)$this->option('limit') : null;
 
-        foreach ($records as $localRecord) {
-            if (isset($seenLeadIds[$localRecord->lead_id])) {
-                continue;
-            }
-            $seenLeadIds[$localRecord->lead_id] = true;
+        foreach ($pipelineIds as $pipelineId) {
+            $sourceStatuses = $this->option('all-stages')
+                ? [null]
+                : array_keys($statusMap);
 
-            try {
-                $lead = AmoLeads::get($amo, $localRecord->lead_id);
+            foreach ($sourceStatuses as $sourceStatusId) {
+                foreach ($this->amoLeads($amo, $pipelineId, $sourceStatusId) as $lead) {
+                    $leadId = (string)data_get($lead, 'id');
 
-                if (!$lead) {
-                    $stats['skipped']++;
-                    $this->line(sprintf('[skipped-lead-not-found] lead_id=%s record_id=%s', $localRecord->lead_id, $localRecord->record_id));
-                    continue;
+                    if ($leadId === '' || isset($seenLeadIds[$leadId])) {
+                        continue;
+                    }
+                    $seenLeadIds[$leadId] = true;
+                    $stats['fetched']++;
+
+                    if ($limit !== null && $stats['inspected'] >= $limit) {
+                        break 3;
+                    }
+
+                    $stats['inspected']++;
+                    $this->inspectLead($lead, $amo, $yc, $statusMap, $stats);
                 }
-
-                $leadData = $lead->toArray();
-
-                if (!$this->leadBelongsToPipelines($leadData, $pipelineIds)) {
-                    continue;
-                }
-
-                $currentStatusId = (int)data_get($leadData, 'status_id');
-                $mappedStatusIds = [(int)$waitStatus->status_id, (int)$confirmStatus->status_id];
-
-                if (!$this->option('all-stages') && !in_array($currentStatusId, $mappedStatusIds, true)) {
-                    $stats['skipped']++;
-                    continue;
-                }
-
-                if ($this->option('limit') !== null && $stats['inspected'] >= (int)$this->option('limit')) {
-                    break;
-                }
-
-                $stats['inspected']++;
-
-                $recordId = (string)$localRecord->record_id;
-
-                if (!$localRecord->company_id) {
-                    $stats['skipped']++;
-                    $this->line($this->leadLine($leadData, 'skipped-no-company', $recordId));
-                    continue;
-                }
-
-                $response = $yc->getRecord((string)$localRecord->company_id, (string)$recordId);
-                $recordData = data_get($response, 'data');
-
-                if (!data_get($response, 'success') || !is_object($recordData)) {
-                    $stats['skipped']++;
-                    $this->line($this->leadLine($leadData, 'skipped-yclients-record-not-found', $recordId));
-                    continue;
-                }
-
-                $attendance = (int)data_get($recordData, 'attendance', -999);
-                $targetStatus = match ($attendance) {
-                    0 => $waitStatus,
-                    2 => $confirmStatus,
-                    default => null,
-                };
-
-                if (!$targetStatus) {
-                    $stats['skipped']++;
-                    $this->line($this->leadLine($leadData, 'skipped-attendance-' . $attendance, $recordId));
-                    continue;
-                }
-
-                $stats['matched']++;
-                $targetStatusId = (int)$targetStatus->status_id;
-
-                if ($currentStatusId === $targetStatusId) {
-                    $stats['unchanged']++;
-                    $this->line($this->leadLine($leadData, 'unchanged', $recordId) . ' attendance=' . $attendance);
-                    continue;
-                }
-
-                $this->line($this->leadLine($leadData, $this->option('apply') ? 'updated' : 'would-update', $recordId)
-                    . sprintf(' status=%d->%d attendance=%d', $currentStatusId, $targetStatusId, $attendance));
-
-                if ($this->option('apply')) {
-                    $amo->requestV4('PATCH', '/api/v4/leads/' . (int)data_get($lead, 'id'), [
-                        'status_id' => $targetStatusId,
-                    ]);
-                    $stats['updated']++;
-                }
-            } catch (Throwable $e) {
-                $stats['failed']++;
-                $this->error(sprintf('[failed] lead_id=%s record_id=%s error=%s', $localRecord->lead_id, $localRecord->record_id, $e->getMessage()));
             }
         }
 
         $this->info(sprintf(
-            'Done. inspected=%d matched=%d updated=%d unchanged=%d skipped=%d failed=%d',
+            'Done. fetched=%d inspected=%d matched=%d updated=%d unchanged=%d skipped=%d failed=%d',
+            $stats['fetched'],
             $stats['inspected'],
             $stats['matched'],
             $stats['updated'],
@@ -168,12 +104,132 @@ class ReconcileLeadStatuses extends Command
         return $stats['failed'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 
+    /** @return iterable<int, array<string, mixed>> */
+    private function amoLeads(AmoClient $amo, int $pipelineId, ?int $statusId): iterable
+    {
+        for ($page = 1; ; $page++) {
+            $query = [
+                'page' => $page,
+                'limit' => 250,
+                'filter[statuses][0][pipeline_id]' => $pipelineId,
+            ];
+
+            if ($statusId !== null) {
+                $query['filter[statuses][0][status_id]'] = $statusId;
+            }
+
+            $response = $amo->requestV4('GET', '/api/v4/leads', [], $query);
+            $leads = data_get($response, '_embedded.leads', []);
+
+            if (!is_array($leads) || $leads === []) {
+                break;
+            }
+
+            foreach ($leads as $lead) {
+                if (is_array($lead)) {
+                    yield $lead;
+                }
+            }
+
+            if (count($leads) < 250) {
+                break;
+            }
+        }
+    }
+
+    /** @param array<string, mixed> $lead @param array<int, int> $statusMap */
+    private function inspectLead(
+        array $lead,
+        AmoClient $amo,
+        YClients $yc,
+        array $statusMap,
+        array &$stats,
+    ): void {
+        $leadId = (string)data_get($lead, 'id');
+        $currentStatusId = (int)data_get($lead, 'status_id');
+        $recordId = $this->leadFieldValue($lead, (int)$this->option('record-field-id'));
+        $companyId = $this->leadFieldValue($lead, (int)$this->option('company-field-id'));
+
+        try {
+            if ($recordId === null || $companyId === null) {
+                $stats['skipped']++;
+                $this->line($this->leadLine($lead, 'error-missing-yclients-ids', $recordId));
+
+                return;
+            }
+
+            $response = $yc->getRecord($companyId, $recordId);
+            $recordData = data_get($response, 'data');
+
+            if (data_get($recordData, 'deleted') === true || data_get($response, 'deleted') === true) {
+                $stats['skipped']++;
+                $this->line($this->leadLine($lead, 'deleted', $recordId) . ' company_id=' . $companyId);
+
+                return;
+            }
+
+            if (!data_get($response, 'success') || !is_object($recordData)) {
+                $stats['failed']++;
+                $this->line($this->leadLine($lead, 'error-yclients-record-not-found', $recordId) . ' company_id=' . $companyId);
+
+                return;
+            }
+
+            $attendance = (int)data_get($recordData, 'attendance', -999);
+
+            if (!array_key_exists($currentStatusId, $statusMap)) {
+                $stats['skipped']++;
+                $this->line($this->leadLine($lead, 'skipped-unexpected-amo-stage', $recordId)
+                    . ' attendance=' . $attendance);
+
+                return;
+            }
+
+            if (!in_array($attendance, [0, 2], true)) {
+                $stats['failed']++;
+                $this->line($this->leadLine($lead, 'error-unexpected-attendance', $recordId)
+                    . ' attendance=' . $attendance);
+
+                return;
+            }
+
+            $stats['matched']++;
+            $targetStatusId = array_search($attendance, $statusMap, true);
+
+            if ($currentStatusId === $targetStatusId) {
+                $stats['unchanged']++;
+                $this->line($this->leadLine($lead, 'unchanged', $recordId)
+                    . ' attendance=' . $attendance . ' company_id=' . $companyId);
+
+                return;
+            }
+
+            $this->line($this->leadLine($lead, $this->option('apply') ? 'updated' : 'would-update', $recordId)
+                . sprintf(' status=%d->%d attendance=%d company_id=%s', $currentStatusId, $targetStatusId, $attendance, $companyId));
+
+            if ($this->option('apply')) {
+                $amo->requestV4('PATCH', '/api/v4/leads/' . (int)$leadId, [
+                    'status_id' => (int)$targetStatusId,
+                ]);
+                $stats['updated']++;
+            }
+        } catch (Throwable $e) {
+            $stats['failed']++;
+            $this->line($this->leadLine($lead, 'error-exception', $recordId)
+                . ' message=' . str_replace(["\r", "\n"], ' ', $e->getMessage()));
+        }
+    }
+
     private function resolveSetting(): Setting
     {
         $query = Setting::query()->where('user_id', (int)$this->argument('user_id'));
 
         if ($this->option('setting-id') !== null) {
             $query->whereKey((int)$this->option('setting-id'));
+        }
+
+        if ($this->option('account-id') !== null) {
+            $query->where('account_id', (int)$this->option('account-id'));
         }
 
         return $query->firstOrFail();
@@ -218,11 +274,23 @@ class ReconcileLeadStatuses extends Command
         return $status;
     }
 
-    private function leadBelongsToPipelines(array $lead, array $pipelineIds): bool
+    /** @param array<string, mixed> $lead */
+    private function leadFieldValue(array $lead, int $fieldId): ?string
     {
-        return in_array((int)data_get($lead, 'pipeline_id'), $pipelineIds, true);
+        foreach ((array)data_get($lead, 'custom_fields_values', []) as $field) {
+            if ((int)data_get($field, 'field_id') !== $fieldId) {
+                continue;
+            }
+
+            $value = data_get($field, 'values.0.value');
+
+            return filled($value) ? trim((string)$value) : null;
+        }
+
+        return null;
     }
 
+    /** @param array<string, mixed> $lead */
     private function leadLine(array $lead, string $state, ?string $recordId = null): string
     {
         return sprintf(
