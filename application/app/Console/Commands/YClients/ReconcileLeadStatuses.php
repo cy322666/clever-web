@@ -22,6 +22,7 @@ class ReconcileLeadStatuses extends Command
         {--all-stages : Reconcile every lead in the selected pipeline}
         {--limit= : Max amoCRM leads to inspect}
         {--request-delay-ms=500 : Delay between YClients requests}
+        {--only-issues : Print only deleted, mismatched and error cases}
         {--apply : Apply status changes; without this flag the command is a dry run}';
 
     protected $description = 'Reconcile amoCRM lead stages with current YClients record attendance.';
@@ -206,8 +207,11 @@ class ReconcileLeadStatuses extends Command
 
             if ($currentStatusId === $targetStatusId) {
                 $stats['unchanged']++;
-                $this->line($this->leadLine($lead, 'unchanged', $recordId)
-                    . ' attendance=' . $attendance . ' company_id=' . $companyId);
+
+                if (!$this->option('only-issues')) {
+                    $this->line($this->leadLine($lead, 'unchanged', $recordId)
+                        . ' attendance=' . $attendance . ' company_id=' . $companyId);
+                }
 
                 return;
             }
