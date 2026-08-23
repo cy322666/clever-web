@@ -24,7 +24,8 @@ class ReconcileLeadStatuses extends Command
         {--request-delay-ms=500 : Delay between YClients requests}
         {--only-issues : Print only deleted, mismatched and error cases}
         {--deleted-status-id=143 : amoCRM stage for deleted YClients records}
-        {--deleted-loss-reason-id=3842881 : amoCRM loss reason for deleted records}
+        {--deleted-reason-field-id=608555 : amoCRM custom field for deleted record reason}
+        {--deleted-reason-enum-id=1020467 : amoCRM enum value «Не пришел»}
         {--apply-deleted : Move deleted YClients records to the deleted stage}
         {--apply : Apply status changes; without this flag the command is a dry run}';
 
@@ -183,7 +184,12 @@ class ReconcileLeadStatuses extends Command
                 if ($this->option('apply-deleted')) {
                     $amo->requestV4('PATCH', '/api/v4/leads/' . (int)$leadId, [
                         'status_id' => (int)$this->option('deleted-status-id'),
-                        'loss_reason_id' => (int)$this->option('deleted-loss-reason-id'),
+                        'custom_fields_values' => [[
+                            'field_id' => (int)$this->option('deleted-reason-field-id'),
+                            'values' => [[
+                                'enum_id' => (int)$this->option('deleted-reason-enum-id'),
+                            ]],
+                        ]],
                     ]);
                     $stats['deleted_updated']++;
                 }
