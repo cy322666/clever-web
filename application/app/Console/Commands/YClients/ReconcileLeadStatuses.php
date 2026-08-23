@@ -21,6 +21,7 @@ class ReconcileLeadStatuses extends Command
         {--company-field-id=617053 : amoCRM lead field containing the YClients company id}
         {--all-stages : Reconcile every lead in the selected pipeline}
         {--limit= : Max amoCRM leads to inspect}
+        {--request-delay-ms=500 : Delay between YClients requests}
         {--apply : Apply status changes; without this flag the command is a dry run}';
 
     protected $description = 'Reconcile amoCRM lead stages with current YClients record attendance.';
@@ -158,8 +159,15 @@ class ReconcileLeadStatuses extends Command
                 return;
             }
 
-            $response = $yc->getRecord($companyId, $recordId);
+            $response = $this->getYClientsRecord($yc, $companyId, $recordId);
             $recordData = data_get($response, 'data');
+
+            if ($this->isYClientsRateLimited($response)) {
+                $stats['failed']++;
+                $this->line($this->leadLine($lead, 'error-yclients-rate-limit', $recordId) . ' company_id=' . $companyId);
+
+                return;
+            }
 
             if (data_get($recordData, 'deleted') === true || data_get($response, 'deleted') === true) {
                 $stats['skipped']++;
@@ -218,6 +226,40 @@ class ReconcileLeadStatuses extends Command
             $this->line($this->leadLine($lead, 'error-exception', $recordId)
                 . ' message=' . str_replace(["\r", "\n"], ' ', $e->getMessage()));
         }
+    }
+
+    private function getYClientsRecord(YClients $yc, string $companyId, string $recordId): ?object
+    {
+        $delayMs = max(0, (int)$this->option('request-delay-ms'));
+        $retryDelays = [5, 10, 20, 30];
+        $response = null;
+
+        foreach (array_merge([0], $retryDelays) as $attempt => $retryDelay) {
+            if ($retryDelay > 0) {
+                sleep($retryDelay);
+            }
+
+            if ($delayMs > 0) {
+                usleep($delayMs * 1000);
+            }
+
+            $response = $yc->getRecord($companyId, $recordId);
+
+            if (!$this->isYClientsRateLimited($response) || $attempt === count($retryDelays)) {
+                return $response;
+            }
+        }
+
+        return $response;
+    }
+
+    private function isYClientsRateLimited(?object $response): bool
+    {
+        $message = mb_strtolower((string)data_get($response, 'meta.message'));
+
+        return str_contains($message, 'лимит запросов')
+            || str_contains($message, 'rate limit')
+            || str_contains($message, 'too many requests');
     }
 
     private function resolveSetting(): Setting
