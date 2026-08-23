@@ -71,6 +71,7 @@ class ReconcileLeadStatuses extends Command
         ];
         $seenLeadIds = [];
         $limit = $this->option('limit') !== null ? (int)$this->option('limit') : null;
+        $amoLeads = [];
 
         foreach ($pipelineIds as $pipelineId) {
             $sourceStatuses = $this->option('all-stages')
@@ -86,15 +87,18 @@ class ReconcileLeadStatuses extends Command
                     }
                     $seenLeadIds[$leadId] = true;
                     $stats['fetched']++;
-
-                    if ($limit !== null && $stats['inspected'] >= $limit) {
-                        break 3;
-                    }
-
-                    $stats['inspected']++;
-                    $this->inspectLead($lead, $amo, $yc, $statusMap, $stats);
+                    $amoLeads[] = $lead;
                 }
             }
+        }
+
+        foreach ($amoLeads as $lead) {
+            if ($limit !== null && $stats['inspected'] >= $limit) {
+                break;
+            }
+
+            $stats['inspected']++;
+            $this->inspectLead($lead, $amo, $yc, $statusMap, $stats);
         }
 
         $this->info(sprintf(
