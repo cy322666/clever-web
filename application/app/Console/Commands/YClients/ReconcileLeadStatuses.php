@@ -23,6 +23,9 @@ class ReconcileLeadStatuses extends Command
         {--limit= : Max amoCRM leads to inspect}
         {--request-delay-ms=500 : Delay between YClients requests}
         {--only-issues : Print only deleted, mismatched and error cases}
+        {--deleted-status-id=143 : amoCRM stage for deleted YClients records}
+        {--deleted-loss-reason-id=3842881 : amoCRM loss reason for deleted records}
+        {--apply-deleted : Move deleted YClients records to the deleted stage}
         {--apply : Apply status changes; without this flag the command is a dry run}';
 
     protected $description = 'Reconcile amoCRM lead stages with current YClients record attendance.';
@@ -50,7 +53,7 @@ class ReconcileLeadStatuses extends Command
             'Scanning amoCRM leads: pipelines=%s stages=%s mode=%s',
             implode(',', $pipelineIds),
             $this->option('all-stages') ? 'all' : implode(',', array_keys($statusMap)),
-            $this->option('apply') ? 'apply' : 'dry-run',
+            $this->option('apply-deleted') || $this->option('apply') ? 'apply' : 'dry-run',
         ));
 
         $amo = (new AmoClient($account))->init();
@@ -63,6 +66,7 @@ class ReconcileLeadStatuses extends Command
             'unchanged' => 0,
             'skipped' => 0,
             'failed' => 0,
+            'deleted_updated' => 0,
         ];
         $seenLeadIds = [];
         $limit = $this->option('limit') !== null ? (int)$this->option('limit') : null;
@@ -93,11 +97,12 @@ class ReconcileLeadStatuses extends Command
         }
 
         $this->info(sprintf(
-            'Done. fetched=%d inspected=%d matched=%d updated=%d unchanged=%d skipped=%d failed=%d',
+            'Done. fetched=%d inspected=%d matched=%d updated=%d deleted_updated=%d unchanged=%d skipped=%d failed=%d',
             $stats['fetched'],
             $stats['inspected'],
             $stats['matched'],
             $stats['updated'],
+            $stats['deleted_updated'],
             $stats['unchanged'],
             $stats['skipped'],
             $stats['failed'],
@@ -172,7 +177,16 @@ class ReconcileLeadStatuses extends Command
 
             if (data_get($recordData, 'deleted') === true || data_get($response, 'deleted') === true) {
                 $stats['skipped']++;
-                $this->line($this->leadLine($lead, 'deleted', $recordId) . ' company_id=' . $companyId);
+                $state = $this->option('apply-deleted') ? 'deleted-updated' : 'deleted';
+                $this->line($this->leadLine($lead, $state, $recordId) . ' company_id=' . $companyId);
+
+                if ($this->option('apply-deleted')) {
+                    $amo->requestV4('PATCH', '/api/v4/leads/' . (int)$leadId, [
+                        'status_id' => (int)$this->option('deleted-status-id'),
+                        'loss_reason_id' => (int)$this->option('deleted-loss-reason-id'),
+                    ]);
+                    $stats['deleted_updated']++;
+                }
 
                 return;
             }
