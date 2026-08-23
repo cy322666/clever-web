@@ -235,7 +235,7 @@ class ReconcileLeadStatuses extends Command
     private function getYClientsRecord(YClients $yc, string $companyId, string $recordId): ?object
     {
         $delayMs = max(0, (int)$this->option('request-delay-ms'));
-        $retryDelays = [5, 10, 20, 30];
+        $retryDelays = [10, 20, 40, 60];
         $response = null;
 
         foreach (array_merge([0], $retryDelays) as $attempt => $retryDelay) {
@@ -247,7 +247,15 @@ class ReconcileLeadStatuses extends Command
                 usleep($delayMs * 1000);
             }
 
-            $response = $yc->getRecord($companyId, $recordId);
+            try {
+                $response = $yc->getRecord($companyId, $recordId);
+            } catch (Throwable $e) {
+                if (!$this->isYClientsRateLimitException($e) || $attempt === count($retryDelays)) {
+                    throw $e;
+                }
+
+                continue;
+            }
 
             if (!$this->isYClientsRateLimited($response) || $attempt === count($retryDelays)) {
                 return $response;
@@ -255,6 +263,16 @@ class ReconcileLeadStatuses extends Command
         }
 
         return $response;
+    }
+
+    private function isYClientsRateLimitException(Throwable $exception): bool
+    {
+        $message = mb_strtolower($exception->getMessage());
+
+        return str_contains($message, '429')
+            || str_contains($message, 'лимит запросов')
+            || str_contains($message, 'rate limit')
+            || str_contains($message, 'too many requests');
     }
 
     private function isYClientsRateLimited(?object $response): bool
