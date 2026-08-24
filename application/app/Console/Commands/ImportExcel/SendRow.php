@@ -124,8 +124,8 @@ class SendRow extends Command
                 Notes::addOne($lead, $leadNote);
             }
 
-            if ($rowDataCompanies) {
-                $company = Companies::search($rowDataCompanies, $amoApi);
+            if ($rowDataCompanies || $companyName) {
+                $company = $rowDataCompanies ? Companies::search($rowDataCompanies, $amoApi) : null;
 
                 if (!$company) {
                     $company = Companies::create($amoApi, $companyName);
@@ -134,7 +134,7 @@ class SendRow extends Command
 
                 $company = Companies::update(
                     $company,
-                    $rowDataCompanies
+                    ($rowDataCompanies ?: [])
                     + ['Имя' => $companyName]
                     + ($responsibleUserId !== null ? ['Ответственный' => $responsibleUserId] : [])
                 );
