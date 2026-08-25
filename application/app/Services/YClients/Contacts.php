@@ -32,7 +32,7 @@ abstract class Contacts
     /**
      * @throws \Exception
      */
-    public static function search(array $arrayFields, \App\Services\amoCRM\Client $amoApi)
+    public static function search(array $arrayFields, \App\Services\amoCRM\Client $amoApi): ?ContactModel
     {
         $contacts = null;
         $phone = self::phoneSearchKey($arrayFields['Телефон'] ?? null);
@@ -52,7 +52,7 @@ abstract class Contacts
             }
         }
 
-        if (($contacts === null || $contacts->first() === null) && $email !== null) {
+        if (self::firstContact($contacts) === null && $email !== null) {
             try {
                 $contacts = $amoApi->service
                     ->contacts()
@@ -66,10 +66,18 @@ abstract class Contacts
             }
         }
 
-        if ($contacts !== null && $contacts->first() !== null)
-            return $contacts->first();
+        return self::firstContact($contacts);
+    }
 
-        return null;
+    private static function firstContact(mixed $contacts): ?ContactModel
+    {
+        if (!is_object($contacts) || !method_exists($contacts, 'first')) {
+            return null;
+        }
+
+        $contact = $contacts->first();
+
+        return $contact instanceof ContactModel ? $contact : null;
     }
 
     public static function update($contact, Client $client)

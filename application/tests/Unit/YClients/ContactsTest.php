@@ -28,4 +28,17 @@ class ContactsTest extends TestCase
         $this->assertSame('client@example.com', $method->invoke(null, ' Client@Example.COM '));
         $this->assertNull($method->invoke(null, 'not-email'));
     }
+
+    public function test_empty_contact_search_result_is_treated_as_missing_contact(): void
+    {
+        $method = (new ReflectionClass(Contacts::class))->getMethod('firstContact');
+        $emptyResult = new class {
+            public function first(): bool
+            {
+                return false;
+            }
+        };
+
+        $this->assertNull($method->invoke(null, $emptyResult));
+    }
 }
