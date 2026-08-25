@@ -668,6 +668,7 @@ class Setting extends Model
             'visits' => self::fieldLabel('Кол-во визитов', 'visits'),
             'services' => self::fieldLabel('Услуги', 'services'),
             'staff' => self::fieldLabel('Мастер', 'staff'),
+            'cost' => self::fieldLabel('Стоимость записи', 'cost'),
             'paid' => self::fieldLabel('Сумма покупок', 'paid'),
             'ltv' => self::fieldLabel('Выручка', 'ltv'),
             'client_id' => self::humanFieldLabel('Клиент'),
@@ -699,6 +700,7 @@ class Setting extends Model
             'visits',
             'services',
             'staff',
+            'cost',
             'paid',
             'ltv',
             'client_id',
@@ -887,6 +889,7 @@ class Setting extends Model
         $fields['visits'] = data_get($clientYC, 'visits');
         $fields['services'] = trim((string)$record->title);
         $fields['staff'] = $record->staff_name;
+        $fields['cost'] = $record->cost ?? data_get($recordYC, 'cost');
         $fields['paid'] = data_get($clientYC, 'paid');
         $fields['ltv'] = data_get($clientYC, 'paid');
         $fields['client_id'] = $record->client_id;
@@ -1054,9 +1057,18 @@ class Setting extends Model
         }
 
         foreach ($body as $field) {
-            $amoField = $this->amoField($field['field_amo'] ?? null, 'leads');
             $fieldYc = $field['field_yc'] ?? null;
             $value = $fieldYc ? ($ycFields[$fieldYc] ?? null) : null;
+
+            if (($field['field_amo'] ?? null) === 'system:price') {
+                if ($value !== null && $value !== '') {
+                    $lead->sale = $value;
+                }
+
+                continue;
+            }
+
+            $amoField = $this->amoField($field['field_amo'] ?? null, 'leads');
 
 //            self::debugLog('YClients lead field mapping.', [
 //                'setting_id' => $this->id,

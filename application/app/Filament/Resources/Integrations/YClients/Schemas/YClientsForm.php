@@ -254,13 +254,19 @@ class YClientsForm
             return [];
         }
 
-        return Field::query()
+        $options = Field::query()
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('entity_type', $entityType)
             ->orderBy('name')
             ->pluck('name', 'field_id')
             ->toArray();
+
+        if ($entityType === 'leads') {
+            $options = ['system:price' => 'Бюджет'] + $options;
+        }
+
+        return $options;
     }
 
     private static function mappingFields($amoFields, array $ycFields): array
