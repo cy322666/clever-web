@@ -34,15 +34,17 @@ abstract class Contacts
      */
     public static function search(array $arrayFields, \App\Services\amoCRM\Client $amoApi): ?ContactModel
     {
-        $contacts = null;
         $phone = self::phoneSearchKey($arrayFields['Телефон'] ?? null);
         $email = self::normalizeEmail($arrayFields['Почта'] ?? null);
+        $phoneContacts = [];
+        $emailContacts = [];
 
         if ($phone !== null) {
             try {
                 $contacts = $amoApi->service
                     ->contacts()
                     ->searchByPhone($phone);
+                $phoneContacts = self::contactsFromSearchResult($contacts);
             } catch (Throwable $e) {
                 Log::warning('YClients amoCRM contact phone search failed.', [
                     'phone' => $arrayFields['Телефон'] ?? null,
@@ -52,11 +54,12 @@ abstract class Contacts
             }
         }
 
-        if (self::firstContact($contacts) === null && $email !== null) {
+        if ($email !== null) {
             try {
                 $contacts = $amoApi->service
                     ->contacts()
                     ->searchByEmail($email);
+                $emailContacts = self::contactsFromSearchResult($contacts);
             } catch (Throwable $e) {
                 Log::warning('YClients amoCRM contact email search failed.', [
                     'email' => $arrayFields['Почта'] ?? null,
@@ -66,7 +69,19 @@ abstract class Contacts
             }
         }
 
-        return self::firstContact($contacts);
+        foreach ($phoneContacts as $contact) {
+            if ($email !== null && in_array($email, self::contactEmailKeys($contact), true)) {
+                return $contact;
+            }
+        }
+
+        foreach ($emailContacts as $contact) {
+            if ($phone !== null && in_array($phone, self::contactPhoneKeys($contact), true)) {
+                return $contact;
+            }
+        }
+
+        return $phoneContacts[0] ?? $emailContacts[0] ?? null;
     }
 
     private static function firstContact(mixed $contacts): ?ContactModel
@@ -78,6 +93,30 @@ abstract class Contacts
         $contact = $contacts->first();
 
         return $contact instanceof ContactModel ? $contact : null;
+    }
+
+    /**
+     * @return array<int, ContactModel>
+     */
+    private static function contactsFromSearchResult(mixed $contacts): array
+    {
+        if (is_object($contacts) && method_exists($contacts, 'all')) {
+            $contacts = $contacts->all();
+        }
+
+        if (!is_iterable($contacts)) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($contacts as $contact) {
+            if ($contact instanceof ContactModel) {
+                $result[] = $contact;
+            }
+        }
+
+        return $result;
     }
 
     public static function update($contact, Client $client)
@@ -140,91 +179,10 @@ abstract class Contacts
 
     private static function resolveExistingContact(Client $client, \App\Services\amoCRM\Client $amoApi): ?ContactModel
     {
-        if (!empty($client->contact_id)) {
-            $contact = static::get($amoApi, $client->contact_id);
-
-            if ($contact && self::contactMatchesClient($contact, $client)) {
-                return $contact;
-            }
-
-            Log::warning('YClients stored contact_id does not match client phone/email, searching contact again.', [
-                'yclients_client_id' => $client->id,
-                'stored_contact_id' => $client->contact_id,
-                'account_id' => $client->account_id,
-                'setting_id' => $client->setting_id,
-                'client_id' => $client->client_id,
-            ]);
-        }
-
-        return static::findLinkedContact($client, $amoApi)
-            ?: static::search([
-                'Телефон' => $client->phone,
-                'Почта' => $client->email,
-            ], $amoApi);
-    }
-
-    private static function findLinkedContact(Client $client, \App\Services\amoCRM\Client $amoApi): ?ContactModel
-    {
-        $phone = self::phoneSearchKey($client->phone);
-        $email = self::normalizeEmail($client->email);
-
-        if ($phone === null && $email === null) {
-            return null;
-        }
-
-        $matches = Client::query()
-            ->where('account_id', $client->account_id)
-            ->whereNotNull('contact_id')
-            ->where('id', '!=', $client->id)
-            ->where(function ($query) use ($phone, $email): void {
-                if ($phone !== null) {
-                    $query->orWhereRaw(
-                        "right(regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g'), 10) = ?",
-                        [$phone]
-                    );
-                }
-
-                if ($email !== null) {
-                    $query->orWhereRaw('lower(trim(email)) = ?', [$email]);
-                }
-            })
-            ->orderBy('created_at')
-            ->pluck('contact_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-        foreach ($matches as $contactId) {
-            $contact = static::get($amoApi, (int)$contactId);
-
-            if ($contact && self::contactMatches($contact, $phone, $email)) {
-                return $contact;
-            }
-        }
-
-        return null;
-    }
-
-    private static function contactMatchesClient(ContactModel $contact, Client $client): bool
-    {
-        return self::contactMatches(
-            $contact,
-            self::phoneSearchKey($client->phone),
-            self::normalizeEmail($client->email)
-        );
-    }
-
-    private static function contactMatches(ContactModel $contact, ?string $phone, ?string $email): bool
-    {
-        if ($phone !== null && in_array($phone, self::contactPhoneKeys($contact), true)) {
-            return true;
-        }
-
-        if ($email !== null && in_array($email, self::contactEmailKeys($contact), true)) {
-            return true;
-        }
-
-        return false;
+        return static::search([
+            'Телефон' => $client->phone,
+            'Почта' => $client->email,
+        ], $amoApi);
     }
 
     private static function contactPhoneKeys(ContactModel $contact): array
