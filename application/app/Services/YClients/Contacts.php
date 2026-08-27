@@ -86,11 +86,19 @@ abstract class Contacts
 
     private static function firstContact(mixed $contacts): ?ContactModel
     {
-        if (!is_object($contacts) || !method_exists($contacts, 'first')) {
+        if ($contacts instanceof ContactModel) {
+            return $contacts;
+        }
+
+        if (!is_object($contacts)) {
             return null;
         }
 
-        $contact = $contacts->first();
+        try {
+            $contact = $contacts->first();
+        } catch (Throwable) {
+            return null;
+        }
 
         return $contact instanceof ContactModel ? $contact : null;
     }
@@ -100,8 +108,17 @@ abstract class Contacts
      */
     private static function contactsFromSearchResult(mixed $contacts): array
     {
-        if (is_object($contacts) && method_exists($contacts, 'all')) {
-            $contacts = $contacts->all();
+        if ($contacts instanceof ContactModel) {
+            return [$contacts];
+        }
+
+        if (is_object($contacts)) {
+            try {
+                // ContactCollection exposes all() through __call, so method_exists() is false.
+                $contacts = $contacts->all();
+            } catch (Throwable) {
+                return [];
+            }
         }
 
         if (!is_iterable($contacts)) {

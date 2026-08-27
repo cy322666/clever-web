@@ -41,4 +41,27 @@ class ContactsTest extends TestCase
 
         $this->assertNull($method->invoke(null, $emptyResult));
     }
+
+    public function test_magic_contact_collection_is_unpacked(): void
+    {
+        $method = (new ReflectionClass(Contacts::class))->getMethod('contactsFromSearchResult');
+        $contact = $this->createMock(\Ufee\Amo\Models\Contact::class);
+        $collection = new class($contact) {
+            public function __construct(private object $contact) {}
+
+            public function __call(string $method, array $arguments): mixed
+            {
+                if ($method === 'all') {
+                    return [$this->contact];
+                }
+
+                throw new \BadMethodCallException($method);
+            }
+        };
+
+        $result = $method->invoke(null, $collection);
+
+        $this->assertCount(1, $result);
+        $this->assertSame($contact, $result[0]);
+    }
 }
