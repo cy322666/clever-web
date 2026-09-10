@@ -173,6 +173,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(\App\Models\Integrations\Vetmanager\Setting::class);
     }
 
+    public function sqnsSetting(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\Sqns\Setting::class);
+    }
+
     public function resolveAmoAccountForWidget(?string $widget, bool $createIfMissing = false): ?Account
     {
         $widget = Account::normalizeWidget($widget);

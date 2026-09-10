@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
+use App\Http\Controllers\Api\SqnsController;
 use App\Http\Controllers\Api\TildaController;
 use App\Http\Controllers\Api\VetmanagerController;
 use App\Http\Controllers\Api\WorkflowManualAmoCrmController;
@@ -52,6 +53,10 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
     Route::post('vetmanager/hook/{user:uuid}', [VetmanagerController::class, 'hook'])
         ->middleware(['integration.active:vetmanager', 'throttle:120,1'])
         ->name('vetmanager.hook');
+
+    Route::post('sqns/hook/{user:uuid}/{key}', [SqnsController::class, 'hook'])
+        ->middleware(['integration.active:sqns', 'throttle:120,1'])
+        ->name('sqns.hook');
 
 });
 

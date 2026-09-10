@@ -5,6 +5,7 @@ use App\Filament\Resources\Integrations\CalculatorResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
+use App\Filament\Resources\Integrations\Sqns\SqnsResource;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Filament\Resources\Integrations\Vetmanager\VetmanagerResource;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
@@ -37,6 +38,12 @@ return [
             'public' => true,
             'title' => 'Vetmanager',
             'description' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM.',
+        ],
+        'sqns' => [
+            'resource' => SqnsResource::class,
+            'public' => true,
+            'title' => 'SQNS',
+            'description' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM.',
         ],
         'import-excel' => [
             'resource' => ImportResource::class,

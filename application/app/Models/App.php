@@ -113,6 +113,7 @@ class App extends Model
             'tilda' => 'Отправляйте заявки с вашего сайта на Tilda в amoCRM без дублей',
             'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
             'vetmanager' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM',
+            'sqns' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM',
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
             default => '',
         };

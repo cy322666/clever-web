@@ -108,6 +108,7 @@ return [
         'redis:distribution_transaction' => 120,
         'redis:yclients_record' => 120,
         'redis:vetmanager_visit' => 120,
+        'redis-sqns:sqns_visit' => 120,
         'redis:import_excel' => 120,
     ],
 
@@ -187,6 +188,7 @@ return [
             'widget:getcourse',
             'widget:yclients',
             'widget:vetmanager',
+            'widget:sqns',
             'widget:alfacrm',
             'widget:distribution',
             'widget:import-excel',
@@ -199,6 +201,7 @@ return [
             'queue:getcourse_order',
             'queue:yclients_record',
             'queue:vetmanager_visit',
+            'queue:sqns_visit',
             'queue:alfacrm_hook',
             'queue:alfacrm_record',
             'queue:distribution_transaction',
@@ -284,6 +287,20 @@ return [
             'nice' => 0,
         ],
 
+        'supervisor-sqns' => [
+            'connection' => 'redis-sqns',
+            'queue' => ['sqns_visit'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 2,
+            'maxTime' => 3600,
+            'maxJobs' => 500,
+            'memory' => 512,
+            'tries' => 3,
+            'timeout' => 900,
+            'nice' => 0,
+        ],
+
         'supervisor-import-excel' => [
             'connection' => 'redis',
             'queue' => ['import_excel'],
@@ -325,6 +342,11 @@ return [
                 'balanceMaxShift' => 2,
                 'balanceCooldown' => 5,
             ],
+            'supervisor-sqns' => [
+                'maxProcesses' => env('HORIZON_SQNS_MAX_PROCESSES', 3),
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 5,
+            ],
             'supervisor-import-excel' => [
                 'maxProcesses' => env('HORIZON_IMPORT_EXCEL_MAX_PROCESSES', 3),
                 'minProcesses' => env('HORIZON_IMPORT_EXCEL_MIN_PROCESSES', 3),
@@ -347,6 +369,11 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 5,
             ],
+            'supervisor-sqns' => [
+                'maxProcesses' => env('HORIZON_SQNS_MAX_PROCESSES', 2),
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 5,
+            ],
             'supervisor-import-excel' => [
                 'maxProcesses' => env('HORIZON_IMPORT_EXCEL_MAX_PROCESSES', 3),
                 'minProcesses' => env('HORIZON_IMPORT_EXCEL_MIN_PROCESSES', 3),
@@ -363,6 +390,9 @@ return [
                 'maxProcesses' => 2,
             ],
             'supervisor-integrations' => [
+                'maxProcesses' => 2,
+            ],
+            'supervisor-sqns' => [
                 'maxProcesses' => 2,
             ],
             'supervisor-import-excel' => [

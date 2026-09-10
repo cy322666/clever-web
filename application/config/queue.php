@@ -71,6 +71,15 @@ return [
             'after_commit' => false,
         ],
 
+        'redis-sqns' => [
+            'driver' => 'redis',
+            'connection' => 'default',
+            'queue' => 'sqns_visit',
+            'retry_after' => 960,
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
     ],
 
     /*
