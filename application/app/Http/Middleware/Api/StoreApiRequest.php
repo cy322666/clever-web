@@ -21,6 +21,7 @@ class StoreApiRequest
         'client_secret',
         'refresh_token',
         'access_token',
+        'dop_param1',
     ];
 
     public function handle(Request $request, Closure $next): Response

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\TildaController;
+use App\Http\Controllers\Api\VetmanagerController;
 use App\Http\Controllers\Api\WorkflowManualAmoCrmController;
 use App\Http\Controllers\Api\WorkflowWebhookController;
 use App\Http\Controllers\Api\YClientsController;
@@ -47,6 +48,10 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
     Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
         ->middleware(['integration.active:yclients'])
         ->name('yclients.hook');
+
+    Route::post('vetmanager/hook/{user:uuid}', [VetmanagerController::class, 'hook'])
+        ->middleware(['integration.active:vetmanager', 'throttle:120,1'])
+        ->name('vetmanager.hook');
 
 });
 

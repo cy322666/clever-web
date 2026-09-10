@@ -25,7 +25,14 @@ class SmokeCheck extends Command
             $errors[] = 'DB connection failed: ' . $e->getMessage();
         }
 
-        foreach (['jobs', 'failed_jobs', 'queue_monitors'] as $table) {
+        foreach ([
+            'jobs',
+            'failed_jobs',
+            'queue_monitors',
+            'vetmanager_settings',
+            'vetmanager_clients',
+            'vetmanager_visits',
+        ] as $table) {
             try {
                 if (!Schema::hasTable($table)) {
                     $errors[] = "Missing table: {$table}";
@@ -35,7 +42,7 @@ class SmokeCheck extends Command
             }
         }
 
-        foreach (['up', 'metrics', 'filament.app.pages.dashboard'] as $routeName) {
+        foreach (['up', 'metrics', 'filament.app.pages.dashboard', 'vetmanager.hook'] as $routeName) {
             if (!Route::has($routeName)) {
                 $warnings[] = "Route not found: {$routeName}";
             }

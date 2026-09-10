@@ -168,6 +168,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(\App\Models\Integrations\YClients\Setting::class);
     }
 
+    public function vetmanagerSetting(): HasOne
+    {
+        return $this->hasOne(\App\Models\Integrations\Vetmanager\Setting::class);
+    }
+
     public function resolveAmoAccountForWidget(?string $widget, bool $createIfMissing = false): ?Account
     {
         $widget = Account::normalizeWidget($widget);

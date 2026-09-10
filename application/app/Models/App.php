@@ -112,6 +112,7 @@ class App extends Model
             'getcourse' => 'Интегрируйте заявки и заказы из GetCourse с amoCRM',
             'tilda' => 'Отправляйте заявки с вашего сайта на Tilda в amoCRM без дублей',
             'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
+            'vetmanager' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM',
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
             default => '',
         };

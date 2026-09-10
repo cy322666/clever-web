@@ -1,0 +1,10 @@
+{
+    "widget": {
+        "name": "Vetmanager Clever",
+        "short_description": "Посещения Vetmanager",
+        "description": "Передача посещений Vetmanager в контакты и сделки amoCRM без покупок и транзакций."
+    },
+    "settings": {
+        "api_base_url": "API Clever"
+    }
+}

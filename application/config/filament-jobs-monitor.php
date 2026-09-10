@@ -29,6 +29,7 @@ return [
     'queues' => [
         'default',
         'yclients_record',
+        'vetmanager_visit',
     ],
     'tenancy' => [
         'enabled' => false,

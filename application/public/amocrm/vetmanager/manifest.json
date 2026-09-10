@@ -1,0 +1,29 @@
+{
+    "widget": {
+        "name": "widget.name",
+        "description": "widget.description",
+        "short_description": "widget.short_description",
+        "version": "1.0.0",
+        "interface_version": 2,
+        "init_once": false,
+        "locale": [
+            "ru"
+        ],
+        "installation": true,
+        "support": {
+            "link": "https://clevercrm.pro",
+            "email": "support@clevercrm.pro"
+        }
+    },
+    "locations": [
+        "settings",
+        "lcard-1"
+    ],
+    "settings": {
+        "api_base_url": {
+            "name": "settings.api_base_url",
+            "type": "text",
+            "required": false
+        }
+    }
+}

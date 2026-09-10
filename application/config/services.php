@@ -53,7 +53,21 @@ return [
                 'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),
                 'redirect_uri' => env('AMO_WORKFLOWS_REDIRECT_URI', env('AMO_REDIRECT_URI')),
             ],
+            'vetmanager' => [
+                'client_id' => env('AMO_VETMANAGER_CLIENT_ID'),
+                'client_secret' => env('AMO_VETMANAGER_CLIENT_SECRET'),
+                'redirect_uri' => env('AMO_VETMANAGER_REDIRECT_URI', env('AMO_REDIRECT_URI')),
+            ],
         ],
+    ],
+    'vetmanager' => [
+        'allowed_host_suffixes' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'VETMANAGER_ALLOWED_HOST_SUFFIXES',
+                '.vetmanager.ru,.vetmanager2.ru,.vetmanager.cloud,.vetmanager2.cloud'
+            ))
+        ))),
     ],
     'yandex' => [
         'local_storage_path'  => storage_path('app/public/'),

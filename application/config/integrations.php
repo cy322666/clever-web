@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\DistributionResource;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Filament\Resources\Integrations\TildaResource;
+use App\Filament\Resources\Integrations\Vetmanager\VetmanagerResource;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 
@@ -30,6 +31,12 @@ return [
         'yclients' => [
             'resource' => YClientsResource::class,
             'public' => true,
+        ],
+        'vetmanager' => [
+            'resource' => VetmanagerResource::class,
+            'public' => true,
+            'title' => 'Vetmanager',
+            'description' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM.',
         ],
         'import-excel' => [
             'resource' => ImportResource::class,
