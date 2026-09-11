@@ -84,8 +84,13 @@ class FormSend extends Command
         ], $amoApi);
 
         if ($contact == null) {
+            $contactName = Form::getValueForKey('name', $body, $setting);
 
-            $contact = Contacts::create($amoApi, Form::getValueForKey('name', $body, $setting) ?? 'Неизвестно');
+            if (!$contactName && !empty($body->payment?->delivery_fio)) {
+                $contactName = $body->payment->delivery_fio;
+            }
+
+            $contact = Contacts::create($amoApi, $contactName ?? 'Неизвестно');
 
         } elseif ($setting['is_union'] == 'yes') {
 
