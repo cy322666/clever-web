@@ -9,6 +9,7 @@ use App\Models\Integrations\Vetmanager\Setting;
 use App\Services\Vetmanager\VetmanagerApiClient;
 use App\Support\Integrations\PricingView;
 use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -134,32 +135,22 @@ class VetmanagerForm
                     ])
                     ->columnSpan(2),
 
-                Section::make('Состояние')
+                Section::make()
                     ->extraAttributes(['class' => 'self-start h-fit'])
                     ->schema([
-                        TextEntry::make('vetmanager_connection')
-                            ->label('Webhook Vetmanager')
-                            ->badge()
-                            ->state(fn (?Setting $record): string => $record?->webhook_synced_at ? 'Подключен' : 'Не подключен')
-                            ->color(fn (?Setting $record): string => $record?->webhook_synced_at ? 'success' : 'gray'),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('')
+                            ->disabled()
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('webhook_synced_at')
-                            ->label('Webhook обновлен')
-                            ->dateTime('d.m.Y H:i')
-                            ->placeholder('Еще не устанавливался'),
-
-                        TextEntry::make('visits_count')
-                            ->label('Получено посещений')
-                            ->state(fn (?Setting $record): int => $record?->visits()->count() ?? 0),
-
-                        TextEntry::make('entities')
-                            ->label('Создаваемые сущности')
-                            ->state('Контакт и сделка'),
-
-                        TextEntry::make('pricing')
-                            ->hiddenLabel()
-                            ->html()
-                            ->state(fn ($model) => PricingView::sidebarHtml($model::$cost)),
+                        Section::make()
+                            ->schema([
+                                TextEntry::make('pricing')
+                                    ->hiddenLabel()
+                                    ->html()
+                                    ->state(fn ($model) => PricingView::sidebarHtml($model::$cost)),
+                            ]),
                     ])
                     ->compact()
                     ->columnSpan(1),
