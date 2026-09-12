@@ -10,12 +10,17 @@ use App\Services\Vetmanager\VetmanagerApiClient;
 use App\Support\Integrations\PricingView;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Throwable;
 
@@ -96,41 +101,42 @@ class VetmanagerForm
                                     ->columnSpanFull(),
                             ]),
 
-                        Section::make('Поля amoCRM')
-                            ->description('Необязательно. Эти поля помогают точно связывать клиентов и приемы при повторных событиях.')
+                        Section::make('Соотношение полей amoCRM')
+                            ->description('Настройте только нужные поля. Сделки и контакты разделены по вкладкам.')
                             ->compact()
                             ->collapsible()
                             ->collapsed()
                             ->schema([
-                                Select::make('contact_external_id_field_id')
-                                    ->label('Контакт: ID клиента Vetmanager')
-                                    ->options(fn ($record = null): array => self::fieldOptions($record, 'contacts', ['text', 'numeric']))
-                                    ->searchable(),
+                                Tabs::make('Маппинг полей')
+                                    ->contained(false)
+                                    ->persistTabInQueryString('vetmanager-fields-tab')
+                                    ->tabs([
+                                        Tab::make('Сделка')
+                                            ->icon('heroicon-o-briefcase')
+                                            ->schema([
+                                                Repeater::make('fields_lead')
+                                                    ->hiddenLabel()
+                                                    ->schema(self::mappingFields('leads'))
+                                                    ->columns(2)
+                                                    ->defaultItems(0)
+                                                    ->reorderable(false)
+                                                    ->reorderableWithDragAndDrop(false)
+                                                    ->addActionLabel('+ Добавить поле сделки'),
+                                            ]),
 
-                                Select::make('lead_external_id_field_id')
-                                    ->label('Сделка: ID приема Vetmanager')
-                                    ->options(fn ($record = null): array => self::fieldOptions($record, 'leads', ['text', 'numeric']))
-                                    ->searchable(),
-
-                                Select::make('lead_admission_date_field_id')
-                                    ->label('Сделка: дата приема')
-                                    ->options(fn ($record = null): array => self::fieldOptions($record, 'leads', ['date', 'date_time']))
-                                    ->searchable(),
-
-                                Select::make('lead_patient_name_field_id')
-                                    ->label('Сделка: питомец')
-                                    ->options(fn ($record = null): array => self::fieldOptions($record, 'leads', ['text', 'textarea']))
-                                    ->searchable(),
-
-                                Select::make('lead_doctor_name_field_id')
-                                    ->label('Сделка: врач')
-                                    ->options(fn ($record = null): array => self::fieldOptions($record, 'leads', ['text', 'textarea']))
-                                    ->searchable(),
-
-                                Select::make('lead_description_field_id')
-                                    ->label('Сделка: описание приема')
-                                    ->options(fn ($record = null): array => self::fieldOptions($record, 'leads', ['text', 'textarea']))
-                                    ->searchable(),
+                                        Tab::make('Контакт')
+                                            ->icon('heroicon-o-user')
+                                            ->schema([
+                                                Repeater::make('fields_contact')
+                                                    ->hiddenLabel()
+                                                    ->schema(self::mappingFields('contacts'))
+                                                    ->columns(2)
+                                                    ->defaultItems(0)
+                                                    ->reorderable(false)
+                                                    ->reorderableWithDragAndDrop(false)
+                                                    ->addActionLabel('+ Добавить поле контакта'),
+                                            ]),
+                                    ]),
                             ]),
                     ])
                     ->columnSpan(2),
@@ -156,6 +162,32 @@ class VetmanagerForm
                     ->columnSpan(1),
             ])
             ->columns(3);
+    }
+
+    /**
+     * @return array<int, Select>
+     */
+    private static function mappingFields(string $entityType): array
+    {
+        return [
+            Select::make('field_vetmanager')
+                ->label('Vetmanager')
+                ->options(Setting::sourceFieldOptions($entityType))
+                ->searchable()
+                ->live()
+                ->afterStateUpdated(fn (Set $set) => $set('field_amo', null))
+                ->required(),
+
+            Select::make('field_amo')
+                ->label('amoCRM')
+                ->options(fn (Get $get, $record = null): array => self::fieldOptions(
+                    $record,
+                    $entityType,
+                    Setting::sourceFieldTypes($entityType, (string) $get('field_vetmanager')),
+                ))
+                ->searchable()
+                ->required(),
+        ];
     }
 
     private static function ownerUserId(mixed $record): ?int

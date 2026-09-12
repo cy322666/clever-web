@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\Vetmanager\Pages;
 use App\Filament\Resources\Integrations\Vetmanager\VetmanagerResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
+use App\Models\Integrations\Vetmanager\Setting;
 use App\Services\Vetmanager\VetmanagerApiClient;
 use App\Services\Vetmanager\VetmanagerWebhookManager;
 use Filament\Actions\Action;
@@ -50,13 +51,29 @@ class EditVetmanager extends EditRecord
     {
         $data['api_key'] = null;
         $data['webhook_url'] = $this->record->webhookUrl();
+        $data['fields_contact'] = Setting::fieldMappingRows($data, 'contacts');
+        $data['fields_lead'] = Setting::fieldMappingRows($data, 'leads');
 
         return $data;
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        unset($data['webhook_url'], $data['vetmanager_connection'], $data['visits_count'], $data['entities'], $data['pricing']);
+        $data = array_merge(
+            $data,
+            Setting::fieldMappingAttributes($data['fields_contact'] ?? [], 'contacts'),
+            Setting::fieldMappingAttributes($data['fields_lead'] ?? [], 'leads'),
+        );
+
+        unset(
+            $data['webhook_url'],
+            $data['vetmanager_connection'],
+            $data['visits_count'],
+            $data['entities'],
+            $data['pricing'],
+            $data['fields_contact'],
+            $data['fields_lead'],
+        );
 
         if (blank($data['api_key'] ?? null)) {
             unset($data['api_key']);
