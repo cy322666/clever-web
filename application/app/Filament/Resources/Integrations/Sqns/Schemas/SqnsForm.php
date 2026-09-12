@@ -7,6 +7,7 @@ use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Sqns\Setting;
 use App\Support\Integrations\PricingView;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -145,33 +146,22 @@ class SqnsForm
                     ])
                     ->columnSpan(2),
 
-                Section::make('Состояние')
+                Section::make()
                     ->extraAttributes(['class' => 'self-start h-fit'])
                     ->schema([
-                        TextEntry::make('connection_state')
-                            ->label('SQNS')
-                            ->badge()
-                            ->state(fn (?Setting $record): string => $record?->connected_at ? 'Подключён' : 'Не подключён')
-                            ->color(fn (?Setting $record): string => $record?->connected_at ? 'success' : 'gray'),
+                        Action::make('instruction')
+                            ->label('Видео инструкция')
+                            ->url('')
+                            ->disabled()
+                            ->openUrlInNewTab(),
 
-                        TextEntry::make('organization_name')
-                            ->label('Организация')
-                            ->placeholder('Будет определена после первого события'),
-
-                        TextEntry::make('last_synced_at')
-                            ->label('Последняя загрузка')
-                            ->dateTime('d.m.Y H:i')
-                            ->placeholder('Ещё не запускалась'),
-
-                        TextEntry::make('last_error')
-                            ->label('Последняя ошибка')
-                            ->color('danger')
-                            ->visible(fn (?Setting $record): bool => filled($record?->last_error)),
-
-                        TextEntry::make('pricing')
-                            ->hiddenLabel()
-                            ->html()
-                            ->state(fn ($model) => PricingView::sidebarHtml($model::$cost)),
+                        Section::make()
+                            ->schema([
+                                TextEntry::make('pricing')
+                                    ->hiddenLabel()
+                                    ->html()
+                                    ->state(fn ($model) => PricingView::sidebarHtml($model::$cost)),
+                            ]),
                     ])
                     ->compact()
                     ->columnSpan(1),
