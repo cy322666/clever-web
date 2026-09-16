@@ -3,6 +3,7 @@
         'simulated' => 'text-warning-600 dark:text-warning-400',
         'completed' => 'text-success-600 dark:text-success-400',
         'evaluated' => 'text-info-600 dark:text-info-400',
+        'skipped' => 'text-gray-500 dark:text-gray-400',
         'error' => 'text-danger-600 dark:text-danger-400',
         'validation_error' => 'text-danger-600 dark:text-danger-400',
     ];
@@ -13,6 +14,7 @@
         'simulated' => 'Будет выполнено',
         'completed' => 'Выполнено',
         'evaluated' => 'Проверено',
+        'skipped' => 'Пропущено',
         'error' => 'Ошибка',
         'validation_error' => 'Ошибка настройки',
     ][$status] ?? $status;
@@ -77,7 +79,9 @@
                     <div class="mt-3 rounded-lg bg-gray-50 p-2 dark:bg-gray-950/50">
                         <div class="flex items-center gap-2 text-xs">
                             <span class="text-gray-500 dark:text-gray-400">Результат:</span>
-                            @if($step['condition_result'] ?? false)
+                            @if($status === 'skipped')
+                                <span class="font-semibold text-gray-500 dark:text-gray-400">без проверки → ветка «Да»</span>
+                            @elseif($step['condition_result'] ?? false)
                                 <span
                                     class="inline-flex items-center gap-1 font-semibold text-success-600 dark:text-success-400">
                                     <x-filament::icon icon="heroicon-o-check" class="h-3 w-3"/>
@@ -93,7 +97,7 @@
                         </div>
                     </div>
 
-                    @if(!empty($step['true_branch']) && ($step['condition_result'] ?? false))
+                    @if(!empty($step['true_branch']) && ($step['executed_branch'] ?? null) === 'true')
                         <div class="mt-3 border-l-2 border-success-200 pl-4 dark:border-success-800">
                             <span class="mb-2 block text-xs font-semibold text-success-600 dark:text-success-400">Ветка «Да»</span>
                             <div class="space-y-2">
@@ -108,7 +112,7 @@
                         </div>
                     @endif
 
-                    @if(!empty($step['false_branch']) && !($step['condition_result'] ?? false))
+                    @if(!empty($step['false_branch']) && ($step['executed_branch'] ?? null) === 'false')
                         <div class="mt-3 border-l-2 border-danger-200 pl-4 dark:border-danger-800">
                             <span class="mb-2 block text-xs font-semibold text-danger-600 dark:text-danger-400">Ветка «Нет»</span>
                             <div class="space-y-2">

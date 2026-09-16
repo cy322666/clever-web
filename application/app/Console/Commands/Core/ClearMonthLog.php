@@ -30,6 +30,7 @@ class ClearMonthLog extends Command
         $days = max(1, (int)$this->option('days'));
 
         $resourceClasses = App::query()
+            ->whereIn('name', App::definitionNames())
             ->select('resource_name')
             ->distinct()
             ->pluck('resource_name');

@@ -51,7 +51,10 @@ return [
             'workflows' => [
                 'client_id' => env('AMO_WORKFLOWS_CLIENT_ID'),
                 'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),
-                'redirect_uri' => env('AMO_WORKFLOWS_REDIRECT_URI', env('AMO_REDIRECT_URI')),
+                'redirect_uri' => env(
+                    'AMO_WORKFLOWS_REDIRECT_URI',
+                    rtrim((string) env('APP_URL', 'http://localhost'), '/') . '/api/amocrm/install/flow'
+                ),
             ],
             'vetmanager' => [
                 'client_id' => env('AMO_VETMANAGER_CLIENT_ID'),

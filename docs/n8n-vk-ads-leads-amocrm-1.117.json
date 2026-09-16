@@ -1,0 +1,304 @@
+{
+  "name": "VK Ads leads to amoCRM skeleton",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6a8106c9-1e0a-46bf-9c26-bf6a1d9ea4f4",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "847aa0b9-0c5f-4fb5-801f-017b4d02bf56",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1400,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const params = new URLSearchParams();\n\nconst agencyClientName = $env.VK_ADS_AGENCY_CLIENT_NAME;\nconst agencyClientId = $env.VK_ADS_AGENCY_CLIENT_ID;\n\nparams.set('grant_type', agencyClientName || agencyClientId ? 'agency_client_credentials' : 'client_credentials');\nparams.set('client_id', $env.VK_ADS_CLIENT_ID);\nparams.set('client_secret', $env.VK_ADS_CLIENT_SECRET);\n\nif (agencyClientName) {\n  params.set('agency_client_name', agencyClientName);\n}\n\nif (agencyClientId) {\n  params.set('agency_client_id', agencyClientId);\n}\n\nreturn [\n  {\n    json: {\n      auth_body: params.toString(),\n      form_ids: $env.VK_ADS_FORM_IDS || '699269,650806,687948,681771',\n    },\n  },\n];"
+      },
+      "id": "0a0b7d48-7289-49dc-bf5c-3c4f2d81a24b",
+      "name": "Build VK Ads auth body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ads.vk.ru/api/v2/oauth2/token.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/x-www-form-urlencoded",
+        "body": "={{ $json.auth_body }}",
+        "options": {}
+      },
+      "id": "36975cfe-821b-4cec-9fd5-7f9eb9cfd4a9",
+      "name": "VK Ads get token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -840,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ads.vk.ru/api/v1/lead_ads/leads.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "50"
+            },
+            {
+              "name": "offset",
+              "value": "0"
+            },
+            {
+              "name": "sorting",
+              "value": "-created_at"
+            },
+            {
+              "name": "_form_ids__in",
+              "value": "={{ $('Build VK Ads auth body').first().json.form_ids }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.access_token }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "902a3e6f-85a2-4118-a50a-e90a6a6aa805",
+      "name": "VK Ads get leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizePhone(value) {\n  if (!value) return null;\n\n  const digits = String(value).replace(/\\D+/g, '');\n\n  if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`;\n  if (digits.length === 11 && digits.startsWith('7')) return `+${digits}`;\n  if (digits.length === 10) return `+7${digits}`;\n\n  return value;\n}\n\nfunction answerValue(answer) {\n  if (!answer) return '';\n  if (answer.answer_text) return answer.answer_text;\n  if (answer.answer) return answer.answer;\n  if (answer.value) return answer.value;\n  if (Array.isArray(answer.answer_options)) {\n    return answer.answer_options.map((option) => option.text || option.value || option.id).filter(Boolean).join(', ');\n  }\n  return '';\n}\n\nfunction answerQuestion(answer) {\n  return answer?.question_text || answer?.question || answer?.name || '';\n}\n\nfunction findAnswer(answers, patterns) {\n  const found = answers.find((answer) => {\n    const question = answerQuestion(answer).toLowerCase();\n    return patterns.some((pattern) => question.includes(pattern));\n  });\n\n  return found ? answerValue(found) : null;\n}\n\nconst payload = $json;\nconst leads = payload.items || [];\nconst out = [];\n\nfor (const lead of leads) {\n  const contact = lead.contact_info || {};\n  const answers = Array.isArray(lead.answers) ? lead.answers : [];\n  const contactName = contact.first_name || contact.name || lead.name || 'Без имени';\n\n  out.push({\n    json: {\n      source_key: `${lead.form_id}:${lead.id}`,\n      vk_lead_id: lead.id,\n      form_id: lead.form_id,\n      form_name: lead.form_name,\n      contact_name: contactName,\n      phone: normalizePhone(contact.phone),\n      email: contact.email || null,\n      child_name: findAnswer(answers, ['имя ребенка', 'имя ребёнка']),\n      child_age: findAnswer(answers, ['возраст']),\n      location: findAnswer(answers, ['локац', 'школ', 'филиал']),\n      campaign_id: lead.ad_plan_id || null,\n      ad_group_id: lead.ad_group_id || null,\n      banner_id: lead.banner_id || null,\n      created_at: lead.created_at || null,\n      deal_name: `VK Ads: ${lead.form_name || lead.form_id} - ${contactName}`,\n      raw: lead,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "id": "db8eec28-08e4-4c3a-b881-d115cf26d2b3",
+      "name": "Normalize VK Ads leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.processedVkAdsLeads = data.processedVkAdsLeads || {};\n\nreturn $input.all().filter((item) => {\n  const key = item.json.source_key;\n  return key && !data.processedVkAdsLeads[key];\n});"
+      },
+      "id": "5cb44d90-0b65-46e6-b8bc-c11967ac43f3",
+      "name": "Filter new leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AMO_BASE_URL }}/api/v4/leads/complex",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.AMO_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => {\n  const field = (envName, value) => {\n    const id = $env[envName];\n    if (!id || value === undefined || value === null || value === '') return null;\n    return { field_id: Number(id), values: [{ value: String(value) }] };\n  };\n\n  const leadFields = [\n    field('AMO_FIELD_FORM_ID', $json.form_id),\n    field('AMO_FIELD_FORM_NAME', $json.form_name),\n    field('AMO_FIELD_CHILD_NAME', $json.child_name),\n    field('AMO_FIELD_CHILD_AGE', $json.child_age),\n    field('AMO_FIELD_LOCATION', $json.location),\n    field('AMO_FIELD_CAMPAIGN_ID', $json.campaign_id),\n    field('AMO_FIELD_AD_GROUP_ID', $json.ad_group_id),\n    field('AMO_FIELD_BANNER_ID', $json.banner_id),\n  ].filter(Boolean);\n\n  const contactFields = [];\n  if ($json.phone) contactFields.push({ field_code: 'PHONE', values: [{ value: $json.phone, enum_code: 'WORK' }] });\n  if ($json.email) contactFields.push({ field_code: 'EMAIL', values: [{ value: $json.email, enum_code: 'WORK' }] });\n\n  const lead = {\n    name: $json.deal_name,\n    pipeline_id: Number($env.AMO_PIPELINE_ID),\n    status_id: Number($env.AMO_STATUS_ID),\n    custom_fields_values: leadFields.length ? leadFields : undefined,\n    _embedded: {\n      contacts: [\n        {\n          first_name: $json.contact_name || 'Без имени',\n          custom_fields_values: contactFields.length ? contactFields : undefined,\n        },\n      ],\n    },\n  };\n\n  if ($env.AMO_RESPONSIBLE_USER_ID) lead.responsible_user_id = Number($env.AMO_RESPONSIBLE_USER_ID);\n\n  return [lead];\n})() }}",
+        "options": {}
+      },
+      "id": "100e3c79-68d4-4028-8590-75a0c7ecffb1",
+      "name": "amoCRM create lead with contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.processedVkAdsLeads = data.processedVkAdsLeads || {};\n\nconst sourceItems = $('Filter new leads').all();\nconst out = [];\n\nfor (const [index, item] of $input.all().entries()) {\n  const source = sourceItems[index]?.json;\n\n  if (source?.source_key) {\n    data.processedVkAdsLeads[source.source_key] = {\n      processed_at: new Date().toISOString(),\n      amo_response: item.json,\n    };\n  }\n\n  out.push({\n    json: {\n      source_key: source?.source_key,\n      vk_lead_id: source?.vk_lead_id,\n      form_id: source?.form_id,\n      amo_response: item.json,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "id": "8ee30c6b-b8dd-4066-a612-eae8a18ef998",
+      "name": "Mark processed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        30
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build VK Ads auth body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Build VK Ads auth body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build VK Ads auth body": {
+      "main": [
+        [
+          {
+            "node": "VK Ads get token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VK Ads get token": {
+      "main": [
+        [
+          {
+            "node": "VK Ads get leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VK Ads get leads": {
+      "main": [
+        [
+          {
+            "node": "Normalize VK Ads leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize VK Ads leads": {
+      "main": [
+        [
+          {
+            "node": "Filter new leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter new leads": {
+      "main": [
+        [
+          {
+            "node": "amoCRM create lead with contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "amoCRM create lead with contact": {
+      "main": [
+        [
+          {
+            "node": "Mark processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6f57761e-bfbb-473c-9571-4d381d08b0c9",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "VKAdsLeadsToAmoSkeleton",
+  "tags": []
+}

@@ -11,25 +11,29 @@
 
     $groups = [
         'flow' => [
-            'title' => 'Логика процесса',
+            'title' => 'Логика',
+            'description' => 'Условия и запуск другого процесса.',
             'icon' => 'heroicon-o-adjustments-horizontal',
             'types' => ['control-condition', 'run_workflow'],
             'items' => [],
         ],
         'communication' => [
             'title' => 'Уведомления',
+            'description' => 'Сообщения в выбранные каналы.',
             'icon' => 'heroicon-o-bell-alert',
             'types' => ['send_notification', 'send_email'],
             'items' => [],
         ],
         'entities' => [
-            'title' => 'Сущности amoCRM',
+            'title' => 'Создание сущностей',
+            'description' => 'Сделки, контакты, компании и копии сделок.',
             'icon' => 'heroicon-o-rectangle-stack',
             'types' => ['amocrm_create_lead', 'amocrm_create_contact', 'amocrm_create_company', 'amocrm_copy_lead'],
             'items' => [],
         ],
         'fields' => [
             'title' => 'Поля и данные',
+            'description' => 'Запись, изменение и вычисление значений.',
             'icon' => 'heroicon-o-pencil-square',
             'types' => [
                 'amocrm_update_lead_fields',
@@ -40,13 +44,15 @@
             'items' => [],
         ],
         'tasks' => [
-            'title' => 'Задачи и заметки',
+            'title' => 'Задачи и примечания',
+            'description' => 'Поставить задачу или добавить примечание.',
             'icon' => 'heroicon-o-clipboard-document-check',
             'types' => ['amocrm_create_task', 'amocrm_update_task', 'amocrm_add_note'],
             'items' => [],
         ],
         'automation' => [
-            'title' => 'Статусы, теги и распределение',
+            'title' => 'Автоматизация',
+            'description' => 'Статусы, теги, распределение и SalesBot.',
             'icon' => 'heroicon-o-bolt',
             'types' => [
                 'amocrm_change_tags',
@@ -60,24 +66,28 @@
         ],
         'products' => [
             'title' => 'Товары',
+            'description' => 'Добавление и удаление товаров.',
             'icon' => 'heroicon-o-shopping-bag',
             'types' => ['amocrm_add_products', 'amocrm_remove_products'],
             'items' => [],
         ],
         'relations' => [
             'title' => 'Поиск и связи',
+            'description' => 'Найти сущность, связать или отвязать её.',
             'icon' => 'heroicon-o-link',
             'types' => ['amocrm_find_entity', 'amocrm_link_entity', 'amocrm_unlink_entity'],
             'items' => [],
         ],
         'service' => [
             'title' => 'Служебные',
+            'description' => 'Управление отложенными действиями.',
             'icon' => 'heroicon-o-wrench-screwdriver',
             'types' => ['amocrm_cancel_delayed_action'],
             'items' => [],
         ],
         'other' => [
             'title' => 'Другое',
+            'description' => 'Остальные доступные действия.',
             'icon' => 'heroicon-o-squares-2x2',
             'types' => [],
             'items' => [],
@@ -93,96 +103,207 @@
     }
 
     $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
+    $mvpActionTypes = [
+        'control-condition',
+        'amocrm_update_lead_fields',
+        'amocrm_change_lead_status',
+        'amocrm_create_task',
+        'amocrm_add_note',
+    ];
 
     foreach ($actions as $action) {
-        $type = $action['type'] ?? '';
+        $type = (string) ($action['type'] ?? '');
+
+        if ($type === ''
+            || ! in_array($type, $mvpActionTypes, true)
+            || in_array($type, $unsupportedActionTypes, true)) {
+            continue;
+        }
 
         if ($isInsideConditionBranch && $type === 'control-condition') {
             continue;
         }
 
-        if (in_array($type, $unsupportedActionTypes, true)) {
-            continue;
-        }
-
-        $groupKey = $typeToGroup[$type] ?? 'other';
-
-        $groups[$groupKey]['items'][] = $action;
+        $groups[$typeToGroup[$type] ?? 'other']['items'][] = $action;
     }
 
     $groups = array_filter($groups, static fn (array $group): bool => count($group['items']) > 0);
+    $visibleActionCount = array_sum(array_map(static fn (array $group): int => count($group['items']), $groups));
+    $searchIndex = [];
+
+    foreach ($groups as $groupKey => $group) {
+        foreach ($group['items'] as $action) {
+            $searchIndex[] = [
+                'category' => $groupKey,
+                'text' => implode(' ', [
+                    $action['name'] ?? '',
+                    $action['description'] ?? '',
+                    $action['type'] ?? '',
+                ]),
+            ];
+        }
+    }
 @endphp
 
-<div class="workflow-action-selection space-y-5 p-4">
-    @foreach($groups as $group)
-        <section
-            class="rounded-2xl border border-slate-300 bg-white p-3.5 shadow-sm dark:border-gray-600 dark:bg-gray-900/60">
-            <div class="mb-3 flex items-center justify-between gap-3">
-                <div class="flex min-w-0 items-center gap-2">
-                    <div
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-primary-600 ring-1 ring-slate-300 dark:bg-gray-950 dark:text-primary-400 dark:ring-gray-600">
+<div
+    x-data="{
+        query: '',
+        category: 'all',
+        items: @js($searchIndex),
+        normalize(value) {
+            return String(value ?? '').toLocaleLowerCase('ru-RU').trim();
+        },
+        matchesQuery(haystack) {
+            const source = this.normalize(haystack);
+            const query = this.normalize(this.query);
+
+            if (query === '') {
+                return true;
+            }
+
+            return query.split(/\s+/).every((token) =>
+                source.includes(token) || (token.length >= 5 && source.includes(token.slice(0, -1)))
+            );
+        },
+        itemMatches(category, haystack) {
+            const categoryMatches = this.category === 'all' || this.category === category;
+
+            return categoryMatches && this.matchesQuery(haystack);
+        },
+        groupMatches(category) {
+            return this.items.some((item) => item.category === category && this.itemMatches(item.category, item.text));
+        },
+        hasMatches() {
+            return this.items.some((item) => this.itemMatches(item.category, item.text));
+        },
+    }"
+    x-init="if (window.innerWidth >= 768) $nextTick(() => $refs.search?.focus())"
+    class="workflow-action-palette"
+>
+    <div class="workflow-palette__header">
+        <div class="workflow-palette__intro">
+            <div>
+                <div class="workflow-palette__eyebrow">Следующий шаг</div>
+                <h3 class="workflow-palette__title">Что должен сделать процесс?</h3>
+                <p class="workflow-palette__description">Найдите действие и добавьте его в выбранное место.</p>
+            </div>
+
+            <span class="workflow-palette__count">{{ $visibleActionCount }} действий</span>
+        </div>
+
+        <label class="workflow-palette__search">
+            <span class="sr-only">Найти действие</span>
+            <x-filament::icon icon="heroicon-o-magnifying-glass" class="h-4 w-4"/>
+            <input
+                x-ref="search"
+                x-model.debounce.100ms="query"
+                type="search"
+                placeholder="Найти действие: задача, статус, поле…"
+                autocomplete="off"
+            />
+            <button
+                x-cloak
+                x-show="query !== ''"
+                x-on:click="query = ''; $nextTick(() => $refs.search?.focus())"
+                type="button"
+                aria-label="Очистить поиск"
+            >
+                <x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/>
+            </button>
+        </label>
+
+        <div class="workflow-palette__filters" role="group" aria-label="Категории действий">
+            <button
+                type="button"
+                x-on:click="category = 'all'"
+                x-bind:class="{ 'is-active': category === 'all' }"
+                x-bind:aria-pressed="category === 'all'"
+            >
+                Все
+                <span>{{ $visibleActionCount }}</span>
+            </button>
+
+            @foreach($groups as $groupKey => $group)
+                <button
+                    type="button"
+                    x-on:click="category = @js($groupKey)"
+                    x-bind:class="{ 'is-active': category === @js($groupKey) }"
+                    x-bind:aria-pressed="category === @js($groupKey)"
+                >
+                    {{ $group['title'] }}
+                    <span>{{ count($group['items']) }}</span>
+                </button>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="workflow-palette__body">
+        @foreach($groups as $groupKey => $group)
+            <section
+                x-cloak
+                x-show="groupMatches(@js($groupKey))"
+                class="workflow-palette__group"
+            >
+                <div class="workflow-palette__group-heading">
+                    <span class="workflow-palette__group-icon">
                         @svg($group['icon'], 'h-4 w-4')
+                    </span>
+                    <div>
+                        <h4>{{ $group['title'] }}</h4>
+                        <p>{{ $group['description'] }}</p>
                     </div>
-
-                    <h3 class="truncate text-sm font-semibold leading-5 text-slate-950 dark:text-white">
-                        {{ $group['title'] }}
-                    </h3>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach($group['items'] as $action)
-                    @php
-                        $type = $action['type'] ?? '';
-                        $name = $action['name'] ?? __('filament-workflows::workflows.builder.selection.unknown');
-                        $icon = $action['icon'] ?? 'heroicon-o-cog-6-tooth';
-                        $color = $action['color'] ?? '#6B7280';
-                        $available = $action['available'] ?? true;
-                    @endphp
+                <div class="workflow-palette__grid">
+                    @foreach($group['items'] as $action)
+                        @php
+                            $type = (string) ($action['type'] ?? '');
+                            $name = (string) ($action['name'] ?? __('filament-workflows::workflows.builder.selection.unknown'));
+                            $description = trim(strip_tags((string) ($action['description'] ?? '')));
+                            $icon = $action['icon'] ?? 'heroicon-o-cog-6-tooth';
+                            $color = $action['color'] ?? '#6B7280';
+                            $available = (bool) ($action['available'] ?? true);
+                            $itemSearchText = implode(' ', [$name, $description, $type]);
+                        @endphp
 
-                    @if($available)
                         <button
+                            x-cloak
+                            x-show="itemMatches(@js($groupKey), @js($itemSearchText))"
                             type="button"
-                            wire:click="selectActionType('{{ $type }}')"
-                            class="group relative flex min-h-20 items-center gap-2.5 rounded-lg border border-slate-200 bg-white p-3 text-left transition-all hover:border-slate-400 hover:ring-1 hover:ring-slate-300/70 dark:border-gray-700 dark:bg-gray-950/60 dark:hover:border-gray-500"
+                            wire:click="{{ $available ? 'selectActionType' : 'showUnavailableAction' }}('{{ $type }}')"
+                            wire:loading.attr="disabled"
+                            @class([
+                                'workflow-palette-card',
+                                'workflow-palette-card--unavailable' => ! $available,
+                            ])
                         >
-                            <div
-                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                                style="background-color: {{ $color }}20;"
-                            >
+                            <span class="workflow-palette-card__icon" style="background-color: {{ $color }}18;">
                                 @svg($icon, 'h-4 w-4', ['style' => 'color: ' . $color])
-                            </div>
-
-                            <h4 class="line-clamp-2 text-sm font-medium leading-5 text-gray-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
-                                {{ $name }}
-                            </h4>
-                        </button>
-                    @else
-                        <button
-                            type="button"
-                            wire:click="showUnavailableAction('{{ $type }}')"
-                            class="group relative flex min-h-20 items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-left opacity-75 transition-all hover:border-slate-400 hover:opacity-100 dark:border-gray-600 dark:bg-gray-900/50 dark:hover:border-gray-500"
-                        >
-                            <div
-                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                                style="background-color: {{ $color }}10;"
-                            >
-                                @svg($icon, 'h-4 w-4 opacity-50', ['style' => 'color: ' . $color])
-                            </div>
-
-                            <h4 class="line-clamp-2 text-sm font-medium leading-5 text-gray-500 dark:text-gray-400">
-                                {{ $name }}
-                            </h4>
-
-                            <span
-                                class="mt-1.5 inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-400 dark:text-gray-500">
-                                @svg('heroicon-m-arrow-down-tray', 'h-2.5 w-2.5')
-                                {{ __('filament-workflows::workflows.builder.selection.requires_plugin') }}
                             </span>
+
+                            <span class="workflow-palette-card__content">
+                                <span class="workflow-palette-card__name">{{ $name }}</span>
+                                @if($description !== '')
+                                    <span class="workflow-palette-card__description">{{ $description }}</span>
+                                @endif
+                                @unless($available)
+                                    <span class="workflow-palette-card__status">Пока недоступно</span>
+                                @endunless
+                            </span>
+
+                            <x-filament::icon icon="heroicon-m-chevron-right" class="workflow-palette-card__arrow h-4 w-4"/>
                         </button>
-                    @endif
-                @endforeach
+                    @endforeach
+                </div>
+            </section>
+        @endforeach
+
+        <div x-cloak x-show="! hasMatches()" class="workflow-palette__empty">
+            <x-filament::icon icon="heroicon-o-magnifying-glass" class="h-5 w-5"/>
+            <div>
+                <strong>Ничего не найдено</strong>
+                <span>Попробуйте другое слово или выберите «Все».</span>
             </div>
-        </section>
-    @endforeach
+        </div>
+    </div>
 </div>

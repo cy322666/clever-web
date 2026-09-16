@@ -17,7 +17,9 @@ use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Engine\WorkflowExecutor as AppWorkflowExecutor;
 use App\Workflows\Engine\WorkflowTestRunner as AppWorkflowTestRunner;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
+use App\Workflows\Triggers\AmoCrmButtonTrigger;
 use App\Workflows\Triggers\GenericWebhookTrigger;
+use App\Workflows\Triggers\ManualTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Support\Assets\Js;
@@ -36,8 +38,7 @@ use Illuminate\View\DynamicComponent;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Triggers\DateConditionTrigger;
-use Leek\FilamentWorkflows\Triggers\ManualTrigger;
-use Leek\FilamentWorkflows\Triggers\ScheduleTrigger;
+use App\Workflows\Triggers\ScheduleTrigger;
 use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
 use Studio\Totem\Totem;
 use Throwable;
@@ -86,6 +87,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerFilamentAuthResponses(): void
     {
+        $this->app->bind(\Leek\FilamentWorkflows\Commands\ProcessScheduledWorkflowsCommand::class, \App\Console\Commands\Workflows\ProcessScheduledWorkflows::class);
         $this->app->bind(
             \Filament\Auth\Http\Responses\Contracts\LoginResponse::class,
             \App\Http\Responses\Filament\LoginResponse::class,
@@ -120,6 +122,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        app(\BladeUI\Icons\Factory::class)->add('amocrm', [
+            'path' => resource_path('svg/amocrm'),
+            'prefix' => 'amocrm',
+        ]);
         QueueMonitor::observe(QueueMonitorObserver::class);
 
         FilamentView::registerRenderHook(
@@ -185,7 +191,10 @@ class AppServiceProvider extends ServiceProvider
             $registry->flush();
 
             $registry->register(ManualTrigger::class);
+            $registry->register(AmoCrmButtonTrigger::class);
+            $registry->register(\App\Workflows\Triggers\DigitalPipelineTrigger::class);
             $registry->register(ScheduleTrigger::class);
+            // Retain resolution for saved definitions, but never offer this legacy trigger in the picker.
             $registry->register(DateConditionTrigger::class);
             $registry->register(WorkflowCompletedTrigger::class);
             $registry->register(GenericWebhookTrigger::class);
@@ -209,6 +218,11 @@ class AppServiceProvider extends ServiceProvider
             $this->clearWorkflowActionPromotions($registry);
 
             $registry->register(ControlConditionAction::class);
+            $registry->register(\App\Workflows\Actions\WorkflowJavascriptAction::class);
+            $registry->register(\App\Workflows\Actions\WorkflowDelayAction::class);
+            $registry->register(\App\Workflows\Actions\WorkflowFilterListAction::class);
+            $registry->register(\App\Workflows\Actions\WorkflowHttpRequestAction::class);
+            $registry->register(\App\Workflows\Actions\TelegramSendMessageAction::class);
             $registry->register(RunWorkflowAction::class);
             $registry->register(MultiChannelNotificationAction::class);
 
@@ -250,6 +264,10 @@ class AppServiceProvider extends ServiceProvider
     private function registerWorkflowWebhookSynchronization(): void
     {
         Workflow::created(function (Workflow $workflow): void {
+            if (! $workflow->is_active || ! $this->workflowUsesAmoCrmWebhooks($workflow->definition)) {
+                return;
+            }
+
             $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
 
             if ($userId <= 0) {
@@ -274,6 +292,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Workflow::deleted(function (Workflow $workflow): void {
+            if (! $workflow->is_active || ! $this->workflowUsesAmoCrmWebhooks($workflow->definition)) {
+                return;
+            }
+
             $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
 
             if ($userId <= 0) {
@@ -286,6 +308,16 @@ class AppServiceProvider extends ServiceProvider
 
     private function workflowWebhookTriggerChanged(Workflow $workflow): bool
     {
+        $previousDefinition = $workflow->getRawOriginal('definition');
+        if (! $this->workflowUsesAmoCrmWebhooks($workflow->definition)
+            && ! $this->workflowUsesAmoCrmWebhooks($previousDefinition)) {
+            return false;
+        }
+
+        if (! $workflow->is_active && ! $workflow->getOriginal('is_active')) {
+            return false;
+        }
+
         if ($workflow->wasChanged([
             config('filament-workflows.tenancy.column', 'user_id'),
             'is_active',
@@ -302,8 +334,18 @@ class AppServiceProvider extends ServiceProvider
             return false;
         }
 
-        return $this->workflowDefinitionTrigger($workflow->getRawOriginal('definition'))
-            != data_get($workflow->definition, 'trigger');
+        if (is_string($previousDefinition)) {
+            $previousDefinition = json_decode($previousDefinition, true);
+        }
+
+        return \App\Services\Workflows\WorkflowStartNodes::all(is_array($previousDefinition) ? $previousDefinition : [])
+            != \App\Services\Workflows\WorkflowStartNodes::all($workflow->definition ?? []);
+    }
+
+    private function workflowUsesAmoCrmWebhooks(mixed $definition): bool
+    {
+        if (is_string($definition)) $definition = json_decode($definition, true);
+        return is_array($definition) && \App\Services\Workflows\WorkflowStartNodes::events($definition) !== [];
     }
 
     /**

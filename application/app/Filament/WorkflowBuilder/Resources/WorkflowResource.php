@@ -6,22 +6,23 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Schemas\WorkflowForm;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow as AppWorkflow;
-use App\Models\Workflows\WorkflowRun;
 use App\Services\Workflows\WorkflowDependencyMap;
+use App\Services\Workflows\WorkflowFolders;
+use App\Services\Workflows\WorkflowSubscriptionAccess;
 use App\Workflows\Actions\WorkflowAmoCrmActionCatalog;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Models\Workflow;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
@@ -31,7 +32,7 @@ use Throwable;
 
 class WorkflowResource extends BaseWorkflowResource
 {
-    public const GROUP_FILTER_EMPTY = '__without_group__';
+    public const GROUP_FILTER_EMPTY = WorkflowFolders::WITHOUT_FOLDER;
 
     public static function getEloquentQuery(): Builder
     {
@@ -49,101 +50,91 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return $table
             ->columns([
+                TextColumn::make('name')
+                    ->label('Сценарий')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium')
+                    ->icon(fn(Workflow $record): string => static::triggerIcon($record))
+                    ->iconColor(fn(Workflow $record): string|array => static::triggerIcon($record) === 'amocrm-digital-pipeline'
+                        ? \Filament\Support\Colors\Color::hex('#339dc7') : 'gray')
+                    ->description(fn(Workflow $record): string => static::triggerLabel($record) . ' · Изменён ' . ($record->updated_at?->diffForHumans() ?? 'только что'))
+                    ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record])),
+
+                TextColumn::make('latestRun.status')
+                    ->label('Последний запуск')
+                    ->alignStart()
+                    ->badge()
+                    ->placeholder('Не запускался')
+                    ->formatStateUsing(fn ($state): string => $state instanceof \Leek\FilamentWorkflows\Enums\RunStatus ? $state->getLabel() : (string) $state)
+                    ->color(fn ($state): string => match ($state instanceof \BackedEnum ? $state->value : $state) {
+                        'completed' => 'success', 'failed' => 'danger', 'running' => 'info',
+                        'pending', 'paused' => 'warning', default => 'gray',
+                    })
+                    ->description(function (Workflow $record): ?string {
+                        $run = $record->latestRun;
+                        if (!$run) return null;
+                        $date = ($run->started_at ?? $run->created_at)?->timezone('Europe/Moscow')->format('d.m H:i');
+                        $duration = $run->started_at && $run->completed_at
+                            ? ' · '.round(abs($run->completed_at->diffInMilliseconds($run->started_at)) / 1000, 1).' с' : '';
+                        return $date.$duration;
+                    })
+                    ->tooltip(fn (Workflow $record): ?string => $record->latestRun ? 'Открыть этот запуск в истории' : null)
+                    ->url(fn (Workflow $record): ?string => $record->latestRun
+                        ? static::getUrl('history', ['record' => $record, 'run' => $record->latestRun->getKey()]) : null),
+
                 ToggleColumn::make('is_active')
-                    ->label('Вкл')
+                    ->label('Активен')
                     ->alignCenter()
                     ->tooltip(fn(Workflow $record): string => $record->is_active ? 'Выключить процесс' : 'Включить процесс')
-                    ->onColor('primary')
+                    ->onColor('success')
                     ->offColor('gray')
-                    ->onIcon('heroicon-m-check')
-                    ->offIcon('heroicon-m-x-mark')
                     ->updateStateUsing(fn(Workflow $record, mixed $state): bool => static::updateWorkflowActivation($record, (bool)$state)),
-
-                TextColumn::make('name')
-                    ->label(__('filament-workflows::workflows.fields.name.label'))
-                    ->sortable()
-                    ->description(fn(Workflow $record): ?string => $record->description)
-                    ->action(Action::make('configure_workflow')),
-
-                SelectColumn::make('group_name')
-                    ->label(fn(): HtmlString => new HtmlString(
-                        view('filament.workflow-builder.table.group-header-filter', [
-                            'emptyValue' => static::GROUP_FILTER_EMPTY,
-                            'options' => static::workflowGroupFilterOptions(),
-                        ])->render()
-                    ))
-                    ->placeholder('Без группы')
-                    ->options(fn(): array => AppWorkflow::groupOptions())
-                    ->searchableOptions()
-                    ->native(false)
-                    ->sortable(),
-
-                TextColumn::make('workflow_trigger')
-                    ->label('Событие')
-                    ->state(fn(Workflow $record): string => static::triggerLabel($record))
-                    ->icon(fn(Workflow $record): string => static::triggerIcon($record))
-                    ->color(fn(Workflow $record): string => static::triggerColor($record))
-                    ->sortable(false),
-
-                TextColumn::make('runs_count')
-                    ->label('Запусков')
-                    ->sortable()
-                    ->alignCenter()
-                    ->formatStateUsing(fn(mixed $state): HtmlString => new HtmlString(
-                        '<span class="workflow-runs-count-link">' . e((string)((int)$state)) . '</span>',
-                    ))
-                    ->html()
-                    ->action(
-                        Action::make('show_workflow_runs')
-                            ->modalHeading('История запусков')
-                            ->modalSubmitAction(false)
-                            ->modalCancelActionLabel('Закрыть')
-                            ->modalWidth('6xl')
-                            ->modalContent(
-                                fn(Workflow $record) => view('filament.workflow-builder.workflow-history-modal', [
-                                    'workflow' => $record,
-                                    'runs' => WorkflowRun::query()
-                                        ->where('user_id', Auth::id())
-                                        ->where('workflow_id', $record->getKey())
-                                        ->with(['workflow', 'latestStep', 'triggeredBy'])
-                                        ->withCount('steps')
-                                        ->latest('created_at')
-                                        ->limit(20)
-                                        ->get(),
-                                ])
-                            ),
-                    ),
-
-                TextColumn::make('created_at')
-                    ->label(__('filament-workflows::workflows.fields.created_at.label'))
-                    ->state(fn(Workflow $record): string => static::createdDescription($record))
-                    ->sortable(),
             ])
-            ->recordUrl(null)
-            ->recordAction('configure_workflow')
+            ->recordUrl(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('updated_at', 'desc')
             ->filters([])
             ->filtersTriggerAction(fn(Action $action): Action => $action->hidden())
             ->paginated(false)
+            ->searchPlaceholder('Поиск сценариев…')
             ->recordActions(
-                [
+                [ActionGroup::make([
                     Action::make('configure_workflow')
-                        ->label('Настроить сценарий')
-                        ->modalHeading('')
-                        ->modalSubmitAction(false)
-                        ->modalCancelAction(false)
-                        ->modalWidth('7xl')
-                        ->modalContent(fn(Workflow $record) => view('filament.workflow-builder.workflow-editor-modal', [
-                            'record' => $record,
-                            'title' => $record->name ?: 'Настройка сценария',
-                        ]))
+                        ->label('Открыть редактор')
+                        ->icon('heroicon-o-pencil-square')
+                        ->url(fn(Workflow $record): string => static::getUrl('edit', ['record' => $record]))
                         ->extraAttributes(['class' => 'workflow-list-configure-action']),
+
+                    Action::make('rename_workflow')
+                        ->label('Переименовать')
+                        ->icon('heroicon-o-pencil')
+                        ->modalWidth('sm')
+                        ->fillForm(fn (Workflow $record): array => ['name' => $record->name])
+                        ->schema([TextInput::make('name')->label('Название')->required()->maxLength(255)])
+                        ->action(fn (Workflow $record, array $data) => $record->forceFill(['name' => trim($data['name'])])->saveQuietly()),
+
+                    Action::make('move_workflow')
+                        ->label('Переместить в папку')
+                        ->icon('heroicon-o-folder-arrow-down')
+                        ->modalHeading('Переместить сценарий')
+                        ->modalWidth('sm')
+                        ->modalSubmitActionLabel('Переместить')
+                        ->fillForm(fn (Workflow $record): array => ['group_name' => $record->group_name])
+                        ->schema([Select::make('group_name')->label('Папка')->placeholder('Без папки')
+                            ->options(fn (): array => WorkflowFolders::options())->searchable()])
+                        ->action(function (Workflow $record, array $data): void {
+                            WorkflowFolders::move($record, $data['group_name'] ?? null);
+                            Notification::make()->title('Сценарий перемещён')->success()->send();
+                        }),
+
+                    Action::make('workflow_history')
+                        ->label('История запусков')->icon('heroicon-o-clock')
+                        ->url(fn(Workflow $record): string => static::getUrl('history', ['record' => $record])),
 
                     Action::make('duplicate_workflow')
                         ->label('Дублировать сценарий')
                         ->icon('heroicon-o-document-duplicate')
                         ->color('gray')
-                        ->iconButton()
                         ->action(function (Workflow $record): void {
                             try {
                                 $copy = static::duplicateWorkflow($record);
@@ -175,18 +166,15 @@ class WorkflowResource extends BaseWorkflowResource
                         ->label('Удалить сценарий')
                         ->icon('heroicon-o-trash')
                         ->color('danger')
-                        ->iconButton()
-                        ->requiresConfirmation()
-                        ->modalHeading('Удалить сценарий?')
-                        ->modalDescription('Сценарий и все его исполнения будут удалены безвозвратно.')
-                        ->modalSubmitActionLabel('Удалить')
+                        ->requiresConfirmation(false)
+                        ->modal(false)
                         ->successNotificationTitle('Сценарий удалён'),
-                ],
+                ])->label('Действия со сценарием')->icon('heroicon-o-ellipsis-horizontal')->color('gray')],
                 position: RecordActionsPosition::AfterColumns,
             )
-            ->emptyStateHeading(__('filament-workflows::workflows.empty_states.no_workflows.heading'))
-            ->emptyStateDescription(__('filament-workflows::workflows.empty_states.no_workflows.description'))
-            ->emptyStateIcon('heroicon-o-arrow-path');
+            ->emptyStateHeading('Сценариев пока нет')
+            ->emptyStateDescription('Создайте сценарий или перенесите его сюда из другой папки.')
+            ->emptyStateIcon('heroicon-o-folder');
     }
 
     /**
@@ -285,7 +273,7 @@ class WorkflowResource extends BaseWorkflowResource
     private static function activationIssuesForDefinition(mixed $definition, ?Workflow $record = null, array $data = []): array
     {
         $definition = is_array($definition) ? $definition : [];
-        $issues = [];
+        $issues = \App\Services\Workflows\WorkflowDefinitionValidator::issues($definition);
 
         if (!AppWorkflow::definitionHasConfiguredActions($definition)) {
             $issues[] = 'Добавьте хотя бы одно действие.';
@@ -293,8 +281,10 @@ class WorkflowResource extends BaseWorkflowResource
 
         $triggerType = (string)data_get($definition, 'trigger.type');
 
-        if ($duplicateIssue = static::uniqueAmoTriggerIssue($triggerType, $record, $data)) {
-            $issues[] = $duplicateIssue;
+        foreach (\App\Services\Workflows\WorkflowStartNodes::all($definition) as $start) {
+            if ($duplicateIssue = static::uniqueAmoTriggerIssue((string) ($start['type'] ?? ''), $record, $data)) {
+                $issues[] = $duplicateIssue;
+            }
         }
 
         $actionTypes = static::workflowActionTypes((array)data_get($definition, 'actions', []));
@@ -321,8 +311,14 @@ class WorkflowResource extends BaseWorkflowResource
             $issues[] = 'Добавьте в родительский процесс действие «Запустить процесс» и выберите этот процесс.';
         }
 
-        if (static::definitionUsesAmoCrm($definition, $actionTypes) && !static::hasWorkflowAmoAccount($record, $data)) {
-            $issues[] = 'Подключите amoCRM для виджета сценариев.';
+        if (!static::hasWorkflowAmoAccount($record, $data)) {
+            $issues[] = 'Для включения сценария нужно активное подключение amoCRM к аккаунту платформы.';
+        }
+
+        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
+        $userId = (int) ($record?->{$tenantColumn} ?? ($data[$tenantColumn] ?? auth()->id()));
+        if ($subscriptionIssue = app(WorkflowSubscriptionAccess::class)->activationIssue($userId)) {
+            $issues[] = $subscriptionIssue;
         }
 
         return array_values(array_unique($issues));
@@ -489,10 +485,10 @@ class WorkflowResource extends BaseWorkflowResource
      */
     private static function definitionUsesAmoCrm(array $definition, array $actionTypes): bool
     {
-        $triggerType = (string)data_get($definition, 'trigger.type');
-
-        if (str_starts_with($triggerType, 'amocrm-')) {
-            return true;
+        foreach (\App\Services\Workflows\WorkflowStartNodes::all($definition) as $start) {
+            if (str_starts_with((string) ($start['type'] ?? ''), 'amocrm-')) {
+                return true;
+            }
         }
 
         foreach ($actionTypes as $type) {
@@ -516,16 +512,7 @@ class WorkflowResource extends BaseWorkflowResource
             return false;
         }
 
-        $query = Account::query()
-            ->where('user_id', $userId)
-            ->where('active', true)
-            ->whereNotNull('refresh_token');
-
-        if ($userId !== 1) {
-            $query->where('widget', 'workflows');
-        }
-
-        return $query->exists();
+        return \App\Services\Workflows\WorkflowConnectionAccess::hasActiveConnection($userId);
     }
 
     private static function triggerLabel(Workflow $record): string
@@ -732,6 +719,8 @@ class WorkflowResource extends BaseWorkflowResource
         return [
             'index' => Pages\ListWorkflows::route('/'),
             'create' => Pages\CreateWorkflow::route('/create'),
+            'replay' => Pages\ReplayWorkflow::route('/history/{run}/editor'),
+            'history' => Pages\WorkflowHistory::route('/{record}/history'),
             'edit' => Pages\EditWorkflow::route('/{record}/edit'),
         ];
     }

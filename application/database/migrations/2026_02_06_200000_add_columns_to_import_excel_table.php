@@ -21,8 +21,5 @@ return new class extends Migration {
      */
     public function down(): void
     {
-//        Schema::table('alfacrm_settings', function (Blueprint $table) {
-//            $table->dropColumn(['status_archive', 'status_pay', 'status_repeated']);
-//        });
     }
 };

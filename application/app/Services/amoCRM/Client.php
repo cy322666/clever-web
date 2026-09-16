@@ -72,8 +72,8 @@ class Client
     // проверка ключей первый раз
     public function checkAuth(): bool
     {
-        if (!$this->storage->model->code ||
-            !$this->storage->model->access_token) {
+        if (!$this->storage->model->access_token ||
+            (!$this->storage->model->refresh_token && !$this->storage->model->code)) {
 
             return false;
         }

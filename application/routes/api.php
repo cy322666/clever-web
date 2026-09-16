@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\AlfaCRMController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
@@ -31,24 +30,13 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
         Route::post('hook/{user:uuid}/{template}', [DistributionController::class, 'hook'])->name('distribution.hook');
     });
 
-    Route::group(['prefix' => 'alfacrm', 'middleware' => ['integration.active:alfacrm']], function () {
-
-        Route::post('record/{user:uuid}', [AlfaCRMController::class, 'record'])->name('alfacrm.record');
-
-        Route::post('came/{user:uuid}', [AlfaCRMController::class, 'came'])->name('alfacrm.came');
-
-        Route::post('omission/{user:uuid}', [AlfaCRMController::class, 'omission'])->name('alfacrm.omission');
-
-        Route::post('archive/{user:uuid}', [AlfaCRMController::class, 'archive'])->name('alfacrm.archive');
-
-        Route::post('pay/{user:uuid}', [AlfaCRMController::class, 'pay'])->name('alfacrm.pay');
-
-        Route::post('repeated/{user:uuid}', [AlfaCRMController::class, 'repeated'])->name('alfacrm.repeated');
-    });
-
     Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
         ->middleware(['integration.active:yclients'])
         ->name('yclients.hook');
+
+    Route::post('sqns/hook/{user:uuid}/{key}', [SqnsController::class, 'hook'])
+        ->middleware(['integration.active:sqns', 'throttle:120,1'])
+        ->name('sqns.hook');
 
     Route::post('vetmanager/hook/{user:uuid}', [VetmanagerController::class, 'hook'])
         ->middleware(['integration.active:vetmanager', 'throttle:120,1'])
@@ -66,6 +54,13 @@ Route::group(['prefix' => 'amocrm'], function () {
 
     //TODO тут проверить что работает а что не юзается
 //    Route::post('secrets', [AuthController::class, 'secrets']);
+
+    Route::match(['get', 'post'], 'install/flow', [AuthController::class, 'installFlow'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.flow.install');
+    Route::match(['get', 'post'], 'off/flow', [AuthController::class, 'offFlow'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.flow.off');
 
     Route::get('redirect', [AuthController::class, 'redirect']);
     Route::match(['get', 'post'], 'off', [AuthController::class, 'off'])

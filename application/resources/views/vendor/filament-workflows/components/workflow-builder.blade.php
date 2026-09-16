@@ -1,518 +1,244 @@
-@props(['submitLabel' => __('filament-workflows::workflows.actions.save_changes.label')])
+@props([
+    'submitLabel' => __('filament-workflows::workflows.actions.save_changes.label'),
+    'pageMode' => false,
+])
 
 @php
-    $maskGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedOptions(false);
+    $maskGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedConditionPickerOptions(false);
     $systemIdGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::systemIdGroups();
+
     try {
         $workflowRecord = method_exists($this, 'getRecord') ? $this->getRecord() : null;
     } catch (\Throwable) {
         $workflowRecord = null;
     }
-    $workflowActionItems = collect($this->workflowActions)->values();
-    $workflowActionsCount = $workflowActionItems->count();
-    $conditionValueGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedConditionPickerOptions(true);
-    $conditionValueGroupByOption = [];
-    foreach ($conditionValueGroups as $groupLabel => $groupOptions) {
-        foreach ($groupOptions as $optionValue => $optionLabel) {
-            $conditionValueGroupByOption[(string) $optionValue] = (string) $groupLabel;
-        }
-    }
 
-    $conditionOperatorOptions = [
-        'equals' => ['label' => 'Равно', 'symbol' => '='],
-        'not_equals' => ['label' => 'Не равно', 'symbol' => '≠'],
-        'is_empty' => ['label' => 'Пусто', 'symbol' => '∅'],
-        'is_not_empty' => ['label' => 'Не пусто', 'symbol' => '!∅'],
-        'lt' => ['label' => 'Меньше', 'symbol' => '<'],
-        'gt' => ['label' => 'Больше', 'symbol' => '>'],
-    ];
-    $conditionUnaryOperators = ['is_empty', 'is_not_empty'];
-    $indexedWorkflowActionItems = $workflowActionItems
-        ->map(fn (array $action, int $index): array => $action + ['__workflowIndex' => $index])
-        ->values();
-    $rootConditionAction = $indexedWorkflowActionItems->first(
-        fn (array $action): bool => ($action['__workflowIndex'] ?? null) === 0
-            && ($action['type'] ?? null) === 'control-condition'
-    );
-    $conditionActions = $indexedWorkflowActionItems
-        ->filter(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
-        ->values();
-    $regularActions = $rootConditionAction
-        ? collect(data_get($rootConditionAction, 'config.true_actions', []))->values()
-        : $workflowActionItems
-            ->reject(fn (array $action): bool => ($action['type'] ?? null) === 'control-condition')
-            ->values();
-    $firstBlockInsertIndex = $regularActions->count();
-    $inlineActionItems = method_exists($this, 'getInlineWorkflowActionOptions')
+    $isReplay = method_exists($this, 'isWorkflowReplay') && $this->isWorkflowReplay();
+    $workflowActionItems = collect($this->workflowActions)->values();
+    $workflowStarts = \App\Services\Workflows\WorkflowStartNodes::all(array_merge($this->definition, ['trigger' => $this->trigger]));
+    $workflowActionsCount = $workflowActionItems->count();
+    $workflowTriggerOptions = app(\Leek\FilamentWorkflows\Triggers\TriggerRegistry::class)->getAllWithMetadata();
+    $workflowActionOptions = method_exists($this, 'getInlineWorkflowActionOptions')
         ? $this->getInlineWorkflowActionOptions()
         : [];
-    $rootInlineActionPath = $rootConditionAction
-        ? (($rootConditionAction['__workflowIndex'] ?? 0) . '.config.true_actions')
-        : '';
-    $rootInlineActionPickerKey = method_exists($this, 'inlineActionPickerKey')
-        ? $this->inlineActionPickerKey($rootInlineActionPath, $firstBlockInsertIndex)
-        : $rootInlineActionPath . ':' . $firstBlockInsertIndex;
+    $workflowTitle = trim((string) ($this->data['name'] ?? $workflowRecord?->name ?? '')) ?: 'Новый процесс';
+    $workflowLayoutKey = 'clever.workflow.layout.v2:' . ($workflowRecord?->getKey() ?? ('draft:' . $this->getId()));
+    if ($isReplay) $workflowLayoutKey = 'clever.workflow.layout.v2:replay:' . $this->replayRunId;
+    $triggerMetadata = $this->trigger
+        ? $this->getTriggerMetadata($this->trigger['type'], $this->trigger['config'] ?? [])
+        : null;
 @endphp
 
 <div
     x-data="workflowWorkbench()"
-    x-init="initMaskDock()"
-    x-on:keydown.escape.window="masksOpen = false"
-    x-on:workflow-masks-open.window="openMasksDock()"
-    x-on:resize.window="keepMasksDockInViewport()"
-    class="workflow-workbench"
+    x-init="initWorkbench()"
+    x-on:resize.window="syncEditorHeight()"
+    @class([
+        'workflow-workbench',
+        'workflow-workbench--page' => $pageMode,
+    ])
 >
-    <aside
-        x-ref="maskDock"
-        x-show="masksOpen"
-        x-cloak
-        x-transition.opacity.duration.150ms
-        x-bind:style="maskDockStyle()"
-        class="workflow-mask-dock fixed z-[100] flex w-[min(28rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 dark:border-gray-700 dark:bg-gray-950"
-    >
-        <div
-            x-on:pointerdown="startMaskDockDrag($event)"
-            x-on:pointermove.window="dragMaskDock($event)"
-            x-on:pointerup.window="stopMaskDockDrag($event)"
-            x-on:pointercancel.window="stopMaskDockDrag($event)"
-            class="workflow-mask-dock__header flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-gray-800"
-        >
-            <div>
-                <div class="text-sm font-semibold text-gray-950 dark:text-white">Справочник переменных и ID</div>
-            </div>
+    <div class="workflow-workbench__shell">
+        <div class="workflow-workbench__toolbar">
+            <div class="workflow-workbench__toolbar-layout">
+                <div class="workflow-workbench__identity">
+                    <div class="workflow-identity-inline" x-data="{ editing: false }">
+                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button type="button" title="Переименовать поток" x-on:click="editing=true; $nextTick(() => { $refs.name.focus(); $refs.name.select(); })">{{ $workflowTitle }}</button></h1>
+                        <input x-ref="name" x-show="editing" x-cloak value="{{ $workflowTitle }}" maxlength="255" aria-label="Название потока"
+                            x-on:keydown.enter.prevent.stop="$el.blur()" x-on:keydown.escape.prevent.stop="editing=false; $el.value=@js($workflowTitle)"
+                            x-on:blur="if(editing) { editing=false; $wire.renameWorkflow($el.value); }" />
+                        @error('name')<small>{{ $message }}</small>@enderror
+                        @if($this->definition['tags'] ?? [])<div class="workflow-identity-tags">@foreach(array_slice($this->definition['tags'],0,3) as $tag)<span>{{ $tag }}</span>@endforeach @if(count($this->definition['tags'])>3)<span>+{{ count($this->definition['tags'])-3 }}</span>@endif</div>@endif
+                    </div>
+                    <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
+                        <summary title="Теги потока" aria-label="Теги потока"><x-filament::icon icon="heroicon-o-tag" class="h-4 w-4"/></summary>
+                        <div x-data="{ tag: '' }">
+                            @foreach($this->definition['tags'] ?? [] as $tag)
+                                <button type="button" class="workflow-tag-chip" wire:click="setWorkflowTags(@js(array_values(array_diff($this->definition['tags'] ?? [], [$tag]))))" title="Удалить тег">{{ $tag }} ×</button>
+                            @endforeach
+                            <input x-model="tag" aria-label="Новый тег" placeholder="Добавить тег · Enter" maxlength="50" x-on:keydown.enter.prevent.stop="if(tag.trim()) { $wire.setWorkflowTags([...@js($this->definition['tags'] ?? []),tag.trim()]); tag=''; }" />
+                            @error('tags')<small>{{ $message }}</small>@enderror
+                        </div>
+                    </details>
+                    <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
+                        <summary title="Папка потока" aria-label="Папка потока"><x-filament::icon icon="heroicon-o-folder" class="h-4 w-4"/><span>{{ $this->data['group_name'] ?? $workflowRecord?->group_name ?? '' }}</span></summary>
+                        <div><select aria-label="Папка потока" wire:change="setWorkflowFolder($event.target.value)">
+                            <option value="">Без папки</option>
+                            @foreach(\App\Services\Workflows\WorkflowFolders::options() as $folder)
+                                <option value="{{ $folder }}" @selected(($this->data['group_name'] ?? $workflowRecord?->group_name) === $folder)>{{ $folder }}</option>
+                            @endforeach
+                        </select></div>
+                    </details>
+                </div>
 
-            <div class="flex items-center gap-2">
-                <x-filament::button
-                    type="button"
-                    size="sm"
-                    color="gray"
-                    icon="heroicon-o-arrow-path"
-                    wire:click="refreshWorkflowReference"
-                    wire:loading.attr="disabled"
-                    wire:target="refreshWorkflowReference"
-                >
-                    <span wire:loading.remove wire:target="refreshWorkflowReference">Обновить</span>
-                    <span wire:loading wire:target="refreshWorkflowReference">Обновляю...</span>
-                </x-filament::button>
+                <div class="workflow-workbench__quick-actions">
+                    @if($workflowRecord)
+                        <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-workbench__quick-action workflow-workbench__quick-action--labeled" aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" title="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Сохранить и включить поток' }}">
+                            <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/><span>{{ $workflowRecord->is_active ? 'Выключить' : 'Включить' }}</span>
+                        </button>
+                    @endif
+                    <button type="button" wire:click="mountAction('workflowCredentials')" class="workflow-workbench__quick-action" title="Подключения сервисов" aria-label="Подключения">
+                        <x-filament::icon icon="heroicon-o-key" class="h-5 w-5"/>
+                    </button>
+                    @if($workflowRecord)
+                        <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
+                        <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('history', ['record' => $workflowRecord]) }}" class="workflow-workbench__quick-action" aria-label="История" title="История"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
+                    @elseif($isReplay)
+                        <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
+                        <a href="{{ $this->getReplayBackUrl() }}" class="workflow-workbench__quick-action" aria-label="Вернуться к запуску" title="Вернуться к запуску"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
+                    @else
+                        <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
+                    @endif
 
-                <button
-                    type="button"
-                    x-on:click="masksOpen = false"
-                    class="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                >
-                    <x-filament::icon icon="heroicon-o-x-mark" class="h-5 w-5"/>
-                </button>
-            </div>
-        </div>
-
-        <div class="min-h-0 flex-1 overflow-y-auto p-4">
-            @include('filament.workflow-builder.mask-reference', [
-                'groups' => $maskGroups,
-                'systemIdGroups' => $systemIdGroups,
-            ])
-        </div>
-    </aside>
-
-    <div class="workflow-workbench__shell mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 dark:border-gray-800 dark:bg-gray-950">
-        <div class="workflow-workbench__toolbar sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div class="workflow-workbench__quick-actions ml-auto flex flex-wrap items-center gap-2">
                     <button
                         type="submit"
                         aria-label="{{ $submitLabel }}"
                         title="{{ $submitLabel }}"
-                        class="workflow-workbench__quick-action workflow-workbench__quick-action--primary"
+                        class="workflow-workbench__quick-action workflow-workbench__quick-action--primary workflow-workbench__quick-action--labeled"
                     >
-                        <x-filament::icon icon="heroicon-o-check" class="h-4 w-4"/>
+                        <span>{{ $submitLabel }}</span>
                     </button>
 
-                    @if ($this->trigger && $workflowActionsCount > 0)
-                        <button
-                            type="button"
-                            wire:click="mountAction('testWorkflow')"
-                            aria-label="Тестировать"
-                            title="Тестировать"
-                            class="workflow-workbench__quick-action workflow-workbench__quick-action--warning"
-                        >
-                            <x-filament::icon icon="heroicon-o-beaker" class="h-4 w-4"/>
-                        </button>
-                    @endif
-
-                    @if ($workflowRecord)
-                        <button
-                            type="button"
-                            wire:click="mountAction('workflowHistory')"
-                            aria-label="История"
-                            title="История"
-                            class="workflow-workbench__quick-action"
-                        >
-                            <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4"/>
-                        </button>
-                    @endif
-
-                    <button
-                        type="button"
-                        x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open'))"
-                        aria-label="Переменные"
-                        title="Переменные"
-                        class="workflow-workbench__quick-action"
-                    >
-                        <x-filament::icon icon="heroicon-o-variable" class="h-4 w-4"/>
-                    </button>
-
-                    @if ($workflowRecord)
-                        <button
-                            type="button"
-                            wire:click="duplicateCurrentWorkflow"
-                            wire:loading.attr="disabled"
-                            wire:target="duplicateCurrentWorkflow"
-                            aria-label="Дублировать"
-                            title="Дублировать"
-                            class="workflow-workbench__quick-action"
-                        >
-                            <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
-                        </button>
-
-                        <button
-                            type="button"
-                            wire:click="mountAction('deleteWorkflow')"
-                            aria-label="Удалить сценарий"
-                            title="Удалить сценарий"
-                            class="workflow-workbench__quick-action workflow-workbench__quick-action--danger"
-                        >
-                            <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
-                        </button>
-                    @endif
-
+                    <details class="workflow-workbench__more" x-on:click.outside="$el.open = false" x-on:keydown.escape.stop="$el.open = false">
+                        <summary class="workflow-workbench__quick-action" aria-label="Действия со сценарием" title="Действия со сценарием">
+                            <x-filament::icon icon="heroicon-o-ellipsis-horizontal" class="h-5 w-5"/>
+                        </summary>
+                        <div class="workflow-workbench__menu" x-on:click="$el.closest('details').open = false">
+                            <button type="button" x-on:click="window.dispatchEvent(new CustomEvent('workflow-export'))"><x-filament::icon icon="heroicon-o-arrow-down-tray" class="h-4 w-4"/> Экспорт JSON</button>
+                            <button type="button" wire:click="mountAction('importWorkflow')"><x-filament::icon icon="heroicon-o-arrow-up-tray" class="h-4 w-4"/> Импорт JSON</button>
+                            <button type="button" x-on:click="window.dispatchEvent(new CustomEvent('workflow-layout-reset'))">
+                                <x-filament::icon icon="heroicon-o-squares-2x2" class="h-4 w-4"/> Выровнять блоки
+                            </button>
+                            @if ($workflowRecord)
+                                <button type="button" wire:click="duplicateCurrentWorkflow" wire:loading.attr="disabled" wire:target="duplicateCurrentWorkflow">
+                                    <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/> Дублировать
+                                </button>
+                                <button type="button" wire:click="mountAction('deleteWorkflow')" class="workflow-workbench__menu-danger">
+                                    <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/> Удалить сценарий
+                                </button>
+                            @endif
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
 
-        <div class="workflow-workbench__layout workflow-workbench__layout--rules">
-            <main id="workflow-canvas" class="workflow-workbench__canvas workflow-rules-editor">
-                @unless ($rootConditionAction)
-                    <section class="workflow-rule-block">
-                        <div class="workflow-rule-block__grid">
-                            <div class="workflow-rule-column workflow-rule-column--conditions"
-                                 x-data="{ triggerListOpen: false }">
-                                @unless ($this->trigger)
-                                    <button
-                                        type="button"
-                                        x-on:click="triggerListOpen = ! triggerListOpen"
-                                        class="workflow-rules-empty-trigger"
-                                    >
-                                        <span class="workflow-rules-empty-trigger__icon">
-                                            <x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/>
-                                        </span>
-                                        <span>
-                                            <span class="workflow-rules-empty-trigger__title">Выбрать триггер</span>
-                                            <span
-                                                class="workflow-rules-empty-trigger__text">Что запускает сценарий</span>
-                                        </span>
-                                    </button>
+        <div class="workflow-workbench__main">
+            <x-filament-workflows::workflows.node-library
+                :triggers="$workflowTriggerOptions"
+                :actions="$workflowActionOptions"
+                :has-trigger="(bool) $this->trigger"
+                :mask-groups="$maskGroups"
+                :system-id-groups="$systemIdGroups"
+            />
 
-                                    <div
-                                        x-cloak
-                                        x-show="triggerListOpen"
-                                        x-transition
-                                        x-on:click.outside="triggerListOpen = false"
-                                        class="workflow-inline-trigger-list"
-                                    >
-                                        @include('filament-workflows::filament.partials.trigger-selection-grid', [
-                                            'triggers' => $this->getAvailableTriggers(),
-                                            'compact' => true,
-                                        ])
-                                    </div>
-                                @endunless
+            <section
+                x-data="workflowNodeCanvas(@js($workflowLayoutKey), @js($this->definition['canvas_layout'] ?? []))"
+                x-init="$nextTick(() => { initializeCanvas(); setExecutionState(@js($this->debugState)); })"
+                x-on:pointermove.window="moveCanvas($event)"
+                x-on:pointerup.window="stopCanvasInteraction($event)"
+                x-on:pointercancel.window="stopCanvasInteraction($event)"
+                x-on:workflow-layout-reset.window="resetNodeLayout()"
+                x-on:workflow-debug-updated.window="setExecutionState($event.detail.state)"
+                x-on:keydown.escape.window="cancelConnection(); clearNodeSelection()"
+                x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
+                x-on:workflow-connections-updated.window="scheduleGraphRefresh()"
+                x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
+                class="workflow-node-editor"
+            >
+            <div
+                x-ref="viewport"
+                x-on:pointerdown="startCanvasInteraction($event)"
+                x-on:click.capture="suppressNodeClick($event)"
+                x-bind:class="{
+                    'is-panning': panning,
+                    'is-node-dragging': draggingNodeId !== null,
+                    'has-free-node-layout': true,
+                }"
+                class="workflow-node-editor__viewport"
+                title="Shift + протянуть по пустому месту — выделить ноды; перетащить выделенную ноду — перенести группу"
+            >
+                <div class="workflow-selection-box" x-show="selectionBox" x-bind:style="selectionStyle()" x-cloak></div>
+                <div class="workflow-canvas-note" x-data="{ open: false, note: @js($this->definition['description'] ?? '') }" x-on:pointerdown.stop>
+                    <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-label="Описание сценария" title="Описание сценария"><x-filament::icon icon="heroicon-o-document-text" class="h-4 w-4"/></button>
+                    <textarea x-show="open" x-cloak x-model="note" x-on:change="$wire.updateWorkflowDescription(note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
+                </div>
+                <div class="workflow-canvas-controls" x-on:pointerdown.stop>
+                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
+                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="zoomCanvas(1.2)" :disabled="scale >= 2" aria-label="Увеличить масштаб" title="Увеличить масштаб"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
+                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="zoomCanvas(1 / 1.2)" :disabled="scale <= 0.01" aria-label="Уменьшить масштаб" title="Уменьшить масштаб"><x-filament::icon icon="heroicon-o-minus" class="h-4 w-4"/></button>
+                </div>
+                <div class="workflow-connection-hint" x-show="connecting" x-cloak x-on:pointerdown.stop>
+                    <span>Выберите другую ноду</span><button type="button" x-show="selectedEdge" x-on:click="removeSelectedEdge()">Удалить связь</button><button type="button" x-on:click="cancelConnection()">Отмена</button>
+                </div>
+                <div class="workflow-connection-menu" x-show="selectedEdge && !connecting" x-cloak x-on:pointerdown.stop>
+                    <button type="button" x-on:click="reconnectSelectedEdge()">Переподключить</button>
+                    <button type="button" x-on:click="removeSelectedEdge()">Удалить связь</button>
+                    <button type="button" x-on:click="selectedEdge = null" aria-label="Закрыть меню связи">×</button>
+                </div>
+                <div
+                    x-ref="stage"
+                    x-bind:style="stageStyle()"
+                    class="workflow-node-editor__stage"
+                >
+                    <svg
+                        x-ref="edgeLayer"
+                        class="workflow-node-edge-layer"
+                        aria-hidden="true"
+                        wire:ignore
+                    ></svg>
 
-                                <div class="workflow-rule-empty">
-                                    <span>Выполнять всегда</span>
-                                </div>
-
-                                @if ($this->trigger)
-                                    <button
-                                        type="button"
-                                        wire:click="addWorkflowRootCondition"
-                                        class="workflow-rule-condition-add"
-                                    >
-                                        <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                                        <span>Условие</span>
-                                    </button>
-                                @endif
-
-                            </div>
-
-                            <div class="workflow-rule-column workflow-rule-column--actions">
-                                @if ($regularActions->isNotEmpty())
-                                    <x-filament-workflows::workflows.action-list :actions="$regularActions->all()"/>
-                                @else
-                                    @unless ($this->trigger)
-                                        <div class="workflow-rule-empty">
-                                            <span>Сначала выберите триггер</span>
-                                        </div>
-                                    @endunless
-                                @endif
-
-                                @if ($this->trigger)
-                                    <button
-                                        type="button"
-                                        wire:click="toggleInlineActionPicker('', {{ $firstBlockInsertIndex }})"
-                                        class="workflow-rule-add"
-                                    >
-                                        <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                                        <span>Действие</span>
-                                    </button>
-
-                                    @if (($this->inlineActionPickerKey ?? null) === $rootInlineActionPickerKey)
-                                        <x-filament-workflows::workflows.inline-action-picker
-                                            :actions="$inlineActionItems"/>
-                                    @endif
-                                @endif
-                            </div>
-                        </div>
-                    </section>
-                @endunless
-
-                @foreach($conditionActions as $conditionAction)
-                    @php
-                        $conditionConfig = $conditionAction['config'] ?? [];
-                        $conditionRows = array_values(array_filter(
-                            (array)($conditionConfig['conditions'] ?? []),
-                            fn ($conditionRow): bool => is_array($conditionRow),
-                        ));
-                        $conditionActionsPath = $conditionAction['__workflowIndex'] . '.config.true_actions';
-                        $blockActions = $conditionConfig['true_actions'] ?? [];
-                        $conditionInlineActionPickerKey = method_exists($this, 'inlineActionPickerKey')
-                            ? $this->inlineActionPickerKey($conditionActionsPath)
-                            : $conditionActionsPath . ':end';
-                    @endphp
-
-                    <section class="workflow-rule-block">
-                        <button
-                            type="button"
-                            wire:click="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                            wire:loading.attr="disabled"
-                            wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                            class="workflow-rule-block__delete"
-                            title="Удалить блок"
-                            aria-label="Удалить блок"
+                    <main id="workflow-canvas" class="workflow-builder workflow-node-flow">
+                        <div class="workflow-node-starts">
+                        @foreach($workflowStarts ?: ['trigger' => null] as $startId => $start)
+                        @php($startMetadata = $start ? $this->getTriggerMetadata($start['type'], $start['config'] ?? []) : null)
+                        <div
+                            class="workflow-node-shell workflow-node-shell--trigger"
+                            data-workflow-node-id="{{ $startId }}"
+                            wire:key="workflow-start-{{ $startId }}"
                         >
-                            <x-filament::icon
-                                icon="heroicon-o-trash"
-                                class="h-4 w-4"
-                                wire:loading.remove
-                                wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                            />
-                            <x-filament::loading-indicator
-                                class="h-4 w-4"
-                                wire:loading
-                                wire:target="removeWorkflowAction('{{ $conditionAction['id'] }}')"
-                            />
-                        </button>
-
-                        <div class="workflow-rule-block__grid">
-                            <div class="workflow-rule-column workflow-rule-column--conditions">
-                                <div class="workflow-inline-condition-editor">
-                                    @if($conditionRows === [])
-                                        <div class="workflow-rule-empty">
-                                            <span>Выполнять всегда</span>
-                                        </div>
-                                    @else
-                                        <div class="workflow-inline-condition-editor__rows">
-                                            @foreach($conditionRows as $conditionIndex => $conditionRow)
-                                                @php
-                                                    $conditionJoin = (string)($conditionRow['join'] ?? $conditionConfig['logic'] ?? 'and');
-                                                    $operator = (string)($conditionRow['operator'] ?? 'equals');
-                                                    $isUnaryOperator = in_array($operator, $conditionUnaryOperators, true);
-                                                    $leftValue = (string)($conditionRow['left'] ?? '');
-                                                    $rightValue = (string)($conditionRow['right'] ?? '');
-                                                    $leftGroup = $conditionValueGroupByOption[$leftValue] ?? ($leftValue !== '' ? '__custom' : '');
-                                                    $rightGroup = $conditionValueGroupByOption[$rightValue] ?? ($rightValue !== '' ? '__custom' : '');
-                                                @endphp
-
-                                                @if($conditionIndex > 0)
-                                                    <label class="workflow-inline-condition-join">
-                                                        <select
-                                                            aria-label="Связка условия"
-                                                            wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'join', $event.target.value)"
-                                                        >
-                                                            <option value="and" @selected($conditionJoin !== 'or')>И
-                                                            </option>
-                                                            <option value="or" @selected($conditionJoin === 'or')>ИЛИ
-                                                            </option>
-                                                        </select>
-                                                    </label>
-                                                @endif
-
-                                                <div class="workflow-inline-condition-row">
-                                                    <button
-                                                        type="button"
-                                                        wire:click="removeWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }})"
-                                                        class="workflow-inline-condition-row__delete"
-                                                        title="Удалить условие"
-                                                        aria-label="Удалить условие"
-                                                    >
-                                                        <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
-                                                    </button>
-
-                                                    <div class="workflow-inline-condition-grid">
-                                                        <div
-                                                            class="workflow-inline-condition-value"
-                                                            x-data="{ group: @js($leftGroup) }"
-                                                        >
-                                                            <select
-                                                                x-model="group"
-                                                                aria-label="Группа значения"
-                                                            >
-                                                                <option value="">Выберите</option>
-                                                                @foreach($conditionValueGroups as $groupLabel => $groupOptions)
-                                                                    <option
-                                                                        value="{{ $groupLabel }}">{{ $groupLabel }}</option>
-                                                                @endforeach
-                                                                <option value="__custom">Свое значение</option>
-                                                            </select>
-
-                                                            @foreach($conditionValueGroups as $groupLabel => $groupOptions)
-                                                                <select
-                                                                    x-cloak
-                                                                    x-show="group === @js((string) $groupLabel)"
-                                                                    wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
-                                                                    aria-label="Значение"
-                                                                >
-                                                                    <option value="">Выберите</option>
-                                                                    @foreach($groupOptions as $optionValue => $optionLabel)
-                                                                        <option
-                                                                            value="{{ $optionValue }}" @selected($leftValue === (string) $optionValue)>
-                                                                            {{ $optionLabel }}
-                                                                        </option>
-                                                                    @endforeach
-                                                                </select>
-                                                            @endforeach
-
-                                                            <input
-                                                                x-cloak
-                                                                x-show="group === '__custom'"
-                                                                type="text"
-                                                                value="{{ $leftValue }}"
-                                                                wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'left', $event.target.value)"
-                                                                placeholder="Свое значение"
-                                                            />
-                                                        </div>
-
-                                                        <label class="workflow-inline-condition-operator">
-                                                            <select
-                                                                aria-label="Сравнение"
-                                                                wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'operator', $event.target.value)"
-                                                            >
-                                                                @foreach($conditionOperatorOptions as $optionValue => $operatorOption)
-                                                                    <option
-                                                                        value="{{ $optionValue }}" @selected($operator === $optionValue)>
-                                                                        {{ $operatorOption['symbol'] }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </label>
-
-                                                        @unless($isUnaryOperator)
-                                                            <div
-                                                                class="workflow-inline-condition-value"
-                                                                x-data="{ group: @js($rightGroup) }"
-                                                            >
-                                                                <select
-                                                                    x-model="group"
-                                                                    aria-label="Группа значения для сравнения"
-                                                                >
-                                                                    <option value="">Выберите</option>
-                                                                    @foreach($conditionValueGroups as $groupLabel => $groupOptions)
-                                                                        <option
-                                                                            value="{{ $groupLabel }}">{{ $groupLabel }}</option>
-                                                                    @endforeach
-                                                                    <option value="__custom">Свое значение</option>
-                                                                </select>
-
-                                                                @foreach($conditionValueGroups as $groupLabel => $groupOptions)
-                                                                    <select
-                                                                        x-cloak
-                                                                        x-show="group === @js((string) $groupLabel)"
-                                                                        wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
-                                                                        aria-label="Значение для сравнения"
-                                                                    >
-                                                                        <option value="">Выберите</option>
-                                                                        @foreach($groupOptions as $optionValue => $optionLabel)
-                                                                            <option
-                                                                                value="{{ $optionValue }}" @selected($rightValue === (string) $optionValue)>
-                                                                                {{ $optionLabel }}
-                                                                            </option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                @endforeach
-
-                                                                <input
-                                                                    x-cloak
-                                                                    x-show="group === '__custom'"
-                                                                    type="text"
-                                                                    value="{{ $rightValue }}"
-                                                                    wire:change="updateWorkflowInlineCondition('{{ $conditionAction['id'] }}', {{ $conditionIndex }}, 'right', $event.target.value)"
-                                                                    placeholder="Свое значение"
-                                                                />
-                                                            </div>
-                                                        @endunless
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-
-                                    <button
-                                        type="button"
-                                        wire:click="addWorkflowInlineCondition('{{ $conditionAction['id'] }}')"
-                                        class="workflow-rule-condition-add"
-                                    >
-                                        <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                                        <span>Условие</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="workflow-rule-column workflow-rule-column--actions">
-                                @if (!empty($blockActions))
-                                    <x-filament-workflows::workflows.action-list
-                                        :actions="$blockActions"
-                                        :parent-path="$conditionActionsPath"
-                                    />
-                                @endif
-
+                            @if($start && $startMetadata)
+                                <x-filament-workflows::workflows.trigger-card
+                                    :node-id="$startId"
+                                    :node-name="$start['name'] ?? null"
+                                    :type="$start['type']"
+                                    :config="$start['config'] ?? []"
+                                    :metadata="$startMetadata"
+                                    :read-only="false"
+                                />
+                            @else
                                 <button
                                     type="button"
-                                    wire:click="openAddActionForPath('{{ $conditionActionsPath }}')"
-                                    class="workflow-rule-add"
+                                    x-on:click="window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger' } }))"
+                                    class="workflow-node-empty"
                                 >
-                                    <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                                    <span>Действие</span>
+                                    <span class="workflow-node-card__icon">
+                                        <x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/>
+                                    </span>
+                                    <span class="workflow-node-card__caption">
+                                        <strong class="workflow-node-card__title">Выбрать запуск</strong>
+                                        <small class="workflow-node-card__subtitle">Добавьте триггер</small>
+                                    </span>
                                 </button>
-
-                                    @if (($this->inlineActionPickerKey ?? null) === $conditionInlineActionPickerKey)
-                                        <x-filament-workflows::workflows.inline-action-picker
-                                            :actions="$inlineActionItems"/>
-                                    @endif
-                            </div>
+                            @endif
                         </div>
-                    </section>
-                @endforeach
 
-                @if ($this->trigger)
-                    <div class="workflow-block-connector workflow-block-connector--tail">
-                        <button
-                            type="button"
-                            wire:click="addWorkflowBlock"
-                            class="workflow-add-block"
-                        >
-                            <x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/>
-                            <span>Добавить блок</span>
-                        </button>
-                    </div>
-                @endif
-            </main>
+                        @endforeach
+                        </div>
+                        @if($workflowActionItems->isNotEmpty())
+                                <x-filament-workflows::workflows.action-list
+                                    :actions="$workflowActionItems->all()"
+                                />
+                        @endif
+                    </main>
+
+                    @if($this->trigger)
+                        <x-filament-workflows::workflows.edge-controls :actions="$workflowActionItems->all()" :connections="$this->definition['connections'] ?? null" :start-ids="array_keys($workflowStarts)"/>
+                    @endif
+                </div>
+            </div>
+            @include('filament.workflow-builder.workflow-debugger')
+            </section>
         </div>
     </div>
 </div>

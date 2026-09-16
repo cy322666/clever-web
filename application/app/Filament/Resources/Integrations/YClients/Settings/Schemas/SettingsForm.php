@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Integrations\YClients\Settings\Schemas;
 
 use App\Models\amoCRM\Status;
-use App\Models\Integrations\Alfa\Branch;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;

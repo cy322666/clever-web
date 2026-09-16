@@ -8,6 +8,7 @@ use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Models\WorkflowTemplate;
 
 return [
+    'javascript_binary' => env('WORKFLOW_JAVASCRIPT_BINARY', 'node'),
     /*
     |--------------------------------------------------------------------------
     | Model Configuration
@@ -77,8 +78,8 @@ return [
         // Default failure strategy: 'stop' or 'continue'
         'default_failure_strategy' => env('WORKFLOWS_FAILURE_STRATEGY', 'stop'),
 
-        // Default max retries for failed workflows
-        'default_max_retries' => env('WORKFLOWS_DEFAULT_MAX_RETRIES', 3),
+        // The queue counts total attempts: a failed flow must never run again automatically.
+        'default_max_retries' => 1,
 
         // Retry backoff intervals in seconds [1min, 5min, 15min]
         'retry_backoff' => [60, 300, 900],

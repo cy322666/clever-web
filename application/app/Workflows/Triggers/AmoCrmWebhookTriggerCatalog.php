@@ -48,8 +48,18 @@ class AmoCrmWebhookTriggerCatalog
             AmoCrmNoteContactTrigger::class,
             AmoCrmNoteCompanyTrigger::class,
             AmoCrmNoteCustomerTrigger::class,
+            AmoCrmAddMessageTrigger::class,
+            AmoCrmAddOutgoingMessageTrigger::class,
+            AmoCrmAddUnsortedTrigger::class,
+            AmoCrmUpdateUnsortedTrigger::class,
+            AmoCrmDeleteUnsortedTrigger::class,
             AmoCrmAddChatTemplateReviewTrigger::class,
         ];
+    }
+
+    public static function eventCodes(): array
+    {
+        return array_map(fn (string $class): string => $class::defaultConfig()['event'], self::classes());
     }
 }
 
@@ -118,8 +128,9 @@ abstract class AmoCrmWebhookTrigger implements BaseTrigger
     {
         $expectedEvent = $config['event'] ?? static::eventCode();
 
-        if ($this->eventCodeFromContext($subject, $context) === $expectedEvent) {
-            return true;
+        $actualEvent = $this->eventCodeFromContext($subject, $context);
+        if ($actualEvent !== null) {
+            return $actualEvent === $expectedEvent;
         }
 
         $payload = $this->payloadFromContext($subject, $context);
@@ -227,6 +238,8 @@ abstract class AmoCrmWebhookTrigger implements BaseTrigger
             'customer' => 'heroicon-o-users',
             'task' => 'heroicon-o-check-circle',
             'talk' => 'heroicon-o-chat-bubble-left-right',
+            'message', 'outgoing_message' => 'heroicon-o-chat-bubble-left-right',
+            'unsorted' => 'heroicon-o-inbox-arrow-down',
             'chat_template_review' => 'heroicon-o-chat-bubble-bottom-center-text',
             default => 'heroicon-o-bolt',
         };
@@ -287,11 +300,8 @@ abstract class AmoCrmWebhookTrigger implements BaseTrigger
             ?? Arr::get($context, 'amocrm.payload')
             ?? Arr::get($context, 'amo.payload');
 
-        if (is_array($payload)) {
-            return $payload;
-        }
-
-        return is_array($subject) ? $subject : [];
+        $payload = is_array($payload) ? $payload : (is_array($subject) ? $subject : []);
+        return (new \App\Services\Workflows\WorkflowAmoCrmWebhookPayloadNormalizer)->normalize($payload)['payload'];
     }
 
     /**
@@ -400,6 +410,41 @@ abstract class AmoCrmWebhookTrigger implements BaseTrigger
 
         return $itemType === null || $itemType === $type;
     }
+}
+
+class AmoCrmAddMessageTrigger extends AmoCrmWebhookTrigger
+{
+    protected static function eventCode(): string { return 'add_message'; }
+    protected static function eventName(): string { return 'amoCRM: входящее сообщение'; }
+    protected static function eventDescription(): string { return 'Запускается, когда клиент отправляет входящее сообщение в amoCRM. Текст, автор, чат и вложения доступны в данных запуска.'; }
+}
+
+class AmoCrmAddOutgoingMessageTrigger extends AmoCrmWebhookTrigger
+{
+    protected static function eventCode(): string { return 'add_outgoing_message'; }
+    protected static function eventName(): string { return 'amoCRM: исходящее сообщение'; }
+    protected static function eventDescription(): string { return 'Запускается, когда пользователь или Salesbot отправляет сообщение клиенту из amoCRM.'; }
+}
+
+class AmoCrmAddUnsortedTrigger extends AmoCrmWebhookTrigger
+{
+    protected static function eventCode(): string { return 'add_unsorted'; }
+    protected static function eventName(): string { return 'amoCRM: добавлено неразобранное'; }
+    protected static function eventDescription(): string { return 'Запускается при добавлении заявки в неразобранное amoCRM.'; }
+}
+
+class AmoCrmUpdateUnsortedTrigger extends AmoCrmWebhookTrigger
+{
+    protected static function eventCode(): string { return 'update_unsorted'; }
+    protected static function eventName(): string { return 'amoCRM: изменено неразобранное'; }
+    protected static function eventDescription(): string { return 'Запускается при изменении заявки в неразобранном amoCRM.'; }
+}
+
+class AmoCrmDeleteUnsortedTrigger extends AmoCrmWebhookTrigger
+{
+    protected static function eventCode(): string { return 'delete_unsorted'; }
+    protected static function eventName(): string { return 'amoCRM: удалено неразобранное'; }
+    protected static function eventDescription(): string { return 'Запускается при принятии или отклонении неразобранного. В item.action передаётся accept или decline, связанные ID — в accept_result или decline_result.'; }
 }
 
 class AmoCrmResponsibleLeadTrigger extends AmoCrmWebhookTrigger

@@ -13,6 +13,31 @@ class WorkflowContext extends BaseWorkflowContext
 {
     public function get(string $path): mixed
     {
+        if ($path === '$json' || str_starts_with($path, '$json.')) {
+            $outputs = $this->getStepOutputs();
+            $value = $outputs === [] ? $this->getTriggerData() : end($outputs);
+            return $path === '$json' ? $value : Arr::get($value, $this->expressionPath(substr($path, 6)));
+        }
+        $quoted = '("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
+        if (preg_match('/^\$node\['.$quoted.'\]\.json(.*)$/u', $path, $match)
+            || preg_match('/^\$\('.$quoted.'\)\.(?:item|first\(\))\.json(.*)$/u', $path, $match)) {
+            $key = $match[1][0] === '"' ? json_decode($match[1], true) : str_replace(["\\'", '\\\\'], ["'", '\\'], substr($match[1], 1, -1));
+            if (!is_string($key)) return null;
+            $legacyTrigger = $key === 'trigger';
+            if (!$this->hasStepOutput($key)) {
+                $ids = $this->getVariable('_node_names', [])[$key] ?? [];
+                $key = count($ids) === 1 ? $ids[0] : $key;
+            }
+            if ($key === 'trigger' || str_starts_with($key, 'trigger:')) {
+                if (!$legacyTrigger && $key !== ($this->getTriggerData()['_workflow_start_node_id'] ?? 'trigger')) return null;
+                $nested = $this->expressionPath($match[2]);
+                return $nested === '' ? $this->getTriggerData() : Arr::get($this->getTriggerData(), $nested);
+            }
+            $value = $this->getStepOutput($key);
+            $nested = $this->expressionPath($match[2]);
+            return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
+        }
+        if (preg_match('/^step\.([^.]+)$/', $path, $match)) return $this->getStepOutput($match[1]);
         if (str_starts_with($path, 'current.')) {
             return $this->getCurrentValue(substr($path, strlen('current.')));
         }
@@ -53,6 +78,43 @@ class WorkflowContext extends BaseWorkflowContext
         }
 
         return $this->getPreviousStepEntityValue($path);
+    }
+
+    public function resolve(mixed $value): mixed
+    {
+        // New expression references retain JSON types; legacy text masks retain their existing behavior.
+        if (is_string($value) && preg_match('/^\s*\{\{\s*(\$[^{}]+?)\s*\}\}\s*$/u', $value, $match)) {
+            return $this->get(trim($match[1]));
+        }
+        if (is_array($value)) {
+            // HTTP JSON is parsed before interpolation, so quotes in variable values
+            // stay data and whole placeholders keep numbers, arrays and booleans.
+            if (isset($value['url'], $value['method'])) {
+                foreach (['headers','body'] as $field) {
+                    $json = $value[$field] ?? null;
+                    if (is_string($json) && str_contains($json, '{{') && !preg_match('/^\s*\{\{.*\}\}\s*$/s', $json)) {
+                        try { $value[$field] = json_decode($json, true, 64, JSON_THROW_ON_ERROR); }
+                        catch (\JsonException) { throw new \InvalidArgumentException('Некорректный JSON HTTP-запроса. Подстановки внутри JSON укажите в двойных кавычках.'); }
+                    }
+                }
+            }
+            // Parse before substituting, so quotes and typed values cannot corrupt JSON.
+            if (($value['body_mode'] ?? null) === 'json' && is_string($value['json_body'] ?? null)
+                && !preg_match('/^\s*\{\{.*\}\}\s*$/s', $value['json_body'])) {
+                $value['json_body'] = \App\Services\Workflows\WorkflowJsonBody::parse($value['json_body']);
+            }
+            $resolved = [];
+            foreach ($value as $key => $item) {
+                $resolved[$key] = $key === 'javascript_code' ? $item : $this->resolve($item);
+            }
+            return $resolved;
+        }
+        return parent::resolve($value);
+    }
+
+    private function expressionPath(string $path): string
+    {
+        return trim(preg_replace('/\[(?:[\'\"]([^\'\"]+)[\'\"]|(\d+))\]/', '.$1$2', $path) ?? $path, '.');
     }
 
     private function getCurrentValue(string $path): mixed
@@ -119,10 +181,23 @@ class WorkflowContext extends BaseWorkflowContext
         $parts = [];
         $buffer = '';
         $depth = 0;
+        $quote = null;
         $length = strlen($expression);
 
         for ($i = 0; $i < $length; $i++) {
             $char = $expression[$i];
+
+            if ($quote !== null) {
+                $buffer .= $char;
+                if ($char === '\\' && $i + 1 < $length) $buffer .= $expression[++$i];
+                elseif ($char === $quote) $quote = null;
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+                $buffer .= $char;
+                continue;
+            }
 
             if ($char === '(') {
                 $depth++;

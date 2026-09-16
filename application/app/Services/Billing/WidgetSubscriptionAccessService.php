@@ -5,8 +5,10 @@ namespace App\Services\Billing;
 use App\Models\App;
 use App\Models\Billing\SubscriptionPlan;
 use App\Models\Billing\WidgetSubscription;
+use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Core\PlatformTechnicalMonitor;
+use App\Services\Workflows\WorkflowSubscriptionAccess;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +22,7 @@ class WidgetSubscriptionAccessService
     {
         $userId = $this->resolveUserId($user);
 
-        if ($userId === null || $widget === '') {
+        if ($userId === null || !$this->widgetAvailable($widget)) {
             return false;
         }
 
@@ -52,6 +54,14 @@ class WidgetSubscriptionAccessService
                 'active' => false,
                 'source' => 'none',
                 'label' => 'Пользователь не найден',
+            ];
+        }
+
+        if (!$this->widgetAvailable($widget)) {
+            return [
+                'active' => false,
+                'source' => 'none',
+                'label' => 'Виджет недоступен',
             ];
         }
 
@@ -128,7 +138,7 @@ class WidgetSubscriptionAccessService
         $widget = trim($widget);
         $days = max(1, $days);
 
-        if ($userId === null || $widget === '') {
+        if ($userId === null || !$this->widgetAvailable($widget)) {
             return null;
         }
 
@@ -185,9 +195,13 @@ class WidgetSubscriptionAccessService
 
     public function syncSubscriptionToLegacyApp(WidgetSubscription $subscription): void
     {
+        if (!$this->widgetAvailable((string)$subscription->widget)) {
+            return;
+        }
+
         $app = $subscription->app ?: $this->legacyApp((int)$subscription->user_id, (string)$subscription->widget);
 
-        if (!$app) {
+        if (!$app || !$this->widgetAvailable((string)$app->name)) {
             return;
         }
 
@@ -200,11 +214,15 @@ class WidgetSubscriptionAccessService
         $app->save();
 
         $this->syncSettingActive($app, $isActive);
+
+        if ((string) $subscription->widget === 'workflows' && ! $isActive) {
+            app(WorkflowSubscriptionAccess::class)->deactivateForUser((int) $subscription->user_id);
+        }
     }
 
     public function syncLegacyAppToManualSubscription(App $app): ?WidgetSubscription
     {
-        if (!$this->manualSubscriptionsAvailable() || blank($app->name) || blank($app->user_id)) {
+        if (!$this->widgetAvailable((string)$app->name) || !$this->manualSubscriptionsAvailable() || blank($app->user_id)) {
             return null;
         }
 
@@ -334,6 +352,11 @@ class WidgetSubscriptionAccessService
         return Schema::hasTable('widget_subscriptions');
     }
 
+    private function widgetAvailable(string $widget): bool
+    {
+        return $widget === Account::DEFAULT_WIDGET || in_array($widget, App::definitionNames(), true);
+    }
+
     private function hasManualSubscription(int $userId, string $widget): bool
     {
         return WidgetSubscription::query()
@@ -360,6 +383,10 @@ class WidgetSubscriptionAccessService
 
     private function legacyApp(int $userId, string $widget): ?App
     {
+        if (! Schema::hasTable('apps')) {
+            return null;
+        }
+
         return App::query()
             ->where('user_id', $userId)
             ->where('name', $widget)

@@ -2,11 +2,17 @@ define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
     var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
-    var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=1.0.34';
+    var VERSION = '1.0.43';
+    var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=' + VERSION;
     var LOAD_RETRIES = 0;
 
     var Widget = function () {
         var self = this;
+        var listLoading = false;
+        var runPending = false;
+        var lastListLoad = 0;
+        var dpRetries = 0;
+        var destroyed = false;
 
         function accountSubdomain() {
             var account = {};
@@ -80,14 +86,16 @@ define(['jquery'], function ($) {
 
             $('head').append(
                 '<style id="' + BLOCK_ID + '-styles">' +
-                '.clever_workflow_buttons_caption{display:flex!important;align-items:center!important;min-height:58px!important;margin:0!important;padding:0!important;background:#f5f5f5!important;box-sizing:border-box!important;color:#1f2933!important;font-family:inherit!important;overflow:hidden!important;border-bottom:1px solid #ededed!important}' +
-                '.clever-workflow-caption{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:16px!important;width:100%!important;min-height:58px!important;margin:0!important;padding:0 24px!important;background:#f5f5f5!important;color:#1f2933!important;font-family:inherit!important;box-sizing:border-box!important}' +
+                '.clever-workflow-native-widget--hidden,.clever-workflow-caption--hidden,.clever-workflow-widget-body--hidden{display:none!important}' +
+                '.clever_workflow_buttons_caption{display:flex!important;align-items:center!important;height:44px!important;min-height:44px!important;max-height:44px!important;margin:0!important;padding:0!important;background:#f5f5f5!important;box-sizing:border-box!important;color:#1f2933!important;font-family:inherit!important;overflow:hidden!important;border-bottom:1px solid #ededed!important}' +
+                '.clever-workflow-caption{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;width:100%!important;height:44px!important;min-height:44px!important;margin:0!important;padding:0 14px!important;background:#f5f5f5!important;color:#1f2933!important;font-family:inherit!important;box-sizing:border-box!important;cursor:pointer!important}' +
                 '.clever-workflow-caption__icon{position:relative!important;display:none!important;align-items:center!important;justify-content:center!important;width:42px!important;height:42px!important;flex:0 0 42px!important;border-radius:13px!important;background:#f17822!important;color:#fff!important;box-shadow:0 8px 18px rgba(241,120,34,.25)!important}' +
                 '.clever-workflow-caption__icon:before{content:""!important;position:absolute!important;inset:9px!important;border:2px solid rgba(255,255,255,.72)!important;border-radius:999px!important}' +
                 '.clever-workflow-caption__icon:after{content:"▶"!important;position:relative!important;margin-left:2px!important;font-size:13px!important;line-height:1!important;color:#fff!important}' +
-                '.clever-workflow-caption__logo{display:block!important;width:42px!important;height:42px!important;flex:0 0 42px!important;object-fit:contain!important;border-radius:999px!important}' +
-                '.clever-workflow-caption__text{display:block!important;color:#f17822!important;font-size:16px!important;font-weight:500!important;line-height:1.15!important;letter-spacing:.01em!important;white-space:nowrap!important;text-align:left!important}' +
-                '.clever-workflow-native-widget .clever-workflow-native-header{display:flex!important;align-items:center!important;justify-content:flex-start!important;width:100%!important;min-height:58px!important;margin:0!important;padding:0!important;background:#f5f5f5!important;color:#1f2933!important;box-sizing:border-box!important;overflow:hidden!important;border-bottom:1px solid #ededed!important}' +
+                '.clever-workflow-caption__logo{display:block!important;width:28px!important;height:28px!important;flex:0 0 28px!important;object-fit:contain!important;border-radius:999px!important}' +
+                '.clever-workflow-caption__text{display:block!important;color:#f17822!important;font-size:14px!important;font-weight:400!important;line-height:1.2!important;letter-spacing:0!important;white-space:nowrap!important;text-align:left!important}' +
+                '.clever-workflow-caption__chevron{display:block!important;margin-left:auto!important;flex:0 0 auto!important;color:#a0a7ae!important;font-size:14px!important}' +
+                '.clever-workflow-native-widget .clever-workflow-native-header{display:flex!important;align-items:center!important;justify-content:flex-start!important;width:100%!important;height:44px!important;min-height:44px!important;max-height:44px!important;margin:0!important;padding:0!important;background:#f5f5f5!important;color:#1f2933!important;box-sizing:border-box!important;overflow:hidden!important;border-bottom:1px solid #ededed!important}' +
                 '.clever-workflow-native-widget .clever-workflow-native-header>*:not(.clever-workflow-caption){display:none!important}' +
                 '.clever-workflow-native-widget .clever-workflow-native-header .clever-workflow-caption{display:flex!important}' +
                 '.clever-workflow-native-widget .clever-workflow-native-header>img{display:none!important}' +
@@ -97,29 +105,30 @@ define(['jquery'], function ($) {
                 '.clever-workflow-card__head{display:none}' +
                 '.clever-workflow-card__mark{display:none}' +
                 '.clever-workflow-card__title{display:none}' +
-                '.clever-workflow-card__list{display:flex;width:100%;flex-direction:column;gap:10px;border-top:0;background:#fff;padding:14px 20px 16px;box-sizing:border-box}' +
-                '.clever-workflow-card__button{position:relative;display:block;width:100%;border:1px solid #dfdfdf;border-radius:6px;background:#f8f8f8;color:#202226;min-height:38px;padding:7px 14px;font-size:14px;font-weight:400;line-height:1.35;cursor:pointer;text-align:left;box-shadow:0 2px 7px rgba(17,24,39,.08),inset 0 1px 0 rgba(255,255,255,.9);transition:background .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease}' +
+                '.clever-workflow-card__list{display:flex;width:100%;flex-direction:column;gap:7px;border-top:0;background:#fff;padding:8px 14px 10px;box-sizing:border-box}' +
+                '.clever-workflow-card__button{position:relative;display:block;width:100%;border:1px solid #dfdfdf;border-radius:5px;background:#f8f8f8;color:#202226;min-height:34px;padding:5px 11px;font-size:14px;font-weight:400;line-height:1.3;cursor:pointer;text-align:left;box-shadow:0 1px 4px rgba(17,24,39,.07),inset 0 1px 0 rgba(255,255,255,.9);transition:background .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease}' +
                 '.clever-workflow-card__button:before{display:none}' +
                 '.clever-workflow-card__button:hover{background:#fff6ef;border-color:#f17822;color:#202226;box-shadow:0 2px 9px rgba(241,120,34,.14),inset 0 1px 0 rgba(255,255,255,.95)}' +
                 '.clever-workflow-card__button:disabled{cursor:default;opacity:.65;transform:none;color:#7c8591}' +
                 '.clever-workflow-card__empty,.clever-workflow-card__status{font-size:14px;line-height:1.45;color:#7c8591}' +
                 '.clever-workflow-card__empty{padding:14px 0}' +
-                '.clever-workflow-card__status{margin:0;padding:0 24px 14px;background:#fff}' +
+                '.clever-workflow-card__status{margin:0;padding:0 14px 8px;background:#fff}' +
                 '.clever-workflow-card__status:empty{display:none}' +
                 '.clever-workflow-card__status--ok{color:#25884f}' +
                 '.clever-workflow-card__status--error{color:#d1453b}' +
                 '.clever-workflow-card__loader{display:inline-flex;align-items:center;gap:8px}' +
                 '.clever-workflow-card__loader:before{content:"";width:12px;height:12px;border:2px solid #f5c3a2;border-top-color:#f17822;border-radius:999px;animation:cleverWorkflowSpin .8s linear infinite}' +
-                '.clever-workflow-theme-dark .clever_workflow_buttons_caption,.clever-workflow-theme-dark .clever-workflow-caption,.clever-workflow-theme-dark .clever-workflow-native-widget .clever-workflow-native-header{min-height:50px!important;background:#142f40!important;color:#fff!important;border-bottom-color:rgba(255,255,255,.04)!important}' +
-                '.clever-workflow-theme-dark .clever-workflow-caption{gap:12px!important;padding:0 20px!important}' +
-                '.clever-workflow-theme-dark .clever-workflow-caption__logo{display:block!important;width:34px!important;height:34px!important;flex-basis:34px!important}' +
+                '.clever-workflow-theme-dark .clever_workflow_buttons_caption,.clever-workflow-theme-dark .clever-workflow-caption,.clever-workflow-theme-dark .clever-workflow-native-widget .clever-workflow-native-header{height:44px!important;min-height:44px!important;max-height:44px!important;background:#142f40!important;color:#fff!important;border-bottom-color:rgba(255,255,255,.04)!important}' +
+                '.clever-workflow-theme-dark .clever-workflow-caption{gap:9px!important;padding:0 14px!important}' +
+                '.clever-workflow-theme-dark .clever-workflow-caption__logo{display:block!important;width:28px!important;height:28px!important;flex-basis:28px!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-caption__icon{display:none!important;width:34px!important;height:34px!important;flex-basis:34px!important;border-radius:11px!important;box-shadow:0 5px 12px rgba(241,120,34,.22)!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-caption__icon:before{inset:7px!important;border-width:2px!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-caption__icon:after{font-size:10px!important;margin-left:1px!important}' +
-                '.clever-workflow-theme-dark .clever-workflow-caption__text{color:#f17822!important;font-size:16px!important;font-weight:500!important}' +
+                '.clever-workflow-theme-dark .clever-workflow-caption__text{color:#f17822!important;font-size:14px!important;font-weight:400!important}' +
+                '.clever-workflow-theme-dark .clever-workflow-caption__chevron{color:#8da4b3!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-widget-body,.clever-workflow-theme-dark .clever-workflow-widget-shell,.clever-workflow-theme-dark .clever-workflow-card,.clever-workflow-theme-dark .clever-workflow-card__list{background:#17384d!important;color:#f6fbff!important}' +
-                '.clever-workflow-theme-dark .clever-workflow-card__list{gap:10px!important;padding:12px 20px 16px!important}' +
-                '.clever-workflow-theme-dark .clever-workflow-card__button{min-height:38px!important;padding:7px 14px!important;border-color:#467999!important;border-radius:6px!important;background:#245b7b!important;color:#fff!important;font-size:14px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 2px 0 rgba(0,0,0,.08)!important}' +
+                '.clever-workflow-theme-dark .clever-workflow-card__list{gap:7px!important;padding:8px 14px 10px!important}' +
+                '.clever-workflow-theme-dark .clever-workflow-card__button{min-height:34px!important;padding:5px 11px!important;border-color:#467999!important;border-radius:5px!important;background:#245b7b!important;color:#fff!important;font-size:14px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 1px 4px rgba(0,0,0,.08)!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-card__button:hover{background:#2b6c91!important;border-color:#f17822!important;color:#fff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(241,120,34,.18)!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-card__button:disabled{color:#d9e7ef!important}' +
                 '.clever-workflow-theme-dark .clever-workflow-card__empty,.clever-workflow-theme-dark .clever-workflow-card__status{color:#b6cad6!important}' +
@@ -155,9 +164,9 @@ define(['jquery'], function ($) {
             injectStyles();
 
             return [
-                '<div id="' + BLOCK_ID + '" class="clever-workflow-card">',
+                '<div id="' + BLOCK_ID + '" class="clever-workflow-card" data-widget-version="' + VERSION + '">',
                 '<div class="clever-workflow-card__list">',
-                '<div class="clever-workflow-card__empty clever-workflow-card__loader">Загрузка сценариев</div>',
+                '<div class="clever-workflow-card__empty clever-workflow-card__loader">Загрузка потоков</div>',
                 '</div>',
                 '<div class="clever-workflow-card__status"></div>',
                 '</div>'
@@ -178,12 +187,37 @@ define(['jquery'], function ($) {
 
         function renderCaption() {
             return [
-                '<div class="clever-workflow-caption">',
+                '<div class="clever-workflow-caption" title="Потоки · ' + VERSION + '">',
                 '<img class="clever-workflow-caption__logo" src="' + captionLogoUrl() + '" alt="">',
                 '<span class="clever-workflow-caption__icon" aria-hidden="true"></span>',
-                '<span class="clever-workflow-caption__text">Сценарии Clever</span>',
+                '<span class="clever-workflow-caption__text">Потоки</span>',
+                '<span class="icon icon-v2-arrow-down clever-workflow-caption__chevron" aria-hidden="true"></span>',
                 '</div>'
             ].join('');
+        }
+
+        function widgetRoots() {
+            var selector = '.card-widgets__widget, .card-widgets__item, .widgets__item, .widgets-card__item, .widgets-card__widget, .widget-card';
+            var $roots = $('.clever_workflow_buttons_caption').closest(selector);
+            var $block = $('#' + BLOCK_ID);
+
+            if ($block.length) {
+                $roots = $roots.add($block.closest(selector));
+            }
+
+            return $roots;
+        }
+
+        function setWidgetVisibility(visible) {
+            var $roots = widgetRoots();
+            var hidden = !visible;
+
+            $roots.toggleClass('clever-workflow-native-widget--hidden', hidden);
+
+            if (!$roots.length) {
+                $('.clever_workflow_buttons_caption').toggleClass('clever-workflow-caption--hidden', hidden);
+                $('#' + BLOCK_ID).parent().toggleClass('clever-workflow-widget-body--hidden', hidden);
+            }
         }
 
         function normalizeCaption() {
@@ -237,15 +271,7 @@ define(['jquery'], function ($) {
 
         function normalizeNativeWidgetHeader() {
             var $block = $('#' + BLOCK_ID);
-            var $roots = $('.clever_workflow_buttons_caption').closest(
-                '.card-widgets__widget, .card-widgets__item, .widgets__item, .widgets-card__item, .widgets-card__widget, .widget-card'
-            );
-
-            if ($block.length) {
-                $roots = $roots.add($block.closest(
-                    '.card-widgets__widget, .card-widgets__item, .widgets__item, .widgets-card__item, .widgets-card__widget, .widget-card'
-                ));
-            }
+            var $roots = widgetRoots();
 
             $roots.each(function () {
                 var $root = $(this);
@@ -300,6 +326,7 @@ define(['jquery'], function ($) {
             }
 
             decorateWidgetContainer();
+            setWidgetVisibility(false);
             window.setTimeout(decorateWidgetContainer, 250);
             window.setTimeout(decorateWidgetContainer, 700);
             window.setTimeout(decorateWidgetContainer, 1400);
@@ -337,6 +364,7 @@ define(['jquery'], function ($) {
             }
 
             if (method === 'GET') {
+                payload = $.extend({}, payload, {widget_version: VERSION, _ts: Date.now()});
                 var query = $.param(payload);
                 url += query ? '?' + query : '';
                 payload = {};
@@ -380,6 +408,7 @@ define(['jquery'], function ($) {
         }
 
         function loadButtons() {
+            if (destroyed || listLoading || runPending || !isLeadCardArea()) return;
             var leadId = currentLeadId();
             var subdomain = accountSubdomain();
             var $block = $('#' + BLOCK_ID);
@@ -396,51 +425,72 @@ define(['jquery'], function ($) {
             }
 
             if (!leadId || !subdomain) {
+                setWidgetVisibility(false);
                 $list.html('<div class="clever-workflow-card__empty">Откройте карточку сделки.</div>');
                 return;
             }
 
+            listLoading = true;
+            lastListLoad = Date.now();
             request(
                 'GET',
                 API_BASE,
                 {
                     subdomain: subdomain,
-                    lead_id: leadId
+                    lead_id: leadId,
+                    source: 'amo-button'
                 },
                 function (response) {
+                    listLoading = false;
+                    if (destroyed || currentLeadId() !== leadId) return;
                     var workflows = response.workflows || [];
 
                     if (!response.ok) {
-                        $list.html('<div class="clever-workflow-card__empty">' + escapeHtml(response.message || 'Сценарии недоступны.') + '</div>');
+                        setWidgetVisibility(true);
+                        $list.html('<div class="clever-workflow-card__empty">' + escapeHtml(response.message || 'Потоки недоступны.') + '</div>');
                         return;
                     }
 
                     if (!workflows.length) {
-                        $list.html('<div class="clever-workflow-card__empty">Нет включенных ручных сценариев.</div>');
+                        setWidgetVisibility(false);
+                        $list.empty();
+                        $status.text('');
                         return;
                     }
 
+                    setWidgetVisibility(true);
+
                     $list.html(workflows.map(function (workflow) {
                         return '<button type="button" class="clever-workflow-card__button" data-workflow-id="' + workflow.id + '">' +
-                            escapeHtml(workflow.name || ('Сценарий #' + workflow.id)) +
+                            escapeHtml(workflow.name || ('Поток #' + workflow.id)) +
                             '</button>';
                     }).join(''));
 
                     $status.text('');
-        },
-        function () {
-                    $list.html('<div class="clever-workflow-card__empty">Не удалось загрузить сценарии. Проверьте подключение Clever.</div>');
+                },
+                function () {
+                    listLoading = false;
+                    if (destroyed || currentLeadId() !== leadId) return;
+                    setWidgetVisibility(true);
+                    $list.html('<div class="clever-workflow-card__empty">Не удалось загрузить потоки. Проверьте подключение Clever.</div>');
                 }
             );
         }
 
         function runWorkflow($button) {
+            if (runPending) return;
+            runPending = true;
             var workflowId = $button.data('workflow-id');
             var leadId = currentLeadId();
             var $block = $('#' + BLOCK_ID);
             var $buttons = $block.find('.clever-workflow-card__button');
             var $status = $block.find('.clever-workflow-card__status');
             var originalText = $button.text();
+            function finish() {
+                runPending = false;
+                $button.text(originalText);
+                $buttons.prop('disabled', false);
+            }
 
             $buttons.prop('disabled', true);
             $button.text('Запускаю...');
@@ -453,24 +503,23 @@ define(['jquery'], function ($) {
                     subdomain: accountSubdomain(),
                     workflow_id: workflowId,
                     lead_id: leadId,
-                    lead_name: currentLeadName()
+                    lead_name: currentLeadName(),
+                    source: 'amo-button'
                 },
                 function (response) {
+                    finish();
                     if (response.ok) {
                         $status.removeClass('clever-workflow-card__status--ok clever-workflow-card__status--error').text('');
                     } else {
-                        $status.addClass('clever-workflow-card__status--error').text(response.message || 'Не удалось запустить сценарий.');
+                        $status.addClass('clever-workflow-card__status--error').text(response.message || 'Не удалось запустить поток.');
                     }
                 },
                 function () {
-                    $status.addClass('clever-workflow-card__status--error').text('Не удалось запустить сценарий.');
+                    finish();
+                    $status.addClass('clever-workflow-card__status--error').text('Не удалось запустить поток.');
                 }
             );
 
-            window.setTimeout(function () {
-                $button.text(originalText);
-                $buttons.prop('disabled', false);
-            }, 1200);
         }
 
         function selectedLeadIds() {
@@ -616,13 +665,13 @@ define(['jquery'], function ($) {
                 '<div id="' + BULK_MODAL_ID + '" class="clever-workflow-bulk">',
                 '<div class="clever-workflow-bulk__box">',
                 '<div class="clever-workflow-bulk__head">',
-                '<div class="clever-workflow-bulk__title">Сценарии Clever</div>',
+                '<div class="clever-workflow-bulk__title">Потоки</div>',
                 '<button type="button" class="clever-workflow-bulk__close" aria-label="Закрыть">×</button>',
                 '</div>',
                 '<div class="clever-workflow-bulk__body">',
                 '<div class="clever-workflow-bulk__meta">Выбрано сделок: ' + leadIds.length + '</div>',
                 '<div class="clever-workflow-bulk__content">',
-                '<div class="clever-workflow-bulk__message clever-workflow-card__loader">Загрузка сценариев</div>',
+                '<div class="clever-workflow-bulk__message clever-workflow-card__loader">Загрузка потоков</div>',
                 '</div>',
                 '</div>',
                 '</div>',
@@ -633,7 +682,7 @@ define(['jquery'], function ($) {
             restoreListSelectionSoon(selectionSnapshot);
 
             if (!leadIds.length) {
-                bulkMessage('Выберите сделки для запуска сценария.', true);
+                bulkMessage('Выберите сделки для запуска потока.', true);
                 return;
             }
 
@@ -641,18 +690,19 @@ define(['jquery'], function ($) {
                 'GET',
                 API_BASE,
                 {
-                    subdomain: subdomain
+                    subdomain: subdomain,
+                    source: 'amo-button'
                 },
                 function (response) {
                     var workflows = response.workflows || [];
 
                     if (!response.ok) {
-                        bulkMessage(response.message || 'Сценарии недоступны.', true);
+                        bulkMessage(response.message || 'Потоки недоступны.', true);
                         return;
                     }
 
                     if (!workflows.length) {
-                        bulkMessage('Нет включенных ручных сценариев.', false);
+                        bulkMessage('Нет включенных потоков с запуском кнопкой.', false);
                         return;
                     }
 
@@ -660,14 +710,14 @@ define(['jquery'], function ($) {
                         '<div class="clever-workflow-bulk__list">' +
                         workflows.map(function (workflow) {
                             return '<button type="button" class="clever-workflow-bulk__scenario" data-workflow-id="' + workflow.id + '">' +
-                                escapeHtml(workflow.name || ('Сценарий #' + workflow.id)) +
+                                escapeHtml(workflow.name || ('Поток #' + workflow.id)) +
                                 '</button>';
                         }).join('') +
                         '</div>'
                     );
                 },
                 function () {
-                    bulkMessage('Не удалось загрузить сценарии. Проверьте подключение Clever.', true);
+                    bulkMessage('Не удалось загрузить потоки. Проверьте подключение Clever.', true);
                 }
             );
         }
@@ -687,7 +737,7 @@ define(['jquery'], function ($) {
             var $buttons = $modal.find('.clever-workflow-bulk__scenario');
 
             if (!leadIds.length) {
-                bulkMessage('Выберите сделки для запуска сценария.', true);
+                bulkMessage('Выберите сделки для запуска потока.', true);
                 return;
             }
 
@@ -700,30 +750,32 @@ define(['jquery'], function ($) {
                 {
                     subdomain: accountSubdomain(),
                     workflow_id: workflowId,
-                    lead_ids: leadIds
+                    lead_ids: leadIds,
+                    source: 'amo-button'
                 },
                 function (response) {
                     if (response.ok) {
                         $('#' + BULK_MODAL_ID).remove();
                     } else {
                         $buttons.prop('disabled', false);
-                        bulkMessage(response.message || 'Не удалось запустить сценарий.', true);
+                        bulkMessage(response.message || 'Не удалось запустить поток.', true);
                     }
                 },
                 function () {
                     $buttons.prop('disabled', false);
-                    bulkMessage('Не удалось запустить сценарий.', true);
+                    bulkMessage('Не удалось запустить поток.', true);
                 }
             );
         }
 
         function renderDpSettings() {
+            if (destroyed) return;
             injectStyles();
 
             var $input = $('input[name="workflow_id"], input[name$="[workflow_id]"]').first();
 
             if (!$input.length) {
-                window.setTimeout(renderDpSettings, 150);
+                if (dpRetries++ < 20) window.setTimeout(renderDpSettings, 150);
                 return;
             }
 
@@ -734,11 +786,17 @@ define(['jquery'], function ($) {
             var currentValue = String($input.val() || '');
             var $field = $input.closest('.widget_settings_block__input_field, .control-wrapper, .linked-form__field, .js-widget-settings__field');
             var $container = $('<div id="clever-workflow-dp-settings" class="clever-workflow-dp">' +
-                '<select class="clever-workflow-dp__select" disabled><option>Загрузка сценариев...</option></select>' +
-                '<div class="clever-workflow-dp__hint">Выберите ручной сценарий, который amoCRM запустит при срабатывании действия в воронке.</div>' +
+                '<select class="clever-workflow-dp__select" disabled><option>Загрузка потоков...</option></select>' +
+                '<div class="clever-workflow-dp__hint">Выберите поток с запуском Digital Pipeline. Он выполнится при срабатывании действия в воронке.</div>' +
+                '<button type="button" class="clever-workflow-dp__refresh" style="margin-top:8px;background:transparent;border:0;color:#137cbd;cursor:pointer">Обновить список</button>' +
                 '</div>');
 
             $input.attr('type', 'hidden');
+            $container.find('.clever-workflow-dp__refresh').on('click', function () {
+                $container.remove();
+                dpRetries = 0;
+                renderDpSettings();
+            });
 
             if ($field.length) {
                 $field.after($container);
@@ -750,25 +808,26 @@ define(['jquery'], function ($) {
                 'GET',
                 API_BASE,
                 {
-                    subdomain: accountSubdomain()
+                    subdomain: accountSubdomain(),
+                    source: 'digital-pipeline'
                 },
                 function (response) {
                     var workflows = response.workflows || [];
                     var $select = $container.find('select');
 
                     if (!response.ok) {
-                        $select.html('<option value="">' + escapeHtml(response.message || 'Сценарии недоступны') + '</option>');
+                        $select.html('<option value="">' + escapeHtml(response.message || 'Потоки недоступны') + '</option>');
                         $container.find('.clever-workflow-dp__hint').addClass('clever-workflow-dp__hint--error');
                         return;
                     }
 
                     if (!workflows.length) {
-                        $select.html('<option value="">Нет включенных ручных сценариев</option>');
+                        $select.html('<option value="">Нет включенных потоков Digital Pipeline</option>');
                         return;
                     }
 
-                    $select.html('<option value="">Выберите сценарий</option>' + workflows.map(function (workflow) {
-                        return '<option value="' + workflow.id + '">' + escapeHtml(workflow.name || ('Сценарий #' + workflow.id)) + '</option>';
+                    $select.html('<option value="">Выберите поток</option>' + workflows.map(function (workflow) {
+                        return '<option value="' + workflow.id + '">' + escapeHtml(workflow.name || ('Поток #' + workflow.id)) + '</option>';
                     }).join(''));
 
                     $select.prop('disabled', false).val(currentValue);
@@ -777,7 +836,7 @@ define(['jquery'], function ($) {
                     });
                 },
                 function () {
-                    $container.find('select').html('<option value="">Не удалось загрузить сценарии</option>');
+                    $container.find('select').html('<option value="">Не удалось загрузить потоки</option>');
                     $container.find('.clever-workflow-dp__hint').addClass('clever-workflow-dp__hint--error');
                 }
             );
@@ -794,16 +853,23 @@ define(['jquery'], function ($) {
 
         this.callbacks = {
             render: function () {
+                destroyed = false;
+                LOAD_RETRIES = 0;
                 if (isLeadCardArea()) {
                     mount();
                 }
-
                 return true;
             },
             init: function () {
                 return true;
             },
             bind_actions: function () {
+                $(window).off('focus.cleverWorkflowButtons').on('focus.cleverWorkflowButtons', function () {
+                    if (Date.now() - lastListLoad > 2000) loadButtons();
+                });
+                $(document).off('visibilitychange.cleverWorkflowButtons').on('visibilitychange.cleverWorkflowButtons', function () {
+                    if (!document.hidden && Date.now() - lastListLoad > 2000) loadButtons();
+                });
                 $(document)
                     .off('click.cleverWorkflowButtons')
                     .on('click.cleverWorkflowButtons', '.clever-workflow-card__button', function () {
@@ -841,6 +907,8 @@ define(['jquery'], function ($) {
                 return true;
             },
             dpSettings: function () {
+                dpRetries = 0;
+                destroyed = false;
                 renderDpSettings();
                 return true;
             },
@@ -848,7 +916,9 @@ define(['jquery'], function ($) {
                 return true;
             },
             destroy: function () {
-                $(document).off('click.cleverWorkflowButtons');
+                destroyed = true;
+                $(document).off('.cleverWorkflowButtons');
+                $(window).off('.cleverWorkflowButtons');
             }
         };
 

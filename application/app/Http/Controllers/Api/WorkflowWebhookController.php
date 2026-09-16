@@ -63,6 +63,12 @@ class WorkflowWebhookController extends Controller
             ], 404);
         }
 
+        // The signed test URL only captures input, even while the workflow is active.
+        if ($request->query('_workflow_test') === '1') {
+            $preview = $webhooks->captureIncomingWebhook($workflow, $request);
+            return response()->json(['ok' => true, 'started' => false, 'queued' => false, 'preview_id' => $preview['id']], 202);
+        }
+
         if (!app(WidgetSubscriptionAccessService::class)->canUse((int)$workflow->user_id, 'workflows')) {
             $preview = $webhooks->captureIncomingWebhook($workflow, $request);
 

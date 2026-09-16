@@ -1,7 +1,5 @@
 <?php
 
-use App\Filament\Resources\Integrations\AlfaResource;
-use App\Filament\Resources\Integrations\CalculatorResource;
 use App\Filament\Resources\Integrations\DistributionResource;
 use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
@@ -13,10 +11,6 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 
 return [
     'definitions' => [
-        'alfacrm' => [
-            'resource' => AlfaResource::class,
-            'public' => true,
-        ],
         'getcourse' => [
             'resource' => GetCourseResource::class,
             'public' => true,
@@ -32,6 +26,12 @@ return [
         'yclients' => [
             'resource' => YClientsResource::class,
             'public' => true,
+        ],
+        'sqns' => [
+            'resource' => SqnsResource::class,
+            'public' => true,
+            'title' => 'SQNS',
+            'description' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM.',
         ],
         'vetmanager' => [
             'resource' => VetmanagerResource::class,
@@ -49,18 +49,13 @@ return [
             'resource' => ImportResource::class,
             'public' => true,
         ],
-        'calculator' => [
-            'resource' => CalculatorResource::class,
-            'public' => true,
-            'title' => 'Калькулятор полей',
-            'description' => 'Расчет значений по формулам и автоматическая запись результата в поля amoCRM.',
-        ],
         'workflows' => [
             'resource' => WorkflowResource::class,
             'public' => true,
+            'trial_days' => 7,
             'requires_setting' => false,
             'open_page' => 'index',
-            'title' => 'Автоматизация',
+            'title' => 'Потоки',
             'description' => 'Конструктор процессов и триггеров: события, условия, действия, история запусков и секреты.',
         ],
     ],

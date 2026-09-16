@@ -3,111 +3,63 @@
     'config' => [],
     'metadata' => [],
     'readOnly' => false,
+    'nodeId' => 'trigger',
+    'nodeName' => null,
 ])
 
 @php
-    $name = $metadata['name'] ?? __('filament-workflows::workflows.builder.cards.unknown_trigger');
+    $name = $nodeName ?: ($metadata['name'] ?? 'Событие запуска');
     $icon = $metadata['icon'] ?? 'heroicon-o-bolt';
-    $color = $metadata['color'] ?? '#6B7280';
-    $summaryItems = [];
-
-    if ($type === 'workflow-completed' && filled($config['source_workflow_id'] ?? null)) {
-        $workflowModel = config('filament-workflows.models.workflow', \App\Models\Workflows\Workflow::class);
-        $workflowName = $workflowModel::query()->whereKey($config['source_workflow_id'])->value('name');
-
-        $name = $workflowName ?: 'Процесс #' . $config['source_workflow_id'];
-        $icon = 'heroicon-o-arrow-right-circle';
-        $color = '#14B8A6';
-    }
-
-    if ($type !== 'manual' && filled($config['event'] ?? null)) {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-bolt',
-            'label' => 'Событие: ' . $config['event'],
-        ];
-    }
-
-    if ($type !== 'manual' && filled($config['model'] ?? null)) {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-cube',
-            'label' => class_basename($config['model']),
-        ];
-    }
-
-    if ($type !== 'manual' && filled($config['schedule'] ?? null)) {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-clock',
-            'label' => 'Расписание: ' . $config['schedule'],
-        ];
-    }
-
-    if ($type !== 'manual' && filled($config['date_field'] ?? null)) {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-calendar-days',
-            'label' => 'Дата: ' . $config['date_field'],
-        ];
-    }
+    $icon = \App\Services\Workflows\WorkflowAmoIcons::trigger($type, $icon);
+    $hasSettings = in_array($type, ['schedule', 'generic-webhook'], true);
+    $subtitle = match ($type) {
+        'manual' => 'Запуск вручную',
+        'amo-button' => 'amoCRM · Кнопка в сделке',
+        'schedule' => 'По расписанию',
+        'date-condition' => 'По дате',
+        'generic-webhook' => 'Входящий вебхук',
+        'workflow-completed' => 'После другого сценария',
+        default => 'Событие amoCRM',
+    };
 @endphp
 
 <div
-    {{ $attributes->class([
-        'workflow-card workflow-trigger-card group relative rounded-xl border bg-white p-3 shadow-sm transition-all hover:shadow-md dark:bg-gray-900',
-        'border-primary-300 dark:border-primary-800' => !$readOnly,
-        'border-gray-200 dark:border-gray-700' => $readOnly,
-    ]) }}
+    data-workflow-node-card
+    @if(! $readOnly && $hasSettings)
+        wire:click="editTriggerNode(@js($nodeId))"
+        tabindex="0"
+        x-on:keydown.enter.self.prevent="$wire.editTriggerNode(@js($nodeId))"
+        aria-label="Настроить запуск: {{ $name }}"
+    @else
+        aria-label="{{ $name }}"
+    @endif
+    {{ $attributes->class(['workflow-card workflow-node-card workflow-node-card--compact workflow-node-card--trigger workflow-trigger-card']) }}
 >
-    <div class="flex items-start gap-3">
-        <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style="background-color: {{ $color }}18;"
-        >
-            <x-filament::icon
-                :icon="$icon"
-                class="h-4 w-4"
-                style="color: {{ $color }};"
-            />
-        </div>
-
-        <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-                <h4 class="text-sm font-semibold leading-5 text-gray-950 dark:text-white">
-                    {{ $name }}
-                </h4>
-
-                <span class="text-sm font-medium leading-5 text-primary-600 dark:text-primary-400">
-                    Триггер
-                </span>
-            </div>
-
-            @if(count($summaryItems) > 0)
-                <div class="mt-2 flex flex-wrap items-center" style="column-gap: 1.25rem; row-gap: 0.25rem;">
-                    @foreach($summaryItems as $item)
-                        @php
-                            $parts = explode(': ', (string) $item['label'], 2);
-                            $labelPrefix = count($parts) === 2 ? $parts[0] . ': ' : null;
-                            $labelValue = count($parts) === 2 ? $parts[1] : $item['label'];
-                        @endphp
-                        <span
-                            class="inline-flex max-w-full items-center gap-1.5 text-sm font-medium leading-5 text-slate-500 dark:text-gray-400">
-                            <x-filament::icon :icon="$item['icon']" class="h-3.5 w-3.5 shrink-0"/>
-                            <span class="truncate">
-                                @if($labelPrefix)
-                                    <span>{{ $labelPrefix }}</span><span
-                                        class="font-semibold text-slate-800 dark:text-gray-100">{{ $labelValue }}</span>
-                                @else
-                                    <span
-                                        class="font-semibold text-slate-800 dark:text-gray-100">{{ $labelValue }}</span>
-                                @endif
-                            </span>
-                        </span>
-                    @endforeach
-                </div>
-            @elseif($type !== 'manual')
-                <p class="mt-1.5 text-sm leading-5 text-gray-500 dark:text-gray-400">
-                    Запускает процесс при выбранном событии.
-                </p>
-            @endif
-        </div>
-
+    @if($readOnly)
+        <span class="workflow-node-port workflow-node-port--output" aria-hidden="true"></span>
+    @else
+        <button type="button" class="workflow-node-port workflow-node-port--output" x-on:pointerdown.stop="startConnection(@js($nodeId), 'output', $event)" x-on:keydown.enter.prevent.stop="startConnection(@js($nodeId), 'output', $event)" x-on:click.stop aria-label="Выход запуска"></button>
+    @endif
+    <span class="workflow-node-card__icon">
+        <x-workflow-icon :icon="$icon" :amo="str_starts_with($type, 'amocrm-') || $type === 'amo-button'" class="h-6 w-6"/>
+    </span>
+    <div class="workflow-node-card__body workflow-node-card__caption">
+        <h4 class="workflow-node-card__title" title="{{ $name }}">{{ $name }}</h4>
+        <p class="workflow-node-card__subtitle">{{ $subtitle }}</p>
     </div>
+
+    @unless($readOnly)
+        <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop>
+            <button type="button" wire:click.stop="mountAction('renameWorkflowNode', { id: @js($nodeId) })" aria-label="Переименовать ноду: {{ $name }}" title="Переименовать ноду"><x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/></button>
+            <button
+                type="button"
+                wire:click="beginTriggerReplace(@js($nodeId))"
+                aria-label="Заменить событие запуска"
+                title="Заменить событие запуска"
+            >
+                <x-filament::icon icon="heroicon-o-arrows-right-left" class="h-4 w-4"/>
+            </button>
+            <button type="button" wire:click="removeTriggerNode(@js($nodeId))" aria-label="Удалить запуск" title="Удалить запуск"><x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/></button>
+        </div>
+    @endunless
 </div>

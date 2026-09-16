@@ -19,36 +19,21 @@ class WorkflowManualAmoCrmController extends Controller
     public function index(Request $request, WidgetSubscriptionAccessService $access): JsonResponse
     {
         $account = $this->resolveAccount($request);
-
         if (!$account instanceof Account) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Подключение amoCRM для сценариев не найдено.',
-                'workflows' => [],
-            ]);
+            return response()->json(['ok' => false, 'message' => 'Подключение amoCRM для сценариев не найдено.', 'workflows' => []]);
         }
-
         if (!$access->canUse((int)$account->user_id, 'workflows')) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Доступ к виджету сценариев не активен.',
-                'workflows' => [],
-            ]);
+            return response()->json(['ok' => false, 'message' => 'Доступ к виджету сценариев не активен.', 'workflows' => []]);
         }
 
-        $workflows = $this->manualWorkflowQuery((int)$account->user_id)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn(Workflow $workflow): array => [
-                'id' => (int)$workflow->id,
-                'name' => (string)$workflow->name,
-            ])
+        $validated = $request->validate(['source' => ['nullable', 'in:manual,digital-pipeline,amo-button']]);
+        $source = $request->has('lead_id') ? 'amo-button' : ($validated['source'] ?? 'manual');
+        $workflows = $this->manualWorkflowQuery((int)$account->user_id, $source)
+            ->orderBy('name')->get(['id', 'name'])
+            ->map(fn(Workflow $workflow): array => ['id' => (int)$workflow->id, 'name' => (string)$workflow->name])
             ->values();
 
-        return response()->json([
-            'ok' => true,
-            'workflows' => $workflows,
-        ]);
+        return response()->json(['ok' => true, 'workflows' => $workflows]);
     }
 
     private function resolveAccount(Request $request): ?Account
@@ -71,14 +56,6 @@ class WorkflowManualAmoCrmController extends Controller
         return Account::query()
             ->where('active', true)
             ->whereRaw('lower(subdomain) = ?', [$subdomain])
-            ->where(function (Builder $query): void {
-                $query
-                    ->where('widget', 'workflows')
-                    ->orWhere(function (Builder $query): void {
-                        $query->where('user_id', 1)
-                            ->whereNotNull('subdomain');
-                    });
-            })
             ->orderByRaw("case when widget = 'workflows' then 0 else 1 end")
             ->latest('id')
             ->first();
@@ -104,12 +81,12 @@ class WorkflowManualAmoCrmController extends Controller
         return $value;
     }
 
-    private function manualWorkflowQuery(int $userId): Builder
+    private function manualWorkflowQuery(int $userId, string $startType = 'manual'): Builder
     {
         return Workflow::query()
             ->where(config('filament-workflows.tenancy.column', 'user_id'), $userId)
             ->where('is_active', true)
-            ->where('definition->trigger->type', 'manual');
+            ->withStartType($startType);
     }
 
     public function run(
@@ -121,6 +98,7 @@ class WorkflowManualAmoCrmController extends Controller
             'workflow_id' => ['required', 'integer'],
             'lead_id' => ['required', 'integer', 'min:1'],
             'lead_name' => ['nullable', 'string', 'max:255'],
+            'source' => ['nullable', 'in:manual,amo-button'],
             'subdomain' => ['nullable', 'string', 'max:255'],
             'account_subdomain' => ['nullable', 'string', 'max:255'],
         ]);
@@ -141,7 +119,8 @@ class WorkflowManualAmoCrmController extends Controller
             ], 403);
         }
 
-        $workflow = $this->manualWorkflowQuery((int)$account->user_id)
+        $startType = $validated['source'] ?? 'amo-button';
+        $workflow = $this->manualWorkflowQuery((int)$account->user_id, $startType)
             ->whereKey((int)$validated['workflow_id'])
             ->first();
 
@@ -152,7 +131,8 @@ class WorkflowManualAmoCrmController extends Controller
             ], 404);
         }
 
-        $run = $manualRuns->startForLead(
+        $method = $startType === 'amo-button' ? 'startButtonForLead' : 'startForLead';
+        $run = $manualRuns->$method(
             workflow: $workflow,
             account: $account,
             leadId: (int)$validated['lead_id'],
@@ -300,7 +280,7 @@ class WorkflowManualAmoCrmController extends Controller
             ]);
         }
 
-        $workflow = $this->manualWorkflowQuery((int)$account->user_id)
+        $workflow = $this->manualWorkflowQuery((int)$account->user_id, 'digital-pipeline')
             ->whereKey($workflowId)
             ->first();
 
@@ -314,11 +294,11 @@ class WorkflowManualAmoCrmController extends Controller
 
             return response()->json([
                 'ok' => false,
-                'message' => 'Ручной сценарий не найден или выключен.',
+                'message' => 'Поток с запуском Digital Pipeline не найден или выключен.',
             ]);
         }
 
-        $run = $manualRuns->startForLead(
+        $run = $manualRuns->startDigitalPipelineForLead(
             workflow: $workflow,
             account: $account,
             leadId: $leadId,

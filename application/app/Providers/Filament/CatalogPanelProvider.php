@@ -11,7 +11,7 @@ use App\Filament\Catalog\Widgets\WidgetShow as WidgetShowWidget;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\VerifyCsrfToken;
 use Exception;
-use Filament\FontProviders\GoogleFontProvider;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -36,8 +36,8 @@ class CatalogPanelProvider extends PanelProvider
             ->favicon(asset('logo/clever_mini_logo.png'))
             ->font(
                 'Manrope',
-                'https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800;900&display=swap',
-                GoogleFontProvider::class,
+                asset('fonts/clevercrm/clevercrm-v1.css'),
+                LocalFontProvider::class,
             )
             ->colors([
                 'primary' => Color::hex('#ff6a00'),

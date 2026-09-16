@@ -10,9 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\TriggerType;
+use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
 
 class WorkflowGenericWebhookService
 {
@@ -20,15 +20,16 @@ class WorkflowGenericWebhookService
 
     public function __construct(
         private readonly WorkflowExecutor $executor,
-    ) {
-    }
+    ) {}
 
     public function callbackUrl(Workflow $workflow): string
     {
-        return route('workflows.webhook', [
+        $path = route('workflows.webhook', [
             'workflow' => $workflow->getKey(),
             'signature' => $this->signature($workflow),
-        ], true);
+        ], false);
+        $base = rtrim((string) (config('workflow-webhooks.public_url') ?: config('app.url')), '/');
+        return $base.$path;
     }
 
     public function signatureIsValid(Workflow $workflow, string $signature): bool
@@ -38,13 +39,13 @@ class WorkflowGenericWebhookService
 
     public function canReceive(Workflow $workflow): bool
     {
-        return (bool)$workflow->is_active
-            && data_get($workflow->definition, 'trigger.type') === GenericWebhookTrigger::type();
+        return (bool) $workflow->is_active
+            && WorkflowStartNodes::ofType($workflow->definition, GenericWebhookTrigger::type()) !== [];
     }
 
     public function canCapture(Workflow $workflow): bool
     {
-        return data_get($workflow->definition, 'trigger.type') === GenericWebhookTrigger::type();
+        return WorkflowStartNodes::ofType($workflow->definition, GenericWebhookTrigger::type()) !== [];
     }
 
     /**
@@ -65,13 +66,13 @@ class WorkflowGenericWebhookService
             ->latest('created_at')
             ->first(['id', 'workflow_id', 'context_data']);
 
-        $triggerData = (array)data_get($run?->context_data, 'trigger_data', []);
+        $triggerData = (array) data_get($run?->context_data, 'trigger_data', []);
 
         if ($triggerData === []) {
             return null;
         }
 
-        return $this->previewFromTriggerData($workflow, $triggerData, 'run-' . $run->id);
+        return $this->previewFromTriggerData($workflow, $triggerData, 'run-'.$run->id);
     }
 
     /**
@@ -88,23 +89,23 @@ class WorkflowGenericWebhookService
     }
 
     /**
-     * @param array<string, mixed> $triggerData
+     * @param  array<string, mixed>  $triggerData
      * @return array<string, mixed>
      */
     private function previewFromTriggerData(Workflow $workflow, array $triggerData, ?string $id = null): array
     {
         return [
-            'id' => $id ?: (string)Str::ulid(),
-            'workflow_id' => (int)$workflow->id,
+            'id' => $id ?: (string) Str::ulid(),
+            'workflow_id' => (int) $workflow->id,
             'received_at' => $triggerData['received_at'] ?? null,
             'method' => $triggerData['method'] ?? 'REQUEST',
             'url' => $triggerData['url'] ?? null,
             'path' => $triggerData['path'] ?? null,
             'ip' => $triggerData['ip'] ?? null,
-            'payload' => (array)($triggerData['payload'] ?? []),
-            'query' => (array)($triggerData['query'] ?? []),
-            'headers' => $this->maskSensitiveHeaders((array)($triggerData['headers'] ?? [])),
-            'raw_body' => Str::limit((string)($triggerData['raw_body'] ?? ''), 200_000, ''),
+            'payload' => (array) ($triggerData['payload'] ?? []),
+            'query' => (array) ($triggerData['query'] ?? []),
+            'headers' => $this->maskSensitiveHeaders((array) ($triggerData['headers'] ?? [])),
+            'raw_body' => Str::limit((string) ($triggerData['raw_body'] ?? ''), 200_000, ''),
             'variables' => $this->variablesFromTriggerData($triggerData),
         ];
     }
@@ -116,30 +117,36 @@ class WorkflowGenericWebhookService
     {
         $preview = $this->captureIncomingWebhook($workflow, $request);
         $triggerData = $this->triggerData($workflow, $request);
-        $userId = (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
+        $userId = (int) ($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
 
-        $run = $this->executor->start(
-            workflow: $workflow,
-            triggerModel: null,
-            triggerSource: TriggerType::WEBHOOK,
-            triggeredBy: $userId > 0 ? $userId : null,
-        );
+        $runs = [];
+        foreach (WorkflowStartNodes::ofType($workflow->definition, GenericWebhookTrigger::type()) as $startId => $start) {
+            $run = $this->executor->start(
+                workflow: $workflow,
+                triggerModel: null,
+                triggerSource: TriggerType::WEBHOOK,
+                triggeredBy: $userId > 0 ? $userId : null,
+            );
 
-        $context = (new WorkflowContext($triggerData))
-            ->setWorkflowId((int)$workflow->id)
-            ->setWorkflowRunId((int)$run->id)
-            ->setTriggerSource(TriggerType::WEBHOOK->value)
-            ->setTriggeredBy($userId > 0 ? $userId : null);
+            $triggerData['_workflow_start_node_id'] = $startId;
+            $context = (new WorkflowContext($triggerData))
+                ->setWorkflowId((int) $workflow->id)
+                ->setWorkflowRunId((int) $run->id)
+                ->setTriggerSource(TriggerType::WEBHOOK->value)
+                ->setTriggeredBy($userId > 0 ? $userId : null);
 
-        $run->update(['context_data' => $context->toArray()]);
+            $run->update(['context_data' => $context->toArray()]);
 
-        ExecuteWorkflowJob::dispatch((int)$run->id);
+            ExecuteWorkflowJob::dispatch((int) $run->id);
 
-        return [
-            'run_id' => (int)$run->id,
-            'run_ulid' => $run->ulid,
-            'preview_id' => $preview['id'],
-        ];
+            $runs[] = ['run_id' => (int) $run->id, 'run_ulid' => $run->ulid];
+        }
+
+        if ($runs === []) {
+            throw new \InvalidArgumentException('В сценарии нет запуска через вебхук.');
+        }
+
+        return $runs[0] + ['runs' => $runs, 'preview_id' => $preview['id']];
     }
 
     /**
@@ -155,10 +162,10 @@ class WorkflowGenericWebhookService
         return [
             'source' => 'webhook',
             'event' => GenericWebhookTrigger::type(),
-            'workflow_id' => (int)$workflow->id,
+            'workflow_id' => (int) $workflow->id,
             'method' => $request->method(),
             'url' => $request->fullUrl(),
-            'path' => '/' . ltrim($request->path(), '/'),
+            'path' => '/'.ltrim($request->path(), '/'),
             'ip' => $request->ip(),
             'payload' => $payload,
             'body' => $payload,
@@ -174,7 +181,7 @@ class WorkflowGenericWebhookService
                 'headers' => $headers,
                 'method' => $request->method(),
                 'url' => $request->fullUrl(),
-                'path' => '/' . ltrim($request->path(), '/'),
+                'path' => '/'.ltrim($request->path(), '/'),
                 'ip' => $request->ip(),
                 'received_at' => $receivedAt,
             ],
@@ -213,8 +220,8 @@ class WorkflowGenericWebhookService
         $headers = [];
 
         foreach ($request->headers->all() as $name => $values) {
-            $headers[Str::of((string)$name)->lower()->replace('-', '_')->toString()] = implode(', ', array_map(
-                static fn(mixed $value): string => (string)$value,
+            $headers[Str::of((string) $name)->lower()->replace('-', '_')->toString()] = implode(', ', array_map(
+                static fn (mixed $value): string => (string) $value,
                 Arr::wrap($values),
             ));
         }
@@ -223,7 +230,7 @@ class WorkflowGenericWebhookService
     }
 
     /**
-     * @param array<string, mixed> $headers
+     * @param  array<string, mixed>  $headers
      * @return array<string, mixed>
      */
     private function maskSensitiveHeaders(array $headers): array
@@ -238,7 +245,7 @@ class WorkflowGenericWebhookService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      * @return array<int, array{mask: string, path: string, value: string}>
      */
     private function variablesFromTriggerData(array $data): array
@@ -253,15 +260,15 @@ class WorkflowGenericWebhookService
         ];
 
         foreach (['payload', 'body', 'query', 'headers'] as $root) {
-            $this->flattenVariables((array)($data[$root] ?? []), $root, $paths);
+            $this->flattenVariables((array) ($data[$root] ?? []), $root, $paths);
         }
 
         return collect($paths)
-            ->filter(fn(mixed $value, string $path): bool => $path !== '' && !is_array($value) && $value !== null && $value !== '')
-            ->map(fn(mixed $value, string $path): array => [
-                'mask' => '{{' . $path . '}}',
+            ->filter(fn (mixed $value, string $path): bool => $path !== '' && ! is_array($value) && $value !== null && $value !== '')
+            ->map(fn (mixed $value, string $path): array => [
+                'mask' => '{{'.$path.'}}',
                 'path' => $path,
-                'value' => Str::limit((string)$value, 120),
+                'value' => Str::limit((string) $value, 120),
             ])
             ->values()
             ->take(120)
@@ -269,16 +276,17 @@ class WorkflowGenericWebhookService
     }
 
     /**
-     * @param array<string|int, mixed> $value
-     * @param array<string, mixed> $paths
+     * @param  array<string|int, mixed>  $value
+     * @param  array<string, mixed>  $paths
      */
     private function flattenVariables(array $value, string $prefix, array &$paths): void
     {
         foreach ($value as $key => $item) {
-            $path = $prefix . '.' . $key;
+            $path = $prefix.'.'.$key;
 
             if (is_array($item)) {
                 $this->flattenVariables($item, $path, $paths);
+
                 continue;
             }
 
@@ -288,7 +296,7 @@ class WorkflowGenericWebhookService
 
     private function previewCacheKey(Workflow $workflow): string
     {
-        return 'workflow-generic-webhook-preview:' . $workflow->getKey();
+        return 'workflow-generic-webhook-preview:'.$workflow->getKey();
     }
 
     private function signature(Workflow $workflow): string
@@ -297,10 +305,10 @@ class WorkflowGenericWebhookService
             'sha256',
             implode('|', [
                 $workflow->getKey(),
-                (int)($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0),
-                (string)$workflow->created_at,
+                (int) ($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0),
+                (string) $workflow->created_at,
             ]),
-            (string)config('app.key'),
+            (string) config('app.key'),
         );
     }
 }

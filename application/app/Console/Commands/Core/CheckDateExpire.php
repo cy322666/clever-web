@@ -29,6 +29,7 @@ class CheckDateExpire extends Command
         ];
 
         App::query()
+            ->whereIn('name', App::definitionNames())
             ->with('user')
             ->orderBy('id')
             ->chunkById(200, function ($apps) use (&$stats, $today, $dryRun): void {

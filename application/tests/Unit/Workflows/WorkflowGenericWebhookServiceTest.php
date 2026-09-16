@@ -12,6 +12,33 @@ use Tests\TestCase;
 
 class WorkflowGenericWebhookServiceTest extends TestCase
 {
+    public function test_signed_test_url_captures_without_starting_an_active_workflow(): void
+    {
+        $workflow = (new Workflow)->forceFill(['id'=>123, 'is_active'=>true]);
+        $service = $this->createMock(WorkflowGenericWebhookService::class);
+        $service->expects($this->once())->method('signatureIsValid')->with($workflow, 'valid')->willReturn(true);
+        $service->method('canCapture')->willReturn(true);
+        $service->expects($this->once())->method('captureIncomingWebhook')->willReturn(['id'=>'test-preview']);
+        $service->expects($this->never())->method('handleIncomingWebhook');
+        $response = app(\App\Http\Controllers\Api\WorkflowWebhookController::class)->generic(
+            Request::create('/webhook?_workflow_test=1', 'POST', ['id'=>42]), $workflow, 'valid', $service,
+        );
+        $this->assertSame(202, $response->status());
+        $this->assertFalse($response->getData(true)['started']);
+        $this->assertSame('test-preview', $response->getData(true)['preview_id']);
+    }
+
+    public function test_test_capture_still_requires_valid_signature(): void
+    {
+        $service = $this->createMock(WorkflowGenericWebhookService::class);
+        $service->method('signatureIsValid')->willReturn(false);
+        $service->expects($this->never())->method('captureIncomingWebhook');
+        $response = app(\App\Http\Controllers\Api\WorkflowWebhookController::class)->generic(
+            Request::create('/webhook?_workflow_test=1'), new Workflow, 'bad', $service,
+        );
+        $this->assertSame(403, $response->status());
+    }
+
     public function test_it_builds_signed_callback_url_and_validates_signature(): void
     {
         config(['app.key' => 'base64:' . base64_encode('workflow-test-key')]);

@@ -3,6 +3,8 @@
 namespace App\Models\Workflows;
 
 use App\Workflows\Triggers\GenericWebhookTrigger;
+use App\Workflows\Triggers\AmoCrmButtonTrigger;
+use App\Services\Workflows\WorkflowSubscriptionAccess;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,17 +19,53 @@ class Workflow extends BaseWorkflow
         parent::booted();
 
         static::saving(static function (Workflow $workflow): void {
+            if ($workflow->is_active && (!$workflow->exists || $workflow->isDirty(['definition', 'is_active']))) {
+                $issues = \App\Services\Workflows\WorkflowDefinitionValidator::issues($workflow->definition ?? []);
+                if ($issues !== []) throw \Illuminate\Validation\ValidationException::withMessages(['definition' => $issues]);
+            }
+            if (array_key_exists('connections', $workflow->definition ?? [])) {
+                try {
+                    \App\Services\Workflows\WorkflowGraph::ordered($workflow->definition);
+                } catch (\InvalidArgumentException $error) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['definition' => $error->getMessage()]);
+                }
+            }
             if ($workflow->is_active && ! static::definitionHasConfiguredActions($workflow->definition)) {
                 $workflow->is_active = false;
             }
 
-            if ($workflow->is_active && static::activeDuplicateForUniqueTrigger(
-                    (string)data_get($workflow->definition, 'trigger.type'),
-                    $workflow->account_id,
-                    $workflow->user_id,
-                    $workflow->exists ? $workflow->getKey() : null,
-                )) {
-                $workflow->is_active = false;
+            if ($workflow->is_active) {
+                $userId = (int) ($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?: Auth::id());
+                $subscriptionIssue = app(WorkflowSubscriptionAccess::class)->activationIssue($userId);
+
+                if ($subscriptionIssue !== null) {
+                    if ($workflow->exists && ! $workflow->isDirty('is_active')) {
+                        $workflow->is_active = false;
+                    } else {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'is_active' => $subscriptionIssue,
+                        ]);
+                    }
+                }
+            }
+
+            if ($workflow->is_active && ! \App\Services\Workflows\WorkflowConnectionAccess::hasActiveConnection(
+                (int) ($workflow->{config('filament-workflows.tenancy.column', 'user_id')} ?: Auth::id())
+            )) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'is_active' => 'Для включения сценария нужно активное подключение amoCRM к аккаунту платформы.',
+                ]);
+            }
+
+            foreach (\App\Services\Workflows\WorkflowStartNodes::all($workflow->definition ?? []) as $start) {
+                if ($workflow->is_active && static::activeDuplicateForUniqueTrigger(
+                        (string) ($start['type'] ?? ''),
+                        $workflow->account_id,
+                        $workflow->user_id,
+                        $workflow->exists ? $workflow->getKey() : null,
+                    )) {
+                    $workflow->is_active = false;
+                }
             }
         });
 
@@ -52,13 +90,7 @@ class Workflow extends BaseWorkflow
      */
     public static function groupOptions(): array
     {
-        return static::query()
-            ->whereNotNull('group_name')
-            ->where('group_name', '<>', '')
-            ->distinct()
-            ->orderBy('group_name')
-            ->pluck('group_name', 'group_name')
-            ->all();
+        return \App\Services\Workflows\WorkflowFolders::options();
     }
 
     /**
@@ -68,12 +100,31 @@ class Workflow extends BaseWorkflow
     {
         $actions = data_get($definition, 'actions', []);
 
+        if (array_key_exists('connections', $definition ?? [])) {
+            // An isolated draft tile is not an executable scenario.
+            foreach (\App\Services\Workflows\WorkflowStartNodes::all($definition) as $id => $start) {
+                if (\App\Services\Workflows\WorkflowGraph::targets($definition['connections'], $id) !== []) return true;
+            }
+            return false;
+        }
+
         return is_array($actions) && static::actionListHasConfiguredAction($actions);
     }
 
     public static function requiresUniqueActiveTrigger(string $triggerType): bool
     {
         return str_starts_with($triggerType, 'amocrm-');
+    }
+
+    public function scopeWithStartType(\Illuminate\Database\Eloquent\Builder $query, string $type): \Illuminate\Database\Eloquent\Builder
+    {
+        // Indexed JSON paths work consistently in PostgreSQL and the isolated SQLite tests.
+        return $query->where(function ($query) use ($type): void {
+            $query->where('definition->trigger->type', $type);
+            for ($index = 0; $index < 20; $index++) {
+                $query->orWhere('definition->additional_triggers['.$index.']->type', $type);
+            }
+        });
     }
 
     public static function activeDuplicateForUniqueTrigger(
@@ -88,7 +139,7 @@ class Workflow extends BaseWorkflow
 
         $query = static::query()
             ->where('is_active', true)
-            ->where('definition->trigger->type', $triggerType);
+            ->withStartType($triggerType);
 
         if (filled($accountId)) {
             $query->where('account_id', $accountId);
@@ -150,7 +201,17 @@ class Workflow extends BaseWorkflow
     {
         parent::syncTriggerMetadata();
 
-        if (data_get($this->definition, 'trigger.type') !== GenericWebhookTrigger::type()) {
+        if (data_get($this->definition, 'trigger.type') === AmoCrmButtonTrigger::type()) {
+            $this->trigger_type = TriggerType::MANUAL;
+            $this->trigger_event = null;
+            $this->trigger_model_type = null;
+            $this->trigger_schedule = null;
+            $this->trigger_conditions = null;
+
+            return;
+        }
+
+        if (!in_array(data_get($this->definition, 'trigger.type'), [GenericWebhookTrigger::type(), \App\Workflows\Triggers\DigitalPipelineTrigger::type()], true)) {
             return;
         }
 

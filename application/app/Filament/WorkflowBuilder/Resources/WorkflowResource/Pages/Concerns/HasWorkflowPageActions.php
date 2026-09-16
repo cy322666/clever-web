@@ -24,6 +24,14 @@ use Throwable;
 
 trait HasWorkflowPageActions
 {
+    use HasWorkflowIdentity;
+    use HasWorkflowImport;
+    use HasWorkflowDebugger;
+    use HasWorkflowConnections;
+    use HasWorkflowCredentials;
+    use HasWorkflowStartNodes;
+    use HasWorkflowNodeNames;
+
     public ?string $insertActionPath = null;
 
     public ?int $insertActionIndex = null;
@@ -43,7 +51,7 @@ trait HasWorkflowPageActions
     {
         $registry = app(TriggerRegistry::class);
 
-        if (!$registry->has($type)) {
+        if (!$registry->has($type) || in_array($type, ['date-condition', 'workflow-completed'], true)) {
             Notification::make()
                 ->danger()
                 ->title(__('filament-workflows::workflows.notifications.invalid_trigger.title'))
@@ -52,13 +60,17 @@ trait HasWorkflowPageActions
             return;
         }
 
-        $this->trigger = [
+        $this->storeTriggerNode([
             'type' => $type,
-            'config' => $type === 'manual' ? [] : $registry->getDefaultConfig($type),
-        ];
+            'config' => $registry->getDefaultConfig($type),
+        ]);
 
         $this->syncDefinition();
         $this->unmountAction();
+
+        if ($type === 'schedule') {
+            $this->mountAction('configureTrigger');
+        }
     }
 
     protected function workflowMasksAction(): Action
@@ -76,20 +88,12 @@ trait HasWorkflowPageActions
             ->label('История')
             ->icon('heroicon-o-clock')
             ->color('gray')
-            ->modalHeading('История запусков')
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Закрыть')
-            ->modalWidth('7xl')
-            ->modalContent(function () {
+            ->url(function (): ?string {
                 $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
 
-                return view('filament.workflow-builder.workflow-history-modal', [
-                    'workflow' => $record,
-                    'runs' => $record ? $this->workflowHistoryRuns((int)$record->getKey()) : collect(),
-                    'fullHistoryUrl' => $record
-                        ? WorkflowRunResource::getUrl('index', ['workflow_id' => $record->getKey()])
-                        : null,
-                ]);
+                return $record
+                    ? WorkflowResource::getUrl('history', ['record' => $record])
+                    : WorkflowRunResource::getUrl('index');
             });
     }
 
@@ -108,10 +112,8 @@ trait HasWorkflowPageActions
             ->label('Удалить сценарий')
             ->icon('heroicon-o-trash')
             ->color('danger')
-            ->requiresConfirmation()
-            ->modalHeading('Удалить сценарий?')
-            ->modalDescription('Сценарий и все его исполнения будут удалены безвозвратно.')
-            ->modalSubmitActionLabel('Удалить')
+            ->requiresConfirmation(false)
+            ->modal(false)
             ->successNotificationTitle('Сценарий удалён')
             ->successRedirectUrl(WorkflowResource::getUrl('index'));
     }
@@ -405,12 +407,23 @@ trait HasWorkflowPageActions
 
     public function openAddActionAtPath(string $path, int $index): void
     {
-        $this->toggleInlineActionPicker($path, max(0, $index));
+        $this->openActionPalette($path, max(0, $index));
     }
 
     public function openAddActionForPath(string $path): void
     {
-        $this->toggleInlineActionPicker($path);
+        $this->openActionPalette($path);
+    }
+
+    private function openActionPalette(string $path, ?int $index = null): void
+    {
+        $this->closeInlineActionPicker();
+
+        $this->insertActionPath = $path;
+        $this->insertActionIndex = $index;
+        $this->targetPath = $path !== '' ? $path : null;
+
+        $this->dispatch('workflow-node-library-open', mode: 'action');
     }
 
     public function toggleInlineActionPicker(?string $path = '', ?int $index = null): void
@@ -763,11 +776,24 @@ trait HasWorkflowPageActions
         $this->syncDefinition();
     }
 
+    public function toggleWorkflowActionDisabled(string $actionId): void
+    {
+        $path = $this->findActionPathById($actionId);
+
+        if ($path === null) {
+            return;
+        }
+
+        $disabledPath = $path . '.disabled';
+        data_set($this->workflowActions, $disabledPath, ! (bool) data_get($this->workflowActions, $disabledPath, false));
+        $this->syncDefinition();
+    }
+
     public function selectActionType(string $type): void
     {
         $registry = app(ActionRegistry::class);
 
-        if (in_array($type, WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), true)) {
+        if (in_array($type, array_merge(WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), ['run_workflow']), true)) {
             Notification::make()
                 ->warning()
                 ->title('Действие пока недоступно')
@@ -788,16 +814,8 @@ trait HasWorkflowPageActions
 
         $path = (string)($this->insertActionPath ?? $this->targetPath ?? '');
 
-        if ($type === 'control-condition' && $this->isConditionBranchPath($path)) {
-            Notification::make()
-                ->warning()
-                ->title('Вложенные условия временно отключены')
-                ->body('Добавьте условие на верхнем уровне процесса.')
-                ->send();
-
-            return;
-        }
-
+        $detached = $this->insertConnection === null && $this->insertActionPath === null && $this->targetPath === null;
+        if ($detached || $this->insertConnection !== null) $this->enableExplicitConnections();
         $actions = $this->getArrayAtPath($path);
         $index = $this->insertActionIndex ?? count($actions);
         $index = min(max(0, (int)$index), count($actions));
@@ -815,20 +833,30 @@ trait HasWorkflowPageActions
         $this->enableConditionBranchForPath($path);
         $this->setArrayAtPath($path, $actions);
 
+        if ($this->insertConnection !== null) {
+            $connection = $this->insertConnection;
+            $this->syncDefinition();
+            if ($connection['targetId']) $this->disconnectWorkflowNodes($connection['sourceId'], $connection['sourcePort'], $connection['targetId']);
+            $this->connectWorkflowNodes($connection['sourceId'], $connection['sourcePort'], 'action:'.$actionId);
+            if ($connection['targetId']) $this->connectWorkflowNodes('action:'.$actionId, $type === 'control-condition' ? 'yes' : 'output', $connection['targetId']);
+        }
+        $this->insertConnection = null;
+
         $this->insertActionPath = null;
         $this->insertActionIndex = null;
         $this->targetPath = null;
         $this->inlineActionPickerKey = null;
         $this->inlineActionPickerPath = null;
         $this->inlineActionPickerIndex = null;
-        $this->editingActionId = $actionId;
-        $this->isNewAction = true;
+        $this->editingActionId = null;
+        $this->isNewAction = false;
 
         $this->syncDefinition();
         $this->unmountAction();
 
-        if ($type !== 'control-condition') {
-            $this->mountAction('configureWorkflowAction', ['actionId' => $actionId]);
+        $this->dispatch('workflow-node-library-open', mode: 'action');
+        if (isset($connection)) {
+            $this->dispatch('workflow-node-inserted', nodeId: 'action:'.$actionId, sourceId: $connection['sourceId'], sourcePort: $connection['sourcePort'], targetId: $connection['targetId']);
         }
     }
 
@@ -924,17 +952,23 @@ trait HasWorkflowPageActions
             $data = &$data[$key];
         }
 
-        unset($data['name']);
+        if ($name !== null) {
+            $data['name'] = $name;
+        }
 
         $existingConfig = $data['config'] ?? [];
+        if ($data['type'] === 'telegram_send_message') {
+            $config = \App\Workflows\Actions\TelegramSendMessageAction::protectConfig($config, $existingConfig);
+        }
 
-        foreach (['true_actions', 'false_actions'] as $key) {
+        foreach (['true_actions', 'false_actions', 'has_true_branch', 'has_false_branch'] as $key) {
             if (isset($existingConfig[$key]) && !isset($config[$key])) {
                 $config[$key] = $existingConfig[$key];
             }
         }
 
         $data['config'] = $config;
+        unset($data);
         $this->syncDefinition();
     }
 }

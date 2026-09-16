@@ -13,6 +13,40 @@ use Leek\FilamentWorkflows\Engine\WorkflowTestRunner as BaseWorkflowTestRunner;
 class WorkflowTestRunner extends BaseWorkflowTestRunner
 {
     private ?int $currentWorkflowId = null;
+    private ?array $graphDefinition = null;
+    private array $expressionDefinition = [];
+
+    public function test(array $definition, array $testInputs = [], ?Model $testModel = null): array
+    {
+        $this->graphDefinition = array_key_exists('connections', $definition) ? $definition : null;
+        $this->expressionDefinition = $definition;
+        try {
+            return parent::test($definition, $testInputs, $testModel);
+        } finally {
+            $this->graphDefinition = null;
+            $this->expressionDefinition = [];
+        }
+    }
+
+    protected function executeTestSteps(array $steps, \Leek\FilamentWorkflows\Context\WorkflowContext $context, string $parentPath): array
+    {
+        if ($this->graphDefinition === null || $parentPath !== '') return parent::executeTestSteps($steps, $context, $parentPath);
+        $edges = \App\Services\Workflows\WorkflowGraph::connections($this->graphDefinition);
+        $active = array_fill_keys(\App\Services\Workflows\WorkflowGraph::targets($edges, \App\Services\Workflows\WorkflowStartNodes::selected($this->graphDefinition, $context->getTriggerData())), true);
+        $results = [];
+        foreach (\App\Services\Workflows\WorkflowGraph::ordered($this->graphDefinition) as $id => $node) {
+            if (!isset($active[$id])) continue;
+            $step = $node['step'];
+            unset($step['config']['true_actions'], $step['config']['false_actions']);
+            $condition = \App\Services\Workflows\WorkflowGraph::condition($step);
+            $result = $condition ? $this->executeTestConditionStep($step, $context, $node['path']) : $this->executeTestStep($step, $context, $node['path']);
+            $results[] = $result;
+            if (in_array($result['status'], ['error', 'validation_error'], true)) break;
+            $port = $condition ? ((($step['disabled'] ?? false) || ($result['condition_result'] ?? false)) ? 'yes' : 'no') : 'output';
+            foreach (\App\Services\Workflows\WorkflowGraph::targets($edges, $id, $port) as $target) $active[$target] = true;
+        }
+        return $results;
+    }
 
     public function __construct(ActionRegistry $actionRegistry)
     {
@@ -31,6 +65,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         $this->currentWorkflowId = $workflowId;
 
         return (new WorkflowContext($testInputs))
+            ->setVariable('_node_names', \App\Services\Workflows\WorkflowExpressionCatalog::nodeNames($this->expressionDefinition['actions'] ?? [], $this->expressionDefinition))
             ->setWorkflowId($workflowId)
             ->setTriggerSource('test')
             ->setTriggerModel($testModel)
@@ -46,6 +81,29 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         \Leek\FilamentWorkflows\Context\WorkflowContext $context,
         string $path
     ): array {
+        if ($step['disabled'] ?? false) {
+            return $this->skippedTestStep($step, $path);
+        }
+
+        if (in_array($step['type'] ?? '', ['condition', 'control-condition'], true)) {
+            $raw = $step['config'] ?? $step['properties'] ?? [];
+            $resolved = $context->resolve($raw);
+            $action = new \App\Workflows\Actions\ControlConditionAction;
+            $validation = $action->validateResolvedConfig($raw, $resolved);
+            $result = ['id' => $step['id'] ?? 'step_'.$path, 'type' => $step['type'], 'path' => $path,
+                'name' => $step['name'] ?? $this->getActionName($step['type']), 'is_side_effect' => false,
+                'input' => $raw, 'resolved_input' => $resolved, 'output' => [], 'description' => ''];
+            if (!$validation['valid']) {
+                return $result + ['status' => 'validation_error', 'error' => implode(', ', $validation['errors'])];
+            }
+            $execution = $action->handle($resolved, $context);
+            $result['status'] = $execution['success'] ? 'completed' : 'error';
+            $result['output'] = $execution['output'] ?? [];
+            if (!$execution['success']) $result['error'] = $execution['error'] ?? 'Ошибка проверки условия.';
+            $context->setStepOutput($result['id'], $result['output']);
+            return $result;
+        }
+
         $result = parent::executeTestStep($step, $context, $path);
 
         if (str_starts_with((string)($result['type'] ?? ''), 'amocrm_')) {
@@ -53,6 +111,47 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         }
 
         return $result;
+    }
+
+    protected function executeTestConditionStep(
+        array $step,
+        \Leek\FilamentWorkflows\Context\WorkflowContext $context,
+        string $path
+    ): array {
+        if (! ($step['disabled'] ?? false)) {
+            return parent::executeTestConditionStep($step, $context, $path);
+        }
+
+        $config = $step['config'] ?? $step['properties'] ?? [];
+        $trueActions = ($config['has_true_branch'] ?? true) ? ($config['true_actions'] ?? []) : [];
+
+        return array_merge($this->skippedTestStep($step, $path), [
+            'type' => 'condition',
+            'condition_result' => null,
+            'executed_branch' => 'true',
+            'true_branch' => $this->executeTestSteps($trueActions, $context, "{$path}.config.true_actions"),
+            'false_branch' => [],
+            'description' => 'Условие выключено: без проверки, проход в ветку «Да».',
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function skippedTestStep(array $step, string $path): array
+    {
+        $type = $step['type'] ?? 'unknown';
+
+        return [
+            'id' => $step['id'] ?? "step_{$path}",
+            'type' => $type,
+            'path' => $path,
+            'name' => $step['name'] ?? $this->getActionName($type),
+            'status' => 'skipped',
+            'is_side_effect' => false,
+            'input' => $step['config'] ?? $step['properties'] ?? [],
+            'resolved_input' => [],
+            'output' => [],
+            'description' => 'Нода выключена и пропущена.',
+        ];
     }
 
     /**

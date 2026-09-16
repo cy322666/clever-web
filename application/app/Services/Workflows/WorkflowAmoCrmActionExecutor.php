@@ -5,11 +5,10 @@ namespace App\Services\Workflows;
 use App\Jobs\Distribution\ResponsibleSend as DistributionResponsibleSend;
 use App\Models\amoCRM\Field as AmoCrmField;
 use App\Models\Core\Account;
-use App\Models\Integrations\Calculator\Transaction as CalculatorTransaction;
 use App\Models\Integrations\Distribution\Setting as DistributionSetting;
 use App\Models\Integrations\Distribution\Transaction as DistributionTransaction;
+use App\Models\User;
 use App\Models\Workflows\Workflow;
-use App\Services\Calculator\FormulaEvaluator;
 use App\Services\amoCRM\Client;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
@@ -40,9 +39,13 @@ class WorkflowAmoCrmActionExecutor
     public function execute(string $actionType, array $config, ?WorkflowContext $context = null): array
     {
         $client = null;
+        $this->captureAmoExchange = true;
+        $this->capturedAmoExchange = [];
 
         try {
-            if ($context?->getVariable('_dry_run') || $context?->getVariable('_test_mode')) {
+            $config = $this->normalizeEntitySource($config);
+
+            if (($context?->getVariable('_dry_run') || $context?->getVariable('_test_mode')) && !in_array($actionType, ['amocrm_query_leads', 'amocrm_read', 'amocrm_contact_leads'], true)) {
                 return $this->dryRun($actionType, $config, $context);
             }
 
@@ -55,10 +58,8 @@ class WorkflowAmoCrmActionExecutor
 
             // Client refreshes OAuth data in the existing storage. Workflow actions below use v4 HTTP endpoints directly.
             $client = new Client($account);
+            $client->startWorkflowQueryCapture();
             $account->refresh();
-
-            $this->captureAmoExchange = (bool)$context?->getVariable('_capture_amo_exchange');
-            $this->capturedAmoExchange = [];
 
             $result = match ($actionType) {
                 'amocrm_create_lead' => $this->createEntity($client, $account, 'lead', $config, $context),
@@ -69,16 +70,18 @@ class WorkflowAmoCrmActionExecutor
                 'amocrm_update_lead_fields',
                 'amocrm_update_contact_fields',
                 'amocrm_update_company_fields' => $this->updateFields($client, $account, $config, $context),
-                'amocrm_calculate_field' => $this->calculateField($client, $account, $config, $context),
                 'amocrm_create_task' => $this->createTask($client, $account, $config, $context),
                 'amocrm_add_note' => $this->addNote($client, $account, $config, $context),
                 'amocrm_change_tags' => $this->changeTags($client, $account, $config, $context),
                 'amocrm_change_lead_status' => $this->changeLeadStatus($client, $account, $config, $context),
                 'amocrm_distribution_queue' => $this->distributeLead($client, $account, $config, $context),
                 'amocrm_find_entity' => $this->findEntity($client, $account, $config, $context),
+                'amocrm_query_leads' => $this->queryLeads($account, $config),
+                'amocrm_contact_leads' => $this->contactLeads($account, $config),
+                'amocrm_read' => $this->readAmo($account, $config),
                 'amocrm_link_entity' => $this->linkEntity($client, $account, $config, $context),
                 'amocrm_unlink_entity' => $this->unlinkEntity($client, $account, $config, $context),
-                'amocrm_start_salesbot',
+                'amocrm_start_salesbot' => $this->startSalesbot($account, $config, $context),
                 'amocrm_stop_salesbot',
                 'amocrm_manage_subscription',
                 'amocrm_update_task',
@@ -92,6 +95,7 @@ class WorkflowAmoCrmActionExecutor
             return $this->captureAmoExchange ? $this->withAmoExchange($result, $client) : $result;
         } catch (Throwable $e) {
             $result = $this->failure($e->getMessage());
+            if ($e instanceof \InvalidArgumentException) $result['retryable'] = false;
 
             return $this->captureAmoExchange ? $this->withAmoExchange($result, $client) : $result;
         }
@@ -135,6 +139,12 @@ class WorkflowAmoCrmActionExecutor
         }
 
         if ($entity === 'lead') {
+            if (isset($config['price']) && $config['price'] !== '') {
+                if (!is_numeric($config['price']) || (float) $config['price'] < 0) {
+                    throw new \InvalidArgumentException('Бюджет сделки должен быть неотрицательным числом.');
+                }
+                $payload['price'] = (float) $config['price'];
+            }
             if (!empty($config['pipeline_id'])) {
                 $payload['pipeline_id'] = (int)$config['pipeline_id'];
             }
@@ -165,6 +175,7 @@ class WorkflowAmoCrmActionExecutor
                 return $this->successById('found_existing', $entity, $entityId, $account, [
                     'deduplicated' => true,
                     'search' => $existingContact['search'] ?? null,
+                    'create_request' => ['method' => 'POST', 'path' => '/api/v4/contacts', 'body' => [$payload], 'sent' => false],
                 ]);
             }
         }
@@ -226,19 +237,31 @@ class WorkflowAmoCrmActionExecutor
      */
     private function updateFields(Client $client, Account $account, array $config, ?WorkflowContext $context): array
     {
-        $entity = (string)($config['target_entity'] ?? $config['entity'] ?? 'lead');
+        $entity = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? $config['entity'] ?? 'lead'),
+            ['lead', 'contact', 'company', 'customer'],
+            $context,
+            $config,
+        );
         $entityId = $this->currentEntityId($entity, $context, $config);
 
         if ($entityId <= 0) {
             return $this->failure('Не найдена текущая сущность amoCRM: ' . $entity);
         }
 
-        $fields = $config['fields'] ?? [];
-        $payload = $this->systemFieldsPayload($entity, $fields);
-        $customFields = $this->customFieldsPayload($account, $entity, $fields);
-
-        if ($customFields !== []) {
-            $payload['custom_fields_values'] = $customFields;
+        if (($config['body_mode'] ?? '') === 'json') {
+            $payload = WorkflowJsonBody::parse($config['json_body'] ?? null);
+            unset($payload['id']);
+        } else {
+            $fields = $config['fields'] ?? [];
+            foreach (($config['standard_fields'] ?? []) as $name => $value) {
+                if ($value !== null && $value !== '') $fields[] = ['field' => 'system:'.$name, 'value' => $value];
+            }
+            $payload = $this->systemFieldsPayload($entity, $fields);
+            $customFields = $this->customFieldsPayload($account, $entity, $fields);
+            if ($customFields !== []) {
+                $payload['custom_fields_values'] = $customFields;
+            }
         }
 
         if ($payload === []) {
@@ -257,118 +280,18 @@ class WorkflowAmoCrmActionExecutor
      * @param array<string, mixed> $config
      * @return array{success: bool, output?: array<string, mixed>, error?: string}
      */
-    private function calculateField(Client $client, Account $account, array $config, ?WorkflowContext $context): array
-    {
-        $entity = (string)($config['target_entity'] ?? 'lead');
-        $entityId = $this->currentEntityId($entity, $context, $config);
-        $field = (string)($config['result_field'] ?? $config['field'] ?? '');
-        $expression = trim((string)($config['expression'] ?? ''));
-        $transaction = CalculatorTransaction::query()->create([
-            'user_id' => $account->user_id,
-            'account_id' => $account->id,
-            'workflow_id' => $context?->getWorkflowId(),
-            'entity_type' => $entity,
-            'entity_id' => $entityId > 0 ? $entityId : null,
-            'field_id' => $field !== '' ? $field : null,
-            'field_name' => $field !== '' ? $this->calculatorFieldName($account, $entity, $field) : null,
-            'expression' => $expression !== '' ? $expression : null,
-            'status' => CalculatorTransaction::STATUS_PENDING,
-            'payload' => [
-                'round_precision' => $config['round_precision'] ?? null,
-                'trigger_entity' => Arr::get($context?->getTriggerData() ?? [], 'entity'),
-                'trigger_action' => Arr::get($context?->getTriggerData() ?? [], 'action'),
-            ],
-        ]);
-
-        if ($entityId <= 0) {
-            return $this->failCalculatorTransaction($transaction, 'Не найдена текущая сущность amoCRM: ' . $entity);
-        }
-
-        if ($field === '') {
-            return $this->failCalculatorTransaction($transaction, 'Не выбрано поле результата.');
-        }
-
-        if ($expression === '') {
-            return $this->failCalculatorTransaction($transaction, 'Не указана формула для расчета.');
-        }
-
-        try {
-            $result = app(FormulaEvaluator::class)->evaluate(
-                $expression,
-                (int)($config['round_precision'] ?? 2),
-            );
-
-            $fields = [
-                [
-                    'field' => $field,
-                    'value' => $result,
-                ],
-            ];
-            $payload = $this->systemFieldsPayload($entity, $fields);
-            $customFields = $this->customFieldsPayload($account, $entity, $fields);
-
-            if ($customFields !== []) {
-                $payload['custom_fields_values'] = $customFields;
-            }
-
-            if ($payload === []) {
-                throw new RuntimeException('Не удалось подготовить поле результата для записи.');
-            }
-
-            $this->amoRequest($account, 'PATCH', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId, $payload);
-            $this->rememberAmoMutation($account, $context, 'amocrm_calculate_field', $entity, $entityId, [
-                'update_' . $entity,
-            ]);
-
-            $transaction->update([
-                'result_value' => (string)$result,
-                'status' => CalculatorTransaction::STATUS_SUCCESS,
-                'payload' => array_merge((array)$transaction->payload, [
-                    'amo_payload' => $payload,
-                ]),
-            ]);
-
-            return $this->successById('calculated', $entity, $entityId, $account, [
-                'result' => $result,
-                'expression' => $expression,
-                'field' => $field,
-                'transaction_id' => $transaction->id,
-            ]);
-        } catch (Throwable $exception) {
-            return $this->failCalculatorTransaction($transaction, $exception->getMessage());
-        }
-    }
-
-    /**
-     * @return array{success: false, error: string}
-     */
-    private function failCalculatorTransaction(CalculatorTransaction $transaction, string $message): array
-    {
-        $transaction->update([
-            'status' => CalculatorTransaction::STATUS_ERROR,
-            'error_message' => $message,
-        ]);
-
-        return $this->failure($message);
-    }
-
-    private function calculatorFieldName(Account $account, string $entity, string $field): ?string
-    {
-        $systemLabel = $this->amoSystemFieldLabel($entity, $field);
-
-        if ($systemLabel !== null) {
-            return $systemLabel;
-        }
-
-        return $this->field($account, $entity, $field)?->name;
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     * @return array{success: bool, output?: array<string, mixed>, error?: string}
-     */
     private function createTask(Client $client, Account $account, array $config, ?WorkflowContext $context): array
     {
+        $json = ($config['body_mode'] ?? '') === 'json' ? WorkflowJsonBody::parse($config['json_body'] ?? null) : null;
+        if ($json !== null) {
+            $entityTypes = ['leads' => 'lead', 'contacts' => 'contact', 'companies' => 'company', 'customers' => 'customer'];
+            if (!isset($entityTypes[$json['entity_type'] ?? ''])) return $this->failure('Укажите entity_type: leads, contacts, companies или customers.');
+            $config = $json + [
+                'entity_source' => 'manual',
+                'target_entity' => $entityTypes[$json['entity_type']],
+                'target_entity_id' => $json['entity_id'] ?? null,
+            ];
+        }
         $entity = (string)($config['target_entity'] ?? 'lead');
         $entityId = $this->currentEntityId($entity, $context, $config);
 
@@ -376,7 +299,9 @@ class WorkflowAmoCrmActionExecutor
             return $this->failure('Не найдена сущность для постановки задачи: ' . $entity);
         }
 
+        if (!in_array($entity, ['lead', 'contact', 'company', 'customer'], true)) return $this->failure('Неизвестный тип сущности для задачи.');
         $taskType = (int)($config['task_type_id'] ?? 1);
+        if ($taskType < 1 || trim((string)($config['text'] ?? '')) === '') return $this->failure('Укажите тип и текст задачи.');
         $payload = [
             'entity_id' => $entityId,
             'entity_type' => $this->entityPlural($entity),
@@ -388,6 +313,8 @@ class WorkflowAmoCrmActionExecutor
         if (!empty($config['responsible_user_id'])) {
             $payload['responsible_user_id'] = (int)$config['responsible_user_id'];
         }
+
+        if ($json !== null) $payload = array_replace($json, $payload);
 
         $body = $this->amoRequest($account, 'POST', '/api/v4/tasks', [$payload]);
         $taskId = $this->extractEmbeddedEntityId($body, 'task');
@@ -407,7 +334,12 @@ class WorkflowAmoCrmActionExecutor
      */
     private function addNote(Client $client, Account $account, array $config, ?WorkflowContext $context): array
     {
-        $entity = (string)($config['target_entity'] ?? 'lead');
+        $entity = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? 'lead'),
+            ['lead', 'contact', 'company', 'customer'],
+            $context,
+            $config,
+        );
         $entityId = $this->currentEntityId($entity, $context, $config);
 
         if ($entityId <= 0) {
@@ -456,7 +388,12 @@ class WorkflowAmoCrmActionExecutor
      */
     private function changeTags(Client $client, Account $account, array $config, ?WorkflowContext $context): array
     {
-        $entity = (string)($config['target_entity'] ?? 'lead');
+        $entity = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? 'lead'),
+            ['lead', 'contact', 'company', 'customer'],
+            $context,
+            $config,
+        );
         $entityId = $this->currentEntityId($entity, $context, $config);
 
         if ($entityId <= 0) {
@@ -512,6 +449,12 @@ class WorkflowAmoCrmActionExecutor
         }
 
         $payload = [];
+
+        foreach (['pipeline_id', 'status_id'] as $field) {
+            if (filled($config[$field] ?? null) && (!is_numeric($config[$field]) || (int)$config[$field] <= 0)) {
+                return $this->failure('Воронка и статус должны содержать ID из списка или результат выражения.');
+            }
+        }
 
         if (!empty($config['pipeline_id'])) {
             $payload['pipeline_id'] = (int)$config['pipeline_id'];
@@ -770,7 +713,12 @@ class WorkflowAmoCrmActionExecutor
      */
     private function linkEntity(Client $client, Account $account, array $config, ?WorkflowContext $context): array
     {
-        $entity = (string)($config['target_entity'] ?? 'lead');
+        $entity = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? 'lead'),
+            ['lead', 'contact', 'company', 'customer'],
+            $context,
+            $config,
+        );
         $entityId = $this->currentEntityId($entity, $context, $config);
         $linkedEntity = (string)($config['linked_entity'] ?? '');
         $linkedId = (int)($config['linked_entity_id'] ?? 0);
@@ -805,7 +753,12 @@ class WorkflowAmoCrmActionExecutor
      */
     private function unlinkEntity(Client $client, Account $account, array $config, ?WorkflowContext $context): array
     {
-        $entity = (string)($config['target_entity'] ?? 'lead');
+        $entity = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? 'lead'),
+            ['lead', 'contact', 'company', 'customer'],
+            $context,
+            $config,
+        );
         $entityId = $this->currentEntityId($entity, $context, $config);
         $linkedEntity = (string)($config['linked_entity'] ?? '');
         $linkedId = (int)($config['linked_entity_id'] ?? 0);
@@ -833,46 +786,177 @@ class WorkflowAmoCrmActionExecutor
         ]);
     }
 
+    private function startSalesbot(Account $account, array $config, ?WorkflowContext $context = null): array
+    {
+        $botId = filter_var($config['bot_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $entity = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? 'leads'),
+            ['lead', 'contact', 'customer'],
+            $context,
+            $config,
+        );
+        $entityId = $this->currentEntityId($entity, $context, $config);
+        $entity = $this->entityPlural($entity);
+        if (!$botId || !$entityId) throw new \InvalidArgumentException('Укажите корректные ID Salesbot и сущности.');
+        if (!in_array($entity, ['leads', 'contacts', 'customers'], true)) {
+            throw new \InvalidArgumentException('Salesbot можно запустить для сделки, контакта или покупателя.');
+        }
+
+        $this->amoRequest($account, 'POST', '/api/v4/bots/'.$botId.'/run', [
+            'entity_id' => $entityId, 'entity_type' => $entity,
+        ], expectedStatus: 202);
+
+        return ['success' => true, 'output' => [
+            'bot_id' => $botId, 'entity_id' => $entityId, 'entity_type' => $entity, 'status' => 'accepted',
+        ]];
+    }
+
+    private function contactLeads(Account $account, array $config): array
+    {
+        $id = fn ($value) => filter_var($value, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 0;
+        $contactId = $id($config['contact_id'] ?? null);
+        if (($config['source'] ?? 'lead') === 'lead') {
+            $leadId = $id($config['lead_id'] ?? null);
+            if (!$leadId) throw new RuntimeException('Укажите ID исходной сделки.');
+            $lead = $this->amoRequest($account, 'GET', '/api/v4/leads/'.$leadId, query:['with'=>'contacts']);
+            $contacts = $lead['_embedded']['contacts'] ?? [];
+            $main = collect($contacts)->firstWhere('is_main', true) ?? ($contacts[0] ?? null);
+            $contactId = $id($main['id'] ?? null);
+            if (!$contactId) return ['success'=>true,'output'=>['items'=>[],'count'=>0,'contact_id'=>null,'has_more'=>false,'message'=>'У исходной сделки нет доступного контакта.']];
+        }
+        if (!$contactId) throw new RuntimeException('Укажите ID контакта.');
+        $contact = $this->amoRequest($account, 'GET', '/api/v4/contacts/'.$contactId, query:['with'=>'leads']);
+        $ids = array_values(array_unique(array_filter(array_map(fn ($lead) => $id($lead['id'] ?? null), $contact['_embedded']['leads'] ?? []))));
+        if (count($ids) > 5000) throw new RuntimeException('У контакта более 5000 сделок. Нужна обработка частями; неполный список не возвращён.');
+        $exclude = $id($config['exclude_lead_id'] ?? null);
+        if (filled($config['exclude_lead_id'] ?? null) && !$exclude) throw new RuntimeException('Некорректный ID исключаемой сделки.');
+        $ids = array_values(array_filter($ids, fn ($leadId) => $leadId !== $exclude));
+        $items = [];
+        foreach (array_chunk($ids, 250) as $batch) {
+            $body = $this->amoRequest($account, 'GET', '/api/v4/leads', query:['filter'=>['id'=>$batch], 'limit'=>250, 'page'=>1]);
+            if (filled($body['_links']['next']['href'] ?? null)) throw new RuntimeException('amoCRM вернула неполную страницу сделок. Список не обработан.');
+            foreach ($body['_embedded']['leads'] ?? [] as $lead) {
+                if (in_array((int)($lead['id'] ?? 0), $batch, true)) $items[$lead['id']] = $lead;
+            }
+        }
+        return ['success'=>true,'output'=>['items'=>array_values($items),'count'=>count($items),'contact_id'=>$contactId,'has_more'=>false]];
+    }
+
+    private function queryLeads(Account $account, array $config): array
+    {
+        $query = WorkflowLeadQuery::build($config);
+        $body = $this->amoRequest($account, 'GET', '/api/v4/leads', query: $query);
+        $items = array_values($body['_embedded']['leads'] ?? []);
+        $hasMore = filled($body['_links']['next']['href'] ?? null);
+
+        return ['success' => true, 'output' => [
+            'items' => $items, 'count' => count($items), 'page' => $query['page'],
+            'has_more' => $hasMore, 'next_page' => $hasMore ? $query['page'] + 1 : null,
+            'request' => ['method' => 'GET', 'path' => '/api/v4/leads', 'query' => $query],
+        ]];
+    }
+
     private function resolveAccount(?WorkflowContext $context): ?Account
     {
         $triggerAccountId = (int)Arr::get($context?->getTriggerData() ?? [], 'account.id');
         $workflow = $context?->getWorkflowId() ? Workflow::query()->find($context->getWorkflowId()) : null;
         $workflowUserId = (int)($workflow?->{config('filament-workflows.tenancy.column', 'user_id')} ?? 0);
+        $userId = $workflowUserId ?: (int)($context?->getTriggeredBy() ?? 0) ?: (int)Auth::id();
+
+        if ($userId <= 0) return null;
 
         if ($triggerAccountId > 0) {
-            $query = Account::query()->whereKey($triggerAccountId)->where('active', true);
-
-            if ($workflowUserId > 0) {
-                $query->where('user_id', $workflowUserId);
-            }
+            $query = Account::query()->whereKey($triggerAccountId)->where('active', true)->where('user_id', $userId);
 
             return $query->first();
         }
 
-        $userId = $workflowUserId ?: (int)($context?->getTriggeredBy() ?? 0) ?: (int)Auth::id();
+        $account = User::query()->find($userId)?->resolveAmoAccountForWidget('workflows');
 
-        if ($userId <= 0) {
-            return null;
+        return $account instanceof Account
+            && (bool) $account->active
+            && filled($account->refresh_token)
+            ? $account
+            : null;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function normalizeEntitySource(array $config): array
+    {
+        if (in_array($config['entity_source'] ?? null, ['context', 'manual'], true)) {
+            return $config;
         }
 
-        $workflowAccount = Account::query()
-            ->where('user_id', $userId)
-            ->where('active', true)
-            ->where('widget', 'workflows')
-            ->whereNotNull('refresh_token')
-            ->latest('id')
-            ->first();
+        $configuredId = $config['target_entity_id'] ?? $config['entity_id'] ?? null;
+        $config['entity_source'] = filled($configuredId) ? 'manual' : 'context';
 
-        if ($workflowAccount instanceof Account || $userId !== 1) {
-            return $workflowAccount;
+        return $config;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function entitySource(array $config): string
+    {
+        if (in_array($config['entity_source'] ?? null, ['context', 'manual'], true)) {
+            return $config['entity_source'];
         }
 
-        return Account::query()
-            ->where('user_id', $userId)
-            ->where('active', true)
-            ->whereNotNull('refresh_token')
-            ->latest('id')
-            ->first();
+        return filled($config['target_entity_id'] ?? $config['entity_id'] ?? null) ? 'manual' : 'context';
+    }
+
+    /**
+     * @param array<int, string> $allowed
+     * @param array<string, mixed> $config
+     */
+    private function currentTargetEntity(
+        string $configured,
+        array $allowed,
+        ?WorkflowContext $context,
+        array $config = []
+    ): string {
+        $configured = $this->singularEntity($configured);
+        $allowed = array_values(array_unique(array_map(fn(string $entity): string => $this->singularEntity($entity), $allowed)));
+
+        if ($this->entitySource($config) === 'manual') {
+            return $configured;
+        }
+
+        if ((bool)($config['target_entity_locked'] ?? false)) {
+            return $configured;
+        }
+
+        $data = $context?->getTriggerData() ?? [];
+        $candidate = $this->singularEntity((string)(
+            Arr::get($data, 'entity')
+            ?: Arr::get($data, 'item.entity_type')
+            ?: Arr::get($data, 'item.element_type')
+            ?: ''
+        ));
+
+        if (in_array($candidate, $allowed, true) && $this->currentEntityId($candidate, $context, $config) > 0) {
+            return $candidate;
+        }
+
+        foreach ($allowed as $entity) {
+            if ($this->numericId(Arr::get($data, $entity . '.id')) > 0) {
+                return $entity;
+            }
+        }
+
+        if ($context && method_exists($context, 'getStepOutputs')) {
+            foreach (array_reverse($context->getStepOutputs(), true) as $output) {
+                foreach ($allowed as $entity) {
+                    if ($this->entityIdFromStepOutput($entity, $output) > 0) {
+                        return $entity;
+                    }
+                }
+            }
+        }
+
+        return in_array($configured, $allowed, true) ? $configured : ($allowed[0] ?? $configured);
     }
 
     /**
@@ -880,22 +964,44 @@ class WorkflowAmoCrmActionExecutor
      */
     private function currentEntityId(string $entity, ?WorkflowContext $context, array $config = []): int
     {
-        $configuredId = $this->numericId($config['target_entity_id'] ?? $config['entity_id'] ?? null);
+        $entity = $this->singularEntity($entity);
 
-        if ($configuredId > 0) {
-            return $configuredId;
+        if ($this->entitySource($config) === 'manual') {
+            foreach (['target_entity_id', 'entity_id'] as $key) {
+                if (array_key_exists($key, $config)) {
+                    return $this->numericId($config[$key]);
+                }
+            }
+
+            return 0;
         }
 
         $data = $context?->getTriggerData() ?? [];
-        $triggerEntity = (string)Arr::get($data, 'entity', '');
+        $triggerEntity = $this->singularEntity((string)(Arr::get($data, 'entity') ?: Arr::get($data, 'item.entity_type') ?: ''));
         $triggerId = $this->numericId(Arr::get($data, $entity . '.id'))
-            ?: ($triggerEntity === $entity ? $this->numericId(Arr::get($data, 'item.id')) : 0);
+            ?: ($triggerEntity === $entity
+                ? ($this->numericId(Arr::get($data, 'item.id'))
+                    ?: $this->numericId(Arr::get($data, 'item.element_id'))
+                    ?: $this->numericId(Arr::get($data, 'id')))
+                : 0);
 
         if ($triggerId > 0) {
             return $triggerId;
         }
 
         return $this->previousStepEntityId($entity, $context);
+    }
+
+    private function singularEntity(string $entity): string
+    {
+        return match ($entity) {
+            'leads' => 'lead',
+            'contacts' => 'contact',
+            'companies' => 'company',
+            'customers' => 'customer',
+            'tasks' => 'task',
+            default => $entity,
+        };
     }
 
     private function previousStepEntityId(string $entity, ?WorkflowContext $context): int
@@ -1131,7 +1237,12 @@ class WorkflowAmoCrmActionExecutor
         array $config,
         ?WorkflowContext $context
     ): void {
-        $target = (string)($config['target_entity'] ?? '');
+        $target = $this->currentTargetEntity(
+            (string)($config['target_entity'] ?? ''),
+            ['lead', 'contact', 'company', 'customer'],
+            $context,
+            $config,
+        );
 
         if ($createdEntityId <= 0 || $target === '' || $target === $createdEntity) {
             return;
@@ -1547,12 +1658,22 @@ class WorkflowAmoCrmActionExecutor
      * @param array<string, mixed> $query
      * @return array<string, mixed>
      */
+    private function readAmo(Account $account, array $config): array
+    {
+        $request = WorkflowAmoReadCatalog::build($config, $account->user_id);
+        $body = $this->amoRequest($account, 'GET', $request['path'], null, $request['query']);
+        $collections = array_filter($body['_embedded'] ?? [], fn($items) => is_array($items) && array_is_list($items));
+        $items = $collections ? reset($collections) : (isset($body['id']) ? [$body] : []);
+        return ['success' => true, 'output' => ['data' => $body, 'items' => $items, 'count' => count($items), 'has_more' => filled(data_get($body, '_links.next.href'))]];
+    }
+
     private function amoRequest(
         Account $account,
         string $method,
         string $path,
         ?array $payload = null,
-        array $query = []
+        array $query = [],
+        ?int $expectedStatus = null
     ): array {
         $method = strtoupper($method);
         $url = $this->amoBaseUrl($account) . $path;
@@ -1566,16 +1687,22 @@ class WorkflowAmoCrmActionExecutor
             $options['json'] = $payload;
         }
 
-        $response = Http::withToken((string)$account->access_token)
-            ->acceptJson()
-            ->asJson()
-            ->timeout(30)
-            ->send($method, $url, $options);
+        try {
+            $response = Http::withToken((string)$account->access_token)
+                ->withoutRedirecting()
+                ->acceptJson()
+                ->asJson()
+                ->timeout(30)
+                ->send($method, $url, $options);
+        } catch (\Illuminate\Http\Client\ConnectionException $error) {
+            $this->captureAmoRequest($method, $url, $query, $payload, null, null);
+            throw $error;
+        }
 
         $body = $this->responseBody($response);
         $this->captureAmoRequest($method, $url, $query, $payload, $response, $body);
 
-        if ($response->failed()) {
+        if ($response->failed() || ($expectedStatus !== null && $response->status() !== $expectedStatus)) {
             throw new RuntimeException($this->amoErrorMessage($method, $path, $response, $body));
         }
 
@@ -1624,7 +1751,7 @@ class WorkflowAmoCrmActionExecutor
         string $url,
         array $query,
         ?array $payload,
-        Response $response,
+        ?Response $response,
         mixed $body
     ): void {
         if (!$this->captureAmoExchange) {
@@ -1639,9 +1766,9 @@ class WorkflowAmoCrmActionExecutor
                 'body' => $payload,
             ],
             'response' => [
-                'code' => $response->status(),
+                'code' => $response?->status(),
                 'body' => $body,
-                'error' => $response->failed() ? $response->reason() : null,
+                'error' => $response === null ? 'HTTP-ответ не получен: ошибка соединения.' : ($response->failed() ? $response->reason() : null),
             ],
         ];
     }
@@ -1861,9 +1988,24 @@ class WorkflowAmoCrmActionExecutor
         }
 
         $result['output'] ??= [];
-        $result['output']['amo_exchange'] = $queries;
+        $result['output']['amo_exchange'] = $this->safeExchangeValue(array_slice($queries, 0, 20));
+        if (count($queries) > 20) $result['output']['amo_exchange_truncated'] = true;
 
         return $result;
+    }
+
+    private function safeExchangeValue(mixed $value, int $depth = 0): mixed
+    {
+        if ($depth > 16) return '[Сокращено]';
+        if (is_string($value)) return mb_strlen($value) > 8000 ? mb_substr($value, 0, 8000).'… [Сокращено]' : $value;
+        if (!is_array($value)) return $value;
+        $safe = [];
+        foreach (array_slice($value, 0, 250, true) as $key => $item) {
+            $safe[$key] = preg_match('/authorization|password|secret|token|api[_-]?key/i', (string)$key)
+                ? '[Скрыто]' : ($key === 'url' && is_string($item) ? $this->safeAmoUrl($item) : $this->safeExchangeValue($item, $depth + 1));
+        }
+        if (count($value) > 250) $safe['_truncated'] = true;
+        return $safe;
     }
 
     /**

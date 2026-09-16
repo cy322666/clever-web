@@ -17,11 +17,33 @@ class EditWorkflow extends BaseEditWorkflow
 
     protected static string $resource = WorkflowResource::class;
 
-    protected Width|string|null $maxContentWidth = Width::FiveExtraLarge;
+    protected Width|string|null $maxContentWidth = Width::Full;
+
+    protected string $view = 'filament.workflow-builder.workflow-editor-page';
+
+    protected ?bool $requestedActivation = null;
 
     protected function getHeaderActions(): array
     {
         return [];
+    }
+
+    public function toggleWorkflowActivation(): void
+    {
+        $this->authorizeAccess();
+        abort_unless((int) $this->getRecord()->user_id === (int) auth()->id(), 403);
+        $this->requestedActivation = ! $this->getRecord()->is_active;
+        try {
+            $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+            $this->data['is_active'] = (bool) $this->getRecord()->refresh()->is_active;
+        } finally {
+            $this->requestedActivation = null;
+        }
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return null;
     }
 
     public function getTitle(): string
@@ -37,6 +59,8 @@ class EditWorkflow extends BaseEditWorkflow
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $data = parent::mutateFormDataBeforeSave($data);
+        // The canvas form has no fields, so Filament strips data.is_active on dehydration.
+        $data['is_active'] = $this->requestedActivation ?? (bool) $this->getRecord()->is_active;
         $data = WorkflowResource::forceInactiveWhenActivationInvalid($data, $this->record, notify: true);
 
         if (data_get($data, 'definition.trigger.type') !== WorkflowCompletedTrigger::type()) {
@@ -50,13 +74,6 @@ class EditWorkflow extends BaseEditWorkflow
 
     protected function getRedirectUrl(): string
     {
-        if (request()->boolean('embedded')) {
-            return WorkflowResource::getUrl('edit', [
-                'record' => $this->record,
-                'embedded' => 1,
-            ]);
-        }
-
-        return parent::getRedirectUrl();
+        return WorkflowResource::getUrl('edit', ['record' => $this->record]);
     }
 }

@@ -8,14 +8,13 @@ use App\Filament\Resources\Billing\InvoiceRequestResource;
 use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Filament\Resources\Core\UserResource;
-use App\Filament\Resources\Integrations\Alfa\TransactionResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\FontProviders\GoogleFontProvider;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -68,8 +67,8 @@ class AppPanelProvider extends PanelProvider
             ->favicon(asset('logo/clever_mini_logo.png'))
             ->font(
                 'Manrope',
-                'https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800;900&display=swap',
-                GoogleFontProvider::class,
+                asset('fonts/clevercrm/clevercrm-v1.css'),
+                LocalFontProvider::class,
             )
 //            ->emailVerification()
 //            ->profile(UserResource\Pages\EditUser::class)//TODO
@@ -85,6 +84,10 @@ class AppPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\\Filament\\App\\Widgets')
             ->databaseNotifications()
+            ->renderHook(\Filament\View\PanelsRenderHook::USER_MENU_BEFORE, fn () =>
+                request()->routeIs('filament.app.resources.workflows.index', 'filament.app.resources.workflows.analytics')
+                    ? view('filament.workflow-builder.workflow-theme-toggle')
+                    : '')
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
 
                 return $builder->groups([

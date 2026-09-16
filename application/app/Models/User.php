@@ -8,7 +8,6 @@ use App\Models\amoCRM\Status;
 use App\Models\Billing\SubscriptionInvoiceRequest;
 use App\Models\Billing\WidgetSubscription;
 use App\Models\Core\Account;
-use App\Models\Integrations\Alfa\Branch;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,8 +21,6 @@ use Rappasoft\LaravelAuthenticationLog\Traits\AuthenticationLoggable;
 class User extends Authenticatable implements FilamentUser
 {
     use HasApiTokens, HasFactory, Notifiable, AuthenticationLoggable;
-
-    private const SHARED_AMO_CONNECTION_USER_ID = 1;
 
     /**
      * The attributes that are mass assignable.
@@ -76,16 +73,6 @@ class User extends Authenticatable implements FilamentUser
     public function getcourse_settings(): HasOne
     {
         return $this->hasOne(Integrations\GetCourse\Setting::class);
-    }
-
-    public function alfacrm_settings(): HasOne
-    {
-        return $this->hasOne(Integrations\Alfa\Setting::class);
-    }
-
-    public function alfacrm_branches(): HasMany
-    {
-        return $this->hasMany(Branch::class);
     }
 
     public function tilda_settings(): HasOne
@@ -182,17 +169,23 @@ class User extends Authenticatable implements FilamentUser
     {
         $widget = Account::normalizeWidget($widget);
 
-        if ($this->usesSharedAmoConnectionAcrossWidgets()) {
-            $shared = $this->resolveAnyActiveAmoAccount();
-
-            if ($shared instanceof Account) {
-                return $shared;
-            }
-        }
-
         $specific = $this->accounts()
             ->where('widget', $widget)
+            ->latest('id')
             ->first();
+
+        if ($specific && $this->amoAccountIsUsable($specific)) {
+            return $specific;
+        }
+
+        // One platform user is bound to one amoCRM domain. Any live OAuth
+        // connection for that domain is therefore valid for every integration,
+        // including the workflow editor.
+        $shared = $this->resolveAnyActiveAmoAccount();
+
+        if ($shared instanceof Account) {
+            return $shared;
+        }
 
         if ($specific) {
             return $specific;
@@ -227,7 +220,14 @@ class User extends Authenticatable implements FilamentUser
 
     public function usesSharedAmoConnectionAcrossWidgets(): bool
     {
-        return (int)$this->getKey() === self::SHARED_AMO_CONNECTION_USER_ID;
+        return true;
+    }
+
+    private function amoAccountIsUsable(Account $account): bool
+    {
+        return (bool)$account->active
+            && filled($account->subdomain)
+            && (filled($account->access_token) || filled($account->refresh_token));
     }
 
     private function resolveAnyActiveAmoAccount(): ?Account

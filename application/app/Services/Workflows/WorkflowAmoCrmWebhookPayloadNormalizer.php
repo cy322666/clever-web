@@ -3,6 +3,7 @@
 namespace App\Services\Workflows;
 
 use Illuminate\Support\Arr;
+use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 
 class WorkflowAmoCrmWebhookPayloadNormalizer
 {
@@ -12,8 +13,9 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
      */
     public function normalize(array $payload): array
     {
-        $payload = $this->normalizeCompanyPayload($payload);
+        $payload = $this->normalizeCompanyPayload($this->normalizeEnvelopes($payload));
         $events = [];
+        $supported = array_flip(AmoCrmWebhookTriggerCatalog::eventCodes());
 
         foreach ($this->entityMap() as $payloadKey => $entity) {
             $actions = Arr::get($payload, $payloadKey);
@@ -29,6 +31,9 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
 
                 foreach ($this->resolveEntities((string)$payloadKey, (string)$entity, $items) as $resolvedEntity) {
                     $event = $this->eventCode((string)$action, $resolvedEntity);
+                    if (!isset($supported[$event])) continue;
+                    $matchingItems = $this->matchingItems($items, $resolvedEntity);
+                    if ($matchingItems === []) continue;
 
                     $events[$event] = [
                         'event' => $event,
@@ -36,7 +41,8 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
                         'action' => (string)$action,
                         'payload_key' => (string)$payloadKey,
                         'action_key' => (string)$action,
-                        'item' => $this->firstItem($items, $resolvedEntity),
+                        'item' => $matchingItems[0],
+                        'items' => $matchingItems,
                     ];
                 }
             }
@@ -59,8 +65,59 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
             'customers' => 'customer',
             'tasks' => 'task',
             'talks' => 'talk',
+            'message' => 'message',
+            'outgoing_message' => 'outgoing_message',
+            'unsorted' => 'unsorted',
             'chat_template_reviews' => 'chat_template_review',
         ];
+    }
+
+    /** Canonicalize the documented aliases without dropping any item fields. */
+    private function normalizeEnvelopes(array $payload): array
+    {
+        foreach (['task'=>'tasks', 'talk'=>'talks'] as $alias => $canonical) {
+            if (!is_array($payload[$alias] ?? null)) continue;
+            foreach ($payload[$alias] as $action => $items) {
+                $payload[$canonical][$action] = array_merge(
+                    $this->normalizeItems($payload[$canonical][$action] ?? [], (string)$action),
+                    $this->normalizeItems($items, (string)$action),
+                );
+            }
+            unset($payload[$alias]);
+        }
+        // WhatsApp template review notifications have a bare top-level "add" envelope.
+        foreach ($this->normalizeItems($payload['add'] ?? [], 'add') as $item) {
+            if (($item['type'] ?? '') === 'waba' && (isset($item['reviews']) || isset($item['is_on_review']))) {
+                $existing = $this->normalizeItems($payload['chat_template_reviews']['add'] ?? [], 'add');
+                if (!in_array($item, $existing, true)) $existing[] = $item;
+                $payload['chat_template_reviews']['add'] = $existing;
+            }
+        }
+        foreach (array_merge(array_keys($this->entityMap()), ['companies']) as $key) {
+            if (!is_array($payload[$key] ?? null)) continue;
+            foreach ($payload[$key] as $action => $items) {
+                $payload[$key][$action] = $this->normalizeItems($items, (string)$action, $key === 'unsorted' ? 'uid' : 'id');
+            }
+        }
+        return $payload;
+    }
+
+    private function normalizeItems(mixed $items, string $action, string $idKey = 'id', int $depth = 0): array
+    {
+        if ($depth > 4) return [];
+        if (!is_array($items)) {
+            if ($action !== 'delete' || (!is_string($items) && !is_int($items))) return [];
+            return preg_match($idKey === 'uid' ? '/^[a-zA-Z0-9_-]+$/D' : '/^[1-9][0-9]*$/D', (string)$items) ? [[$idKey=>$items]] : [];
+        }
+        if ($items === []) return [];
+        if (isset($items['id']) || isset($items['uid'])) return [$items];
+        // Numeric wrappers may be nested (task.update[0][0] in the official example).
+        $result = [];
+        foreach ($items as $key => $item) {
+            if (!ctype_digit((string)$key)) return [];
+            array_push($result, ...$this->normalizeItems($item, $action, $idKey, $depth + 1));
+        }
+        return $result;
     }
 
     /**
@@ -90,7 +147,9 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
             }
 
             $existing = Arr::get($payload, 'contacts.' . $action, []);
-            Arr::set($payload, 'contacts.' . $action, array_merge(is_array($existing) ? $existing : [], $items));
+            $existing = is_array($existing) ? $existing : [];
+            foreach ($items as $item) if (!in_array($item, $existing, true)) $existing[] = $item;
+            Arr::set($payload, 'contacts.' . $action, $existing);
         }
 
         return $payload;
@@ -139,10 +198,11 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
 
     /**
      * @param array<int|string, mixed> $items
-     * @return array<string, mixed>|null
+     * @return array<int, array<string, mixed>>
      */
-    private function firstItem(array $items, string $entity): ?array
+    private function matchingItems(array $items, string $entity): array
     {
+        $matches = [];
         foreach ($items as $item) {
             if (!is_array($item)) {
                 continue;
@@ -158,9 +218,9 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
                 continue;
             }
 
-            return $item;
+            $matches[] = $item;
         }
 
-        return null;
+        return $matches;
     }
 }

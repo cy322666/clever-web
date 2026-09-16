@@ -33,13 +33,6 @@ All routes below are defined under middleware `user.active` and `user.inputs` un
 | --- | --- | --- |
 | POST | `/api/distribution/hook/{user:uuid}/{template}` | `distribution.hook` |
 
-### AlfaCRM
-| Method | Path | Name |
-| --- | --- | --- |
-| POST | `/api/alfacrm/record/{user:uuid}` | `alfacrm.record` |
-| POST | `/api/alfacrm/came/{user:uuid}` | `alfacrm.came` |
-| POST | `/api/alfacrm/omission/{user:uuid}` | `alfacrm.omission` |
-
 ### YClients
 
 | Method | Path | Name |

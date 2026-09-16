@@ -29,7 +29,7 @@ class WidgetShow extends Page
     {
         $query = Widget::query()->where('slug', $slug);
 
-        if (!Auth::check()) {
+        if (!(bool) Auth::user()?->is_root) {
             $query->where('is_published', true);
         }
 

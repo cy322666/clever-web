@@ -17,11 +17,12 @@ scrape_configs:
       - targets: [ 'prometheus:9090' ]
 
   - job_name: app_metrics
+    scheme: https
     metrics_path: /metrics
     params:
       token: [ '__METRICS_TOKEN__' ]
     static_configs:
-      - targets: [ 'app:8000' ]
+      - targets: [ 'app.clevercrm.pro:443' ]
 
   - job_name: postgres_exporter
     static_configs:
@@ -46,7 +47,7 @@ scrape_configs:
       module: [ http_2xx ]
     static_configs:
       - targets:
-          - http://app:8000/up
+          - https://app.clevercrm.pro/up
     relabel_configs:
       - source_labels: [ __address__ ]
         target_label: __param_target

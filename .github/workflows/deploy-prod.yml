@@ -211,7 +211,7 @@ jobs:
           key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
-          source: application/public/build
+          source: application/public/build,application/bootstrap/workflow-runtime
           target: ${{ secrets.PROD_PROJECT_PATH }}
           overwrite: true
 
@@ -248,7 +248,57 @@ jobs:
               docker compose ${COMPOSE_FILES} "$@"
             }
 
+            HOST_NGINX_HELPER=""
+
+            start_application() {
+              # Retain the helper across git checkout when rolling back old revisions.
+              if [ -f ops/nginx/configure-host.py ]; then
+                if [ -z "$HOST_NGINX_HELPER" ]; then
+                  HOST_NGINX_HELPER="$(mktemp /tmp/clever-web-nginx.XXXXXX)"
+                fi
+                cp ops/nginx/configure-host.py "$HOST_NGINX_HELPER"
+              fi
+
+              # Older revisions use a web container or artisan serve on port 8080.
+              if compose_cmd config --services | grep -qx web; then
+                compose_cmd up -d --build postgresql app supervisor web
+              else
+                compose_cmd up -d --build postgresql app supervisor
+              fi
+
+              if [ -n "$HOST_NGINX_HELPER" ]; then
+                python3 "$HOST_NGINX_HELPER" --project-path "$PWD"
+              fi
+
+              # Apply host-gateway mappings and re-render Prometheus' target template.
+              local service
+              for service in blackbox prometheus; do
+                if compose_cmd config --services | grep -qx "$service" && \
+                  [ -n "$(compose_cmd ps --status running --quiet "$service")" ]; then
+                  compose_cmd up -d --no-deps --no-build "$service"
+                  if [ "$service" = prometheus ]; then
+                    compose_cmd restart prometheus
+                  fi
+                fi
+              done
+            }
+
+            runtime_healthcheck() {
+              if [ -f ops/nginx/clever-web-app.conf.template ]; then
+                curl --noproxy '*' -fsS --connect-timeout 2 --max-time 3 \
+                  --resolve app.clevercrm.pro:443:127.0.0.1 https://app.clevercrm.pro/up
+              else
+                curl --noproxy '*' -fsS --connect-timeout 2 --max-time 3 http://127.0.0.1:8080/up
+              fi
+            }
+
             cd "$PROJECT_PATH"
+
+            if [ -f ops/nginx/configure-host.py ]; then
+              HOST_NGINX_HELPER="$(mktemp /tmp/clever-web-nginx.XXXXXX)"
+              cp ops/nginx/configure-host.py "$HOST_NGINX_HELPER"
+            fi
+            trap '[ -z "$HOST_NGINX_HELPER" ] || rm -f "$HOST_NGINX_HELPER"' EXIT
 
             CURRENT_COMMIT=""
 
@@ -258,14 +308,41 @@ jobs:
 
               echo "Deployment failed, starting code rollback..."
 
+              # Release port 8080 before restoring a revision using artisan serve.
+              if compose_cmd config --services | grep -qx web; then
+                compose_cmd stop web || true
+              fi
+
               if [ -n "$CURRENT_COMMIT" ]; then
                 echo "Reverting code to ${CURRENT_COMMIT}"
                 git checkout -B "$DEPLOY_BRANCH" "$CURRENT_COMMIT"
               fi
 
-              compose_cmd up -d --build postgresql app supervisor
+              start_application
               compose_cmd exec -T app php artisan optimize:clear || true
               compose_cmd exec -T app php artisan optimize || true
+
+              # Older Alpine app images chown these shared paths to UID 82.
+              # Wait until their startup chown has finished before restoring the queue user's ownership.
+              local attempt runtime_ready=false supervisor_uid supervisor_gid
+              for ((attempt = 0; attempt < 30; attempt++)); do
+                if [ "$(runtime_healthcheck 2>/dev/null)" = "OK" ]; then
+                  runtime_ready=true
+                  break
+                fi
+                sleep 1
+              done
+              if [ "$runtime_ready" != "true" ]; then
+                echo "Rollback HTTP readiness failed; runtime ownership was not changed." >&2
+                exit "$exit_code"
+              fi
+
+              supervisor_uid="$(compose_cmd exec -T supervisor id -u www-data)"
+              supervisor_gid="$(compose_cmd exec -T supervisor id -g www-data)"
+              compose_cmd exec -T --user root app chown -R "$supervisor_uid:$supervisor_gid" storage bootstrap/cache
+              compose_cmd exec -T --user "$supervisor_uid:$supervisor_gid" supervisor sh -c \
+                'test -w /var/www/html/storage && test -w /var/www/html/bootstrap/cache'
+
               if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
                 curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null || true
               fi
@@ -287,7 +364,7 @@ jobs:
 
             git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
 
-            compose_cmd up -d --build postgresql app supervisor
+            start_application
 
             compose_cmd exec -T app php artisan optimize:clear
 

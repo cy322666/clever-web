@@ -89,7 +89,7 @@ class WidgetShow extends TableWidget
     {
         $page = $this->getPage();
 
-        return Widget::query();
+        return Widget::query()->where('is_published', true);
 //            ->when($page->q, fn ($q) =>
 //            $q->where('title', 'like', "%{$page->q}%")
 //            )

@@ -3,6 +3,7 @@
 namespace App\Workflows\Actions;
 
 use Filament\Forms\Components\Repeater;
+use App\Forms\Components\WorkflowValueInput;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -20,39 +21,61 @@ use Throwable;
 
 class ControlConditionAction extends ConditionAction
 {
+    /** Validate what was configured separately from what the expression returned. */
+    public function validateResolvedConfig(array $raw, array $resolved): array
+    {
+        $validation = $this->validateWorkflowConfig($raw);
+        foreach (array_values($raw['conditions'] ?? []) as $index => $condition) {
+            $emptyCheck = in_array($condition['operator'] ?? '', ['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false'], true);
+            foreach ($emptyCheck ? [] : ['left', 'right'] as $field) {
+                $expression = $condition[$field] ?? null;
+                $value = array_values($resolved['conditions'] ?? [])[$index][$field] ?? null;
+                if (is_string($expression) && str_contains($expression, '{{') && $value === null) {
+                    $validation['errors'][] = 'Условие '.($index + 1).': нет данных для переменной '.$expression.'. Загрузите данные запуска или выполните предыдущую ноду.';
+                }
+            }
+        }
+        $validation['valid'] = $validation['errors'] === [];
+        return $validation;
+    }
+
+    public static function workflowIcon(): string { return 'heroicon-o-share'; }
+    public static function workflowCategory(): string { return 'Управление потоком'; }
     /**
      * @return array<Component>
      */
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
         return [
-            Section::make(static::workflowTrans('sections.conditions.label'))
-                ->compact()
+            \Filament\Schemas\Components\Group::make()
+                ->extraAttributes(['class' => 'workflow-condition-form'])
                 ->schema([
                     Select::make('logic')
-                        ->label(static::workflowTrans('fields.logic.label'))
+                        ->label('Совпадение')
+                        ->hiddenLabel()
+                        ->extraInputAttributes(['aria-label' => 'Совпадение условий'])
                         ->options([
-                            'and' => static::workflowTrans('logic.and'),
-                            'or' => static::workflowTrans('logic.or'),
+                            'and' => 'Все условия (И)',
+                            'or' => 'Любое условие (ИЛИ)',
                         ])
                         ->default('and')
+                        ->afterStateHydrated(fn(Select $component, ?string $state) => $component->state($state ?: 'and'))
                         ->required()
-                        ->native(false),
+                        ->native(true),
 
                     Repeater::make('conditions')
                         ->label(static::workflowTrans('fields.conditions.label'))
+                        ->hiddenLabel()
+                        ->reorderable(false)
                         ->schema([
-                            Grid::make(12)
+                            Grid::make(1)
                                 ->schema([
-                                    static::conditionValueInput(
-                                        'left',
-                                        true,
-                                        static::workflowTrans('fields.left.label')
-                                    )
-                                        ->columnSpan(4),
+                                    WorkflowValueInput::make('left')->label('Значение 1'),
 
                                     Select::make('operator')
                                         ->label(static::actionCommonTrans('fields.operator.label'))
+                                        ->hiddenLabel()
+                                        ->extraInputAttributes(['aria-label' => 'Оператор'])
                                         ->options([
                                             'equals' => static::actionCommonTrans('operators.equals'),
                                             'not_equals' => static::actionCommonTrans('operators.not_equals'),
@@ -64,14 +87,10 @@ class ControlConditionAction extends ConditionAction
                                         ->default('equals')
                                         ->required()
                                         ->live()
-                                        ->native(false)
-                                        ->columnSpan(4),
+                                        ->native(true)
+                                        ->columnSpanFull(),
 
-                                    static::conditionValueInput(
-                                        'right',
-                                        true,
-                                        static::workflowTrans('fields.right.label')
-                                    )
+                                    WorkflowValueInput::make('right')->label('Значение 2')
                                         ->visible(fn(Get $get): bool => !in_array($get('operator'), [
                                             'is_empty',
                                             'is_not_empty',
@@ -80,12 +99,12 @@ class ControlConditionAction extends ConditionAction
                                             'is_true',
                                             'is_false',
                                         ], true))
-                                        ->columnSpan(4),
+                                        ->columnSpanFull(),
                                 ])
                         ])
                         ->columns(1)
                         ->addActionLabel(static::workflowTrans('fields.conditions.add'))
-                        ->defaultItems(1),
+                        ->minItems(1)->defaultItems(1)->extraAttributes(['class' => 'workflow-condition-rules']),
                 ]),
 
         ];

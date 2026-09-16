@@ -3,7 +3,7 @@
         "name": "widget.name",
         "description": "widget.description",
         "short_description": "widget.short_description",
-        "version": "1.0.34",
+        "version": "1.0.43",
         "interface_version": 2,
         "init_once": false,
         "locale": [
@@ -12,7 +12,7 @@
         "installation": true,
         "support": {
             "link": "https://clevercrm.pro",
-            "email": "support@clevercrm.pro"
+            "email": "tech@blackclever.ru"
         }
     },
     "locations": [

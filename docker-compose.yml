@@ -2,7 +2,11 @@ version: '3.5'
 
 services:
   app:
-    build: ./docker/images/php82
+    build:
+      context: ./docker/images/php82
+      network: ${PHP_BUILD_NETWORK:-default}
+      args:
+        APK_REPOSITORY_MIRROR: ${APK_REPOSITORY_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
     environment:
       CACHE_STORE: database
       SCHEDULE_CACHE_STORE: database
@@ -15,12 +19,19 @@ services:
       sh -lc "mkdir -p storage/framework/cache/data storage/framework/cache/laravel-excel storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
       && (chown -R www-data:www-data storage bootstrap/cache || true)
       && php artisan package:discover --ansi
-      && php artisan serve --host=0.0.0.0 --port=8000"
+      && exec php-fpm -F"
     volumes:
       - ./application:/var/www/html
+      - ./docker/images/php82/files/php/zz-clever-fpm.conf:/usr/local/etc/php-fpm.d/zz-clever-fpm.conf:ro
       - ./docker/images/cron/files:/var/spool/cron/crontabs/
     ports:
-      - "8080:8000"
+      - "127.0.0.1:9000:9000"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       postgresql:
         condition: service_healthy

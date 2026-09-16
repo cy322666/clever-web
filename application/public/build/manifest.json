@@ -1,16 +1,16 @@
 {
   "resources/css/app.css": {
-      "file": "assets/app-05f13ee4.css",
+    "file": "assets/app-3ce38fd0.css",
     "isEntry": true,
     "src": "resources/css/app.css"
   },
   "resources/css/filament-workflows.css": {
-      "file": "assets/filament-workflows-522a2f04.css",
+    "file": "assets/filament-workflows-75edb005.css",
     "isEntry": true,
     "src": "resources/css/filament-workflows.css"
   },
   "resources/js/app.js": {
-      "file": "assets/app-7ce0a7ed.js",
+    "file": "assets/app-96ee74ca.js",
     "isEntry": true,
     "src": "resources/js/app.js"
   }

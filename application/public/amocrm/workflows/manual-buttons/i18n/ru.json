@@ -1,15 +1,15 @@
 {
     "widget": {
-        "name": "Сценарии Clever",
-        "short_description": "Конструктор сценариев",
-        "description": "Кнопки запуска сценариев Clever из карточки сделки amoCRM.",
-        "tour_description": "Выберите сценарий в карточке сделки и запустите его одной кнопкой."
+        "name": "Потоки",
+        "short_description": "Визуальная автоматизация amoCRM",
+        "description": "Создавайте и запускайте потоки автоматизации из карточки сделки, списка сделок и Digital Pipeline amoCRM.",
+        "tour_description": "Соберите поток на платформе Clever, выберите способ запуска и управляйте автоматизацией прямо из amoCRM."
     },
     "settings": {
         "api_base_url": "API Clever"
     },
     "dp": {
-        "title": "Сценарии Clever",
-        "workflow_id": "Сценарий"
+        "title": "Потоки",
+        "workflow_id": "Поток"
     }
 }

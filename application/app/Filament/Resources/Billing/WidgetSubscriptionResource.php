@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Billing;
 use App\Filament\Resources\Billing\WidgetSubscriptionResource\Pages;
 use App\Models\App;
 use App\Models\Billing\WidgetSubscription;
+use App\Models\Core\Account;
 use App\Services\Billing\WidgetSubscriptionAccessService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -53,7 +54,8 @@ class WidgetSubscriptionResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
-        return (bool)auth()->user()?->is_root;
+        return (bool)auth()->user()?->is_root
+            && ($record->widget === Account::DEFAULT_WIDGET || in_array((string)$record->widget, App::definitionNames(), true));
     }
 
     public static function canDelete(Model $record): bool
@@ -97,7 +99,10 @@ class WidgetSubscriptionResource extends Resource
                         ->relationship(
                             'app',
                             'name',
-                            fn($query) => $query->where('status', '!=', App::STATE_CREATED)->latest('id'),
+                            fn($query) => $query
+                                ->where('status', '!=', App::STATE_CREATED)
+                                ->whereIn('name', App::definitionNames())
+                                ->latest('id'),
                         )
                         ->getOptionLabelFromRecordUsing(fn(App $record): string => sprintf(
                             '%s · %s',
@@ -206,6 +211,8 @@ class WidgetSubscriptionResource extends Resource
                     ->icon('heroicon-o-calendar-days')
                     ->color('success')
                     ->action(function (WidgetSubscription $record): void {
+                        abort_unless(static::canEdit($record), 403);
+
                         $base = $record->ends_at?->isFuture() ? $record->ends_at->copy() : now();
 
                         $record->ends_at = $base->addDays(30)->toDateString();
@@ -220,13 +227,13 @@ class WidgetSubscriptionResource extends Resource
                             ->success()
                             ->send();
                     })
-                    ->visible(fn(): bool => (bool)auth()->user()?->is_root),
+                    ->visible(fn(WidgetSubscription $record): bool => static::canEdit($record)),
                 EditAction::make()
-                    ->visible(fn(): bool => (bool)auth()->user()?->is_root),
+                    ->visible(fn(WidgetSubscription $record): bool => static::canEdit($record)),
                 DeleteAction::make()
                     ->visible(fn(): bool => (bool)auth()->user()?->is_root),
             ])
-            ->recordUrl(fn(WidgetSubscription $record): ?string => (bool)auth()->user()?->is_root
+            ->recordUrl(fn(WidgetSubscription $record): ?string => static::canEdit($record)
                 ? static::getUrl('edit', ['record' => $record])
                 : null)
             ->bulkActions([

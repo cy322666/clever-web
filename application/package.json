@@ -3,7 +3,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build && node scripts/build-workflow-runtime.mjs"
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",
@@ -13,5 +13,8 @@
         "postcss": "^8.4.14",
         "tailwindcss": "^3.1",
         "vite": "^4.0.0"
+    },
+    "dependencies": {
+        "quickjs-emscripten": "0.32.0"
     }
 }

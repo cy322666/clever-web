@@ -1,5 +1,7 @@
 FROM php:8.2-fpm-bullseye
 
+COPY --from=node:22-bullseye-slim /usr/local/bin/node /usr/local/bin/node
+
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg; \

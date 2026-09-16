@@ -1,5 +1,6 @@
-FROM php:8.2-cli-alpine
+FROM php:8.2-fpm-alpine
 
+ARG APK_REPOSITORY_MIRROR=https://dl-cdn.alpinelinux.org/alpine
 
 WORKDIR /var/www/html/
 
@@ -7,10 +8,13 @@ WORKDIR /var/www/html/
 #RUN mkdir /phpIni
 #COPY files/bin /usr/local/bin/с≠
 COPY files/php/php.ini /usr/local/etc/php/conf.d/php.ini
+COPY files/php/zz-clever-fpm.conf /usr/local/etc/php-fpm.d/zz-clever-fpm.conf
 #COPY files/php/ext /phpIni
 
 # SYS: Install required packages
-RUN apk --no-cache upgrade && \
+RUN sed -i "s|https\?://dl-cdn.alpinelinux.org/alpine|${APK_REPOSITORY_MIRROR%/}|g" /etc/apk/repositories && \
+    printf '\ntimeout 30\n' >> /etc/apk/config && \
+    apk --no-cache upgrade && \
     apk --no-cache add bash git sudo openssh ffmpeg libxml2-dev postgresql-dev oniguruma-dev autoconf g++ make npm freetype-dev libjpeg-turbo-dev libpng-dev libzip-dev
 
 RUN apk add --no-cache postgresql-client libpq-dev
@@ -41,22 +45,29 @@ RUN docker-php-ext-install intl opcache \
     && docker-php-ext-install zip
 
 # fix work iconv library with alphine
-RUN apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ --allow-untrusted gnu-libiconv
+RUN apk add --no-cache --repository "${APK_REPOSITORY_MIRROR%/}/edge/community/" --allow-untrusted gnu-libiconv
 ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
 ENV NODE_PATH "/home/www-data/.npm-global/lib/node_modules"
 
 RUN apk add --no-cache nodejs npm && \
-    mkdir "/home/www-data/.npm-global/" && \
+    mkdir -p "/home/www-data/.npm-global/" && \
     npm config set prefix "/home/www-data/.npm-global/" && \
     npm install -g chokidar
 
 RUN docker-php-ext-install gd mysqli pdo pdo_mysql -j5 gd mbstring mysqli pdo pdo_mysql shmop
 
-RUN chown -R www-data:www-data /var/www/html/
+# Match Debian supervisor workers on the shared Laravel runtime directories.
+RUN set -eux; \
+    awk -F: '$3 == 33 && $1 != "www-data" { print "UID/GID 33 is already occupied in " FILENAME > "/dev/stderr"; exit 1 }' /etc/passwd /etc/group; \
+    deluser www-data; \
+    if grep -q '^www-data:' /etc/group; then delgroup www-data; fi; \
+    addgroup -S -g 33 www-data; \
+    adduser -S -D -H -u 33 -G www-data -h /var/www -s /sbin/nologin www-data; \
+    chown -R www-data:www-data /var/www/html/
 
 #COPY ./start.sh /
 #RUN chmod +x /start.sh
 
-EXPOSE 8000
+EXPOSE 9000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+CMD ["php-fpm", "-F"]

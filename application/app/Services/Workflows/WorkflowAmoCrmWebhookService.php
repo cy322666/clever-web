@@ -3,6 +3,7 @@
 namespace App\Services\Workflows;
 
 use App\Models\Core\Account;
+use App\Models\User;
 use App\Models\Workflows\Workflow;
 use App\Services\amoCRM\Client;
 use App\Workflows\Context\WorkflowContext;
@@ -87,13 +88,7 @@ class WorkflowAmoCrmWebhookService
 
         try {
             if (!$this->isValidPublicWebhookUrl($targetUrl)) {
-                return $this->baseStatus(
-                    account: $account,
-                    requiredEvents: $requiredEvents,
-                    ok: false,
-                    state: 'error',
-                    message: 'Нельзя установить вебхуки amoCRM: URL приёмника недоступен извне. Укажите публичный HTTPS-домен в WORKFLOW_PUBLIC_URL. Сейчас: ' . $targetUrl,
-                );
+                return $this->unavailableReceiverStatus($account, $requiredEvents);
             }
 
             $client = new Client($account);
@@ -176,13 +171,7 @@ class WorkflowAmoCrmWebhookService
         $targetUrl = $this->callbackUrl($account);
 
         if (!$this->isValidPublicWebhookUrl($targetUrl)) {
-            return $this->baseStatus(
-                account: $account,
-                requiredEvents: $requiredEvents,
-                ok: false,
-                state: 'error',
-                message: 'Нельзя установить вебхуки amoCRM: URL приёмника недоступен извне. Укажите публичный HTTPS-домен в WORKFLOW_PUBLIC_URL. Сейчас: ' . $targetUrl,
-            );
+            return $this->unavailableReceiverStatus($account, $requiredEvents);
         }
 
         try {
@@ -316,42 +305,45 @@ class WorkflowAmoCrmWebhookService
         $workflows = $this->matchingWorkflows((int)$account->user_id, $events);
 
         foreach ($workflows as $workflow) {
-            $trigger = $workflow->getTriggerFromDefinition();
-            $eventCode = (string)Arr::get($trigger, 'config.event');
-            $event = $normalized['events'][$eventCode] ?? null;
+            foreach (WorkflowStartNodes::events($workflow->definition) as $startId => $eventCode) {
+                $event = $normalized['events'][$eventCode] ?? null;
 
-            if ($event === null) {
-                continue;
-            }
+                if ($event === null) {
+                    continue;
+                }
 
-            $recentMutation = $this->loopGuard->matchingRecentMutation($workflow, $account, $event);
+                foreach ($event['items'] ?? [$event['item']] as $item) {
+                    $itemEvent = array_replace($event, ['item' => $item]);
+                    $recentMutation = $this->loopGuard->matchingRecentMutation($workflow, $account, $itemEvent);
 
-            if ($recentMutation !== null) {
-                $skipped++;
+                    if ($recentMutation !== null) {
+                        $skipped++;
 
-                Log::info('Workflow amoCRM webhook skipped to prevent self loop', [
-                    'account_id' => $account->id,
-                    'workflow_id' => $workflow->id,
-                    'workflow_run_id' => $recentMutation['workflow_run_id'] ?? null,
-                    'event' => $eventCode,
-                    'entity' => $event['entity'] ?? null,
-                    'entity_id' => $recentMutation['entity_id'] ?? null,
-                    'action_type' => $recentMutation['action_type'] ?? null,
-                ]);
+                        Log::info('Workflow amoCRM webhook skipped to prevent self loop', [
+                            'account_id' => $account->id,
+                            'workflow_id' => $workflow->id,
+                            'workflow_run_id' => $recentMutation['workflow_run_id'] ?? null,
+                            'event' => $eventCode,
+                            'entity' => $event['entity'] ?? null,
+                            'entity_id' => $recentMutation['entity_id'] ?? null,
+                            'action_type' => $recentMutation['action_type'] ?? null,
+                        ]);
 
-                continue;
-            }
+                        continue;
+                    }
 
-            try {
-                $this->startWorkflow($workflow, $account, $event, $normalized['payload'], $headers);
-                $started++;
-            } catch (Throwable $e) {
-                Log::error('Workflow amoCRM webhook run failed', [
-                    'account_id' => $account->id,
-                    'workflow_id' => $workflow->id,
-                    'event' => $eventCode,
-                    'error' => $e->getMessage(),
-                ]);
+                    try {
+                        $this->startWorkflow($workflow, $account, $itemEvent, $normalized['payload'], $headers, $startId);
+                        $started++;
+                    } catch (Throwable $e) {
+                        Log::error('Workflow amoCRM webhook run failed', [
+                            'account_id' => $account->id,
+                            'workflow_id' => $workflow->id,
+                            'event' => $eventCode,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
             }
         }
 
@@ -369,7 +361,7 @@ class WorkflowAmoCrmWebhookService
     {
         $events = $this->activeWorkflowQuery($userId)
             ->get()
-            ->map(fn(Workflow $workflow): ?string => $this->workflowAmoCrmEvent($workflow))
+            ->flatMap(fn(Workflow $workflow): array => array_values(WorkflowStartNodes::events($workflow->definition)))
             ->filter()
             ->unique()
             ->values()
@@ -382,22 +374,44 @@ class WorkflowAmoCrmWebhookService
 
     private function resolvePrimaryAccount(int $userId): ?Account
     {
-        $workflowAccount = Account::query()
-            ->where('user_id', $userId)
-            ->where('active', true)
-            ->where('widget', 'workflows')
-            ->latest('id')
-            ->first();
+        $account = User::query()->find($userId)?->resolveAmoAccountForWidget('workflows');
 
-        if ($workflowAccount instanceof Account || $userId !== 1) {
-            return $workflowAccount;
+        return $account instanceof Account
+            ? $this->applyCurrentWorkflowOauthCredentials($account)
+            : null;
+    }
+
+    private function applyCurrentWorkflowOauthCredentials(Account $account): Account
+    {
+        $clientId = trim((string)config('services.amocrm.widgets.workflows.client_id', ''));
+
+        if ($clientId === '' || !hash_equals($clientId, trim((string)$account->client_id))) {
+            return $account;
         }
 
-        return Account::query()
-            ->where('user_id', $userId)
-            ->where('active', true)
-            ->latest('id')
-            ->first();
+        $configured = [
+            'client_secret' => trim((string)config('services.amocrm.widgets.workflows.client_secret', '')),
+            'redirect_uri' => trim((string)config('services.amocrm.widgets.workflows.redirect_uri', '')),
+        ];
+        $updates = [];
+
+        foreach ($configured as $field => $value) {
+            if ($value !== '' && !hash_equals($value, trim((string)$account->{$field}))) {
+                $updates[$field] = $value;
+            }
+        }
+
+        if ($updates !== []) {
+            $account->forceFill($updates)->saveQuietly();
+
+            Log::info('Workflow amoCRM OAuth credentials synchronized', [
+                'account_id' => $account->id,
+                'user_id' => $account->user_id,
+                'fields' => array_keys($updates),
+            ]);
+        }
+
+        return $account;
     }
 
     private function accountCanUseWebhooks(Account $account): bool
@@ -449,7 +463,7 @@ class WorkflowAmoCrmWebhookService
         return $this->activeWorkflowQuery($userId)
             ->get()
             ->filter(
-                fn(Workflow $workflow): bool => in_array((string)$this->workflowAmoCrmEvent($workflow), $events, true)
+                fn(Workflow $workflow): bool => array_intersect(array_values(WorkflowStartNodes::events($workflow->definition)), $events) !== []
             )
             ->values();
     }
@@ -464,7 +478,8 @@ class WorkflowAmoCrmWebhookService
         Account $account,
         array $event,
         array $payload,
-        array $headers
+        array $headers,
+        string $startId = 'trigger',
     ): void {
         $eventCode = (string)$event['event'];
         $entity = (string)$event['entity'];
@@ -472,6 +487,7 @@ class WorkflowAmoCrmWebhookService
         $item = is_array($event['item'] ?? null) ? $event['item'] : null;
 
         $triggerData = [
+            '_workflow_start_node_id' => $startId,
             'source' => 'amocrm',
             'event' => $eventCode,
             'entity' => $entity,
@@ -592,6 +608,19 @@ class WorkflowAmoCrmWebhookService
         }
 
         return (bool)filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    }
+
+    private function unavailableReceiverStatus(Account $account, array $requiredEvents): array
+    {
+        return $this->baseStatus(
+            account: $account,
+            requiredEvents: $requiredEvents,
+            ok: $requiredEvents === [],
+            state: $requiredEvents === [] ? 'not_required' : 'configuration_required',
+            message: $requiredEvents === []
+                ? 'Этим сценариям вебхуки amoCRM не нужны.'
+                : 'События amoCRM пока не подключены: адрес приёмника недоступен из интернета. Укажите публичный HTTPS-адрес в WORKFLOW_PUBLIC_URL. Редактор и ручной запуск работают локально.',
+        );
     }
 
     /**

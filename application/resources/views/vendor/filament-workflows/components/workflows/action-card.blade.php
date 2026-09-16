@@ -7,281 +7,107 @@
 ])
 
 @php
-    $actionId = $action['id'] ?? '';
+    $actionId = (string) ($action['id'] ?? '');
     $actionType = $action['type'] ?? '';
-    $actionName = $metadata['name'] ?? __('filament-workflows::workflows.builder.cards.unknown_action');
-    $icon = $metadata['icon'] ?? 'heroicon-o-cog-6-tooth';
-    $color = $metadata['color'] ?? '#6B7280';
-    $category = $metadata['category'] ?? __('filament-workflows::workflows.builder.cards.general_category');
+    $isCondition = in_array($actionType, ['condition', 'control-condition'], true);
+    $disabled = (bool) ($action['disabled'] ?? false);
+    $actionName = trim((string) ($action['name'] ?? '')) ?: ($isCondition ? 'Условие' : ($metadata['name'] ?? 'Действие'));
+    $icon = $metadata['icon'] ?? ($isCondition ? 'heroicon-o-arrows-right-left' : 'heroicon-o-cog-6-tooth');
     $config = $action['config'] ?? [];
-
-    $entityLabels = [
-        'lead' => 'Сделка',
-        'contact' => 'Контакт',
-        'company' => 'Компания',
-        'customer' => 'Покупатель',
-        'task' => 'Задача',
-    ];
-
-    $targetEntity = (string) ($config['target_entity'] ?? (in_array($actionType, ['amocrm_change_lead_status', 'amocrm_distribution_queue'], true) ? 'lead' : ''));
-    $targetEntityLabel = $entityLabels[$targetEntity] ?? null;
-    $targetEntityId = trim((string) ($config['target_entity_id'] ?? ''));
-    $summaryItems = [];
-    $dealSummaryItems = [];
-    $noteSummaryItems = [];
-
-    if ($targetEntityLabel) {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-cube',
-            'label' => $targetEntityId !== '' ? $targetEntityLabel . ': ' . $targetEntityId : $targetEntityLabel,
-        ];
-    } elseif ($targetEntityId !== '') {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-cube',
-            'label' => 'ID: ' . $targetEntityId,
-        ];
-    }
-
-    if (filled($config['pipeline_id'] ?? null)) {
-        $pipelineName = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::resolvePipelineName($config['pipeline_id']);
-
-        $dealSummaryItems[] = [
-            'icon' => 'heroicon-o-funnel',
-            'label' => 'Воронка: ' . ($pipelineName ?? 'не найдена'),
-        ];
-    }
-
-    if (filled($config['distribution_queue_uuid'] ?? $config['queue_uuid'] ?? null)) {
-        $queueName = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::resolveDistributionQueueName(
-            $config['distribution_queue_uuid'] ?? $config['queue_uuid'],
-        );
-
-        $dealSummaryItems[] = [
-            'icon' => 'heroicon-o-users',
-            'label' => 'Очередь: ' . ($queueName ?? 'не найдена'),
-        ];
-    }
-
-    if (filled($config['status_id'] ?? null)) {
-        $statusName = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::resolveStatusName(
-            $config['status_id'],
-            $config['pipeline_id'] ?? null,
-        );
-
-        $dealSummaryItems[] = [
-            'icon' => 'heroicon-o-flag',
-            'label' => 'Статус: ' . ($statusName ?? 'не найден'),
-        ];
-    }
-
-    if (filled($config['subject'] ?? null)) {
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-envelope',
-            'label' => Str::limit((string) $config['subject'], 42),
-        ];
-    }
-
-    if (filled($config['text'] ?? null)) {
-        $textSummaryItem = [
-            'icon' => 'heroicon-o-chat-bubble-left-ellipsis',
-            'label' => Str::limit((string) $config['text'], 46),
-        ];
-
-        if ($actionType === 'amocrm_add_note') {
-            $noteSummaryItems[] = $textSummaryItem;
-        } else {
-            $summaryItems[] = $textSummaryItem;
-        }
-    }
-
-    if (in_array($actionType, ['amocrm_start_salesbot', 'amocrm_stop_salesbot'], true)) {
-        $botId = (string) ($config['bot_id'] ?? '');
-        $botName = null;
-
-        if ($botId !== '') {
-            $botName = app(\App\Services\Workflows\WorkflowAmoCrmSalesBotService::class)->options()[$botId] ?? null;
-        }
-
-        $summaryItems[] = [
-            'icon' => $actionType === 'amocrm_stop_salesbot' ? 'heroicon-o-stop-circle' : 'heroicon-o-play-circle',
-            'label' => $botName ?: ($botId !== '' ? 'SalesBot #' . $botId : 'SalesBot не выбран'),
-        ];
-    }
-
-    if ($actionType === 'run_workflow' && filled($config['workflow_id'] ?? null)) {
-        $workflowId = (int) $config['workflow_id'];
-        $workflowModel = config('filament-workflows.models.workflow', \Leek\FilamentWorkflows\Models\Workflow::class);
-        $workflowName = $workflowModel::query()->whereKey($workflowId)->value('name');
-
-        $summaryItems[] = [
-            'icon' => 'heroicon-o-arrow-right-circle',
-            'label' => 'Процесс: ' . ($workflowName ?: 'Процесс #' . $workflowId),
-            'url' => \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('edit', ['record' => $workflowId]),
-        ];
+    $icon = \App\Services\Workflows\WorkflowAmoIcons::action($actionType, $config, $icon);
+    $entity = $config['target_entity'] ?? $config['entity'] ?? (str_contains($actionType, 'lead') ? 'lead' : '');
+    $entityLabel = ['lead' => 'Сделка', 'contact' => 'Контакт', 'company' => 'Компания', 'customer' => 'Покупатель', 'task' => 'Задача'][$entity] ?? null;
+    $subtitle = $isCondition ? 'Если / иначе' : ($entityLabel ? 'amoCRM · ' . $entityLabel : ($metadata['category'] ?? 'Действие'));
+    if ($disabled) {
+        $subtitle = $isCondition ? 'Выключено → «Да»' : 'Выключено';
     }
 @endphp
 
 <div
-    @if(!$readOnly)
-        wire:click="openWorkflowActionEditor('{{ $actionId }}')"
-    @endif
+    data-workflow-node-card
+    data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
+    @unless($readOnly)
+        x-on:pointerup.capture="if (connecting && !$event.target.closest('.workflow-node-port')) finishConnection('action:' + @js($actionId), $event)"
+        x-on:click.capture="if (connecting && !$event.target.closest('.workflow-node-port')) { $event.stopImmediatePropagation(); completeConnection('action:' + @js($actionId)); }"
+        wire:click="selectWorkflowCanvasNode('{{ $actionId }}')"
+        tabindex="0"
+        x-on:keydown.enter.self.prevent="$wire.selectWorkflowCanvasNode(@js($actionId))"
+        aria-label="Настроить: {{ $actionName }}"
+    @endunless
     {{ $attributes->class([
-        'workflow-card group relative rounded-xl border bg-white p-3 shadow-sm transition-all hover:shadow-md dark:bg-gray-900',
-        'cursor-pointer' => !$readOnly,
-        'border-gray-200 dark:border-gray-700',
+        'workflow-card workflow-node-card workflow-node-card--compact',
+        'workflow-action-card' => ! $isCondition,
+        'workflow-condition-node workflow-node-card--condition' => $isCondition,
+        'workflow-node-card--disabled' => $disabled,
     ]) }}
 >
-    <div class="flex items-start gap-3">
-        <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style="background-color: {{ $color }}18;"
-        >
-            <x-filament::icon
-                :icon="$icon"
-                class="h-4 w-4"
-                style="color: {{ $color }};"
-            />
-        </div>
+    @if($readOnly)
+        <span class="workflow-node-port workflow-node-port--input" aria-hidden="true"></span>
+        @if($isCondition)
+            @foreach(['yes' => 'Да', 'no' => 'Нет'] as $port => $label)
+                <span class="workflow-node-port workflow-node-port--output workflow-node-port--output-{{ $port }}" aria-hidden="true"><span class="workflow-node-port__label">{{ $label }}</span></span>
+            @endforeach
+        @else
+            <span class="workflow-node-port workflow-node-port--output" aria-hidden="true"></span>
+        @endif
+    @else
+    <button type="button" class="workflow-node-port workflow-node-port--input" x-on:pointerdown.stop="startIncomingConnection('action:' + @js($actionId), $event)" x-on:pointerup.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) finishConnection('action:' + @js($actionId), $event)" x-on:click.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) completeConnection('action:' + @js($actionId))" aria-label="Вход: {{ $actionName }}"></button>
+    @if($isCondition)
+        @foreach(['yes' => 'Да', 'no' => 'Нет'] as $port => $label)
+            <button type="button" class="workflow-node-port workflow-node-port--output workflow-node-port--output-{{ $port }}" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), @js($port), $event)" x-on:click.stop @endunless aria-label="Выход {{ $label }}: {{ $actionName }}"><span class="workflow-node-port__label">{{ $label }}</span></button>
+        @endforeach
+    @else
+        <button type="button" class="workflow-node-port workflow-node-port--output" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), 'output', $event)" x-on:click.stop @endunless aria-label="Выход: {{ $actionName }}"></button>
+    @endif
+    @endif
 
-        <div @class([
-            'min-w-0 flex-1',
-        ])>
-            <div class="flex flex-wrap items-center gap-2">
-                <h4 class="text-sm font-semibold leading-5 text-gray-950 dark:text-white">
-                    {{ $actionName }}
-                </h4>
-
-                @if($category)
-                    <span class="text-sm font-medium leading-5 text-gray-500 dark:text-gray-400">
-                        {{ $category }}
-                    </span>
-                @endif
-            </div>
-
-            @if(count($summaryItems) > 0 || count($dealSummaryItems) > 0 || count($noteSummaryItems) > 0)
-                @foreach([$summaryItems, $dealSummaryItems, $noteSummaryItems] as $rowItems)
-                    @if(count($rowItems) > 0)
-                        <div
-                            @class([
-                                'flex flex-wrap items-center',
-                                'mt-2' => $loop->first,
-                                'mt-1' => !$loop->first,
-                            ])
-                            style="column-gap: 1.25rem; row-gap: 0.25rem;"
-                        >
-                            @foreach($rowItems as $item)
-                                @php
-                                    $parts = explode(': ', (string) $item['label'], 2);
-                                    $labelPrefix = count($parts) === 2 ? $parts[0] . ': ' : null;
-                                    $labelValue = count($parts) === 2 ? $parts[1] : $item['label'];
-                                @endphp
-                                <span
-                                    class="inline-flex max-w-full items-center gap-1.5 text-sm font-medium leading-5 text-slate-500 dark:text-gray-400">
-                                    <x-filament::icon :icon="$item['icon']" class="h-3.5 w-3.5 shrink-0"/>
-                                    <span class="truncate">
-                                        @if($labelPrefix)
-                                            <span>{{ $labelPrefix }}</span>
-                                            @if(filled($item['url'] ?? null))
-                                                <a
-                                                    href="{{ $item['url'] }}"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="inline-flex max-w-full items-center gap-1 font-semibold text-primary-700 hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-200"
-                                                    title="Открыть процесс"
-                                                    x-on:click.stop
-                                                >
-                                                    <span class="truncate">{{ $labelValue }}</span>
-                                                    <x-filament::icon icon="heroicon-o-arrow-top-right-on-square"
-                                                                      class="h-3.5 w-3.5 shrink-0"/>
-                                                </a>
-                                            @else
-                                                <span
-                                                    class="font-semibold text-slate-800 dark:text-gray-100">{{ $labelValue }}</span>
-                                            @endif
-                                        @else
-                                            @if(filled($item['url'] ?? null))
-                                                <a
-                                                    href="{{ $item['url'] }}"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="inline-flex max-w-full items-center gap-1 font-semibold text-primary-700 hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-200"
-                                                    title="Открыть процесс"
-                                                    x-on:click.stop
-                                                >
-                                                    <span class="truncate">{{ $labelValue }}</span>
-                                                    <x-filament::icon icon="heroicon-o-arrow-top-right-on-square"
-                                                                      class="h-3.5 w-3.5 shrink-0"/>
-                                                </a>
-                                            @else
-                                                <span
-                                                    class="font-semibold text-slate-800 dark:text-gray-100">{{ $labelValue }}</span>
-                                            @endif
-                                        @endif
-                                    </span>
-                                </span>
-                            @endforeach
-                        </div>
-                    @endif
-                @endforeach
-            @else
-                <p class="mt-1.5 text-sm leading-5 text-gray-500 dark:text-gray-400">
-                    Настройте действие, чтобы оно стало видно в конструкторе и истории запусков.
-                </p>
-            @endif
-        </div>
-
-        <div class="flex shrink-0 flex-col items-end gap-2">
-            @if(!$readOnly)
-                <div
-                    class="flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                    <button
-                        type="button"
-                        wire:click="duplicateWorkflowActionStep('{{ $actionId }}')"
-                        wire:loading.attr="disabled"
-                        wire:loading.class="opacity-50"
-                        wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
-                        x-on:click.stop
-                        class="rounded-md p-1.5 text-gray-400 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-950 dark:hover:text-primary-400"
-                        title="Копировать шаг"
-                    >
-                        <x-filament::icon
-                            icon="heroicon-o-document-duplicate"
-                            class="h-4 w-4"
-                            wire:loading.remove
-                            wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
-                        />
-                        <x-filament::loading-indicator
-                            class="h-4 w-4"
-                            wire:loading
-                            wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
-                        />
-                    </button>
-
-                    <button
-                        type="button"
-                        wire:click="removeWorkflowAction('{{ $actionId }}')"
-                        wire:loading.attr="disabled"
-                        wire:loading.class="opacity-50"
-                        wire:target="removeWorkflowAction('{{ $actionId }}')"
-                        wire:confirm="{{ __('filament-workflows::workflows.messages.remove_action_confirmation') }}"
-                        x-on:click.stop
-                        class="rounded-md p-1.5 text-gray-400 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-950 dark:hover:text-danger-400"
-                        title="{{ __('filament-workflows::workflows.builder.tooltips.remove_action') }}"
-                    >
-                        <x-filament::icon
-                            icon="heroicon-o-trash"
-                            class="h-4 w-4"
-                            wire:loading.remove
-                            wire:target="removeWorkflowAction('{{ $actionId }}')"
-                        />
-                        <x-filament::loading-indicator
-                            class="h-4 w-4"
-                            wire:loading
-                            wire:target="removeWorkflowAction('{{ $actionId }}')"
-                        />
-                    </button>
-                </div>
-            @endif
-        </div>
+    <span class="workflow-node-card__icon">
+        <x-workflow-icon :icon="$icon" :type="$actionType" :amo="str_starts_with($actionType, 'amocrm_')" class="h-6 w-6"/>
+    </span>
+    <span class="workflow-node-result" data-workflow-node-result hidden></span>
+    <div class="workflow-node-card__body workflow-node-card__caption">
+        <h4 class="workflow-node-card__title" title="{{ $actionName }}">{{ $actionName }}</h4>
+        <p class="workflow-node-card__subtitle" title="{{ $subtitle }}">{{ $subtitle }}</p>
     </div>
+
+    @unless($readOnly)
+        <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop>
+            <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" wire:loading.attr="disabled" wire:target="runWorkflowCanvasNode,runEditingWorkflowNode"
+                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="Реально выполнить ноду в текущем контексте">
+                <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
+            </button>
+            <button type="button" wire:click.stop="mountAction('renameWorkflowNode', { id: @js($actionId) })" aria-label="Переименовать ноду: {{ $actionName }}" title="Переименовать ноду">
+                <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/>
+            </button>
+            <button
+                type="button"
+                wire:click.stop="toggleWorkflowActionDisabled('{{ $actionId }}')"
+                wire:loading.attr="disabled"
+                wire:target="toggleWorkflowActionDisabled('{{ $actionId }}')"
+                aria-label="{{ $disabled ? 'Включить' : 'Выключить' }} ноду: {{ $actionName }}"
+                title="{{ $disabled ? 'Включить' : 'Выключить' }} ноду"
+                aria-pressed="{{ $disabled ? 'true' : 'false' }}"
+            >
+                <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/>
+            </button>
+            <button
+                type="button"
+                wire:click.stop="duplicateWorkflowActionStep('{{ $actionId }}')"
+                wire:loading.attr="disabled"
+                wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
+                aria-label="Копировать ноду: {{ $actionName }}"
+                title="Копировать ноду"
+            >
+                <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
+            </button>
+            <button
+                type="button"
+                wire:click.stop="removeWorkflowAction('{{ $actionId }}')"
+                aria-label="Удалить ноду: {{ $actionName }}"
+                title="Удалить ноду"
+            >
+                <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
+            </button>
+        </div>
+    @endunless
 </div>

@@ -8,7 +8,6 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
-use App\Models\Integrations\Alfa\Transaction;
 use App\Models\Integrations\Tilda;
 use App\Models\Log;
 use App\Models\User;

@@ -41,6 +41,35 @@ class Account extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'amo_account_id' => 'integer',
+        'active' => 'boolean',
+    ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Account $account): void {
+            // Check new bindings, not routine token refreshes of legacy connections.
+            if (!filled($account->subdomain) || !$account->user_id
+                || ($account->exists && !$account->isDirty(['subdomain', 'zone', 'user_id'])
+                    && !($account->isDirty('active') && $account->active))) return;
+
+            $other = static::query()->where('user_id', $account->user_id)
+                ->when($account->exists, fn ($query) => $query->whereKeyNot($account->getKey()))
+                ->whereNotNull('subdomain')->where('subdomain', '<>', '')
+                ->get()->first(fn (Account $connected): bool =>
+                    ($connected->active || filled($connected->access_token) || filled($connected->refresh_token))
+                    && (strtolower(trim($connected->subdomain)) !== strtolower(trim($account->subdomain))
+                        || strtolower($connected->zone ?: 'ru') !== strtolower($account->zone ?: 'ru'))
+                );
+            if ($other) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'subdomain' => 'Все виджеты аккаунта платформы должны подключаться к одному amoCRM: '.$other->subdomain.'.',
+                ]);
+            }
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

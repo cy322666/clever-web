@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class SynchronizeAmoCrmWebhooks implements ShouldBeUnique, ShouldQueueAfterCommit
@@ -52,6 +53,16 @@ class SynchronizeAmoCrmWebhooks implements ShouldBeUnique, ShouldQueueAfterCommi
     public function handle(WorkflowAmoCrmWebhookService $webhooks): void
     {
         $result = $webhooks->synchronizeUser($this->userId);
+
+        if (($result['state'] ?? null) === 'configuration_required') {
+            // Retrying cannot make localhost public. Keep the issue visible without failing every editor save.
+            Log::warning('Workflow amoCRM webhook receiver needs a public URL', [
+                'user_id' => $this->userId,
+                'message' => $result['message'] ?? '',
+            ]);
+
+            return;
+        }
 
         if (($result['state'] ?? null) === 'error') {
             throw new RuntimeException((string)($result['message'] ?? 'Не удалось синхронизировать вебхуки amoCRM.'));

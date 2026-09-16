@@ -1,5 +1,6 @@
 /.phpunit.cache
 /node_modules
+/bootstrap/workflow-runtime
 /public/build
 /public/hot
 /public/storage
