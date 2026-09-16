@@ -2,10 +2,14 @@ FROM php:8.2-fpm-bullseye
 
 COPY --from=node:22-bullseye-slim /usr/local/bin/node /usr/local/bin/node
 
-# The deb.debian.org security CDN can briefly serve stale Bullseye package
-# indexes after a security mirror rotation. Use Debian's canonical security
-# host so package metadata and payloads come from the same repository.
-RUN sed -i 's|http://deb.debian.org/debian-security|http://security.debian.org/debian-security|g' /etc/apt/sources.list
+# Bullseye security updates were archived after LTS ended. Pin Debian packages
+# to one official snapshot so package indexes and payloads always match.
+RUN set -eux; \
+    printf '%s\n' \
+        'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20260831T000000Z bullseye main' \
+        'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20260831T000000Z bullseye-security main' \
+        > /etc/apt/sources.list; \
+    rm -f /etc/apt/sources.list.d/debian.sources
 
 RUN set -eux; \
     apt-get update; \
