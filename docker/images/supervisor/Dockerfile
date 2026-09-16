@@ -2,6 +2,11 @@ FROM php:8.2-fpm-bullseye
 
 COPY --from=node:22-bullseye-slim /usr/local/bin/node /usr/local/bin/node
 
+# The deb.debian.org security CDN can briefly serve stale Bullseye package
+# indexes after a security mirror rotation. Use Debian's canonical security
+# host so package metadata and payloads come from the same repository.
+RUN sed -i 's|http://deb.debian.org/debian-security|http://security.debian.org/debian-security|g' /etc/apt/sources.list
+
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
