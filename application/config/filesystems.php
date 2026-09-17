@@ -47,7 +47,7 @@ return [
         'exports' => [
             'driver' => 'local',
             'root' => storage_path('app/public/table/format'),
-            'url' => env('APP_URL').'/storage',
+            'url' => rtrim((string) env('APP_URL', 'http://localhost'), '/').'/storage/table/format',
             'visibility' => 'public',
             'throw' => false,
         ],

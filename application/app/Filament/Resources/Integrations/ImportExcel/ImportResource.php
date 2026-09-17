@@ -30,11 +30,15 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Concerns\ToArray;
+use Maatwebsite\Excel\Concerns\WithLimit;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ImportResource extends Resource
 {
     use TenantResource, SettingResource;
+
+    private static array $fileHeaderCache = [];
 
     protected static ?string $model = ImportSetting::class;
 
@@ -480,7 +484,7 @@ class ImportResource extends Resource
         return [];
     }
 
-    private static function extractHeadersFromFileState(mixed $state): array
+    public static function extractHeadersFromFileState(mixed $state): array
     {
         $path = static::resolveFilePath($state);
 
@@ -488,28 +492,37 @@ class ImportResource extends Resource
             return [];
         }
 
+        $cacheKey = $path.'|'.filemtime($path).'|'.filesize($path);
+
+        if (array_key_exists($cacheKey, static::$fileHeaderCache)) {
+            return static::$fileHeaderCache[$cacheKey];
+        }
+
         try {
             static::prepareExcelTemporaryDirectory();
 
             $rows = Excel::toArray(
-                new class implements \Maatwebsite\Excel\Concerns\ToArray {
+                new class implements ToArray, WithLimit {
                     public function array(array $array)
                     {
+                    }
+
+                    public function limit(): int
+                    {
+                        return 1;
                     }
                 },
                 $path
             );
 
-            $headers = collect(data_get($rows, '0.0', []))
+            return static::$fileHeaderCache[$cacheKey] = collect(data_get($rows, '0.0', []))
                 ->map(fn(mixed $header): string => trim((string)$header))
                 ->filter()
                 ->unique()
                 ->values()
                 ->all();
-
-            return $headers;
         } catch (\Throwable) {
-            return [];
+            return static::$fileHeaderCache[$cacheKey] = [];
         }
     }
 

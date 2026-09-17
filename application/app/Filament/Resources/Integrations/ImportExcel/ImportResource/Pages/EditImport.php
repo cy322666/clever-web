@@ -87,6 +87,15 @@ class EditImport extends EditRecord
     {
         $data['file_path'] = ImportResource::normalizeFilePathState($data['file_path'] ?? null);
 
+        if ((!isset($data['headers']) || !is_array($data['headers']) || $data['headers'] === []) && $data['file_path']) {
+            $headers = ImportResource::extractHeadersFromFileState($data['file_path']);
+
+            if ($headers !== []) {
+                $data['headers'] = $headers;
+                $this->record->forceFill(['headers' => $headers])->saveQuietly();
+            }
+        }
+
         return $data;
     }
 
