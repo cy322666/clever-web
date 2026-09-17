@@ -76,6 +76,19 @@ return [
             ))
         ))),
     ],
+    'yclients' => [
+        'api_url' => env(
+            'YCLIENTS_API_URL',
+            'https://api.yclients.ru/api/v1'
+        ),
+        'marketplace_activation_url' => env(
+            'YCLIENTS_MARKETPLACE_ACTIVATION_URL',
+            'https://app.alteg.io/marketplace/partner/callback'
+        ),
+        'marketplace_application_id' => env('YCLIENTS_MARKETPLACE_APPLICATION_ID'),
+        'marketplace_partner_token' => env('YCLIENTS_MARKETPLACE_PARTNER_TOKEN'),
+        'marketplace_user_token' => env('YCLIENTS_MARKETPLACE_USER_TOKEN'),
+    ],
     'yandex' => [
         'local_storage_path'  => storage_path('app/public/'),
         'yandex_storage_path' => 'amoCRM/Documents/',

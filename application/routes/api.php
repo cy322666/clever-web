@@ -9,7 +9,12 @@ use App\Http\Controllers\Api\VetmanagerController;
 use App\Http\Controllers\Api\WorkflowManualAmoCrmController;
 use App\Http\Controllers\Api\WorkflowWebhookController;
 use App\Http\Controllers\Api\YClientsController;
+use App\Http\Controllers\YClientsMarketplaceController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('yclients/marketplace/callback', [YClientsMarketplaceController::class, 'callback'])
+    ->middleware('throttle:60,1')
+    ->name('yclients.marketplace.callback');
 
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 

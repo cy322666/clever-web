@@ -3,6 +3,7 @@
 use App\Http\Controllers\System\IntegrationOpenController;
 use App\Http\Controllers\System\MetricsController;
 use App\Http\Controllers\WorkflowDocumentationController;
+use App\Http\Controllers\YClientsMarketplaceController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +36,9 @@ Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::cl
 Route::get('/up', fn() => response('OK', 200))
     ->name('up');
 Route::get('/metrics', MetricsController::class)->name('metrics');
+Route::get('/yclients/marketplace/register', [YClientsMarketplaceController::class, 'register'])
+    ->middleware('throttle:30,1')
+    ->name('yclients.marketplace.register');
 Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
     ->name('integrations.open')
     ->middleware('auth');

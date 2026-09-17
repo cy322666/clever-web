@@ -214,7 +214,10 @@ class YClients
                 0,
                 fn(Throwable $exception): bool => $exception instanceof ConnectionException
             )
-            ->get('https://api.yclients.com/api/v1/' . ltrim($path, '/'))
+            ->get(
+                rtrim((string)config('services.yclients.api_url', 'https://api.yclients.ru/api/v1'), '/')
+                . '/' . ltrim($path, '/')
+            )
             ->object();
     }
 
