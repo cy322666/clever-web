@@ -77,14 +77,13 @@ class EditSqns extends EditRecord
     {
         unset($data['token'], $data['webhook_secret'], $data['webhook_key']);
         $data['password'] = null;
-        $data['webhook_url'] = $this->record->webhookUrl();
 
         return $data;
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        unset($data['webhook_url'], $data['connection_state'], $data['pricing']);
+        unset($data['connection_state'], $data['pricing']);
 
         if (blank($data['password'] ?? null)) {
             unset($data['password']);
