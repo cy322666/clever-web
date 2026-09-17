@@ -28,7 +28,7 @@ class YClientsMarketplaceTest extends TestCase
             'database.connections.sqlite.database' => ':memory:',
             'cache.default' => 'array',
             'queue.default' => 'sync',
-            'services.yclients.marketplace_activation_url' => 'https://app.alteg.io/marketplace/partner/callback',
+            'services.yclients.marketplace_activation_url' => 'https://api.yclients.ru/marketplace/partner/callback',
             'services.yclients.marketplace_application_id' => '123',
             'services.yclients.marketplace_partner_token' => 'partner-secret',
             'services.yclients.marketplace_user_token' => 'system-user-secret',
@@ -164,7 +164,7 @@ class YClientsMarketplaceTest extends TestCase
         $this->app->instance(WidgetSubscriptionAccessService::class, $access);
 
         Http::fake([
-            'https://app.alteg.io/*' => Http::response([], 201),
+            'https://api.yclients.ru/*' => Http::response([], 201),
         ]);
 
         $installation = app(YClientsMarketplaceService::class)->activateForUser($user, [
@@ -182,7 +182,7 @@ class YClientsMarketplaceTest extends TestCase
         ]);
 
         Http::assertSent(function (HttpRequest $request): bool {
-            return $request->url() === 'https://app.alteg.io/marketplace/partner/callback'
+            return $request->url() === 'https://api.yclients.ru/marketplace/partner/callback'
                 && $request->data() === [
                     'salon_id' => 4564,
                     'application_id' => 123,

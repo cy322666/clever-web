@@ -83,7 +83,7 @@ return [
         ),
         'marketplace_activation_url' => env(
             'YCLIENTS_MARKETPLACE_ACTIVATION_URL',
-            'https://app.alteg.io/marketplace/partner/callback'
+            'https://api.yclients.ru/marketplace/partner/callback'
         ),
         'marketplace_application_id' => env('YCLIENTS_MARKETPLACE_APPLICATION_ID'),
         'marketplace_partner_token' => env('YCLIENTS_MARKETPLACE_PARTNER_TOKEN'),
