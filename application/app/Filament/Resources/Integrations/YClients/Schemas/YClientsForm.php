@@ -72,27 +72,27 @@ class YClientsForm
                                     ->searchable(),
 
                                 Select::make('status_id_cancel')
-                                    ->label('Этап клиент не пришел')
+                                    ->label('Клиент не пришел')
                                     ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_wait')
-                                    ->label('Этап клиент записан')
+                                    ->label('Клиент записан')
                                     ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_came')
-                                    ->label('Этап клиент пришел')
+                                    ->label('Клиент пришел')
                                     ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_confirm')
-                                    ->label('Этап клиент подтвердил')
+                                    ->label('Клиент подтвердил')
                                     ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
                                 Select::make('status_id_delete')
-                                    ->label('Этап запись удалена')
+                                    ->label('Запись удалена')
                                     ->options(fn($record = null): array => self::triggerStatusOptions($record))
                                     ->searchable(),
 
