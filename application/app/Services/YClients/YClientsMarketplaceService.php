@@ -271,7 +271,7 @@ class YClientsMarketplaceService
             && $installation->status === MarketplaceInstallation::STATUS_ACTIVE;
 
         if (!$alreadyActive) {
-            $this->sendActivationRequest($salonId, $applicationId, $partnerToken);
+            $this->sendActivationRequest($user, $salonId, $applicationId, $partnerToken);
         }
 
         return $this->provisionLocalIntegration(
@@ -283,11 +283,23 @@ class YClientsMarketplaceService
         );
     }
 
-    private function sendActivationRequest(int $salonId, int $applicationId, string $partnerToken): void
+    private function sendActivationRequest(
+        User $user,
+        int $salonId,
+        int $applicationId,
+        string $partnerToken
+    ): void
     {
+        if (!$user->uuid) {
+            throw new RuntimeException('YClients Marketplace requires a user UUID for the webhook URL.');
+        }
+
         $payload = [
             'salon_id' => $salonId,
             'application_id' => $applicationId,
+            'webhook_urls' => [
+                route('yclients.hook', ['user' => $user->uuid]),
+            ],
         ];
 
         $response = $this->marketplaceRequest($partnerToken)

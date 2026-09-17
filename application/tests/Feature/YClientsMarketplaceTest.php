@@ -186,6 +186,9 @@ class YClientsMarketplaceTest extends TestCase
                 && $request->data() === [
                     'salon_id' => 4564,
                     'application_id' => 123,
+                    'webhook_urls' => [
+                        route('yclients.hook', ['user' => 'user-7']),
+                    ],
                 ];
         });
     }
