@@ -61,6 +61,12 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::match(['get', 'post'], 'off/flow', [AuthController::class, 'offFlow'])
         ->middleware('throttle:60,1')
         ->name('amocrm.flow.off');
+    Route::match(['get', 'post'], 'install/excel', [AuthController::class, 'installExcel'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.excel.install');
+    Route::match(['get', 'post'], 'off/excel', [AuthController::class, 'offExcel'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.excel.off');
 
     Route::get('redirect', [AuthController::class, 'redirect']);
     Route::match(['get', 'post'], 'off', [AuthController::class, 'off'])

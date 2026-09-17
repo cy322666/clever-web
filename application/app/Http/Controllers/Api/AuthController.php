@@ -31,13 +31,23 @@ class AuthController extends Controller
 {
     public function installFlow(Request $request)
     {
-        $this->logFlowLifecycleCallback('install', $request);
+        return $this->installWidgetFromAmoCrm($request, 'workflows', 'flow');
+    }
+
+    public function installExcel(Request $request)
+    {
+        return $this->installWidgetFromAmoCrm($request, 'import-excel', 'excel');
+    }
+
+    private function installWidgetFromAmoCrm(Request $request, string $widget, string $callback): \Illuminate\Http\JsonResponse
+    {
+        $this->logWidgetLifecycleCallback($callback, 'install', $request);
 
         $authorizationCode = trim((string) $request->input('code', ''));
         $referer = trim((string) $request->input('referer', ''));
 
         if ($authorizationCode === '' || $referer === '') {
-            Log::warning('amocrm.flow.install rejected', [
+            Log::warning("amocrm.{$callback}.install rejected", [
                 'code_received' => $authorizationCode !== '',
                 'referer_received' => $referer !== '',
             ]);
@@ -51,7 +61,7 @@ class AuthController extends Controller
         CompleteAmoCrmWidgetInstallation::dispatch(
             Crypt::encryptString($authorizationCode),
             $referer,
-            'workflows',
+            $widget,
         );
 
         return response()->json(['ok' => true, 'status' => 'queued'], 202);
@@ -59,12 +69,22 @@ class AuthController extends Controller
 
     public function offFlow(Request $request)
     {
-        $this->logFlowLifecycleCallback('off', $request);
+        return $this->logWidgetOffCallback($request, 'flow');
+    }
+
+    public function offExcel(Request $request)
+    {
+        return $this->logWidgetOffCallback($request, 'excel');
+    }
+
+    private function logWidgetOffCallback(Request $request, string $callback): \Illuminate\Http\JsonResponse
+    {
+        $this->logWidgetLifecycleCallback($callback, 'off', $request);
 
         return response()->json(['ok' => true]);
     }
 
-    private function logFlowLifecycleCallback(string $event, Request $request): void
+    private function logWidgetLifecycleCallback(string $callback, string $event, Request $request): void
     {
         $payload = $request->all();
         $authorizationCode = trim((string) data_get($payload, 'code', ''));
@@ -73,7 +93,7 @@ class AuthController extends Controller
             data_set($payload, 'code', '[received]');
         }
 
-        Log::info("amocrm.flow.{$event} received", [
+        Log::info("amocrm.{$callback}.{$event} received", [
             'method' => $request->method(),
             'content_type' => $request->header('content-type'),
             'payload' => $payload,

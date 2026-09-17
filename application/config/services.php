@@ -43,6 +43,10 @@ return [
             'import-excel' => [
                 'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
+                'redirect_uri' => env(
+                    'AMO_IMPORT_EXCEL_REDIRECT_URI',
+                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/excel'
+                ),
             ],
             'distribution' => [
                 'client_id' => env('AMO_DISTRIBUTION_CLIENT_ID'),
