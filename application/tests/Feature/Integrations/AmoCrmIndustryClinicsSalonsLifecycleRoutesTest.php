@@ -12,7 +12,7 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
     public function test_install_redirect_is_available_and_does_not_log_authorization_code(): void
     {
         Log::spy();
-        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 501]])]);
         config([
             'industry_solutions.telegram.token' => 'test-token',
             'industry_solutions.telegram.chat_id' => '-100123',
@@ -25,11 +25,16 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
             ->assertSee('Решение установлено')
             ->assertSee('Клиники и салоны');
 
-        Log::shouldHaveReceived('info')->once()->with(
+        Log::shouldHaveReceived('info')->with(
             'amocrm.industry-clinics-salons.install received',
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.code') === '[received]'
                 && data_get($context, 'payload.referer') === 'example.amocrm.ru'),
-        );
+        )->once();
+        Log::shouldHaveReceived('info')->with(
+            'amocrm.industry-clinics-salons.telegram sent',
+            Mockery::on(fn (array $context): bool => $context['event'] === 'install'
+                && $context['message_id'] === 501),
+        )->once();
         Http::assertSent(fn ($request): bool => $request->url() === 'https://api.telegram.org/bottest-token/sendMessage'
             && $request['chat_id'] === '-100123'
             && str_contains($request['text'], '🟢 Виджет установлен')
@@ -40,7 +45,7 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
     public function test_off_hook_accepts_amocrm_get_request_and_redacts_signature(): void
     {
         Log::spy();
-        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 502]])]);
         config([
             'industry_solutions.telegram.token' => 'test-token',
             'industry_solutions.telegram.chat_id' => '-100123',
@@ -52,12 +57,17 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
             ->assertOk()
             ->assertExactJson(['ok' => true]);
 
-        Log::shouldHaveReceived('info')->once()->with(
+        Log::shouldHaveReceived('info')->with(
             'amocrm.industry-clinics-salons.off received',
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.account_id') === '123'
                 && data_get($context, 'payload.client_uuid') === 'client-id'
                 && data_get($context, 'payload.signature') === '[received]'),
-        );
+        )->once();
+        Log::shouldHaveReceived('info')->with(
+            'amocrm.industry-clinics-salons.telegram sent',
+            Mockery::on(fn (array $context): bool => $context['event'] === 'off'
+                && $context['message_id'] === 502),
+        )->once();
         Http::assertSent(fn ($request): bool => str_contains($request['text'], '🔴 Виджет отключён')
             && str_contains($request['text'], 'Аккаунт: 123')
             && str_contains($request['text'], 'ID интеграции: client-id')
