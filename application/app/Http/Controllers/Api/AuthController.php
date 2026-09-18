@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\amoCRM\Client;
 use App\Services\Billing\WidgetSubscriptionAccessService;
 use App\Services\Core\PlatformTechnicalMonitor;
+use App\Services\Integrations\AmoCrmWidgetLifecycleTelegramNotifier;
 use App\Services\Integrations\IntegrationProvisioningService;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Http\RedirectResponse;
@@ -69,17 +70,19 @@ class AuthController extends Controller
             $widget,
         );
 
+        $this->notifyWidgetLifecycle('install', $widget, $request);
+
         return response()->json(['ok' => true, 'status' => 'queued'], 202);
     }
 
     public function offFlow(Request $request)
     {
-        return $this->logWidgetOffCallback($request, 'flow');
+        return $this->logWidgetOffCallback($request, 'flow', 'workflows');
     }
 
     public function offExcel(Request $request)
     {
-        return $this->logWidgetOffCallback($request, 'excel');
+        return $this->logWidgetOffCallback($request, 'excel', 'import-excel');
     }
 
     public function offSqns(Request $request)
@@ -121,11 +124,32 @@ class AuthController extends Controller
         return $this->off($request, 'sqns');
     }
 
-    private function logWidgetOffCallback(Request $request, string $callback): \Illuminate\Http\JsonResponse
+    private function logWidgetOffCallback(
+        Request $request,
+        string $callback,
+        string $widget,
+    ): \Illuminate\Http\JsonResponse
     {
         $this->logWidgetLifecycleCallback($callback, 'off', $request);
+        $this->notifyWidgetLifecycle('off', $widget, $request);
 
         return response()->json(['ok' => true]);
+    }
+
+    private function notifyWidgetLifecycle(
+        string $event,
+        string $widget,
+        Request $request,
+        array $context = [],
+    ): void {
+        app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify(
+            $event,
+            $widget,
+            $request->all(),
+            array_merge([
+                'referer' => (string) $request->input('referer', $request->header('referer', '')),
+            ], $context),
+        );
     }
 
     private function logWidgetLifecycleCallback(string $callback, string $event, Request $request): void
@@ -365,6 +389,12 @@ class AuthController extends Controller
                 'subdomain' => $account->subdomain,
                 'zone' => $account->zone,
                 'active' => $account->active,
+            ]);
+
+            $this->notifyWidgetLifecycle('install', $widget, $request, [
+                'account_id' => $account->amo_account_id,
+                'referer' => $account->subdomain,
+                'client_id' => $account->client_id,
             ]);
 
             app(WidgetSubscriptionAccessService::class)->ensureTrialForWidget(
@@ -653,6 +683,19 @@ class AuthController extends Controller
             'subdomain' => $subdomain,
             'updated' => $accounts->count(),
             'mail_queued' => $mailsQueued,
+        ]);
+
+        $notificationWidget = Account::normalizeWidget((string) (
+            $forcedWidget
+            ?? $request->input('source')
+            ?? $accounts->first()?->widget
+            ?? Account::DEFAULT_WIDGET
+        ));
+        $this->notifyWidgetLifecycle('off', $notificationWidget, $request, [
+            'account_id' => $amoAccountId ?? $accounts->first()?->amo_account_id,
+            'referer' => $referer !== '' ? $referer : $subdomain,
+            'client_id' => $clientId,
+            'updated' => $accounts->count(),
         ]);
 
         return response()->json([

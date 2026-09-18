@@ -14,8 +14,8 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
         Log::spy();
         Http::fake(['api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 501]])]);
         config([
-            'industry_solutions.telegram.token' => 'test-token',
-            'industry_solutions.telegram.chat_id' => '-100123',
+            'widget_lifecycle.telegram.token' => 'test-token',
+            'widget_lifecycle.telegram.chat_id' => '-100123',
         ]);
 
         $response = $this->get('/api/amocrm/industry-clinics-salons/redirect?code=secret-code&referer=example.amocrm.ru&platform=1');
@@ -31,8 +31,9 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
                 && data_get($context, 'payload.referer') === 'example.amocrm.ru'),
         )->once();
         Log::shouldHaveReceived('info')->with(
-            'amocrm.industry-clinics-salons.telegram sent',
+            'amocrm.widget-lifecycle.telegram sent',
             Mockery::on(fn (array $context): bool => $context['event'] === 'install'
+                && $context['widget'] === 'industry-clinics-salons'
                 && $context['message_id'] === 501),
         )->once();
         Http::assertSent(fn ($request): bool => $request->url() === 'https://api.telegram.org/bottest-token/sendMessage'
@@ -47,8 +48,8 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
         Log::spy();
         Http::fake(['api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 502]])]);
         config([
-            'industry_solutions.telegram.token' => 'test-token',
-            'industry_solutions.telegram.chat_id' => '-100123',
+            'widget_lifecycle.telegram.token' => 'test-token',
+            'widget_lifecycle.telegram.chat_id' => '-100123',
         ]);
 
         $response = $this->get('/api/amocrm/industry-clinics-salons/off?account_id=123&client_uuid=client-id&signature=secret');
@@ -64,8 +65,9 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
                 && data_get($context, 'payload.signature') === '[received]'),
         )->once();
         Log::shouldHaveReceived('info')->with(
-            'amocrm.industry-clinics-salons.telegram sent',
+            'amocrm.widget-lifecycle.telegram sent',
             Mockery::on(fn (array $context): bool => $context['event'] === 'off'
+                && $context['widget'] === 'industry-clinics-salons'
                 && $context['message_id'] === 502),
         )->once();
         Http::assertSent(fn ($request): bool => str_contains($request['text'], '🔴 Виджет отключён')
