@@ -39,6 +39,11 @@ class AuthController extends Controller
         return $this->installWidgetFromAmoCrm($request, 'import-excel', 'excel');
     }
 
+    public function installSqns(Request $request)
+    {
+        return $this->installWidgetFromAmoCrm($request, 'sqns', 'sqns');
+    }
+
     private function installWidgetFromAmoCrm(Request $request, string $widget, string $callback): \Illuminate\Http\JsonResponse
     {
         $this->logWidgetLifecycleCallback($callback, 'install', $request);
@@ -75,6 +80,13 @@ class AuthController extends Controller
     public function offExcel(Request $request)
     {
         return $this->logWidgetOffCallback($request, 'excel');
+    }
+
+    public function offSqns(Request $request)
+    {
+        $this->logWidgetLifecycleCallback('sqns', 'off', $request);
+
+        return $this->off($request, 'sqns');
     }
 
     private function logWidgetOffCallback(Request $request, string $callback): \Illuminate\Http\JsonResponse

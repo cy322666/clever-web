@@ -60,6 +60,14 @@ return [
                     rtrim((string) env('APP_URL', 'http://localhost'), '/') . '/api/amocrm/install/flow'
                 ),
             ],
+            'sqns' => [
+                'client_id' => env('AMO_SQNS_CLIENT_ID'),
+                'client_secret' => env('AMO_SQNS_CLIENT_SECRET'),
+                'redirect_uri' => env(
+                    'AMO_SQNS_REDIRECT_URI',
+                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/sqns'
+                ),
+            ],
             'vetmanager' => [
                 'client_id' => env('AMO_VETMANAGER_CLIENT_ID'),
                 'client_secret' => env('AMO_VETMANAGER_CLIENT_SECRET'),
