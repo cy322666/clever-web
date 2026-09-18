@@ -3,6 +3,7 @@
 namespace Tests\Feature\Integrations;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
 
@@ -11,8 +12,13 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
     public function test_install_redirect_is_available_and_does_not_log_authorization_code(): void
     {
         Log::spy();
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+        config([
+            'industry_solutions.telegram.token' => 'test-token',
+            'industry_solutions.telegram.chat_id' => '-100123',
+        ]);
 
-        $response = $this->get('/api/amocrm/industry-clinics-salons/redirect?code=secret-code&referer=example.amocrm.ru');
+        $response = $this->get('/api/amocrm/industry-clinics-salons/redirect?code=secret-code&referer=example.amocrm.ru&platform=1');
 
         $response
             ->assertOk()
@@ -24,11 +30,21 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.code') === '[received]'
                 && data_get($context, 'payload.referer') === 'example.amocrm.ru'),
         );
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.telegram.org/bottest-token/sendMessage'
+            && $request['chat_id'] === '-100123'
+            && str_contains($request['text'], '🟢 Виджет установлен')
+            && str_contains($request['text'], 'Домен: example.amocrm.ru')
+            && ! str_contains($request['text'], 'secret-code'));
     }
 
     public function test_off_hook_accepts_amocrm_get_request_and_redacts_signature(): void
     {
         Log::spy();
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+        config([
+            'industry_solutions.telegram.token' => 'test-token',
+            'industry_solutions.telegram.chat_id' => '-100123',
+        ]);
 
         $response = $this->get('/api/amocrm/industry-clinics-salons/off?account_id=123&client_uuid=client-id&signature=secret');
 
@@ -42,5 +58,9 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
                 && data_get($context, 'payload.client_uuid') === 'client-id'
                 && data_get($context, 'payload.signature') === '[received]'),
         );
+        Http::assertSent(fn ($request): bool => str_contains($request['text'], '🔴 Виджет отключён')
+            && str_contains($request['text'], 'Аккаунт: 123')
+            && str_contains($request['text'], 'ID интеграции: client-id')
+            && ! str_contains($request['text'], 'secret'));
     }
 }
