@@ -107,7 +107,14 @@ class IndustryClinicsSalonsLifecycleController extends Controller
                     'event' => $event,
                     'status' => $response->status(),
                 ]);
+
+                return;
             }
+
+            Log::info('amocrm.industry-clinics-salons.telegram sent', [
+                'event' => $event,
+                'message_id' => $response->json('result.message_id'),
+            ]);
         } catch (Throwable $exception) {
             Log::warning('amocrm.industry-clinics-salons.telegram failed', [
                 'event' => $event,
