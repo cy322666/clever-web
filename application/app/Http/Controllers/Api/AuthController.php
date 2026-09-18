@@ -84,6 +84,38 @@ class AuthController extends Controller
 
     public function offSqns(Request $request)
     {
+        $clientId = trim((string) (config('services.amocrm.widgets.sqns.client_id')
+            ?: config('services.amocrm.client_id')));
+        $clientSecret = trim((string) (config('services.amocrm.widgets.sqns.client_secret')
+            ?: config('services.amocrm.client_secret')));
+        $hookClientId = trim((string) $request->input('client_uuid', $request->input('client_id', '')));
+        $accountId = (int) $request->input('account_id', 0);
+        $signature = trim((string) $request->input('signature', ''));
+        $expectedSignature = $clientId !== '' && $clientSecret !== '' && $accountId > 0
+            ? hash_hmac('sha256', $clientId.'|'.$accountId, $clientSecret)
+            : '';
+
+        if (
+            $hookClientId === ''
+            || $hookClientId !== $clientId
+            || $signature === ''
+            || $expectedSignature === ''
+            || ! hash_equals($expectedSignature, $signature)
+        ) {
+            Log::warning('amocrm.sqns.off rejected', [
+                'account_id' => $accountId > 0 ? $accountId : null,
+                'client_id_received' => $hookClientId !== '',
+                'client_id_matches' => $hookClientId !== '' && $hookClientId === $clientId,
+                'signature_received' => $signature !== '',
+                'credentials_configured' => $clientId !== '' && $clientSecret !== '',
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Invalid amoCRM off callback.',
+            ], 403);
+        }
+
         $this->logWidgetLifecycleCallback('sqns', 'off', $request);
 
         return $this->off($request, 'sqns');
@@ -103,6 +135,10 @@ class AuthController extends Controller
 
         if ($authorizationCode !== '') {
             data_set($payload, 'code', '[received]');
+        }
+
+        if (trim((string) data_get($payload, 'signature', '')) !== '') {
+            data_set($payload, 'signature', '[received]');
         }
 
         Log::info("amocrm.{$callback}.{$event} received", [
@@ -494,10 +530,20 @@ class AuthController extends Controller
         $flat = $this->flattenPayload($payload);
 
         $clientId = $this->firstFilledValue($flat, [
+            'client_uuid',
             'client_id',
             'client.id',
             'account.client_id',
         ]);
+
+        $rawAccountId = $this->firstFilledValue($flat, [
+            'account_id',
+            'account.id',
+            'account.amo_account_id',
+        ]);
+        $amoAccountId = is_numeric($rawAccountId) && (int) $rawAccountId > 0
+            ? (int) $rawAccountId
+            : null;
 
         $referer = (string) ($this->firstFilledValue($flat, ['referer', 'account.referer']) ?? '');
         if ($referer === '') {
@@ -524,11 +570,15 @@ class AuthController extends Controller
             $accountsQuery->where('client_id', $clientId);
         }
 
+        if ($amoAccountId !== null) {
+            $accountsQuery->where('amo_account_id', $amoAccountId);
+        }
+
         if ($subdomain !== null && $subdomain !== '') {
             $accountsQuery->whereRaw('LOWER(subdomain) = ?', [Str::lower($subdomain)]);
         }
 
-        if (($clientId === null || $clientId === '') && ($subdomain === null || $subdomain === '')) {
+        if ($amoAccountId === null && ($subdomain === null || $subdomain === '')) {
             Log::warning('amocrm.off: account matcher is missing', [
                 'payload' => $payload,
             ]);
@@ -536,7 +586,7 @@ class AuthController extends Controller
             return response()->json([
                 'ok' => true,
                 'updated' => 0,
-                'reason' => 'No client_id/subdomain in payload',
+                'reason' => 'No account_id/subdomain in payload',
             ]);
         }
 
@@ -599,6 +649,7 @@ class AuthController extends Controller
         Log::info('amocrm.off processed', [
             'widget' => $forcedWidget !== null ? Account::normalizeWidget($forcedWidget) : null,
             'client_id' => $clientId,
+            'amo_account_id' => $amoAccountId,
             'subdomain' => $subdomain,
             'updated' => $accounts->count(),
             'mail_queued' => $mailsQueued,

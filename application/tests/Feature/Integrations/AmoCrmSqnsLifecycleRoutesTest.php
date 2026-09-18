@@ -17,6 +17,10 @@ use Tests\TestCase;
 
 class AmoCrmSqnsLifecycleRoutesTest extends TestCase
 {
+    private const SQNS_CLIENT_ID = 'sqns-client-id';
+
+    private const SQNS_CLIENT_SECRET = 'sqns-client-secret';
+
     public function test_sqns_lifecycle_routes_use_sqns_handlers(): void
     {
         $routes = app('router')->getRoutes();
@@ -86,6 +90,7 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
     public function test_off_hook_disconnects_only_the_sqns_widget(): void
     {
         Log::spy();
+        $this->configureSqnsOauth();
 
         $controller = new class extends AuthController
         {
@@ -99,25 +104,57 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             }
         };
 
-        $response = $controller->offSqns(Request::create('/api/amocrm/off/sqns', 'POST', [
-            'account' => [
-                'id' => 33098322,
-                'subdomain' => 'widgetscenario',
-            ],
-        ]));
+        $response = $controller->offSqns(Request::create(
+            '/api/amocrm/off/sqns',
+            'GET',
+            $this->signedOffPayload(33098322),
+        ));
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('sqns', $controller->forcedWidget);
         Log::shouldHaveReceived('info')->once()->with(
             'amocrm.sqns.off received',
-            Mockery::on(fn (array $context): bool => data_get($context, 'payload.account.id') === 33098322
-                && data_get($context, 'payload.account.subdomain') === 'widgetscenario'
+            Mockery::on(fn (array $context): bool => data_get($context, 'payload.account_id') === 33098322
+                && data_get($context, 'payload.signature') === '[received]'
             ),
         );
     }
 
-    public function test_off_hook_keeps_other_widget_accounts_connected(): void
+    public function test_off_hook_rejects_an_invalid_signature(): void
     {
+        Log::spy();
+        $this->configureSqnsOauth();
+
+        $controller = new class extends AuthController
+        {
+            public bool $disconnectCalled = false;
+
+            public function off(Request $request, ?string $forcedWidget = null)
+            {
+                $this->disconnectCalled = true;
+
+                return response()->json(['ok' => true]);
+            }
+        };
+
+        $payload = $this->signedOffPayload(33098322);
+        $payload['signature'] = 'invalid-signature';
+        $response = $controller->offSqns(Request::create('/api/amocrm/off/sqns', 'GET', $payload));
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertFalse($controller->disconnectCalled);
+        Log::shouldHaveReceived('warning')->once()->with(
+            'amocrm.sqns.off rejected',
+            Mockery::on(fn (array $context): bool => $context['account_id'] === 33098322
+                && $context['client_id_matches'] === true
+                && $context['signature_received'] === true
+            ),
+        );
+    }
+
+    public function test_off_hook_keeps_other_accounts_and_widgets_connected(): void
+    {
+        $this->configureSqnsOauth();
         config([
             'database.default' => 'sqns_off_test',
             'database.connections.sqns_off_test' => ['driver' => 'sqlite', 'database' => ':memory:'],
@@ -133,6 +170,7 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->string('widget');
+            $table->unsignedBigInteger('amo_account_id')->nullable();
             $table->string('subdomain')->nullable();
             $table->text('code')->nullable();
             $table->text('access_token')->nullable();
@@ -141,25 +179,43 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             $table->boolean('active')->default(false);
         });
 
-        $userId = DB::table('users')->insertGetId([
+        $targetUserId = DB::table('users')->insertGetId([
             'name' => 'SQNS owner',
+            'email' => null,
+        ]);
+        $otherUserId = DB::table('users')->insertGetId([
+            'name' => 'Other SQNS owner',
             'email' => null,
         ]);
         DB::table('accounts')->insert([
             [
-                'user_id' => $userId,
+                'user_id' => $targetUserId,
                 'widget' => 'sqns',
+                'amo_account_id' => 33098322,
                 'subdomain' => 'widgetscenario',
                 'access_token' => 'sqns-access',
                 'refresh_token' => 'sqns-refresh',
+                'client_id' => self::SQNS_CLIENT_ID,
                 'active' => true,
             ],
             [
-                'user_id' => $userId,
+                'user_id' => $targetUserId,
                 'widget' => 'workflows',
+                'amo_account_id' => 33098322,
                 'subdomain' => 'widgetscenario',
                 'access_token' => 'flow-access',
                 'refresh_token' => 'flow-refresh',
+                'client_id' => 'workflow-client-id',
+                'active' => true,
+            ],
+            [
+                'user_id' => $otherUserId,
+                'widget' => 'sqns',
+                'amo_account_id' => 44098322,
+                'subdomain' => 'otherscenario',
+                'access_token' => 'other-sqns-access',
+                'refresh_token' => 'other-sqns-refresh',
+                'client_id' => self::SQNS_CLIENT_ID,
                 'active' => true,
             ],
         ]);
@@ -167,8 +223,8 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
 
         $response = (new AuthController)->offSqns(Request::create(
             '/api/amocrm/off/sqns',
-            'POST',
-            ['account' => ['subdomain' => 'widgetscenario']],
+            'GET',
+            $this->signedOffPayload(33098322),
         ));
 
         $this->assertSame(200, $response->getStatusCode());
@@ -187,6 +243,14 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             'refresh_token' => 'flow-refresh',
             'active' => true,
         ]);
+        $this->assertDatabaseHas('accounts', [
+            'widget' => 'sqns',
+            'amo_account_id' => 44098322,
+            'subdomain' => 'otherscenario',
+            'access_token' => 'other-sqns-access',
+            'refresh_token' => 'other-sqns-refresh',
+            'active' => true,
+        ]);
     }
 
     public function test_sqns_oauth_uses_the_sqns_callback_by_default(): void
@@ -195,5 +259,27 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             rtrim((string) config('app.url'), '/').'/api/amocrm/install/sqns',
             config('services.amocrm.widgets.sqns.redirect_uri'),
         );
+    }
+
+    private function configureSqnsOauth(): void
+    {
+        config([
+            'services.amocrm.widgets.sqns.client_id' => self::SQNS_CLIENT_ID,
+            'services.amocrm.widgets.sqns.client_secret' => self::SQNS_CLIENT_SECRET,
+        ]);
+    }
+
+    /** @return array{client_uuid: string, account_id: int, signature: string} */
+    private function signedOffPayload(int $accountId): array
+    {
+        return [
+            'client_uuid' => self::SQNS_CLIENT_ID,
+            'account_id' => $accountId,
+            'signature' => hash_hmac(
+                'sha256',
+                self::SQNS_CLIENT_ID.'|'.$accountId,
+                self::SQNS_CLIENT_SECRET,
+            ),
+        ];
     }
 }
