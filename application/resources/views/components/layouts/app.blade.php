@@ -7,6 +7,9 @@
         <meta name="csrf-token" content="{{ csrf_token() }}" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+        <link rel="icon" href="{{ asset('favicon.ico') }}?v=20260919" sizes="any" />
+        <link rel="apple-touch-icon" href="{{ asset('logo/clever_mini_logo.png') }}?v=20260919" />
+
         <title>{{ config('app.name') }}</title>
 
         <style>
