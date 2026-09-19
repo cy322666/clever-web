@@ -1,5 +1,9 @@
 <?php
 
+$appUrl = rtrim((string) (env('APP_URL') ?: 'http://localhost'), '/');
+$widgetRedirectUri = static fn (string $key, string $path): string =>
+    (string) (env($key) ?: $appUrl.$path);
+
 return [
 
     /*
@@ -43,26 +47,17 @@ return [
             'import-excel' => [
                 'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
-                'redirect_uri' => env(
-                    'AMO_IMPORT_EXCEL_REDIRECT_URI',
-                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/excel'
-                ),
+                'redirect_uri' => $widgetRedirectUri('AMO_IMPORT_EXCEL_REDIRECT_URI', '/api/amocrm/install/excel'),
             ],
             'yclients' => [
                 'client_id' => env('AMO_YCLIENTS_CLIENT_ID'),
                 'client_secret' => env('AMO_YCLIENTS_CLIENT_SECRET'),
-                'redirect_uri' => env(
-                    'AMO_YCLIENTS_REDIRECT_URI',
-                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/yclients'
-                ),
+                'redirect_uri' => $widgetRedirectUri('AMO_YCLIENTS_REDIRECT_URI', '/api/amocrm/install/yclients'),
             ],
             'tilda' => [
                 'client_id' => env('AMO_TILDA_CLIENT_ID'),
                 'client_secret' => env('AMO_TILDA_CLIENT_SECRET'),
-                'redirect_uri' => env(
-                    'AMO_TILDA_REDIRECT_URI',
-                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/tilda'
-                ),
+                'redirect_uri' => $widgetRedirectUri('AMO_TILDA_REDIRECT_URI', '/api/amocrm/install/tilda'),
             ],
             'distribution' => [
                 'client_id' => env('AMO_DISTRIBUTION_CLIENT_ID'),
@@ -71,18 +66,12 @@ return [
             'workflows' => [
                 'client_id' => env('AMO_WORKFLOWS_CLIENT_ID'),
                 'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),
-                'redirect_uri' => env(
-                    'AMO_WORKFLOWS_REDIRECT_URI',
-                    rtrim((string) env('APP_URL', 'http://localhost'), '/') . '/api/amocrm/install/flow'
-                ),
+                'redirect_uri' => $widgetRedirectUri('AMO_WORKFLOWS_REDIRECT_URI', '/api/amocrm/install/flow'),
             ],
             'sqns' => [
                 'client_id' => env('AMO_SQNS_CLIENT_ID'),
                 'client_secret' => env('AMO_SQNS_CLIENT_SECRET'),
-                'redirect_uri' => env(
-                    'AMO_SQNS_REDIRECT_URI',
-                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/sqns'
-                ),
+                'redirect_uri' => $widgetRedirectUri('AMO_SQNS_REDIRECT_URI', '/api/amocrm/install/sqns'),
             ],
             'vetmanager' => [
                 'client_id' => env('AMO_VETMANAGER_CLIENT_ID'),
