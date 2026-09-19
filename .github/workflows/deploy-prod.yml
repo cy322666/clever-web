@@ -244,7 +244,6 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           command_timeout: 30m
-          script_stop: true
           envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE,ASSET_PATH
           script: |
             set -Eeuo pipefail
