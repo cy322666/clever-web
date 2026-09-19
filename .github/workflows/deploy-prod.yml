@@ -314,6 +314,18 @@ jobs:
               fi
             }
 
+            external_healthcheck() {
+              local healthcheck_url="${APP_HEALTHCHECK_URL%/}"
+              [ -n "$healthcheck_url" ] || return 0
+
+              case "$healthcheck_url" in
+                */up) ;;
+                *) healthcheck_url="${healthcheck_url}/up" ;;
+              esac
+
+              curl -fsS --connect-timeout 5 --max-time 15 "$healthcheck_url"
+            }
+
             cd "$PROJECT_PATH"
 
             if [ -f ops/nginx/configure-host.py ]; then
@@ -412,9 +424,7 @@ jobs:
               compose_cmd exec -T --user "$supervisor_uid:$supervisor_gid" supervisor sh -c \
                 'test -w /var/www/html/storage && test -w /var/www/html/bootstrap/cache'
 
-              if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
-                curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null || true
-              fi
+              external_healthcheck >/dev/null || true
               echo "Rollback completed."
               exit "$exit_code"
             }
@@ -504,9 +514,7 @@ jobs:
               exit 1
             fi
 
-            if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
-              curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null
-            fi
+            external_healthcheck >/dev/null
 
             trap - ERR
             rm -f /tmp/clever-web-deploy-error
