@@ -383,6 +383,15 @@ jobs:
             echo "Current commit: $CURRENT_COMMIT"
             echo "Target commit:  $DEPLOY_SHA"
 
+            # Production builds leave tracked frontend artifacts changed between releases.
+            # Preserve any tracked server-side changes before switching revisions so the
+            # deploy stays recoverable instead of failing at git checkout.
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              WORKTREE_BACKUP="pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)-${CURRENT_COMMIT:0:12}"
+              git stash push -m "$WORKTREE_BACKUP"
+              echo "Stored tracked production changes in stash: $WORKTREE_BACKUP"
+            fi
+
             if ! git diff --quiet "$CURRENT_COMMIT" "$DEPLOY_SHA" -- \
               docker docker-compose.yml monitoring/docker-compose.monitoring.prod.yml; then
               REBUILD_IMAGES=true
