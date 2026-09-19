@@ -37,18 +37,19 @@ class WorkflowCredentialsTest extends TestCase
         $this->fakeBot();
         $page = Livewire::test(WorkflowCanvasFixture::class)->assertSee('Подключения')
             ->call('mountAction', 'workflowCredentials')
-            ->assertSet('mountedActions.0.data.provider', 'telegram');
-        $this->assertStringContainsString('Подключений пока нет', $this->schemaHtml($page));
-        $this->assertStringNotContainsString('Токен бота', $this->schemaHtml($page));
+            ->assertSet('workflowCredentialProvider', 'telegram');
+        $this->assertStringContainsString('Подключений пока нет', $this->credentialsModalHtml($page));
+        $this->assertStringNotContainsString('Токен бота', $this->credentialsModalHtml($page));
         $page
-            ->call('mountAction', 'createWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
-            ->assertSet('mountedActions.0.data.mode', 'create');
-        $this->assertStringContainsString('Токен бота', $this->schemaHtml($page));
-        $this->assertStringNotContainsString('Название подключения', $this->schemaHtml($page));
-        $page->set('mountedActions.0.data.credentials.token', self::TOKEN)
-            ->call('mountAction', 'saveWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->call('beginCreateWorkflowCredential')
+            ->assertSet('workflowCredentialMode', 'create');
+        $this->assertStringContainsString('Токен бота', $this->credentialsModalHtml($page));
+        $this->assertStringNotContainsString('Название подключения', $this->credentialsModalHtml($page));
+        $page->set('workflowCredentialToken', self::TOKEN)
+            ->call('saveWorkflowCredential')
             ->assertHasNoErrors()
-            ->assertSet('mountedActions.0.data.mode', 'list');
+            ->assertSet('workflowCredentialMode', 'list')
+            ->assertSet('workflowCredentialToken', '');
         $credential = WorkflowCredential::firstOrFail();
         $this->assertSame('@clever_test_bot', $credential->name);
         $this->assertSame(self::TOKEN, $credential->secret);
@@ -57,11 +58,10 @@ class WorkflowCredentialsTest extends TestCase
         $this->assertStringNotContainsString(self::TOKEN, $page->html());
         $this->assertStringNotContainsString(self::TOKEN, json_encode($page->get('mountedActions')));
         $page->call('mountAction', 'workflowCredentials')
-            ->set('mountedActions.0.data.credential_id', $credential->id)
-            ->call('mountAction', 'editWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
-            ->assertSet('mountedActions.0.data.mode', 'edit')
-            ->assertSet('mountedActions.0.data.credentials.token', null)
-            ->call('mountAction', 'saveWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->call('beginEditWorkflowCredential', $credential->id)
+            ->assertSet('workflowCredentialMode', 'edit')
+            ->assertSet('workflowCredentialToken', '')
+            ->call('saveWorkflowCredential')
             ->assertHasNoErrors();
         $this->assertSame(self::TOKEN, $credential->fresh()->secret);
         $this->assertSame('@clever_test_bot', $credential->fresh()->name);
@@ -89,19 +89,19 @@ class WorkflowCredentialsTest extends TestCase
 
         $page = Livewire::test(WorkflowCanvasFixture::class)
             ->call('mountAction', 'workflowCredentials')
-            ->assertSet('mountedActions.0.data.provider', 'telegram');
-        $html = $this->schemaHtml($page);
+            ->assertSet('workflowCredentialProvider', 'telegram');
+        $html = $this->credentialsModalHtml($page);
         $this->assertStringContainsString('Сохранённые подключения', $html);
         $this->assertStringContainsString('@clever_test_bot', $html);
         $this->assertStringNotContainsString('@foreign_bot', $html);
         $this->assertStringContainsString('Добавить подключение', $html);
-        $this->assertStringContainsString('Изменить', $html);
-        $this->assertStringContainsString('Удалить', $html);
+        $this->assertStringContainsString('aria-label="Изменить @clever_test_bot"', $html);
+        $this->assertStringContainsString('aria-label="Удалить @clever_test_bot"', $html);
 
-        $page->set('mountedActions.0.data.credential_id', $id)
-            ->call('mountAction', 'deleteWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
-            ->assertSet('mountedActions.1.name', 'deleteWorkflowCredential')
-            ->call('callMountedAction')
+        $page->call('requestDeleteWorkflowCredential', $id)
+            ->assertSet('workflowCredentialDeleteId', $id);
+        $this->assertStringContainsString('Удалить?', $this->credentialsModalHtml($page));
+        $page->call('deleteWorkflowCredential', $id)
             ->assertHasNoErrors();
 
         $this->assertNull(WorkflowCredential::find($id));
@@ -154,11 +154,12 @@ class WorkflowCredentialsTest extends TestCase
     public function test_service_change_clears_secrets_and_unsupported_services_cannot_be_saved(): void
     {
         Livewire::test(WorkflowCanvasFixture::class)->call('mountAction', 'workflowCredentials')
-            ->call('mountAction', 'createWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
-            ->set('mountedActions.0.data.credentials.token', self::TOKEN)
-            ->set('mountedActions.0.data.provider', null)
-            ->assertSet('mountedActions.0.data.credentials', [])
-            ->assertSet('mountedActions.0.data.credential_id', null)
+            ->call('beginCreateWorkflowCredential')
+            ->set('workflowCredentialToken', self::TOKEN)
+            ->set('workflowCredentialProvider', 'amocrm')
+            ->assertSet('workflowCredentialProvider', 'telegram')
+            ->assertSet('workflowCredentialToken', '')
+            ->assertSet('workflowCredentialId', null)
             ->assertDontSee('Токен бота');
         try {
             WorkflowCredentials::save(['provider' => 'amocrm', 'credentials' => ['token' => self::TOKEN]]);
@@ -174,11 +175,11 @@ class WorkflowCredentialsTest extends TestCase
     {
         Http::fake(['api.telegram.org/*' => Http::response(['ok' => false, 'description' => self::TOKEN], 401)]);
         $page = Livewire::test(WorkflowCanvasFixture::class)->call('mountAction', 'workflowCredentials')
-            ->call('mountAction', 'createWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
-            ->set('mountedActions.0.data.credentials.token', self::TOKEN)
-            ->call('mountAction', 'saveWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
-            ->assertHasErrors(['mountedActions.0.data.credentials.token']);
-        $this->assertStringContainsString('Telegram не подтвердил токен', $this->schemaHtml($page));
+            ->call('beginCreateWorkflowCredential')
+            ->set('workflowCredentialToken', self::TOKEN)
+            ->call('saveWorkflowCredential')
+            ->assertHasErrors(['workflowCredentialToken']);
+        $this->assertStringContainsString('Telegram не подтвердил токен', $this->credentialsModalHtml($page));
         $this->assertSame(0, WorkflowCredential::count());
         $this->assertStringNotContainsString(self::TOKEN, json_encode($page->instance()->getErrorBag()->messages()));
         Http::assertSentCount(1);
@@ -266,13 +267,28 @@ class WorkflowCredentialsTest extends TestCase
         // Livewire 4 delivers modal changes as partial effects, not the full component HTML.
         $previous = view()->shared('errors');
         view()->share('errors', (new \Illuminate\Support\ViewErrorBag)->put('default', $page->instance()->getErrorBag()));
-        try { return $page->instance()->getSchema($page->instance()->getMountedActionSchemaName())->toHtml(); }
-        finally { view()->share('errors', $previous); }
+        try {
+            return $page->instance()->getSchema($page->instance()->getMountedActionSchemaName())->toHtml();
+        } finally {
+            view()->share('errors', $previous);
+        }
+    }
+
+    private function credentialsModalHtml(\Livewire\Features\SupportTesting\Testable $page): string
+    {
+        $previous = view()->shared('errors');
+        view()->share('errors', (new \Illuminate\Support\ViewErrorBag)->put('default', $page->instance()->getErrorBag()));
+        try {
+            return $page->instance()->getMountedAction()->getModalContent()->render();
+        } finally {
+            view()->share('errors', $previous);
+        }
     }
 
     private function saveBot(): int
     {
         $this->fakeBot();
+
         return WorkflowCredentials::save(['provider' => 'telegram', 'credentials' => ['token' => self::TOKEN]]);
     }
 
