@@ -219,9 +219,10 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(ALERTS{alertstate=\"firing\"})",
+          "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "instant": true,
           "legendFormat": "",
-          "range": true,
+          "range": false,
           "refId": "A"
         }
       ],
@@ -823,8 +824,9 @@
         {
           "editorMode": "code",
           "expr": "sum by (severity) (ALERTS{alertstate=\"firing\"})",
+          "instant": true,
           "legendFormat": "{{severity}}",
-          "range": true,
+          "range": false,
           "refId": "A"
         }
       ],
@@ -1122,8 +1124,9 @@
         {
           "editorMode": "code",
           "expr": "topk(10, sum by (alertname) (ALERTS{alertstate=\"firing\"}))",
+          "instant": true,
           "legendFormat": "{{alertname}}",
-          "range": true,
+          "range": false,
           "refId": "A"
         }
       ],
