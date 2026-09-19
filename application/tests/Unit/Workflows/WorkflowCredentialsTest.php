@@ -37,12 +37,18 @@ class WorkflowCredentialsTest extends TestCase
         $this->fakeBot();
         $page = Livewire::test(WorkflowCanvasFixture::class)->assertSee('Подключения')
             ->call('mountAction', 'workflowCredentials')
-            ->assertSee('Сервис')->assertDontSee('Токен бота')
-            ->set('mountedActions.0.data.provider', 'telegram');
+            ->assertSet('mountedActions.0.data.provider', 'telegram');
+        $this->assertStringContainsString('Подключений пока нет', $this->schemaHtml($page));
+        $this->assertStringNotContainsString('Токен бота', $this->schemaHtml($page));
+        $page
+            ->call('mountAction', 'createWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->assertSet('mountedActions.0.data.mode', 'create');
         $this->assertStringContainsString('Токен бота', $this->schemaHtml($page));
         $this->assertStringNotContainsString('Название подключения', $this->schemaHtml($page));
         $page->set('mountedActions.0.data.credentials.token', self::TOKEN)
-            ->call('callMountedAction')->assertHasNoErrors();
+            ->call('mountAction', 'saveWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->assertHasNoErrors()
+            ->assertSet('mountedActions.0.data.mode', 'list');
         $credential = WorkflowCredential::firstOrFail();
         $this->assertSame('@clever_test_bot', $credential->name);
         $this->assertSame(self::TOKEN, $credential->secret);
@@ -51,10 +57,12 @@ class WorkflowCredentialsTest extends TestCase
         $this->assertStringNotContainsString(self::TOKEN, $page->html());
         $this->assertStringNotContainsString(self::TOKEN, json_encode($page->get('mountedActions')));
         $page->call('mountAction', 'workflowCredentials')
-            ->set('mountedActions.0.data.provider', 'telegram')
             ->set('mountedActions.0.data.credential_id', $credential->id)
+            ->call('mountAction', 'editWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->assertSet('mountedActions.0.data.mode', 'edit')
             ->assertSet('mountedActions.0.data.credentials.token', null)
-            ->call('callMountedAction')->assertHasNoErrors();
+            ->call('mountAction', 'saveWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->assertHasNoErrors();
         $this->assertSame(self::TOKEN, $credential->fresh()->secret);
         $this->assertSame('@clever_test_bot', $credential->fresh()->name);
         Http::assertSentCount(1);
@@ -72,6 +80,32 @@ class WorkflowCredentialsTest extends TestCase
         Http::assertSentCount(1); // Only the owner's getMe during creation.
         $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
         WorkflowCredentials::save(['provider' => 'telegram', 'credential_id' => $id, 'credentials' => ['token' => self::TOKEN]]);
+    }
+
+    public function test_connection_manager_opens_with_the_list_and_can_delete_selected_connection(): void
+    {
+        $id = $this->saveBot();
+        WorkflowCredential::create(['user_id' => 2, 'provider' => 'telegram', 'name' => '@foreign_bot', 'secret' => 'foreign']);
+
+        $page = Livewire::test(WorkflowCanvasFixture::class)
+            ->call('mountAction', 'workflowCredentials')
+            ->assertSet('mountedActions.0.data.provider', 'telegram');
+        $html = $this->schemaHtml($page);
+        $this->assertStringContainsString('Сохранённые подключения', $html);
+        $this->assertStringContainsString('@clever_test_bot', $html);
+        $this->assertStringNotContainsString('@foreign_bot', $html);
+        $this->assertStringContainsString('Добавить подключение', $html);
+        $this->assertStringContainsString('Изменить', $html);
+        $this->assertStringContainsString('Удалить', $html);
+
+        $page->set('mountedActions.0.data.credential_id', $id)
+            ->call('mountAction', 'deleteWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->assertSet('mountedActions.1.name', 'deleteWorkflowCredential')
+            ->call('callMountedAction')
+            ->assertHasNoErrors();
+
+        $this->assertNull(WorkflowCredential::find($id));
+        $this->assertSame(1, WorkflowCredential::count());
     }
 
     public function test_worker_uses_workflow_owner_without_login_instead_of_event_initiator(): void
@@ -120,7 +154,7 @@ class WorkflowCredentialsTest extends TestCase
     public function test_service_change_clears_secrets_and_unsupported_services_cannot_be_saved(): void
     {
         Livewire::test(WorkflowCanvasFixture::class)->call('mountAction', 'workflowCredentials')
-            ->set('mountedActions.0.data.provider', 'telegram')
+            ->call('mountAction', 'createWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
             ->set('mountedActions.0.data.credentials.token', self::TOKEN)
             ->set('mountedActions.0.data.provider', null)
             ->assertSet('mountedActions.0.data.credentials', [])
@@ -140,9 +174,10 @@ class WorkflowCredentialsTest extends TestCase
     {
         Http::fake(['api.telegram.org/*' => Http::response(['ok' => false, 'description' => self::TOKEN], 401)]);
         $page = Livewire::test(WorkflowCanvasFixture::class)->call('mountAction', 'workflowCredentials')
-            ->set('mountedActions.0.data.provider', 'telegram')
+            ->call('mountAction', 'createWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
             ->set('mountedActions.0.data.credentials.token', self::TOKEN)
-            ->call('callMountedAction')->assertHasErrors(['mountedActions.0.data.credentials.token']);
+            ->call('mountAction', 'saveWorkflowCredential', [], ['schemaComponent' => 'mountedActionSchema0'])
+            ->assertHasErrors(['mountedActions.0.data.credentials.token']);
         $this->assertStringContainsString('Telegram не подтвердил токен', $this->schemaHtml($page));
         $this->assertSame(0, WorkflowCredential::count());
         $this->assertStringNotContainsString(self::TOKEN, json_encode($page->instance()->getErrorBag()->messages()));
