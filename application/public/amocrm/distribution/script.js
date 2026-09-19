@@ -2,7 +2,7 @@ define(['jquery'], function ($) {
     var DEFAULT_API_BASE = 'https://app.clevercrm.pro/api/amocrm';
     var DEFAULT_APP_BASE = 'https://app.clevercrm.pro';
     var BLOCK_ID = 'clever-distribution-widget';
-    var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=1.0.1';
+    var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=1.0.2';
 
     var Widget = function () {
         var self = this;
@@ -131,7 +131,7 @@ define(['jquery'], function ($) {
                 '<div class="clever-distribution-card__title">Распределение Clever</div>',
                 '</div>',
                 '<div class="clever-distribution-card__body">',
-                '<p class="clever-distribution-card__text">Очереди настраиваются в Clever и доступны в бизнес-процессах amoCRM.</p>',
+                '<p class="clever-distribution-card__text">Шаблоны распределения настраиваются в Clever и доступны в бизнес-процессах amoCRM.</p>',
                 '<a class="clever-distribution-card__button js-clever-distribution-open" href="' + cleverSettingsUrl() + '" target="_blank" rel="noopener">Открыть настройки</a>',
                 '</div>',
                 '</div>'
@@ -161,7 +161,7 @@ define(['jquery'], function ($) {
             var html = [
                 '<div id="clever-distribution-settings" class="clever-distribution-settings">',
                 '<div class="clever-distribution-settings__title">Распределение Clever</div>',
-                '<p class="clever-distribution-settings__text">Создайте очереди в Clever, затем выберите нужную очередь в бизнес-процессе воронки amoCRM.</p>',
+                '<p class="clever-distribution-settings__text">Создайте шаблоны распределения в Clever, затем выберите нужный шаблон в бизнес-процессе воронки amoCRM.</p>',
                 '<a class="clever-distribution-settings__button js-clever-distribution-open" href="' + cleverSettingsUrl() + '" target="_blank" rel="noopener">Открыть Clever</a>',
                 '</div>'
             ].join('');
@@ -247,7 +247,32 @@ define(['jquery'], function ($) {
         function renderDpSettings() {
             injectStyles();
 
-            var $input = $('input[name="queue_uuid"], input[name$="[queue_uuid]"]').first();
+            var widgetCode = '';
+            var $scope = $();
+
+            try {
+                widgetCode = String((self.get_settings && self.get_settings().widget_code) || '');
+            } catch (e) {
+                widgetCode = '';
+            }
+
+            if (widgetCode) {
+                $scope = $('.digital-pipeline__short-task_widget-style_' + widgetCode)
+                    .parent()
+                    .parent()
+                    .find('[data-action="send_widget_hook"]')
+                    .last();
+            }
+
+            if (!$scope.length) {
+                $scope = $('[data-action="send_widget_hook"]:visible').last();
+            }
+
+            var $input = $scope.find('input[name="queue_uuid"], input[name$="[queue_uuid]"]').first();
+
+            if (!$input.length) {
+                $input = $('input[name="queue_uuid"]:visible, input[name$="[queue_uuid]"]:visible').last();
+            }
 
             if (!$input.length) {
                 window.setTimeout(renderDpSettings, 150);
@@ -261,8 +286,8 @@ define(['jquery'], function ($) {
             var currentValue = String($input.val() || '');
             var $field = $input.closest('.widget_settings_block__input_field, .control-wrapper, .linked-form__field, .js-widget-settings__field');
             var $container = $('<div id="clever-distribution-dp-settings" class="clever-distribution-dp">' +
-                '<select class="clever-distribution-dp__select" disabled><option>Загрузка очередей...</option></select>' +
-                '<div class="clever-distribution-dp__hint">Выберите очередь, на которую amoCRM отправит сделку при срабатывании бизнес-процесса.</div>' +
+                '<select class="clever-distribution-dp__select" disabled><option>Загрузка шаблонов...</option></select>' +
+                '<div class="clever-distribution-dp__hint">Выберите шаблон, по которому распределится сделка при срабатывании бизнес-процесса.</div>' +
                 '</div>');
 
             $input.attr('type', 'hidden');
@@ -280,22 +305,22 @@ define(['jquery'], function ($) {
                     subdomain: accountSubdomain()
                 },
                 function (response) {
-                    var queues = response.queues || [];
+                    var queues = response.templates || response.queues || [];
                     var $select = $container.find('select');
 
                     if (!response.ok) {
-                        $select.html('<option value="">' + escapeHtml(response.message || 'Очереди недоступны') + '</option>');
+                        $select.html('<option value="">' + escapeHtml(response.message || 'Шаблоны недоступны') + '</option>');
                         $container.find('.clever-distribution-dp__hint').addClass('clever-distribution-dp__hint--error');
                         return;
                     }
 
                     if (!queues.length) {
-                        $select.html('<option value="">Нет настроенных очередей</option>');
+                        $select.html('<option value="">Нет настроенных шаблонов</option>');
                         return;
                     }
 
-                    $select.html('<option value="">Выберите очередь</option>' + queues.map(function (queue) {
-                        return '<option value="' + escapeHtml(queue.id) + '">' + escapeHtml(queue.name || ('Очередь ' + queue.id)) + '</option>';
+                    $select.html('<option value="">Выберите шаблон</option>' + queues.map(function (queue) {
+                        return '<option value="' + escapeHtml(queue.id) + '">' + escapeHtml(queue.name || ('Шаблон ' + queue.id)) + '</option>';
                     }).join(''));
 
                     $select.prop('disabled', false).val(currentValue);
@@ -304,7 +329,7 @@ define(['jquery'], function ($) {
                     });
                 },
                 function () {
-                    $container.find('select').html('<option value="">Не удалось загрузить очереди</option>');
+                    $container.find('select').html('<option value="">Не удалось загрузить шаблоны</option>');
                     $container.find('.clever-distribution-dp__hint').addClass('clever-distribution-dp__hint--error');
                 }
             );

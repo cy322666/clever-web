@@ -224,7 +224,7 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           source: application/public/build,application/bootstrap/workflow-runtime
-          target: ${{ secrets.PROD_PROJECT_PATH }}
+          target: /tmp/clever-web-deploy
           overwrite: true
 
       - name: Deploy via SSH with rollback
@@ -236,6 +236,7 @@ jobs:
           COMPOSE_FILES: ${{ secrets.PROD_COMPOSE_FILES }}
           APP_HEALTHCHECK_URL: ${{ secrets.PROD_APP_URL }}
           AUTO_MIGRATE: ${{ secrets.PROD_AUTO_MIGRATE }}
+          ASSET_PATH: /tmp/clever-web-deploy/application
         with:
           host: ${{ secrets.PROD_SSH_HOST }}
           username: ${{ secrets.PROD_SSH_USER }}
@@ -243,7 +244,7 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           script_stop: true
-          envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE
+          envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE,ASSET_PATH
           script: |
             set -Eeuo pipefail
 
@@ -375,6 +376,12 @@ jobs:
             echo "Target commit:  $DEPLOY_SHA"
 
             git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
+
+            test -f "$ASSET_PATH/public/build/manifest.json"
+            test -f "$ASSET_PATH/bootstrap/workflow-runtime/run-javascript.mjs"
+            mkdir -p application/public/build application/bootstrap/workflow-runtime
+            cp -a "$ASSET_PATH/public/build/." application/public/build/
+            cp -a "$ASSET_PATH/bootstrap/workflow-runtime/." application/bootstrap/workflow-runtime/
 
             start_application
 

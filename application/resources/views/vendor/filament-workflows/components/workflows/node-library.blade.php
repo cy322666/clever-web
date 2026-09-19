@@ -215,7 +215,7 @@
 
 <aside
     x-data="{
-        open: true,
+        open: false,
         mode: @js($hasTrigger ? 'action' : 'trigger'),
         view: 'root',
         entity: null,
@@ -305,7 +305,7 @@
         </button>
     </div>
 
-    <div x-show="open" class="workflow-node-library__panel">
+    <div x-cloak x-show="open" class="workflow-node-library__panel">
         <header class="workflow-node-library__header">
             <div>
                 <h2 x-text="mode === 'variables' ? 'Переменные' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'События' : 'Действия'"></h2>
