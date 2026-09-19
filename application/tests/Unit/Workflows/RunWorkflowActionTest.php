@@ -123,7 +123,7 @@ class RunWorkflowActionTest extends TestCase
 
     private function createWorkflow(int $userId, array $definition): Workflow
     {
-        return Workflow::query()->create([
+        return Workflow::withoutEvents(fn(): Workflow => Workflow::query()->create([
             'user_id' => $userId,
             'name' => 'Тестовый процесс ' . uniqid(),
             'description' => null,
@@ -136,6 +136,6 @@ class RunWorkflowActionTest extends TestCase
             'definition' => $definition,
             'max_retries' => 3,
             'failure_strategy' => 'stop',
-        ]);
+        ]));
     }
 }
