@@ -4,6 +4,7 @@ namespace App\Helpers\Actions;
 
 use App\Models\App;
 use App\Models\Core\Account;
+use App\Services\Billing\WidgetSubscriptionAccessService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -52,14 +53,6 @@ abstract class UpdateButton
 
             //если статус приложения активен
             if ($app->status == App::STATE_ACTIVE) {
-                if (is_null($app->installed_at)) {
-
-                    $app->installed_at = Carbon::now();
-
-                    $app->expires_tariff_at = Carbon::now()->addDays(14);
-                    $app->save();
-                }
-
                 //активен виджет - кнопка Выключить
                 return Action::make('active')
                     ->color(Color::Red)
@@ -81,14 +74,18 @@ abstract class UpdateButton
                     return Action::make('active')
                         ->color(Color::Green)
                         ->action(function () use ($app) {
+                            $trialDays = (int)config(
+                                "integrations.definitions.{$app->name}.trial_days",
+                                config('integrations.default_trial_days', 7),
+                            );
 
-                            $app->status = App::STATE_ACTIVE;
-                            $app->save();
+                            app(WidgetSubscriptionAccessService::class)->ensureTrialForWidget(
+                                (int)$app->user_id,
+                                (string)$app->name,
+                                $trialDays,
+                            );
 
-                            $setting = $app->getSettingModel();
-
-                            $setting->active = true;
-                            $setting->save();
+                            $app->refresh();
 
                             static::getNotification($app);
                         })

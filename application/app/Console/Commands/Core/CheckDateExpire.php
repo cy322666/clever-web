@@ -102,7 +102,9 @@ class CheckDateExpire extends Command
         $changes = [];
 
         if (blank($expiresCurrent) && $statusBefore === App::STATE_ACTIVE) {
-            $expiresCurrent = $today->copy()->addDays(30)->toDateString();
+            $expiresCurrent = $today->copy()
+                ->addDays((int)config('integrations.default_trial_days', 7))
+                ->toDateString();
             $app->expires_tariff_at = $expiresCurrent;
             $changes[] = 'Назначена дата окончания периода: ' . $expiresCurrent;
         }

@@ -150,7 +150,7 @@ class Market extends TableWidget
                 ->startOfDay()
                 ->diffInDays(now()->startOfDay());
 
-            return $daysAgo . ' дн.';
+            return 'Истёк ' . $daysAgo . ' дн.';
         }
 
         return match ($status) {

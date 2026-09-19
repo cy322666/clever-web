@@ -24,6 +24,12 @@ class RetiredWidgetAccessTest extends TestCase
         ]);
         DB::purge('retired_widget_test');
 
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+            $table->string('email');
+            $table->timestamps();
+        });
         Schema::create('apps', function (Blueprint $table): void {
             $table->id();
             $table->unsignedInteger('user_id');
@@ -39,15 +45,32 @@ class RetiredWidgetAccessTest extends TestCase
             $table->id();
             $table->unsignedInteger('user_id');
             $table->unsignedInteger('app_id')->nullable();
+            $table->unsignedInteger('subscription_plan_id')->nullable();
             $table->string('widget');
             $table->string('status');
             $table->date('starts_at')->nullable();
             $table->date('ends_at')->nullable();
             $table->date('grace_until')->nullable();
             $table->timestamp('blocked_at')->nullable();
+            $table->json('notification_log')->nullable();
+            $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
+        Schema::create('subscription_plans', function (Blueprint $table): void {
+            $table->id();
+            $table->string('widget');
+            $table->boolean('is_active')->default(true);
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        DB::table('users')->insert([
+            'id' => 1,
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+        ]);
     }
 
     public function test_retired_widgets_cannot_use_stale_active_subscriptions_or_receive_trials(): void
@@ -99,6 +122,28 @@ class RetiredWidgetAccessTest extends TestCase
         $this->assertTrue(WidgetSubscriptionResource::canEdit((new WidgetSubscription)->forceFill(['widget' => 'tilda'])));
         $this->assertTrue(WidgetSubscriptionResource::canEdit((new WidgetSubscription)->forceFill(['widget' => 'default'])));
         $this->assertArrayHasKey('tilda', WidgetSubscriptionResource::widgetOptions());
+    }
+
+    public function test_trial_activates_widget_and_sets_installation_fields_immediately(): void
+    {
+        $appId = DB::table('apps')->insertGetId([
+            'user_id' => 1,
+            'name' => 'tilda',
+            'status' => App::STATE_CREATED,
+        ]);
+
+        app(WidgetSubscriptionAccessService::class)->ensureTrialForWidget(1, 'tilda', 7);
+
+        $app = App::query()->findOrFail($appId);
+
+        $this->assertSame(App::STATE_ACTIVE, (int)$app->status);
+        $this->assertSame(now()->addDays(7)->toDateString(), $app->expires_tariff_at);
+        $this->assertNotNull($app->installed_at);
+        $subscription = WidgetSubscription::query()->where('app_id', $appId)->firstOrFail();
+
+        $this->assertSame('tilda', $subscription->widget);
+        $this->assertSame(WidgetSubscription::STATUS_TRIAL, $subscription->status);
+        $this->assertSame(now()->addDays(7)->toDateString(), $subscription->ends_at?->toDateString());
     }
 
     private function subscription(string $widget, int $appStatus): WidgetSubscription
