@@ -411,7 +411,22 @@ jobs:
             fi
 
             compose_cmd exec -T app php artisan optimize
-            compose_cmd exec -T app php artisan app:smoke --strict
+
+            # optimize:clear removes the scheduler heartbeat from the shared cache.
+            # Give schedule:work enough time to write the next one before failing deploy.
+            smoke_ready=false
+            for ((attempt = 1; attempt <= 15; attempt++)); do
+              if compose_cmd exec -T app php artisan app:smoke --strict; then
+                smoke_ready=true
+                break
+              fi
+              echo "Smoke check is not ready yet (${attempt}/15); retrying in 5s."
+              sleep 5
+            done
+            if [ "$smoke_ready" != "true" ]; then
+              echo "Strict smoke check did not pass within 75 seconds." >&2
+              exit 1
+            fi
 
             if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
               curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null
