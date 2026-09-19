@@ -149,6 +149,7 @@ class WorkflowConnectionAccessTest extends TestCase
     public function test_lead_widget_requests_only_button_starts(): void
     {
         $script = file_get_contents(public_path('amocrm/workflows/manual-buttons/script.js'));
+        $manifest = json_decode(file_get_contents(public_path('amocrm/workflows/manual-buttons/manifest.json')), true, 512, JSON_THROW_ON_ERROR);
         preg_match('/render: function \(\) \{(.*?)\n            \},/s', $script, $render);
         $this->assertStringContainsString('mount()', $render[1]);
         $this->assertStringContainsString('isLeadCardArea()', $render[1]);
@@ -160,6 +161,13 @@ class WorkflowConnectionAccessTest extends TestCase
         $this->assertStringContainsString('Выберите поток</option>', $script);
         $this->assertStringContainsString('height:44px!important', $script);
         $this->assertStringContainsString('font-weight:400!important', $script);
+        $this->assertStringContainsString("APP.constant('account')", $script);
+        $this->assertStringContainsString('APP.data.current_card', $script);
+        $this->assertStringNotContainsString('AMOCRM', $script);
+        $this->assertArrayHasKey('settings', $manifest);
+        $this->assertSame('custom', $manifest['settings']['connection']['type']);
+        $this->assertFalse($manifest['settings']['connection']['required']);
+        $this->assertSame('1.0.45', $manifest['widget']['version']);
         $this->assertStringNotContainsString('Сценарии Clever', $script);
         $this->assertStringNotContainsString('Сценарий #', $script);
         $this->assertStringNotContainsString('Нет включённых потоков с запуском', $script);

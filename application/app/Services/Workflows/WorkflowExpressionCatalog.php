@@ -55,6 +55,7 @@ final class WorkflowExpressionCatalog
             $available = array_key_exists($id, $context['step_outputs'] ?? []);
             $output = $context['step_outputs'][$id] ?? match ($action['type']) {
                 'amocrm_query_leads' => ['items' => [['id' => null, 'name' => null, 'price' => null, 'pipeline_id' => null, 'status_id' => null]], 'count' => null, 'has_more' => null, 'next_page' => null],
+                'amocrm_get_contact' => ['id' => null, 'name' => null, 'first_name' => null, 'last_name' => null, 'responsible_user_id' => null, 'contact' => [], 'data' => [], 'entity_id' => null, 'entity_type' => 'contact'],
                 'amocrm_contact_leads' => ['items'=>[['id'=>null,'pipeline_id'=>null,'status_id'=>null]],'count'=>null,'contact_id'=>null,'has_more'=>false],
                 'workflow_filter_list' => ['items'=>[],'count'=>null,'has_matches'=>null,'input_count'=>null],
                 'http_request' => ['status'=>null,'body'=>[],'success'=>null],

@@ -127,7 +127,12 @@
         'amocrm_change_tags',
     ];
     $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
-    $queryActions = array_values(array_filter($actions, fn (array $action): bool => in_array($action['type'] ?? '', ['amocrm_query_leads', 'amocrm_contact_leads'], true)));
+    $queryActionGroups = [
+        'amocrm_query_leads' => 'Сделки',
+        'amocrm_contact_leads' => 'Сделки',
+        'amocrm_get_contact' => 'Контакты',
+    ];
+    $queryActions = array_values(array_filter($actions, fn (array $action): bool => isset($queryActionGroups[$action['type'] ?? ''])));
     $currentInsertPath = (string) (($this->insertActionPath ?? null) ?? ($this->targetPath ?? ''));
     $insideConditionBranch = str_contains($currentInsertPath, '.config.true_actions')
         || str_contains($currentInsertPath, '.config.false_actions')
@@ -379,9 +384,10 @@
                 @endforeach
                 <div x-show="query === '' && view !== 'root'" class="workflow-node-library__breadcrumb"><button type="button" x-on:click="view = 'root'">← Запросы</button></div>
                 @foreach($queryActions as $queryAction)
-                    <button type="button" x-show="(query !== '' || view === 'Сделки') && matches('amoCRM сделки фильтр список запрос {{ $queryAction['name'] }}')" wire:click="selectActionType(@js($queryAction['type']))" class="workflow-node-library__item">
+                    @php($queryActionGroup = $queryActionGroups[$queryAction['type']] ?? 'Другое')
+                    <button type="button" x-show="(query !== '' || view === @js($queryActionGroup)) && matches(@js('amoCRM '.$queryActionGroup.' запрос '.$queryAction['name']))" wire:click="selectActionType(@js($queryAction['type']))" class="workflow-node-library__item">
                         <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::action($queryAction['type'], [], $queryAction['icon'])" :amo="true" class="h-5 w-5"/></span>
-                        <span><strong>{{ $queryAction['name'] }}</strong><small>{{ $queryAction['description'] }}</small></span>
+                        <span><strong>{{ $queryAction['name'] }}</strong><small>{{ $queryActionGroup }}</small></span>
                     </button>
                 @endforeach
                 @foreach(\App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations() as $operation => $item)

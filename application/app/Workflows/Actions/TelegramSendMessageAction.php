@@ -9,6 +9,7 @@ use Filament\Schemas\Schema;
 use App\Services\Workflows\WorkflowCredentials;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Concerns\WorkflowAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 
@@ -111,12 +112,32 @@ class TelegramSendMessageAction
                 throw new \RuntimeException('Telegram не подтвердил отправку. Проверьте чат перед повтором.');
             }
             if (! $response->successful() || ! $response->json('ok')) {
-                throw new \RuntimeException('Telegram отклонил сообщение (код '.$response->status().'). Проверьте токен, чат и права бота.');
+                throw new \RuntimeException($this->telegramError($response->status(), $response->json('description'), $token));
             }
 
             return ['success' => true, 'output' => $response->json('result') ?? []];
         } catch (\Throwable $error) {
             return ['success' => false, 'error' => $error instanceof \Illuminate\Contracts\Encryption\DecryptException ? 'Не удалось прочитать токен. Сохраните его заново.' : $error->getMessage()];
         }
+    }
+
+    private function telegramError(int $status, mixed $description, string $token): string
+    {
+        $description = is_string($description) ? trim($description) : '';
+        $lower = mb_strtolower($description);
+        $reason = match (true) {
+            str_contains($lower, 'bot was blocked by the user') => 'Пользователь заблокировал бота. Разблокируйте его и нажмите Start.',
+            str_contains($lower, 'bot is not a member') => 'Бот не добавлен в этот чат или канал.',
+            str_contains($lower, 'not enough rights'),
+            str_contains($lower, 'have no rights'),
+            str_contains($lower, 'not enough permissions') => 'У бота нет права отправлять сообщения в этот чат или канал.',
+            str_contains($lower, 'chat not found') => 'Чат не найден. Проверьте Chat ID и добавьте бота в чат.',
+            str_contains($lower, 'user is deactivated') => 'Получатель Telegram деактивирован.',
+            default => $description !== '' ? Str::limit($description, 240, '…') : 'Проверьте Chat ID и права бота.',
+        };
+        $reason = str_replace($token, '[токен скрыт]', $reason);
+        $reason = preg_replace('/\b\d+:[a-zA-Z0-9_-]+\b/', '[токен скрыт]', $reason) ?? $reason;
+
+        return 'Telegram отклонил сообщение (код '.$status.'): '.$reason;
     }
 }

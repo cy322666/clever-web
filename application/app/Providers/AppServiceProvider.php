@@ -235,6 +235,7 @@ class AppServiceProvider extends ServiceProvider
                 'run_workflow',
                 'send_notification',
                 'amocrm_create_lead',
+                'amocrm_get_contact',
                 'amocrm_create_contact',
                 'amocrm_create_company',
                 'amocrm_copy_lead',

@@ -60,9 +60,10 @@
         <div class="workflow-data-panes">
             <section><h3 x-text="isAmoStep() ? (exchange() ? 'Запрос в amoCRM' : 'Настройки шага · HTTP-журнал отсутствует') : 'Вход'"></h3>
                 <select x-show="exchanges().length > 1" x-model.number="exchangeIndex" aria-label="Запрос шага"><template x-for="(exchange, index) in exchanges()" :key="index"><option :value="index" x-text="(index + 1) + '. ' + exchange.request.method + ' ' + exchange.request.url"></option></template></select>
-                <pre x-text="pretty(requestData())"></pre></section>
-            <section><h3 x-text="isAmoStep() && exchange() ? 'Ответ amoCRM' : 'Результат шага'"></h3><pre x-text="pretty(responseData())"></pre>
-                <template x-if="current().output?.create_request?.sent === false"><div><h3>Подготовленное тело создания · не отправлялось: контакт найден</h3><pre x-text="pretty(current().output.create_request.body)"></pre></div></template>
+                @include('filament.workflow-builder.workflow-json-tree', ['expression' => 'requestData()'])</section>
+            <section><h3 x-text="isAmoStep() && exchange() ? 'Ответ amoCRM' : 'Результат шага'"></h3>
+                @include('filament.workflow-builder.workflow-json-tree', ['expression' => 'responseData()'])
+                <template x-if="current().output?.create_request?.sent === false"><div><h3>Подготовленное тело создания · не отправлялось: контакт найден</h3>@include('filament.workflow-builder.workflow-json-tree', ['expression' => 'current().output.create_request.body'])</div></template>
             </section>
         </div>
     </section>

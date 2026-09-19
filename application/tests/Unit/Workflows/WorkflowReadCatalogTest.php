@@ -21,6 +21,8 @@ class WorkflowReadCatalogTest extends TestCase
         }
         $this->assertArrayHasKey('contacts.custom_fields', $available);
         $this->assertArrayHasKey('contacts.custom_fields.one', $available);
+        $this->assertArrayNotHasKey('contacts.one', $available);
+        $this->assertArrayHasKey('contacts.one', WorkflowAmoReadCatalog::operations());
     }
 
     public function test_notes_and_tags_have_dedicated_sections_and_keep_entity_context(): void

@@ -2,7 +2,7 @@ define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
     var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
-    var VERSION = '1.0.43';
+    var VERSION = '1.0.45';
     var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=' + VERSION;
     var LOAD_RETRIES = 0;
 
@@ -18,7 +18,7 @@ define(['jquery'], function ($) {
             var account = {};
 
             try {
-                account = AMOCRM.constant('account') || {};
+                account = APP.constant('account') || {};
             } catch (e) {
                 account = {};
             }
@@ -39,7 +39,7 @@ define(['jquery'], function ($) {
             var card = {};
 
             try {
-                card = AMOCRM.data.current_card || {};
+                card = APP.data.current_card || {};
             } catch (e) {
                 card = {};
             }
@@ -57,7 +57,7 @@ define(['jquery'], function ($) {
             var card = {};
 
             try {
-                card = AMOCRM.data.current_card || {};
+                card = APP.data.current_card || {};
             } catch (e) {
                 card = {};
             }

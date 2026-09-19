@@ -7,7 +7,7 @@ use App\Services\Workflows\WorkflowRunReplay;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Locked;
 
-class ReplayWorkflow extends CreateWorkflow
+class ReplayWorkflow extends EditWorkflow
 {
     protected string $view = 'filament.workflow-builder.workflow-replay-page';
 
@@ -25,21 +25,21 @@ class ReplayWorkflow extends CreateWorkflow
 
     public function mount(int|string|null $run = null): void
     {
-        parent::mount();
-        $this->loadHistoricalRun((int) $run);
+        abort_unless(Auth::id(), 403);
+        $replay = WorkflowRunReplay::load((int) $run, (int) Auth::id());
+
+        parent::mount($replay['workflow_id']);
+        $this->loadHistoricalRun($replay);
     }
 
-    protected function loadHistoricalRun(int $runId): void
+    protected function loadHistoricalRun(array $replay): void
     {
-        abort_unless(Auth::id(), 403);
-        $replay = WorkflowRunReplay::load($runId, (int) Auth::id());
         $this->replayRunId = $replay['run_id'];
         $this->replayWorkflowId = $replay['workflow_id'];
         $this->replayStartedAt = $replay['started_at'];
         $this->replayContext = $replay['context'];
         $this->definition = $replay['definition'];
         $this->loadFromDefinition();
-        $this->data = array_merge($this->data ?? [], ['name' => $replay['name'], 'is_active' => false]);
         $this->debugInputMode = 'json';
         $this->debugInput = json_encode($replay['input'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $this->debugStartNodeId = $replay['input']['_workflow_start_node_id'] ?? 'trigger';
@@ -69,19 +69,6 @@ class ReplayWorkflow extends CreateWorkflow
     public function getReplayBackUrl(): string
     {
         return WorkflowResource::getUrl('history', ['record' => $this->replayWorkflowId, 'run' => $this->replayRunId]);
-    }
-
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        $this->hydrate();
-        // Creating an inactive copy is the only persistence path on this page.
-        $data['name'] = $this->data['name'] ?? $data['name'] ?? 'Копия запуска #'.$this->replayRunId;
-        $data['is_active'] = false;
-        $data = parent::mutateFormDataBeforeCreate($data);
-        $data['is_active'] = false;
-        $data['user_id'] = Auth::id();
-
-        return $data;
     }
 
     protected function workflowDebugContext(): array

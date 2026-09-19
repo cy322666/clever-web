@@ -124,6 +124,7 @@ trait HasCompactWorkflowConfigurationPanels
     {
         $fixed = [
             'amocrm_copy_lead' => 'lead',
+            'amocrm_get_contact' => 'contact',
             'amocrm_update_lead_fields' => 'lead',
             'amocrm_update_contact_fields' => 'contact',
             'amocrm_update_company_fields' => 'company',

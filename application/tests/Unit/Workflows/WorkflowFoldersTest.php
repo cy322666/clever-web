@@ -2,12 +2,14 @@
 
 namespace Tests\Unit\Workflows;
 
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\ListWorkflows;
 use App\Models\User;
 use App\Models\Workflows\Workflow;
 use App\Models\Workflows\WorkflowFolder;
 use App\Services\Workflows\WorkflowFolders;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -121,6 +123,29 @@ class WorkflowFoldersTest extends TestCase
         Livewire::test(ListWorkflows::class)
             ->callAction('createFolder', ['name' => 'Продажи'])
             ->assertHasActionErrors(['name']);
+    }
+
+    public function test_list_shows_only_runs_waiting_for_processing_in_the_queue_badge(): void
+    {
+        $workflow = $this->workflow('Очередь заявок');
+
+        foreach (['pending', 'pending', 'running', 'completed', 'failed'] as $status) {
+            DB::table('workflow_runs')->insert([
+                'workflow_id' => $workflow->getKey(),
+                'user_id' => 1,
+                'status' => $status,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $record = WorkflowResource::getEloquentQuery()->findOrFail($workflow->getKey());
+
+        $this->assertSame(2, $record->queued_runs_count);
+
+        Livewire::test(ListWorkflows::class)
+            ->assertStatus(200)
+            ->assertSee('В очереди');
     }
 
     public function test_list_explains_missing_folder_storage_without_a_server_error(): void

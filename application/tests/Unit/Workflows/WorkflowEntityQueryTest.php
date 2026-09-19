@@ -138,10 +138,10 @@ class WorkflowEntityQueryTest extends TestCase
 
     public function test_new_list_nodes_default_to_builder_but_other_reads_keep_parameters(): void
     {
-        foreach (['tasks.list','leads.list','contacts.list','companies.list','customers.list','contacts.one'] as $operation) {
+        foreach (['tasks.list','leads.list','contacts.list','companies.list','customers.list'] as $operation) {
             $page = Livewire::test(WorkflowCanvasFixture::class)->call('selectReadOperation',$operation);
             $config = $page->get('workflowActions')[1]['config'];
-            $this->assertSame($operation === 'contacts.one' ? 'fields' : 'builder', $config['body_mode']);
+            $this->assertSame('builder', $config['body_mode']);
             $this->assertSame(50, $config['limit']);
             $this->assertSame(1, $config['page']);
         }

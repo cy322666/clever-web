@@ -5,7 +5,7 @@ namespace App\Services\Workflows;
 use App\Models\Workflows\WorkflowRun;
 use Illuminate\Database\Eloquent\Builder;
 
-/** A historical execution is a source for a new draft, never a replacement for the live workflow. */
+/** Loads a historical execution for inspection and optional restoration into its workflow. */
 final class WorkflowRunReplay
 {
     public static function ownedRuns(int $userId): Builder

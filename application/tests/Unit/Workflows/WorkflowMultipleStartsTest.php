@@ -65,6 +65,21 @@ class WorkflowMultipleStartsTest extends TestCase
         $page->call('editTriggerNode', 'trigger')->assertSet('mountedActions', []);
     }
 
+    public function test_webhook_settings_hide_the_secret_url_but_keep_the_copy_action(): void
+    {
+        $secret = 'fbad0664cfd49ea78e0f70f24cfbd177bed94a3e0d2ad2881061692a40aad7a3';
+        $html = view('filament.workflow-builder.generic-webhook-preview', [
+            'url' => 'https://app.clevercrm.pro/api/workflows/webhook/15/'.$secret,
+            'preview' => null,
+        ])->render();
+
+        $this->assertStringContainsString('app.clevercrm.pro\\/', $html);
+        $this->assertStringContainsString('\\u2022\\u2022\\u2022\\u2022\\u2022\\u2022', $html);
+        $this->assertStringContainsString('Скопировать URL', $html);
+        $this->assertStringNotContainsString('<input id="workflow-webhook-url"', $html);
+        $this->assertStringNotContainsString($secret, strip_tags($html));
+    }
+
     public function test_schedule_supports_multiple_rules_timezone_and_legacy_config(): void
     {
         $trigger = new ScheduleTrigger;

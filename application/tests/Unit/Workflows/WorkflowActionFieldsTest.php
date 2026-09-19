@@ -35,6 +35,40 @@ class WorkflowActionFieldsTest extends TestCase
         }
     }
 
+    public function test_contact_get_and_update_are_explicit_nodes_and_get_fetches_the_contact(): void
+    {
+        $classes = collect(\App\Workflows\Actions\WorkflowAmoCrmActionCatalog::classes())
+            ->mapWithKeys(fn (string $class): array => [$class::workflowType() => $class]);
+
+        $this->assertSame('Получить контакт', $classes['amocrm_get_contact']::workflowName());
+        $this->assertSame('Обновить контакт', $classes['amocrm_update_contact_fields']::workflowName());
+        $this->assertSame('contact', $classes['amocrm_get_contact']::workflowDefaultConfig()['target_entity']);
+
+        Http::fake([
+            'https://workflow-fields.test/api/v4/contacts/77*' => Http::response([
+                'id' => 77,
+                'name' => 'Тестовый контакт',
+                'first_name' => 'Тест',
+                '_embedded' => ['leads' => [['id' => 501]]],
+            ]),
+        ]);
+        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
+        $method = new \ReflectionMethod($executor, 'getContact');
+        $account = (new Account)->forceFill(['endpoint' => 'https://workflow-fields.test', 'access_token' => 'test-only']);
+        $result = $method->invoke($executor, $account, [
+            'entity_source' => 'manual',
+            'target_entity' => 'contact',
+            'target_entity_id' => 77,
+        ], new WorkflowContext);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(77, $result['output']['id']);
+        $this->assertSame('Тестовый контакт', $result['output']['contact']['name']);
+        $this->assertSame('contact', $result['output']['entity_type']);
+        Http::assertSent(fn ($request): bool => $request->method() === 'GET'
+            && $request->url() === 'https://workflow-fields.test/api/v4/contacts/77?with=leads');
+    }
+
     public function test_explicit_ids_are_preserved_when_opening_but_cleared_when_changing_entity_type(): void
     {
         foreach (['amocrm_create_task', 'amocrm_add_note'] as $type) {
@@ -126,6 +160,18 @@ class WorkflowActionFieldsTest extends TestCase
         $page->set('mountedActions.0.data.body_mode', 'json')->set('mountedActions.0.data.json_body', '{"entity_id":"{{ $json.id }}","entity_type":"leads","task_type_id":1,"text":"Тест","complete_till":1800000000}')
             ->call('callMountedAction')->assertHasNoErrors()->assertSet('mountedActions', []);
         $this->assertSame('json', $page->get('workflowActions')[0]['config']['true_actions'][0]['config']['body_mode']);
+    }
+
+    public function test_json_results_use_a_collapsible_tree(): void
+    {
+        $html = view('filament.workflow-builder.workflow-json-tree', [
+            'value' => ['items' => [['id' => 42, 'name' => 'Тест']]],
+        ])->render();
+
+        $this->assertStringContainsString('workflow-json-tree', $html);
+        $this->assertStringContainsString('Свернуть всё', $html);
+        $this->assertStringContainsString('Развернуть всё', $html);
+        $this->assertStringContainsString('toggle(row.path)', $html);
     }
 
     public function test_status_form_keeps_pipeline_and_status_expressions_as_strings(): void

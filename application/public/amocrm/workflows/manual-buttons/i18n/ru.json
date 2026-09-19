@@ -6,7 +6,7 @@
         "tour_description": "Соберите поток на платформе Clever, выберите способ запуска и управляйте автоматизацией прямо из amoCRM."
     },
     "settings": {
-        "api_base_url": "API Clever"
+        "connection": "Подключение Clever"
     },
     "dp": {
         "title": "Потоки",

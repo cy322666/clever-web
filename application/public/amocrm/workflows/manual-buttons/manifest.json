@@ -3,7 +3,7 @@
         "name": "widget.name",
         "description": "widget.description",
         "short_description": "widget.short_description",
-        "version": "1.0.43",
+        "version": "1.0.45",
         "interface_version": 2,
         "init_once": false,
         "locale": [
@@ -31,9 +31,9 @@
         "tour_description": "widget.tour_description"
     },
     "settings": {
-        "api_base_url": {
-            "name": "settings.api_base_url",
-            "type": "text",
+        "connection": {
+            "name": "settings.connection",
+            "type": "custom",
             "required": false
         }
     },

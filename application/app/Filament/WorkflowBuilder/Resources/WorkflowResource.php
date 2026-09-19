@@ -24,6 +24,7 @@ use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use Leek\FilamentWorkflows\Enums\RunStatus;
 use Leek\FilamentWorkflows\Models\Workflow;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Resources\WorkflowResource as BaseWorkflowResource;
@@ -38,7 +39,11 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return parent::getEloquentQuery()
             ->with('latestRun')
-            ->withCount('runs');
+            ->withCount([
+                'runs',
+                'runs as queued_runs_count' => fn (Builder $query): Builder => $query
+                    ->where('status', RunStatus::PENDING->value),
+            ]);
     }
 
     public static function form(Schema $schema): Schema
@@ -83,6 +88,17 @@ class WorkflowResource extends BaseWorkflowResource
                     ->url(fn (Workflow $record): ?string => $record->latestRun
                         ? static::getUrl('history', ['record' => $record, 'run' => $record->latestRun->getKey()]) : null),
 
+                TextColumn::make('queued_runs_count')
+                    ->label('В очереди')
+                    ->alignCenter()
+                    ->badge()
+                    ->sortable()
+                    ->formatStateUsing(fn (mixed $state): string => (string) (int) $state)
+                    ->color(fn (mixed $state): string => (int) $state > 0 ? 'warning' : 'gray')
+                    ->tooltip(fn (mixed $state): string => (int) $state > 0
+                        ? 'Ожидают обработки: '.(int) $state
+                        : 'Нет ожидающих выполнений'),
+
                 ToggleColumn::make('is_active')
                     ->label('Активен')
                     ->alignCenter()
@@ -95,6 +111,7 @@ class WorkflowResource extends BaseWorkflowResource
             ->defaultSort('updated_at', 'desc')
             ->filters([])
             ->filtersTriggerAction(fn(Action $action): Action => $action->hidden())
+            ->poll('5s')
             ->paginated(false)
             ->searchPlaceholder('Поиск сценариев…')
             ->recordActions(

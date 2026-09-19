@@ -31,6 +31,7 @@ class WorkflowListDatabase
             $table->id();
             $table->integer('user_id')->nullable();
             $table->integer('workflow_id');
+            $table->string('status')->default('completed');
             $table->timestamps();
         });
         Schema::create('accounts', function (Blueprint $table): void {

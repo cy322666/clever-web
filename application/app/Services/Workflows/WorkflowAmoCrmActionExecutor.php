@@ -45,7 +45,7 @@ class WorkflowAmoCrmActionExecutor
         try {
             $config = $this->normalizeEntitySource($config);
 
-            if (($context?->getVariable('_dry_run') || $context?->getVariable('_test_mode')) && !in_array($actionType, ['amocrm_query_leads', 'amocrm_read', 'amocrm_contact_leads'], true)) {
+            if (($context?->getVariable('_dry_run') || $context?->getVariable('_test_mode')) && !in_array($actionType, ['amocrm_query_leads', 'amocrm_get_contact', 'amocrm_read', 'amocrm_contact_leads'], true)) {
                 return $this->dryRun($actionType, $config, $context);
             }
 
@@ -77,6 +77,7 @@ class WorkflowAmoCrmActionExecutor
                 'amocrm_distribution_queue' => $this->distributeLead($client, $account, $config, $context),
                 'amocrm_find_entity' => $this->findEntity($client, $account, $config, $context),
                 'amocrm_query_leads' => $this->queryLeads($account, $config),
+                'amocrm_get_contact' => $this->getContact($account, $config, $context),
                 'amocrm_contact_leads' => $this->contactLeads($account, $config),
                 'amocrm_read' => $this->readAmo($account, $config),
                 'amocrm_link_entity' => $this->linkEntity($client, $account, $config, $context),
@@ -854,6 +855,30 @@ class WorkflowAmoCrmActionExecutor
             'has_more' => $hasMore, 'next_page' => $hasMore ? $query['page'] + 1 : null,
             'request' => ['method' => 'GET', 'path' => '/api/v4/leads', 'query' => $query],
         ]];
+    }
+
+    private function getContact(Account $account, array $config, ?WorkflowContext $context): array
+    {
+        $contactId = $this->currentEntityId('contact', $context, $config);
+
+        if ($contactId <= 0) {
+            return $this->failure('Не найден ID контакта amoCRM.');
+        }
+
+        $query = ['with' => 'leads'];
+        $contact = $this->amoRequest($account, 'GET', '/api/v4/contacts/' . $contactId, query: $query);
+
+        return ['success' => true, 'output' => array_merge($contact, [
+            'contact' => $contact,
+            'data' => $contact,
+            'entity_id' => $contactId,
+            'entity_type' => 'contact',
+            'request' => [
+                'method' => 'GET',
+                'path' => '/api/v4/contacts/' . $contactId,
+                'query' => $query,
+            ],
+        ])];
     }
 
     private function resolveAccount(?WorkflowContext $context): ?Account

@@ -72,7 +72,7 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
-                    @if($workflowRecord)
+                    @if($workflowRecord && !$isReplay)
                         <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-workbench__quick-action workflow-workbench__quick-action--labeled" aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" title="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Сохранить и включить поток' }}">
                             <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/><span>{{ $workflowRecord->is_active ? 'Выключить' : 'Включить' }}</span>
                         </button>
@@ -80,12 +80,12 @@
                     <button type="button" wire:click="mountAction('workflowCredentials')" class="workflow-workbench__quick-action" title="Подключения сервисов" aria-label="Подключения">
                         <x-filament::icon icon="heroicon-o-key" class="h-5 w-5"/>
                     </button>
-                    @if($workflowRecord)
-                        <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
-                        <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('history', ['record' => $workflowRecord]) }}" class="workflow-workbench__quick-action" aria-label="История" title="История"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
-                    @elseif($isReplay)
+                    @if($isReplay)
                         <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         <a href="{{ $this->getReplayBackUrl() }}" class="workflow-workbench__quick-action" aria-label="Вернуться к запуску" title="Вернуться к запуску"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
+                    @elseif($workflowRecord)
+                        <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
+                        <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('history', ['record' => $workflowRecord]) }}" class="workflow-workbench__quick-action" aria-label="История" title="История"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
                     @else
                         <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                     @endif
@@ -109,7 +109,7 @@
                             <button type="button" x-on:click="window.dispatchEvent(new CustomEvent('workflow-layout-reset'))">
                                 <x-filament::icon icon="heroicon-o-squares-2x2" class="h-4 w-4"/> Выровнять блоки
                             </button>
-                            @if ($workflowRecord)
+                            @if ($workflowRecord && !$isReplay)
                                 <button type="button" wire:click="duplicateCurrentWorkflow" wire:loading.attr="disabled" wire:target="duplicateCurrentWorkflow">
                                     <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/> Дублировать
                                 </button>

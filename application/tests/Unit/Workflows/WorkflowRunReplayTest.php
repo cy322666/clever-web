@@ -28,7 +28,6 @@ class WorkflowRunReplayTest extends TestCase
             $table->boolean('active')->default(true);
         });
         Schema::table('workflow_runs', function ($table): void {
-            $table->string('status')->default('completed');
             $table->timestamp('started_at')->nullable();
             $table->json('context_data')->nullable();
         });
@@ -97,10 +96,11 @@ class WorkflowRunReplayTest extends TestCase
     {
         $before = DB::table('workflows')->where('id', 1)->first();
         $page = Livewire::test(ReplayWorkflow::class, ['run' => 1])
-            ->assertStatus(200)->assertSet('record', null)->assertSet('debugState.status', 'historical')
+            ->assertStatus(200)->assertSet('record.id', 1)->assertSet('debugState.status', 'historical')
             ->assertSet('debugReal', false)->assertSet('debugSessionId', null)
             ->assertSet('debugInputMode', 'json')->assertSet('nodeRunResults.yes.output.id', 99)
-            ->assertSee('Сохранить как новый поток')->assertDontSee('Рабочий поток не изменяется.')
+            ->assertSee('Сохранить')->assertDontSee('Сохранить как новый поток')
+            ->assertDontSee('Рабочий поток не изменяется.')
             ->assertDontSee('Отдельный черновик.')
             ->assertDontSee('wire:click="toggleWorkflowActivation"', false)
             ->call('runEditingWorkflowNode')->assertSet('debugState.status', 'historical')
@@ -147,17 +147,15 @@ class WorkflowRunReplayTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_saving_creates_an_inactive_copy_and_never_overwrites_the_source(): void
+    public function test_saving_replaces_the_current_workflow_without_creating_a_copy(): void
     {
-        $before = DB::table('workflows')->where('id', 1)->first();
-        Livewire::test(ReplayWorkflow::class, ['run' => 1])->set('data.is_active', true)->call('create')->assertHasNoErrors();
-        $copy = Workflow::withoutGlobalScopes()->latest('id')->first();
-        $this->assertNotSame(1, $copy->id);
-        $this->assertSame(1, $copy->user_id);
-        $this->assertFalse($copy->is_active);
-        $this->assertStringContainsString('запуск #1', $copy->name);
-        $this->assertCount(2, $copy->definition['actions']);
-        $this->assertEquals($before, DB::table('workflows')->where('id', 1)->first());
+        Livewire::test(ReplayWorkflow::class, ['run' => 1])->call('save', false)->assertHasNoErrors();
+        $workflow = Workflow::withoutGlobalScopes()->findOrFail(1);
+        $this->assertSame(2, Workflow::withoutGlobalScopes()->count());
+        $this->assertSame('Рабочий поток', $workflow->name);
+        $this->assertFalse($workflow->is_active);
+        $this->assertCount(2, $workflow->definition['actions']);
+        $this->assertSame(['x' => 45, 'y' => 92], $workflow->definition['canvas_layout']['trigger']);
         Http::assertNothingSent();
     }
 
@@ -181,7 +179,7 @@ class WorkflowRunReplayTest extends TestCase
             ->assertSee('/history/9/editor', false);
         $page = Livewire::test(ReplayWorkflow::class, ['run' => 1]);
         $this->assertSame(3, count($page->get('debugState.results')));
-        $page->call('renameWorkflow', 'Отладочная копия')->assertSet('data.name', 'Отладочная копия');
-        $this->assertSame('Рабочий поток', Workflow::findOrFail(1)->name);
+        $page->call('renameWorkflow', 'Отлаженный поток')->assertSet('data.name', 'Отлаженный поток');
+        $this->assertSame('Отлаженный поток', Workflow::findOrFail(1)->name);
     }
 }

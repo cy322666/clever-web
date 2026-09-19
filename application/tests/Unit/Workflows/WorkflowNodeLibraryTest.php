@@ -82,6 +82,33 @@ class WorkflowNodeLibraryTest extends TestCase
         \Illuminate\Support\Facades\Http::assertNothingSent();
     }
 
+    public function test_contact_get_and_update_nodes_are_available_from_the_real_catalog(): void
+    {
+        \Tests\Support\WorkflowListDatabase::prepare();
+        \Illuminate\Support\Facades\Http::preventStrayRequests();
+
+        $page = Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
+            ->assertSee('Получить контакт')
+            ->assertSee('Обновить контакт')
+            ->call('openDetachedActionPalette', 'query')
+            ->call('selectActionType', 'amocrm_get_contact');
+
+        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
+        $action = end($nodes)['step'];
+        $this->assertSame('amocrm_get_contact', $action['type']);
+        $this->assertSame('contact', $action['config']['target_entity']);
+
+        $page->call('openWorkflowActionEditor', $action['id'])
+            ->set('mountedActions.0.data.entity_source', 'manual')
+            ->set('mountedActions.0.data.target_entity_id', '77')
+            ->call('callMountedAction')
+            ->assertHasNoErrors();
+
+        $config = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'))['action:'.$action['id']]['step']['config'];
+        $this->assertSame('77', $config['target_entity_id']);
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+    }
+
     public function test_it_renders_with_an_empty_action_catalog(): void
     {
         $html = $this->renderNodeLibrary([], false);

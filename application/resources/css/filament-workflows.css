@@ -6766,6 +6766,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-output header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; }
 .workflow-node-output header small { font-size: 11px; font-weight: 400; }
 .workflow-node-output pre { margin-top: 16px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, monospace; }
+.workflow-node-output .workflow-json-tree { margin-top: 16px; }
 .workflow-node-output__empty { margin: 100px auto 0; text-align: center; max-width: 220px; font-size: 13px; line-height: 1.6; color: #818896; }
 .workflow-node-output__error { color: #b74141; margin-top: 20px; font-size: 13px; }
 .workflow-node-run { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-bottom: 8px; font-size: 13px; font-weight: 600; }
@@ -6792,6 +6793,9 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .dark .workflow-value-suggestions button[aria-selected=true], .dark .workflow-value-suggestions button:hover { background: var(--workflow-dark-hover); }
 .workflow-webhook-settings { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(300px, 1fr); gap: 24px; min-height: 50vh; padding: 24px; box-sizing: border-box; }
 .workflow-webhook-settings .workflow-workbench__quick-action { background: transparent; color: inherit; border: 1px solid #81889666; }
+.workflow-webhook-url { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.workflow-webhook-url code { flex: 1 1 auto; min-width: 0; overflow: hidden; padding: 10px 12px; border: 1px solid #bfc7d2; border-radius: 6px; background: #8188960d; color: inherit; font: 12px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-webhook-url .workflow-workbench__quick-action { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding-inline: 10px; }
 .workflow-webhook-settings section { min-width: 0; }
 .workflow-webhook-settings label { display: block; margin-bottom: 8px; font-size: 13px; }
 .workflow-webhook-settings input { width: 100%; border: 1px solid #bfc7d2; border-radius: 6px; padding: 10px; background: transparent; font-size: 12px; }
@@ -6914,6 +6918,11 @@ svg.workflow-control-icon { color: #248548 !important; }
 .dark .workflow-workbench__tabs button:hover { background: var(--workflow-dark-hover) !important; }
 .dark .workflow-canvas-note :is(button, textarea) { background: var(--workflow-dark-panel); color: var(--workflow-dark-text); border-color: var(--workflow-dark-line); }
 .workflow-input-json { padding: 8px 0 12px 14px; font: 12px/21px ui-monospace, SFMono-Regular, Menlo, monospace; color: #64748b; }
+.workflow-json-tree { min-width: 0; overflow: auto; }
+.workflow-json-tree__actions { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 4px; }
+.workflow-json-tree__actions button { padding: 2px 0; border: 0; background: transparent; color: #64748b; font-size: 11px; }
+.workflow-json-tree__actions button:hover { color: #2563eb; }
+.workflow-json-tree .workflow-input-json { min-width: max-content; }
 .workflow-expression-paint { position: absolute; pointer-events: none; overflow: hidden; box-sizing: border-box; z-index: 2; color: #364152; }
 .workflow-expression-token, .workflow-value-suggestions code { color: #c95718; }
 .workflow-expression-painted { color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: #364152; }

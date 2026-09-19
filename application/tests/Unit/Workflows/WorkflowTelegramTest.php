@@ -45,6 +45,27 @@ class WorkflowTelegramTest extends TestCase
         $this->assertStringNotContainsString('test-token', $result['error']);
     }
 
+    public function test_forbidden_response_explains_the_actual_bot_permission_problem(): void
+    {
+        Http::fake(['api.telegram.org/*' => Http::response([
+            'ok' => false,
+            'description' => 'Forbidden: bot was blocked by the user',
+        ], 403)]);
+        $config = TelegramSendMessageAction::protectConfig([
+            'bot_token' => '12345:test-token',
+            'chat_id' => '123',
+            'text' => 'Тест',
+        ]);
+
+        $result = (new TelegramSendMessageAction)->handle($config, new WorkflowContext);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(
+            'Telegram отклонил сообщение (код 403): Пользователь заблокировал бота. Разблокируйте его и нажмите Start.',
+            $result['error'],
+        );
+    }
+
     public function test_saving_the_form_preserves_a_hidden_token_when_only_text_changes(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [['id' => 'telegram', 'type' => 'telegram_send_message', 'config' => TelegramSendMessageAction::protectConfig(['bot_token' => '12345:test-token', 'chat_id' => '-1001', 'text' => 'Первое'])]]])->call('openWorkflowActionEditor', 'telegram');

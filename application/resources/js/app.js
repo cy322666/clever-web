@@ -1234,6 +1234,91 @@ window.workflowExecutionViewer = (graph) => ({
     statusLabel(value) { return {completed:'Выполнено', skipped:'Пропущено', failed:'Ошибка', error:'Ошибка', running:'Выполняется'}[value] || value; },
 });
 
+window.workflowJsonViewer = (initialValue) => ({
+    value: initialValue,
+    signature: null,
+    collapsed: [],
+    initialized: false,
+    init() {
+        this.signature = JSON.stringify(this.value);
+        this.collapseNested();
+        this.initialized = true;
+    },
+    setValue(value) {
+        const signature = JSON.stringify(value);
+        if (this.signature === signature && this.initialized) return;
+        this.value = value;
+        this.signature = signature;
+        this.collapseNested();
+        this.initialized = true;
+    },
+    type(value) {
+        if (value === null) return 'null';
+        if (typeof value === 'boolean') return 'bool';
+        if (typeof value === 'number') return Number.isInteger(value) ? 'int' : 'float';
+        if (typeof value === 'string') return 'string';
+        return 'punctuation';
+    },
+    entries(value) {
+        if (Array.isArray(value)) return value.map((child, index) => [String(index), child]);
+        if (value && typeof value === 'object') return Object.entries(value);
+        return [];
+    },
+    branchPaths(value = this.value, path = '$', depth = 0, result = []) {
+        const entries = this.entries(value);
+        if (entries.length) result.push({path, depth});
+        entries.forEach(([key, child]) => {
+            if (child && typeof child === 'object') this.branchPaths(child, path + '.' + key, depth + 1, result);
+        });
+        return result;
+    },
+    collapseNested() {
+        this.collapsed = this.branchPaths().filter((branch) => branch.depth >= 1).map((branch) => branch.path);
+    },
+    collapseAll() {
+        this.collapsed = this.branchPaths().map((branch) => branch.path);
+    },
+    expandAll() {
+        this.collapsed = [];
+    },
+    toggle(path) {
+        this.collapsed = this.collapsed.includes(path)
+            ? this.collapsed.filter((item) => item !== path)
+            : [...this.collapsed, path];
+    },
+    get rows() {
+        const rows = [];
+        const visit = (value, path = '$', depth = 0, label = '', comma = '', parentArray = false) => {
+            const isArray = Array.isArray(value);
+            const isObject = value !== null && typeof value === 'object' && !isArray;
+            const entries = this.entries(value);
+            const container = isArray || isObject;
+            const open = isArray ? '[' : '{';
+            const close = isArray ? ']' : '}';
+            const collapsed = container && this.collapsed.includes(path);
+            const key = depth === 0 || parentArray ? '' : JSON.stringify(label) + ': ';
+
+            if (!container) {
+                rows.push({id: path, path, depth, label: key, type: this.type(value), branch: false, collapsed: false, text: (JSON.stringify(value) ?? 'null') + comma});
+                return;
+            }
+
+            rows.push({
+                id: path + ':open', path, depth, label: key, type: 'punctuation',
+                branch: entries.length > 0, collapsed,
+                text: open + (collapsed ? ' … ' + close + comma : entries.length ? '' : close + comma),
+            });
+
+            if (!collapsed && entries.length) {
+                entries.forEach(([childKey, child], index) => visit(child, path + '.' + childKey, depth + 1, childKey, index < entries.length - 1 ? ',' : '', isArray));
+                rows.push({id: path + ':close', path, depth, label: '', type: 'punctuation', branch: false, collapsed: false, text: close + comma});
+            }
+        };
+        visit(this.value);
+        return rows;
+    },
+});
+
 window.workflowExpressionPicker = (sources) => ({
     sources, selectedId: sources.findLast(source => source.available)?.id ?? sources.at(-1)?.id ?? '', limit: 30,
     field: null, fieldLabel: '', preview: null, expanded: [], collapsedJson: [],

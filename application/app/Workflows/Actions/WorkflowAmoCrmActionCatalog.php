@@ -59,6 +59,7 @@ class WorkflowAmoCrmActionCatalog
         return [
             AmoCrmCreateLeadAction::class,
             AmoCrmReadAction::class,
+            AmoCrmGetContactAction::class,
             AmoCrmCreateContactAction::class,
             AmoCrmCreateCompanyAction::class,
             AmoCrmCopyLeadAction::class,
@@ -1116,7 +1117,7 @@ class AmoCrmUpdateContactFieldsAction extends AmoCrmUpdateEntityFieldsAction
 
     public static function workflowName(): string
     {
-        return 'Изменить контакт';
+        return 'Обновить контакт';
     }
 
     protected static function entity(): string
@@ -1952,6 +1953,30 @@ class AmoCrmQueryLeadsAction extends WorkflowAmoCrmAction
                 Select::make('sort')->label('Сортировка')->options(['created_at' => 'Дата создания', 'updated_at' => 'Дата изменения', 'id' => 'ID'])->default('created_at'),
                 Select::make('direction')->label('Порядок')->options(['desc' => 'Сначала новые', 'asc' => 'Сначала старые'])->default('desc'),
             ]),
+        ];
+    }
+}
+
+class AmoCrmGetContactAction extends WorkflowAmoCrmAction
+{
+    public static function workflowType(): string { return 'amocrm_get_contact'; }
+    public static function workflowName(): string { return 'Получить контакт'; }
+    public static function workflowDescription(): string { return 'Получает контакт amoCRM по ID.'; }
+    public static function workflowCategory(): string { return 'Запросы'; }
+    public static function workflowIcon(): string { return 'heroicon-o-user'; }
+
+    protected static function defaults(): array
+    {
+        return [
+            'target_entity' => 'contact',
+            'target_entity_locked' => true,
+        ];
+    }
+
+    protected static function schema(): array
+    {
+        return [
+            Section::make('Контакт')->schema(static::fixedTargetEntityFields('contact')),
         ];
     }
 }

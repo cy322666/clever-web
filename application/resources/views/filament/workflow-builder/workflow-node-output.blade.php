@@ -4,7 +4,7 @@
     @if($result)
         @if($result['historical'] ?? false)<p>Данные сохранённого запуска. После правок результат не пересчитывается.</p>@endif
         @if(!empty($result['error']))<p role="alert" class="workflow-node-output__error">{{ $result['error'] }}</p>@endif
-        <pre>{{ json_encode($result['output'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+        @include('filament.workflow-builder.workflow-json-tree', ['value' => $result['output'] ?? []])
     @else
         <p class="workflow-node-output__empty">Запустите ноду, чтобы увидеть результат.</p>
     @endif

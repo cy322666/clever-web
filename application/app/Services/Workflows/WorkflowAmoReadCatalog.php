@@ -67,6 +67,7 @@ final class WorkflowAmoReadCatalog
     {
         $items = [];
         foreach (self::operations() as $key => $item) {
+            if ($key === 'contacts.one') continue;
             if (in_array($item['group'], ['Неразобранное', 'Воронки', 'Аккаунт', 'Источники', 'Беседы'], true)
                 || str_contains($item['path'], '/custom_fields/groups')) continue;
 
