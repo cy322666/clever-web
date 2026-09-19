@@ -228,6 +228,8 @@ jobs:
           overwrite: true
 
       - name: Deploy via SSH with rollback
+        id: production_deploy
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_SHA: ${{ github.sha }}
@@ -346,8 +348,15 @@ jobs:
             }
 
             rollback() {
-              local exit_code=$?
+              local exit_code="$1"
+              local failed_line="$2"
+              local failed_command="$3"
               trap - ERR
+
+              failed_command="${failed_command//$'\n'/ }"
+              printf 'exit=%s; line=%s; command=%s\n' \
+                "$exit_code" "$failed_line" "$failed_command" \
+                > /tmp/clever-web-deploy-error
 
               echo "Deployment failed, starting code rollback..."
 
@@ -410,7 +419,7 @@ jobs:
               exit "$exit_code"
             }
 
-            trap rollback ERR
+            trap 'rollback "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
             git fetch origin "$DEPLOY_BRANCH" --prune
 
@@ -500,4 +509,48 @@ jobs:
             fi
 
             trap - ERR
+            rm -f /tmp/clever-web-deploy-error
             echo "Deploy successful on ${DEPLOY_SHA}"
+
+      - name: Report production deploy failure
+        if: steps.production_deploy.outcome == 'failure'
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          PROD_SSH_FINGERPRINT: ${{ secrets.PROD_SSH_FINGERPRINT }}
+        run: |
+          set -Eeuo pipefail
+          key_path="$RUNNER_TEMP/clever-production-key"
+          known_hosts_path="$RUNNER_TEMP/clever-production-known-hosts"
+
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > "$key_path"
+          chmod 600 "$key_path"
+          ssh-keyscan -p "$PROD_SSH_PORT" "$PROD_SSH_HOST" > "$known_hosts_path" 2>/dev/null
+
+          if [ -n "$PROD_SSH_FINGERPRINT" ] && \
+            ! ssh-keygen -lf "$known_hosts_path" -E sha256 | awk '{ print $2 }' | grep -Fxq "$PROD_SSH_FINGERPRINT"; then
+            echo '::error title=Production deploy failed::Production SSH host fingerprint mismatch.'
+            exit 1
+          fi
+
+          details="$(ssh -i "$key_path" -p "$PROD_SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts_path" \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            'cat /tmp/clever-web-deploy-error 2>/dev/null || true')"
+
+          if [ -z "$details" ]; then
+            details='Remote deploy failed before diagnostic details were recorded.'
+          fi
+
+          details="${details//$'\n'/ }"
+          echo "::error title=Production deploy failed::$details"
+          exit 1
+
+      - name: Remove production SSH key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/clever-production-key" "$RUNNER_TEMP/clever-production-known-hosts"
