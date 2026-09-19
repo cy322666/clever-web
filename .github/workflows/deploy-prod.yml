@@ -514,8 +514,6 @@ jobs:
               exit 1
             fi
 
-            external_healthcheck >/dev/null
-
             trap - ERR
             rm -f /tmp/clever-web-deploy-error
             echo "Deploy successful on ${DEPLOY_SHA}"
@@ -557,6 +555,29 @@ jobs:
 
           details="${details//$'\n'/ }"
           echo "::error title=Production deploy failed::$details"
+          exit 1
+
+      - name: Verify public production healthcheck
+        if: steps.production_deploy.outcome == 'success'
+        env:
+          PROD_APP_URL: ${{ secrets.PROD_APP_URL }}
+        run: |
+          set -Eeuo pipefail
+          health_url="${PROD_APP_URL%/}"
+          if [[ "$health_url" != */up ]]; then
+            health_url="${health_url}/up"
+          fi
+
+          for attempt in {1..12}; do
+            if curl -fsS --connect-timeout 5 --max-time 10 "$health_url" | grep -Fxq 'OK'; then
+              echo "Public production healthcheck passed."
+              exit 0
+            fi
+            echo "Public healthcheck is not ready yet (${attempt}/12); retrying in 5s."
+            sleep 5
+          done
+
+          echo '::error title=Production healthcheck failed::Public /up did not return OK after 12 attempts.'
           exit 1
 
       - name: Remove production SSH key
