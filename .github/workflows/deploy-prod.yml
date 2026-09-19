@@ -243,6 +243,7 @@ jobs:
           key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          command_timeout: 30m
           script_stop: true
           envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE,ASSET_PATH
           script: |
@@ -262,6 +263,7 @@ jobs:
             }
 
             HOST_NGINX_HELPER=""
+            REBUILD_IMAGES=false
 
             start_application() {
               # Retain the helper across git checkout when rolling back old revisions.
@@ -272,11 +274,16 @@ jobs:
                 cp ops/nginx/configure-host.py "$HOST_NGINX_HELPER"
               fi
 
+              local image_args=(--no-build)
+              if [ "$REBUILD_IMAGES" = "true" ]; then
+                image_args=(--build)
+              fi
+
               # Older revisions use a web container or artisan serve on port 8080.
               if compose_cmd config --services | grep -qx web; then
-                compose_cmd up -d --build postgresql app supervisor web
+                compose_cmd up -d "${image_args[@]}" postgresql app supervisor web
               else
-                compose_cmd up -d --build postgresql app supervisor
+                compose_cmd up -d "${image_args[@]}" postgresql app supervisor
               fi
 
               if [ -n "$HOST_NGINX_HELPER" ]; then
@@ -331,6 +338,8 @@ jobs:
                 git checkout -B "$DEPLOY_BRANCH" "$CURRENT_COMMIT"
               fi
 
+              # Rollback reuses the images that were running before deployment.
+              REBUILD_IMAGES=false
               start_application
               compose_cmd exec -T app php artisan optimize:clear || true
               compose_cmd exec -T app php artisan optimize || true
@@ -374,6 +383,14 @@ jobs:
             CURRENT_COMMIT="$(git rev-parse HEAD)"
             echo "Current commit: $CURRENT_COMMIT"
             echo "Target commit:  $DEPLOY_SHA"
+
+            if ! git diff --quiet "$CURRENT_COMMIT" "$DEPLOY_SHA" -- \
+              docker docker-compose.yml monitoring/docker-compose.monitoring.prod.yml; then
+              REBUILD_IMAGES=true
+              echo "Docker configuration changed; images will be rebuilt."
+            else
+              echo "Docker configuration unchanged; existing images will be reused."
+            fi
 
             git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
 
