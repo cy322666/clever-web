@@ -24,6 +24,7 @@ class DistributionController extends Controller
             return response()->json([
                 'ok' => false,
                 'message' => 'Подключение amoCRM для распределения не найдено.',
+                'templates' => [],
                 'queues' => [],
             ]);
         }
@@ -32,6 +33,7 @@ class DistributionController extends Controller
             return response()->json([
                 'ok' => false,
                 'message' => 'Доступ к виджету распределения не активен.',
+                'templates' => [],
                 'queues' => [],
             ]);
         }
@@ -41,13 +43,17 @@ class DistributionController extends Controller
             return response()->json([
                 'ok' => false,
                 'message' => 'Настройки распределения не найдены.',
+                'templates' => [],
                 'queues' => [],
             ]);
         }
 
+        $templates = $this->distributionQueues($setting->settings);
+
         return response()->json([
             'ok' => true,
-            'queues' => $this->distributionQueues($setting->settings),
+            'templates' => $templates,
+            'queues' => $templates,
         ]);
     }
 

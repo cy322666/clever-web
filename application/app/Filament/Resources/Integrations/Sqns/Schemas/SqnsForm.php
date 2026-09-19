@@ -50,13 +50,6 @@ class SqnsForm
                                     ->revealable()
                                     ->dehydrated(fn (?string $state): bool => filled($state))
                                     ->required(fn (?Setting $record): bool => blank($record?->password)),
-
-                                TextInput::make('webhook_url')
-                                    ->label('Webhook URL')
-                                    ->helperText('Регистрируется в SQNS кнопкой «Подключить SQNS».')
-                                    ->copyable()
-                                    ->disabled()
-                                    ->columnSpanFull(),
                             ]),
 
                         Fieldset::make('Этапы amoCRM')

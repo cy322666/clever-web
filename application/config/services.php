@@ -48,6 +48,22 @@ return [
                     rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/excel'
                 ),
             ],
+            'yclients' => [
+                'client_id' => env('AMO_YCLIENTS_CLIENT_ID'),
+                'client_secret' => env('AMO_YCLIENTS_CLIENT_SECRET'),
+                'redirect_uri' => env(
+                    'AMO_YCLIENTS_REDIRECT_URI',
+                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/yclients'
+                ),
+            ],
+            'tilda' => [
+                'client_id' => env('AMO_TILDA_CLIENT_ID'),
+                'client_secret' => env('AMO_TILDA_CLIENT_SECRET'),
+                'redirect_uri' => env(
+                    'AMO_TILDA_REDIRECT_URI',
+                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/tilda'
+                ),
+            ],
             'distribution' => [
                 'client_id' => env('AMO_DISTRIBUTION_CLIENT_ID'),
                 'client_secret' => env('AMO_DISTRIBUTION_CLIENT_SECRET'),
@@ -58,6 +74,14 @@ return [
                 'redirect_uri' => env(
                     'AMO_WORKFLOWS_REDIRECT_URI',
                     rtrim((string) env('APP_URL', 'http://localhost'), '/') . '/api/amocrm/install/flow'
+                ),
+            ],
+            'sqns' => [
+                'client_id' => env('AMO_SQNS_CLIENT_ID'),
+                'client_secret' => env('AMO_SQNS_CLIENT_SECRET'),
+                'redirect_uri' => env(
+                    'AMO_SQNS_REDIRECT_URI',
+                    rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/amocrm/install/sqns'
                 ),
             ],
             'vetmanager' => [

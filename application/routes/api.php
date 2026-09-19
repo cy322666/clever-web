@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DistributionController;
 use App\Http\Controllers\Api\GetCourseController;
+use App\Http\Controllers\Api\IndustryClinicsSalonsLifecycleController;
 use App\Http\Controllers\Api\SqnsController;
 use App\Http\Controllers\Api\TildaController;
 use App\Http\Controllers\Api\VetmanagerController;
@@ -57,6 +58,13 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
 Route::group(['prefix' => 'amocrm'], function () {
 
+    Route::get('industry-clinics-salons/redirect', [IndustryClinicsSalonsLifecycleController::class, 'redirect'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.industry-clinics-salons.redirect');
+    Route::get('industry-clinics-salons/off', [IndustryClinicsSalonsLifecycleController::class, 'off'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.industry-clinics-salons.off');
+
     //TODO тут проверить что работает а что не юзается
 //    Route::post('secrets', [AuthController::class, 'secrets']);
 
@@ -72,6 +80,12 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::match(['get', 'post'], 'off/excel', [AuthController::class, 'offExcel'])
         ->middleware('throttle:60,1')
         ->name('amocrm.excel.off');
+    Route::match(['get', 'post'], 'install/sqns', [AuthController::class, 'installSqns'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.sqns.install');
+    Route::match(['get', 'post'], 'off/sqns', [AuthController::class, 'offSqns'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.sqns.off');
 
     Route::get('redirect', [AuthController::class, 'redirect']);
     Route::match(['get', 'post'], 'off', [AuthController::class, 'off'])

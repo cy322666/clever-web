@@ -152,6 +152,7 @@ class WidgetSubscriptionAccessService
                 $app->expires_tariff_at = $endsAt;
                 $app->installed_at = $app->installed_at ?: now();
                 $app->save();
+                $this->syncSettingActive($app, true);
             }
 
             return null;
