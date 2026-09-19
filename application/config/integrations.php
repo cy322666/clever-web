@@ -10,6 +10,8 @@ use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 
 return [
+    'default_trial_days' => 7,
+
     'definitions' => [
         'getcourse' => [
             'resource' => GetCourseResource::class,
