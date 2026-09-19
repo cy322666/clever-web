@@ -42,7 +42,7 @@ final class WorkflowCredentials
         Validator::make($data, [
             'provider' => ['required', 'string', Rule::in(array_keys(self::PROVIDERS))],
             'credential_id' => 'nullable|integer|min:1',
-            'credentials' => 'required|array',
+            'credentials' => 'present|array',
         ])->validate();
         $provider = $data['provider'];
         $id = $data['credential_id'] ?? null;
@@ -72,6 +72,18 @@ final class WorkflowCredentials
             throw ValidationException::withMessages(collect($error->errors())
                 ->mapWithKeys(fn ($messages, $field) => [$schema->getStatePath().'.'.$field => $messages])->all());
         }
+    }
+
+    public static function delete(string $provider, int $id): void
+    {
+        abort_unless(Auth::id(), 403);
+        abort_unless(isset(self::PROVIDERS[$provider]), 404);
+
+        WorkflowCredential::query()
+            ->where('user_id', Auth::id())
+            ->where('provider', $provider)
+            ->findOrFail($id)
+            ->delete();
     }
 
     public static function token(int $id, ?WorkflowContext $context): string
