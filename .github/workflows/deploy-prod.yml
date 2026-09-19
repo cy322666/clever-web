@@ -263,6 +263,7 @@ jobs:
 
             HOST_NGINX_HELPER=""
             REBUILD_IMAGES=false
+            LOCAL_CHANGES_PATCH=""
 
             start_application() {
               # Retain the helper across git checkout when rolling back old revisions.
@@ -321,6 +322,29 @@ jobs:
 
             CURRENT_COMMIT=""
 
+            backup_and_clear_tracked_changes() {
+              local label="$1"
+              local base_commit="$2"
+              local changed_files patch_path
+
+              if git diff --quiet; then
+                LOCAL_CHANGES_PATCH=""
+                return 0
+              fi
+
+              mkdir -p backups
+              changed_files="$(mktemp /tmp/clever-web-changes.XXXXXX)"
+              patch_path="backups/${label}-$(date -u +%Y%m%dT%H%M%SZ).patch"
+              git diff --name-only -z > "$changed_files"
+              git diff --binary > "$patch_path"
+              git restore --worktree --source="$base_commit" \
+                --pathspec-from-file="$changed_files" --pathspec-file-nul
+              rm -f "$changed_files"
+
+              LOCAL_CHANGES_PATCH="$patch_path"
+              echo "Saved tracked local changes to $patch_path"
+            }
+
             rollback() {
               local exit_code=$?
               trap - ERR
@@ -333,8 +357,23 @@ jobs:
               fi
 
               if [ -n "$CURRENT_COMMIT" ]; then
+                local failed_state_patch=""
+                if ! git diff --quiet; then
+                  backup_and_clear_tracked_changes \
+                    "failed-deploy-${DEPLOY_SHA:0:12}" "$(git rev-parse HEAD)"
+                  failed_state_patch="$LOCAL_CHANGES_PATCH"
+                fi
+
                 echo "Reverting code to ${CURRENT_COMMIT}"
                 git checkout -B "$DEPLOY_BRANCH" "$CURRENT_COMMIT"
+
+                if [ -n "$PRE_DEPLOY_CHANGES_PATCH" ]; then
+                  git apply "$PRE_DEPLOY_CHANGES_PATCH"
+                  echo "Restored pre-deploy tracked changes from $PRE_DEPLOY_CHANGES_PATCH"
+                fi
+                if [ -n "$failed_state_patch" ]; then
+                  echo "Preserved failed deploy state in $failed_state_patch"
+                fi
               fi
 
               # Rollback reuses the images that were running before deployment.
@@ -380,6 +419,7 @@ jobs:
             fi
 
             CURRENT_COMMIT="$(git rev-parse HEAD)"
+            PRE_DEPLOY_CHANGES_PATCH=""
             echo "Current commit: $CURRENT_COMMIT"
             echo "Target commit:  $DEPLOY_SHA"
 
@@ -398,6 +438,34 @@ jobs:
               echo "Docker configuration changed; images will be rebuilt."
             else
               echo "Docker configuration unchanged; existing images will be reused."
+            fi
+
+            dirty_tracked="$(mktemp /tmp/clever-web-dirty.XXXXXX)"
+            git diff --name-only -z > "$dirty_tracked"
+            unsafe_local_changes=false
+            while IFS= read -r -d '' file; do
+              target_blob="$(git rev-parse "${DEPLOY_SHA}:${file}" 2>/dev/null || true)"
+              if [ -f "$file" ] && [ -n "$target_blob" ] && \
+                [ "$(git hash-object "$file")" = "$target_blob" ]; then
+                echo "Local change is already tracked by target commit: $file"
+              elif [ "$file" = "application/public/build/manifest.json" ]; then
+                echo "Local generated asset will be replaced by the staged build: $file"
+              else
+                echo "Refusing to overwrite uncommitted production change: $file" >&2
+                unsafe_local_changes=true
+              fi
+            done < "$dirty_tracked"
+            rm -f "$dirty_tracked"
+
+            if [ "$unsafe_local_changes" = "true" ]; then
+              trap - ERR
+              exit 1
+            fi
+
+            if ! git diff --quiet; then
+              backup_and_clear_tracked_changes \
+                "pre-deploy-${CURRENT_COMMIT:0:12}" "$CURRENT_COMMIT"
+              PRE_DEPLOY_CHANGES_PATCH="$LOCAL_CHANGES_PATCH"
             fi
 
             git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
