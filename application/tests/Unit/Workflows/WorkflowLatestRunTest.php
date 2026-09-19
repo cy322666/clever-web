@@ -18,7 +18,6 @@ class WorkflowLatestRunTest extends TestCase
     {
         WorkflowListDatabase::prepare();
         Schema::table('workflow_runs', function (Blueprint $table): void {
-            $table->string('status')->default('completed');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
         });

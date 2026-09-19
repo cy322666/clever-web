@@ -80,7 +80,7 @@ class WorkflowDebugInputTest extends TestCase
     {
         \Tests\Support\WorkflowListDatabase::prepare();
         \Illuminate\Support\Facades\Schema::table('workflow_runs', function ($table): void {
-            $table->string('status')->default('completed'); $table->timestamp('started_at')->nullable(); $table->json('context_data');
+            $table->timestamp('started_at')->nullable(); $table->json('context_data');
         });
         $this->actingAs(\App\Models\User::findOrFail(1));
         $flow = (new \App\Models\Workflows\Workflow)->forceFill(['id' => 1, 'user_id' => 1, 'name' => 'Тест', 'trigger_type' => 'manual', 'is_active' => false, 'definition' => WorkflowDebugFixture::sampleDefinition()]);

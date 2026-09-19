@@ -22,7 +22,7 @@ class WorkflowHistoryFilterTest extends TestCase
         WorkflowListDatabase::prepare();
         Http::preventStrayRequests();
         Schema::table('workflow_runs', function ($t) {
-            $t->string('ulid')->nullable(); $t->string('status'); $t->json('context_data')->nullable();
+            $t->string('ulid')->nullable(); $t->json('context_data')->nullable();
             $t->timestamp('started_at')->nullable(); $t->integer('triggered_by')->nullable();
         });
         (require database_path('migrations/2026_06_09_160734_create_workflow_run_steps_table.php'))->up();

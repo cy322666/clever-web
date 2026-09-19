@@ -15,7 +15,7 @@ class WorkflowAnalyticsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); WorkflowListDatabase::prepare();
-        Schema::table('workflow_runs', function(Blueprint $table) { $table->string('status')->default('completed'); $table->timestamp('started_at')->nullable(); $table->timestamp('completed_at')->nullable(); });
+        Schema::table('workflow_runs', function(Blueprint $table) { $table->timestamp('started_at')->nullable(); $table->timestamp('completed_at')->nullable(); });
         $this->actingAs(\App\Models\User::findOrFail(1));
     }
 

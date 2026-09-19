@@ -21,7 +21,7 @@ class WorkflowFatalJobTest extends TestCase
         WorkflowListDatabase::prepare();
         Http::preventStrayRequests();
         Schema::table('workflow_runs', function ($t) {
-            $t->string('ulid')->nullable(); $t->string('status')->default('pending');
+            $t->string('ulid')->nullable();
             $t->string('trigger_source')->default('manual'); $t->integer('current_step_index')->default(0);
             $t->text('context_data')->nullable(); $t->text('error_message')->nullable();
             $t->timestamp('started_at')->nullable(); $t->timestamp('completed_at')->nullable();
