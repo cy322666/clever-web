@@ -55,9 +55,11 @@ return [
 
         'monitoring' => [
             'driver' => 'database',
-            'table' => 'cache',
-            'connection' => null,
-            'lock_connection' => null,
+            // Monitoring state must survive `cache:clear` during deployments.
+            'table' => env('ALERTS_CACHE_TABLE', 'monitoring_cache'),
+            'connection' => env('ALERTS_CACHE_CONNECTION'),
+            'lock_connection' => env('ALERTS_CACHE_LOCK_CONNECTION'),
+            'lock_table' => env('ALERTS_CACHE_LOCK_TABLE', 'cache_locks'),
         ],
 
         'file' => [
