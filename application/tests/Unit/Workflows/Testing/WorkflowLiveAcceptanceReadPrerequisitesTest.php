@@ -119,6 +119,8 @@ final class WorkflowLiveAcceptanceReadPrerequisitesTest extends TestCase
             ['/api/v4/customers',401,'Error 426.',true,'failed'],
             ['/api/v4/customers',500,'Error 426.',true,'failed'],
             ['/api/v4/customers/segments',422,'Customers disabled',false,'unavailable'],
+            ['/api/v4/customers/custom_fields',422,'Customers disabled',false,'unavailable'],
+            ['/api/v4/customers/custom_fields',500,'Customers disabled',true,'failed'],
             ['/api/v4/customers/segments/custom_fields',422,'Customers disabled',false,'unavailable'],
             ['/api/v4/customers/segments',403,'Customers disabled',false,'failed'],
             ['/api/v4/catalogs',422,'Customers disabled',true,'failed'],

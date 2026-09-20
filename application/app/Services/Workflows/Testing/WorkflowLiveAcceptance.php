@@ -673,7 +673,7 @@ final class WorkflowLiveAcceptance
         $body=json_decode($match[2],true); $status=(int)$match[1];
         if (!is_array($body) || (isset($body['status']) && (int)$body['status']!==$status)) return $failure;
         $detail=$body['detail']??null;
-        if (in_array($path,['/api/v4/customers/segments','/api/v4/customers/segments/custom_fields'],true) && $status===422 && $detail==='Customers disabled') {
+        if (in_array($path,['/api/v4/customers/custom_fields','/api/v4/customers/segments','/api/v4/customers/segments/custom_fields'],true) && $status===422 && $detail==='Customers disabled') {
             return ['status'=>'unavailable','capability'=>'customers_disabled','reason'=>'Customers are explicitly disabled in this account','error'=>$error,'path'=>$path];
         }
         if ($path==='/api/v4/customers' && $status===400 && $detail==='Error 426.' && $customersDisabledVerified) {
