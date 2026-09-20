@@ -402,31 +402,24 @@ class WorkflowAmoCrmActionExecutor
         }
 
         $removeTags = $this->tags($config['tags_to_remove'] ?? null);
-        $tags = [];
+        $addTags = $this->tags($config['tags_to_add'] ?? null);
+        $addLookup = array_flip(array_map('mb_strtolower', $addTags));
+        $removeTags = array_values(array_filter(
+            $removeTags,
+            static fn(string $tag): bool => !isset($addLookup[mb_strtolower($tag)])
+        ));
 
-        if (!(bool)($config['remove_all'] ?? false)) {
-            $current = $this->amoRequest($account, 'GET', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId);
-            $tags = $this->extractCurrentTags($current);
+        if ((bool)($config['remove_all'] ?? false)) {
+            $payload = ['_embedded' => ['tags' => $addTags === [] ? null : $this->tagModels($addTags)]];
+        } else {
+            $payload = [];
+            if ($addTags !== []) $payload['tags_to_add'] = $this->tagModels($addTags);
+            if ($removeTags !== []) $payload['tags_to_delete'] = $this->tagModels($removeTags);
         }
 
-        if ($removeTags !== []) {
-            $removeLookup = array_flip(array_map('mb_strtolower', $removeTags));
-            $tags = array_values(
-                array_filter(
-                    $tags,
-                    static fn(array $tag): bool => !isset($removeLookup[mb_strtolower((string)($tag['name'] ?? ''))])
-                )
-            );
+        if ($payload !== []) {
+            $this->amoRequest($account, 'PATCH', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId, $payload);
         }
-
-        $tags = array_merge($tags, $this->tagModels($config['tags_to_add'] ?? null));
-        $tags = $this->uniqueTagModels($tags);
-
-        $this->amoRequest($account, 'PATCH', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId, [
-            '_embedded' => [
-                'tags' => $tags === [] ? null : $tags,
-            ],
-        ]);
         $this->rememberAmoMutation($account, $context, 'amocrm_change_tags', $entity, $entityId, [
             'update_' . $entity,
         ]);
@@ -1619,40 +1612,6 @@ class WorkflowAmoCrmActionExecutor
         return array_map(static fn(string $tag): array => ['name' => $tag], $this->tags($tags));
     }
 
-    /**
-     * @param array<int, array<string, mixed>> $tags
-     * @return array<int, array<string, mixed>>
-     */
-    private function uniqueTagModels(array $tags): array
-    {
-        $unique = [];
-
-        foreach ($tags as $tag) {
-            $name = trim((string)($tag['name'] ?? ''));
-            $id = (int)($tag['id'] ?? 0);
-
-            if ($id <= 0 && $name === '') {
-                continue;
-            }
-
-            $key = $id > 0 ? 'id:' . $id : 'name:' . mb_strtolower($name);
-            $unique[$key] = $id > 0 ? ['id' => $id] : ['name' => $name];
-        }
-
-        return array_values($unique);
-    }
-
-    /**
-     * @param array<string, mixed> $entity
-     * @return array<int, array<string, mixed>>
-     */
-    private function extractCurrentTags(array $entity): array
-    {
-        $tags = Arr::get($entity, '_embedded.tags', []);
-
-        return is_array($tags) ? $this->uniqueTagModels($tags) : [];
-    }
-
     private function entityPlural(string $entity): string
     {
         return match ($entity) {
@@ -1861,11 +1820,12 @@ class WorkflowAmoCrmActionExecutor
      */
     private function tags(mixed $value): array
     {
-        if (is_array($value)) {
-            return array_values(array_filter(array_map('trim', $value)));
+        $tags = is_array($value) ? $value : explode(',', (string)$value);
+        $unique = [];
+        foreach (array_filter(array_map('trim', $tags)) as $tag) {
+            $unique[mb_strtolower($tag)] ??= $tag;
         }
-
-        return array_values(array_filter(array_map('trim', explode(',', (string)$value))));
+        return array_values($unique);
     }
 
     /**
