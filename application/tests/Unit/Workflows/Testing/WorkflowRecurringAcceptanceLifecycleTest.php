@@ -13,6 +13,8 @@ use App\Services\Workflows\WorkflowAmoCrmLoopGuard;
 use App\Workflows\Context\WorkflowContext;
 use App\Workflows\Engine\WorkflowDebugger;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -125,5 +127,33 @@ final class WorkflowRecurringAcceptanceLifecycleTest extends TestCase
         Http::assertSentCount(1);
         Http::assertSent(fn($request)=>$request->method()==='POST' && parse_url($request->url(),PHP_URL_PATH)==='/api/v4/leads'
             && $request->data()[0]['status_id']===143);
+    }
+
+    public function test_report_write_failure_during_cleanup_does_not_prevent_workflow_restoration(): void
+    {
+        config(['database.default'=>'acceptance_lifecycle','database.connections.acceptance_lifecycle'=>['driver'=>'sqlite','database'=>':memory:']]);
+        DB::purge('acceptance_lifecycle');
+        Schema::create('workflows',function($table):void {
+            $table->id(); $table->integer('user_id'); $table->boolean('is_active'); $table->timestamp('deleted_at')->nullable();
+        });
+        DB::table('workflows')->insert(['id'=>7,'user_id'=>142,'is_active'=>false]);
+        $blocker=tempnam(sys_get_temp_dir(),'qa-not-a-directory-');
+        $runner=$this->runner($blocker.'/report.json');
+        $client=$this->getMockBuilder(Client::class)->disableOriginalConstructor()->onlyMethods(['requestV4'])->getMock();
+        $client->expects($this->exactly(3))->method('requestV4')->willReturnCallback(function($method,$path):array {
+            $this->assertSame('GET',$method);
+            $this->assertContains($path,['/api/v4/leads','/api/v4/webhooks']);
+            return [];
+        });
+        foreach (['client'=>$client,'mutationsPrepared'=>true,'recurringStatePath'=>$blocker.'/state.json',
+            'paused'=>[7],'workflowsPaused'=>true,'hookUrl'=>'https://example.invalid/qa-hook'] as $key=>$value) $this->set($runner,$key,$value);
+        try {
+            (new \ReflectionMethod($runner,'cleanup'))->invoke($runner);
+            $this->assertSame(1,(int)DB::table('workflows')->where('id',7)->value('is_active'));
+            $report=(new \ReflectionProperty($runner,'report'))->getValue($runner);
+            $this->assertTrue($report['cleanup']['remove_qa_webhook']['ok']);
+            $this->assertTrue($report['cleanup']['restore_workflow_activation']['ok']);
+            $this->assertNotEmpty($report['report_write_errors']);
+        } finally { unlink($blocker); }
     }
 }

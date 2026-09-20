@@ -782,7 +782,12 @@ final class WorkflowLiveAcceptance
             $cleanup('collect_webhooks',fn()=> $this->collectEvents(10));
             if ($this->recurringStatePath) {
                 foreach (['update_lead'=>$this->leadId,'status_lead'=>$this->leadId,'update_contact'=>$this->contactId,'update_task'=>$this->tasks[0]??0] as $event=>$entityId) {
-                    if (!$entityId) { $this->skip('webhook:'.$event,'webhook','Required QA entity was not available'); continue; }
+                    if (!$entityId) {
+                        // Do not perform an unguarded checkpoint write in cleanup: a full
+                        // disk must not prevent the later webhook/workflow restoration.
+                        $this->report['cases'][]=['id'=>'webhook:'.$event,'type'=>'webhook','status'=>'skipped','reason'=>'Required QA entity was not available'];
+                        continue;
+                    }
                     $verification=self::verifyObservedEvent($this->report['events']??[],$event,$entityId);
                     $this->report['cases'][]=['id'=>'webhook:'.$event,'type'=>'webhook','status'=>$verification['passed']?'passed':'failed','verification'=>$verification];
                 }
