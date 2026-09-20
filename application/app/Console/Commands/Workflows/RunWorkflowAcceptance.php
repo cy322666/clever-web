@@ -35,11 +35,8 @@ class RunWorkflowAcceptance extends Command
             return self::FAILURE;
         }
 
-        $lock = Cache::lock('workflow-acceptance-notified:'.$domain, 1800);
-        if (!$lock->get()) {
-            $this->warn('Предыдущий прогон ещё выполняется; второй не запущен.');
-            return self::SUCCESS;
-        }
+        $lock = null;
+        $lockAcquired = false;
         $report = [
             'schema_version' => 1, 'suite' => 'recurring_live_acceptance',
             'run_id' => 'scheduled-'.gmdate('Ymd-His').'-'.bin2hex(random_bytes(3)),
@@ -55,6 +52,13 @@ class RunWorkflowAcceptance extends Command
                     throw new RuntimeException('Cannot create private report directory');
                 }
                 chmod($directory, 0700);
+                // Redis failure must still reach the private report and Telegram path.
+                $lock = Cache::lock('workflow-acceptance-notified:'.$domain, 1800);
+                $lockAcquired = (bool) $lock->get();
+                if (!$lockAcquired) {
+                    $this->warn('Предыдущий прогон ещё выполняется; второй не запущен.');
+                    return self::SUCCESS;
+                }
                 $exitCode = $this->runProcess($workflowId, $domain, $reportPath, $directory.'/state-'.$workflowId.'.json');
                 $child = is_file($reportPath) ? json_decode(file_get_contents($reportPath), true, 512, JSON_THROW_ON_ERROR) : null;
                 if (!is_array($child)) throw new RuntimeException('Процесс не сохранил отчёт; проверьте checkpoint перед повторным запуском.');
@@ -90,7 +94,16 @@ class RunWorkflowAcceptance extends Command
             $this->info('Результаты реальных проверок отправлены в Telegram.');
             return !$deliverySaved || $this->hasFailures($report) ? self::FAILURE : self::SUCCESS;
         } finally {
-            $lock->release();
+            if ($lockAcquired) {
+                try {
+                    $lock->release();
+                } catch (Throwable $error) {
+                    // Preserve the delivered result. The lock has a bounded TTL.
+                    $this->safeLog('workflow.acceptance.lock_release_failed', [
+                        'report' => basename($reportPath), 'exception' => $error::class,
+                    ]);
+                }
+            }
         }
     }
 

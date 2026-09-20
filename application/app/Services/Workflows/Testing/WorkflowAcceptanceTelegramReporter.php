@@ -145,7 +145,7 @@ final class WorkflowAcceptanceTelegramReporter
 
     private function caseError(array $case, callable $clean): string
     {
-        foreach ([$case['error'] ?? null, $case['result']['error'] ?? null, $case['verification']['actual_error'] ?? null, $case['verification']['reason'] ?? null] as $error) {
+        foreach ([$case['error'] ?? null, $case['result']['error'] ?? null, $case['prerequisite_error'] ?? null, $case['verification']['actual_error'] ?? null, $case['verification']['reason'] ?? null] as $error) {
             if (is_string($error) && trim($error) !== '') {
                 return $clean($error);
             }
@@ -189,6 +189,7 @@ final class WorkflowAcceptanceTelegramReporter
             'find_lead' => 'Поиск сделки',
             'lead_note' => 'Примечание к сделке',
             'lead_tags' => 'Теги сделки',
+            'remove_lead_tags' => 'Удаление тега сделки',
             'copy_lead' => 'Копирование сделки',
             'get_contact' => 'Получение контакта',
             'update_contact' => 'Обновление контакта',

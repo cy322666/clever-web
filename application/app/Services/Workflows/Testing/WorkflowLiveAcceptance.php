@@ -49,6 +49,7 @@ final class WorkflowLiveAcceptance
     private bool $recurringStateStarted = false;
     private bool $qaLinkMayExist = false;
     private bool $cancellationRequested = false;
+    private bool $customersDisabledVerified = false;
 
     /** Reuses a single closed QA deal, task and observer; never grows CRM fixtures daily. */
     public function runRecurring(int $workflowId, string $expectedDomain, string $reportPath, string $statePath, ?int $expectedAmoAccountId = null): array
@@ -413,7 +414,12 @@ final class WorkflowLiveAcceptance
         $this->node('lead_tags','amocrm_change_tags',$target+['tags_to_add'=>'Clever QA'],
             fn()=>['passed'=>in_array('Clever QA',array_column($this->get('leads',$this->leadId)['_embedded']['tags']??[],'name'),true)]);
         $this->node('remove_lead_tags','amocrm_change_tags',$target+['tags_to_remove'=>'Clever QA'],
-            fn()=>['passed'=>!in_array('Clever QA',array_column($this->get('leads',$this->leadId)['_embedded']['tags']??[],'name'),true)]);
+            function():array {
+                $tags=$this->get('leads',$this->leadId)['_embedded']['tags']??[];
+                $passed=!in_array('Clever QA',array_column($tags,'name'),true);
+                return ['passed'=>$passed,'expected'=>'Tag Clever QA is absent','readback_tags'=>$tags,
+                    'reason'=>$passed?null:'После удаления тег Clever QA остался на QA-сделке'];
+            });
         if ($this->contactId) {
             if ($this->linkCheck(true)['passed']) throw new RuntimeException('QA lead is already linked to the selected contact; refusing to remove a preexisting link');
             $contact=$this->get('contacts',$this->contactId);
@@ -541,57 +547,46 @@ final class WorkflowLiveAcceptance
     private function exerciseReads(): void
     {
         $lookupCache=[];
-        $firstId=function(string $path) use (&$lookupCache): int|string|null {
-            if (!array_key_exists($path,$lookupCache)) {
+        $firstId=function(string $path) use (&$lookupCache): array {
+            if (isset($lookupCache[$path])) return $lookupCache[$path];
+            if (!preg_match('~^/api/v4/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$~D',$path)) {
+                return ['status'=>'failed','error'=>'Acceptance prerequisite path is malformed','path'=>$path];
+            }
+            try {
                 $body=$this->client->requestV4('GET',$path,[],['limit'=>10,'page'=>1]);
-                $lookupCache[$path]=null;
+                $id=null;
                 foreach ($body['_embedded']??[] as $rows) {
                     if (!is_array($rows) || !array_is_list($rows)) continue;
                     foreach ($rows as $row) {
                         if (is_array($row) && (is_int($row['id']??null) || is_string($row['id']??null))) {
-                            $lookupCache[$path]=$row['id'];
+                            $id=$row['id'];
                             break 2;
                         }
                     }
                 }
+                return $lookupCache[$path]=['status'=>$id===null?'empty':'available','id'=>$id,'path'=>$path];
+            } catch (Throwable $error) {
+                if ($this->cancellationRequested) throw $error;
+                return $lookupCache[$path]=self::classifyReadPrerequisiteError($path,$error->getMessage(),$this->customersDisabledVerified);
             }
-            return $lookupCache[$path];
         };
+        // A bare customer Error 426 is ambiguous. Only the explicit independent
+        // segments response can establish that customers are disabled here.
+        $capability=$firstId('/api/v4/customers/segments');
+        $this->customersDisabledVerified=($capability['capability']??null)==='customers_disabled';
+        if ($this->customersDisabledVerified) $this->report['capabilities']['customers']=$capability;
+        $ids=['leads'=>$this->leadId,'contacts'=>$this->contactId,'companies'=>$this->report['before']['company_ids'][0]??0,
+            'tasks'=>$this->tasks[0]??0,'pipeline_id'=>$this->pipelineId];
         foreach (WorkflowAmoReadCatalog::availableOperations() as $operation=>$definition) {
             if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled');
-            $config=['operation'=>$operation,'body_mode'=>'fields','parameters'=>[]];
-            $prefix=explode('.',$operation)[0];
             try {
-                $entityId=match($prefix) {
-                    'leads'=>$this->leadId, 'contacts'=>$this->contactId,
-                    'companies'=>$this->report['before']['company_ids'][0]??0,
-                    'tasks'=>$this->tasks[0]??0,
-                    'customers','customer_transactions'=>$firstId('/api/v4/customers'),
-                    default=>0,
-                };
-                if ($operation==='custom') $config['request_path']='/api/v4/account';
-                if (str_contains($definition['path'],'{entity_id}')) $config['entity_id']=$entityId;
-                if (str_contains($definition['path'],'{catalog_id}')) $config['catalog_id']=$firstId('/api/v4/catalogs');
-                if (str_contains($definition['path'],'{id}')) {
-                    if (in_array($operation,['leads.one','contacts.one','companies.one','customers.one','tasks.one'],true)) $config['id']=$entityId;
-                    else {
-                        $parentPath=preg_replace('#/\{id\}$#','',$definition['path']);
-                        foreach (['entity_id','catalog_id'] as $parameter) $parentPath=str_replace('{'.$parameter.'}',(string)($config[$parameter]??''),$parentPath);
-                        if (str_contains($operation,'notes')) $parentPath='/api/v4/'.$prefix.'/'.$entityId.'/notes';
-                        $config['id']=$entityId===0 && str_contains($operation,'notes') ? null : $firstId($parentPath);
-                    }
-                }
-                $missing=false;
-                preg_match_all('/\{([a-z_]+)\}/',$definition['path'],$parameters);
-                foreach ($parameters[1] as $parameter) if (empty($config[$parameter])) $missing=true;
-                if ($missing) {
-                    $this->report['cases'][]=['id'=>'read:'.$operation,'type'=>'amocrm_read','operation'=>$operation,'status'=>'skipped','reason'=>'No existing entity/field/catalog ID; suite does not create contacts, companies or customers'];
+                $resolved=self::resolveReadPrerequisites($operation,$definition,$ids,$firstId);
+                if ($resolved['status']!=='ready') {
+                    $this->report['cases'][]=['id'=>'read:'.$operation,'type'=>'amocrm_read','operation'=>$operation]+$resolved;
                     $this->save();
                     continue;
                 }
-                if (!str_contains($definition['path'],'{id}') && !in_array($operation,['custom','event_types'],true)) {
-                    $config['parameters']=[['name'=>'limit','value'=>10],['name'=>'page','value'=>1]];
-                }
+                $config=$resolved['config'];
                 $this->node('read:'.$operation,'amocrm_read',$config,function($o) use ($config,$definition) {
                     $passed=is_array($o['data']??null) && is_array($o['items']??null)
                         && ($o['count']??null)===count($o['items']) && is_bool($o['has_more']??null) && !($o['dry_run']??false);
@@ -604,6 +599,74 @@ final class WorkflowLiveAcceptance
                 $this->save();
             }
         }
+    }
+
+    /** Resolve parent identifiers before issuing child lookups; list endpoints need no arbitrary entity. */
+    public static function resolveReadPrerequisites(string $operation,array $definition,array $ids,callable $lookup): array
+    {
+        $config=['operation'=>$operation,'body_mode'=>'fields','parameters'=>[]];
+        $path=$definition['path']; $prefix=explode('.',$operation)[0];
+        $missing=static fn(string $reason):array=>['status'=>'skipped','reason'=>$reason];
+        $lookupId=static function(string $parent) use($lookup):array {
+            if (!preg_match('~^/api/v4/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$~D',$parent)) return ['status'=>'failed','error'=>'Malformed prerequisite path: '.$parent];
+            $result=$lookup($parent);
+            if (($result['status']??'')==='available' && !empty($result['id'])) return ['status'=>'ready','id'=>$result['id']];
+            return ['status'=>in_array($result['status']??'', ['empty','unavailable'],true)?'skipped':'failed',
+                'reason'=>$result['reason']??'No existing prerequisite identifier','prerequisite_path'=>$parent,'prerequisite_error'=>$result['error']??null];
+        };
+        if ($operation==='custom') $config['request_path']='/api/v4/account';
+        $entityId=$ids[$prefix]??0;
+        $entityIdInId=in_array($prefix,['leads','contacts','companies','customers','tasks'],true)
+            && in_array($path,['/api/v4/'.$prefix.'/{id}','/api/v4/'.$prefix.'/{id}/subscriptions'],true);
+        $needsEntity=str_contains($path,'{entity_id}') || $entityIdInId || (str_contains($operation,'notes') && str_contains($path,'{id}'));
+        if ($needsEntity && in_array($prefix,['customers','customer_transactions'],true)) {
+            $customer=$lookupId('/api/v4/customers'); if ($customer['status']!=='ready') return $customer;
+            $entityId=$customer['id'];
+        }
+        if ($needsEntity && !$entityId) return $missing('No existing entity ID; creating contacts, companies or customers is forbidden');
+        if (str_contains($path,'{entity_id}')) $config['entity_id']=$entityId;
+        if (str_contains($path,'{pipeline_id}')) {
+            if (empty($ids['pipeline_id'])) return $missing('No pipeline ID');
+            $config['pipeline_id']=$ids['pipeline_id'];
+        }
+        if (str_contains($path,'{catalog_id}')) {
+            $catalog=$lookupId('/api/v4/catalogs'); if ($catalog['status']!=='ready') return $catalog;
+            $config['catalog_id']=$catalog['id'];
+        }
+        if (str_contains($path,'{id}')) {
+            if ($entityIdInId) $config['id']=$entityId;
+            else {
+                if (!str_ends_with($path,'/{id}')) return ['status'=>'failed','error'=>'Unknown nested ID binding in read catalog: '.$path];
+                $parent=substr($path,0,-5);
+                foreach (['entity_id','catalog_id','pipeline_id'] as $parameter) $parent=str_replace('{'.$parameter.'}',(string)($config[$parameter]??''),$parent);
+                if (str_contains($operation,'notes')) $parent='/api/v4/'.$prefix.'/'.$entityId.'/notes';
+                $record=$lookupId($parent); if ($record['status']!=='ready') return $record;
+                $config['id']=$record['id'];
+            }
+        }
+        // The production catalog builder validates the final concrete URL as well.
+        WorkflowAmoReadCatalog::build($config);
+        if (!str_contains($path,'{id}') && !in_array($operation,['custom','event_types'],true)) $config['parameters']=[['name'=>'limit','value'=>10],['name'=>'page','value'=>1]];
+        return ['status'=>'ready','config'=>$config];
+    }
+
+    public static function classifyReadPrerequisiteError(string $path,string $error,bool $customersDisabledVerified=false): array
+    {
+        $failure=['status'=>'failed','error'=>$error,'path'=>$path];
+        if (!preg_match('~^amoCRM API v4 error: GET '.preg_quote($path,'~').' returned ([0-9]{3}): (.+)$~sD',$error,$match)) return $failure;
+        $body=json_decode($match[2],true); $status=(int)$match[1];
+        if (!is_array($body) || (isset($body['status']) && (int)$body['status']!==$status)) return $failure;
+        $detail=$body['detail']??null;
+        if (in_array($path,['/api/v4/customers/segments','/api/v4/customers/segments/custom_fields'],true) && $status===422 && $detail==='Customers disabled') {
+            return ['status'=>'unavailable','capability'=>'customers_disabled','reason'=>'Customers are explicitly disabled in this account','error'=>$error,'path'=>$path];
+        }
+        if ($path==='/api/v4/customers' && $status===400 && $detail==='Error 426.' && $customersDisabledVerified) {
+            return ['status'=>'unavailable','capability'=>'customers_disabled','reason'=>'Customers are disabled, independently confirmed by the segments API','error'=>$error,'path'=>$path];
+        }
+        if ($path==='/api/v4/customers/transactions' && $status===404 && $detail==='Transactions not found') {
+            return ['status'=>'empty','reason'=>'No customer transaction exists for an ID-based read','error'=>$error,'path'=>$path];
+        }
+        return $failure;
     }
 
     private function node(string $id,string $type,array $config,?callable $verify=null,bool $expectFailure=false): array
@@ -647,7 +710,7 @@ final class WorkflowLiveAcceptance
             } else $case['verification']=$verify && $completed ? $verify($result['output']??[]) : ['passed'=>$completed];
             $case['status']=($expectFailure?$failed:$completed)&&($case['verification']['passed']??false)?'passed':'failed';
             if ($this->recurringStatePath && !$expectFailure && $case['status']==='failed') {
-                $reason=self::capabilitySkipReason($id,(string)($result['error']??$session['error']??''));
+                $reason=self::capabilitySkipReason($id,(string)($result['error']??$session['error']??''),$this->customersDisabledVerified);
                 if ($reason!==null) { $case['status']='skipped'; $case['reason']=$reason; }
             }
         } catch (Throwable $e) {
@@ -851,14 +914,22 @@ final class WorkflowLiveAcceptance
             'reason'=>$matched===[]?'No successfully executed webhook for the expected QA entity was received':($failed!==[]?'Some matching webhook runs failed or did not finish':null)];
     }
 
-    public static function capabilitySkipReason(string $id,string $error): ?string
+    public static function capabilitySkipReason(string $id,string $error,bool $customersDisabledVerified=false): ?string
     {
         $exact=[
             'read:transactions.list'=>'amoCRM API v4 вернул ошибку 404 на GET /api/v4/customers/transactions: Transactions not found',
             'read:segments.list'=>'amoCRM API v4 вернул ошибку 422 на GET /api/v4/customers/segments: Customers disabled',
             'read:segment_fields.list'=>'amoCRM API v4 вернул ошибку 422 на GET /api/v4/customers/segments/custom_fields: Customers disabled',
         ];
-        return isset($exact[$id]) && $error===$exact[$id] ? 'This technical account has no available customer capability/data for the requested operation' : null;
+        if (isset($exact[$id]) && $error===$exact[$id]) return 'This technical account has no available customer capability/data for the requested operation';
+        if (str_starts_with($id,'read:')) {
+            $path=WorkflowAmoReadCatalog::operations()[substr($id,5)]['path']??'';
+            if (str_starts_with($path,'/api/v4/customers') && !str_contains($path,'{')) {
+                if ($error==='amoCRM API v4 вернул ошибку 422 на GET '.$path.': Customers disabled') return 'Customers are explicitly disabled for this operation';
+                if ($customersDisabledVerified && $error==='amoCRM API v4 вернул ошибку 400 на GET '.$path.': Error 426.') return 'Customers are disabled, independently confirmed by the segments API';
+            }
+        }
+        return null;
     }
 
     private function save(bool $persistState = true): void

@@ -117,6 +117,28 @@ final class WorkflowAcceptanceTelegramReporterTest extends TestCase
         $this->assertStringNotContainsString('Где сломалось:', $message);
     }
 
+    public function test_prerequisite_failure_shows_actual_diagnostic_without_token_or_personal_data(): void
+    {
+        $token = (string) config('workflow_acceptance.telegram.token');
+        $message = $this->reporter->format($this->report(['cases' => [
+            [
+                'id' => 'read:contacts.notes.one', 'status' => 'failed',
+                'prerequisite_error' => 'HTTP 404: prerequisite note not found; token='.$token.'; email=client@example.test',
+            ],
+            [
+                'id' => 'remove_lead_tags', 'status' => 'failed',
+                'verification' => ['passed' => false, 'reason' => 'Тег остался в сделке после удаления.'],
+            ],
+        ]]), 'report.json');
+
+        $this->assertStringStartsWith('🔴', $message);
+        $this->assertStringContainsString('HTTP 404: prerequisite note not found', $message);
+        $this->assertStringContainsString('Удаление тега сделки · remove_lead_tags', $message);
+        $this->assertStringContainsString('Тег остался в сделке после удаления.', $message);
+        $this->assertStringNotContainsString($token, $message);
+        $this->assertStringNotContainsString('client@example.test', $message);
+    }
+
     public function test_verification_mismatch_reports_field_without_personal_text(): void
     {
         $message = $this->reporter->format($this->report(['cases' => [[

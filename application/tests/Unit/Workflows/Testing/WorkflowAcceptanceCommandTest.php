@@ -6,7 +6,9 @@ use App\Console\Commands\Workflows\RunWorkflowAcceptance;
 use App\Services\Workflows\Testing\WorkflowAcceptanceTelegramReporter;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -96,6 +98,82 @@ class WorkflowAcceptanceCommandTest extends TestCase
         $command->method('runProcess')->willThrowException(new \RuntimeException('Test process could not start'));
         $this->assertSame(1, $command->handle(new WorkflowAcceptanceTelegramReporter));
         Http::assertSent(fn ($request) => str_contains($request['text'], 'Test process could not start'));
+    }
+
+    #[DataProvider('cacheFailureStages')]
+    public function test_cache_failure_reports_error_without_starting_child_or_releasing_unacquired_lock(string $stage): void
+    {
+        $command = $this->command();
+        $command->expects($this->never())->method('runProcess');
+        $lockCall = Cache::shouldReceive('lock')->once()->with('workflow-acceptance-notified:contract-only', 1800);
+        if ($stage === 'create') {
+            $lockCall->andThrow(new \RuntimeException('Redis connection unavailable'));
+        } else {
+            $lock = \Mockery::mock();
+            $lock->shouldReceive('get')->once()->andThrow(new \RuntimeException('Redis connection unavailable'));
+            $lock->shouldNotReceive('release');
+            $lockCall->andReturn($lock);
+        }
+
+        $this->assertSame(1, $command->handle(new WorkflowAcceptanceTelegramReporter));
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => str_starts_with($request['text'], '🔴') && str_contains($request['text'], 'Redis connection unavailable'));
+        $files = glob($this->directory.'/*.json');
+        $this->assertCount(1, $files);
+        $report = json_decode(file_get_contents($files[0]), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('Redis connection unavailable', $report['fatal_error']);
+        $this->assertSame([], $report['cases']);
+        $this->assertTrue($report['notification']['ok']);
+        $this->assertSame(0600, fileperms($files[0]) & 0777);
+    }
+
+    public static function cacheFailureStages(): array
+    {
+        return [['create'], ['acquire']];
+    }
+
+    public function test_busy_lock_is_never_released_and_does_not_start_child(): void
+    {
+        $command = $this->command();
+        $command->expects($this->never())->method('runProcess');
+        $lock = \Mockery::mock();
+        $lock->shouldReceive('get')->once()->andReturn(false);
+        $lock->shouldNotReceive('release');
+        Cache::shouldReceive('lock')->once()->andReturn($lock);
+
+        $this->assertSame(0, $command->handle(new WorkflowAcceptanceTelegramReporter));
+        Http::assertNothingSent();
+    }
+
+    #[DataProvider('releaseOutcomes')]
+    public function test_release_exception_never_prevents_delivery_or_changes_run_result(string $status, int $exitCode): void
+    {
+        Log::spy();
+        $command = $this->command();
+        $lock = \Mockery::mock();
+        $lock->shouldReceive('get')->once()->andReturn(true);
+        $lock->shouldReceive('release')->once()->andThrow(new \RuntimeException('Redis release secret must not be logged'));
+        Cache::shouldReceive('lock')->once()->andReturn($lock);
+        $command->expects($this->once())->method('runProcess')->willReturnCallback(function ($workflow, $domain, $path) use ($status, $exitCode) {
+            file_put_contents($path, json_encode([
+                'started_at' => '2026-09-20T01:00:00Z', 'finished_at' => '2026-09-20T01:01:00Z',
+                'cases' => [['id' => 'query_leads', 'status' => $status]], 'cleanup' => [],
+            ]));
+            return $exitCode;
+        });
+
+        $this->assertSame($exitCode, $command->handle(new WorkflowAcceptanceTelegramReporter));
+        Http::assertSentCount(1);
+        Log::shouldHaveReceived('error')->once()->with('workflow.acceptance.lock_release_failed', \Mockery::on(
+            fn ($context) => $context['exception'] === \RuntimeException::class
+                && !str_contains(json_encode($context), 'secret must not be logged')
+        ));
+    }
+
+    public static function releaseOutcomes(): array
+    {
+        return [['passed', 0], ['failed', 1]];
     }
 
     public function test_daily_schedule_is_opt_in_kaliningrad_and_non_overlapping(): void
