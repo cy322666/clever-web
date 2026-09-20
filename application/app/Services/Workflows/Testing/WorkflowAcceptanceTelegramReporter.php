@@ -72,7 +72,9 @@ final class WorkflowAcceptanceTelegramReporter
                 continue;
             }
             $status = $case['status'] ?? 'failed';
-            if (! is_string($status) || ! isset($counts[$status]) || ($case['verification']['passed'] ?? null) === false) {
+            // Explicit capability skips retain their unsuccessful API evidence, but are
+            // neither regressions nor verified successes.
+            if (! is_string($status) || ! isset($counts[$status]) || ($status !== 'skipped' && ($case['verification']['passed'] ?? null) === false)) {
                 $status = 'failed';
             }
             $counts[$status]++;

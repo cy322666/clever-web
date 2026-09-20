@@ -147,7 +147,8 @@ class RunWorkflowAcceptance extends Command
         if (!empty($report['fatal_error']) || !empty($report['report_write_errors']) || empty($report['cases'])) return true;
         $executed = 0;
         foreach ($report['cases'] as $case) {
-            if (!is_array($case) || !in_array($case['status'] ?? '', ['passed', 'skipped'], true) || ($case['verification']['passed'] ?? null) === false) return true;
+            if (!is_array($case) || !in_array($case['status'] ?? '', ['passed', 'skipped'], true)) return true;
+            if ($case['status'] === 'passed' && ($case['verification']['passed'] ?? null) === false) return true;
             if ($case['status'] === 'passed') $executed++;
         }
         foreach ($report['cleanup'] ?? [] as $check) if ($check === false || (is_array($check) && ($check['ok'] ?? null) === false)) return true;

@@ -99,6 +99,24 @@ final class WorkflowAcceptanceTelegramReporterTest extends TestCase
         $this->assertStringStartsWith('🔴', $message);
     }
 
+    public function test_explicit_capability_skip_keeps_failed_evidence_without_becoming_a_failure(): void
+    {
+        $message = $this->reporter->format($this->report(['cases' => [
+            ['id' => 'query_leads', 'status' => 'passed'],
+            [
+                'id' => 'read:segments.list', 'status' => 'skipped',
+                'verification' => ['passed' => false],
+                'result' => ['status' => 'error', 'error' => 'Customers disabled'],
+                'reason' => 'Покупатели отключены в тестовом аккаунте.',
+            ],
+        ]]), 'report.json');
+
+        $this->assertStringStartsWith('🟡', $message);
+        $this->assertStringContainsString('Успешно: 1 · Ошибок: 0 · Пропущено: 1', $message);
+        $this->assertStringContainsString('Пропуски не подтверждают работоспособность этих нод.', $message);
+        $this->assertStringNotContainsString('Где сломалось:', $message);
+    }
+
     public function test_verification_mismatch_reports_field_without_personal_text(): void
     {
         $message = $this->reporter->format($this->report(['cases' => [[

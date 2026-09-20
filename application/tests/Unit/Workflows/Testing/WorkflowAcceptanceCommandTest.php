@@ -66,6 +66,7 @@ class WorkflowAcceptanceCommandTest extends TestCase
         unset($incomplete['finished_at']);
         return [
             'pass' => [$base, 0, 0],
+            'known capability skip retains raw failed verification' => [array_replace($base, ['cases' => [['id' => 'read', 'status' => 'passed'], ['id' => 'disabled', 'status' => 'skipped', 'verification' => ['passed' => false]]]]), 0, 0],
             'node failed' => [array_replace($base, ['cases' => [['id' => 'update', 'status' => 'failed', 'error' => 'HTTP 500']]]), 1, 1],
             'cleanup failed' => [array_replace($base, ['cleanup' => ['restore_contact' => ['ok' => false]]]), 1, 1],
             'partial' => [$incomplete, 0, 1],
