@@ -19,6 +19,35 @@ final class WorkflowLiveAcceptanceReadPrerequisitesTest extends TestCase
 {
     private static function ids(): array { return ['leads'=>101,'contacts'=>201,'companies'=>0,'tasks'=>301,'pipeline_id'=>10]; }
 
+    public function test_visible_families_expand_list_id_and_every_note_variant_using_canonical_definitions(): void
+    {
+        $definitions=WorkflowAmoReadCatalog::operations();
+        $visible=[
+            'leads.list'=>['name'=>'Получить','path'=>'not-an-endpoint','variants'=>['leads.list'=>'Список','leads.one'=>'По ID']],
+            'leads.notes.all'=>['name'=>'Примечания','variants'=>[
+                'leads.notes.all'=>'Все','leads.notes.one'=>'По ID','leads.notes'=>'По сущности','leads.notes.entity.one'=>'По сущности и ID',
+            ]],
+        ];
+        $expanded=WorkflowLiveAcceptance::visibleReadOperations($visible,$definitions);
+        $this->assertSame(['leads.list','leads.one','leads.notes.all','leads.notes.one','leads.notes','leads.notes.entity.one'],array_keys($expanded));
+        foreach ($expanded as $operation=>$definition) $this->assertSame($definitions[$operation],$definition);
+        $this->assertArrayNotHasKey('account',$expanded);
+    }
+
+    public function test_legacy_ungrouped_catalog_remains_supported(): void
+    {
+        $definitions=WorkflowAmoReadCatalog::operations();
+        $visible=['leads.list'=>$definitions['leads.list'],'leads.one'=>$definitions['leads.one']];
+        $this->assertSame($visible,WorkflowLiveAcceptance::visibleReadOperations($visible,$definitions));
+    }
+
+    public function test_unknown_visible_variant_fails_instead_of_silently_reducing_coverage(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('missing its endpoint definition');
+        WorkflowLiveAcceptance::visibleReadOperations(['family'=>['variants'=>['new.unregistered'=>'New']]],[]);
+    }
+
     #[DataProvider('directOperations')]
     public function test_list_queries_need_no_arbitrary_entity_and_subscriptions_use_the_existing_lead(string $operation,?int $id): void
     {
@@ -64,7 +93,7 @@ final class WorkflowLiveAcceptanceReadPrerequisitesTest extends TestCase
 
     public function test_every_catalog_lookup_and_final_path_is_concrete(): void
     {
-        foreach (WorkflowAmoReadCatalog::availableOperations() as $operation=>$definition) {
+        foreach (WorkflowLiveAcceptance::visibleReadOperations() as $operation=>$definition) {
             $resolved=WorkflowLiveAcceptance::resolveReadPrerequisites($operation,$definition,self::ids(),function(string $path):array {
                 $this->assertMatchesRegularExpression('~^/api/v4/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$~D',$path);
                 return ['status'=>'available','id'=>42];

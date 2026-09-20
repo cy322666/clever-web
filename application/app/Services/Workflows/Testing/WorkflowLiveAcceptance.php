@@ -577,7 +577,7 @@ final class WorkflowLiveAcceptance
         if ($this->customersDisabledVerified) $this->report['capabilities']['customers']=$capability;
         $ids=['leads'=>$this->leadId,'contacts'=>$this->contactId,'companies'=>$this->report['before']['company_ids'][0]??0,
             'tasks'=>$this->tasks[0]??0,'pipeline_id'=>$this->pipelineId];
-        foreach (WorkflowAmoReadCatalog::availableOperations() as $operation=>$definition) {
+        foreach (self::visibleReadOperations() as $operation=>$definition) {
             if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled');
             try {
                 $resolved=self::resolveReadPrerequisites($operation,$definition,$ids,$firstId);
@@ -599,6 +599,22 @@ final class WorkflowLiveAcceptance
                 $this->save();
             }
         }
+    }
+
+    /** UI families may group several real endpoints; acceptance must still exercise every visible variant. */
+    public static function visibleReadOperations(?array $visible=null,?array $definitions=null): array
+    {
+        $visible??=WorkflowAmoReadCatalog::availableOperations();
+        $definitions??=WorkflowAmoReadCatalog::operations();
+        $expanded=[];
+        foreach ($visible as $family=>$item) {
+            $keys=is_array($item['variants']??null) && $item['variants']!==[] ? array_keys($item['variants']) : [$family];
+            foreach ($keys as $key) {
+                if (!isset($definitions[$key])) throw new RuntimeException('Visible amoCRM read variant is missing its endpoint definition: '.$key);
+                $expanded[$key]=$definitions[$key];
+            }
+        }
+        return $expanded;
     }
 
     /** Resolve parent identifiers before issuing child lookups; list endpoints need no arbitrary entity. */
