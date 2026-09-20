@@ -54,6 +54,14 @@ class Kernel extends ConsoleKernel
                 ->withoutOverlapping();
         }
 
+        if (config('workflow_acceptance.enabled', false)) {
+            $schedule->command('workflows:acceptance')
+                ->dailyAt(config('workflow_acceptance.time', '03:00'))
+                ->timezone(config('workflow_acceptance.timezone', 'Europe/Kaliningrad'))
+                ->withoutOverlapping(30)
+                ->runInBackground();
+        }
+
         $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 
