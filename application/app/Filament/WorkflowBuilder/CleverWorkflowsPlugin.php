@@ -2,6 +2,7 @@
 
 namespace App\Filament\WorkflowBuilder;
 
+use App\Filament\WorkflowBuilder\Resources\WorkflowCredentialResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use Leek\FilamentWorkflows\Resources\WorkflowSecretResource;
@@ -17,6 +18,7 @@ class CleverWorkflowsPlugin extends WorkflowsPlugin
         return [
             WorkflowResource::class,
             WorkflowRunResource::class,
+            WorkflowCredentialResource::class,
             WorkflowSecretResource::class,
         ];
     }

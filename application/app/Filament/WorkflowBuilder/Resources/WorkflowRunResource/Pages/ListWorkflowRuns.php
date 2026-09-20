@@ -12,13 +12,17 @@ use Illuminate\Support\Collection;
 
 class ListWorkflowRuns extends ListRecords
 {
-    #[\Livewire\Attributes\Url(as: 'run')] public ?int $historyRunId = null;
-    #[\Livewire\Attributes\Url(as: 'errors')] public bool $historyErrorsOnly = false;
+    #[\Livewire\Attributes\Url(as: 'run')]
+    public ?int $historyRunId = null;
+
+    #[\Livewire\Attributes\Url(as: 'errors')]
+    public bool $historyErrorsOnly = false;
 
     public function updatedHistoryErrorsOnly(): void
     {
         $this->historyRunId = null;
     }
+
     protected static string $resource = WorkflowRunResource::class;
 
     protected static ?string $title = 'История';
@@ -59,17 +63,19 @@ class ListWorkflowRuns extends ListRecords
 
     public function getHistoryBackUrl(): string
     {
-        return WorkflowResource::getUrl('index');
+        return (bool) auth()->user()?->is_root
+            ? \App\Filament\App\Pages\WorkflowAdmin::getUrl()
+            : WorkflowResource::getUrl('index');
     }
 
     public function getHistoryActionUrl(): string
     {
-        return WorkflowResource::getUrl('index');
+        return $this->getHistoryBackUrl();
     }
 
     public function getHistoryActionLabel(): string
     {
-        return 'Сценарии';
+        return (bool) auth()->user()?->is_root ? 'Админка' : 'Сценарии';
     }
 
     /**
@@ -99,7 +105,9 @@ class ListWorkflowRuns extends ListRecords
     public function getHistoryRunUrl(WorkflowRun $run): string
     {
         $parameters = ['run' => $run->getKey()];
-        if ($this->historyErrorsOnly) $parameters['errors'] = 1;
+        if ($this->historyErrorsOnly) {
+            $parameters['errors'] = 1;
+        }
         $workflowId = request()->integer('workflow_id');
 
         if ($workflowId > 0) {

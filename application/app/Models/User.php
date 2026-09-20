@@ -20,7 +20,7 @@ use Rappasoft\LaravelAuthenticationLog\Traits\AuthenticationLoggable;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use HasApiTokens, HasFactory, Notifiable, AuthenticationLoggable;
+    use AuthenticationLoggable, HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -57,7 +57,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $panel->getId() === 'app' && (bool)$this->active;
+        return $panel->getId() === 'app' && (bool) $this->active;
     }
 
     public function canImpersonate()
@@ -67,7 +67,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canBeImpersonated(): bool
     {
-        return !$this->is_root;
+        return ! $this->is_root;
     }
 
     public function getcourse_settings(): HasOne
@@ -110,6 +110,21 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(WidgetSubscription::class);
     }
 
+    public function workflows(): HasMany
+    {
+        return $this->hasMany(\App\Models\Workflows\Workflow::class);
+    }
+
+    public function workflowRuns(): HasMany
+    {
+        return $this->hasMany(\App\Models\Workflows\WorkflowRun::class);
+    }
+
+    public function workflowCredentials(): HasMany
+    {
+        return $this->hasMany(\App\Models\Workflows\WorkflowCredential::class);
+    }
+
     public function subscriptionInvoiceRequests(): HasMany
     {
         return $this->hasMany(SubscriptionInvoiceRequest::class);
@@ -130,7 +145,7 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Log::class);
     }
 
-    public function amocrm_fields(): HasMany//amocrm TODO
+    public function amocrm_fields(): HasMany// amocrm TODO
     {
         return $this->hasMany(Field::class)
             ->where('active', true);
@@ -199,7 +214,7 @@ class User extends Authenticatable implements FilamentUser
             ->latest('id')
             ->first();
 
-        if (!$createIfMissing || $widget === Account::DEFAULT_WIDGET) {
+        if (! $createIfMissing || $widget === Account::DEFAULT_WIDGET) {
             return $default;
         }
 
@@ -225,7 +240,7 @@ class User extends Authenticatable implements FilamentUser
 
     private function amoAccountIsUsable(Account $account): bool
     {
-        return (bool)$account->active
+        return (bool) $account->active
             && filled($account->subdomain)
             && (filled($account->access_token) || filled($account->refresh_token));
     }

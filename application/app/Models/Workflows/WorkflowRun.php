@@ -2,11 +2,11 @@
 
 namespace App\Models\Workflows;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\Auth;
-use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Models\WorkflowRun as BaseWorkflowRun;
+use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 
 class WorkflowRun extends BaseWorkflowRun
 {
@@ -25,6 +25,11 @@ class WorkflowRun extends BaseWorkflowRun
 
     protected static function getCurrentTenantId(): int|string|null
     {
-        return Auth::id();
+        return \App\Services\Workflows\WorkflowAdminAccess::tenantId();
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
     }
 }

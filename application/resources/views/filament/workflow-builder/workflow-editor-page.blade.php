@@ -1,4 +1,6 @@
 <x-filament-panels::page>
+    @include('filament.workflow-builder.workflow-admin-context')
+
     <form wire:submit="save" class="workflow-editor-page">
         {{ $this->form }}
 

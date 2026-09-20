@@ -2,10 +2,11 @@
 
 namespace App\Models\Workflows;
 
-use App\Workflows\Triggers\GenericWebhookTrigger;
-use App\Workflows\Triggers\AmoCrmButtonTrigger;
 use App\Services\Workflows\WorkflowSubscriptionAccess;
+use App\Workflows\Triggers\AmoCrmButtonTrigger;
+use App\Workflows\Triggers\GenericWebhookTrigger;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,9 +20,11 @@ class Workflow extends BaseWorkflow
         parent::booted();
 
         static::saving(static function (Workflow $workflow): void {
-            if ($workflow->is_active && (!$workflow->exists || $workflow->isDirty(['definition', 'is_active']))) {
+            if ($workflow->is_active && (! $workflow->exists || $workflow->isDirty(['definition', 'is_active']))) {
                 $issues = \App\Services\Workflows\WorkflowDefinitionValidator::issues($workflow->definition ?? []);
-                if ($issues !== []) throw \Illuminate\Validation\ValidationException::withMessages(['definition' => $issues]);
+                if ($issues !== []) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['definition' => $issues]);
+                }
             }
             if (array_key_exists('connections', $workflow->definition ?? [])) {
                 try {
@@ -59,11 +62,11 @@ class Workflow extends BaseWorkflow
 
             foreach (\App\Services\Workflows\WorkflowStartNodes::all($workflow->definition ?? []) as $start) {
                 if ($workflow->is_active && static::activeDuplicateForUniqueTrigger(
-                        (string) ($start['type'] ?? ''),
-                        $workflow->account_id,
-                        $workflow->user_id,
-                        $workflow->exists ? $workflow->getKey() : null,
-                    )) {
+                    (string) ($start['type'] ?? ''),
+                    $workflow->account_id,
+                    $workflow->user_id,
+                    $workflow->exists ? $workflow->getKey() : null,
+                )) {
                     $workflow->is_active = false;
                 }
             }
@@ -94,7 +97,7 @@ class Workflow extends BaseWorkflow
     }
 
     /**
-     * @param array<string, mixed>|null $definition
+     * @param  array<string, mixed>|null  $definition
      */
     public static function definitionHasConfiguredActions(?array $definition): bool
     {
@@ -103,8 +106,11 @@ class Workflow extends BaseWorkflow
         if (array_key_exists('connections', $definition ?? [])) {
             // An isolated draft tile is not an executable scenario.
             foreach (\App\Services\Workflows\WorkflowStartNodes::all($definition) as $id => $start) {
-                if (\App\Services\Workflows\WorkflowGraph::targets($definition['connections'], $id) !== []) return true;
+                if (\App\Services\Workflows\WorkflowGraph::targets($definition['connections'], $id) !== []) {
+                    return true;
+                }
             }
+
             return false;
         }
 
@@ -133,7 +139,7 @@ class Workflow extends BaseWorkflow
         int|string|null $userId = null,
         int|string|null $exceptWorkflowId = null,
     ): ?self {
-        if (!static::requiresUniqueActiveTrigger($triggerType)) {
+        if (! static::requiresUniqueActiveTrigger($triggerType)) {
             return null;
         }
 
@@ -157,7 +163,7 @@ class Workflow extends BaseWorkflow
     }
 
     /**
-     * @param array<int, mixed> $actions
+     * @param  array<int, mixed>  $actions
      */
     private static function actionListHasConfiguredAction(array $actions): bool
     {
@@ -171,7 +177,7 @@ class Workflow extends BaseWorkflow
             }
 
             foreach (['true_actions', 'false_actions'] as $branchKey) {
-                $branchActions = data_get($action, 'config.' . $branchKey, []);
+                $branchActions = data_get($action, 'config.'.$branchKey, []);
 
                 if (is_array($branchActions) && static::actionListHasConfiguredAction($branchActions)) {
                     return true;
@@ -194,7 +200,12 @@ class Workflow extends BaseWorkflow
 
     protected static function getCurrentTenantId(): int|string|null
     {
-        return Auth::id();
+        return \App\Services\Workflows\WorkflowAdminAccess::tenantId();
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
     }
 
     protected function syncTriggerMetadata(): void
@@ -211,7 +222,7 @@ class Workflow extends BaseWorkflow
             return;
         }
 
-        if (!in_array(data_get($this->definition, 'trigger.type'), [GenericWebhookTrigger::type(), \App\Workflows\Triggers\DigitalPipelineTrigger::type()], true)) {
+        if (! in_array(data_get($this->definition, 'trigger.type'), [GenericWebhookTrigger::type(), \App\Workflows\Triggers\DigitalPipelineTrigger::type()], true)) {
             return;
         }
 
@@ -224,7 +235,7 @@ class Workflow extends BaseWorkflow
     {
         return Attribute::make(
             set: static function (?string $value): ?string {
-                $value = trim((string)$value);
+                $value = trim((string) $value);
 
                 return $value !== '' ? $value : null;
             },
@@ -233,7 +244,7 @@ class Workflow extends BaseWorkflow
 
     private static function deleteRuntimeData(int|string $workflowId): void
     {
-        if (!Schema::hasTable('workflow_runs')) {
+        if (! Schema::hasTable('workflow_runs')) {
             return;
         }
 
@@ -262,7 +273,7 @@ class Workflow extends BaseWorkflow
             });
 
         foreach (['workflow_amo_crm_mutations', 'workflow_metrics'] as $table) {
-            if (!Schema::hasTable($table)) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
 

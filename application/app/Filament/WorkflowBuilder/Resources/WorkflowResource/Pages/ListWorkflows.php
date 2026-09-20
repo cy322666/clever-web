@@ -28,6 +28,7 @@ use Livewire\Attributes\Url;
 class ListWorkflows extends BaseListWorkflows
 {
     use \App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowImport;
+
     protected static string $resource = WorkflowResource::class;
 
     protected Width|string|null $maxContentWidth = Width::Full;
@@ -121,7 +122,7 @@ class ListWorkflows extends BaseListWorkflows
             $statePath = $this->getMountedActionSchema()?->getStatePath();
 
             if ($statePath) {
-                throw ValidationException::withMessages([$statePath . '.name' => $messages]);
+                throw ValidationException::withMessages([$statePath.'.name' => $messages]);
             }
 
             Notification::make()->title('Не удалось изменить папку')->body(implode(' ', $messages))->warning()->send();
@@ -161,6 +162,16 @@ class ListWorkflows extends BaseListWorkflows
      */
     protected function getHeaderActions(): array
     {
+        if ((bool) auth()->user()?->is_root) {
+            return [
+                Action::make('workflow_admin')
+                    ->label('К обзору')
+                    ->icon('heroicon-o-arrow-left')
+                    ->color('gray')
+                    ->url(\App\Filament\App\Pages\WorkflowAdmin::getUrl()),
+            ];
+        }
+
         return [
             $this->importWorkflowAction(),
             Action::make('create_workflow')
@@ -177,12 +188,12 @@ class ListWorkflows extends BaseListWorkflows
 
     private function workflowAmoCrmHeaderAction(): Action|ActionGroup
     {
-        if (!$this->workflowAmoConnectionState()['connected']) {
+        if (! $this->workflowAmoConnectionState()['connected']) {
             return Action::make('workflow_amocrm_connection')
-                ->label(fn(): string => $this->workflowAmoConnectionState()['label'])
+                ->label(fn (): string => $this->workflowAmoConnectionState()['label'])
                 ->icon('heroicon-o-link')
                 ->color('gray')
-                ->action(fn(): mixed => $this->redirectToWorkflowAmoOAuth());
+                ->action(fn (): mixed => $this->redirectToWorkflowAmoOAuth());
         }
 
         return ActionGroup::make([
@@ -191,7 +202,7 @@ class ListWorkflows extends BaseListWorkflows
                 ->icon('heroicon-o-check-circle')
                 ->action(function (): void {
                     $this->notifyWebhookResult(
-                        app(WorkflowAmoCrmWebhookService::class)->statusForUser((int)auth()->id()),
+                        app(WorkflowAmoCrmWebhookService::class)->statusForUser((int) auth()->id()),
                     );
                 }),
 
@@ -201,7 +212,7 @@ class ListWorkflows extends BaseListWorkflows
                 ->color('success')
                 ->action(function (): void {
                     $this->notifyWebhookResult(
-                        app(WorkflowAmoCrmWebhookService::class)->synchronizeUser((int)auth()->id()),
+                        app(WorkflowAmoCrmWebhookService::class)->synchronizeUser((int) auth()->id()),
                     );
                 }),
 
@@ -216,11 +227,11 @@ class ListWorkflows extends BaseListWorkflows
                 )
                 ->action(function (): void {
                     $this->notifyWebhookResult(
-                        app(WorkflowAmoCrmWebhookService::class)->removeUser((int)auth()->id()),
+                        app(WorkflowAmoCrmWebhookService::class)->removeUser((int) auth()->id()),
                     );
                 }),
         ])
-            ->label(fn(): string => $this->workflowAmoConnectionState()['label'])
+            ->label(fn (): string => $this->workflowAmoConnectionState()['label'])
             ->icon('heroicon-o-check-circle')
             ->button()
             ->color('gray');
@@ -230,7 +241,7 @@ class ListWorkflows extends BaseListWorkflows
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             Notification::make()
                 ->title('Пользователь не найден')
                 ->danger()
@@ -240,7 +251,7 @@ class ListWorkflows extends BaseListWorkflows
         }
 
         $widget = Account::normalizeWidget('workflows');
-        $clientId = (string)config('services.amocrm.widgets.workflows.client_id', '');
+        $clientId = (string) config('services.amocrm.widgets.workflows.client_id', '');
 
         if ($clientId === '') {
             Notification::make()
@@ -252,13 +263,13 @@ class ListWorkflows extends BaseListWorkflows
             return null;
         }
 
-        $state = $user->uuid . '|' . $widget;
+        $state = $user->uuid.'|'.$widget;
         $url = WorkflowResource::getUrl();
 
         return Redirect::to(
-            'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
-            . '&client_id=' . urlencode($clientId)
-            . '&uri=' . urlencode($url)
+            'https://www.amocrm.ru/oauth/?state='.urlencode($state)
+            .'&client_id='.urlencode($clientId)
+            .'&uri='.urlencode($url)
         );
     }
 
@@ -270,18 +281,18 @@ class ListWorkflows extends BaseListWorkflows
         $account = $this->workflowAmoAccount();
         $connected = $this->workflowAmoAccountIsConnected($account);
 
-        if (!$connected) {
+        if (! $connected) {
             return [
                 'connected' => false,
                 'label' => 'Подключить amoCRM',
             ];
         }
 
-        $subdomain = trim((string)$account?->subdomain);
+        $subdomain = trim((string) $account?->subdomain);
 
         return [
             'connected' => true,
-            'label' => $subdomain !== '' ? 'amoCRM: ' . $subdomain : 'amoCRM',
+            'label' => $subdomain !== '' ? 'amoCRM: '.$subdomain : 'amoCRM',
         ];
     }
 
@@ -308,7 +319,7 @@ class ListWorkflows extends BaseListWorkflows
         $authUserId = auth()->id();
 
         if ($authUserId) {
-            $userIds[] = (int)$authUserId;
+            $userIds[] = (int) $authUserId;
         }
 
         $workflowModel = WorkflowResource::getModel();
@@ -318,7 +329,7 @@ class ListWorkflows extends BaseListWorkflows
             ->limit(10)
             ->pluck('user_id')
             ->filter()
-            ->map(fn(mixed $userId): int => (int)$userId)
+            ->map(fn (mixed $userId): int => (int) $userId)
             ->all();
 
         return array_values(array_unique([
@@ -349,19 +360,19 @@ class ListWorkflows extends BaseListWorkflows
         $account ??= $this->workflowAmoAccount();
 
         return $account instanceof Account
-            && (bool)$account->active
+            && (bool) $account->active
             && filled($account->subdomain)
             && (filled($account->refresh_token) || filled($account->access_token));
     }
 
     /**
-     * @param array<string, mixed> $result
+     * @param  array<string, mixed>  $result
      */
     private function notifyWebhookResult(array $result): void
     {
-        $required = count((array)($result['required_events'] ?? []));
-        $installed = count((array)($result['installed_events'] ?? []));
-        $stale = count((array)($result['stale_hooks'] ?? []));
+        $required = count((array) ($result['required_events'] ?? []));
+        $installed = count((array) ($result['installed_events'] ?? []));
+        $stale = count((array) ($result['stale_hooks'] ?? []));
         $details = sprintf('Требуется событий: %d. Установлено: %d.', $required, $installed);
 
         if ($stale > 0) {
@@ -369,10 +380,10 @@ class ListWorkflows extends BaseListWorkflows
         }
 
         $notification = Notification::make()
-            ->title((string)($result['message'] ?? 'Операция с вебхуками завершена.'))
+            ->title((string) ($result['message'] ?? 'Операция с вебхуками завершена.'))
             ->body($details);
 
-        match ((string)($result['state'] ?? 'error')) {
+        match ((string) ($result['state'] ?? 'error')) {
             'installed', 'not_required', 'missing' => $notification->success(),
             'outdated', 'configuration_required' => $notification->warning(),
             default => $notification->danger(),

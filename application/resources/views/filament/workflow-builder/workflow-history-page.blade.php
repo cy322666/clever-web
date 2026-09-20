@@ -16,6 +16,10 @@
 
 <x-filament-panels::page :class="$workflow ? '' : 'workflow-list-page workflow-account-history-page'">
     <div class="workflow-history-page" wire:poll.5s.visible>
+        @if($workflow)
+            @include('filament.workflow-builder.workflow-admin-context')
+        @endif
+
         @unless($workflow)
             @include('filament.workflow-builder.workflow-overview-nav', ['active' => 'history'])
         @endunless
@@ -79,6 +83,9 @@
                                     @endunless
                                     {{ $statusLabel }} · {{ $run->steps_count }} шаг(ов)
                                 </small>
+                                @if(!$workflow && (bool) auth()->user()?->is_root)
+                                    <small>{{ $run->owner?->accounts?->first()?->subdomain ?: $run->owner?->email }}</small>
+                                @endif
                                 @if($entitySummary)<small>{{ $entitySummary }}</small>@endif
                             </span>
                             <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>

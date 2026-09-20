@@ -1,5 +1,8 @@
 <x-filament-panels::page class="workflow-list-page">
     @include('filament.workflow-builder.workflow-overview-nav', ['active' => 'workflows'])
+    @if((bool) auth()->user()?->is_root)
+        {{ $this->table }}
+    @else
     @php($overview = $this->folderOverview())
     <div class="workflow-overview">
         <aside class="workflow-folders" aria-label="Папки сценариев">
@@ -36,4 +39,5 @@
             {{ $this->table }}
         </section>
     </div>
+    @endif
 </x-filament-panels::page>

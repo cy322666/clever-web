@@ -5,6 +5,7 @@ namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasCompactWorkflowConfigurationPanels;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowPageActions;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\UsesWorkflowOwnerContext;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
@@ -14,6 +15,7 @@ class EditWorkflow extends BaseEditWorkflow
 {
     use HasCompactWorkflowConfigurationPanels;
     use HasWorkflowPageActions;
+    use UsesWorkflowOwnerContext;
 
     protected static string $resource = WorkflowResource::class;
 
@@ -22,6 +24,21 @@ class EditWorkflow extends BaseEditWorkflow
     protected string $view = 'filament.workflow-builder.workflow-editor-page';
 
     protected ?bool $requestedActivation = null;
+
+    public function mount(int|string $record): void
+    {
+        $this->record = $this->resolveRecord($record);
+        $this->authorizeAccess();
+        $this->initializeWorkflowOwnerContext();
+        $this->fillForm();
+        $this->previousUrl = url()->previous();
+    }
+
+    public function hydrate(): void
+    {
+        $this->restoreWorkflowOwnerContext();
+        parent::hydrate();
+    }
 
     protected function getHeaderActions(): array
     {
@@ -48,7 +65,7 @@ class EditWorkflow extends BaseEditWorkflow
 
     public function getTitle(): string
     {
-        return (string)($this->record?->name ?? 'Процесс');
+        return (string) ($this->record?->name ?? 'Процесс');
     }
 
     public function getHeading(): string|Htmlable|null

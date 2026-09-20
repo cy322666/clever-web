@@ -3,33 +3,57 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\UsesWorkflowOwnerContext;
 use App\Models\Workflows\WorkflowRun;
-use Leek\FilamentWorkflows\Models\Workflow;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Leek\FilamentWorkflows\Models\Workflow;
 
 class WorkflowHistory extends ViewRecord
 {
-    #[\Livewire\Attributes\Url(as: 'run')] public ?int $historyRunId = null;
-    #[\Livewire\Attributes\Url(as: 'errors')] public bool $historyErrorsOnly = false;
+    use UsesWorkflowOwnerContext;
+
+    #[\Livewire\Attributes\Url(as: 'run')]
+    public ?int $historyRunId = null;
+
+    #[\Livewire\Attributes\Url(as: 'errors')]
+    public bool $historyErrorsOnly = false;
 
     public function updatedHistoryErrorsOnly(): void
     {
         $this->historyRunId = null;
     }
+
     protected static string $resource = WorkflowResource::class;
 
     protected Width|string|null $maxContentWidth = Width::Full;
 
     protected string $view = 'filament.workflow-builder.workflow-history-page';
 
+    public function mount(int|string $record): void
+    {
+        $this->record = $this->resolveRecord($record);
+        $this->authorizeAccess();
+        $this->initializeWorkflowOwnerContext();
+
+        if (! $this->hasInfolist()) {
+            $this->fillForm();
+        }
+    }
+
+    public function hydrate(): void
+    {
+        $this->restoreWorkflowOwnerContext();
+        parent::hydrate();
+    }
+
     public function getTitle(): string
     {
-        return 'История · ' . (string) ($this->record?->name ?? 'Процесс');
+        return 'История · '.(string) ($this->record?->name ?? 'Процесс');
     }
 
     public function getHeading(): string|Htmlable|null

@@ -2,19 +2,18 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\App\Pages\AppStats;
 use App\Filament\App\Pages\Dashboard;
+use App\Filament\App\Pages\WorkflowAdmin;
 use App\Filament\Resources\Billing\InvoiceRequestResource;
 use App\Filament\Resources\Billing\SubscriptionPlanResource;
-use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Filament\Resources\Core\UserResource;
-use App\Filament\Resources\Integrations\Tilda\FormResource;
+use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\FontProviders\LocalFontProvider;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -28,7 +27,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AppPanelProvider extends PanelProvider
@@ -41,8 +39,8 @@ class AppPanelProvider extends PanelProvider
         $plugins = [
             FilamentJobsMonitorPlugin::make()
                 ->enableNavigation(
-                    fn(): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
-                        )->user()->is_root
+                    fn (): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
+                    )->user()->is_root
                 ),
         ];
 
@@ -57,14 +55,14 @@ class AppPanelProvider extends PanelProvider
             ->id('app')
             ->default()
             ->path('panel')
-            ->homeUrl(fn(): string => Dashboard::getUrl())
+            ->homeUrl(fn (): string => Dashboard::getUrl())
             ->login(\App\Filament\App\Auth\Login::class)
             ->registration(\App\Filament\App\Auth\Register::class)
             ->passwordReset()
             ->brandName('CleverCRM')
             ->brandLogo(asset('logo/full_logo.png'))
             ->brandLogoHeight('2rem')
-            ->favicon(asset('favicon.ico') . '?v=20260919')
+            ->favicon(asset('favicon.ico').'?v=20260919')
             ->font(
                 'Manrope',
                 asset('fonts/clevercrm/clevercrm-v1.css'),
@@ -84,8 +82,7 @@ class AppPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\\Filament\\App\\Widgets')
             ->databaseNotifications()
-            ->renderHook(\Filament\View\PanelsRenderHook::USER_MENU_BEFORE, fn () =>
-                request()->routeIs('filament.app.resources.workflows.index', 'filament.app.resources.workflows.analytics')
+            ->renderHook(\Filament\View\PanelsRenderHook::USER_MENU_BEFORE, fn () => request()->routeIs('filament.app.resources.workflows.index', 'filament.app.resources.workflows.analytics')
                     ? view('filament.workflow-builder.workflow-theme-toggle')
                     : '')
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
@@ -102,18 +99,24 @@ class AppPanelProvider extends PanelProvider
                             NavigationItem::make('Home')
                                 ->label('Аккаунт')
                                 ->icon('heroicon-o-home')
-                                ->url(fn(): string => UserResource::getUrl('view', ['record' => Auth::id()])),
+                                ->url(fn (): string => UserResource::getUrl('view', ['record' => Auth::id()])),
 
                             NavigationItem::make('Tariffs')
                                 ->label('Тарифы')
                                 ->icon('heroicon-o-banknotes')
-                                ->url(fn(): string => SubscriptionPlanResource::getUrl()),
+                                ->url(fn (): string => SubscriptionPlanResource::getUrl()),
 
                             NavigationItem::make('InvoiceRequests')
                                 ->label('Заявки на счет')
                                 ->icon('heroicon-o-document-text')
-                                ->visible(fn(): bool => (bool)auth()->user()?->is_root)
-                                ->url(fn(): string => InvoiceRequestResource::getUrl()),
+                                ->visible(fn (): bool => (bool) auth()->user()?->is_root)
+                                ->url(fn (): string => InvoiceRequestResource::getUrl()),
+
+                            NavigationItem::make('WorkflowAdmin')
+                                ->label('Админ потоков')
+                                ->icon('heroicon-o-shield-check')
+                                ->visible(fn (): bool => (bool) auth()->user()?->is_root)
+                                ->url(fn (): string => WorkflowAdmin::getUrl()),
                         ]),
                 ]);
             })

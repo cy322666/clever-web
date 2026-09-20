@@ -3,6 +3,7 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
+use App\Models\Workflows\WorkflowRun;
 use App\Services\Workflows\WorkflowRunReplay;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Locked;
@@ -26,7 +27,10 @@ class ReplayWorkflow extends EditWorkflow
     public function mount(int|string|null $run = null): void
     {
         abort_unless(Auth::id(), 403);
-        $replay = WorkflowRunReplay::load((int) $run, (int) Auth::id());
+        $ownerId = (bool) Auth::user()?->is_root
+            ? (int) WorkflowRun::withoutGlobalScope('tenant')->findOrFail((int) $run)->user_id
+            : (int) Auth::id();
+        $replay = WorkflowRunReplay::load((int) $run, $ownerId);
 
         parent::mount($replay['workflow_id']);
         $this->loadHistoricalRun($replay);
@@ -88,5 +92,4 @@ class ReplayWorkflow extends EditWorkflow
 
         return $started;
     }
-
 }
