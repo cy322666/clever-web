@@ -1991,7 +1991,19 @@ class AmoCrmReadAction extends WorkflowAmoCrmAction
     protected static function defaults(): array { return ['operation' => 'contacts.list', 'parameters' => [], 'body_mode' => 'fields', 'filters' => [], 'limit' => 50, 'page' => 1, 'direction' => 'asc']; }
     protected static function schema(): array
     {
-        $fields = [Hidden::make('operation')->required()];
+        $fields = [
+            Hidden::make('operation')->required()->live(),
+            Select::make('operation_variant')->label('Режим запроса')->native(false)->live()->dehydrated(false)
+                ->afterStateHydrated(function(Set $set, Get $get): void {
+                    $set('operation_variant', $get('operation'));
+                })
+                ->options(fn(Get $get): array => \App\Services\Workflows\WorkflowAmoReadCatalog::variantOptions((string)$get('operation')))
+                ->visible(fn(Get $get): bool => count(\App\Services\Workflows\WorkflowAmoReadCatalog::variantOptions((string)$get('operation'))) > 1)
+                ->afterStateUpdated(function(mixed $state, Set $set): void {
+                    $set('operation', $state);
+                    $set('body_mode', WorkflowEntityQuery::supports((string)$state) ? 'builder' : 'fields');
+                }),
+        ];
         foreach (['id' => 'ID', 'entity_id' => 'ID сущности', 'pipeline_id' => 'Воронка', 'catalog_id' => 'ID списка'] as $key => $label) {
             $field = WorkflowValueInput::make($key)->label($label)->required()
                 ->visible(fn(Get $get) => str_contains(\App\Services\Workflows\WorkflowAmoReadCatalog::operations()[$get('operation')]['path'] ?? '', '{'.$key.'}'));

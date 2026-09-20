@@ -391,9 +391,9 @@
                     </button>
                 @endforeach
                 @foreach(\App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations() as $operation => $item)
-                    <button type="button" x-show="(query !== '' || view === @js($item['group'])) && matches(@js($item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path']))" wire:click="selectReadOperation(@js($operation))" class="workflow-node-library__item">
+                    <button type="button" x-show="(query !== '' || view === @js($item['group'])) && matches(@js($item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? [])))" wire:click="selectReadOperation(@js($operation))" class="workflow-node-library__item">
                         <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::action('amocrm_read', ['operation' => $operation], 'heroicon-o-circle-stack')" :amo="true" class="h-5 w-5"/></span>
-                        <span><strong>{{ $item['name'] }}</strong><small>{{ $item['entity_group'] ?? $item['group'] }}</small></span>
+                        <span><strong>{{ $item['name'] }}</strong><small>{{ $item['entity_group'] ?? $item['group'] }}{{ count($item['variants'] ?? []) > 1 ? ' · список или ID' : '' }}</small></span>
                     </button>
                 @endforeach
             </div>

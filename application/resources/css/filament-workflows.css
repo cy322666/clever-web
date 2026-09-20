@@ -6670,7 +6670,6 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-variable-browser__item:hover { background: #eef1f5; }
 .workflow-variable-browser__item strong { font-size: 0.8125rem; font-weight: 500; }
 .workflow-variable-browser__item code { font-size: 0.6875rem; overflow-wrap: anywhere; color: #778191; }
-.workflow-variable-browser__options { font-size: 0.75rem; color: #778191; padding: 0.125rem 0.375rem 0.75rem; }
 .dark .workflow-value-field__modes button[aria-pressed=true], .dark .workflow-variable-browser__item:hover { background: var(--workflow-dark-hover); color: var(--workflow-dark-text); }
 .dark .workflow-variable-browser select, .dark .workflow-variable-browser > input { background: var(--workflow-dark-input); border-color: var(--workflow-dark-line); color: var(--workflow-dark-text); }
 .workflow-overview-nav { display: flex; gap: 1.75rem; padding-inline: 1.5rem; background: #fff; border-bottom: 1px solid #d9dee6; }
@@ -6898,14 +6897,26 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-variable-browser__row { display: flex; align-items: center; min-width: 0; }
 .workflow-variable-browser__row .workflow-variable-browser__item { flex-direction: row; align-items: center; min-width: 0; min-height: 36px; padding: 7px 6px; gap: 6px; }
 .workflow-variable-browser__item strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.workflow-variable-browser__item > svg { flex: 0 0 auto; margin-left: auto; color: #818896; }
 .workflow-variable-browser__item code { flex: 0 1 45%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .workflow-variable-browser__item small { margin-left: auto; font-size: 10px; color: #818896; }
-.workflow-variable-browser__row .workflow-variable-browser__options { flex: 0 0 28px; padding: 6px; }
 .workflow-variable-browser__back { display: flex; align-items: center; gap: 6px; text-align: left; font-size: 12px; min-width: 0; }
 .workflow-variable-browser__back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workflow-variable-browser__pages { display: flex; align-items: center; justify-content: space-between; color: #818896; font-size: 12px; }
 .workflow-variable-browser__pages button { padding: 6px; }
 .workflow-variable-browser__pages button:disabled { opacity: .3; }
+.workflow-variable-browser__details { display: grid; gap: 8px; padding: 10px; border: 1px solid #d6dbe2; border-radius: 8px; background: #f8fafc; }
+.workflow-variable-browser__details header { display: flex; align-items: center; gap: 8px; }
+.workflow-variable-browser__details header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.workflow-variable-browser__details header button { flex: 0 0 auto; margin-left: auto; padding: 4px; color: #778191; }
+.workflow-variable-browser__detail { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.workflow-variable-browser__detail > span { color: #778191; font-size: 11px; }
+.workflow-variable-browser__detail code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #343c48; }
+.workflow-variable-browser__detail button, .workflow-variable-browser__show-options { border: 1px solid #d6dbe2; border-radius: 6px; background: #fff; padding: 5px 7px; color: #526071; font-size: 10px; }
+.workflow-variable-browser__show-options { justify-self: start; font-size: 11px; }
+.dark .workflow-variable-browser__details { border-color: var(--workflow-dark-line); background: var(--workflow-dark-panel); }
+.dark .workflow-variable-browser__detail code { color: var(--workflow-dark-text); }
+.dark .workflow-variable-browser__detail button, .dark .workflow-variable-browser__show-options { border-color: var(--workflow-dark-line); background: var(--workflow-dark-input); color: var(--workflow-dark-text); }
 .dark .workflow-expression-picker__select { background-color: var(--workflow-dark-input); border-color: var(--workflow-dark-outline); color: var(--workflow-dark-text); }
 .dark .workflow-variable-browser__item code { color: var(--workflow-dark-muted); }
 .dark .workflow-expression-picker__field:hover { background: var(--workflow-dark-hover); }

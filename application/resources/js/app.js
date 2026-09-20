@@ -1463,15 +1463,18 @@ window.workflowValueField = (state) => ({
 });
 
 window.workflowVariableBrowser = (types) => ({
-    types, type: '', query: '', copied: '', selected: null, page: 0, pageSize: 20,
+    types, type: '', query: '', copied: '', selected: null, active: null, page: 0, pageSize: 20,
     get items() {
-        const rows = this.selected ? this.selected.options.map(option => ({value: String(option.id), label: option.name, options: []})) : (this.types[this.type] || []);
-        return rows.filter(item => (item.label + ' ' + item.value).toLocaleLowerCase('ru').includes(this.query.toLocaleLowerCase('ru')));
+        const rows = this.selected
+            ? this.selected.options.map(option => ({id: String(option.id), value: '', label: option.name, options: []}))
+            : (this.types[this.type] || []);
+        return rows.filter(item => (item.label + ' ' + (item.id || '') + ' ' + (item.value || '')).toLocaleLowerCase('ru').includes(this.query.toLocaleLowerCase('ru')));
     },
     get visibleItems() { return this.items.slice(this.page * this.pageSize, (this.page + 1) * this.pageSize); },
     get pageCount() { return Math.ceil(this.items.length / this.pageSize); },
-    reset() { this.selected = null; this.query = ''; this.page = 0; this.copied = ''; },
-    showOptions(item) { this.selected = item; this.query = ''; this.page = 0; },
+    reset() { this.selected = null; this.active = null; this.query = ''; this.page = 0; this.copied = ''; },
+    showDetails(item) { this.active = item; },
+    showOptions(item) { this.selected = item; this.active = null; this.query = ''; this.page = 0; },
     async copy(value) {
         try {
             await navigator.clipboard.writeText(value);

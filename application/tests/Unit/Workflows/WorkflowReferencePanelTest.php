@@ -50,17 +50,19 @@ class WorkflowReferencePanelTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('Модификаторы', $html);
-        $this->assertStringContainsString('Справочник ID', $html);
+        $this->assertStringNotContainsString('Справочник ID', $html);
         $this->assertStringContainsString('lead.tasks_count', $html);
         $this->assertStringContainsString('Тип переменной', $html);
         $this->assertStringContainsString('x-model="type"', $html);
         $this->assertStringNotContainsString('x-text="item.value"', $html);
         $this->assertStringContainsString('x-text="item.label"', $html);
-        $this->assertStringContainsString('x-on:click="copy(item.value)"', $html);
+        $this->assertStringContainsString('x-on:click="showDetails(item)"', $html);
+        $this->assertStringContainsString('x-on:click="copy(active.id)"', $html);
+        $this->assertStringContainsString('x-on:click="copy(active.value)"', $html);
         $this->assertStringContainsString('1781099', $html);
-        $this->assertStringNotContainsString('Переменная:', $html);
+        $this->assertStringContainsString('<span>Переменная</span>', $html);
         $this->assertStringNotContainsString('Скрытая воронка', $html);
-        $this->assertStringContainsString('title="Копировать выражение"', $html);
+        $this->assertStringContainsString("'Показать ID и переменную: ' + item.label", $html);
 
         $this->assertStringNotContainsString('Поля amoCRM', $html);
         $this->assertStringNotContainsString('Воронки amoCRM', $html);
@@ -84,6 +86,7 @@ class WorkflowReferencePanelTest extends TestCase
         }
         $this->assertStringContainsString('ID 42', $html); // Part of the actual name is not removed.
         $this->assertStringContainsString('Email', $html);
-        $this->assertStringNotContainsString('<code', $html);
+        $this->assertStringContainsString('<code x-text="active?.id"></code>', $html);
+        $this->assertStringContainsString('<code x-text="active?.value"></code>', $html);
     }
 }

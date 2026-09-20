@@ -19,7 +19,7 @@ trait HasWorkflowConnections
         foreach (array_diff_key(WorkflowGraph::nodes($this->workflowActions), $before) as $node) {
             data_set($this->workflowActions, $node['path'].'.config.operation', $operation);
             data_set($this->workflowActions, $node['path'].'.config.body_mode', \App\Services\Workflows\WorkflowEntityQuery::supports($operation) ? 'builder' : 'fields');
-            data_set($this->workflowActions, $node['path'].'.name', ($item['entity_group'] ?? $item['group']).' · '.$item['name']);
+            data_set($this->workflowActions, $node['path'].'.name', $item['node_name'] ?? (($item['entity_group'] ?? $item['group']).' · '.$item['name']));
         }
         $this->syncDefinition();
     }

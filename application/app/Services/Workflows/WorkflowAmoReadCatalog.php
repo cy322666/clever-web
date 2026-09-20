@@ -65,9 +65,8 @@ final class WorkflowAmoReadCatalog
     /** New-node catalog only. The full registry remains available to saved workflows. */
     public static function availableOperations(): array
     {
-        $items = [];
+        $eligible = [];
         foreach (self::operations() as $key => $item) {
-            if ($key === 'contacts.one') continue;
             if (in_array($item['group'], ['Неразобранное', 'Воронки', 'Аккаунт', 'Источники', 'Беседы'], true)
                 || str_contains($item['path'], '/custom_fields/groups')) continue;
 
@@ -76,9 +75,49 @@ final class WorkflowAmoReadCatalog
                 $item['entity_group'] = $item['group'];
                 $item['group'] = in_array('notes', $parts, true) ? 'Примечания' : 'Теги';
             }
-            $items[$key] = $item;
+            $eligible[$key] = $item;
         }
+
+        $items = [];
+        foreach ($eligible as $key => $item) {
+            $family = self::familyKey($key, $eligible);
+            if (!isset($items[$family])) {
+                $items[$family] = $eligible[$family] ?? $item;
+                $items[$family]['variants'] = [];
+            }
+            $items[$family]['variants'][$key] = self::variantLabel($key, $item);
+        }
+
+        foreach ($items as $key => &$item) {
+            if (count($item['variants']) < 2) continue;
+            if (isset($item['variants'][$key.'.one'])) $item['variants'][$key] = 'Список';
+            if (str_ends_with($key, '.notes.all')) {
+                $item['name'] = 'Примечания';
+                $entity = explode('.', $key)[0];
+                $order = [$entity.'.notes.all', $entity.'.notes.one', $entity.'.notes', $entity.'.notes.entity.one'];
+                $item['variants'] = self::orderVariants($item['variants'], $order);
+            } elseif ($key === 'transactions.list') {
+                $item['name'] = 'Транзакции';
+                $item['variants'] = self::orderVariants($item['variants'], ['transactions.list', 'transactions.one', 'customer_transactions.list', 'customer_transactions.one']);
+            } elseif (preg_match('/^(leads|contacts|companies|customers|tasks)\.list$/', $key)) {
+                $item['name'] = 'Получить';
+                $item['node_name'] = 'Получить '.mb_strtolower($item['group']);
+            }
+        }
+        unset($item);
+
         return $items;
+    }
+
+    /** @return array<string, string> */
+    public static function variantOptions(string $operation): array
+    {
+        foreach (self::availableOperations() as $item) {
+            if (isset($item['variants'][$operation])) return $item['variants'];
+        }
+
+        $item = self::operations()[$operation] ?? null;
+        return $item ? [$operation => $item['name']] : [];
     }
 
     public static function options(): array
@@ -89,6 +128,44 @@ final class WorkflowAmoReadCatalog
         }
         $order = array_flip(['Сделки', 'Контакты', 'Компании', 'Покупатели', 'Задачи', 'Примечания', 'Теги', 'Списки и товары', 'События', 'Другое']);
         return array_replace(array_intersect_key($order, $groups), $groups);
+    }
+
+    private static function familyKey(string $key, array $items): string
+    {
+        if (preg_match('/^(leads|contacts|companies|customers)\.notes(?:\.|$)/', $key, $match)) {
+            return $match[1].'.notes.all';
+        }
+        if (str_starts_with($key, 'transactions.') || str_starts_with($key, 'customer_transactions.')) {
+            return 'transactions.list';
+        }
+        if (str_ends_with($key, '.one')) {
+            $base = substr($key, 0, -4);
+            if (isset($items[$base])) return $base;
+            if (isset($items[$base.'.list'])) return $base.'.list';
+        }
+        return $key;
+    }
+
+    private static function variantLabel(string $key, array $item): string
+    {
+        if (str_ends_with($key, '.notes.all')) return 'Все примечания';
+        if (str_ends_with($key, '.notes.entity.one')) return 'По сущности и ID примечания';
+        if (str_ends_with($key, '.notes.one')) return 'По ID примечания';
+        if (str_ends_with($key, '.notes')) return 'Примечания сущности';
+        return match ($key) {
+            'transactions.list' => 'Все транзакции',
+            'transactions.one' => 'Транзакция по ID',
+            'customer_transactions.list' => 'Транзакции покупателя',
+            'customer_transactions.one' => 'Транзакция покупателя по ID',
+            default => str_ends_with($key, '.one') ? 'По ID' : (str_ends_with($key, '.list') ? 'Список' : $item['name']),
+        };
+    }
+
+    private static function orderVariants(array $variants, array $order): array
+    {
+        $ordered = [];
+        foreach ($order as $key) if (isset($variants[$key])) $ordered[$key] = $variants[$key];
+        return $ordered + $variants;
     }
 
     public static function editorConfig(array $config): array

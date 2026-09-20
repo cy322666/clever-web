@@ -20,8 +20,14 @@ class WorkflowReadCatalogTest extends TestCase
             $this->assertStringNotContainsString('/custom_fields/groups', $item['path']);
         }
         $this->assertArrayHasKey('contacts.custom_fields', $available);
-        $this->assertArrayHasKey('contacts.custom_fields.one', $available);
+        $this->assertArrayNotHasKey('contacts.custom_fields.one', $available);
+        $this->assertSame([
+            'contacts.custom_fields' => 'Список',
+            'contacts.custom_fields.one' => 'По ID',
+        ], WorkflowAmoReadCatalog::variantOptions('contacts.custom_fields'));
+        $this->assertArrayHasKey('contacts.list', $available);
         $this->assertArrayNotHasKey('contacts.one', $available);
+        $this->assertSame(['contacts.list' => 'Список', 'contacts.one' => 'По ID'], WorkflowAmoReadCatalog::variantOptions('contacts.one'));
         $this->assertArrayHasKey('contacts.one', WorkflowAmoReadCatalog::operations());
     }
 
@@ -30,18 +36,22 @@ class WorkflowReadCatalogTest extends TestCase
         $available = WorkflowAmoReadCatalog::availableOperations();
         $options = WorkflowAmoReadCatalog::options();
         foreach (['leads'=>'Сделки', 'contacts'=>'Контакты', 'companies'=>'Компании', 'customers'=>'Покупатели'] as $entity => $label) {
-            foreach (['notes', 'notes.all', 'notes.one', 'notes.entity.one', 'tags'] as $suffix) {
-                $key = $entity.'.'.$suffix;
-                $group = $suffix === 'tags' ? 'Теги' : 'Примечания';
-                $this->assertSame($group, $available[$key]['group']);
-                $this->assertSame($label, $available[$key]['entity_group']);
-                $this->assertSame(WorkflowAmoReadCatalog::operations()[$key]['path'], $available[$key]['path']);
-                $this->assertArrayHasKey($key, $options[$group]);
-                $this->assertArrayNotHasKey($key, $options[$label]);
-                $this->assertStringStartsWith($label.' · ', $options[$group][$key]);
-            }
+            $notes = $entity.'.notes.all';
+            $this->assertSame('Примечания', $available[$notes]['group']);
+            $this->assertSame($label, $available[$notes]['entity_group']);
+            $this->assertSame([
+                $entity.'.notes.all' => 'Все примечания',
+                $entity.'.notes.one' => 'По ID примечания',
+                $entity.'.notes' => 'Примечания сущности',
+                $entity.'.notes.entity.one' => 'По сущности и ID примечания',
+            ], WorkflowAmoReadCatalog::variantOptions($entity.'.notes.entity.one'));
+            $this->assertArrayHasKey($notes, $options['Примечания']);
+            $this->assertArrayNotHasKey($entity.'.notes.one', $available);
+            $tags = $entity.'.tags';
+            $this->assertSame('Теги', $available[$tags]['group']);
+            $this->assertSame($label, $available[$tags]['entity_group']);
         }
-        $this->assertCount(16, $options['Примечания']);
+        $this->assertCount(4, $options['Примечания']);
         $this->assertCount(4, $options['Теги']);
     }
 
@@ -49,7 +59,9 @@ class WorkflowReadCatalogTest extends TestCase
     {
         $page = \Livewire\Livewire::test(\Tests\Support\WorkflowCanvasFixture::class);
         $original = $page->get('workflowActions');
-        foreach (array_diff_key(WorkflowAmoReadCatalog::operations(), WorkflowAmoReadCatalog::availableOperations()) as $key => $item) {
+        $selectable = [];
+        foreach (WorkflowAmoReadCatalog::availableOperations() as $item) $selectable += array_fill_keys(array_keys($item['variants']), true);
+        foreach (array_diff_key(WorkflowAmoReadCatalog::operations(), $selectable) as $key => $item) {
             $page->call('selectReadOperation', $key)->assertSet('workflowActions', $original);
         }
 
@@ -64,7 +76,7 @@ class WorkflowReadCatalogTest extends TestCase
 
     public function test_regrouped_queries_can_be_added_with_unambiguous_node_names(): void
     {
-        foreach (['contacts.tags'=>'Контакты · Теги', 'leads.notes.all'=>'Сделки · Все примечания'] as $key => $name) {
+        foreach (['contacts.tags'=>'Контакты · Теги', 'leads.notes.all'=>'Сделки · Примечания'] as $key => $name) {
             $page = \Livewire\Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
                 ->call('openDetachedActionPalette')->call('selectReadOperation', $key);
             $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
@@ -74,6 +86,50 @@ class WorkflowReadCatalogTest extends TestCase
             $this->assertSame($name, $action['name']);
         }
         Http::assertNothingSent();
+    }
+
+    public function test_customer_transactions_and_all_list_id_pairs_are_single_catalog_items(): void
+    {
+        $available = WorkflowAmoReadCatalog::availableOperations();
+        $this->assertSame([
+            'transactions.list' => 'Все транзакции',
+            'transactions.one' => 'Транзакция по ID',
+            'customer_transactions.list' => 'Транзакции покупателя',
+            'customer_transactions.one' => 'Транзакция покупателя по ID',
+        ], WorkflowAmoReadCatalog::variantOptions('customer_transactions.one'));
+        $this->assertArrayHasKey('transactions.list', $available);
+        foreach (['transactions.one', 'customer_transactions.list', 'customer_transactions.one'] as $duplicate) {
+            $this->assertArrayNotHasKey($duplicate, $available);
+        }
+
+        foreach ($available as $key => $item) {
+            foreach (array_keys($item['variants']) as $variant) {
+                if ($variant === $key) continue;
+                $this->assertArrayNotHasKey($variant, $available);
+            }
+        }
+    }
+
+    public function test_combined_entity_node_switches_from_list_to_id_inside_the_editor(): void
+    {
+        $page = \Livewire\Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
+            ->call('openDetachedActionPalette', 'query')
+            ->call('selectReadOperation', 'contacts.list');
+        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
+        $action = end($nodes)['step'];
+
+        $page->call('openWorkflowActionEditor', $action['id'])
+            ->assertSet('mountedActions.0.data.operation', 'contacts.list')
+            ->assertSet('mountedActions.0.data.operation_variant', 'contacts.list')
+            ->set('mountedActions.0.data.operation_variant', 'contacts.one')
+            ->set('mountedActions.0.data.id', '42')
+            ->call('callMountedAction')
+            ->assertHasNoErrors();
+
+        $config = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'))['action:'.$action['id']]['step']['config'];
+        $this->assertSame('contacts.one', $config['operation']);
+        $this->assertSame('/api/v4/contacts/42', WorkflowAmoReadCatalog::build($config)['path']);
+        $this->assertArrayNotHasKey('operation_variant', $config);
     }
 
     public function test_legacy_json_opens_as_parameters_with_an_identical_query_string(): void
