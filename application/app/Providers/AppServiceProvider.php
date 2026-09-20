@@ -126,6 +126,10 @@ class AppServiceProvider extends ServiceProvider
             'path' => resource_path('svg/amocrm'),
             'prefix' => 'amocrm',
         ]);
+        app(\BladeUI\Icons\Factory::class)->add('service', [
+            'path' => resource_path('svg/services'),
+            'prefix' => 'service',
+        ]);
         QueueMonitor::observe(QueueMonitorObserver::class);
 
         FilamentView::registerRenderHook(

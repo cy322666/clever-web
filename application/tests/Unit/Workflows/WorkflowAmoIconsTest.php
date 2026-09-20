@@ -3,11 +3,30 @@
 namespace Tests\Unit\Workflows;
 
 use App\Services\Workflows\WorkflowAmoIcons;
+use App\Workflows\Actions\TelegramSendMessageAction;
 use BladeUI\Icons\Factory;
 use Tests\TestCase;
 
 class WorkflowAmoIconsTest extends TestCase
 {
+    public function test_telegram_uses_the_official_brand_icon_in_every_workflow_surface(): void
+    {
+        $this->assertSame('service-telegram', TelegramSendMessageAction::workflowIcon());
+
+        $svg = \Illuminate\Support\Facades\Blade::render(
+            '<x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/>',
+        );
+        $this->assertStringContainsString('fill="#229ED9"', $svg);
+        $this->assertStringContainsString('fill="#fff"', $svg);
+
+        foreach ([
+            resource_path('views/vendor/filament-workflows/components/workflows/node-library.blade.php'),
+            app_path('Workflows/Actions/TelegramSendMessageAction.php'),
+        ] as $path) {
+            $this->assertStringNotContainsString('heroicon-o-paper-airplane', file_get_contents($path));
+        }
+    }
+
     public function test_tag_queries_use_tag_icons_in_every_entity_and_the_root_group(): void
     {
         $this->assertSame('heroicon-o-tag', WorkflowAmoIcons::entity('Теги'));

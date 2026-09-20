@@ -367,11 +367,11 @@
         <div class="workflow-node-library__body">
             <div x-cloak x-show="mode === 'service'" class="workflow-node-library__list">
                 <button type="button" x-show="view === 'root' && query === ''" x-on:click="view = 'telegram'" class="workflow-node-library__group">
-                    <span class="workflow-node-library__group-icon"><img src="{{ asset('logo/widgets/telegram.svg') }}" alt="" class="workflow-brand-icon"/></span>
+                    <span class="workflow-node-library__group-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
                     <span><strong>Telegram</strong><small>Сообщения от бота</small></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
                 </button>
                 <button type="button" x-show="(view === 'telegram' || query !== '') && matches('telegram телеграм отправить сообщение')" wire:click="selectActionType('telegram_send_message')" class="workflow-node-library__item">
-                    <span class="workflow-node-library__item-icon"><x-filament::icon icon="heroicon-o-paper-airplane" class="h-5 w-5"/></span>
+                    <span class="workflow-node-library__item-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
                     <span><strong>Отправить сообщение</strong><small>Telegram · бот</small></span>
                 </button>
             </div>
