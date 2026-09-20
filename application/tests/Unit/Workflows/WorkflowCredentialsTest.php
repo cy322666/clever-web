@@ -95,6 +95,8 @@ class WorkflowCredentialsTest extends TestCase
         $this->assertStringContainsString('@clever_test_bot', $html);
         $this->assertStringNotContainsString('@foreign_bot', $html);
         $this->assertStringContainsString('Добавить подключение', $html);
+        $this->assertStringContainsString('logo/widgets/telegram.svg', $html);
+        $this->assertStringNotContainsString('heroicon-o-paper-airplane', $html);
         $this->assertStringContainsString('aria-label="Изменить @clever_test_bot"', $html);
         $this->assertStringContainsString('aria-label="Удалить @clever_test_bot"', $html);
 

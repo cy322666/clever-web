@@ -67,7 +67,7 @@
             @foreach ($connections as $id => $name)
                 <article class="workflow-credentials-row" wire:key="workflow-credential-{{ $id }}">
                     <span class="workflow-credentials-provider-icon" aria-hidden="true">
-                        <x-filament::icon icon="heroicon-o-paper-airplane" />
+                        <img src="{{ asset('logo/widgets/telegram.svg') }}" alt="">
                     </span>
 
                     <div class="workflow-credentials-identity">
@@ -215,6 +215,7 @@
         }
 
         .workflow-credentials-provider-icon svg,
+        .workflow-credentials-provider-icon img,
         .workflow-credentials-empty-icon svg { width: 1.35rem; height: 1.35rem; }
 
         .workflow-credentials-identity { display: grid; gap: .15rem; min-width: 0; flex: 1; }
