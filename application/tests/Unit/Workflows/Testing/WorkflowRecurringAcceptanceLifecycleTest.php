@@ -8,7 +8,11 @@ use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
 use App\Services\amoCRM\Client;
 use App\Services\Workflows\Testing\WorkflowLiveAcceptance;
+use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
+use App\Services\Workflows\WorkflowAmoCrmLoopGuard;
+use App\Workflows\Context\WorkflowContext;
 use App\Workflows\Engine\WorkflowDebugger;
+use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -102,5 +106,24 @@ final class WorkflowRecurringAcceptanceLifecycleTest extends TestCase
             $saved=json_decode(file_get_contents($path),true,flags:JSON_THROW_ON_ERROR);
             $this->assertSame('failed',$saved['cases'][0]['status']);
         } finally { unlink($path); }
+    }
+
+    public function test_bootstrap_deal_creation_does_not_implicitly_link_the_existing_contact(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['workflow-amo-contract.example/api/v4/leads'=>Http::response(['_embedded'=>['leads'=>[['id'=>101]]]],201)]);
+        $runner=$this->runner('/unused');
+        $this->set($runner,'pipelineId',10);
+        $config=(new \ReflectionMethod($runner,'qaLeadCreateConfig'))->invoke($runner,'Clever QA recurring fixture');
+        $account=(new Account)->forceFill(['id'=>1,'user_id'=>1,'endpoint'=>'https://workflow-amo-contract.example','access_token'=>'synthetic-only']);
+        $executor=new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
+        $client=(new \ReflectionClass(Client::class))->newInstanceWithoutConstructor();
+        $context=new WorkflowContext(['lead'=>['id'=>0],'contact'=>['id'=>201]]);
+        $result=(new \ReflectionMethod($executor,'createEntity'))->invoke($executor,$client,$account,'lead',$config,$context);
+        $this->assertTrue($result['success']);
+        $this->assertSame(101,$result['output']['entity_id']);
+        Http::assertSentCount(1);
+        Http::assertSent(fn($request)=>$request->method()==='POST' && parse_url($request->url(),PHP_URL_PATH)==='/api/v4/leads'
+            && $request->data()[0]['status_id']===143);
     }
 }

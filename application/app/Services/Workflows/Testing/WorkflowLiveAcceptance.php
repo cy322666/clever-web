@@ -385,7 +385,7 @@ final class WorkflowLiveAcceptance
         if (!$this->leadId) {
             if (count($this->list('leads'))>=10) throw new RuntimeException('Cannot create the reusable QA lead: account already has ten leads');
             $this->pendingCreates[]='lead'; $this->save();
-            $create=$this->node('create_lead','amocrm_create_lead',['name'=>'Clever QA recurring fixture','pipeline_id'=>$this->pipelineId,'status_id'=>143,'price'=>0],
+            $create=$this->node('create_lead','amocrm_create_lead',$this->qaLeadCreateConfig('Clever QA recurring fixture'),
                 fn($o)=>$this->verifyEntity('leads',(int)($o['entity_id']??0),['name'=>'Clever QA recurring fixture','status_id'=>143]));
             $this->leadId=(int)($create['output']['entity_id']??0);
             if (!$this->leadId) throw new RuntimeException('QA lead creation returned no ID; recovery required before another attempt');
@@ -465,9 +465,18 @@ final class WorkflowLiveAcceptance
         $this->report['cases'][]=compact('id','type','reason')+['status'=>'skipped']; $this->save();
     }
 
+    private function qaLeadCreateConfig(string $name): array
+    {
+        // The initial context already contains an existing contact but no QA lead ID.
+        // Lock the creation target to leads so the executor cannot implicitly link it
+        // to that existing contact before the suite has recorded the new lead ID.
+        return ['name'=>$name,'pipeline_id'=>$this->pipelineId,'status_id'=>143,'price'=>0,
+            'target_entity'=>'lead','target_entity_locked'=>true];
+    }
+
     private function exerciseNodes(): void
     {
-        $create = $this->node('create_lead','amocrm_create_lead',['name'=>$this->marker, 'pipeline_id'=>$this->pipelineId,'status_id'=>143,'price'=>0],
+        $create = $this->node('create_lead','amocrm_create_lead',$this->qaLeadCreateConfig($this->marker),
             fn($o)=>$this->verifyEntity('leads',(int)($o['entity_id']??0), ['name'=>$this->marker,'status_id'=>143]));
         $this->leadId = (int)($create['output']['entity_id']??0);
         if (!$this->leadId) throw new RuntimeException('Cannot continue: isolated QA deal was not created');
