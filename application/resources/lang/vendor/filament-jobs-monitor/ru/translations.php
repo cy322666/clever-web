@@ -10,7 +10,7 @@ return [
     'queued_jobs' => 'История заданий',
     'execution_time' => 'Общее время выполнения',
     'average_time' => 'Среднее время',
-    'last_7_days' => 'За последние 7 дней',
+    'last_7_days' => 'Всего за весь период',
     'completed_successfully' => 'Успешно выполнено',
     'pending_in_queue' => 'в очереди',
     'total' => 'всего',
