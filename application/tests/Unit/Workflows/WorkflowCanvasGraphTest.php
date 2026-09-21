@@ -11,8 +11,10 @@ class WorkflowCanvasGraphTest extends TestCase
     {
         $actions = [$this->condition(), ['id' => 'after', 'type' => 'test']];
         $edges = WorkflowCanvasGraph::edges($actions);
-        $conditionEdges = array_values(array_filter($edges, fn ($e) => $e['sourceId'] === 'action:if'));
+        $conditionEdges = array_values(array_filter($edges, fn ($e) => $e['sourceId'] === 'action:if' && ! ($e['branch'] ?? false)));
         $this->assertSame(['yes', 'no'], array_column($conditionEdges, 'sourcePort'));
+        $branchControls = array_values(array_filter($edges, fn ($e) => $e['branch'] ?? false));
+        $this->assertSame(['yes', 'no'], array_column($branchControls, 'sourcePort'));
         $joins = array_values(array_filter($edges, fn ($e) => $e['targetId'] === 'action:after'));
         $this->assertSame(['action:yes-step', 'action:no-step'], array_column($joins, 'sourceId'));
         $this->assertSame(['0.config.true_actions', '0.config.false_actions'], array_column($joins, 'path'));
@@ -35,7 +37,7 @@ class WorkflowCanvasGraphTest extends TestCase
     public function test_condition_at_the_end_exposes_only_two_branch_tails(): void
     {
         $edges = WorkflowCanvasGraph::edges([$this->condition()]);
-        $tails = array_values(array_filter($edges, fn ($e) => $e['targetId'] === null));
+        $tails = array_values(array_filter($edges, fn ($e) => $e['targetId'] === null && ! ($e['branch'] ?? false)));
         $this->assertSame(['action:yes-step', 'action:no-step'], array_column($tails, 'sourceId'));
     }
 
