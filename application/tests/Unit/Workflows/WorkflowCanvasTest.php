@@ -15,7 +15,7 @@ class WorkflowCanvasTest extends TestCase
         WorkflowCanvasDatabase::prepare();
     }
 
-    public function test_it_renders_branch_connections_without_plus_controls(): void
+    public function test_it_renders_hover_controls_only_for_existing_connections(): void
     {
         Livewire::test(WorkflowCanvasFixture::class)
             ->assertStatus(200)
@@ -24,8 +24,11 @@ class WorkflowCanvasTest extends TestCase
             ->assertSee("startConnection('action:' + 'condition', 'yes', \$event)", false)
             ->assertSee('aria-label="Выход Да:', false)
             ->assertSee('aria-label="Выход Нет:', false)
-            ->assertDontSee('workflow-node-edge-add', false)
-            ->assertDontSee('heroicon-o-plus', false)
+            ->assertSee('workflow-node-edge-add', false)
+            ->assertSee('data-workflow-edge-delete', false)
+            ->assertSee('Добавить промежуточную ноду')
+            ->assertSee('Удалить связь')
+            ->assertSee('showEdgeControls($el)', false)
             ->assertDontSee('data-workflow-edge-branch', false)
             ->assertDontSee('Добавить ещё одну ветку')
             ->assertDontSee('Добавить действие в ветку')
@@ -44,8 +47,9 @@ class WorkflowCanvasTest extends TestCase
             ->assertStatus(200)
             ->assertSee('aria-label="Выход Да:', false)
             ->assertSee('aria-label="Выход Нет:', false)
-            ->assertDontSee('workflow-node-edge-add', false)
-            ->assertDontSee('heroicon-o-plus', false);
+            ->assertDontSee('workflow-edge-add-action:empty-condition-yes', false)
+            ->assertDontSee('workflow-edge-add-action:empty-condition-no', false)
+            ->assertDontSee('data-workflow-edge-source="action:empty-condition"', false);
     }
 
     public function test_it_toggles_a_nested_node_without_changing_its_configuration(): void
