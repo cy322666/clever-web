@@ -80,6 +80,23 @@ class ControlConditionActionTest extends TestCase
         $this->assertSame([true, false], array_column($result['output']['condition_results'], 'passed'));
     }
 
+    public function test_it_supports_contains_and_not_contains(): void
+    {
+        $context = new WorkflowContext(['lead' => ['name' => 'Заявка с сайта']]);
+
+        $result = (new ControlConditionAction())->handle([
+            'logic' => 'and',
+            'conditions' => [
+                ['left' => '{{lead.name}}', 'operator' => 'contains', 'right' => 'с сайта'],
+                ['left' => '{{lead.name}}', 'operator' => 'not_contains', 'right' => 'спам'],
+            ],
+        ], $context);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['output']['passed']);
+        $this->assertSame([true, true], array_column($result['output']['condition_results'], 'passed'));
+    }
+
     public function test_it_returns_error_when_conditions_are_empty(): void
     {
         $result = (new ControlConditionAction())->handle([

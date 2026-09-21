@@ -110,6 +110,7 @@
         'amocrm_change_lead_status',
         'amocrm_create_task',
         'amocrm_add_note',
+        'amocrm_link_entity',
     ];
 
     foreach ($actions as $action) {

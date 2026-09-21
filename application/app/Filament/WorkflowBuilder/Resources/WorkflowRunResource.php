@@ -518,7 +518,7 @@ class WorkflowRunResource extends Resource
             'amocrm_change_lead_status' => 'Сменить статус сделки',
             'amocrm_distribution_queue' => 'Распределить сделку',
             'amocrm_find_entity' => 'Найти сущность',
-            'amocrm_link_entity' => 'Прикрепить сущность',
+            'amocrm_link_entity' => 'Связать сущности',
             'amocrm_unlink_entity' => 'Открепить сущность',
             'workflow_call' => 'Запустить процесс',
             'run_workflow' => 'Запустить процесс',

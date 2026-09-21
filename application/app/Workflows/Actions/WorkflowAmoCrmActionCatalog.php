@@ -26,6 +26,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Enums\Alignment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -503,12 +504,15 @@ abstract class WorkflowAmoCrmAction
             ->compact()
             ->schema([
                 Repeater::make('fields')
-                    ->label('')
-                    ->columns(1)
+                    ->hiddenLabel()
+                    ->columns(2)
                     ->schema([
-                        WorkflowValueInput::make('field')
+                        Select::make('field')
                             ->label('Поле')
                             ->options(fn(): array => static::amoFieldOptions($entity))
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
                             ->required(),
 
                         WorkflowValueInput::make('value')
@@ -518,7 +522,8 @@ abstract class WorkflowAmoCrmAction
                     ])
                     ->reorderable(false)
                     ->defaultItems(0)
-                    ->addActionLabel('Добавить поле'),
+                    ->addActionLabel('Добавить поле')
+                    ->addActionAlignment(Alignment::Start),
             ]);
     }
 
@@ -528,16 +533,19 @@ abstract class WorkflowAmoCrmAction
             ->compact()
             ->schema([
                 Repeater::make('fields')
-                    ->label('')
-                    ->columns(1)
+                    ->hiddenLabel()
+                    ->columns(2)
                     ->schema([
-                        WorkflowValueInput::make('field')
+                        Select::make('field')
                             ->label('Поле')
                             ->options(fn(Get $get): array => static::amoFieldOptions(
                                 (string)($get('../../target_entity') ?: $get('../target_entity') ?: $get(
                                     'target_entity'
                                 ) ?: 'lead'),
                             ))
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
                             ->required(),
 
                         WorkflowValueInput::make('value')
@@ -547,7 +555,8 @@ abstract class WorkflowAmoCrmAction
                     ])
                     ->reorderable(false)
                     ->defaultItems(0)
-                    ->addActionLabel('Добавить поле'),
+                    ->addActionLabel('Добавить поле')
+                    ->addActionAlignment(Alignment::Start),
             ]);
     }
 
@@ -745,9 +754,13 @@ abstract class WorkflowAmoCrmAction
     {
         return Section::make($label)
             ->compact()
-            ->columns(2)
-            ->schema(
-                array_merge(static::targetEntityFields($linkEntities), [
+            ->schema([
+                Grid::make(2)->schema([
+                    VariableTextInput::make('name')
+                        ->label('Название')
+                        ->placeholder($entity === 'contact' ? 'Имя контакта' : 'Название')
+                        ->required(),
+
                     Select::make('responsible_user_id')
                         ->label('Ответственный')
                         ->options(fn(): array => static::amoResponsibleOptions())
@@ -756,18 +769,20 @@ abstract class WorkflowAmoCrmAction
                         ->native(false)
                         ->placeholder('Выберите ответственного'),
 
-                    VariableTextInput::make('name')
-                        ->label('Название')
-                        ->placeholder($entity === 'contact' ? 'Имя контакта' : 'Название')
-                        ->columnSpanFull()
-                        ->required(),
-
                     VariableTextInput::make('tags')
                         ->label('Теги')
                         ->placeholder('Новый, VIP, {{tag}}')
                         ->columnSpanFull(),
-                ])
-            );
+                ]),
+
+                Section::make('Связать с сущностью')
+                    ->description('Новая сущность будет сразу прикреплена к выбранной сущности amoCRM.')
+                    ->compact()
+                    ->columns(2)
+                    ->schema(static::targetEntityFields($linkEntities))
+                    ->extraAttributes(['class' => 'workflow-entity-link-section']),
+            ])
+            ->extraAttributes(['class' => 'workflow-entity-create-section']);
     }
 
     /**
@@ -1868,12 +1883,12 @@ class AmoCrmLinkEntityAction extends WorkflowAmoCrmAction
 
     public static function workflowName(): string
     {
-        return 'Прикрепить сущность';
+        return 'Связать сущности';
     }
 
     public static function workflowDescription(): string
     {
-        return 'Связывает сущности amoCRM между собой.';
+        return 'Связывает сделку, контакт, компанию или покупателя между собой.';
     }
 
     public static function workflowIcon(): string
@@ -1889,17 +1904,26 @@ class AmoCrmLinkEntityAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            Section::make('Связь')->schema(
-                array_merge(static::targetEntityFields(['lead', 'contact', 'company', 'customer']), [
-                    Select::make('linked_entity')->label('Что прикрепить')->options([
-                        'lead' => 'Сделку',
-                        'contact' => 'Контакт',
-                        'company' => 'Компанию',
-                        'customer' => 'Покупателя',
-                    ])->required()->native(false),
-                    VariableTextInput::make('linked_entity_id')->label('ID прикрепляемой сущности')->required(),
+            Section::make('Связать сущности')
+                ->description('Основную сущность можно взять из контекста или указать вручную. Вторую сущность укажите по ID или переменной.')
+                ->compact()
+                ->schema([
+                    Section::make('Основная сущность')
+                        ->compact()
+                        ->columns(2)
+                        ->schema(static::targetEntityFields(['lead', 'contact', 'company', 'customer'])),
+
+                    Grid::make(2)->schema([
+                        Select::make('linked_entity')->label('Что прикрепить')->options([
+                            'lead' => 'Сделку',
+                            'contact' => 'Контакт',
+                            'company' => 'Компанию',
+                            'customer' => 'Покупателя',
+                        ])->required()->native(false),
+                        VariableTextInput::make('linked_entity_id')->label('ID прикрепляемой сущности')->required(),
+                    ]),
                 ])
-            ),
+                ->extraAttributes(['class' => 'workflow-entity-link-action']),
             static::delaySection(),
         ];
     }

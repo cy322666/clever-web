@@ -61,7 +61,7 @@ class ControlConditionAction extends ConditionAction
                         ->default('and')
                         ->afterStateHydrated(fn(Select $component, ?string $state) => $component->state($state ?: 'and'))
                         ->required()
-                        ->native(true),
+                        ->native(false),
 
                     Repeater::make('conditions')
                         ->label(static::workflowTrans('fields.conditions.label'))
@@ -79,6 +79,8 @@ class ControlConditionAction extends ConditionAction
                                         ->options([
                                             'equals' => static::actionCommonTrans('operators.equals'),
                                             'not_equals' => static::actionCommonTrans('operators.not_equals'),
+                                            'contains' => static::actionCommonTrans('operators.contains'),
+                                            'not_contains' => static::actionCommonTrans('operators.not_contains'),
                                             'is_empty' => static::actionCommonTrans('operators.is_empty'),
                                             'is_not_empty' => static::actionCommonTrans('operators.is_not_empty'),
                                             'lt' => static::actionCommonTrans('operators.less_than'),
@@ -87,7 +89,7 @@ class ControlConditionAction extends ConditionAction
                                         ->default('equals')
                                         ->required()
                                         ->live()
-                                        ->native(true)
+                                        ->native(false)
                                         ->columnSpanFull(),
 
                                     WorkflowValueInput::make('right')->label('Значение 2')

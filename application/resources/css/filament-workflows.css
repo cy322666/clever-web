@@ -6963,6 +6963,9 @@ svg.workflow-control-icon { color: #248548 !important; }
 .dark .workflow-entity-context { border-color: var(--workflow-dark-line); background: var(--workflow-dark-input); color: var(--workflow-dark-muted); }
 .dark .workflow-entity-context__badge { background: rgb(22 101 52 / 35%); color: #86efac; }
 .dark .workflow-entity-context strong { color: var(--workflow-dark-text); }
+.workflow-node-settings__parameters :is(.workflow-entity-create-section, .workflow-entity-link-action) .fi-sc { row-gap: 12px !important; }
+.workflow-node-settings__parameters .workflow-entity-link-section { padding-top: 16px; border-top: 1px solid #d9dde3 !important; }
+.dark .workflow-node-settings__parameters .workflow-entity-link-section { border-top-color: var(--workflow-dark-line) !important; }
 @media (max-width: 900px) {
     .fi-modal-window.workflow-node-settings { width: calc(100vw - 16px) !important; height: calc(100dvh - 16px); max-height: calc(100dvh - 16px) !important; margin: 8px auto !important; }
     .workflow-node-settings__workspace { overflow: auto; }

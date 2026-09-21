@@ -276,4 +276,30 @@ class WorkflowActionFieldsTest extends TestCase
             && $request[0]['_embedded']['tags']===[['name'=>'Партнёр'], ['name'=>'VIP']]);
         Http::assertSentCount(1);
     }
+
+    public function test_link_entities_posts_a_company_link_to_the_selected_lead(): void
+    {
+        Http::fake(['https://workflow-fields.test/*' => Http::response([])]);
+        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
+        $account = (new Account)->forceFill(['id'=>1,'endpoint'=>'https://workflow-fields.test','access_token'=>'test-only']);
+        $method = new \ReflectionMethod($executor, 'linkEntity');
+        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
+
+        $result = $method->invoke($executor, $client, $account, [
+            'entity_source' => 'manual',
+            'target_entity' => 'lead',
+            'target_entity_id' => 42,
+            'linked_entity' => 'company',
+            'linked_entity_id' => 77,
+        ], null);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('company', $result['output']['linked_entity']);
+        $this->assertSame(77, $result['output']['linked_entity_id']);
+        Http::assertSent(fn ($request) => $request->method()==='POST'
+            && $request->url()==='https://workflow-fields.test/api/v4/leads/42/link'
+            && $request[0]['to_entity_id']===77
+            && $request[0]['to_entity_type']==='companies');
+        Http::assertSentCount(1);
+    }
 }

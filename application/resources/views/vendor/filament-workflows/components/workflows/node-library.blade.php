@@ -126,6 +126,7 @@
         'amocrm_create_task',
         'amocrm_add_note',
         'amocrm_change_tags',
+        'amocrm_link_entity',
     ];
     $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
     $queryActionGroups = [
@@ -177,6 +178,13 @@
             'description' => 'Добавить, удалить или очистить теги',
             'icon' => 'heroicon-o-tag',
             'types' => ['amocrm_change_tags'],
+            'items' => [],
+        ],
+        'links' => [
+            'title' => 'Связи',
+            'description' => 'Связать любые сущности amoCRM',
+            'icon' => 'heroicon-o-link',
+            'types' => ['amocrm_link_entity'],
             'items' => [],
         ],
     ];
