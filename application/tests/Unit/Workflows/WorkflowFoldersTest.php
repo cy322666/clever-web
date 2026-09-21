@@ -128,6 +128,7 @@ class WorkflowFoldersTest extends TestCase
     public function test_list_shows_only_runs_waiting_for_processing_in_the_queue_badge(): void
     {
         $workflow = $this->workflow('Очередь заявок');
+        $this->workflow('Без очереди');
 
         foreach (['pending', 'pending', 'running', 'completed', 'failed'] as $status) {
             DB::table('workflow_runs')->insert([
@@ -143,9 +144,13 @@ class WorkflowFoldersTest extends TestCase
 
         $this->assertSame(2, $record->queued_runs_count);
 
-        Livewire::test(ListWorkflows::class)
+        $page = Livewire::test(ListWorkflows::class)
             ->assertStatus(200)
-            ->assertSee('В очереди');
+            ->assertSee('В очереди 2')
+            ->assertDontSee('Открыть редактор');
+
+        $this->assertSame(1, substr_count($page->html(), 'workflow-queue-inline-badge'));
+        $this->assertStringNotContainsString('fi-ta-cell-queued_runs_count', $page->html());
     }
 
     public function test_list_explains_missing_folder_storage_without_a_server_error(): void

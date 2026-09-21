@@ -209,7 +209,7 @@
                             @else
                                 <button
                                     type="button"
-                                    x-on:click="window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger' } }))"
+                                    x-on:click="$dispatch('workflow-node-library-open', { mode: 'trigger' })"
                                     class="workflow-node-empty"
                                 >
                                     <span class="workflow-node-card__icon">

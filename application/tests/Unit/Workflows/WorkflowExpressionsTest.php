@@ -39,6 +39,25 @@ class WorkflowExpressionsTest extends TestCase
         $this->assertSame(1, WorkflowContext::fromArray($context->toArray())->resolve('{{ $json.count }}'));
     }
 
+    public function test_open_deal_counters_ignore_closed_statuses_and_flags(): void
+    {
+        $context = new WorkflowContext([
+            'contact' => ['_embedded' => ['leads' => [
+                ['id' => 1, 'status_id' => 100],
+                ['id' => 2, 'status_id' => 142],
+                ['id' => 3, 'is_closed' => true],
+            ]]],
+            'company' => ['leads' => [
+                ['id' => 4],
+                ['id' => 5, 'closed_at' => 1],
+                ['id' => 6, 'status_id' => 143],
+            ]],
+        ]);
+
+        $this->assertSame('1', $context->resolve('{{contact.open_leads_count}}'));
+        $this->assertSame('1', $context->resolve('{{company.open_leads_count}}'));
+    }
+
     public function test_picker_excludes_future_nodes_and_the_other_condition_branch(): void
     {
         $actions = [['id' => 'before', 'type' => 'amocrm_query_leads'], ['id' => 'if', 'type' => 'control-condition', 'config' => [

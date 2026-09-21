@@ -18,8 +18,6 @@ class WorkflowReferencePanelTest extends TestCase
             'groups' => [
                 'Сделка' => [
                     '{{lead.id}}' => 'ID сделки',
-                ],
-                'Поля сделки' => [
                     '{{lead.cf(1781099)}}' => 'Телефон · ID 1781099',
                 ],
                 'Счетчики' => [
@@ -56,6 +54,7 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertStringContainsString('x-model="type"', $html);
         $this->assertStringNotContainsString('x-text="item.value"', $html);
         $this->assertStringContainsString('x-text="item.label"', $html);
+        $this->assertStringContainsString("x-text=\"'ID ' + item.id\"", $html);
         $this->assertStringContainsString('x-on:click="showDetails(item)"', $html);
         $this->assertStringContainsString('x-on:click="copy(active.id)"', $html);
         $this->assertStringContainsString('x-on:click="copy(active.value)"', $html);
@@ -69,18 +68,18 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertSame(1, substr_count($html, '{{lead.id}}'));
     }
 
-    public function test_field_names_hide_only_generated_ids_and_keep_distinct_copy_expressions(): void
+    public function test_custom_fields_show_ids_and_keep_distinct_copy_expressions(): void
     {
         $html = view('filament.workflow-builder.mask-reference', ['groups'=>[
-            'Поля сделки'=>[
+            'Сделка'=>[
+                '{{lead.id}}'=>'ID сделки',
                 '{{lead.cf(1781099)}}'=>'Телефон · ID 1781099',
                 '{{lead.cf(1781100)}}'=>'Телефон · ID 1781100',
                 '{{lead.cf(1781101)}}'=>'Контроль · ID 42 · ID 1781101',
             ],
-            'Поля контакта'=>['{{contact.cf(123)}}'=>'Email · ID 123'],
-            'Сделка'=>['{{lead.id}}'=>'ID сделки'],
+            'Контакт'=>['{{contact.cf(123)}}'=>'Email · ID 123'],
         ], 'systemIdGroups'=>[]])->render();
-        foreach ([1781099, 1781100, 1781101, 123] as $id) $this->assertStringNotContainsString('ID '.$id, $html);
+        foreach ([1781099, 1781100, 1781101, 123] as $id) $this->assertStringContainsString((string) $id, $html);
         foreach (['{{lead.cf(1781099)}}', '{{lead.cf(1781100)}}', '{{lead.cf(1781101)}}', '{{contact.cf(123)}}', '{{lead.id}}'] as $expression) {
             $this->assertSame(1, substr_count($html, $expression));
         }
@@ -88,5 +87,6 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertStringContainsString('Email', $html);
         $this->assertStringContainsString('<code x-text="active?.id"></code>', $html);
         $this->assertStringContainsString('<code x-text="active?.value"></code>', $html);
+        $this->assertStringNotContainsString('workflow-variable-browser__pages', $html);
     }
 }

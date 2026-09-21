@@ -376,6 +376,7 @@ class WorkflowContext extends BaseWorkflowContext
             'tags_count' => ['found' => true, 'value' => $this->countTags($entityData)],
             'contacts_count' => ['found' => true, 'value' => $this->countEmbedded($entityData, 'contacts')],
             'leads_count' => ['found' => true, 'value' => $this->countEmbedded($entityData, 'leads')],
+            'open_leads_count' => ['found' => true, 'value' => $this->countOpenLeads($entityData)],
             'notes_count' => ['found' => true, 'value' => $this->countEmbedded($entityData, 'notes')],
             'tasks_count' => ['found' => true, 'value' => $this->countEmbedded($entityData, 'tasks')],
             default => ['found' => false, 'value' => null],
@@ -402,6 +403,31 @@ class WorkflowContext extends BaseWorkflowContext
         $items = Arr::get($entityData, '_embedded.' . $key, $entityData[$key] ?? []);
 
         return is_array($items) ? count($items) : 0;
+    }
+
+    private function countOpenLeads(mixed $entityData): int
+    {
+        if (! is_array($entityData)) {
+            return 0;
+        }
+
+        $leads = Arr::get($entityData, '_embedded.leads', $entityData['leads'] ?? []);
+
+        if (! is_array($leads)) {
+            return 0;
+        }
+
+        return count(array_filter($leads, static function (mixed $lead): bool {
+            if (! is_array($lead)) {
+                return true;
+            }
+
+            $statusId = (int) ($lead['status_id'] ?? 0);
+
+            return ! in_array($statusId, [142, 143], true)
+                && ! (bool) ($lead['is_closed'] ?? false)
+                && empty($lead['closed_at']);
+        }));
     }
 
     private function getPreviousStepEntityValue(string $path): mixed

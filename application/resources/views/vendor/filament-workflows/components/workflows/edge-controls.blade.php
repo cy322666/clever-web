@@ -8,6 +8,8 @@
     @foreach($edgeControls as $edge)
         @php
             $label = match (true) {
+                ($edge['branch'] ?? false) && $edge['sourcePort'] === 'yes' => 'Добавить ещё одну ветку «Да»',
+                ($edge['branch'] ?? false) && $edge['sourcePort'] === 'no' => 'Добавить ещё одну ветку «Нет»',
                 $edge['sourcePort'] === 'yes' => 'Добавить действие в ветку «Да»',
                 $edge['sourcePort'] === 'no' => 'Добавить действие в ветку «Нет»',
                 default => 'Добавить действие',
@@ -15,12 +17,13 @@
         @endphp
         <button
             type="button"
-            wire:key="workflow-edge-add-{{ $edge['sourceId'] }}-{{ $edge['sourcePort'] }}-{{ $edge['targetId'] ?? 'end' }}"
+            wire:key="workflow-edge-add-{{ $edge['sourceId'] }}-{{ $edge['sourcePort'] }}-{{ $edge['targetId'] ?? (($edge['branch'] ?? false) ? 'branch' : 'end') }}"
             x-on:pointerdown.stop="startEdgeControlDrag(@js($edge['sourceId']), @js($edge['sourcePort']), @js($edge['targetId']), $event)"
             x-on:click.stop="openEdgePalette(@js($edge['sourceId']), @js($edge['sourcePort']), @js($edge['targetId']))"
             @if($edge['targetId']) x-on:contextmenu.prevent.stop="selectedEdge = @js(array_intersect_key($edge, array_flip(['sourceId', 'sourcePort', 'targetId'])))" @endif
             data-workflow-edge-source="{{ $edge['sourceId'] }}"
             data-workflow-edge-port="{{ $edge['sourcePort'] }}"
+            @if($edge['branch'] ?? false) data-workflow-edge-branch="true" @endif
             @if($edge['targetId']) data-workflow-edge-target="{{ $edge['targetId'] }}" @endif
             class="workflow-node-edge-add"
             @if($edge['targetId']) x-on:pointerenter="showEdgeControls($el)" x-on:pointerleave="hideEdgeControls($el)" @endif

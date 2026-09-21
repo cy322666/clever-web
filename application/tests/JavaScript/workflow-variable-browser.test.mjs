@@ -10,11 +10,11 @@ test('click copies the full expression, not the name or field ID, including dupl
         window, document: {addEventListener() {}},
         navigator: {clipboard: {async writeText(value) { writes.push(value); }}},
     });
-    const browser = window.workflowVariableBrowser({'Поля сделки': [
+    const browser = window.workflowVariableBrowser({'Сделка': [
         {value:'{{lead.cf(1781099)}}', label:'Телефон', options:[]},
         {value:'{{lead.cf(1781100)}}', label:'Телефон', options:[]},
     ]});
-    browser.type = 'Поля сделки';
+    browser.type = 'Сделка';
     for (const item of browser.visibleItems) await browser.copy(item.value);
     assert.deepEqual(writes, ['{{lead.cf(1781099)}}', '{{lead.cf(1781100)}}']);
     assert.equal(browser.copied, '{{lead.cf(1781100)}}');

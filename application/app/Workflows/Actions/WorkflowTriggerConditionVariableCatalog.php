@@ -185,7 +185,9 @@ class WorkflowTriggerConditionVariableCatalog
                 '{{lead.contacts_count}}' => 'Количество контактов',
                 '{{lead.notes_count}}' => 'Количество примечаний',
                 '{{contact.leads_count}}' => 'Количество сделок контакта',
+                '{{contact.open_leads_count}}' => 'Количество открытых сделок контакта',
                 '{{company.leads_count}}' => 'Количество сделок компании',
+                '{{company.open_leads_count}}' => 'Количество открытых сделок компании',
                 '{{company.contacts_count}}' => 'Количество контактов компании',
                 '{{item.tags_count}}' => 'Количество тегов',
             ],
@@ -340,10 +342,10 @@ class WorkflowTriggerConditionVariableCatalog
         }
 
         $entityMap = [
-            'leads' => ['key' => 'lead', 'group' => 'Поля сделки'],
-            'contacts' => ['key' => 'contact', 'group' => 'Поля контакта'],
-            'companies' => ['key' => 'company', 'group' => 'Поля компании'],
-            'customers' => ['key' => 'customer', 'group' => 'Поля покупателя'],
+            'leads' => ['key' => 'lead', 'group' => 'Сделка'],
+            'contacts' => ['key' => 'contact', 'group' => 'Контакт'],
+            'companies' => ['key' => 'company', 'group' => 'Компания'],
+            'customers' => ['key' => 'customer', 'group' => 'Покупатель'],
         ];
 
         $fields = AmoCrmField::query()

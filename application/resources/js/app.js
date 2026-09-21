@@ -274,6 +274,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     openEdgePalette(sourceId, sourcePort, targetId) {
         if (Date.now() <= this.suppressEdgeClickUntil) return;
         this.captureInsertion(sourceId, targetId);
+        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action'}}));
         this.$wire.openAddActionOnConnection(sourceId, sourcePort, targetId);
     },
     connectionTargetAt(event) {
@@ -304,9 +305,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         if (event.button !== undefined && event.button !== 0) return;
         event.preventDefault();
         if (event.pointerId !== undefined) this.$refs.viewport?.setPointerCapture?.(event.pointerId);
-        const controls = this.$refs.stage?.querySelector?.('.workflow-node-edge-controls') || this.$refs.edgeControls;
-        const targets = Array.from(controls?.querySelectorAll('[data-workflow-edge-source]') || []).filter(el => el.dataset.workflowEdgeSource === sourceId && el.dataset.workflowEdgePort === sourcePort && el.dataset.workflowEdgeTarget);
-        this.connecting = {sourceId, sourcePort, replaceTarget: sourcePort !== 'output' && targets.length === 1 ? targets[0].dataset.workflowEdgeTarget : null};
+        this.connecting = {sourceId, sourcePort, replaceTarget: null};
         this.selectedEdge = null;
         this.connectionCursor = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
         this.scheduleGraphRefresh();
@@ -1463,18 +1462,17 @@ window.workflowValueField = (state) => ({
 });
 
 window.workflowVariableBrowser = (types) => ({
-    types, type: '', query: '', copied: '', selected: null, active: null, page: 0, pageSize: 20,
+    types, type: '', query: '', copied: '', selected: null, active: null,
     get items() {
         const rows = this.selected
             ? this.selected.options.map(option => ({id: String(option.id), value: '', label: option.name, options: []}))
             : (this.types[this.type] || []);
         return rows.filter(item => (item.label + ' ' + (item.id || '') + ' ' + (item.value || '')).toLocaleLowerCase('ru').includes(this.query.toLocaleLowerCase('ru')));
     },
-    get visibleItems() { return this.items.slice(this.page * this.pageSize, (this.page + 1) * this.pageSize); },
-    get pageCount() { return Math.ceil(this.items.length / this.pageSize); },
-    reset() { this.selected = null; this.active = null; this.query = ''; this.page = 0; this.copied = ''; },
+    get visibleItems() { return this.items; },
+    reset() { this.selected = null; this.active = null; this.query = ''; this.copied = ''; },
     showDetails(item) { this.active = item; },
-    showOptions(item) { this.selected = item; this.active = null; this.query = ''; this.page = 0; },
+    showOptions(item) { this.selected = item; this.active = null; this.query = ''; },
     async copy(value) {
         try {
             await navigator.clipboard.writeText(value);

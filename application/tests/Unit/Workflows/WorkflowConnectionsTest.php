@@ -50,6 +50,18 @@ class WorkflowConnectionsTest extends TestCase
         $this->assertSame(['action:note'], WorkflowGraph::targets($page->get('definition')['connections'], 'trigger'));
     }
 
+    public function test_condition_plus_adds_a_second_branch_without_replacing_the_first(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class)
+            ->call('openAddActionOnConnection', 'action:condition', 'yes', null)
+            ->call('selectActionType', 'amocrm_add_note');
+
+        $targets = WorkflowGraph::targets($page->get('definition')['connections'], 'action:condition', 'yes');
+
+        $this->assertCount(2, $targets);
+        $this->assertContains('action:task', $targets);
+    }
+
     public function test_an_unconnected_company_action_can_connect_to_a_detached_condition(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class);
@@ -115,6 +127,26 @@ class WorkflowConnectionsTest extends TestCase
         $test = app(WorkflowTestRunner::class)->test($definition, ['_dry_run' => true]);
         $this->assertTrue($test['success']);
         $this->assertSame(['if', 'yes', 'join'], array_column($test['steps'], 'id'));
+    }
+
+    public function test_condition_port_runs_every_connected_branch(): void
+    {
+        $definition = $this->definition();
+        $definition['connections'][] = [
+            'sourceId' => 'action:if',
+            'sourcePort' => 'yes',
+            'targetId' => 'action:orphan',
+        ];
+
+        $session = app(WorkflowDebugger::class)->start($definition, [], null, null);
+
+        while ($session['status'] === 'ready') {
+            $session = app(WorkflowDebugger::class)->advance($session);
+        }
+
+        $this->assertSame('completed', $session['status']);
+        $this->assertEqualsCanonicalizing(['if', 'yes', 'join', 'orphan'], array_column($session['results'], 'id'));
+        $this->assertCount(4, $session['results']);
     }
 
     public function test_replacing_an_attached_edge_removes_only_the_old_connection(): void

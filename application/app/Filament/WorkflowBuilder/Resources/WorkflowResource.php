@@ -22,6 +22,7 @@ use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
 use Leek\FilamentWorkflows\Enums\RunStatus;
@@ -65,6 +66,17 @@ class WorkflowResource extends BaseWorkflowResource
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
+                    ->formatStateUsing(function (mixed $state, Workflow $record): HtmlString {
+                        $name = e((string) $state);
+                        $queued = (int) $record->queued_runs_count;
+
+                        if ($queued < 1) {
+                            return new HtmlString($name);
+                        }
+
+                        return new HtmlString($name.'<span class="workflow-queue-inline-badge">В очереди '.$queued.'</span>');
+                    })
+                    ->html()
                     ->icon(fn (Workflow $record): string => static::triggerIcon($record))
                     ->iconColor(fn (Workflow $record): string|array => static::triggerIcon($record) === 'amocrm-digital-pipeline'
                         ? \Filament\Support\Colors\Color::hex('#339dc7') : 'gray')
@@ -96,17 +108,6 @@ class WorkflowResource extends BaseWorkflowResource
                     ->url(fn (Workflow $record): ?string => $record->latestRun
                         ? static::getUrl('history', ['record' => $record, 'run' => $record->latestRun->getKey()]) : null),
 
-                TextColumn::make('queued_runs_count')
-                    ->label('В очереди')
-                    ->alignCenter()
-                    ->badge()
-                    ->sortable()
-                    ->formatStateUsing(fn (mixed $state): string => (string) (int) $state)
-                    ->color(fn (mixed $state): string => (int) $state > 0 ? 'warning' : 'gray')
-                    ->tooltip(fn (mixed $state): string => (int) $state > 0
-                        ? 'Ожидают обработки: '.(int) $state
-                        : 'Нет ожидающих выполнений'),
-
                 ToggleColumn::make('is_active')
                     ->label('Активен')
                     ->alignCenter()
@@ -126,12 +127,6 @@ class WorkflowResource extends BaseWorkflowResource
             ->searchPlaceholder('Поиск сценариев…')
             ->recordActions(
                 [ActionGroup::make([
-                    Action::make('configure_workflow')
-                        ->label('Открыть редактор')
-                        ->icon('heroicon-o-pencil-square')
-                        ->url(fn (Workflow $record): string => static::getUrl('edit', ['record' => $record]))
-                        ->extraAttributes(['class' => 'workflow-list-configure-action']),
-
                     Action::make('rename_workflow')
                         ->label('Переименовать')
                         ->icon('heroicon-o-pencil')

@@ -6676,6 +6676,26 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-overview-nav a { color: #748091; padding: 0.5rem 0 0.875rem; font-size: 0.875rem; border-bottom: 2px solid transparent; }
 .workflow-overview-nav a[aria-current=page] { color: #303947; border-bottom-color: currentColor; font-weight: 600; }
 .workflow-list-page .fi-ta-header-toolbar { padding: 0.875rem 1rem !important; gap: 0.75rem; align-items: center; }
+.workflow-list-page .fi-ta-cell-name .fi-ta-text-item-label > a {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.workflow-queue-inline-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.25rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: #fff3cd;
+    color: #8a5900;
+    font-size: 0.7rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+}
+.dark .workflow-queue-inline-badge { background: rgb(146 92 0 / 35%); color: #ffd97a; }
 .workflow-list-page .fi-ta-search-field { width: min(22rem, 100%); margin: 0; }
 .workflow-list-page .fi-ta-search-field .fi-input { min-height: 2.5rem; padding-block: 0.625rem; line-height: 1.25rem; }
 .workflow-list-page .fi-ta-search-field .fi-input-wrp { min-height: 2.5rem; border-radius: 0.5rem; }
@@ -6902,9 +6922,6 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-variable-browser__item small { margin-left: auto; font-size: 10px; color: #818896; }
 .workflow-variable-browser__back { display: flex; align-items: center; gap: 6px; text-align: left; font-size: 12px; min-width: 0; }
 .workflow-variable-browser__back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workflow-variable-browser__pages { display: flex; align-items: center; justify-content: space-between; color: #818896; font-size: 12px; }
-.workflow-variable-browser__pages button { padding: 6px; }
-.workflow-variable-browser__pages button:disabled { opacity: .3; }
 .workflow-variable-browser__details { display: grid; gap: 8px; padding: 10px; border: 1px solid #d6dbe2; border-radius: 8px; background: #f8fafc; }
 .workflow-variable-browser__details header { display: flex; align-items: center; gap: 8px; }
 .workflow-variable-browser__details header strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
@@ -6964,6 +6981,19 @@ svg.workflow-control-icon { color: #248548 !important; }
 .dark .workflow-entity-context__badge { background: rgb(22 101 52 / 35%); color: #86efac; }
 .dark .workflow-entity-context strong { color: var(--workflow-dark-text); }
 .workflow-node-settings__parameters :is(.workflow-entity-create-section, .workflow-entity-link-action) .fi-sc { row-gap: 12px !important; }
+.workflow-node-settings__parameters .workflow-entity-link-action { align-items: start; }
+.workflow-node-settings__parameters .workflow-entity-link-card.fi-section {
+    padding: 16px !important;
+    border: 1px solid #d8dee7 !important;
+    border-radius: 8px !important;
+    background: #f7f8fa !important;
+}
+.workflow-node-settings__parameters .workflow-entity-link-card .fi-section-header { padding-bottom: 12px; }
+.workflow-node-settings__parameters .workflow-entity-link-card .fi-section-content-ctn { padding: 0 !important; }
+.dark .workflow-node-settings__parameters .workflow-entity-link-card.fi-section {
+    border-color: var(--workflow-dark-line) !important;
+    background: var(--workflow-dark-input) !important;
+}
 .workflow-node-settings__parameters .workflow-entity-link-section { padding-top: 16px; border-top: 1px solid #d9dde3 !important; }
 .dark .workflow-node-settings__parameters .workflow-entity-link-section { border-top-color: var(--workflow-dark-line) !important; }
 @media (max-width: 900px) {

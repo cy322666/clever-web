@@ -159,19 +159,16 @@ test('input tree hides repeated paths and only expands the selected branch', () 
     assert.equal(picker.fieldSummary({type:'object'}), '{}');
 });
 
-test('reference browser paginates, filters, and drills into field options without expanding all rows', () => {
+test('reference browser keeps one scrollable list, filters, and drills into field options', () => {
     const browser = components().workflowVariableBrowser({Fields: Array.from({length: 45}, (_, i) => ({
         label: 'Поле ' + i, value: String(i), options: [{id: 100 + i, name: 'Вариант ' + i}],
     }))});
     assert.equal(browser.items.length, 0);
     browser.type = 'Fields';
-    assert.equal(browser.visibleItems.length, 20);
-    assert.equal(browser.pageCount, 3);
-    browser.page = 2;
-    assert.equal(browser.visibleItems.length, 5);
+    assert.equal(browser.visibleItems.length, 45);
+    assert.equal('pageCount' in browser, false);
     browser.showOptions(browser.items[0]);
-    assert.equal(browser.page, 0);
-    assert.equal(browser.visibleItems[0].value, '100');
+    assert.equal(browser.visibleItems[0].id, '100');
     browser.reset();
     assert.equal(browser.items.length, 45);
     browser.query = 'поле 44';

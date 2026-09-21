@@ -58,7 +58,7 @@
         </select>
     </label>
     <button x-show="selected" type="button" class="workflow-variable-browser__back" x-on:click="reset()"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4"/><span x-text="selected?.label"></span></button>
-    <input x-show="type" x-model="query" x-on:input="page = 0" type="search" placeholder="Найти…" aria-label="Найти переменную">
+    <input x-show="type" x-model="query" type="search" placeholder="Найти…" aria-label="Найти переменную">
     <section x-cloak x-show="active" class="workflow-variable-browser__details" aria-live="polite">
         <header>
             <strong x-text="active?.label"></strong>
@@ -79,15 +79,11 @@
             <div class="workflow-variable-browser__row">
                 <button type="button" class="workflow-variable-browser__item" :title="'Показать ID и переменную: ' + item.label" x-on:click="showDetails(item)">
                     <strong x-text="item.label"></strong>
+                    <code x-show="item.id" x-text="'ID ' + item.id"></code>
                     <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
                 </button>
             </div>
         </template>
         <p x-show="type && !items.length">Ничего не найдено</p>
     </div>
-    <nav class="workflow-variable-browser__pages" x-show="pageCount > 1" aria-label="Страницы справочника">
-        <button type="button" :disabled="page === 0" x-on:click="page--" aria-label="Предыдущая страница"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4"/></button>
-        <span x-text="(page + 1) + ' / ' + pageCount"></span>
-        <button type="button" :disabled="page + 1 >= pageCount" x-on:click="page++" aria-label="Следующая страница"><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/></button>
-    </nav>
 </div>

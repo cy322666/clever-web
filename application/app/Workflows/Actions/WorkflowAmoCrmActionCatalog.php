@@ -1904,24 +1904,25 @@ class AmoCrmLinkEntityAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            Section::make('Связать сущности')
-                ->description('Основную сущность можно взять из контекста или указать вручную. Вторую сущность укажите по ID или переменной.')
-                ->compact()
+            Grid::make(['default' => 1, 'xl' => 2])
                 ->schema([
-                    Section::make('Основная сущность')
+                    Section::make('1. Основная сущность')
+                        ->description('Что уже есть в потоке')
                         ->compact()
-                        ->columns(2)
-                        ->schema(static::targetEntityFields(['lead', 'contact', 'company', 'customer'])),
-
-                    Grid::make(2)->schema([
-                        Select::make('linked_entity')->label('Что прикрепить')->options([
+                        ->schema(static::targetEntityFields(['lead', 'contact', 'company', 'customer']))
+                        ->extraAttributes(['class' => 'workflow-entity-link-card']),
+                    Section::make('2. Связать с ней')
+                        ->description('Что нужно прикрепить')
+                        ->compact()
+                        ->schema([
+                        Select::make('linked_entity')->label('Сущность')->options([
                             'lead' => 'Сделку',
                             'contact' => 'Контакт',
                             'company' => 'Компанию',
                             'customer' => 'Покупателя',
                         ])->required()->native(false),
-                        VariableTextInput::make('linked_entity_id')->label('ID прикрепляемой сущности')->required(),
-                    ]),
+                        VariableTextInput::make('linked_entity_id')->label('ID или переменная')->required(),
+                    ])->extraAttributes(['class' => 'workflow-entity-link-card']),
                 ])
                 ->extraAttributes(['class' => 'workflow-entity-link-action']),
             static::delaySection(),
