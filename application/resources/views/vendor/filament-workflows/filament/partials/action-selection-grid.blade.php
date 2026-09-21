@@ -105,6 +105,7 @@
     $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
     $mvpActionTypes = [
         'control-condition',
+        'amocrm_create_company',
         'amocrm_update_lead_fields',
         'amocrm_change_lead_status',
         'amocrm_create_task',

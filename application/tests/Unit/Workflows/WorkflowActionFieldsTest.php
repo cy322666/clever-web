@@ -252,4 +252,28 @@ class WorkflowActionFieldsTest extends TestCase
             && $request[0]['pipeline_id']===10 && $request[0]['status_id']===20 && $request[0]['responsible_user_id']===9);
         Http::assertSentCount(1);
     }
+
+    public function test_create_company_sends_fields_and_returns_the_created_id(): void
+    {
+        Http::fake(['https://workflow-fields.test/*' => Http::response(['_embedded'=>['companies'=>[['id'=>321]]]])]);
+        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
+        $account = (new Account)->forceFill(['id'=>1,'endpoint'=>'https://workflow-fields.test','access_token'=>'test-only']);
+        $method = new \ReflectionMethod($executor, 'createEntity');
+        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
+
+        $result = $method->invoke($executor, $client, $account, 'company', [
+            'name'=>'ООО Тест',
+            'responsible_user_id'=>'9',
+            'tags'=>'Партнёр, VIP',
+        ], null);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(321, $result['output']['entity_id']);
+        Http::assertSent(fn ($request) => $request->method()==='POST'
+            && $request->url()==='https://workflow-fields.test/api/v4/companies'
+            && $request[0]['name']==='ООО Тест'
+            && $request[0]['responsible_user_id']===9
+            && $request[0]['_embedded']['tags']===[['name'=>'Партнёр'], ['name'=>'VIP']]);
+        Http::assertSentCount(1);
+    }
 }

@@ -117,6 +117,7 @@
         'workflow_filter_list',
         'http_request',
         'amocrm_create_lead',
+        'amocrm_create_company',
         'amocrm_start_salesbot',
         'amocrm_update_lead_fields',
         'amocrm_update_contact_fields',
@@ -149,7 +150,7 @@
     $actionEntities = [
         'salesbot' => ['title' => 'Salesbot', 'description' => 'Запуск бота', 'icon' => 'heroicon-o-cpu-chip', 'types' => ['amocrm_start_salesbot'], 'items' => []],
         'contact' => ['title' => 'Контакт', 'description' => 'Поля контакта', 'icon' => 'heroicon-o-user', 'types' => ['amocrm_update_contact_fields'], 'items' => []],
-        'company' => ['title' => 'Компания', 'description' => 'Поля компании', 'icon' => 'heroicon-o-building-office', 'types' => ['amocrm_update_company_fields'], 'items' => []],
+        'company' => ['title' => 'Компания', 'description' => 'Создание и поля компании', 'icon' => 'heroicon-o-building-office', 'types' => ['amocrm_create_company', 'amocrm_update_company_fields'], 'items' => []],
         'lead' => [
             'title' => 'Сделка',
             'description' => 'Поля и этап воронки',
