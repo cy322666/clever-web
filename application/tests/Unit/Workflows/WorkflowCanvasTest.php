@@ -15,18 +15,20 @@ class WorkflowCanvasTest extends TestCase
         WorkflowCanvasDatabase::prepare();
     }
 
-    public function test_it_renders_branch_connections_and_opens_the_selected_insertion_point(): void
+    public function test_it_renders_branch_connections_without_plus_controls(): void
     {
         Livewire::test(WorkflowCanvasFixture::class)
             ->assertStatus(200)
             ->assertSee('data-workflow-edge-target="action:task"', false)
             ->assertSee('data-workflow-edge-target="action:note"', false)
-            ->assertSee('data-workflow-edge-branch="true"', false)
-            ->assertSee('Добавить ещё одну ветку «Да»')
-            ->assertSee('Добавить ещё одну ветку «Нет»')
-            ->assertSee('data-workflow-edge-delete', false)
-            ->assertSee('Удалить связь')
-            ->assertSee('showEdgeControls($el)', false)
+            ->assertSee("startConnection('action:' + 'condition', 'yes', \$event)", false)
+            ->assertSee('aria-label="Выход Да:', false)
+            ->assertSee('aria-label="Выход Нет:', false)
+            ->assertDontSee('workflow-node-edge-add', false)
+            ->assertDontSee('heroicon-o-plus', false)
+            ->assertDontSee('data-workflow-edge-branch', false)
+            ->assertDontSee('Добавить ещё одну ветку')
+            ->assertDontSee('Добавить действие в ветку')
             ->call('openAddActionAtPath', '0.config.false_actions', 1)
             ->assertSet('insertActionPath', '0.config.false_actions')
             ->assertSet('insertActionIndex', 1)
@@ -34,14 +36,16 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('workflow-node-library__context', false);
     }
 
-    public function test_it_renders_add_connections_for_both_empty_condition_branches(): void
+    public function test_empty_condition_branches_use_their_output_handles(): void
     {
         Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [
             ['id' => 'empty-condition', 'type' => 'control-condition', 'config' => []],
         ]])
             ->assertStatus(200)
-            ->assertSee('Добавить действие в ветку «Да»')
-            ->assertSee('Добавить действие в ветку «Нет»');
+            ->assertSee('aria-label="Выход Да:', false)
+            ->assertSee('aria-label="Выход Нет:', false)
+            ->assertDontSee('workflow-node-edge-add', false)
+            ->assertDontSee('heroicon-o-plus', false);
     }
 
     public function test_it_toggles_a_nested_node_without_changing_its_configuration(): void

@@ -50,16 +50,24 @@ class WorkflowConnectionsTest extends TestCase
         $this->assertSame(['action:note'], WorkflowGraph::targets($page->get('definition')['connections'], 'trigger'));
     }
 
-    public function test_condition_plus_adds_a_second_branch_without_replacing_the_first(): void
+    public function test_condition_output_handle_adds_second_and_third_branches_without_replacing_existing_ones(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class)
-            ->call('openAddActionOnConnection', 'action:condition', 'yes', null)
-            ->call('selectActionType', 'amocrm_add_note');
+            ->call('openDetachedActionPalette')
+            ->call('selectActionType', 'amocrm_add_note')
+            ->call('openDetachedActionPalette')
+            ->call('selectActionType', 'amocrm_create_task');
+
+        $actions = $page->get('workflowActions');
+        $second = 'action:'.$actions[1]['id'];
+        $third = 'action:'.$actions[2]['id'];
+        $page
+            ->call('connectWorkflowNodes', 'action:condition', 'yes', $second)
+            ->call('connectWorkflowNodes', 'action:condition', 'yes', $third);
 
         $targets = WorkflowGraph::targets($page->get('definition')['connections'], 'action:condition', 'yes');
 
-        $this->assertCount(2, $targets);
-        $this->assertContains('action:task', $targets);
+        $this->assertSame(['action:task', $second, $third], $targets);
     }
 
     public function test_an_unconnected_company_action_can_connect_to_a_detached_condition(): void
