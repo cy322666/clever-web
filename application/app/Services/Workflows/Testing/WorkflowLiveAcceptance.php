@@ -52,6 +52,10 @@ final class WorkflowLiveAcceptance
     private bool $qaLinkMayExist = false;
     private bool $cancellationRequested = false;
     private bool $customersDisabledVerified = false;
+    private array $fixtureLookups = [];
+    private array $fixtureEntityIds = [];
+    private array $createdCompanyIds = [];
+    private ?string $customersMode = null;
 
     /** Reuses a single closed QA deal, task and observer; never grows CRM fixtures daily. */
     public function runRecurring(int $workflowId, string $expectedDomain, string $reportPath, string $statePath, ?int $expectedAmoAccountId = null): array
@@ -114,6 +118,7 @@ final class WorkflowLiveAcceptance
         Auth::loginUsingId($this->source->user_id);
         $this->client = new Client($this->account);
         $remote = $this->client->requestV4('GET', '/api/v4/account');
+        $this->customersMode = is_string($remote['customers_mode'] ?? null) ? $remote['customers_mode'] : null;
         if (!($remote['is_technical_account'] ?? false)) throw new RuntimeException('This runner only accepts a technical amoCRM account');
         if ($expectedAmoAccountId !== null && (int)($remote['id'] ?? 0) !== $expectedAmoAccountId) throw new RuntimeException('Technical amoCRM account ID does not match the configured account');
         $lock = Cache::lock('workflow-acceptance:'.$this->account->id, 1800);
@@ -121,7 +126,8 @@ final class WorkflowLiveAcceptance
         $this->report = ['schema_version'=>1, 'suite'=>$this->recurringStatePath ? 'recurring_live_acceptance' : 'live_acceptance', 'run_id'=>$this->marker,
             'started_at'=>now()->toIso8601String(), 'source_workflow_id'=>$workflowId,
             'account'=>['platform_account_id'=>$this->account->id, 'amo_account_id'=>$remote['id'], 'subdomain'=>$expectedDomain],
-            'constraints'=>['max_open_leads'=>10, 'create_contacts'=>false, 'create_companies'=>false, 'final_lead_status'=>143],
+            'constraints'=>['max_open_leads'=>10, 'create_contacts'=>false, 'create_companies'=>(bool)$this->recurringStatePath, 'max_companies'=>10, 'final_lead_status'=>143],
+            'capabilities'=>['customers_mode'=>$this->customersMode],
             'cases'=>[], 'events'=>[], 'historical_runs'=>[], 'cleanup'=>[]];
         foreach (['WorkflowAmoCrmActionExecutor','WorkflowAmoCrmWebhookPayloadNormalizer','WorkflowAmoReadCatalog'] as $component) {
             $path=app_path('Services/Workflows/'.$component.'.php');
@@ -156,6 +162,14 @@ final class WorkflowLiveAcceptance
             $this->pipelineId = (int)($pipelines['_embedded']['pipelines'][0]['id'] ?? 0);
             if (!$this->pipelineId) throw new RuntimeException('No pipeline available');
             $this->contactId = (int)($this->originalContacts[0]['id'] ?? 0);
+            if ($this->recurringStatePath) {
+                $this->contactId=(int)($this->recurringState['fixtures']['contact_id']??$this->contactId);
+                if ($this->contactId && !in_array($this->contactId,array_map('intval',array_column($this->originalContacts,'id')),true)) {
+                    throw new RuntimeException('Saved QA contact is missing; refusing to silently switch fixture ownership');
+                }
+                if ($this->contactId) $this->recurringState['fixtures']['contact_id']=$this->contactId;
+                $this->save();
+            }
             $this->pauseWorkflows();
             $this->setupObserver();
             if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled before CRM mutations');
@@ -163,6 +177,7 @@ final class WorkflowLiveAcceptance
             // User explicitly requested closing all deals in this technical account.
             if ($this->recurringStatePath) $this->exerciseRecurringNodes();
             else { $this->closeAllLeads(); $this->exerciseNodes(); }
+            if ($this->recurringStatePath) $this->prepareReadFixtures();
             $this->exerciseReads();
             $this->collectEvents(15);
         } catch (Throwable $e) {
@@ -186,7 +201,7 @@ final class WorkflowLiveAcceptance
                 fwrite(STDERR, 'Acceptance report could not be saved; cleanup results remain in the returned report.'.PHP_EOL);
             }
             if ($this->recurringStateStarted) {
-                $safe = $this->pendingCreates === [] && empty($this->report['report_write_errors'])
+                $safe = $this->pendingCreates === [] && empty($this->recurringState['read_fixtures']['pending']) && empty($this->report['report_write_errors'])
                     && !array_filter($this->report['cleanup'], fn($item)=>!($item['ok']??false));
                 $this->recurringState['phase'] = $safe ? 'ready' : 'recovery_required';
                 try { $this->saveRecurringState(); }
@@ -201,7 +216,7 @@ final class WorkflowLiveAcceptance
         return $this->report;
     }
 
-    /** Defense in depth: no contact/company creation, no nested creation, no arbitrary destination. */
+    /** Defense in depth: no new contacts, no nested creation, only exact persisted QA setup intents. */
     private function installRequestGuard(): void
     {
         $host = $this->account->subdomain.'.amocrm.'.($this->account->zone ?: 'ru');
@@ -214,6 +229,13 @@ final class WorkflowLiveAcceptance
             if ($request->getUri()->getHost() !== $host) throw new RuntimeException('Acceptance guard: external destination denied');
             if (in_array($method,['GET','HEAD'],true)) return $request;
             $body = json_decode((string)$request->getBody(),true) ?? [];
+            if ($this->recurringStatePath && !empty($this->recurringState['read_fixtures']['pending'])) {
+                $pending=$this->recurringState['read_fixtures']['pending'];
+                if (($pending['method']??null)===$method && ($pending['path']??null)===$path && ($pending['body']??null)===$body) {
+                    WorkflowAcceptanceFixtures::assertMutation($method,$path,$body,$this->recurringState['read_fixtures']);
+                    return $request;
+                }
+            }
             self::assertSafeMutation($method, $path, $body);
             if ($this->recurringStatePath) self::assertRecurringMutation($method, $path, $body, [
                 'lead_id'=>$this->leadId, 'contact_id'=>$this->contactId, 'task_ids'=>$this->tasks,
@@ -235,7 +257,7 @@ final class WorkflowLiveAcceptance
     {
         if (($state['schema_version']??0)!==1 || ($state['phase']??'')!=='ready'
             || (int)($state['source_workflow_id']??0)!==$workflowId || ($state['domain']??'')!==$domain
-            || (int)($state['amo_account_id']??0)!==$accountId) {
+            || (int)($state['amo_account_id']??0)!==$accountId || !empty($state['read_fixtures']['pending'])) {
             throw new RuntimeException('Recurring acceptance checkpoint requires manual recovery or belongs to another account; no mutations were started');
         }
     }
@@ -565,11 +587,43 @@ final class WorkflowLiveAcceptance
         $this->node('invalid_update_json','amocrm_update_lead_fields',$target+['body_mode'=>'json','json_body'=>'{invalid'],null,true);
     }
 
+    private function prepareReadFixtures(): void
+    {
+        if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled before fixture preparation');
+        $manager=new WorkflowAcceptanceFixtures(
+            function(string $method,string $path,array $body=[],array $query=[]): array {
+                if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled during fixture preparation');
+                return $this->client->requestV4($method,$path,$body,$query);
+            },
+            function(array $state): void {
+                $this->recurringState['read_fixtures']=$state;
+                $this->createdCompanyIds=$state['created_company_ids']??[];
+                $this->save();
+            },
+            function(array $event): void {
+                $this->report['fixture_setup']['trace'][]=$event;
+                $this->save();
+            },
+            $this->recurringState['read_fixtures']??[],
+        );
+        $prepared=$manager->prepare([
+            'lead_id'=>$this->leadId,'contact_id'=>$this->contactId,'customers_mode'=>$this->customersMode,
+            'original_company_ids'=>$this->report['before']['company_ids']??[],
+        ]);
+        $this->fixtureLookups=$prepared['lookups'];
+        $this->fixtureEntityIds=$prepared['ids'];
+        $this->createdCompanyIds=$prepared['created_company_ids'];
+        $this->report['fixture_setup']['verified']=$prepared;
+        $this->report['fixture_setup']['provenance']='live_api_fixture_preparation';
+        $this->save();
+    }
+
     private function exerciseReads(): void
     {
         $lookupCache=[];
         $firstId=function(string $path) use (&$lookupCache): array {
             if (isset($lookupCache[$path])) return $lookupCache[$path];
+            if (!empty($this->fixtureLookups[$path])) return ['status'=>'available','id'=>$this->fixtureLookups[$path],'path'=>$path];
             if (!preg_match('~^/api/v4/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$~D',$path)) {
                 return ['status'=>'failed','error'=>'Acceptance prerequisite path is malformed','path'=>$path];
             }
@@ -596,10 +650,14 @@ final class WorkflowLiveAcceptance
         $capability=$firstId('/api/v4/customers/segments');
         $this->customersDisabledVerified=($capability['capability']??null)==='customers_disabled';
         if ($this->customersDisabledVerified) $this->report['capabilities']['customers']=$capability;
-        $ids=['leads'=>$this->leadId,'contacts'=>$this->contactId,'companies'=>$this->report['before']['company_ids'][0]??0,
+        $ids=['leads'=>$this->leadId,'contacts'=>$this->contactId,'companies'=>$this->fixtureEntityIds['companies']??$this->report['before']['company_ids'][0]??0,
             'tasks'=>$this->tasks[0]??0,'pipeline_id'=>$this->pipelineId];
         foreach (self::visibleReadOperations() as $operation=>$definition) {
             if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled');
+            if ($this->customersMode==='segments' && str_starts_with($operation,'customer_statuses.')) {
+                $this->skip('read:'.$operation,'amocrm_read','Этапы покупателей недоступны в текущем режиме «Сегменты»; режим аккаунта не изменяется');
+                continue;
+            }
             try {
                 $resolved=self::resolveReadPrerequisites($operation,$definition,$ids,$firstId);
                 if ($resolved['status']!=='ready') {
@@ -911,8 +969,10 @@ final class WorkflowLiveAcceptance
         if (isset($this->report['before'])) $cleanup('contact_company_count',function(){
             $contactIds=array_column($this->list('contacts'),'id'); $companyIds=array_column($this->list('companies'),'id');
             sort($contactIds);sort($companyIds);$before=$this->report['before']['contact_ids'];$beforeCompanies=$this->report['before']['company_ids'];sort($before);sort($beforeCompanies);
-            if($contactIds!==$before||$companyIds!==$beforeCompanies) throw new RuntimeException('Contact/company IDs changed');
-            return ['contacts'=>count($contactIds),'companies'=>count($companyIds),'unchanged'=>true];
+            $expectedCompanies=array_values(array_unique(array_merge($beforeCompanies,$this->createdCompanyIds)));sort($expectedCompanies);
+            if($contactIds!==$before||$companyIds!==$expectedCompanies||count($companyIds)>10) throw new RuntimeException('Contact/company IDs changed outside authorized QA fixture creation');
+            return ['contacts'=>count($contactIds),'companies'=>count($companyIds),'contacts_unchanged'=>true,
+                'existing_companies_preserved'=>true,'created_qa_company_ids'=>$this->createdCompanyIds,'unchanged'=>$this->createdCompanyIds===[]];
         });
     }
 
