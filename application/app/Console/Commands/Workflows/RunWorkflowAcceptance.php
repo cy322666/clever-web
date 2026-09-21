@@ -125,7 +125,7 @@ class RunWorkflowAcceptance extends Command
             if (microtime(true) - $started > $timeout) {
                 // Give the runner's SIGTERM handler time to restore the account in finally.
                 $process->signal(15);
-                $grace = microtime(true) + 90;
+                $grace = microtime(true) + 180;
                 while ($process->isRunning() && microtime(true) < $grace) usleep(200000);
                 if ($process->isRunning()) $process->stop(0, 9);
                 throw new RuntimeException('Превышено время прогона; проверьте восстановление аккаунта в checkpoint.');

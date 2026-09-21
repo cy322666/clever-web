@@ -34,6 +34,8 @@ final class WorkflowLiveAcceptance
     private array $restore = [];
     private array $tasks = [];
     private ?string $hookUrl = null;
+    private ?WorkflowAcceptanceWebhookSubscription $qaWebhookSubscription = null;
+    private bool $qaWebhookCreationAttempted = false;
     private array $report = [];
     private string $reportPath;
     private string $marker;
@@ -156,6 +158,7 @@ final class WorkflowLiveAcceptance
             $this->contactId = (int)($this->originalContacts[0]['id'] ?? 0);
             $this->pauseWorkflows();
             $this->setupObserver();
+            if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled before CRM mutations');
             $this->mutationsPrepared = true;
             // User explicitly requested closing all deals in this technical account.
             if ($this->recurringStatePath) $this->exerciseRecurringNodes();
@@ -283,7 +286,8 @@ final class WorkflowLiveAcceptance
         $this->recurringState['report_path']=$this->reportPath;
         $this->recurringState['recovery']=['restore_fields'=>$this->restore,'task_ids'=>$this->tasks,
             'paused_workflow_ids'=>$this->paused,'observer_workflow_id'=>$this->observer?->id,
-            'pending_creates'=>$this->pendingCreates,'lead_id'=>$this->leadId,'qa_link_may_exist'=>$this->qaLinkMayExist];
+            'pending_creates'=>$this->pendingCreates,'lead_id'=>$this->leadId,'qa_link_may_exist'=>$this->qaLinkMayExist,
+            'qa_webhook_creation_attempted'=>$this->qaWebhookCreationAttempted];
         $this->writePrivateJson($this->recurringStatePath,$this->recurringState);
     }
 
@@ -370,14 +374,31 @@ final class WorkflowLiveAcceptance
         $this->report['observer_workflow_id'] = $this->observer->id;
         $this->hookUrl = app(WorkflowGenericWebhookService::class)->callbackUrl($this->observer);
         $this->save();
-        $this->client->requestV4('POST','/api/v4/webhooks',['destination'=>$this->hookUrl,'settings'=>AmoCrmWebhookTriggerCatalog::eventCodes()]);
-        $hooks=$this->client->requestV4('GET','/api/v4/webhooks');
-        $installed=false;
-        foreach ($hooks['_embedded']['webhooks']??[] as $hook) if (($hook['destination']??'')===$this->hookUrl
-            && !($hook['disabled']??false) && array_diff(AmoCrmWebhookTriggerCatalog::eventCodes(),$hook['settings']??[])===[]) $installed=true;
-        if (!$installed) throw new RuntimeException('QA webhook subscription could not be verified after creation');
-        $this->report['webhook_subscription'] = ['status'=>'installed','events'=>AmoCrmWebhookTriggerCatalog::eventCodes()];
+        $events=AmoCrmWebhookTriggerCatalog::eventCodes();
+        // Set this before POST: a timeout does not prove that creation never happened.
+        $this->qaWebhookCreationAttempted=true;
+        $this->report['webhook_subscription']=['status'=>'creating','events'=>$events,'trace'=>[]];
+        $verification=$this->webhookSubscription()->install($this->hookUrl,$events);
+        $this->report['webhook_subscription']=array_replace($this->report['webhook_subscription'],[
+            'status'=>'installed','verification'=>$verification,
+        ]);
         $this->save();
+    }
+
+    private function webhookSubscription(): WorkflowAcceptanceWebhookSubscription
+    {
+        return $this->qaWebhookSubscription ??= new WorkflowAcceptanceWebhookSubscription(
+            fn(string $method,string $path,array $body=[],array $query=[]): array => $this->client->requestV4($method,$path,$body,$query),
+            function(array $event): void {
+                $this->report['webhook_subscription']['trace'][]=$event;
+                try { $this->save(); }
+                catch(Throwable) {
+                    // Keep evidence in memory and fail the checkpoint closed, but never
+                    // let a full disk prevent DELETE or the rest of account recovery.
+                    $this->report['report_write_errors'][]='Не удалось сохранить диагностику тестового вебхука; восстановление аккаунта продолжается.';
+                }
+            },
+        );
     }
 
     private function exerciseRecurringNodes(): void
@@ -872,15 +893,8 @@ final class WorkflowLiveAcceptance
                 }
             }
         }
-        if ($this->hookUrl) $cleanup('remove_qa_webhook',function(){
-            $hooks=$this->client->requestV4('GET','/api/v4/webhooks');
-            if (in_array($this->hookUrl,array_column($hooks['_embedded']['webhooks']??[],'destination'),true)) {
-                $this->client->requestV4('DELETE','/api/v4/webhooks',['destination'=>$this->hookUrl]);
-            }
-            $after=$this->client->requestV4('GET','/api/v4/webhooks');
-            if (in_array($this->hookUrl,array_column($after['_embedded']['webhooks']??[],'destination'),true)) throw new RuntimeException('Temporary QA webhook remains installed');
-            return ['removed'=>true];
-        });
+        if ($this->qaWebhookCreationAttempted && $this->hookUrl) $cleanup('remove_qa_webhook',
+            fn()=> $this->webhookSubscription()->remove($this->hookUrl));
         if ($this->observer) $cleanup('archive_observer',function(){
             $values=['is_active'=>false];
             if (!$this->recurringStatePath) $values['deleted_at']=now();
@@ -951,7 +965,8 @@ final class WorkflowLiveAcceptance
     private function save(bool $persistState = true): void
     {
         if ($persistState && $this->recurringStateStarted) $this->saveRecurringState();
-        $this->report['recovery']=['restore_fields'=>$this->restore,'task_ids'=>$this->tasks,'paused_workflow_ids'=>$this->paused,'observer_workflow_id'=>$this->observer?->id];
+        $this->report['recovery']=['restore_fields'=>$this->restore,'task_ids'=>$this->tasks,'paused_workflow_ids'=>$this->paused,
+            'observer_workflow_id'=>$this->observer?->id,'qa_webhook_creation_attempted'=>$this->qaWebhookCreationAttempted];
         $data=$this->report;
         $data['_redaction_secrets']=[
             $this->account->access_token,$this->account->refresh_token,$this->account->client_secret,

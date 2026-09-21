@@ -7,6 +7,7 @@ namespace Tests\Unit\Workflows\Testing;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
 use App\Services\amoCRM\Client;
+use App\Services\Workflows\Testing\WorkflowAcceptanceWebhookSubscription;
 use App\Services\Workflows\Testing\WorkflowLiveAcceptance;
 use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
 use App\Services\Workflows\WorkflowAmoCrmLoopGuard;
@@ -140,13 +141,24 @@ final class WorkflowRecurringAcceptanceLifecycleTest extends TestCase
         $blocker=tempnam(sys_get_temp_dir(),'qa-not-a-directory-');
         $runner=$this->runner($blocker.'/report.json');
         $client=$this->getMockBuilder(Client::class)->disableOriginalConstructor()->onlyMethods(['requestV4'])->getMock();
-        $client->expects($this->exactly(3))->method('requestV4')->willReturnCallback(function($method,$path):array {
-            $this->assertSame('GET',$method);
+        $calls=[];
+        $client->method('requestV4')->willReturnCallback(function($method,$path,$body=[]) use (&$calls):array {
+            $calls[]=compact('method','path','body');
             $this->assertContains($path,['/api/v4/leads','/api/v4/webhooks']);
-            return [];
+            if ($method==='DELETE') $this->assertSame(['destination'=>'https://example.invalid/qa-hook'],$body);
+            else $this->assertSame('GET',$method);
+            return $method==='GET' && $path==='/api/v4/webhooks' ? ['_embedded'=>['webhooks'=>[]]] : [];
         });
+        $clock=0.0;
+        $webhookSubscription=new WorkflowAcceptanceWebhookSubscription(
+            fn(string $method,string $path,array $body=[],array $query=[]):array => $client->requestV4($method,$path,$body,$query),
+            static function(array $trace):void { throw new RuntimeException('Report storage unavailable'); },
+            static function(float $seconds) use (&$clock):void { $clock+=$seconds; },
+            static function() use (&$clock):float { return $clock; },
+        );
         foreach (['client'=>$client,'mutationsPrepared'=>true,'recurringStatePath'=>$blocker.'/state.json',
-            'paused'=>[7],'workflowsPaused'=>true,'hookUrl'=>'https://example.invalid/qa-hook'] as $key=>$value) $this->set($runner,$key,$value);
+            'paused'=>[7],'workflowsPaused'=>true,'hookUrl'=>'https://example.invalid/qa-hook',
+            'qaWebhookCreationAttempted'=>true,'qaWebhookSubscription'=>$webhookSubscription] as $key=>$value) $this->set($runner,$key,$value);
         try {
             (new \ReflectionMethod($runner,'cleanup'))->invoke($runner);
             $this->assertSame(1,(int)DB::table('workflows')->where('id',7)->value('is_active'));
@@ -154,6 +166,8 @@ final class WorkflowRecurringAcceptanceLifecycleTest extends TestCase
             $this->assertTrue($report['cleanup']['remove_qa_webhook']['ok']);
             $this->assertTrue($report['cleanup']['restore_workflow_activation']['ok']);
             $this->assertNotEmpty($report['report_write_errors']);
+            $this->assertCount(1,array_filter($calls,fn($call)=>$call['method']==='DELETE'));
+            $this->assertGreaterThanOrEqual(12,$clock);
         } finally { unlink($blocker); }
     }
 }
