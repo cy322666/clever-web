@@ -125,6 +125,63 @@ class WorkflowFoldersTest extends TestCase
             ->assertHasActionErrors(['name']);
     }
 
+    public function test_list_groups_workflows_by_launch_type_and_hides_empty_groups(): void
+    {
+        $manual = $this->workflow('Ручной сценарий');
+        $button = $this->workflow('Сценарий кнопки', null, 1, 'amo-button');
+        $webhook = $this->workflow('Сценарий вебхука', null, 1, 'generic-webhook');
+        $this->workflow('Чужой Digital Pipeline', null, 2, 'digital-pipeline');
+
+        Livewire::test(ListWorkflows::class)
+            ->assertStatus(200)
+            ->assertSee('Ручной запуск')
+            ->assertSee('Кнопки')
+            ->assertSee('Webhooks')
+            ->assertDontSee('Digital Pipeline')
+            ->assertDontSee('Расписание')
+            ->call('selectLaunchType', 'buttons')
+            ->assertSet('workflowLaunchFilter', 'buttons')
+            ->assertSet('workflowGroupFilter', null)
+            ->assertSee($button->name)
+            ->assertDontSee($manual->name)
+            ->assertDontSee($webhook->name);
+    }
+
+    public function test_launch_type_filter_includes_additional_start_nodes(): void
+    {
+        $workflow = $this->workflow('Несколько запусков');
+        $workflow->forceFill(['definition' => array_replace($workflow->definition, [
+            'additional_triggers' => [[
+                'id' => 'trigger:webhook',
+                'type' => 'generic-webhook',
+                'config' => [],
+            ]],
+        ])])->saveQuietly();
+
+        Livewire::test(ListWorkflows::class)
+            ->assertSee('Webhooks')
+            ->call('selectLaunchType', 'webhooks')
+            ->assertSee('Несколько запусков');
+    }
+
+    public function test_selecting_a_folder_or_launch_type_clears_the_other_grouping(): void
+    {
+        $this->workflow('Сценарий', 'Продажи', 1, 'manual');
+
+        Livewire::test(ListWorkflows::class)
+            ->call('selectLaunchType', 'manual')
+            ->assertSet('workflowLaunchFilter', 'manual')
+            ->call('selectFolder', 'Продажи')
+            ->assertSet('workflowGroupFilter', 'Продажи')
+            ->assertSet('workflowLaunchFilter', null)
+            ->call('selectLaunchType', 'manual')
+            ->assertSet('workflowGroupFilter', null)
+            ->assertSet('workflowLaunchFilter', 'manual')
+            ->call('selectFolder', null)
+            ->assertSet('workflowGroupFilter', null)
+            ->assertSet('workflowLaunchFilter', null);
+    }
+
     public function test_list_shows_only_runs_waiting_for_processing_in_the_queue_badge(): void
     {
         $workflow = $this->workflow('Очередь заявок');
@@ -162,12 +219,12 @@ class WorkflowFoldersTest extends TestCase
         $this->assertContains('Сохранение папок станет доступно после обновления базы.', $page->instance()->getErrorBag()->all());
     }
 
-    private function workflow(string $name, ?string $group = null, int $owner = 1): Workflow
+    private function workflow(string $name, ?string $group = null, int $owner = 1, string $triggerType = 'manual'): Workflow
     {
         $record = (new Workflow)->forceFill([
             'user_id' => $owner, 'name' => $name, 'group_name' => $group,
-            'is_active' => true, 'trigger_type' => 'manual',
-            'definition' => ['trigger' => ['type' => 'manual', 'config' => []], 'actions' => [
+            'is_active' => true, 'trigger_type' => in_array($triggerType, ['generic-webhook', 'digital-pipeline'], true) ? 'webhook' : 'manual',
+            'definition' => ['trigger' => ['type' => $triggerType, 'config' => []], 'actions' => [
                 ['id' => 'note', 'type' => 'amocrm_add_note', 'config' => ['text' => 'Тест']],
             ]],
         ]);

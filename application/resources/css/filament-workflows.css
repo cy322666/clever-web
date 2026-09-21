@@ -5862,6 +5862,12 @@ body:has(.workflow-list-page) .fi-main {
     color: #737373;
 }
 
+.workflow-folders__section + .workflow-folders__section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #d9dde3;
+}
+
 .workflow-folders__item {
     display: flex;
     width: 100%;
@@ -5904,6 +5910,7 @@ body:has(.workflow-list-page) .fi-main {
 
 .dark .workflow-list-page :is(.fi-header, .workflow-overview) { background: #202020; border-color: #383838; }
 .dark .workflow-folders { background: #242424; border-color: #383838; }
+.dark .workflow-folders__section + .workflow-folders__section { border-color: #383838; }
 .dark .workflow-folders__item { color: #a3a3a3; }
 .dark .workflow-folders__item:hover,
 .dark .workflow-folders__item.is-active { background: #343434; color: #e5e5e5; }
