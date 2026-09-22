@@ -62,7 +62,7 @@ class AppPanelProvider extends PanelProvider
             ->brandName('CleverCRM')
             ->brandLogo(asset('logo/full_logo.png'))
             ->brandLogoHeight('2rem')
-            ->favicon(asset('favicon.ico').'?v=20260919')
+            ->favicon(asset('favicon-clevercrm-20260922.ico'))
             ->font(
                 'Manrope',
                 asset('fonts/clevercrm/clevercrm-v1.css'),
