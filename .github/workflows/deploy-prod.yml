@@ -516,6 +516,13 @@ jobs:
 
             trap - ERR
             rm -f /tmp/clever-web-deploy-error
+
+            echo "Pruning stopped containers and unused images older than 7 days..."
+            docker container prune -f --filter "until=168h" || \
+              echo "Warning: stopped container cleanup failed."
+            docker image prune -a -f --filter "until=168h" || \
+              echo "Warning: unused image cleanup failed."
+
             echo "Deploy successful on ${DEPLOY_SHA}"
 
       - name: Report production deploy failure
