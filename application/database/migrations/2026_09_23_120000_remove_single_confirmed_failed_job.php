@@ -15,17 +15,25 @@ return new class extends Migration {
         }
 
         DB::connection($connection)->transaction(function () use ($connection, $table): void {
-            $failedJobs = DB::connection($connection)->table($table)->lockForUpdate();
+            $failedJobs = DB::connection($connection)
+                ->table($table)
+                ->orderBy('id')
+                ->limit(2)
+                ->lockForUpdate()
+                ->get(['uuid']);
 
-            if ((clone $failedJobs)->count() !== 1) {
+            if ($failedJobs->count() !== 1) {
                 return;
             }
 
-            $uuid = (clone $failedJobs)
+            $uuid = $failedJobs->first()->uuid;
+            $isOldEnough = DB::connection($connection)
+                ->table($table)
+                ->where('uuid', $uuid)
                 ->where('failed_at', '<', now()->subMinutes(10))
-                ->value('uuid');
+                ->exists();
 
-            if (!$uuid) {
+            if (!$isOldEnough) {
                 return;
             }
 
