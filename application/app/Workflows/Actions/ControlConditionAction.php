@@ -79,6 +79,8 @@ class ControlConditionAction extends ConditionAction
                                         ->options([
                                             'equals' => static::actionCommonTrans('operators.equals'),
                                             'not_equals' => static::actionCommonTrans('operators.not_equals'),
+                                            'is_true' => static::actionCommonTrans('operators.is_true'),
+                                            'is_false' => static::actionCommonTrans('operators.is_false'),
                                             'contains' => static::actionCommonTrans('operators.contains'),
                                             'not_contains' => static::actionCommonTrans('operators.not_contains'),
                                             'is_empty' => static::actionCommonTrans('operators.is_empty'),

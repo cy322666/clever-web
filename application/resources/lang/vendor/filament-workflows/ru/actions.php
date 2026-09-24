@@ -76,8 +76,8 @@ return array_replace_recursive($fallback, [
             'is_not_empty' => 'Не пусто',
             'is_null' => 'Null',
             'is_not_null' => 'Не null',
-            'is_true' => 'Истина',
-            'is_false' => 'Ложь',
+            'is_true' => 'Да',
+            'is_false' => 'Нет',
             'matches_regex' => 'Соответствует regex',
         ],
         'messages' => [
