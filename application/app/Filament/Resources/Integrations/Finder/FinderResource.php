@@ -9,19 +9,18 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Finder\Setting;
 use App\Models\Workflows\Workflow;
-use App\Support\Integrations\PricingView;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
-use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -81,11 +80,10 @@ class FinderResource extends Resource
                     self::workflowSelect('settings.reply_workflow_id', 'Сценарий после ответа')
                         ->visible(fn (Get $get) => (bool) $get('settings.run_reply_workflow'))->required(fn (Get $get) => (bool) $get('settings.run_reply_workflow'))->columnSpanFull(),
                 ]),
-            ])->columnSpan(['default' => 1, 'lg' => 2]),
+            ])->columnSpan(['default' => 1, 'lg' => 2])->columnOrder(['default' => 1, 'lg' => 2]),
             Section::make('Тарифы')->extraAttributes(['class' => 'self-start h-fit'])->compact()->schema([
-                TextEntry::make('pricing')->hiddenLabel()->html()
-                    ->state(fn () => PricingView::sidebarHtml(Setting::$cost, showSavings: false)),
-            ]),
+                View::make('filament.integrations.finder.pricing')->viewData(['cost' => Setting::$cost]),
+            ])->columnOrder(['default' => 2, 'lg' => 1]),
         ])->columns(['default' => 1, 'lg' => 3]);
     }
 

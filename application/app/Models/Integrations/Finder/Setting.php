@@ -22,9 +22,10 @@ class Setting extends Model
     public static string $resource = FinderResource::class;
 
     public static array $cost = [
-        '1_month' => '0 руб',
-        '6_month' => '0 руб',
-        '12_month' => '0 руб',
+        '1_month' => '1 000 руб',
+        '6_month' => '6 000 руб',
+        '12_month' => '10 000 руб',
+        '1_month_per_user' => '249 руб',
     ];
 
     public function account(): BelongsTo
