@@ -72,6 +72,9 @@ class ActionExecutor
             $talk = $client->requestV4('GET', '/api/v4/talks/'.(int) $payload['talk_id']);
             if (in_array((string) ($talk['entity_type'] ?? ''), ['lead', 'leads', '2'], true)) {
                 $leadId = (int) ($talk['entity_id'] ?? $leadId);
+            } elseif (in_array((string) ($talk['entity_type'] ?? ''), ['contact', 'contacts', '1'], true)) {
+                $leadId = 0;
+                $contactId = (int) ($talk['entity_id'] ?? $contactId);
             }
             $contactId = (int) ($talk['contact_id'] ?? $contactId);
         }
@@ -89,7 +92,7 @@ class ActionExecutor
             $response = $client->requestV4('POST', '/api/v4/tasks', [[
                 'entity_id' => $entityId, 'entity_type' => $entityType,
                 'responsible_user_id' => $responsible, 'task_type_id' => (int) $payload['task_type_id'],
-                'text' => $payload['task_text'].' (Finder, проверка '.$action->attempt.')',
+                'text' => $payload['task_text'],
                 'complete_till' => now()->addMinutes((int) $payload['task_due_minutes'])->timestamp,
                 'request_id' => 'finder-'.$action->id,
             ]]);

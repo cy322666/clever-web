@@ -138,4 +138,17 @@ class SettingsTest extends TestCase
         $this->assertFalse($this->setting->refresh()->enabled);
         $this->assertSame(App::STATE_INACTIVE, $this->setting->app()->value('status'));
     }
+
+    public function test_current_responsible_is_an_explicit_option_and_round_trips_with_selected_staff(): void
+    {
+        DB::table('amocrm_staffs')->insert(['user_id' => 1, 'staff_id' => 99, 'name' => 'Тестовый сотрудник', 'active' => true]);
+        $page = Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+            ->assertSet('data.settings.responsible_user_id', 0)
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame(0, (int) $this->setting->refresh()->settings['responsible_user_id']);
+        $page->set('data.settings.responsible_user_id', 99)->call('save')->assertHasNoErrors();
+        $this->assertSame(99, (int) $this->setting->refresh()->settings['responsible_user_id']);
+        $page->set('data.settings.responsible_user_id', 0)->call('save')->assertHasNoErrors();
+        $this->assertSame(0, (int) $this->setting->refresh()->settings['responsible_user_id']);
+    }
 }

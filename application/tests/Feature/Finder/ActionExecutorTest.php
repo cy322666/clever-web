@@ -63,7 +63,7 @@ class ActionExecutorTest extends TestCase
             $this->assertSame(55, $payload[0]['entity_id']);
             $this->assertSame(99, $payload[0]['responsible_user_id']);
             $this->assertSame('leads', $payload[0]['entity_type']);
-            $this->assertStringContainsString('проверка 2', $payload[0]['text']);
+            $this->assertSame('Ответить клиенту', $payload[0]['text']);
 
             return ['_embedded' => ['tasks' => [['id' => 987]]]];
         });
@@ -91,6 +91,55 @@ class ActionExecutorTest extends TestCase
         $this->assertSame(55, $trigger['lead']['id']);
         $this->assertSame(1, $trigger['account']['user_id']);
         Bus::assertDispatchedTimes(ExecuteWorkflowJob::class, 1);
+    }
+
+    public function test_current_responsible_uses_contact_when_talk_has_no_lead(): void
+    {
+        $action = $this->action('task');
+        $action->update(['payload' => [...$action->payload, 'responsible_user_id' => 0, 'lead_id' => 55]]);
+        $client = $this->createMock(Client::class);
+        $client->expects($this->exactly(3))->method('requestV4')->willReturnCallback(function ($method, $path, $payload = []) {
+            if ($path === '/api/v4/talks/117') {
+                return ['entity_type' => 'contact', 'entity_id' => 42, 'contact_id' => 42];
+            }
+            if ($path === '/api/v4/contacts/42') {
+                return ['id' => 42, 'responsible_user_id' => 123];
+            }
+            $this->assertSame('POST', $method);
+            $this->assertSame('/api/v4/tasks', $path);
+            $this->assertSame('contacts', $payload[0]['entity_type']);
+            $this->assertSame(42, $payload[0]['entity_id']);
+            $this->assertSame(123, $payload[0]['responsible_user_id']);
+            $this->assertSame('Ответить клиенту', $payload[0]['text']);
+
+            return ['_embedded' => ['tasks' => [['id' => 988]]]];
+        });
+        $this->executor($client)->deliver($action->id);
+        $this->assertSame('succeeded', $action->refresh()->status);
+    }
+
+    public function test_selected_staff_overrides_current_responsible_and_task_text_is_preserved(): void
+    {
+        $action = $this->action('task');
+        $text = "Уточнить детали: заказ № 7\nОтветить клиенту.";
+        $action->update(['payload' => [...$action->payload, 'responsible_user_id' => 321, 'task_text' => $text]]);
+        $client = $this->createMock(Client::class);
+        $client->expects($this->exactly(3))->method('requestV4')->willReturnCallback(function ($method, $path, $payload = []) use ($text) {
+            if ($path === '/api/v4/talks/117') {
+                return ['entity_type' => 'lead', 'entity_id' => 55, 'contact_id' => 42];
+            }
+            if ($path === '/api/v4/leads/55') {
+                return ['id' => 55, 'responsible_user_id' => 99];
+            }
+            $this->assertSame('POST', $method);
+            $this->assertSame('/api/v4/tasks', $path);
+            $this->assertSame(321, $payload[0]['responsible_user_id']);
+            $this->assertSame($text, $payload[0]['text']);
+
+            return ['_embedded' => ['tasks' => [['id' => 989]]]];
+        });
+        $this->executor($client)->deliver($action->id);
+        $this->assertSame('succeeded', $action->refresh()->status);
     }
 
     public function test_foreign_workflow_is_not_executed_even_for_tampered_saved_payload(): void

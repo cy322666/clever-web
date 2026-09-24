@@ -66,8 +66,10 @@ class FinderResource extends Resource
                         ->visible(fn (Get $get) => (bool) $get('settings.run_workflow'))->required(fn (Get $get) => (bool) $get('settings.run_workflow'))->columnSpanFull(),
                     Toggle::make('settings.create_task')->label('Поставить задачу')->live()->columnSpanFull(),
                     Group::make()->visible(fn (Get $get) => (bool) $get('settings.create_task'))->schema([
-                        Select::make('settings.responsible_user_id')->label('Для кого')->placeholder('Ответственный за сделку или контакт')->searchable()
-                            ->options(fn () => Staff::query()->where('user_id', Auth::id())->where('active', true)->pluck('name', 'staff_id')->all()),
+                        Select::make('settings.responsible_user_id')->label('Для кого')->searchable()->selectablePlaceholder(false)
+                            ->formatStateUsing(fn ($state) => blank($state) ? 0 : $state)
+                            ->options(fn () => [0 => 'Текущий ответственный'] + Staff::query()->where('user_id', Auth::id())->where('active', true)->pluck('name', 'staff_id')->all())
+                            ->helperText('Ответственный за сделку беседы. Если сделки нет, ответственный за контакт.'),
                         Select::make('settings.task_type_id')->label('Тип задачи')->searchable()->required()
                             ->options(fn () => \App\Services\Workflows\WorkflowNodeReferences::options('task_types') ?: [1 => 'Связаться', 2 => 'Встреча']),
                         TextInput::make('settings.task_text')->label('Текст задачи')->required()->maxLength(1000),
