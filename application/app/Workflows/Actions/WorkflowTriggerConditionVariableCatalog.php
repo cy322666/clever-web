@@ -11,6 +11,41 @@ use Illuminate\Support\Str;
 class WorkflowTriggerConditionVariableCatalog
 {
     /**
+     * Compare field values, not enum IDs: the cf() mask resolves to amoCRM's value labels.
+     * Null means free input; an empty array means a list field with no synced variants.
+     *
+     * @return array<string, string>|null
+     */
+    public static function conditionFieldValueOptions(mixed $expression): ?array
+    {
+        $field = static::conditionField($expression);
+
+        if (!$field || !in_array($field->type, ['select', 'multiselect', 'radiobutton'], true)) {
+            return null;
+        }
+
+        return collect(static::amoFieldEnumItems($field->enums))
+            ->mapWithKeys(fn (array $option): array => [$option['name'] => $option['name']])->all();
+    }
+
+    public static function conditionFieldType(mixed $expression): ?string
+    {
+        return static::conditionField($expression)?->type;
+    }
+
+    private static function conditionField(mixed $expression): ?AmoCrmField
+    {
+        if (!Auth::id() || !is_string($expression)
+            || !preg_match('/^\s*\{\{\s*(lead|contact|company|customer)\.cf\(\s*(\d+)\s*\)\s*\}\}\s*$/', $expression, $match)) {
+            return null;
+        }
+
+        $entity = ['lead' => 'leads', 'contact' => 'contacts', 'company' => 'companies', 'customer' => 'customers'][$match[1]];
+        return AmoCrmField::query()->where('user_id', Auth::id())->where('active', true)
+            ->where('entity_type', $entity)->where('field_id', $match[2])->first(['type', 'enums']);
+    }
+
+    /**
      * @return array<string, array<string, string>>
      */
     public static function groupedOptions(bool $includeStaticValues = false): array

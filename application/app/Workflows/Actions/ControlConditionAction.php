@@ -70,7 +70,10 @@ class ControlConditionAction extends ConditionAction
                         ->schema([
                             Grid::make(1)
                                 ->schema([
-                                    WorkflowValueInput::make('left')->label('Значение 1'),
+                                    WorkflowValueInput::make('left')->label('Значение 1')->live(debounce: 400),
+                                    Hidden::make('left_field_type')->dehydrateStateUsing(
+                                        fn (Get $get): ?string => WorkflowTriggerConditionVariableCatalog::conditionFieldType($get('left')),
+                                    ),
 
                                     Select::make('operator')
                                         ->label(static::actionCommonTrans('fields.operator.label'))
@@ -95,6 +98,10 @@ class ControlConditionAction extends ConditionAction
                                         ->columnSpanFull(),
 
                                     WorkflowValueInput::make('right')->label('Значение 2')
+                                        ->options(
+                                            fn (Get $get): array => WorkflowTriggerConditionVariableCatalog::conditionFieldValueOptions($get('left')) ?? [],
+                                            fn (Get $get): bool => WorkflowTriggerConditionVariableCatalog::conditionFieldValueOptions($get('left')) !== null,
+                                        )
                                         ->visible(fn(Get $get): bool => !in_array($get('operator'), [
                                             'is_empty',
                                             'is_not_empty',
@@ -236,8 +243,8 @@ class ControlConditionAction extends ConditionAction
             'gte' => $this->compareNumeric($left, $right, '>='),
             'lt' => $this->compareNumeric($left, $right, '<'),
             'lte' => $this->compareNumeric($left, $right, '<='),
-            'contains' => is_string($left) && str_contains($left, (string)$right),
-            'not_contains' => is_string($left) && !str_contains($left, (string)$right),
+            'contains' => $this->containsValue($left, $right, ($condition['left_field_type'] ?? null) === 'multiselect'),
+            'not_contains' => (is_string($left) || is_array($left)) && !$this->containsValue($left, $right, ($condition['left_field_type'] ?? null) === 'multiselect'),
             'starts_with' => is_string($left) && str_starts_with($left, (string)$right),
             'ends_with' => is_string($left) && str_ends_with($left, (string)$right),
             'in' => $this->isInArray($left, $right),
@@ -269,6 +276,23 @@ class ControlConditionAction extends ConditionAction
         }
 
         return json_decode(json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null', true);
+    }
+
+    private function containsValue(mixed $left, mixed $right, bool $isMultiselect): bool
+    {
+        // Legacy cf() masks serialize multiselect values as JSON; new references keep arrays.
+        if ($isMultiselect && is_string($left)) {
+            $decoded = json_decode($left, true);
+            $left = is_array($decoded) && array_is_list($decoded) ? $decoded : [$left];
+        }
+
+        if (is_array($left)) {
+            return is_scalar($right) && collect($left)->contains(
+                fn (mixed $value): bool => is_scalar($value) && (string) $value === (string) $right,
+            );
+        }
+
+        return is_string($left) && is_scalar($right) && str_contains($left, (string) $right);
     }
 
     protected static function conditionValueSelect(string $name, bool $includeStaticValues): Select
