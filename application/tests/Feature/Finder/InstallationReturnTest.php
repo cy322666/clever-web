@@ -65,6 +65,20 @@ class InstallationReturnTest extends TestCase
         $this->assertSame(2, Auth::id());
     }
 
+    public function test_only_valid_server_issued_context_selects_the_platform_owner(): void
+    {
+        $contexts = app(\App\Services\Finder\InstallationContext::class);
+        $state = $contexts->encode(\App\Models\Integrations\Finder\Setting::findOrFail(1));
+        $this->postJson('/api/amocrm/install/finder', ['code' => 'test', 'referer' => 'finder-test.amocrm.ru', 'state' => $state])->assertStatus(202);
+        Queue::assertPushed(CompleteAmoCrmWidgetInstallation::class, fn ($job) => $job->platformUserId === 1);
+
+        $this->postJson('/api/amocrm/install/finder', ['code' => 'test', 'referer' => 'finder-test.amocrm.ru', 'state' => $state.'tampered'])->assertStatus(422);
+        $this->travel(31)->minutes();
+        $this->postJson('/api/amocrm/install/finder', ['code' => 'test', 'referer' => 'finder-test.amocrm.ru', 'state' => $state])->assertStatus(422);
+        Queue::assertPushed(CompleteAmoCrmWidgetInstallation::class, 1);
+        $this->assertNull($contexts->userId(base64_encode(json_encode(['user_uuid' => 'untrusted']))));
+    }
+
     public function test_missing_callback_data_and_failed_jobs_show_error_without_false_success(): void
     {
         $response = $this->get('/api/amocrm/install/finder', ['Accept' => 'text/html'])->assertStatus(303);

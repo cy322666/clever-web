@@ -31,7 +31,8 @@ class WebhookConnectionTest extends TestCase
         $client = $this->createMock(Client::class);
         $connection = $this->connection($client);
         $url = $connection->url($setting);
-        $client->expects($this->exactly(2))->method('requestV4')->willReturnCallback(function ($method, $path, $payload = []) use ($url) {
+        $reads = 0;
+        $client->expects($this->exactly(3))->method('requestV4')->willReturnCallback(function ($method, $path, $payload = []) use ($url, &$reads) {
             $this->assertSame('/api/v4/webhooks', $path);
             if ($method === 'POST') {
                 $this->assertSame(['destination' => $url, 'settings' => WebhookConnection::EVENTS], $payload);
@@ -39,12 +40,27 @@ class WebhookConnectionTest extends TestCase
                 return [];
             }
             $this->assertSame('GET', $method);
+            if (++$reads === 1) {
+                return ['_embedded' => ['webhooks' => [['destination' => 'https://other.example.test/hook', 'settings' => ['add_lead']]]]];
+            }
 
             return ['_embedded' => ['webhooks' => [
                 ['destination' => 'https://other.example.test/hook', 'settings' => ['add_lead']],
                 ['destination' => $url, 'settings' => WebhookConnection::EVENTS, 'disabled' => false],
             ]]];
         });
+        $connection->connect($setting);
+        $this->assertNotNull($setting->refresh()->connected_at);
+    }
+
+    public function test_retry_reads_an_existing_complete_hook_without_posting_again(): void
+    {
+        $setting = FinderDatabase::prepare();
+        config(['workflow-webhooks.public_url' => 'https://finder.example.test']);
+        $client = $this->createMock(Client::class);
+        $connection = $this->connection($client);
+        $client->expects($this->once())->method('requestV4')->with('GET', '/api/v4/webhooks')
+            ->willReturn(['_embedded' => ['webhooks' => [['destination' => $connection->url($setting), 'settings' => WebhookConnection::EVENTS]]]]);
         $connection->connect($setting);
         $this->assertNotNull($setting->refresh()->connected_at);
     }

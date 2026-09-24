@@ -21,7 +21,7 @@ class AmoCrmWidgetInstallationService
     /**
      * @return array{user: User, account: Account, created_user: bool}
      */
-    public function install(string $authorizationCode, string $referer, string $widget = 'workflows'): array
+    public function install(string $authorizationCode, string $referer, string $widget = 'workflows', ?int $platformUserId = null): array
     {
         $authorizationCode = trim($authorizationCode);
         $widget = Account::normalizeWidget($widget);
@@ -83,6 +83,7 @@ class AmoCrmWidgetInstallationService
             $refreshToken,
             $token,
             $widget,
+            $platformUserId,
         ): array {
             $account = Account::query()
                 ->where('amo_account_id', $amoAccountId)
@@ -114,7 +115,23 @@ class AmoCrmWidgetInstallationService
                 $account = $ownerAccounts->firstWhere('widget', $widget);
             }
 
-            $user = $account?->user ?? $ownerAccounts->first()?->user;
+            $targetUser = $widget === 'finder' && $platformUserId
+                ? User::query()->lockForUpdate()->findOrFail($platformUserId)
+                : null;
+            if ($targetUser && $ownerUserIds->isNotEmpty() && ! $ownerUserIds->contains($targetUser->id)) {
+                throw new RuntimeException('amoCRM account is already linked to another platform user.');
+            }
+            if ($targetUser && $targetUser->accounts()->whereNotNull('subdomain')->where('subdomain', '<>', '')
+                ->where(function ($query) use ($domain): void {
+                    $query->where('subdomain', '<>', $domain['subdomain'])
+                        ->orWhere(function ($query) use ($domain): void {
+                            $query->whereNotNull('zone')->where('zone', '<>', $domain['zone']);
+                        });
+                })->exists()) {
+                throw new RuntimeException('Platform user already has another amoCRM account.');
+            }
+
+            $user = $targetUser ?? $account?->user ?? $ownerAccounts->first()?->user;
             $createdUser = false;
 
             if (! $user) {
@@ -214,7 +231,13 @@ class AmoCrmWidgetInstallationService
             ->where('name', $widget)
             ->first();
         if ($app) {
-            $provisioning->ensureSettingForApp($app);
+            $app = $provisioning->ensureSettingForApp($app);
+            if ($widget === 'finder') {
+                $setting = \App\Models\Integrations\Finder\Setting::query()
+                    ->where('user_id', $user->id)->findOrFail($app->setting_id);
+                $setting->forceFill(['account_id' => $account->id, 'connected_at' => null])->save();
+                \App\Jobs\Integrations\SynchronizeFinderWebhooks::dispatch($setting->id);
+            }
         }
 
         app(WidgetSubscriptionAccessService::class)->ensureTrialForWidget(

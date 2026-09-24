@@ -26,6 +26,7 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         public string $referer,
         public string $widget = 'workflows',
         public ?string $completionToken = null,
+        public ?int $platformUserId = null,
     ) {
         $this->onQueue('default');
     }
@@ -42,11 +43,15 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
 
     public function handle(AmoCrmWidgetInstallationService $installation): void
     {
-        $result = $installation->install(
+        $arguments = [
             Crypt::decryptString($this->encryptedAuthorizationCode),
             $this->referer,
             $this->widget,
-        );
+        ];
+        if ($this->platformUserId ?? null) {
+            $arguments[] = $this->platformUserId;
+        }
+        $result = $installation->install(...$arguments);
 
         if ($this->widget === 'finder' && ($this->completionToken ?? null)) {
             app(\App\Services\Finder\InstallationStatus::class)->put($this->completionToken, [

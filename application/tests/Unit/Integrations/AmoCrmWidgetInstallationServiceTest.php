@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
 use Tests\TestCase;
@@ -305,5 +306,64 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             $this->assertSame('amoCRM finder client_id is not configured.', $exception->getMessage());
         }
         Http::assertNothingSent();
+    }
+
+    public function test_finder_platform_install_keeps_the_initiating_owner_and_automatically_queues_hooks(): void
+    {
+        $owner = $this->prepareFinderPlatformInstall();
+        (require database_path('migrations/2026_09_24_130000_create_finder_tables.php'))->up();
+        $setting = \App\Models\Integrations\Finder\Setting::create(['user_id' => $owner->id]);
+        $app = \App\Models\App::create([
+            'user_id' => $owner->id, 'name' => 'finder', 'setting_id' => $setting->id,
+            'resource_name' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
+        ]);
+        $provisioning = $this->mock(IntegrationProvisioningService::class);
+        $provisioning->shouldReceive('syncCatalogForUser')->once();
+        $provisioning->shouldReceive('ensureSettingForApp')->once()->andReturn($app);
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)->install('test-code', 'widgetscenario.amocrm.ru', 'finder', $owner->id);
+
+        $this->assertSame($owner->id, $result['user']->id);
+        $this->assertFalse($result['created_user']);
+        $this->assertSame(1, User::count());
+        $this->assertSame($result['account']->id, $setting->refresh()->account_id);
+        Queue::assertPushed(\App\Jobs\Integrations\SynchronizeFinderWebhooks::class, fn ($job) => $job->settingId === $setting->id);
+        $connection = $this->mock(\App\Services\Finder\WebhookConnection::class);
+        $connection->shouldReceive('connect')->once()->with(Mockery::on(fn ($value) => $value->account_id === $result['account']->id));
+        Queue::pushed(\App\Jobs\Integrations\SynchronizeFinderWebhooks::class)->first()->handle($connection);
+    }
+
+    public function test_finder_context_cannot_take_an_account_from_another_owner(): void
+    {
+        $owner = $this->prepareFinderPlatformInstall();
+        $other = User::withoutEvents(fn () => User::create(['name' => 'Other', 'email' => 'other@example.test', 'password' => 'test']));
+        $existing = (new Account)->forceFill(['user_id' => $other->id, 'widget' => 'finder', 'amo_account_id' => 33098322, 'subdomain' => 'widgetscenario', 'active' => true, 'access_token' => 'unchanged']);
+        $existing->save();
+        try {
+            app(AmoCrmWidgetInstallationService::class)->install('test-code', 'widgetscenario.amocrm.ru', 'finder', $owner->id);
+            $this->fail('An existing foreign account must not be reassigned.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('amoCRM account is already linked to another platform user.', $exception->getMessage());
+        }
+        $this->assertSame($other->id, $existing->fresh()->user_id);
+        $this->assertSame('unchanged', $existing->fresh()->access_token);
+        Queue::assertNothingPushed();
+    }
+
+    private function prepareFinderPlatformInstall(): User
+    {
+        Queue::fake();
+        config(['services.amocrm.widgets.finder.client_id' => 'finder-client', 'services.amocrm.widgets.finder.client_secret' => 'finder-secret']);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response(['access_token' => 'finder-access', 'refresh_token' => 'finder-refresh']),
+            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response(['id' => 33098322, 'current_user_id' => 778899]),
+            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response(['id' => 778899, 'email' => 'different-installer@example.test']),
+        ]);
+
+        return User::withoutEvents(fn () => User::create(['name' => 'Platform owner', 'email' => 'platform@example.test', 'password' => 'test']));
     }
 }

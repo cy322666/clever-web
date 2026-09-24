@@ -34,13 +34,22 @@ class WebhookConnection
             throw ValidationException::withMessages(['connection' => 'Для вебхука нужен публичный HTTPS адрес платформы.']);
         }
         $client = $this->client($setting);
-        $client->requestV4('POST', '/api/v4/webhooks', ['destination' => $url, 'settings' => self::EVENTS]);
         $hooks = $client->requestV4('GET', '/api/v4/webhooks');
         $hook = collect(data_get($hooks, '_embedded.webhooks', []))->firstWhere('destination', $url);
-        if (! $hook || ! empty($hook['disabled']) || array_diff(self::EVENTS, $hook['settings'] ?? [])) {
+        if (! $this->isConnected($hook)) {
+            $client->requestV4('POST', '/api/v4/webhooks', ['destination' => $url, 'settings' => self::EVENTS]);
+            $hooks = $client->requestV4('GET', '/api/v4/webhooks');
+            $hook = collect(data_get($hooks, '_embedded.webhooks', []))->firstWhere('destination', $url);
+        }
+        if (! $this->isConnected($hook)) {
             throw ValidationException::withMessages(['connection' => 'amoCRM не подтвердил подписку на оба события сообщений.']);
         }
         $setting->forceFill(['connected_at' => now()])->save();
+    }
+
+    private function isConnected(?array $hook): bool
+    {
+        return $hook && empty($hook['disabled']) && ! array_diff(self::EVENTS, $hook['settings'] ?? []);
     }
 
     protected function client(Setting $setting): Client

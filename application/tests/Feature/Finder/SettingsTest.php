@@ -38,6 +38,7 @@ class SettingsTest extends TestCase
             ->assertSee('Контроль ответов')
             ->assertSee('finder-test.amocrm.ru')
             ->assertDontSee('Отслеживать ответы на диалоги')
+            ->assertActionDoesNotExist('connect')
             ->set('data.settings.minutes', 7)
             ->call('save')->assertHasNoErrors();
         $this->assertSame(7, $this->setting->refresh()->settings['minutes']);
@@ -55,18 +56,15 @@ class SettingsTest extends TestCase
         ]);
         User::whereKey(1)->update(['uuid' => 'owner-uuid']);
         $before = $this->setting->account->getAttributes();
-        $state = rtrim(strtr(base64_encode(json_encode(['user_uuid' => 'owner-uuid', 'widget' => 'finder'])), '+/', '-_'), '=');
-        $url = 'https://www.amocrm.ru/oauth/?'.http_build_query([
-            'client_id' => 'finder-client', 'state' => $state,
-            'uri' => \App\Filament\Resources\Integrations\Finder\FinderResource::getUrl('edit', ['record' => $this->setting]),
-        ], '', '&', PHP_QUERY_RFC3986);
-
-        Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+        $page = Livewire::test(EditFinder::class, ['record' => $this->setting->id])
             ->assertActionHasLabel('account', 'finder-test.amocrm.ru')
-            ->assertActionHasUrl('account', $url)
-            ->assertActionShouldOpenUrlInNewTab('account')
             ->assertActionEnabled('account')
             ->assertDontSee('never-render-this-secret');
+        $action = $page->instance()->getAction('account');
+        parse_str(parse_url($action->getUrl(), PHP_URL_QUERY), $query);
+        $this->assertSame('finder-client', $query['client_id']);
+        $this->assertSame(1, app(\App\Services\Finder\InstallationContext::class)->userId($query['state']));
+        $this->assertFalse($action->shouldOpenUrlInNewTab());
         $this->assertSame($before, $this->setting->account->fresh()->getAttributes());
     }
 

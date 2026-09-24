@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Integrations\Finder\Pages;
 use App\Filament\Resources\Integrations\Finder\FinderResource;
 use App\Services\Finder\MonitoringState;
 use App\Services\Finder\SettingsValidator;
-use App\Services\Finder\WebhookConnection;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -47,7 +46,7 @@ class EditFinder extends EditRecord
                     Notification::make()->title($enabled ? 'Контроль ответов выключен' : 'Контроль ответов включён')->success()->send();
                 }),
             Action::make('account')->label($domain ?: 'Подключить amoCRM')->icon('heroicon-o-key')->color('gray')
-                ->url($authorizationUrl)->openUrlInNewTab()->disabled($authorizationUrl === null)
+                ->url($authorizationUrl)->disabled($authorizationUrl === null)
                 ->tooltip($authorizationUrl === null ? 'Подключение amoCRM пока не настроено' : 'Подключить amoCRM к виджету «Контроль ответов»'),
             Action::make('references')->label('Обновить сотрудников и типы задач')->icon('heroicon-o-arrow-path')->iconButton()->color('gray')
                     ->visible((bool) $account?->active)->tooltip('Обновить сотрудников и типы задач')->action(function (): void {
@@ -58,18 +57,6 @@ class EditFinder extends EditRecord
                             Notification::make()->title('Не удалось обновить справочники amoCRM')->danger()->send();
                         }
                     }),
-            Action::make('connect')->label('Подключить сообщения')->icon('heroicon-o-link')->action(function (): void {
-                $this->save(false, false);
-                try {
-                    app(WebhookConnection::class)->connect($this->record->refresh());
-                    Notification::make()->title('Оба события сообщений подключены')->success()->send();
-                    $this->refreshFormData(['connected_at']);
-                } catch (ValidationException $exception) {
-                    Notification::make()->title('Не удалось подключить сообщения')->body($exception->getMessage())->danger()->send();
-                } catch (Throwable) {
-                    Notification::make()->title('amoCRM не подтвердил подключение. Проверьте авторизацию и повторите.')->danger()->send();
-                }
-            }),
             Action::make('history')->label('История')->icon('heroicon-o-list-bullet')->url(FinderResource::getUrl('history')),
         ];
     }
@@ -81,10 +68,7 @@ class EditFinder extends EditRecord
             return null;
         }
 
-        $state = rtrim(strtr(base64_encode(json_encode([
-            'user_uuid' => (string) $this->record->user?->uuid,
-            'widget' => 'finder',
-        ], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+        $state = app(\App\Services\Finder\InstallationContext::class)->encode($this->record);
 
         return 'https://www.amocrm.ru/oauth/?'.http_build_query([
             'client_id' => $clientId,

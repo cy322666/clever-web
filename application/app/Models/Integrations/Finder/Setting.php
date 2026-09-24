@@ -35,7 +35,13 @@ class Setting extends Model
 
     public function amoAccount(bool $createIfMissing = false, ?string $fallbackWidget = null): ?Account
     {
-        // Finder uses the platform connection, without its own OAuth installation.
+        // Keep the connection selected at installation. Older settings can still
+        // use the shared platform authorization until their own installation.
+        $account = $this->account()->where('user_id', $this->user_id)->where('active', true)->first();
+        if ($account && filled($account->subdomain) && (filled($account->access_token) || filled($account->refresh_token))) {
+            return $account;
+        }
+
         return $this->user?->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET, false);
     }
 

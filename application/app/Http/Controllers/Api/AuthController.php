@@ -81,11 +81,20 @@ class AuthController extends Controller
             ], 422);
         }
 
+        try {
+            $platformUserId = $widget === 'finder'
+                ? app(\App\Services\Finder\InstallationContext::class)->userId((string) $request->input('state', ''))
+                : null;
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return response()->json(['ok' => false, 'message' => $exception->getMessage()], 422);
+        }
+
         CompleteAmoCrmWidgetInstallation::dispatch(
             Crypt::encryptString($authorizationCode),
             $referer,
             $widget,
             $completionToken,
+            $platformUserId,
         );
 
         $this->notifyWidgetLifecycle('install', $widget, $request);
@@ -178,6 +187,9 @@ class AuthController extends Controller
     private function logWidgetLifecycleCallback(string $callback, string $event, Request $request): void
     {
         $payload = $request->all();
+        if ($callback === 'finder' && isset($payload['state'])) {
+            $payload['state'] = '[received]';
+        }
         $authorizationCode = trim((string) data_get($payload, 'code', ''));
 
         if ($authorizationCode !== '') {

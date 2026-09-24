@@ -33,6 +33,17 @@ class SharedAuthorizationTest extends TestCase
         $this->assertNull(Setting::sole()->account_id);
     }
 
+    public function test_connection_selected_during_installation_is_used_for_the_button_and_hooks(): void
+    {
+        $setting = FinderDatabase::prepare();
+        DB::table('accounts')->insert(['id' => 2, 'user_id' => 1, 'widget' => 'finder', 'access_token' => 'finder-test', 'refresh_token' => 'finder-test']);
+        $setting->update(['account_id' => 2]);
+        $this->assertSame(2, $setting->amoAccount()->id);
+
+        DB::table('accounts')->where('id', 2)->update(['user_id' => 2]);
+        $this->assertSame(1, $setting->amoAccount()->id);
+    }
+
     public function test_provisioning_reuses_platform_connection(): void
     {
         FinderDatabase::prepare();
