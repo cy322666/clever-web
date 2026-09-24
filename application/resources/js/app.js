@@ -191,10 +191,12 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pendingEdgeDrag: null,
     suppressEdgeClickUntil: 0,
     selectedNodeIds: [],
+    selectionMode: false,
     selectionBox: null,
     selectionOrigin: null,
     groupDragOrigins: {},
     pendingInsertion: null,
+    initialized: false,
 
     captureInsertion(sourceId, targetId) {
         const stage = this.$refs.stage;
@@ -371,6 +373,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     initializeCanvas() {
+        if (this.initialized) return;
+        this.initialized = true;
         this.restoreNodeLayout();
         this.applyNodePositions();
         this.observeCanvas();
@@ -385,13 +389,14 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             }
         });
         this.scheduleGraphRefresh();
-        this.centerView();
+        if (!this.restoreViewport()) this.centerView();
         document.fonts?.ready?.then(() => {
             if (this.$el?.isConnected) this.scheduleGraphRefreshAfterPaint();
         });
     },
 
     destroy() {
+        this.saveViewport();
         this.mutationObserver?.disconnect();
         this.resizeObserver?.disconnect();
         this.releaseMorphHook?.();
@@ -587,6 +592,44 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return `transform: translate3d(${this.translateX}px, ${this.translateY}px, 0) scale(${this.scale});`;
     },
 
+    saveViewport() {
+        try {
+            window.sessionStorage.setItem(this.layoutKey + ':viewport', JSON.stringify({
+                x: this.translateX, y: this.translateY, scale: this.scale,
+            }));
+        } catch { /* Navigation still works when browser storage is unavailable. */ }
+    },
+
+    restoreViewport() {
+        try {
+            const view = JSON.parse(window.sessionStorage.getItem(this.layoutKey + ':viewport'));
+            if (!view || ![view.x, view.y, view.scale].every(Number.isFinite) || view.scale < 0.01 || view.scale > 2) return false;
+            this.translateX = view.x;
+            this.translateY = view.y;
+            this.scale = view.scale;
+            return true;
+        } catch { return false; }
+    },
+
+    onCanvasWheel(event) {
+        if (event.target.closest('input, textarea, select, [contenteditable="true"], .workflow-canvas-note')) return;
+        event.preventDefault();
+        if (this.draggingNodeId !== null || this.selectionOrigin || this.panning || this.pendingEdgeDrag) return;
+        const viewport = this.$refs.viewport;
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
+        const dx = event.deltaX * unit;
+        const dy = event.deltaY * unit;
+        if (event.ctrlKey || event.metaKey) {
+            const rect = viewport.getBoundingClientRect();
+            this.zoomCanvas(Math.exp(-dy * 0.01), {x: event.clientX - rect.left, y: event.clientY - rect.top});
+            return;
+        }
+        this.translateX -= event.shiftKey && dx === 0 ? dy : dx;
+        this.translateY -= event.shiftKey && dx === 0 ? 0 : dy;
+        this.saveViewport();
+        this.scheduleGraphRefresh();
+    },
+
     fitView() {
         const viewport = this.$refs.viewport;
         const stage = this.$refs.stage;
@@ -608,19 +651,21 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.translateX = (viewport.clientWidth - width * this.scale) / 2 - left * this.scale;
         this.translateY = (viewport.clientHeight - height * this.scale) / 2 - top * this.scale;
         viewport.scrollTo?.({left: 0, top: 0});
+        this.saveViewport();
         this.scheduleGraphRefreshAfterPaint();
     },
 
-    zoomCanvas(factor) {
+    zoomCanvas(factor, anchor = null) {
         const viewport = this.$refs.viewport;
         if (!viewport || !Number.isFinite(factor) || factor <= 0) return;
         const oldScale = this.scale || 1;
         const nextScale = Math.min(2, Math.max(0.01, oldScale * factor));
-        const x = viewport.clientWidth / 2 + (viewport.scrollLeft || 0);
-        const y = viewport.clientHeight / 2 + (viewport.scrollTop || 0);
+        const x = (anchor?.x ?? viewport.clientWidth / 2) + (viewport.scrollLeft || 0);
+        const y = (anchor?.y ?? viewport.clientHeight / 2) + (viewport.scrollTop || 0);
         this.translateX = x - (x - this.translateX) * nextScale / oldScale;
         this.translateY = y - (y - this.translateY) * nextScale / oldScale;
         this.scale = nextScale;
+        this.saveViewport();
         this.scheduleGraphRefreshAfterPaint();
     },
 
@@ -628,6 +673,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.scale = 1;
         this.translateX = 0;
         this.translateY = 0;
+        this.saveViewport();
         this.$refs.viewport?.scrollTo?.({left: 0, top: 0, behavior: 'smooth'});
         this.scheduleGraphRefresh();
     },
@@ -669,6 +715,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.scale = 1;
         this.translateX = 48 - bounds.left;
         this.translateY = Math.max(56, (viewport.clientHeight - contentHeight) / 2) - bounds.top;
+        this.saveViewport();
         viewport.scrollTo?.({left: 0, top: 0, behavior: 'smooth'});
         this.scheduleGraphRefreshAfterPaint();
     },
@@ -680,7 +727,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const node = card?.closest('[data-workflow-node-id]');
 
         if (node && this.$refs.stage?.contains(node)) {
-            if (event.shiftKey && event.button === 0 && !target.closest('button, input, a')) {
+            if ((event.shiftKey || event.ctrlKey || event.metaKey) && event.button === 0 && !target.closest('button, input, a')) {
                 const id = node.dataset.workflowNodeId;
                 this.selectedNodeIds = this.selectedNodeIds.includes(id) ? this.selectedNodeIds.filter(value=>value!==id) : [...this.selectedNodeIds,id];
                 this.applyNodeSelection();
@@ -704,7 +751,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
         const target = event.target instanceof Element ? event.target : null;
 
-        if (!target || !target.closest('[data-workflow-node-card]') || target.closest('button, a, input, textarea, select, [role="button"], .workflow-order-handle, .workflow-node-card__caption, .workflow-node-port')) {
+        if (!target || !target.closest('[data-workflow-node-card]') || target.closest('button, a, input, textarea, select, [role="button"], .workflow-order-handle, .workflow-node-port')) {
             return;
         }
 
@@ -744,9 +791,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        if (event.shiftKey) {
+        if (event.shiftKey || this.selectionMode) {
             const rect = this.$refs.viewport.getBoundingClientRect();
-            this.selectionOrigin = {x:event.clientX,y:event.clientY,rect,previous:[...this.selectedNodeIds]};
+            this.selectionOrigin = {x:event.clientX,y:event.clientY,rect,previous:event.shiftKey ? [...this.selectedNodeIds] : []};
             this.selectionBox = {x:event.clientX-rect.left,y:event.clientY-rect.top,width:0,height:0};
             this.pointerId = event.pointerId;
             this.$refs.viewport.setPointerCapture?.(event.pointerId);
@@ -799,7 +846,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const deltaY = (event.clientY - this.pointerStartY) / this.scale;
 
             if (!this.nodeDragMoved) {
-                if (Math.hypot(deltaX, deltaY) < 4) {
+                if (Math.hypot(event.clientX - this.pointerStartX, event.clientY - this.pointerStartY) < 4) {
                     return;
                 }
 
@@ -828,6 +875,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
         this.translateX = this.translateStartX + event.clientX - this.pointerStartX;
         this.translateY = this.translateStartY + event.clientY - this.pointerStartY;
+        this.saveViewport();
         this.scheduleGraphRefresh();
     },
 
@@ -901,12 +949,18 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     suppressNodeClick(event) {
+        const target = event.target instanceof Element ? event.target : null;
+        const nodeId = target?.closest('[data-workflow-node-id]')?.dataset.workflowNodeId;
+        if (nodeId && (this.selectionMode || event.shiftKey || event.ctrlKey || event.metaKey)
+            && target.closest('[data-workflow-node-card]') && !target.closest('button, a, input, textarea, select')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            event.stopPropagation();
+            return;
+        }
         if (Date.now() > this.suppressClickUntil) {
             return;
         }
-
-        const target = event.target instanceof Element ? event.target : null;
-        const nodeId = target?.closest('[data-workflow-node-id]')?.dataset.workflowNodeId;
 
         if (!nodeId || nodeId !== this.suppressedNodeId) {
             return;

@@ -91,6 +91,7 @@ class EditWorkflow extends BaseEditWorkflow
 
     protected function getRedirectUrl(): string
     {
-        return WorkflowResource::getUrl('edit', ['record' => $this->record]);
+        // Keep the mounted editor, its selection and viewport after saving.
+        return '';
     }
 }

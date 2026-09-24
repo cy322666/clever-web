@@ -26,6 +26,33 @@ class WorkflowQuietSaveTest extends TestCase
     {
         $page = new EditWorkflow;
         $this->assertNull((fn () => $this->getSavedNotification())->call($page));
+        $this->assertSame('', (fn () => $this->getRedirectUrl())->call($page));
+    }
+
+    public function test_saving_the_editor_persists_changes_without_navigation(): void
+    {
+        \Tests\Support\WorkflowListDatabase::prepare();
+        \Illuminate\Support\Facades\Schema::create('amocrm_fields', function ($table): void {
+            $table->id();
+            $table->integer('user_id');
+            $table->string('entity_type');
+            $table->integer('field_id');
+            $table->string('name');
+            $table->string('code')->nullable();
+            $table->boolean('active')->default(true);
+        });
+        $this->actingAs(\App\Models\User::findOrFail(1));
+        \Illuminate\Support\Facades\Http::preventStrayRequests();
+        $record = \App\Models\Workflows\Workflow::create([
+            'user_id' => 1, 'name' => 'До сохранения', 'is_active' => false,
+            'definition' => ['trigger' => ['type' => 'manual', 'config' => []], 'actions' => []],
+        ]);
+        Livewire::test(EditWorkflow::class, ['record' => $record->id])
+            ->set('definition.description', 'После сохранения')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertNoRedirect();
+        $this->assertSame('После сохранения', $record->fresh()->definition['description']);
     }
 
     public function test_node_save_keeps_data_and_warnings_without_a_saved_toast(): void

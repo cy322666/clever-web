@@ -140,7 +140,7 @@
                 x-on:pointercancel.window="stopCanvasInteraction($event)"
                 x-on:workflow-layout-reset.window="resetNodeLayout()"
                 x-on:workflow-debug-updated.window="setExecutionState($event.detail.state)"
-                x-on:keydown.escape.window="cancelConnection(); clearNodeSelection()"
+                x-on:keydown.escape.window="cancelConnection(); clearNodeSelection(); selectionMode = false"
                 x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
                 x-on:workflow-connections-updated.window="scheduleGraphRefresh()"
                 x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
@@ -149,14 +149,15 @@
             <div
                 x-ref="viewport"
                 x-on:pointerdown="startCanvasInteraction($event)"
+                x-on:wheel="onCanvasWheel($event)"
                 x-on:click.capture="suppressNodeClick($event)"
                 x-bind:class="{
                     'is-panning': panning,
                     'is-node-dragging': draggingNodeId !== null,
+                    'is-selecting': selectionMode || selectionBox !== null,
                     'has-free-node-layout': true,
                 }"
                 class="workflow-node-editor__viewport"
-                title="Shift + протянуть по пустому месту — выделить ноды; перетащить выделенную ноду — перенести группу"
             >
                 <div class="workflow-selection-box" x-show="selectionBox" x-bind:style="selectionStyle()" x-cloak></div>
                 <div class="workflow-canvas-note" x-data="{ open: false, note: @js($this->definition['description'] ?? '') }" x-on:pointerdown.stop>
@@ -164,6 +165,7 @@
                     <textarea x-show="open" x-cloak x-model="note" x-on:change="$wire.updateWorkflowDescription(note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
+                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="selectionMode = !selectionMode" :aria-pressed="selectionMode" aria-label="Выделить несколько нод" title="Выделить рамкой. Shift, Ctrl или ⌘ + клик: добавить ноду к выделению"><x-filament::icon icon="heroicon-o-viewfinder-circle" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="zoomCanvas(1.2)" :disabled="scale >= 2" aria-label="Увеличить масштаб" title="Увеличить масштаб"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="zoomCanvas(1 / 1.2)" :disabled="scale <= 0.01" aria-label="Уменьшить масштаб" title="Уменьшить масштаб"><x-filament::icon icon="heroicon-o-minus" class="h-4 w-4"/></button>
@@ -178,6 +180,7 @@
                 </div>
                 <div
                     x-ref="stage"
+                    wire:ignore.self
                     x-bind:style="stageStyle()"
                     class="workflow-node-editor__stage"
                 >
@@ -209,7 +212,7 @@
                             @else
                                 <button
                                     type="button"
-                                    x-on:click="$dispatch('workflow-node-library-open', { mode: 'trigger' })"
+                                    x-on:click="window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger' } }))"
                                     class="workflow-node-empty"
                                 >
                                     <span class="workflow-node-card__icon">
@@ -232,7 +235,7 @@
                         @endif
                     </main>
 
-                    @if($this->trigger)
+                    @if($this->trigger || $workflowActionItems->isNotEmpty())
                         <x-filament-workflows::workflows.edge-controls :actions="$workflowActionItems->all()" :connections="$this->definition['connections'] ?? null" :start-ids="array_keys($workflowStarts)"/>
                     @endif
                 </div>

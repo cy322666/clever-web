@@ -6862,6 +6862,8 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-canvas-controls { position: absolute; z-index: 35; left: 16px; top: 56px; display: flex; flex-direction: column; gap: 6px; }
 .workflow-canvas-controls .workflow-canvas-fit { position: static; width: 32px; height: 32px; }
 .workflow-canvas-controls button:disabled { opacity: .4; cursor: default; }
+.workflow-canvas-controls button[aria-pressed="true"] { border-color: #339dc7; color: #339dc7; background: rgb(51 157 199 / .15); }
+.workflow-node-editor__viewport.is-selecting { cursor: crosshair; user-select: none; }
 .workflow-canvas-note > button { display: grid; place-items: center; width: 32px; height: 32px; background: #fff; border: 1px solid #cfd5dd; border-radius: 5px; color: #697482; }
 .workflow-canvas-note textarea { width: min(320px, 50vw); height: 100px; min-height: 64px; padding: 10px 12px; border: 1px solid #cfd5dd; border-radius: 5px; background: #fff; color: #465262; font-size: 13px; resize: vertical; }
 .workflow-node-editor #workflow-canvas button.workflow-node-port--output { background: transparent !important; box-shadow: none !important; outline: 0 !important; border: 0 !important; width: 14px !important; height: 18px !important; border-radius: 3px !important; }

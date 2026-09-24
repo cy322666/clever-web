@@ -820,6 +820,12 @@ trait HasWorkflowPageActions
         $index = $this->insertActionIndex ?? count($actions);
         $index = min(max(0, (int)$index), count($actions));
         $config = $this->prepareWorkflowActionConfig($type, $registry->getDefaultConfig($type), $path, $index);
+        if (in_array($type, ['condition', 'control-condition'], true)) {
+            $config['has_true_branch'] = true;
+            $config['has_false_branch'] = true;
+            $config['true_actions'] = [];
+            $config['false_actions'] = [];
+        }
 
         $actionId = 'step_' . Str::lower(Str::ulid()->toBase32());
         $newAction = [

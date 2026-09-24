@@ -18,7 +18,8 @@ test('new branches start from white output handles while existing edges keep hov
     assert.match(edges, /@if\(\$edge\['targetId'\]\)/);
     assert.match(edges, /heroicon-o-plus/);
     assert.match(edges, /heroicon-o-trash/);
-    assert.doesNotMatch(edges, /data-workflow-edge-branch|Добавить ещё одну ветку|Добавить действие в ветку/);
+    assert.doesNotMatch(edges, /data-workflow-edge-branch|Добавить ещё одну ветку/);
+    assert.match(edges, /empty\(\$edge\['branch'\]\)/);
 });
 
 test('connected edge controls reveal together and hide after leaving the edge', () => {
@@ -141,8 +142,10 @@ function fixture() {
     class Element {}
     let hitElement = null, hitStack = null;
     const events = [];
+    const viewportStorage = new Map();
     const CustomEvent = class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } };
     const window = { addEventListener() {}, dispatchEvent(event) { events.push({type:event.type,detail:event.detail}); }, requestAnimationFrame(callback) { callback(); }, setTimeout(callback) { callback(); return 1; }, clearTimeout() {} };
+    window.sessionStorage = {getItem: key => viewportStorage.get(key) ?? null, setItem: (key, value) => viewportStorage.set(key, value)};
     let mutationCallback, observedOptions, resizeCallback;
     const resizedElements = new Set();
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
@@ -178,8 +181,127 @@ function fixture() {
     canvas.saveNodeLayout = () => { saves++; };
     const event = (x = 10, y = 20) => ({ target, pointerId: 1, button: 0, clientX: x, clientY: y, prevented: false, preventDefault() { this.prevented = true; } });
 
-    return { canvas, node, target, event, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves, events: () => events };
+    return { canvas, node, target, event, viewportStorage, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves, events: () => events };
 }
+
+test('selection mode draws a fresh rectangle without a modifier and does not pan', () => {
+    const f = fixture();
+    f.target.closest = () => null;
+    f.node.getBoundingClientRect = () => ({left:20,top:30,right:70,bottom:80});
+    f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0});
+    f.canvas.selectionMode = true;
+    f.canvas.selectedNodeIds = ['old-selection'];
+    f.canvas.startCanvasInteraction(f.event(0,0));
+    f.canvas.moveCanvas(f.event(100,100));
+    assert.deepEqual([...f.canvas.selectedNodeIds], ['action:test']);
+    assert.equal(f.canvas.panning, false);
+    assert.equal(f.canvas.translateX, 0);
+    f.canvas.stopCanvasInteraction(f.event(100,100));
+    assert.equal(f.canvas.selectionBox, null);
+});
+
+test('Shift, Ctrl and Cmd clicks toggle membership without opening or dragging a node', () => {
+    for (const modifier of ['shiftKey', 'ctrlKey', 'metaKey']) {
+        const f = fixture();
+        f.canvas.$refs.stage = {contains: () => true};
+        f.canvas.selectedNodeIds = ['action:another'];
+        const down = {...f.event(), [modifier]:true};
+        f.canvas.startCanvasInteraction(down);
+        assert.deepEqual([...f.canvas.selectedNodeIds], ['action:another', 'action:test']);
+        assert.equal(f.canvas.draggingNodeId, null);
+        f.canvas.suppressClickUntil = 0; // Holding the modifier must not time out.
+        const click = {...down, prevented:false, stopImmediatePropagation(){}, stopPropagation(){}};
+        f.canvas.suppressNodeClick(click);
+        assert.equal(click.prevented, true);
+        f.canvas.startCanvasInteraction(down);
+        assert.deepEqual([...f.canvas.selectedNodeIds], ['action:another']);
+    }
+});
+
+test('selection-mode clicks never open configuration and captions can drag the whole group', () => {
+    const f = fixture();
+    const closest = f.target.closest;
+    f.target.closest = selector => selector.includes('.workflow-node-card__caption') ? {} : closest(selector);
+    f.canvas.selectionMode = true;
+    f.canvas.selectedNodeIds = ['action:test', 'action:second'];
+    f.canvas.startNodeDrag(f.event(), f.node);
+    f.canvas.moveCanvas(f.event(50,70));
+    assert.equal(f.canvas.positions['action:second'].x, 40);
+    f.canvas.stopCanvasInteraction(f.event(50,70));
+    const click = {...f.event(), stopImmediatePropagation(){}, stopPropagation(){}};
+    f.canvas.suppressNodeClick(click);
+    assert.equal(click.prevented, true);
+});
+
+test('wheel and trackpad pan both axes, Shift pans horizontally, and line units normalize', () => {
+    const f = fixture();
+    const wheel = values => ({...f.event(),deltaX:0,deltaY:0,deltaMode:0,...values});
+    const event = wheel({deltaX:30,deltaY:60});
+    f.canvas.onCanvasWheel(event);
+    assert.equal(event.prevented, true);
+    assert.equal(f.canvas.translateX, -30);
+    assert.equal(f.canvas.translateY, -60);
+    f.canvas.onCanvasWheel(wheel({deltaY:2,deltaMode:1,shiftKey:true}));
+    assert.equal(f.canvas.translateX, -62);
+    assert.equal(f.canvas.translateY, -60);
+    assert.equal(f.canvas.scale, 1);
+    f.canvas.$refs.viewport.clientHeight = 600;
+    f.canvas.onCanvasWheel(wheel({deltaY:1,deltaMode:2}));
+    assert.equal(f.canvas.translateY, -660);
+});
+
+test('pinch zoom is anchored to the pointer and ordinary wheel ignores text areas', () => {
+    const f = fixture();
+    f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:20,top:30});
+    const zoom = {...f.event(220,180),ctrlKey:true,deltaX:0,deltaY:-20};
+    f.canvas.onCanvasWheel(zoom);
+    assert.ok(f.canvas.scale > 1);
+    assert.ok(Math.abs((200-f.canvas.translateX)/f.canvas.scale - 200) < 1e-9);
+    assert.ok(Math.abs((150-f.canvas.translateY)/f.canvas.scale - 150) < 1e-9);
+    const before = f.canvas.translateY;
+    f.target.closest = () => ({});
+    const textWheel = {...f.event(),deltaX:0,deltaY:200};
+    f.canvas.onCanvasWheel(textWheel);
+    assert.equal(textWheel.prevented, false);
+    assert.equal(f.canvas.translateY, before);
+});
+
+test('canvas reinitialization never recenters and viewport storage is scoped to the workflow', () => {
+    const f = fixture();
+    f.canvas.observeCanvas = () => {};
+    f.canvas.translateX = -400;
+    f.canvas.translateY = 70;
+    f.canvas.scale = .65;
+    f.canvas.saveViewport();
+    f.canvas.translateX = 0;
+    let centers = 0;
+    f.canvas.centerView = () => centers++;
+    f.canvas.initializeCanvas();
+    assert.equal(f.canvas.translateX, -400);
+    assert.equal(f.canvas.translateY, 70);
+    assert.equal(f.canvas.scale, .65);
+    f.canvas.initializeCanvas();
+    assert.equal(centers, 0);
+    f.canvas.layoutKey = 'another-workflow';
+    assert.equal(f.canvas.restoreViewport(), false);
+    f.viewportStorage.set('another-workflow:viewport', '{"x":null,"y":0,"scale":0}');
+    assert.equal(f.canvas.restoreViewport(), false);
+});
+
+test('both condition output stubs render separate paths and visible plus controls', () => {
+    const f = fixture();
+    const card = {querySelector: () => null, getBoundingClientRect: () => ({left:0,top:0,right:100,width:100,height:100})};
+    f.node.querySelector = () => card;
+    f.canvas.$refs.stage = {querySelector: () => null, getBoundingClientRect: () => ({left:0,top:0})};
+    const controls = ['yes','no'].map(port => ({dataset:{workflowEdgeSource:'action:test',workflowEdgePort:port},style:{}}));
+    f.canvas.$refs.edgeControls = {querySelectorAll: () => controls};
+    let elements;
+    f.canvas.$refs.edgeLayer = {style:{},setAttribute(){},replaceChildren(...items){elements=items;}};
+    f.canvas.drawConnections();
+    assert.equal(elements.filter(e => e.attributes.class === 'workflow-node-edge-hit').length, 2);
+    assert.ok(controls.every(c => c.style.visibility === 'visible'));
+    assert.notEqual(controls[0].style.top, controls[1].style.top);
+});
 
 test('zoom buttons preserve the viewport center, layout and zoom limits', () => {
     const f = fixture();

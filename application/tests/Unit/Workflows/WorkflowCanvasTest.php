@@ -39,7 +39,7 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('workflow-node-library__context', false);
     }
 
-    public function test_empty_condition_branches_use_their_output_handles(): void
+    public function test_empty_condition_branches_offer_pluses_and_keep_their_output_handles(): void
     {
         Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [
             ['id' => 'empty-condition', 'type' => 'control-condition', 'config' => []],
@@ -47,9 +47,10 @@ class WorkflowCanvasTest extends TestCase
             ->assertStatus(200)
             ->assertSee('aria-label="Выход Да:', false)
             ->assertSee('aria-label="Выход Нет:', false)
-            ->assertDontSee('workflow-edge-add-action:empty-condition-yes', false)
-            ->assertDontSee('workflow-edge-add-action:empty-condition-no', false)
-            ->assertDontSee('data-workflow-edge-source="action:empty-condition"', false);
+            ->assertSee('workflow-edge-add-action:empty-condition-yes-end', false)
+            ->assertSee('workflow-edge-add-action:empty-condition-no-end', false)
+            ->assertSee('Добавить действие в ветку «Да»')
+            ->assertSee('Добавить действие в ветку «Нет»');
     }
 
     public function test_it_toggles_a_nested_node_without_changing_its_configuration(): void
@@ -65,6 +66,24 @@ class WorkflowCanvasTest extends TestCase
             ->assertSee('Выключено')
             ->call('toggleWorkflowActionDisabled', 'task')
             ->assertSet('definition.actions.0.config.true_actions.0.disabled', false);
+    }
+
+    public function test_new_condition_has_two_enabled_branches_and_pluses_even_before_selecting_a_trigger(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [], 'trigger' => null])
+            ->call('selectActionType', 'control-condition')
+            ->assertSet('workflowActions.0.config.has_true_branch', true)
+            ->assertSet('workflowActions.0.config.has_false_branch', true)
+            ->assertSet('workflowActions.0.config.true_actions', [])
+            ->assertSet('workflowActions.0.config.false_actions', [])
+            ->assertSee('Добавить действие в ветку «Да»')
+            ->assertSee('Добавить действие в ветку «Нет»');
+        $nodeId = 'action:'.$page->get('workflowActions')[0]['id'];
+        $page->call('openAddActionOnConnection', $nodeId, 'no')
+            ->assertDispatched('workflow-node-library-open', mode: 'action')
+            ->call('selectActionType', 'amocrm_add_note');
+        $this->assertSame('no', $page->get('definition.connections')[0]['sourcePort']);
+        $this->assertSame($nodeId, $page->get('definition.connections')[0]['sourceId']);
     }
 
     public function test_it_uses_centered_modals_and_removes_duplicate_navigation(): void

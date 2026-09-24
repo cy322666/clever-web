@@ -6,6 +6,26 @@
 
 <div x-ref="edgeControls" class="workflow-node-edge-controls">
     @foreach($edgeControls as $edge)
+        @if(!$edge['targetId'] && empty($edge['branch']))
+            @php($label = match ($edge['sourcePort']) {
+                'yes' => 'Добавить действие в ветку «Да»',
+                'no' => 'Добавить действие в ветку «Нет»',
+                default => 'Добавить действие',
+            })
+            <button
+                type="button"
+                wire:key="workflow-edge-add-{{ $edge['sourceId'] }}-{{ $edge['sourcePort'] }}-end"
+                x-on:pointerdown.stop="startEdgeControlDrag(@js($edge['sourceId']), @js($edge['sourcePort']), null, $event)"
+                x-on:click.stop="openEdgePalette(@js($edge['sourceId']), @js($edge['sourcePort']), null)"
+                data-workflow-edge-source="{{ $edge['sourceId'] }}"
+                data-workflow-edge-port="{{ $edge['sourcePort'] }}"
+                class="workflow-node-edge-add"
+                aria-label="{{ $label }}"
+                title="{{ $label }}"
+            >
+                <x-filament::icon icon="heroicon-o-plus" class="h-3.5 w-3.5"/>
+            </button>
+        @endif
         @if($edge['targetId'])
             <button
                 type="button"

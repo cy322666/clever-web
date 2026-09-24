@@ -5,12 +5,12 @@
     "src": "resources/css/app.css"
   },
   "resources/css/filament-workflows.css": {
-    "file": "assets/filament-workflows-d9135575.css",
+    "file": "assets/filament-workflows-9d5cfc2f.css",
     "isEntry": true,
     "src": "resources/css/filament-workflows.css"
   },
   "resources/js/app.js": {
-    "file": "assets/app-8260d1d7.js",
+    "file": "assets/app-ed7f2b62.js",
     "isEntry": true,
     "src": "resources/js/app.js"
   }
