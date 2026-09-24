@@ -13,6 +13,8 @@ class Setting extends Model
 {
     use SettingRelation;
 
+    public const MIN_INTERVAL_MINUTES = 3;
+
     protected $table = 'finder_settings';
 
     protected $fillable = ['user_id', 'account_id', 'active', 'enabled', 'settings'];
@@ -68,6 +70,6 @@ class Setting extends Model
     {
         $options = $this->options();
 
-        return max(60, ((int) $options['hours'] * 60 + (int) $options['minutes']) * 60);
+        return max(self::MIN_INTERVAL_MINUTES * 60, ((int) $options['hours'] * 60 + (int) $options['minutes']) * 60);
     }
 }

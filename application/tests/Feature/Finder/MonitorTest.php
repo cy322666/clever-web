@@ -66,6 +66,20 @@ class MonitorTest extends TestCase
         $this->assertSame(1, Action::count());
     }
 
+    public function test_legacy_short_interval_waits_at_least_three_minutes_before_each_attempt(): void
+    {
+        $this->setting->update(['settings' => [...$this->setting->options(), 'minutes' => 1]]);
+        $this->monitor->ingest($this->setting, $this->incoming());
+        $conversation = Conversation::firstOrFail();
+        $this->assertSame('12:03', $conversation->next_check_at->format('H:i'));
+        $this->travel(2)->minutes();
+        $this->assertFalse($this->monitor->check($conversation->id));
+        $this->assertSame(0, Action::count());
+        $this->travel(1)->minutes();
+        $this->assertTrue($this->monitor->check($conversation->id));
+        $this->assertSame('12:06', $conversation->refresh()->next_check_at->format('H:i'));
+    }
+
     public function test_repeat_limit_and_new_cycle_after_reply(): void
     {
         $conversation = $this->overdue();

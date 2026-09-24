@@ -61,8 +61,10 @@ class FinderResource extends Resource
                 ])->columns(2),
                 Fieldset::make('Если не было ответа')->schema([
                     Group::make()->schema([
-                        TextInput::make('settings.hours')->label('Часы')->numeric()->integer()->minValue(0)->maxValue(168)->required(),
-                        TextInput::make('settings.minutes')->label('Минуты')->numeric()->integer()->minValue(0)->maxValue(59)->required(),
+                        TextInput::make('settings.hours')->label('Часы')->numeric()->integer()->minValue(0)->maxValue(168)->required()->live(onBlur: true),
+                        TextInput::make('settings.minutes')->label('Минуты')->numeric()->integer()
+                            ->minValue(fn (Get $get) => (int) $get('settings.hours') > 0 ? 0 : Setting::MIN_INTERVAL_MINUTES)
+                            ->maxValue(59)->required()->helperText('Минимальный интервал: 3 минуты.'),
                         TextInput::make('settings.max_attempts')->label('Повторить до')->suffix('раз')->numeric()->integer()->minValue(1)->maxValue(100)->required(),
                     ])->columns(['default' => 1, 'sm' => 3])->columnSpanFull(),
                     Toggle::make('settings.run_workflow')->label('Запустить сценарий')->live()->columnSpanFull(),

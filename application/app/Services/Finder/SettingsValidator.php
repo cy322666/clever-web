@@ -3,6 +3,7 @@
 namespace App\Services\Finder;
 
 use App\Models\amoCRM\Staff;
+use App\Models\Integrations\Finder\Setting;
 use App\Models\Workflows\Workflow;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -30,8 +31,8 @@ final class SettingsValidator
             'settings.task_due_minutes' => 'required_if:settings.create_task,1|nullable|integer|between:1,10080',
         ])->validate();
 
-        if ((int) $options['hours'] * 60 + (int) $options['minutes'] < 1) {
-            throw ValidationException::withMessages(['settings.minutes' => 'Укажите интервал не меньше одной минуты.']);
+        if ((int) $options['hours'] * 60 + (int) $options['minutes'] < Setting::MIN_INTERVAL_MINUTES) {
+            throw ValidationException::withMessages(['settings.minutes' => 'Минимальный интервал: 3 минуты.']);
         }
         if ($enabled && ! $options['run_workflow'] && ! $options['create_task']) {
             throw ValidationException::withMessages(['settings.run_workflow' => 'Выберите сценарий или создание задачи.']);

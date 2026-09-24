@@ -103,6 +103,45 @@ class SettingsTest extends TestCase
         Livewire::test(EditFinder::class, ['record' => $this->setting->id]);
     }
 
+    public function test_intervals_below_three_minutes_cannot_be_saved_or_enabled(): void
+    {
+        $this->setting->update(['active' => false, 'enabled' => false]);
+        $this->setting->app()->update(['status' => App::STATE_CREATED]);
+        $page = Livewire::test(EditFinder::class, ['record' => $this->setting->id]);
+        foreach ([null, 0, 1, 2] as $minutes) {
+            $page->set('data.settings.hours', 0)->set('data.settings.minutes', $minutes)
+                ->call('save')->assertHasErrors(['data.settings.minutes'])
+                ->callAction('active')->assertHasErrors(['data.settings.minutes']);
+            $this->assertFalse($this->setting->refresh()->isMonitoringEnabled());
+            $this->assertSame(5, $this->setting->settings['minutes']);
+            $this->assertSame(App::STATE_CREATED, $this->setting->app()->value('status'));
+            $this->assertNull($this->setting->app()->value('expires_tariff_at'));
+        }
+
+        $page->set('data.settings.minutes', 3)->callAction('active')->assertHasNoErrors();
+        $this->assertTrue($this->setting->refresh()->isMonitoringEnabled());
+        $this->assertSame(180, $this->setting->intervalSeconds());
+    }
+
+    public function test_server_rejects_seconds_only_and_allows_a_whole_hour(): void
+    {
+        $validator = app(SettingsValidator::class);
+        foreach ([0, 1, 2] as $minutes) {
+            try {
+                $validator->validate([...$this->setting->options(), 'hours' => 0, 'minutes' => $minutes, 'seconds' => 59], 1, true);
+                $this->fail('Seconds must not bypass the minimum interval.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('settings.minutes', $exception->errors());
+            }
+        }
+        $options = $validator->validate([...$this->setting->options(), 'hours' => 1, 'minutes' => 0], 1, true);
+        $this->assertSame(1, $options['hours']);
+        Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+            ->set('data.settings.hours', 1)->set('data.settings.minutes', 0)
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame(3600, $this->setting->refresh()->intervalSeconds());
+    }
+
     public function test_foreign_or_disabled_workflow_is_rejected_server_side(): void
     {
         DB::table('workflows')->insert(['id' => 7, 'user_id' => 2, 'name' => 'Other', 'is_active' => true, 'trigger_type' => 'manual']);
