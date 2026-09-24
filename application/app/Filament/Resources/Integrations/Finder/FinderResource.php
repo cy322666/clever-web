@@ -9,7 +9,7 @@ use App\Helpers\Traits\TenantResource;
 use App\Models\amoCRM\Staff;
 use App\Models\Integrations\Finder\Setting;
 use App\Models\Workflows\Workflow;
-use Filament\Actions\Action;
+use App\Support\Integrations\PricingView;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -23,7 +23,6 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\TextSize;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
@@ -82,25 +81,9 @@ class FinderResource extends Resource
                         ->visible(fn (Get $get) => (bool) $get('settings.run_reply_workflow'))->required(fn (Get $get) => (bool) $get('settings.run_reply_workflow'))->columnSpanFull(),
                 ]),
             ])->columnSpan(['default' => 1, 'lg' => 2]),
-            Section::make()->extraAttributes(['class' => 'self-start h-fit'])->compact()->schema([
-                Action::make('instruction')->label('Видео инструкция')->url('')->disabled()->openUrlInNewTab(),
-                Section::make('Подключение')->compact()->schema([
-                    TextEntry::make('account')->hiddenLabel()->size(TextSize::Small)
-                        ->state('Используется общая авторизация amoCRM платформы.'),
-                    Action::make('account')->label('Аккаунт amoCRM')->link()->icon('heroicon-o-arrow-top-right-on-square')
-                        ->url(fn (?Setting $record) => \App\Filament\Resources\Core\UserResource::getUrl('view', ['record' => $record?->user_id ?? Auth::id()])),
-                    TextEntry::make('connection')->label('Сообщения')->size(TextSize::Small)->state(fn (?Setting $record) => $record?->connected_at
-                        ? 'Подключены. Последнее событие: '.($record->last_webhook_at?->format('d.m.Y H:i') ?? 'ещё не получено')
-                        : 'Сохраните настройки и нажмите «Подключить сообщения».'),
-                ]),
-                Section::make('Как работает')->compact()->schema([
-                    TextEntry::make('help')->hiddenLabel()->size(TextSize::Small)->bulleted()->state([
-                        'Проверка ответа выполняется раз в минуту, с учётом рабочего времени.',
-                        'Новое сообщение клиента не сбрасывает таймер. Действия повторяются до ответа или заданного лимита.',
-                        'Сообщения менеджера и Salesbot считаются ответом.',
-                        'Для сценариев нужен доступ к «Потокам». Счётчик проверки: {{finder.attempt}}.',
-                    ]),
-                ]),
+            Section::make('Тарифы')->extraAttributes(['class' => 'self-start h-fit'])->compact()->schema([
+                TextEntry::make('pricing')->hiddenLabel()->html()
+                    ->state(fn () => PricingView::sidebarHtml(Setting::$cost, showSavings: false)),
             ]),
         ])->columns(['default' => 1, 'lg' => 3]);
     }

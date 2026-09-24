@@ -6,11 +6,13 @@ use Illuminate\Support\HtmlString;
 
 class PricingView
 {
-    public static function sidebarHtml(array $cost): HtmlString
+    public static function sidebarHtml(array $cost, bool $showSavings = true): HtmlString
     {
         $month1 = htmlspecialchars((string)($cost['1_month'] ?? '2 990 ₽'), ENT_QUOTES, 'UTF-8');
         $month6 = htmlspecialchars((string)($cost['6_month'] ?? '14 900 ₽'), ENT_QUOTES, 'UTF-8');
         $month12 = htmlspecialchars((string)($cost['12_month'] ?? '24 900 ₽'), ENT_QUOTES, 'UTF-8');
+        $month6Savings = $showSavings ? '<div class="integration-pricing__note">2 483 ₽/мес · экономия 3 000 ₽</div>' : '';
+        $month12Savings = $showSavings ? '<div class="integration-pricing__note">2 075 ₽/мес · экономия 7 000 ₽</div>' : '';
 
         return new HtmlString(
             <<<HTML
@@ -105,13 +107,13 @@ class PricingView
     <div class="integration-pricing__card integration-pricing__card--accent">
         <div class="integration-pricing__period">6 месяцев</div>
         <div class="integration-pricing__price">{$month6}</div>
-        <div class="integration-pricing__note">2 483 ₽/мес · экономия 3 000 ₽</div>
+        {$month6Savings}
     </div>
 
     <div class="integration-pricing__card integration-pricing__card--best">
         <div class="integration-pricing__period">12 месяцев</div>
         <div class="integration-pricing__price">{$month12}</div>
-        <div class="integration-pricing__note">2 075 ₽/мес · экономия 7 000 ₽</div>
+        {$month12Savings}
     </div>
 </div>
 HTML
