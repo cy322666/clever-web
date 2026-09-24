@@ -26,16 +26,16 @@ class EditFinder extends EditRecord
     {
         return [
             UpdateButton::activeUpdate($this->record),
-            Action::make('account')->label('Аккаунт amoCRM')->url(\App\Filament\Resources\Core\UserResource::getUrl('view', ['record' => $this->record->user_id])),
-            Action::make('references')->label('Обновить сотрудников и типы задач')->action(function (): void {
-                try {
-                    app(\App\Services\Workflows\WorkflowNodeReferences::class)->refresh('amocrm_create_task', []);
-                    Notification::make()->title('Сотрудники и типы задач обновлены')->success()->send();
-                } catch (Throwable) {
-                    Notification::make()->title('Не удалось обновить справочники amoCRM')->danger()->send();
-                }
-            }),
-            Action::make('connect')->label('Подключить сообщения amoCRM')->icon('heroicon-o-link')->action(function (): void {
+            Action::make('references')->label('amoCRM')->icon('heroicon-o-arrow-path')->color('gray')
+                ->tooltip('Обновить сотрудников и типы задач')->action(function (): void {
+                    try {
+                        app(\App\Services\Workflows\WorkflowNodeReferences::class)->refresh('amocrm_create_task', []);
+                        Notification::make()->title('Сотрудники и типы задач обновлены')->success()->send();
+                    } catch (Throwable) {
+                        Notification::make()->title('Не удалось обновить справочники amoCRM')->danger()->send();
+                    }
+                }),
+            Action::make('connect')->label('Подключить сообщения')->icon('heroicon-o-link')->action(function (): void {
                 $this->save(false, false);
                 try {
                     app(WebhookConnection::class)->connect($this->record->refresh());
