@@ -6,13 +6,24 @@ use Illuminate\Support\HtmlString;
 
 class PricingView
 {
-    public static function sidebarHtml(array $cost, bool $showSavings = true): HtmlString
+    public static function sidebarHtml(array $cost, bool $showSavings = true, ?int $accountUserLimit = null): HtmlString
     {
         $month1 = htmlspecialchars((string)($cost['1_month'] ?? '2 990 ₽'), ENT_QUOTES, 'UTF-8');
         $month6 = htmlspecialchars((string)($cost['6_month'] ?? '14 900 ₽'), ENT_QUOTES, 'UTF-8');
         $month12 = htmlspecialchars((string)($cost['12_month'] ?? '24 900 ₽'), ENT_QUOTES, 'UTF-8');
         $month6Savings = $showSavings ? '<div class="integration-pricing__note">2 483 ₽/мес · экономия 3 000 ₽</div>' : '';
         $month12Savings = $showSavings ? '<div class="integration-pricing__note">2 075 ₽/мес · экономия 7 000 ₽</div>' : '';
+        $accountPricing = '';
+        $perUserPricing = '';
+
+        if ($accountUserLimit !== null) {
+            $accountPricing = '<div><strong>До '.$accountUserLimit.' пользователей включительно</strong><div class="integration-pricing__period">Стоимость за аккаунт</div></div>';
+
+            if (isset($cost['1_month_per_user'])) {
+                $perUser = htmlspecialchars((string) $cost['1_month_per_user'], ENT_QUOTES, 'UTF-8');
+                $perUserPricing = '<div class="integration-pricing__card"><div><strong>Более '.$accountUserLimit.' пользователей</strong></div><div class="integration-pricing__price">'.$perUser.' в месяц</div><div class="integration-pricing__period">За каждого пользователя аккаунта</div></div>';
+            }
+        }
 
         return new HtmlString(
             <<<HTML
@@ -99,6 +110,7 @@ class PricingView
 </style>
 
 <div class="integration-pricing">
+    {$accountPricing}
     <div class="integration-pricing__card">
         <div class="integration-pricing__period">1 месяц</div>
         <div class="integration-pricing__price">{$month1}</div>
@@ -115,6 +127,7 @@ class PricingView
         <div class="integration-pricing__price">{$month12}</div>
         {$month12Savings}
     </div>
+    {$perUserPricing}
 </div>
 HTML
         );
