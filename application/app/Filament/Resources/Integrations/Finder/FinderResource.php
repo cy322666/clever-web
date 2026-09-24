@@ -42,7 +42,6 @@ class FinderResource extends Resource
     {
         return $schema->components([
             Section::make()->hiddenLabel()->extraAttributes(['class' => 'self-start h-fit'])->schema([
-                Toggle::make('enabled')->label('Отслеживать ответы на диалоги')->live(),
                 Fieldset::make('Рабочее время')->schema([
                     Toggle::make('settings.working_time')->label('Учитывать рабочее время')->live(),
                     Select::make('settings.timezone')->label('Часовой пояс')->searchable()->required()

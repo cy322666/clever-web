@@ -4,8 +4,12 @@ namespace Tests\Feature\Finder;
 
 use App\Filament\Resources\Integrations\Finder\Pages\EditFinder;
 use App\Filament\Resources\Integrations\Finder\Pages\FinderHistory;
+use App\Models\App;
+use App\Models\Integrations\Finder\Action;
+use App\Models\Integrations\Finder\Conversation;
 use App\Models\Integrations\Finder\Setting;
 use App\Models\User;
+use App\Services\Finder\FinderAccess;
 use App\Services\Finder\SettingsValidator;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +35,8 @@ class SettingsTest extends TestCase
     public function test_form_renders_saves_and_history_renders(): void
     {
         Livewire::test(EditFinder::class, ['record' => $this->setting->id])
-            ->assertSee('Отслеживать ответы на диалоги')
+            ->assertSee('finder-test.amocrm.ru')
+            ->assertDontSee('Отслеживать ответы на диалоги')
             ->set('data.settings.minutes', 7)
             ->call('save')->assertHasNoErrors();
         $this->assertSame(7, $this->setting->refresh()->settings['minutes']);
@@ -81,5 +86,56 @@ class SettingsTest extends TestCase
         $this->assertSame([1, 3, 5], array_map('intval', $saved['days']));
         $this->assertSame('22:00', $saved['from']);
         $this->assertSame('06:00', $saved['to']);
+    }
+
+    public function test_single_button_stops_pending_checks_and_resumes_monitoring(): void
+    {
+        $conversation = Conversation::create(['setting_id' => $this->setting->id, 'chat_id' => 'stop-test', 'pending_since' => now(), 'next_check_at' => now()->addMinute()]);
+        $action = Action::create(['setting_id' => $this->setting->id, 'conversation_id' => $conversation->id, 'cycle' => 1, 'attempt' => 1, 'event' => 'overdue', 'kind' => 'task', 'payload' => []]);
+        $page = Livewire::test(EditFinder::class, ['record' => $this->setting->id]);
+        $page->set('data.settings.minutes', 0)->callAction('active')->assertHasNoErrors();
+        $this->assertFalse($this->setting->refresh()->isMonitoringEnabled());
+        $this->assertFalse($this->setting->active);
+        $this->assertFalse($this->setting->enabled);
+        $this->assertNull($conversation->refresh()->next_check_at);
+        $this->assertSame('cancelled', $action->refresh()->status);
+
+        $page->set('data.settings.minutes', 7)->callAction('active')->assertHasNoErrors();
+        $this->assertTrue(app(FinderAccess::class)->canRun($this->setting->refresh()));
+        $this->assertSame(7, $this->setting->settings['minutes']);
+        $this->assertSame('cancelled', $action->refresh()->status);
+    }
+
+    public function test_first_enable_validates_settings_before_starting_trial(): void
+    {
+        $this->setting->update(['active' => false, 'enabled' => false]);
+        $this->setting->app->update(['status' => App::STATE_CREATED]);
+        $page = Livewire::test(EditFinder::class, ['record' => $this->setting->id]);
+        $page->set('data.settings.create_task', false)->callAction('active')->assertHasErrors(['data.settings.run_workflow']);
+        $this->assertSame(App::STATE_CREATED, $this->setting->app->refresh()->status);
+        $this->assertFalse($this->setting->refresh()->enabled);
+
+        $page->set('data.settings.create_task', true)->callAction('active')->assertHasNoErrors();
+        $this->assertTrue(app(FinderAccess::class)->canRun($this->setting->refresh()));
+        $this->assertNotNull($this->setting->app()->value('expires_tariff_at'));
+    }
+
+    public function test_old_separate_disabled_flag_can_be_resumed_but_not_by_saving(): void
+    {
+        $this->setting->update(['enabled' => false]);
+        $page = Livewire::test(EditFinder::class, ['record' => $this->setting->id]);
+        $page->set('data.enabled', true)->call('save')->assertHasNoErrors();
+        $this->assertFalse($this->setting->refresh()->enabled);
+        $page->callAction('active')->assertHasNoErrors();
+        $this->assertTrue(app(FinderAccess::class)->canRun($this->setting->refresh()));
+    }
+
+    public function test_single_button_does_not_extend_expired_access(): void
+    {
+        $this->setting->update(['active' => false, 'enabled' => false]);
+        $this->setting->app->update(['status' => App::STATE_INACTIVE, 'expires_tariff_at' => now()->subDay()->toDateString()]);
+        Livewire::test(EditFinder::class, ['record' => $this->setting->id])->callAction('active');
+        $this->assertFalse($this->setting->refresh()->enabled);
+        $this->assertSame(App::STATE_INACTIVE, $this->setting->app()->value('status'));
     }
 }

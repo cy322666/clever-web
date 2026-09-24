@@ -4,6 +4,7 @@ namespace App\Models\Integrations\Finder;
 
 use App\Filament\Resources\Integrations\Finder\FinderResource;
 use App\Helpers\Traits\SettingRelation;
+use App\Models\App;
 use App\Models\Core\Account;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,6 +50,11 @@ class Setting extends Model
             'task_type_id' => 1, 'task_text' => 'Ответить клиенту', 'task_due_minutes' => 15,
             'run_reply_workflow' => false, 'reply_workflow_id' => null,
         ], $this->settings ?? []);
+    }
+
+    public function isMonitoringEnabled(): bool
+    {
+        return $this->active && $this->enabled && $this->app()->where('status', App::STATE_ACTIVE)->exists();
     }
 
     public function intervalSeconds(): int
