@@ -29,11 +29,11 @@ class AuthServiceProvider extends ServiceProvider
         );
 
         ResetPassword::toMailUsing(function ($user, string $token): PasswordResetLink {
-            return new PasswordResetLink(
+            return (new PasswordResetLink(
                 user: $user,
                 url: Filament::getPanel('app')->getResetPasswordUrl($token, $user),
                 expiresInMinutes: (int) config('auth.passwords.' . config('auth.defaults.passwords') . '.expire'),
-            );
+            ))->to($user->getEmailForPasswordReset());
         });
     }
 }

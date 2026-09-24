@@ -42,7 +42,19 @@ class AuthController extends Controller
 
     public function installFinder(Request $request)
     {
-        return $this->installWidgetFromAmoCrm($request, 'finder', 'finder');
+        if (! $request->isMethod('GET') || $request->expectsJson()) {
+            return $this->installWidgetFromAmoCrm($request, 'finder', 'finder');
+        }
+
+        $status = app(\App\Services\Finder\InstallationStatus::class);
+        $token = $status->start();
+        $response = $this->installWidgetFromAmoCrm($request, 'finder', 'finder', $token);
+        if ($response->getStatusCode() !== 202) {
+            $status->put($token, ['status' => 'failed']);
+        }
+
+        return redirect()->route('finder.installation.status', ['token' => $token], 303)
+            ->withHeaders(['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer']);
     }
 
     public function installSqns(Request $request)
@@ -50,7 +62,7 @@ class AuthController extends Controller
         return $this->installWidgetFromAmoCrm($request, 'sqns', 'sqns');
     }
 
-    private function installWidgetFromAmoCrm(Request $request, string $widget, string $callback): \Illuminate\Http\JsonResponse
+    private function installWidgetFromAmoCrm(Request $request, string $widget, string $callback, ?string $completionToken = null): \Illuminate\Http\JsonResponse
     {
         $this->logWidgetLifecycleCallback($callback, 'install', $request);
 
@@ -73,6 +85,7 @@ class AuthController extends Controller
             Crypt::encryptString($authorizationCode),
             $referer,
             $widget,
+            $completionToken,
         );
 
         $this->notifyWidgetLifecycle('install', $widget, $request);

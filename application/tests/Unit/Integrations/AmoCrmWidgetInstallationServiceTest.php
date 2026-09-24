@@ -135,6 +135,31 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         Http::assertSentCount(6);
     }
 
+    public function test_email_failure_does_not_turn_a_completed_installation_into_a_failed_job(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response([
+                'access_token' => 'access-token', 'refresh_token' => 'refresh-token',
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response([
+                'id' => 33098322, 'current_user_id' => 778899,
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response([
+                'id' => 778899, 'email' => 'installer@example.com',
+            ]),
+        ]);
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once()->andReturnNull();
+        Password::shouldReceive('sendResetLink')->once()->andThrow(new \RuntimeException('Mail transport unavailable'));
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)->install('test-code', 'widgetscenario.amocrm.ru', 'workflows');
+        $this->assertTrue($result['created_user']);
+        $this->assertTrue($result['account']->active);
+        $this->assertSame('access-token', $result['account']->access_token);
+    }
+
     public function test_install_reuses_the_platform_owner_of_an_existing_amo_account(): void
     {
         $owner = User::withoutEvents(function (): User {

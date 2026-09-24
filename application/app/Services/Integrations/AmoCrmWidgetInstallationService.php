@@ -224,11 +224,18 @@ class AmoCrmWidgetInstallationService
         );
 
         if ($result['createdUser']) {
-            $passwordStatus = Password::sendResetLink(['email' => $user->email]);
-            if ($passwordStatus !== Password::RESET_LINK_SENT) {
+            try {
+                $passwordStatus = Password::sendResetLink(['email' => $user->email]);
+                if ($passwordStatus !== Password::RESET_LINK_SENT) {
+                    Log::warning('amocrm.widget.install password setup email failed', [
+                        'user_id' => $user->id,
+                        'status' => $passwordStatus,
+                    ]);
+                }
+            } catch (\Throwable $exception) {
                 Log::warning('amocrm.widget.install password setup email failed', [
                     'user_id' => $user->id,
-                    'status' => $passwordStatus,
+                    'exception_class' => $exception::class,
                 ]);
             }
         }

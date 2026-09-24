@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'install_status_store' => 'database',
+
     'telegram' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_CHAT_ID'),
