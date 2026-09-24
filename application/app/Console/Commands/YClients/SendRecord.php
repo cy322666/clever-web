@@ -60,6 +60,7 @@ class SendRecord extends Command
         /** @var Setting $setting */
         $setting = Setting::query()->findOrFail($this->argument('setting_id'));
 
+        $amoMapping = $setting->amoMappingForCompany($record->company_id);
         $objectStatus = $record->getStatusId($setting);
 
         if (empty($objectStatus?->status_id) || empty($objectStatus?->pipeline_id)) {
@@ -135,7 +136,7 @@ class SendRecord extends Command
 
             } elseif ($contact) {
                 // поиск открытой сделки у контакта в нужной воронке
-                $leadCollection = ServiceLead::searchAll($contact, $amoApi, $setting->pipelines);
+                $leadCollection = ServiceLead::searchAll($contact, $amoApi, $amoMapping['pipelines']);
 
                 if ($leadCollection->count() > 0) {
                     $lead = ServiceLead::firstUnlinkedLead(

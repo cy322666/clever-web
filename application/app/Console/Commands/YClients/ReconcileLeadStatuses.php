@@ -36,8 +36,6 @@ class ReconcileLeadStatuses extends Command
         $setting = $this->resolveSetting();
         $account = Account::query()->findOrFail($setting->account_id);
         $pipelineIds = $this->pipelineIds($setting);
-        $waitStatus = $this->statusFor($setting->status_id_wait, 'status_id_wait');
-        $confirmStatus = $this->statusFor($setting->status_id_confirm, 'status_id_confirm');
 
         if (!$pipelineIds) {
             $this->error('No pipelines configured for this YClients setting.');
@@ -45,15 +43,18 @@ class ReconcileLeadStatuses extends Command
             return self::FAILURE;
         }
 
-        $statusMap = [
-            (int)$waitStatus->status_id => 0,
-            (int)$confirmStatus->status_id => 2,
-        ];
+        $sourceStatusIds = $this->sourceStatusIds($setting);
+
+        if (!$this->option('all-stages') && $sourceStatusIds === []) {
+            $this->error('No «Клиент записан» or «Клиент подтвердил» stages configured for this YClients setting.');
+
+            return self::FAILURE;
+        }
 
         $this->line(sprintf(
             'Scanning amoCRM leads: pipelines=%s stages=%s mode=%s',
             implode(',', $pipelineIds),
-            $this->option('all-stages') ? 'all' : implode(',', array_keys($statusMap)),
+            $this->option('all-stages') ? 'all' : implode(',', $sourceStatusIds),
             $this->option('apply-deleted') || $this->option('apply') ? 'apply' : 'dry-run',
         ));
 
@@ -76,7 +77,7 @@ class ReconcileLeadStatuses extends Command
         foreach ($pipelineIds as $pipelineId) {
             $sourceStatuses = $this->option('all-stages')
                 ? [null]
-                : array_keys($statusMap);
+                : $sourceStatusIds;
 
             foreach ($sourceStatuses as $sourceStatusId) {
                 foreach ($this->amoLeads($amo, $pipelineId, $sourceStatusId) as $lead) {
@@ -98,7 +99,7 @@ class ReconcileLeadStatuses extends Command
             }
 
             $stats['inspected']++;
-            $this->inspectLead($lead, $amo, $yc, $statusMap, $stats);
+            $this->inspectLead($lead, $amo, $yc, $setting, $stats);
         }
 
         $this->info(sprintf(
@@ -149,12 +150,12 @@ class ReconcileLeadStatuses extends Command
         }
     }
 
-    /** @param array<string, mixed> $lead @param array<int, int> $statusMap */
+    /** @param array<string, mixed> $lead */
     private function inspectLead(
         array $lead,
         AmoClient $amo,
         YClients $yc,
-        array $statusMap,
+        Setting $setting,
         array &$stats,
     ): void {
         $leadId = (string)data_get($lead, 'id');
@@ -169,6 +170,14 @@ class ReconcileLeadStatuses extends Command
 
                 return;
             }
+
+            $mapping = $setting->amoMappingForCompany($companyId);
+            $waitStatus = $this->statusFor($mapping['status_id_wait'] ?? null, 'status_id_wait');
+            $confirmStatus = $this->statusFor($mapping['status_id_confirm'] ?? null, 'status_id_confirm');
+            $statusMap = [
+                (int)$waitStatus->status_id => 0,
+                (int)$confirmStatus->status_id => 2,
+            ];
 
             $response = $this->getYClientsRecord($yc, $companyId, $recordId);
             $recordData = data_get($response, 'data');
@@ -333,11 +342,20 @@ class ReconcileLeadStatuses extends Command
         $configured = collect((array)$setting->pipelines)
             ->map(fn($id): int => (int)$id)
             ->filter()
-            ->values()
-            ->all();
+            ->values();
 
-        if ($configured) {
-            return $configured;
+        $branchPipelines = collect((array)$setting->branch_settings)
+            ->pluck('pipeline_id')
+            ->map(fn($id): int => (int)$id)
+            ->filter();
+
+        $configured = $configured
+            ->merge($branchPipelines)
+            ->unique()
+            ->values();
+
+        if ($configured->isNotEmpty()) {
+            return $configured->all();
         }
 
         return Status::query()
@@ -346,6 +364,35 @@ class ReconcileLeadStatuses extends Command
             ->where('active', true)
             ->pluck('pipeline_id')
             ->map(fn($id): int => (int)$id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int, int> */
+    private function sourceStatusIds(Setting $setting): array
+    {
+        $values = collect([
+            $setting->status_id_wait,
+            $setting->status_id_confirm,
+        ])->merge(
+            collect((array)$setting->branch_settings)
+                ->flatMap(fn(mixed $branch): array => is_array($branch)
+                    ? [
+                        $branch['status_id_wait'] ?? null,
+                        $branch['status_id_confirm'] ?? null,
+                    ]
+                    : [])
+        );
+
+        return $values
+            ->filter(fn(mixed $value): bool => is_string($value) || is_int($value))
+            ->map(function (mixed $value): int {
+                $status = Status::getObject((string)$value);
+
+                return (int)($status->status_id ?? 0);
+            })
+            ->filter()
             ->unique()
             ->values()
             ->all();

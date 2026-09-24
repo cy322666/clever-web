@@ -74,15 +74,17 @@ class Record extends Model
 
     public function getStatusId(Setting $setting): ?object
     {
+        $mapping = $setting->amoMappingForCompany($this->company_id);
+
         $pStatusId = match ($this->attendance) {
-           -1 => $setting->status_id_cancel,
-            0 => $setting->status_id_wait,
-            1 => $setting->status_id_came,
-            2 => $setting->status_id_confirm,
-            3 => $setting->status_id_delete,
+           -1 => $mapping['status_id_cancel'] ?? null,
+            0 => $mapping['status_id_wait'] ?? null,
+            1 => $mapping['status_id_came'] ?? null,
+            2 => $mapping['status_id_confirm'] ?? null,
+            3 => $mapping['status_id_delete'] ?? null,
         };
 
-        return Status::getObject($pStatusId);
+        return Status::getObject(filled($pStatusId) ? (string)$pStatusId : null);
     }
 
     public static function sumCostServices(array $arrayRequest): int

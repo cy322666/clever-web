@@ -38,6 +38,7 @@ class Setting extends Model
         'status_id_confirm',
         'status_id_delete',
         'pipelines',
+        'branch_settings',
         'user_token',
         'partner_token',
         'login',
@@ -52,6 +53,7 @@ class Setting extends Model
 
     protected $casts = [
         'pipelines' => 'array',
+        'branch_settings' => 'array',
     ];
 
     private static function fieldLabel(string $title, string $key, ?string $description = null): string
@@ -605,6 +607,52 @@ class Setting extends Model
             ->exists()
             ? $amoUserId
             : null;
+    }
+
+    /**
+     * Return the global amoCRM mapping with an optional branch override applied.
+     * Fields/contact mappings intentionally stay outside this configuration.
+     *
+     * @return array<string, mixed>
+     */
+    public function amoMappingForCompany(int|string|null $companyId): array
+    {
+        $mapping = [
+            'pipelines' => $this->pipelines,
+            'status_id_cancel' => $this->status_id_cancel,
+            'status_id_wait' => $this->status_id_wait,
+            'status_id_came' => $this->status_id_came,
+            'status_id_confirm' => $this->status_id_confirm,
+            'status_id_delete' => $this->status_id_delete,
+        ];
+
+        $companyId = trim((string)$companyId);
+
+        if ($companyId === '') {
+            return $mapping;
+        }
+
+        $override = collect((array)$this->branch_settings)
+            ->first(fn(mixed $row): bool => is_array($row)
+                && (string)($row['company_id'] ?? '') === $companyId);
+
+        if (!is_array($override)) {
+            return $mapping;
+        }
+
+        if (filled($override['pipeline_id'] ?? null)) {
+            $mapping['pipelines'] = [(int)$override['pipeline_id']];
+        }
+
+        foreach (['cancel', 'wait', 'came', 'confirm', 'delete'] as $status) {
+            $key = 'status_id_' . $status;
+
+            if (filled($override[$key] ?? null)) {
+                $mapping[$key] = (string)$override[$key];
+            }
+        }
+
+        return $mapping;
     }
 
     public function responsibleMappings(): HasMany
