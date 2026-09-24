@@ -35,13 +35,58 @@ class SettingsTest extends TestCase
     public function test_form_renders_saves_and_history_renders(): void
     {
         Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+            ->assertSee('Контроль ответов')
             ->assertSee('finder-test.amocrm.ru')
             ->assertDontSee('Отслеживать ответы на диалоги')
             ->set('data.settings.minutes', 7)
             ->call('save')->assertHasNoErrors();
         $this->assertSame(7, $this->setting->refresh()->settings['minutes']);
-        Livewire::test(FinderHistory::class)->assertSuccessful();
+        Livewire::test(FinderHistory::class)->assertSuccessful()->assertSee('История контроля ответов');
         $this->assertArrayHasKey('finder', \App\Models\App::definitions()->all());
+        $this->assertSame('Контроль ответов', App::getTitle('finder'));
+    }
+
+    public function test_connection_button_uses_finder_client_and_preserves_existing_authorization(): void
+    {
+        config([
+            'services.amocrm.widgets.finder.client_id' => 'finder-client',
+            'services.amocrm.widgets.finder.client_secret' => 'never-render-this-secret',
+            'services.amocrm.client_id' => 'platform-client',
+        ]);
+        User::whereKey(1)->update(['uuid' => 'owner-uuid']);
+        $before = $this->setting->account->getAttributes();
+        $state = rtrim(strtr(base64_encode(json_encode(['user_uuid' => 'owner-uuid', 'widget' => 'finder'])), '+/', '-_'), '=');
+        $url = 'https://www.amocrm.ru/oauth/?'.http_build_query([
+            'client_id' => 'finder-client', 'state' => $state,
+            'uri' => \App\Filament\Resources\Integrations\Finder\FinderResource::getUrl('edit', ['record' => $this->setting]),
+        ], '', '&', PHP_QUERY_RFC3986);
+
+        Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+            ->assertActionHasLabel('account', 'finder-test.amocrm.ru')
+            ->assertActionHasUrl('account', $url)
+            ->assertActionShouldOpenUrlInNewTab('account')
+            ->assertActionEnabled('account')
+            ->assertDontSee('never-render-this-secret');
+        $this->assertSame($before, $this->setting->account->fresh()->getAttributes());
+    }
+
+    public function test_connection_button_is_available_without_an_existing_amo_account(): void
+    {
+        config(['services.amocrm.widgets.finder.client_id' => 'finder-client']);
+        $this->setting->update(['account_id' => null]);
+        DB::table('accounts')->delete();
+
+        Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+            ->assertActionHasLabel('account', 'Подключить amoCRM')
+            ->assertActionEnabled('account')
+            ->assertActionHidden('references');
+    }
+
+    public function test_connection_button_never_falls_back_to_another_integration_client(): void
+    {
+        config(['services.amocrm.widgets.finder.client_id' => null, 'services.amocrm.client_id' => 'platform-client']);
+        Livewire::test(EditFinder::class, ['record' => $this->setting->id])
+            ->assertActionDisabled('account')->assertDontSee('client_id=platform-client');
     }
 
     public function test_form_rejects_zero_interval_and_no_action(): void

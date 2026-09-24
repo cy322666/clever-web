@@ -14,7 +14,7 @@ class CheckReplies extends Command
 {
     protected $signature = 'finder:check {--limit=100 : Максимум диалогов и действий за запуск}';
 
-    protected $description = 'Проверить время ответа в диалогах Finder и выполнить ожидающие действия';
+    protected $description = 'Проверить время ответа в диалогах виджета «Контроль ответов» и выполнить ожидающие действия';
 
     public function handle(Monitor $monitor, ActionExecutor $executor): int
     {

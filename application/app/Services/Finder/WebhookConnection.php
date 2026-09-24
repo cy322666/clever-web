@@ -26,7 +26,7 @@ class WebhookConnection
     {
         $account = $setting->amoAccount(false, 'finder');
         if (! $account?->active || (int) $account->user_id !== (int) $setting->user_id) {
-            throw ValidationException::withMessages(['connection' => 'Сначала подключите amoCRM в аккаунте платформы.']);
+            throw ValidationException::withMessages(['connection' => 'Сначала подключите amoCRM.']);
         }
         $setting->forceFill(['account_id' => $account->id, 'connected_at' => null])->save();
         $url = $this->url($setting);

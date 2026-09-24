@@ -17,7 +17,7 @@ class FinderHistory extends ListRecords
 {
     protected static string $resource = FinderResource::class;
 
-    protected static ?string $title = 'История Finder';
+    protected static ?string $title = 'История контроля ответов';
 
     protected function getTableQuery(): ?Builder
     {

@@ -17,7 +17,7 @@ return [
             'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
             'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
-            'title' => 'Finder',
+            'title' => 'Контроль ответов',
             'description' => 'Контроль времени ответа в диалогах amoCRM: рабочее расписание, задачи и запуск сценариев.',
         ],
         'getcourse' => [

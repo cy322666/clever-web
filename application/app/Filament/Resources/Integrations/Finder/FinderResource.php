@@ -31,7 +31,11 @@ class FinderResource extends Resource
 
     protected static ?string $model = Setting::class;
 
-    protected static ?string $recordTitleAttribute = 'Finder';
+    protected static ?string $recordTitleAttribute = 'Контроль ответов';
+
+    protected static ?string $modelLabel = 'Контроль ответов';
+
+    protected static ?string $pluralModelLabel = 'Контроль ответов';
 
     protected static ?string $slug = 'integrations/finder';
 

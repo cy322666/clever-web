@@ -21,7 +21,7 @@ class MonitoringState
 
             if ($enabled) {
                 if (! $setting->amoAccount()?->active) {
-                    throw ValidationException::withMessages(['connection' => 'Сначала подключите amoCRM в аккаунте платформы.']);
+                    throw ValidationException::withMessages(['connection' => 'Сначала подключите amoCRM.']);
                 }
                 $options = app(SettingsValidator::class)->validate($options ?? $setting->options(), (int) $setting->user_id, true);
                 $access = app(WidgetSubscriptionAccessService::class);
@@ -29,16 +29,16 @@ class MonitoringState
                     $access->ensureTrialForWidget((int) $setting->user_id, 'finder', (int) config('integrations.default_trial_days', 7));
                     $widget->refresh();
                     if ((int) $widget->status !== App::STATE_ACTIVE) {
-                        throw ValidationException::withMessages(['access' => 'Доступ к Finder не активирован. Проверьте подписку.']);
+                        throw ValidationException::withMessages(['access' => 'Доступ к виджету «Контроль ответов» не активирован. Проверьте подписку.']);
                     }
                 }
                 if ((int) $widget->status === App::STATE_EXPIRES
                     || ($widget->expires_tariff_at && Carbon::parse($widget->expires_tariff_at)->endOfDay()->isPast())) {
-                    throw ValidationException::withMessages(['access' => 'Срок доступа к Finder закончился.']);
+                    throw ValidationException::withMessages(['access' => 'Срок доступа к виджету «Контроль ответов» закончился.']);
                 }
                 $widget->update(['status' => App::STATE_ACTIVE]);
                 if (! $access->canUse((int) $setting->user_id, 'finder')) {
-                    throw ValidationException::withMessages(['access' => 'Доступ к Finder не активирован. Проверьте подписку.']);
+                    throw ValidationException::withMessages(['access' => 'Доступ к виджету «Контроль ответов» не активирован. Проверьте подписку.']);
                 }
                 $setting->settings = $options;
             } elseif ((int) $widget->status === App::STATE_ACTIVE) {
