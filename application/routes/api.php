@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DistributionController;
-use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\IndustryClinicsSalonsLifecycleController;
 use App\Http\Controllers\Api\SqnsController;
 use App\Http\Controllers\Api\TildaController;
@@ -22,13 +21,6 @@ Route::post('yclients/marketplace/callback', [YClientsMarketplaceController::cla
     ->name('yclients.marketplace.callback');
 
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
-
-    Route::group(['prefix' => 'getcourse', 'middleware' => ['integration.active:getcourse']], function () {
-
-        Route::get('orders/{user:uuid}/{template}', [GetCourseController::class, 'order'])->name('getcourse.order');
-
-        Route::get('forms/{user:uuid}/{form}', [GetCourseController::class, 'form'])->name('getcourse.form');
-    });
 
     Route::group(['prefix' => 'tilda', 'middleware' => ['integration.active:tilda']], function () {
 

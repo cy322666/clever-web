@@ -82,14 +82,6 @@ return [
             'replace_placeholders' => true,
         ],
 
-        'getcourse-form' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/getcourse/form/laravel.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-//            'days' => 5,
-            'replace_placeholders' => true,
-        ],
-
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

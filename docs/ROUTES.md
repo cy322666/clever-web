@@ -17,12 +17,6 @@ All routes below are defined under middleware `user.active` and `user.inputs` un
 | POST | `/api/bizon/hook/{user:uuid}` | `bizon.hook` |
 | POST | `/api/bizon/form/{user:uuid}` | `bizon.form` |
 
-### GetCourse
-| Method | Path | Name |
-| --- | --- | --- |
-| GET | `/api/getcourse/orders/{user:uuid}/{template}` | `getcourse.order` |
-| GET | `/api/getcourse/forms/{user:uuid}/{form}` | `getcourse.form` |
-
 ### Tilda
 | Method | Path | Name |
 | --- | --- | --- |

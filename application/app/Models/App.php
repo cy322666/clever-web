@@ -108,7 +108,6 @@ class App extends Model
 
         return match ($appName) {
             'distribution' => 'Гибко настройте распределение сделок между менеджерами',
-            'getcourse' => 'Интегрируйте заявки и заказы из GetCourse с amoCRM',
             'tilda' => 'Отправляйте заявки с вашего сайта на Tilda в amoCRM без дублей',
             'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
             'sqns' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM',

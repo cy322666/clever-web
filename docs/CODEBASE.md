@@ -13,7 +13,7 @@
 ## Main functional areas
 
 ### HTTP layer
-- **Routes:** `routes/web.php` defines the base web entry points; `routes/api.php` defines webhook-style integration endpoints for external services (Bizon, GetCourse, Tilda, amoCRM, etc.).
+- **Routes:** `routes/web.php` defines the base web entry points; `routes/api.php` defines webhook-style integration endpoints for external services such as Tilda, YClients, and amoCRM.
 - **Controllers:** API controllers in `app/Http/Controllers/Api/` handle integration requests; shared controller base in `app/Http/Controllers/Controller.php`.
 - **Middleware:** custom middleware lives in `app/Http/Middleware/` and is referenced by the route groups.
 
@@ -22,10 +22,10 @@
 - **Observers:** `app/Observers` contains model observers to hook into lifecycle events.
 
 ### Jobs and background processing
-Queueable jobs live in `app/Jobs/` and cover integrations like GetCourse, Bizon, YClients, and distribution workflows.
+Queueable jobs live in `app/Jobs/` and cover integrations like YClients, Tilda, and distribution workflows.
 
 ### Services and integrations
-- **Integration clients:** `app/Services` includes API clients for amoCRM, Bizon365, GetCourse, Telegram, YClients, and supporting classes for document formatting/exports.
+- **Integration clients:** `app/Services` includes API clients for amoCRM, Telegram, YClients, and supporting classes for document formatting/exports.
 - **Helpers/traits:** reusable traits and helper actions reside under `app/Helpers`.
 
 ### Admin and UI

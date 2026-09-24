@@ -1,7 +1,6 @@
 <?php
 
 use App\Filament\Resources\Integrations\DistributionResource;
-use App\Filament\Resources\Integrations\GetCourseResource;
 use App\Filament\Resources\Integrations\ImportExcel\ImportResource;
 use App\Filament\Resources\Integrations\Sqns\SqnsResource;
 use App\Filament\Resources\Integrations\TildaResource;
@@ -19,10 +18,6 @@ return [
             'public' => true,
             'title' => 'Контроль ответов',
             'description' => 'Контроль времени ответа в диалогах amoCRM: рабочее расписание, задачи и запуск сценариев.',
-        ],
-        'getcourse' => [
-            'resource' => GetCourseResource::class,
-            'public' => true,
         ],
         'tilda' => [
             'resource' => TildaResource::class,

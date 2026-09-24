@@ -9,8 +9,6 @@ return new class extends Migration {
     {
         $this->addUserCreatedIndex('distribution_transactions', 'distribution_transactions_user_created_idx');
         $this->addUserCreatedIndex('tilda_forms', 'tilda_forms_user_created_idx');
-        $this->addUserCreatedIndex('getcourse_orders', 'getcourse_orders_user_created_idx');
-        $this->addUserCreatedIndex('getcourse_forms', 'getcourse_forms_user_created_idx');
         $this->addUserCreatedIndex('import_records', 'import_records_user_created_idx');
     }
 
@@ -18,8 +16,6 @@ return new class extends Migration {
     {
         $this->dropIndexIfTableExists('distribution_transactions', 'distribution_transactions_user_created_idx');
         $this->dropIndexIfTableExists('tilda_forms', 'tilda_forms_user_created_idx');
-        $this->dropIndexIfTableExists('getcourse_orders', 'getcourse_orders_user_created_idx');
-        $this->dropIndexIfTableExists('getcourse_forms', 'getcourse_forms_user_created_idx');
         $this->dropIndexIfTableExists('import_records', 'import_records_user_created_idx');
     }
 

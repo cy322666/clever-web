@@ -70,11 +70,6 @@ class User extends Authenticatable implements FilamentUser
         return ! $this->is_root;
     }
 
-    public function getcourse_settings(): HasOne
-    {
-        return $this->hasOne(Integrations\GetCourse\Setting::class);
-    }
-
     public function tilda_settings(): HasOne
     {
         return $this->hasOne(\App\Models\Integrations\Tilda\Setting::class);
