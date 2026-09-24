@@ -52,7 +52,7 @@ class FinderResource extends Resource
                         ->visible(fn (Get $get) => (bool) $get('settings.working_time'))->minItems(1)->maxItems(21)->reorderable(false)
                         ->schema([
                             CheckboxList::make('days')->label('Дни недели')->options([1 => 'Пн', 2 => 'Вт', 3 => 'Ср', 4 => 'Чт', 5 => 'Пт', 6 => 'Сб', 7 => 'Вс'])
-                                ->columns(['default' => 4, 'sm' => 7])->required()->columnSpanFull(),
+                                ->columns(['default' => 2, 'sm' => 7])->gridDirection('row')->required()->columnSpanFull(),
                             TimePicker::make('from')->label('С')->seconds(false)->format('H:i')->required(),
                             TimePicker::make('to')->label('До')->seconds(false)->format('H:i')->required(),
                         ])->columns(2)->columnSpanFull()->helperText('Поддерживаются ночные смены. Одинаковое время начала и окончания означает сутки.'),
