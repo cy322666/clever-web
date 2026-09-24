@@ -13,6 +13,13 @@ return [
     'default_trial_days' => 7,
 
     'definitions' => [
+        'finder' => [
+            'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
+            'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
+            'public' => true,
+            'title' => 'Finder',
+            'description' => 'Контроль времени ответа в диалогах amoCRM: рабочее расписание, задачи и запуск сценариев.',
+        ],
         'getcourse' => [
             'resource' => GetCourseResource::class,
             'public' => true,

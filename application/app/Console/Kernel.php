@@ -37,6 +37,11 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping();
 
+        $schedule->command('finder:check')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         $schedule->command('app:check-date-expire')
             ->dailyAt('01:00');
 

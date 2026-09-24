@@ -13,6 +13,10 @@ use App\Http\Controllers\Api\YClientsController;
 use App\Http\Controllers\YClientsMarketplaceController;
 use Illuminate\Support\Facades\Route;
 
+Route::post('finder/hook/{setting}/{signature}', \App\Http\Controllers\Api\FinderWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('finder.hook');
+
 Route::post('yclients/marketplace/callback', [YClientsMarketplaceController::class, 'callback'])
     ->middleware('throttle:60,1')
     ->name('yclients.marketplace.callback');

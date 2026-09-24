@@ -97,7 +97,8 @@ class IntegrationProvisioningService
         $query = $settingModelClass::query()->where('user_id', $user->id);
         $amoAccount = null;
         if (Schema::hasColumn($table, 'account_id')) {
-            $amoAccount = $user->resolveAmoAccountForWidget((string)$app->name, true);
+            $amoWidget = (string) config("integrations.definitions.{$app->name}.amo_widget", $app->name);
+            $amoAccount = $user->resolveAmoAccountForWidget($amoWidget, true);
         }
 
         if (Schema::hasColumn($table, 'account_id') && $amoAccount?->id) {
