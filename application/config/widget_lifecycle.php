@@ -11,6 +11,7 @@ return [
         'amocrm' => 'amoCRM',
         'workflows' => 'Потоки',
         'import-excel' => 'Импорт Excel',
+        'finder' => 'Finder',
         'sqns' => 'SQNS',
         'yclients' => 'YCLIENTS',
         'vetmanager' => 'Ветменеджер',

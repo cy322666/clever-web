@@ -262,18 +262,19 @@ class AmoCrmWidgetInstallationService
     private function oauthConfig(string $widget): array
     {
         $prefix = 'services.amocrm.widgets.'.$widget.'.';
+        $fallbackToPlatform = (bool) config($prefix.'fallback_to_platform_credentials', true);
         $config = [
             'client_id' => $this->firstFilled([
                 config($prefix.'client_id'),
-                config('services.amocrm.client_id'),
+                $fallbackToPlatform ? config('services.amocrm.client_id') : null,
             ]),
             'client_secret' => $this->firstFilled([
                 config($prefix.'client_secret'),
-                config('services.amocrm.client_secret'),
+                $fallbackToPlatform ? config('services.amocrm.client_secret') : null,
             ]),
             'redirect_uri' => $this->firstFilled([
                 config($prefix.'redirect_uri'),
-                config('services.amocrm.redirect_uri'),
+                $fallbackToPlatform ? config('services.amocrm.redirect_uri') : null,
             ]),
         ];
 

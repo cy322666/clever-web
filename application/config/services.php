@@ -44,6 +44,12 @@ return [
         'secrets_uri'  => env('AMO_SECRETS_URI'),
         'widgets' => [
             // Optional per-widget oauth credentials.
+            'finder' => [
+                'client_id' => env('AMO_FINDER_CLIENT_ID'),
+                'client_secret' => env('AMO_FINDER_CLIENT_SECRET'),
+                'redirect_uri' => $widgetRedirectUri('AMO_FINDER_REDIRECT_URI', '/api/amocrm/install/finder'),
+                'fallback_to_platform_credentials' => false,
+            ],
             'import-excel' => [
                 'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),

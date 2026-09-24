@@ -202,4 +202,83 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             'amo_account_id' => 33098322,
         ]);
     }
+
+    public function test_finder_install_uses_its_own_keys_and_preserves_the_shared_connection(): void
+    {
+        config([
+            'services.amocrm.widgets.finder.client_id' => 'finder-client',
+            'services.amocrm.widgets.finder.client_secret' => 'finder-secret',
+            'services.amocrm.client_id' => 'platform-client',
+            'services.amocrm.client_secret' => 'platform-secret',
+        ]);
+        $owner = User::withoutEvents(fn () => User::query()->create([
+            'name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password'),
+        ]));
+        $shared = (new Account)->forceFill([
+            'user_id' => $owner->id,
+            'widget' => Account::DEFAULT_WIDGET,
+            'amo_account_id' => 33098322,
+            'subdomain' => 'widgetscenario',
+            'zone' => 'ru',
+            'active' => true,
+            'access_token' => 'platform-access',
+            'refresh_token' => 'platform-refresh',
+        ]);
+        $shared->save();
+        $sharedAttributes = $shared->fresh()->getAttributes();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response([
+                'access_token' => 'finder-access', 'refresh_token' => 'finder-refresh',
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response([
+                'id' => 33098322, 'current_user_id' => 778899,
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response([
+                'id' => 778899, 'email' => 'installer@example.com',
+            ]),
+        ]);
+        $this->mock(IntegrationProvisioningService::class)
+            ->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)
+            ->shouldReceive('ensureTrialForWidget')->once()
+            ->with(Mockery::type(User::class), 'finder', 7)->andReturnNull();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)
+            ->install('finder-code', 'widgetscenario.amocrm.ru', 'finder');
+
+        $this->assertFalse($result['created_user']);
+        $this->assertSame($owner->id, $result['user']->id);
+        $this->assertSame('finder', $result['account']->widget);
+        $this->assertSame('finder-access', $result['account']->access_token);
+        $this->assertSame($sharedAttributes, $shared->fresh()->getAttributes());
+        Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/oauth2/access_token')
+            && $request['client_id'] === 'finder-client'
+            && $request['client_secret'] === 'finder-secret'
+            && $request['redirect_uri'] === config('services.amocrm.widgets.finder.redirect_uri')
+            && $request['code'] === 'finder-code');
+    }
+
+    public function test_finder_install_does_not_exchange_its_code_using_platform_credentials(): void
+    {
+        config([
+            'services.amocrm.widgets.finder.client_id' => null,
+            'services.amocrm.widgets.finder.client_secret' => null,
+            'services.amocrm.client_id' => 'platform-client',
+            'services.amocrm.client_secret' => 'platform-secret',
+        ]);
+        Http::preventStrayRequests();
+        Http::fake();
+
+        try {
+            app(AmoCrmWidgetInstallationService::class)->install('finder-code', 'widgetscenario.amocrm.ru', 'finder');
+            $this->fail('Finder installation must require its own credentials.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('amoCRM finder client_id is not configured.', $exception->getMessage());
+        }
+        Http::assertNothingSent();
+    }
 }

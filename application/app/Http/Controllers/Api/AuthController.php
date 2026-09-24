@@ -40,6 +40,11 @@ class AuthController extends Controller
         return $this->installWidgetFromAmoCrm($request, 'import-excel', 'excel');
     }
 
+    public function installFinder(Request $request)
+    {
+        return $this->installWidgetFromAmoCrm($request, 'finder', 'finder');
+    }
+
     public function installSqns(Request $request)
     {
         return $this->installWidgetFromAmoCrm($request, 'sqns', 'sqns');
@@ -83,6 +88,11 @@ class AuthController extends Controller
     public function offExcel(Request $request)
     {
         return $this->logWidgetOffCallback($request, 'excel', 'import-excel');
+    }
+
+    public function offFinder(Request $request)
+    {
+        return $this->logWidgetOffCallback($request, 'finder', 'finder');
     }
 
     public function offSqns(Request $request)
