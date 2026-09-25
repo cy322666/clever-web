@@ -184,6 +184,20 @@ abstract class UpdateButton
         }
     }
 
+    public static function amoCRMResetButton(?Account $account): Action
+    {
+        return Action::make('amocrmReset')
+            ->action('amocrmReset')
+            ->label('Сбросить авторизацию')
+            ->icon('heroicon-o-arrow-path')
+            ->color(Color::Red)
+            ->tooltip('Очистить истекшие OAuth-токены и подключить amoCRM заново')
+            ->modalHeading('Сбросить авторизацию amoCRM?')
+            ->modalDescription('Старые OAuth-токены будут удалены. После сброса появится кнопка повторного подключения.')
+            ->requiresConfirmation()
+            ->visible(fn () => (bool) $account?->active);
+    }
+
     public static function amoCRMAuthButton(?Account $account): Action
     {
         if (!$account) {

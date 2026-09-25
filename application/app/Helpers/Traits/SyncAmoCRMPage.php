@@ -84,15 +84,7 @@ trait SyncAmoCRMPage
                     . '&uri=' . urlencode($url)
                 );
             } else {
-                $account->code = null;
-                $account->access_token = null;
-                $account->subdomain = null;
-                $account->refresh_token = null;
-                $account->client_id = null;
-                $account->client_secret = null;
-                $account->zone = null;
-                $account->active = false;
-                $account->save();
+                $this->resetAmoCrmAccount($account);
 
                 Notification::make()
                     ->title('Авторизация отозвана')
@@ -111,6 +103,55 @@ trait SyncAmoCRMPage
                 ->danger()
                 ->send();
         }
+    }
+
+    public function amocrmReset(): void
+    {
+        try {
+            $user = Auth::user();
+            $account = $user?->resolveAmoAccountForWidget($this->resolveAmoWidgetKey(), true);
+
+            if (!$user || !$account) {
+                Notification::make()
+                    ->title('Не удалось определить amoCRM аккаунт')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            $this->resetAmoCrmAccount($account);
+
+            Notification::make()
+                ->title('Авторизация amoCRM сброшена')
+                ->body('Обновите страницу и подключите amoCRM заново.')
+                ->success()
+                ->send();
+        } catch (Throwable $e) {
+            Log::error('amocrmReset failed', [
+                'widget' => $this->resolveAmoWidgetKey(),
+                'error' => $e->getMessage(),
+            ]);
+
+            Notification::make()
+                ->title('Ошибка сброса авторизации amoCRM')
+                ->body('Не удалось сбросить подключение. Обновите страницу и попробуйте снова.')
+                ->danger()
+                ->send();
+        }
+    }
+
+    private function resetAmoCrmAccount(Account $account): void
+    {
+        $account->code = null;
+        $account->access_token = null;
+        $account->subdomain = null;
+        $account->refresh_token = null;
+        $account->client_id = null;
+        $account->client_secret = null;
+        $account->zone = null;
+        $account->active = false;
+        $account->save();
     }
 
     /**
