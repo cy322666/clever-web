@@ -59,6 +59,7 @@ return [
                 'client_id' => env('AMO_YCLIENTS_CLIENT_ID'),
                 'client_secret' => env('AMO_YCLIENTS_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_YCLIENTS_REDIRECT_URI', '/api/amocrm/install/yclients'),
+                'use_shared_connector' => (bool) env('AMO_YCLIENTS_USE_SHARED_CONNECTOR', true),
             ],
             'tilda' => [
                 'client_id' => env('AMO_TILDA_CLIENT_ID'),

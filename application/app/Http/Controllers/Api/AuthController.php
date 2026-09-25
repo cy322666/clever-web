@@ -1010,7 +1010,8 @@ class AuthController extends Controller
 
     private function shouldUseSharedAmoConnector(string $widget): bool
     {
-        return false;
+        return Account::normalizeWidget($widget) === 'yclients'
+            && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
     }
 
     private function resolveSharedConnectorConfig(User $user, ?Account $currentAccount = null): array
