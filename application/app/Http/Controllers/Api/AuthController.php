@@ -10,6 +10,7 @@ use App\Mail\SignUpWidget;
 use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
+use App\Support\Auth\AccountEmail;
 use App\Services\amoCRM\Client;
 use App\Services\Billing\WidgetSubscriptionAccessService;
 use App\Services\Core\PlatformTechnicalMonitor;
@@ -510,11 +511,12 @@ class AuthController extends Controller
 
         parse_str($query, $params);
 
-        $email = isset($params['email']) ? trim($params['email'], "\"' \t\n\r\0\x0B") : null;
+        $rawEmail = $params['email'] ?? '';
+        $email = AccountEmail::normalize(is_string($rawEmail) ? trim($rawEmail, "\"' \t\n\r\0\x0B") : '');
         $widget = (string) ($params['widget'] ?? '');
         $widget = Str::of($widget)->lower()->trim()->toString();
 
-        if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL) || ! preg_match('/^[a-z0-9\-]+$/', $widget)) {
+        if (! AccountEmail::isValid($email) || ! preg_match('/^[a-z0-9\-]+$/', $widget)) {
             abort(422, 'Invalid widget install payload.');
         }
 

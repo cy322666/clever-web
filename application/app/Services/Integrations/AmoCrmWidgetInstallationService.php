@@ -6,6 +6,7 @@ use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
+use App\Support\Auth\AccountEmail;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -67,8 +68,8 @@ class AmoCrmWidgetInstallationService
             ->throw()
             ->json();
 
-        $email = Str::lower(trim((string) data_get($amoUser, 'email', '')));
-        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $email = AccountEmail::normalize(data_get($amoUser, 'email', ''));
+        if (! AccountEmail::isValid($email)) {
             throw new RuntimeException('amoCRM installer email is missing or invalid.');
         }
 
