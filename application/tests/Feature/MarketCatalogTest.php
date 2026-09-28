@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\App\Pages\Dashboard;
 use App\Filament\App\Widgets\Market;
 use App\Models\App;
 use App\Models\User;
@@ -64,7 +65,6 @@ class MarketCatalogTest extends TestCase
             ->assertSee('Универсальные')
             ->assertSee('Отраслевые')
             ->assertSee('Истёк 34 дн.')
-            ->assertSee('Для вашей сферы')
             ->assertSee(route('integrations.open', ['app' => $expired->id]), false)
             ->assertDontSee(route('integrations.open', ['app' => $otherUserApp->id]), false);
 
@@ -83,6 +83,43 @@ class MarketCatalogTest extends TestCase
         $this->assertSame(['Vetmanager', 'SQNS', 'YClients'], $titles('industry'));
         $this->assertSame(App::STATE_ACTIVE, $expired->fresh()->status);
         $this->assertSame(1, App::where('user_id', 2)->count());
+    }
+
+    public function test_cards_show_icons_names_and_actions_without_marketing_copy_or_crm_badges(): void
+    {
+        $component = Livewire::test(Market::class)
+            ->assertSee('Подключить')
+            ->assertDontSee('Можно подключить')
+            ->assertDontSee('amoCRM')
+            ->assertDontSee('КАТАЛОГ CLEVERCRM')
+            ->assertDontSee('Показываем только те решения')
+            ->assertDontSee('Инструменты для вашей CRM')
+            ->assertDontSee('Для вашей сферы');
+
+        foreach (App::all() as $app) {
+            $component->assertDontSee(App::getTooltipText($app->name));
+        }
+
+        $dom = new DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$component->html());
+        $xpath = new DOMXPath($dom);
+        $cards = $xpath->query('//a[@class="clever-market-card"]');
+
+        $this->assertCount(8, $cards);
+        foreach ($cards as $card) {
+            $this->assertSame(1, $xpath->query('.//span[@class="clever-market-card__icon" and @aria-hidden="true"]/svg', $card)->length);
+            $this->assertSame(1, $xpath->query('.//h3', $card)->length);
+            $this->assertSame(0, $xpath->query('.//p', $card)->length);
+        }
+        $this->assertSame(0, $xpath->query('//*[contains(@class, "fi-badge")]')->length);
+    }
+
+    public function test_dashboard_has_no_visible_heading_but_keeps_its_browser_title(): void
+    {
+        $page = new Dashboard;
+
+        $this->assertSame('', $page->getHeading());
+        $this->assertSame('Интеграции', $page->getTitle());
     }
 
     public function test_crm_filter_applies_to_both_sections_even_for_existing_apps(): void

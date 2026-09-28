@@ -12,6 +12,8 @@ class Dashboard extends BaseDashboard
 
     protected static ?string $title = 'Интеграции';
 
+    protected ?string $heading = '';
+
     protected Width|string|null $maxContentWidth = Width::FiveExtraLarge;
 
     public function getWidgets(): array

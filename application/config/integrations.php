@@ -14,6 +14,7 @@ return [
     'definitions' => [
         'finder' => [
             'category' => 'universal',
+            'icon' => 'heroicon-o-chat-bubble-left-right',
             'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
             'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
@@ -23,24 +24,28 @@ return [
         ],
         'tilda' => [
             'category' => 'universal',
+            'icon' => 'heroicon-o-globe-alt',
             'resource' => TildaResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'distribution' => [
             'category' => 'universal',
+            'icon' => 'heroicon-o-arrows-right-left',
             'resource' => DistributionResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'yclients' => [
             'category' => 'industry',
+            'icon' => 'heroicon-o-calendar-days',
             'resource' => YClientsResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'sqns' => [
             'category' => 'industry',
+            'icon' => 'heroicon-o-building-office-2',
             'resource' => SqnsResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -49,6 +54,7 @@ return [
         ],
         'vetmanager' => [
             'category' => 'industry',
+            'icon' => 'heroicon-o-heart',
             'resource' => VetmanagerResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -57,12 +63,14 @@ return [
         ],
         'import-excel' => [
             'category' => 'universal',
+            'icon' => 'heroicon-o-table-cells',
             'resource' => ImportResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'workflows' => [
             'category' => 'universal',
+            'icon' => 'heroicon-o-bolt',
             'resource' => WorkflowResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],

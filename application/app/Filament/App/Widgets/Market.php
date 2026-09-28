@@ -26,15 +26,14 @@ class Market extends Widget
     protected function getViewData(): array
     {
         $definitions = App::definitions();
-        $recommended = IndustryProfile::recommendedApps(auth()->user()?->industry);
-        $cards = $this->getFilteredQuery()->get()->map(function (App $app) use ($definitions, $recommended): array {
+        $cards = $this->getFilteredQuery()->get()->map(function (App $app) use ($definitions): array {
             $status = self::effectiveStatus($app);
 
             return [
                 'id' => $app->id,
                 'category' => $definitions->get($app->name)['category'] ?? 'universal',
                 'title' => self::safeRecordTitle($app),
-                'description' => trim(App::getTooltipText($app->name)),
+                'icon' => $definitions->get($app->name)['icon'] ?? 'heroicon-o-puzzle-piece',
                 'url' => route('integrations.open', ['app' => $app->id]),
                 'status' => self::statusBadgeText($app),
                 'color' => match ($status) {
@@ -44,7 +43,6 @@ class Market extends Widget
                     default => 'gray',
                 },
                 'action' => $status === App::STATE_CREATED ? 'Подключить' : 'Открыть',
-                'recommended' => in_array($app->name, $recommended, true),
             ];
         });
 
@@ -52,12 +50,10 @@ class Market extends Widget
             'sections' => [
                 'universal' => [
                     'title' => 'Универсальные',
-                    'description' => 'Для любой сферы: заявки, данные и автоматизация работы.',
                     'cards' => $cards->where('category', 'universal'),
                 ],
                 'industry' => [
                     'title' => 'Отраслевые',
-                    'description' => 'Интеграции с сервисами для красоты, медицины и ветеринарии.',
                     'cards' => $cards->where('category', 'industry'),
                 ],
             ],
@@ -131,7 +127,7 @@ class Market extends Widget
         return $app->status;
     }
 
-    private static function statusBadgeText(App $app): string
+    private static function statusBadgeText(App $app): ?string
     {
         $status = self::effectiveStatus($app);
 
@@ -152,7 +148,7 @@ class Market extends Widget
         }
 
         return match ($status) {
-            App::STATE_CREATED => 'Можно подключить',
+            App::STATE_CREATED => null,
             App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
             default => App::STATE_EXPIRES_WORD,
         };
