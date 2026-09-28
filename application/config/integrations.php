@@ -16,46 +16,48 @@ return [
             'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
             'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
+            'crm_providers' => ['amocrm'],
             'title' => 'Контроль ответов',
             'description' => 'Контроль времени ответа в диалогах amoCRM: рабочее расписание, задачи и запуск сценариев.',
         ],
         'tilda' => [
             'resource' => TildaResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
         ],
         'distribution' => [
             'resource' => DistributionResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
         ],
         'yclients' => [
             'resource' => YClientsResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
         ],
         'sqns' => [
             'resource' => SqnsResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
             'title' => 'SQNS',
             'description' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM.',
         ],
         'vetmanager' => [
             'resource' => VetmanagerResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
             'title' => 'Vetmanager',
             'description' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM.',
-        ],
-        'sqns' => [
-            'resource' => SqnsResource::class,
-            'public' => true,
-            'title' => 'SQNS',
-            'description' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM.',
         ],
         'import-excel' => [
             'resource' => ImportResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
         ],
         'workflows' => [
             'resource' => WorkflowResource::class,
             'public' => true,
+            'crm_providers' => ['amocrm'],
             'trial_days' => 7,
             'requires_setting' => false,
             'open_page' => 'index',
@@ -66,6 +68,6 @@ return [
 
     'amo_auth_alert' => [
         // repeat alert window to avoid spamming when oauth stays broken
-        'cooldown_minutes' => (int)env('AMO_AUTH_ALERT_COOLDOWN_MINUTES', 360),
+        'cooldown_minutes' => (int) env('AMO_AUTH_ALERT_COOLDOWN_MINUTES', 360),
     ],
 ];

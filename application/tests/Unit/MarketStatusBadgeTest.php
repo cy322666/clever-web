@@ -10,11 +10,22 @@ use Tests\TestCase;
 
 class MarketStatusBadgeTest extends TestCase
 {
+    public function test_new_integration_has_clear_available_status(): void
+    {
+        $app = (new App)->forceFill([
+            'status' => App::STATE_CREATED,
+        ]);
+
+        $method = new ReflectionMethod(Market::class, 'statusBadgeText');
+
+        $this->assertSame('Можно подключить', $method->invoke(null, $app));
+    }
+
     public function test_expired_status_shows_how_many_days_ago_it_expired(): void
     {
         Carbon::setTestNow('2026-09-19 12:00:00');
 
-        $app = (new App())->forceFill([
+        $app = (new App)->forceFill([
             'status' => App::STATE_EXPIRES,
             'expires_tariff_at' => '2026-08-16',
         ]);

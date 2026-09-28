@@ -2,9 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Core\Account;
-use Carbon\Carbon;
-use Filament\Notifications\Notification;
+use App\Support\Crm\CrmProvider;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -14,15 +12,21 @@ class App extends Model
 {
     use HasFactory;
 
-    const STATE_CREATED  = 0;
-    const STATE_INACTIVE = 2;
-    const STATE_ACTIVE   = 1;
-    const STATE_EXPIRES  = 3;
+    const STATE_CREATED = 0;
 
-    const STATE_CREATED_WORD  = '';
+    const STATE_INACTIVE = 2;
+
+    const STATE_ACTIVE = 1;
+
+    const STATE_EXPIRES = 3;
+
+    const STATE_CREATED_WORD = '';
+
     const STATE_INACTIVE_WORD = 'Не активна';
-    const STATE_ACTIVE_WORD   = 'Активна';
-    const STATE_EXPIRES_WORD  = 'Закончилась';
+
+    const STATE_ACTIVE_WORD = 'Активна';
+
+    const STATE_EXPIRES_WORD = 'Закончилась';
 
     protected $fillable = [
         'resource_name',
@@ -47,27 +51,57 @@ class App extends Model
             ->all();
     }
 
+    public static function definitionNamesForCrmProvider(?string $provider, ?bool $public = null): array
+    {
+        return self::definitionsForCrmProvider($provider, $public)
+            ->keys()
+            ->values()
+            ->all();
+    }
+
+    public static function definitionsForCrmProvider(?string $provider, ?bool $public = null): Collection
+    {
+        $provider = CrmProvider::normalize($provider);
+
+        return self::definitions($public)
+            ->filter(
+                fn (array $definition): bool => in_array(
+                    $provider,
+                    array_values((array) ($definition['crm_providers'] ?? [])),
+                    true,
+                )
+            );
+    }
+
+    public static function crmProviderLabels(string $appName): string
+    {
+        return collect((array) config("integrations.definitions.{$appName}.crm_providers", []))
+            ->map(fn (string $provider): string => CrmProvider::label($provider))
+            ->unique()
+            ->implode(' + ');
+    }
+
     public static function definitions(?bool $public = null): Collection
     {
         return collect(config('integrations.definitions', []))
             ->filter(
-                fn(array $definition, string $name): bool => self::definitionAvailable($name, $definition)
+                fn (array $definition, string $name): bool => self::definitionAvailable($name, $definition)
                     && (
                         $public === null
-                        || (bool)($definition['public'] ?? true) === $public
+                        || (bool) ($definition['public'] ?? true) === $public
                     )
             );
     }
 
     private static function definitionAvailable(string $name, array $definition): bool
     {
-        $resource = (string)($definition['resource'] ?? '');
+        $resource = (string) ($definition['resource'] ?? '');
 
-        if ($name === 'workflows' && !self::classAvailable(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
+        if ($name === 'workflows' && ! self::classAvailable(\Leek\FilamentWorkflows\WorkflowsPlugin::class)) {
             return false;
         }
 
-        if (!self::classAvailable($resource)) {
+        if (! self::classAvailable($resource)) {
             return false;
         }
 
@@ -76,7 +110,7 @@ class App extends Model
 
     public static function classAvailable(?string $class): bool
     {
-        if (!is_string($class) || $class === '') {
+        if (! is_string($class) || $class === '') {
             return false;
         }
 
@@ -85,9 +119,9 @@ class App extends Model
         }
 
         if (str_starts_with($class, 'App\\')) {
-            $path = app_path(str_replace('\\', '/', substr($class, 4)) . '.php');
+            $path = app_path(str_replace('\\', '/', substr($class, 4)).'.php');
 
-            if (!is_file($path)) {
+            if (! is_file($path)) {
                 return false;
             }
         }
@@ -112,7 +146,6 @@ class App extends Model
             'yclients' => 'Синхронизируйте клиентов и их посещения между amoCRM и YClients',
             'sqns' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM',
             'vetmanager' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM',
-            'sqns' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM',
             'import-excel' => 'Импорт данных из Excel файлов в amoCRM с гибким маппингом полей для сделок, контактов и компаний',
             default => '',
         };
@@ -130,7 +163,7 @@ class App extends Model
             && self::classAvailable($resourceClass)
             && method_exists($resourceClass, 'getRecordTitle')
         ) {
-            return (string)$resourceClass::getRecordTitle();
+            return (string) $resourceClass::getRecordTitle();
         }
 
         return $appName;
@@ -139,10 +172,10 @@ class App extends Model
     public function getStatusLabel(): string
     {
         return match ($this->status) {
-            App::STATE_CREATED  => App::STATE_CREATED_WORD,
+            App::STATE_CREATED => App::STATE_CREATED_WORD,
             App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
-            App::STATE_ACTIVE   => App::STATE_ACTIVE_WORD,
-            App::STATE_EXPIRES  => App::STATE_EXPIRES_WORD,
+            App::STATE_ACTIVE => App::STATE_ACTIVE_WORD,
+            App::STATE_EXPIRES => App::STATE_EXPIRES_WORD,
         };
     }
 
@@ -156,7 +189,7 @@ class App extends Model
         return $this->resource_name::getModel()::query()->find($this->setting_id);
     }
 
-    public static function isActiveWidget(Model $setting) : bool
+    public static function isActiveWidget(Model $setting): bool
     {
         return $setting->active;
     }

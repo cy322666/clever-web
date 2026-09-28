@@ -17,6 +17,7 @@ use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -88,6 +89,12 @@ class AppPanelProvider extends PanelProvider
             ->renderHook(\Filament\View\PanelsRenderHook::USER_MENU_BEFORE, fn () => request()->routeIs('filament.app.resources.workflows.index', 'filament.app.resources.workflows.analytics')
                     ? view('filament.workflow-builder.workflow-theme-toggle')
                     : '')
+            ->userMenuItems([
+                'profile' => MenuItem::make()
+                    ->label('Профиль')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn (): string => UserResource::getUrl('view', ['record' => Auth::id()])),
+            ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
 
                 return $builder->groups([
@@ -95,14 +102,9 @@ class AppPanelProvider extends PanelProvider
                     NavigationGroup::make('')
                         ->items([
                             NavigationItem::make('Market')
-                                ->label('Магазин')
-                                ->icon('heroicon-o-shopping-bag')
+                                ->label('Интеграции')
+                                ->icon('heroicon-o-puzzle-piece')
                                 ->url(fn (): string => Dashboard::getUrl()),
-
-                            NavigationItem::make('Home')
-                                ->label('Аккаунт')
-                                ->icon('heroicon-o-home')
-                                ->url(fn (): string => UserResource::getUrl('view', ['record' => Auth::id()])),
 
                             NavigationItem::make('PlatformSetup')
                                 ->label(fn (): string => app()->getLocale() === 'en' ? 'Platform setup' : 'Настройка платформы')
