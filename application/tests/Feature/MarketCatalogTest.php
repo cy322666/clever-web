@@ -80,7 +80,7 @@ class MarketCatalogTest extends TestCase
             ['Контроль ответов', 'Тильда', 'Распределение', 'Импорт Excel', 'Потоки'],
             $titles('universal'),
         );
-        $this->assertSame(['Vetmanager', 'SQNS', 'YClients'], $titles('industry'));
+        $this->assertSame(['Ветменеджер', 'SQNS', 'YClients'], $titles('industry'));
         $this->assertSame(App::STATE_ACTIVE, $expired->fresh()->status);
         $this->assertSame(1, App::where('user_id', 2)->count());
     }
@@ -139,7 +139,7 @@ class MarketCatalogTest extends TestCase
             ->assertSee('Распределение')
             ->assertSee('SQNS')
             ->assertDontSee('Контроль ответов')
-            ->assertDontSee('Vetmanager');
+            ->assertDontSee('Ветменеджер');
 
         $this->assertSame(2, App::whereIn('name', ['finder', 'vetmanager'])->count());
     }
