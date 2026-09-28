@@ -101,7 +101,7 @@ class AppPanelProvider extends PanelProvider
                         ->items([
                             NavigationItem::make('Market')
                                 ->label('Интеграции')
-                                ->icon('heroicon-o-puzzle-piece')
+                                ->icon('heroicon-o-squares-2x2')
                                 ->url(fn (): string => Dashboard::getUrl()),
 
                             NavigationItem::make('InvoiceRequests')
