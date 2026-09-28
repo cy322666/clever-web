@@ -47,6 +47,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->string('widget')->default(Account::DEFAULT_WIDGET);
+            $table->string('oauth_connector')->nullable();
             $table->unsignedBigInteger('amo_account_id')->nullable();
             $table->string('subdomain')->nullable();
             $table->string('zone')->nullable();
@@ -351,6 +352,77 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         $this->assertSame($other->id, $existing->fresh()->user_id);
         $this->assertSame('unchanged', $existing->fresh()->access_token);
         Queue::assertNothingPushed();
+    }
+
+    public function test_yclients_marketplace_install_uses_widget_oauth_while_legacy_mode_is_shared(): void
+    {
+        config([
+            'services.amocrm.widgets.yclients.use_shared_connector' => true,
+            'services.amocrm.widgets.yclients.client_id' => 'yclients-client',
+            'services.amocrm.widgets.yclients.client_secret' => 'yclients-secret',
+            'services.amocrm.widgets.yclients.redirect_uri' => 'https://platform.example/api/amocrm/install/yclients',
+            'services.amocrm.client_id' => 'platform-client',
+            'services.amocrm.client_secret' => 'platform-secret',
+        ]);
+        $owner = User::withoutEvents(fn () => User::create([
+            'name' => 'Owner', 'email' => 'owner@example.test', 'password' => 'test',
+        ]));
+        $shared = (new Account)->forceFill([
+            'user_id' => $owner->id, 'widget' => 'default', 'amo_account_id' => 33098322,
+            'subdomain' => 'widgetscenario', 'zone' => 'ru', 'active' => true,
+            'client_id' => 'platform-client', 'access_token' => 'shared-access',
+            'refresh_token' => 'shared-refresh',
+        ]);
+        $shared->save();
+        $before = $shared->fresh()->getAttributes();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response([
+                'access_token' => 'yclients-access', 'refresh_token' => 'yclients-refresh',
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response([
+                'id' => 33098322, 'current_user_id' => 778899,
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response([
+                'id' => 778899, 'email' => 'installer@example.test',
+            ]),
+        ]);
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)
+            ->install('yclients-code', 'widgetscenario.amocrm.ru', 'yclients');
+
+        $this->assertSame($owner->id, $result['user']->id);
+        $this->assertSame(Account::CONNECTOR_WIDGET, $result['account']->oauth_connector);
+        $this->assertSame('yclients-client', $result['account']->client_id);
+        $this->assertSame($result['account']->id, $owner->resolveAmoAccountForWidget('yclients')->id);
+        $this->assertSame($before, $shared->fresh()->getAttributes());
+        Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/oauth2/access_token')
+            && $request['client_id'] === 'yclients-client'
+            && $request['client_secret'] === 'yclients-secret'
+            && $request['redirect_uri'] === 'https://platform.example/api/amocrm/install/yclients');
+    }
+
+    public function test_yclients_install_does_not_fall_back_to_common_keys(): void
+    {
+        config([
+            'services.amocrm.widgets.yclients.client_id' => null,
+            'services.amocrm.client_id' => 'platform-client',
+            'services.amocrm.client_secret' => 'platform-secret',
+        ]);
+        Http::preventStrayRequests();
+        Http::fake();
+        try {
+            app(AmoCrmWidgetInstallationService::class)->install('yc-code', 'widgetscenario.amocrm.ru', 'yclients');
+            $this->fail('YClients marketplace codes require dedicated credentials.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('amoCRM yclients client_id is not configured.', $exception->getMessage());
+        }
+        Http::assertNothingSent();
     }
 
     private function prepareFinderPlatformInstall(): User

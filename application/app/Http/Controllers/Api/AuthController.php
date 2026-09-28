@@ -41,6 +41,11 @@ class AuthController extends Controller
         return $this->installWidgetFromAmoCrm($request, 'import-excel', 'excel');
     }
 
+    public function installYclients(Request $request)
+    {
+        return $this->installWidgetFromAmoCrm($request, 'yclients', 'yclients');
+    }
+
     public function installFinder(Request $request)
     {
         if (! $request->isMethod('GET') || $request->expectsJson()) {
@@ -111,6 +116,11 @@ class AuthController extends Controller
     public function offExcel(Request $request)
     {
         return $this->logWidgetOffCallback($request, 'excel', 'import-excel');
+    }
+
+    public function offYclients(Request $request)
+    {
+        return $this->logWidgetOffCallback($request, 'yclients', 'yclients');
     }
 
     public function offFinder(Request $request)
@@ -248,7 +258,7 @@ class AuthController extends Controller
                 );
             }
 
-            $useSharedConnector = $this->shouldUseSharedAmoConnector($widget);
+            $useSharedConnector = $this->shouldUseSharedAmoConnector($widget, $account);
             $sharedConnector = $useSharedConnector
                 ? $this->resolveSharedConnectorConfig($user, $account)
                 : null;
@@ -369,6 +379,11 @@ class AuthController extends Controller
 
                 $account->code = (string) $request->input('code', '');
                 $account->widget = $widget;
+                if ($widget === 'yclients') {
+                    $account->oauth_connector = $useSharedConnector
+                        ? Account::CONNECTOR_SHARED
+                        : Account::CONNECTOR_WIDGET;
+                }
                 $account->zone = $zone ?? $account->zone;
                 $account->client_id = $resolvedClientId;
                 $account->subdomain = $candidateSubdomain;
@@ -977,7 +992,7 @@ class AuthController extends Controller
         ?User $user = null,
         ?Account $currentAccount = null
     ): array {
-        if ($this->shouldUseSharedAmoConnector($widget)) {
+        if ($this->shouldUseSharedAmoConnector($widget, $currentAccount)) {
             if ($user instanceof User) {
                 $shared = $this->resolveSharedConnectorConfig($user, $currentAccount);
 
@@ -998,6 +1013,10 @@ class AuthController extends Controller
         $clientSecret = (string) config($prefix.'client_secret', '');
         $redirectUri = (string) config($prefix.'redirect_uri', '');
 
+        if ($widget === 'yclients') {
+            return ['client_secret' => $clientSecret, 'redirect_uri' => $redirectUri];
+        }
+
         return [
             'client_secret' => $clientSecret !== ''
                 ? $clientSecret
@@ -1008,10 +1027,9 @@ class AuthController extends Controller
         ];
     }
 
-    private function shouldUseSharedAmoConnector(string $widget): bool
+    private function shouldUseSharedAmoConnector(string $widget, ?Account $account = null): bool
     {
-        return Account::normalizeWidget($widget) === 'yclients'
-            && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
+        return ($account ?? new Account)->usesSharedConnectorForWidget($widget);
     }
 
     private function resolveSharedConnectorConfig(User $user, ?Account $currentAccount = null): array

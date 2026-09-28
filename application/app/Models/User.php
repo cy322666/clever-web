@@ -195,14 +195,23 @@ class User extends Authenticatable implements FilamentUser
             ->latest('id')
             ->first();
 
-        if ($specific && $this->amoAccountIsUsable($specific)) {
+        // Marketplace installs must keep their own OAuth even after a reset.
+        if ($widget === 'yclients' && $specific?->oauth_connector === Account::CONNECTOR_WIDGET) {
+            return $specific;
+        }
+
+        $useSharedConnector = ($specific ?? new Account)->usesSharedConnectorForWidget($widget);
+        $sharedClientId = $useSharedConnector ? (string) config('services.amocrm.client_id', '') : null;
+
+        if ($specific && $this->amoAccountIsUsable($specific)
+            && (! $useSharedConnector || $specific->client_id === $sharedClientId)) {
             return $specific;
         }
 
         // One platform user is bound to one amoCRM domain. Any live OAuth
         // connection for that domain is therefore valid for every integration,
         // including the workflow editor.
-        $shared = $this->resolveAnyActiveAmoAccount();
+        $shared = $this->resolveAnyActiveAmoAccount($sharedClientId);
 
         if ($shared instanceof Account) {
             return $shared;
@@ -251,9 +260,10 @@ class User extends Authenticatable implements FilamentUser
             && (filled($account->access_token) || filled($account->refresh_token));
     }
 
-    private function resolveAnyActiveAmoAccount(): ?Account
+    private function resolveAnyActiveAmoAccount(?string $clientId = null): ?Account
     {
         return $this->accounts()
+            ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->where('active', true)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')
