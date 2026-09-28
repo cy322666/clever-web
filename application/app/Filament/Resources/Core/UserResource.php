@@ -125,7 +125,7 @@ class UserResource extends Resource
             ->actions([
                 Action::make('widgets')
                     ->label('Виджеты')
-                    ->icon('heroicon-o-puzzle-piece')
+                    ->icon('heroicon-o-link')
                     ->visible(fn(): bool => auth()->check() && (bool)auth()->user()?->is_root)
                     ->url(fn(User $user): string => Pages\ViewUser::getUrl(['record' => $user->id])),
                 Action::make('delete_user')
