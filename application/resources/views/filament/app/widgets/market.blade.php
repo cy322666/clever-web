@@ -12,7 +12,7 @@
                                 <a class="clever-market-card" href="{{ $card['url'] }}">
                                     <div class="clever-market-card__heading">
                                         <span class="clever-market-card__icon" aria-hidden="true">
-                                            <x-filament::icon :icon="$card['icon']" />
+                                            <img src="{{ $card['logo'] }}" alt="" width="48" height="48" decoding="async" />
                                         </span>
                                         <h3>{{ $card['title'] }}</h3>
                                     </div>
@@ -49,7 +49,6 @@
                 --market-text: #292524;
                 --market-muted: #78716c;
                 --market-accent: #c2410c;
-                --market-icon-surface: #fff1e7;
                 display: grid;
                 gap: 2rem;
                 min-width: 0;
@@ -65,8 +64,8 @@
             .clever-market-card:hover {border-color: #fb923c;}
             .clever-market-card:focus-visible {outline: 2px solid #ea580c; outline-offset: 3px;}
             .clever-market-card__heading {display: flex; align-items: center; gap: .875rem; flex: 1; min-width: 0;}
-            .clever-market-card__icon {display: grid; place-items: center; flex-shrink: 0; width: 3rem; height: 3rem; border-radius: .75rem; color: var(--market-accent); background: var(--market-icon-surface);}
-            .clever-market-card__icon svg {width: 1.5rem; height: 1.5rem;}
+            .clever-market-card__icon {display: grid; place-items: center; flex-shrink: 0; width: 3rem; height: 3rem;}
+            .clever-market-card__icon img {display: block; width: 3rem; height: 3rem; object-fit: contain; border-radius: .5rem;}
             .clever-market-card h3 {font-size: 1.0625rem; line-height: 1.4; font-weight: 650; overflow-wrap: anywhere;}
             .clever-market-card__footer {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; min-height: 1.625rem;}
             .clever-market-card__action {display: inline-flex; align-items: center; gap: .375rem; margin-inline-start: auto; color: var(--market-accent); font-size: .8125rem; font-weight: 650;}
@@ -74,7 +73,7 @@
             .clever-market-empty > svg {width: 2rem; height: 2rem; color: var(--market-muted);}
             .clever-market-empty h2 {font-weight: 700;}
             .clever-market-empty p {max-width: 30rem; color: var(--market-muted); font-size: .875rem; line-height: 1.6;}
-            .dark .clever-market {--market-surface: #211f1d; --market-border: #44403c; --market-text: #fafaf9; --market-muted: #a8a29e; --market-accent: #fb923c; --market-icon-surface: #38291e;}
+            .dark .clever-market {--market-surface: #211f1d; --market-border: #44403c; --market-text: #fafaf9; --market-muted: #a8a29e; --market-accent: #fb923c;}
             @media (max-width: 1100px) {.clever-market-grid {grid-template-columns: repeat(2, minmax(0, 1fr));}}
             @media (max-width: 640px) {
                 .clever-market-grid {grid-template-columns: minmax(0, 1fr);}

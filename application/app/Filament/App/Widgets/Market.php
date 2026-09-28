@@ -33,7 +33,7 @@ class Market extends Widget
                 'id' => $app->id,
                 'category' => $definitions->get($app->name)['category'] ?? 'universal',
                 'title' => self::safeRecordTitle($app),
-                'icon' => $definitions->get($app->name)['icon'] ?? 'heroicon-o-puzzle-piece',
+                'logo' => asset($definitions->get($app->name)['logo'] ?? 'logo/clever_mini_logo.png'),
                 'url' => route('integrations.open', ['app' => $app->id]),
                 'status' => self::statusBadgeText($app),
                 'color' => match ($status) {

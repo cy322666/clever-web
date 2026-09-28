@@ -107,11 +107,14 @@ class MarketCatalogTest extends TestCase
 
         $this->assertCount(8, $cards);
         foreach ($cards as $card) {
-            $this->assertSame(1, $xpath->query('.//span[@class="clever-market-card__icon" and @aria-hidden="true"]/svg', $card)->length);
+            $this->assertSame(1, $xpath->query('.//span[@class="clever-market-card__icon" and @aria-hidden="true"]/img[@alt="" and @width="48" and @height="48"]', $card)->length);
             $this->assertSame(1, $xpath->query('.//h3', $card)->length);
             $this->assertSame(0, $xpath->query('.//p', $card)->length);
         }
         $this->assertSame(0, $xpath->query('//*[contains(@class, "fi-badge")]')->length);
+        foreach (config('integrations.definitions') as $definition) {
+            $component->assertSee(asset($definition['logo']), false);
+        }
     }
 
     public function test_dashboard_has_no_visible_heading_but_keeps_its_browser_title(): void

@@ -14,7 +14,7 @@ return [
     'definitions' => [
         'finder' => [
             'category' => 'universal',
-            'icon' => 'heroicon-o-chat-bubble-left-right',
+            'logo' => 'logo/clever_mini_logo.png',
             'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
             'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
@@ -24,28 +24,28 @@ return [
         ],
         'tilda' => [
             'category' => 'universal',
-            'icon' => 'heroicon-o-globe-alt',
+            'logo' => 'logo/integrations/20260928/tilda.svg',
             'resource' => TildaResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'distribution' => [
             'category' => 'universal',
-            'icon' => 'heroicon-o-arrows-right-left',
+            'logo' => 'logo/clever_mini_logo.png',
             'resource' => DistributionResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'yclients' => [
             'category' => 'industry',
-            'icon' => 'heroicon-o-calendar-days',
+            'logo' => 'logo/integrations/20260928/yclients.png',
             'resource' => YClientsResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'sqns' => [
             'category' => 'industry',
-            'icon' => 'heroicon-o-building-office-2',
+            'logo' => 'logo/integrations/20260928/sqns.svg',
             'resource' => SqnsResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -54,7 +54,7 @@ return [
         ],
         'vetmanager' => [
             'category' => 'industry',
-            'icon' => 'heroicon-o-heart',
+            'logo' => 'logo/integrations/20260928/vetmanager.svg',
             'resource' => VetmanagerResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -63,14 +63,14 @@ return [
         ],
         'import-excel' => [
             'category' => 'universal',
-            'icon' => 'heroicon-o-table-cells',
+            'logo' => 'logo/integrations/20260928/excel.svg',
             'resource' => ImportResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'workflows' => [
             'category' => 'universal',
-            'icon' => 'heroicon-o-bolt',
+            'logo' => 'logo/clever_mini_logo.png',
             'resource' => WorkflowResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
