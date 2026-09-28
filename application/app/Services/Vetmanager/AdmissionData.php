@@ -80,7 +80,7 @@ class AdmissionData
     {
         $name = $this->personName((array) data_get($this->admission, 'client', []));
 
-        return $name !== '' ? $name : 'Клиент Vetmanager #'.($this->clientId() ?: 'unknown');
+        return $name !== '' ? $name : 'Клиент Ветменеджера #'.($this->clientId() ?: 'unknown');
     }
 
     public function patientName(): string

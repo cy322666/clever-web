@@ -20,7 +20,7 @@ class VetmanagerApiClient
         $this->baseUrl = self::normalizeBaseUrl((string) $setting->base_url);
 
         if (blank($setting->api_key)) {
-            throw new RuntimeException('Не указан REST API ключ Vetmanager.');
+            throw new RuntimeException('Не указан REST API ключ Ветменеджера.');
         }
     }
 
@@ -30,7 +30,7 @@ class VetmanagerApiClient
     public function admission(string $admissionId): array
     {
         if ($admissionId === '' || preg_match('/^[A-Za-z0-9._-]+$/', $admissionId) !== 1) {
-            throw new RuntimeException('Некорректный ID приема Vetmanager.');
+            throw new RuntimeException('Некорректный ID приема Ветменеджера.');
         }
 
         $response = $this->request('GET', '/rest/api/Admission/'.rawurlencode($admissionId));
@@ -41,7 +41,7 @@ class VetmanagerApiClient
         }
 
         if (! is_array($admission) || (string) ($admission['id'] ?? '') !== $admissionId) {
-            throw new RuntimeException('Vetmanager не вернул данные указанного приема.');
+            throw new RuntimeException('Ветменеджер не вернул данные указанного приема.');
         }
 
         return $admission;
@@ -116,7 +116,7 @@ class VetmanagerApiClient
         $value = trim($value);
 
         if ($value === '') {
-            throw new RuntimeException('Не указан адрес Vetmanager.');
+            throw new RuntimeException('Не указан адрес Ветменеджера.');
         }
 
         if (! str_contains($value, '://')) {
@@ -128,7 +128,7 @@ class VetmanagerApiClient
         $host = mb_strtolower(rtrim((string) ($parts['host'] ?? ''), '.'));
 
         if ($scheme !== 'https' || $host === '' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port'])) {
-            throw new RuntimeException('Укажите HTTPS-адрес кабинета Vetmanager без порта и учетных данных.');
+            throw new RuntimeException('Укажите HTTPS-адрес кабинета Ветменеджера без порта и учетных данных.');
         }
 
         $allowedSuffixes = config('services.vetmanager.allowed_host_suffixes', [
@@ -147,7 +147,7 @@ class VetmanagerApiClient
             });
 
         if (! $allowed) {
-            throw new RuntimeException('Адрес должен принадлежать домену Vetmanager.');
+            throw new RuntimeException('Адрес должен принадлежать домену Ветменеджера.');
         }
 
         return 'https://'.$host;
@@ -187,7 +187,7 @@ class VetmanagerApiClient
 
         if (! $response->successful()) {
             throw new RuntimeException(sprintf(
-                'Vetmanager API вернул HTTP %d для %s %s.',
+                'API Ветменеджера вернул HTTP %d для %s %s.',
                 $response->status(),
                 strtoupper($method),
                 $path,
@@ -201,11 +201,11 @@ class VetmanagerApiClient
         $body = $response->json();
 
         if (! is_array($body)) {
-            throw new RuntimeException('Vetmanager API вернул некорректный JSON.');
+            throw new RuntimeException('API Ветменеджера вернул некорректный JSON.');
         }
 
         if (($body['success'] ?? true) === false) {
-            throw new RuntimeException('Vetmanager API отклонил запрос: '.trim((string) ($body['message'] ?? 'unknown error')));
+            throw new RuntimeException('API Ветменеджера отклонил запрос: '.trim((string) ($body['message'] ?? 'unknown error')));
         }
 
         return $body;
@@ -243,7 +243,7 @@ class VetmanagerApiClient
         );
 
         if (! is_array($group) || blank($group['id'] ?? null)) {
-            throw new RuntimeException('Vetmanager не вернул группу настроек вебхуков.');
+            throw new RuntimeException('Ветменеджер не вернул группу настроек вебхуков.');
         }
 
         $this->webhookModel = 'ComboManualItem';
@@ -303,7 +303,7 @@ class VetmanagerApiClient
         $item = $this->modelItems($response, $keys)[0] ?? null;
 
         if (! is_array($item) || blank($item['id'] ?? null)) {
-            throw new RuntimeException('Vetmanager не вернул ID вебхука.');
+            throw new RuntimeException('Ветменеджер не вернул ID вебхука.');
         }
 
         return $item;

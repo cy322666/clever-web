@@ -58,8 +58,8 @@ return [
             'resource' => VetmanagerResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
-            'title' => 'Vetmanager',
-            'description' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM.',
+            'title' => 'Ветменеджер',
+            'description' => 'Передавайте посещения из Ветменеджера в контакты и сделки amoCRM.',
         ],
         'import-excel' => [
             'category' => 'universal',

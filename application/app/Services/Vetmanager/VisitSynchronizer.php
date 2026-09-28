@@ -23,7 +23,7 @@ class VisitSynchronizer
         $account = $visit->account;
 
         if (! $setting instanceof Setting || ! $setting->active) {
-            throw new RuntimeException('Интеграция Vetmanager выключена.');
+            throw new RuntimeException('Интеграция с Ветменеджером выключена.');
         }
 
         if (! $account instanceof Account || ! $account->active) {
@@ -44,11 +44,11 @@ class VisitSynchronizer
         $data = new AdmissionData($admission, (string) ($setting->timezone ?: 'Europe/Moscow'));
 
         if ($data->id() !== (string) $visit->external_id) {
-            throw new RuntimeException('ID приема в ответе Vetmanager не совпадает с событием.');
+            throw new RuntimeException('ID приема в ответе Ветменеджера не совпадает с событием.');
         }
 
         if ($data->clientId() === '') {
-            throw new RuntimeException('В приеме Vetmanager отсутствует ID клиента.');
+            throw new RuntimeException('В приеме Ветменеджера отсутствует ID клиента.');
         }
 
         $contactId = Cache::lock(
@@ -367,7 +367,7 @@ class VisitSynchronizer
         $best = array_filter($candidates, fn (array $candidate): bool => (int) $candidate['score'] === $topScore);
 
         if (count($best) !== 1) {
-            throw new RuntimeException('В amoCRM найдено несколько сделок для одного приема Vetmanager.');
+            throw new RuntimeException('В amoCRM найдено несколько сделок для одного приема Ветменеджера.');
         }
 
         return (array) reset($best)['lead'];

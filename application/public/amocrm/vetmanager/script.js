@@ -73,7 +73,7 @@ define(['jquery'], function ($) {
                 '<div id="' + id + '" class="clever-vetmanager ' + settingsClass + '">',
                 '<div class="clever-vetmanager__header">',
                 '<img class="clever-vetmanager__logo" src="' + logoUrl() + '" alt="">',
-                '<div class="clever-vetmanager__title">Vetmanager Clever</div>',
+                '<div class="clever-vetmanager__title">Ветменеджер Clever</div>',
                 '</div>',
                 '<div class="clever-vetmanager__body">',
                 '<p class="clever-vetmanager__text">Посещения передаются в контакты и сделки. Покупки и транзакции не создаются.</p>',
