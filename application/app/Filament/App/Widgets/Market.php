@@ -8,110 +8,63 @@ use App\Services\Integrations\IntegrationProvisioningService;
 use App\Support\Crm\CrmProvider;
 use App\Support\Onboarding\IndustryProfile;
 use Carbon\Carbon;
-use Filament\Actions\Action;
-use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
-use Filament\Tables\Columns\Layout\Split;
-use Filament\Tables\Columns\Layout\Stack;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Table;
-use Filament\Widgets\TableWidget;
+use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
-class Market extends TableWidget
+class Market extends Widget
 {
     protected static bool $isLazy = false;
 
+    protected string $view = 'filament.app.widgets.market';
+
+    protected int|string|array $columnSpan = 'full';
+
     private bool $catalogSynced = false;
 
-    public function table(Table $table): Table
+    protected function getViewData(): array
     {
-        return $table
-            ->query(fn (): Builder => $this->getFilteredQuery())
-            ->columns([
-                Stack::make([
-                    Split::make([
-                        TextColumn::make('title')
-                            ->label('Название')
-                            ->weight(FontWeight::Bold)
-                            ->size(TextSize::Medium)
-                            ->limit(28)
-                            ->state(fn (?App $app) => self::safeRecordTitle($app)),
+        $definitions = App::definitions();
+        $recommended = IndustryProfile::recommendedApps(auth()->user()?->industry);
+        $cards = $this->getFilteredQuery()->get()->map(function (App $app) use ($definitions, $recommended): array {
+            $status = self::effectiveStatus($app);
 
-                        TextColumn::make('crm_provider')
-                            ->label('CRM')
-                            ->alignRight()
-                            ->badge()
-                            ->color('gray')
-                            ->state(fn (App $app): string => App::crmProviderLabels($app->name)),
-                    ]),
+            return [
+                'id' => $app->id,
+                'category' => $definitions->get($app->name)['category'] ?? 'universal',
+                'title' => self::safeRecordTitle($app),
+                'description' => trim(App::getTooltipText($app->name)),
+                'url' => route('integrations.open', ['app' => $app->id]),
+                'status' => self::statusBadgeText($app),
+                'color' => match ($status) {
+                    App::STATE_INACTIVE => 'warning',
+                    App::STATE_ACTIVE => 'success',
+                    App::STATE_EXPIRES => 'danger',
+                    default => 'gray',
+                },
+                'action' => $status === App::STATE_CREATED ? 'Подключить' : 'Открыть',
+                'recommended' => in_array($app->name, $recommended, true),
+            ];
+        });
 
-                    TextColumn::make('excerpt')
-                        ->label('')
-                        ->color('gray')
-                        ->size(TextSize::Small)
-                        ->wrap()
-                        ->extraAttributes(['class' => 'clever-market-card__description'])
-                        ->state(
-                            fn (?App $record) => filled($record)
-                                ? Str::limit(trim(App::getTooltipText($record->name)), 160)
-                                : null
-                        )
-                        ->visible(fn (?App $record) => filled(trim((string) App::getTooltipText($record?->name ?? '')))),
-
-                    Split::make([
-                        TextColumn::make('status')
-                            ->label('Статус')
-                            ->badge()
-                            ->state(fn (App $app): string => self::statusBadgeText($app))
-                            ->color(fn (App $app): string => match (self::effectiveStatus($app)) {
-                                App::STATE_CREATED => 'gray',
-                                App::STATE_INACTIVE => 'warning',
-                                App::STATE_ACTIVE => 'success',
-                                App::STATE_EXPIRES => 'danger',
-                            }),
-
-                        TextColumn::make('open')
-                            ->label('')
-                            ->alignRight()
-                            ->color('primary')
-                            ->weight(FontWeight::SemiBold)
-                            ->state(fn (App $app): string => self::effectiveStatus($app) === App::STATE_CREATED
-                                ? 'Подключить'
-                                : 'Открыть'),
-                    ]),
-                ])->space(3),
-            ])
-            ->contentGrid([
-                'md' => 2,
-                'xl' => 3,
-            ])
-            ->paginated(false)
-            ->recordClasses('clever-market-card')
-            ->recordUrl(
-                fn (App $app): string => route('integrations.open', ['app' => $app->id])
-            )
-            ->header(fn () => view('filament.app.widgets.market-header', [
-                'crmLabel' => CrmProvider::label(auth()->user()?->crm_provider),
-                'settingsUrl' => Onboarding::getUrl(),
-            ]))
-            ->emptyStateIcon('heroicon-o-puzzle-piece')
-            ->emptyStateHeading(fn (): string => 'Для '.CrmProvider::label(auth()->user()?->crm_provider).' пока нет интеграций')
-            ->emptyStateDescription('Несовместимые виджеты скрыты. Вы можете изменить CRM в настройках платформы.')
-            ->emptyStateActions([
-                Action::make('change_crm')
-                    ->label('Изменить CRM')
-                    ->url(fn (): string => Onboarding::getUrl()),
-            ])
-            ->striped(false);
-    }
-
-    public function getColumnSpan(): int|string|array
-    {
-        return 2;
+        return [
+            'sections' => [
+                'universal' => [
+                    'title' => 'Универсальные',
+                    'description' => 'Для любой сферы: заявки, данные и автоматизация работы.',
+                    'cards' => $cards->where('category', 'universal'),
+                ],
+                'industry' => [
+                    'title' => 'Отраслевые',
+                    'description' => 'Интеграции с сервисами для красоты, медицины и ветеринарии.',
+                    'cards' => $cards->where('category', 'industry'),
+                ],
+            ],
+            'isEmpty' => $cards->isEmpty(),
+            'crmLabel' => CrmProvider::label(auth()->user()?->crm_provider),
+            'settingsUrl' => Onboarding::getUrl(),
+        ];
     }
 
     protected function getFilteredQuery(): Builder

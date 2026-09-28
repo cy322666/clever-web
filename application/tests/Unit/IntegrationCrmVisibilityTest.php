@@ -12,6 +12,13 @@ use Tests\TestCase;
 
 class IntegrationCrmVisibilityTest extends TestCase
 {
+    public function test_every_integration_declares_a_catalog_category(): void
+    {
+        foreach (config('integrations.definitions', []) as $name => $definition) {
+            $this->assertContains($definition['category'] ?? null, ['universal', 'industry'], "{$name} must declare a catalog category.");
+        }
+    }
+
     public function test_every_integration_declares_supported_crm_providers(): void
     {
         $allowed = [CrmProvider::AMOCRM, CrmProvider::KOMMO];

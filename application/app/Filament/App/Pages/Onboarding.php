@@ -67,6 +67,6 @@ class Onboarding extends Page
 
     public function getMaxContentWidth(): Width|string|null
     {
-        return Width::FourExtraLarge;
+        return Width::ThreeExtraLarge;
     }
 }

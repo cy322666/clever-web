@@ -13,6 +13,7 @@ return [
 
     'definitions' => [
         'finder' => [
+            'category' => 'universal',
             'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
             'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
@@ -21,21 +22,25 @@ return [
             'description' => 'Контроль времени ответа в диалогах amoCRM: рабочее расписание, задачи и запуск сценариев.',
         ],
         'tilda' => [
+            'category' => 'universal',
             'resource' => TildaResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'distribution' => [
+            'category' => 'universal',
             'resource' => DistributionResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'yclients' => [
+            'category' => 'industry',
             'resource' => YClientsResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'sqns' => [
+            'category' => 'industry',
             'resource' => SqnsResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -43,6 +48,7 @@ return [
             'description' => 'Синхронизируйте клиентов и визиты между SQNS и amoCRM.',
         ],
         'vetmanager' => [
+            'category' => 'industry',
             'resource' => VetmanagerResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -50,11 +56,13 @@ return [
             'description' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM.',
         ],
         'import-excel' => [
+            'category' => 'universal',
             'resource' => ImportResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],
         'workflows' => [
+            'category' => 'universal',
             'resource' => WorkflowResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
