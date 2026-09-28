@@ -37,7 +37,10 @@ class AppsRelationManager extends RelationManager
 
         return $this->getOwnerRecord()
             ->apps()
-            ->whereIn('name', App::definitionNames())
+            ->whereIn(
+                'name',
+                App::definitionNamesForCrmProvider($this->getOwnerRecord()->crm_provider),
+            )
             ->where('status', '!=', App::STATE_CREATED)
             ->orderByRaw(
                 <<<'SQL'
