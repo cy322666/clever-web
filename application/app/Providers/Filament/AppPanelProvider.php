@@ -3,10 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\Dashboard;
-use App\Filament\App\Pages\Onboarding;
 use App\Filament\App\Pages\WorkflowAdmin;
 use App\Filament\Resources\Billing\InvoiceRequestResource;
-use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Http\Middleware\ApplyUserLocale;
@@ -105,16 +103,6 @@ class AppPanelProvider extends PanelProvider
                                 ->label('Интеграции')
                                 ->icon('heroicon-o-puzzle-piece')
                                 ->url(fn (): string => Dashboard::getUrl()),
-
-                            NavigationItem::make('PlatformSetup')
-                                ->label(fn (): string => app()->getLocale() === 'en' ? 'Platform setup' : 'Настройка платформы')
-                                ->icon('heroicon-o-adjustments-horizontal')
-                                ->url(fn (): string => Onboarding::getUrl()),
-
-                            NavigationItem::make('Tariffs')
-                                ->label('Тарифы')
-                                ->icon('heroicon-o-banknotes')
-                                ->url(fn (): string => SubscriptionPlanResource::getUrl()),
 
                             NavigationItem::make('InvoiceRequests')
                                 ->label('Заявки на счет')
