@@ -24,6 +24,7 @@ class AmoCrmSharedConnectorTest extends TestCase
         config([
             'services.amocrm.client_id' => 'shared-client-id',
             'services.amocrm.widgets.yclients.client_id' => 'widget-client-id',
+            'services.amocrm.widgets.tilda.client_id' => 'widget-client-id',
         ]);
 
         $page = new class
