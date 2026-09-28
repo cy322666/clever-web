@@ -3,11 +3,14 @@
 namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\Dashboard;
+use App\Filament\App\Pages\Onboarding;
 use App\Filament\App\Pages\WorkflowAdmin;
 use App\Filament\Resources\Billing\InvoiceRequestResource;
 use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
+use App\Http\Middleware\ApplyUserLocale;
+use App\Http\Middleware\EnsureOnboardingCompleted;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
 use Filament\FontProviders\LocalFontProvider;
@@ -101,6 +104,11 @@ class AppPanelProvider extends PanelProvider
                                 ->icon('heroicon-o-home')
                                 ->url(fn (): string => UserResource::getUrl('view', ['record' => Auth::id()])),
 
+                            NavigationItem::make('PlatformSetup')
+                                ->label(fn (): string => app()->getLocale() === 'en' ? 'Platform setup' : 'Настройка платформы')
+                                ->icon('heroicon-o-adjustments-horizontal')
+                                ->url(fn (): string => Onboarding::getUrl()),
+
                             NavigationItem::make('Tariffs')
                                 ->label('Тарифы')
                                 ->icon('heroicon-o-banknotes')
@@ -126,6 +134,7 @@ class AppPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                ApplyUserLocale::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
@@ -135,6 +144,7 @@ class AppPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                EnsureOnboardingCompleted::class,
             ])
             ->sidebarCollapsibleOnDesktop();
     }

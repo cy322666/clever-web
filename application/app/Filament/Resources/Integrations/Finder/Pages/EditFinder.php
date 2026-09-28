@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\Finder\Pages;
 use App\Filament\Resources\Integrations\Finder\FinderResource;
 use App\Services\Finder\MonitoringState;
 use App\Services\Finder\SettingsValidator;
+use App\Support\Crm\CrmProvider;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -49,14 +50,14 @@ class EditFinder extends EditRecord
                 ->url($authorizationUrl)->disabled($authorizationUrl === null)
                 ->tooltip($authorizationUrl === null ? 'Подключение amoCRM пока не настроено' : 'Подключить amoCRM к виджету «Контроль ответов»'),
             Action::make('references')->label('Обновить сотрудников и типы задач')->icon('heroicon-o-arrow-path')->iconButton()->color('gray')
-                    ->visible((bool) $account?->active)->tooltip('Обновить сотрудников и типы задач')->action(function (): void {
-                        try {
-                            app(\App\Services\Workflows\WorkflowNodeReferences::class)->refresh('amocrm_create_task', []);
-                            Notification::make()->title('Сотрудники и типы задач обновлены')->success()->send();
-                        } catch (Throwable) {
-                            Notification::make()->title('Не удалось обновить справочники amoCRM')->danger()->send();
-                        }
-                    }),
+                ->visible((bool) $account?->active)->tooltip('Обновить сотрудников и типы задач')->action(function (): void {
+                    try {
+                        app(\App\Services\Workflows\WorkflowNodeReferences::class)->refresh('amocrm_create_task', []);
+                        Notification::make()->title('Сотрудники и типы задач обновлены')->success()->send();
+                    } catch (Throwable) {
+                        Notification::make()->title('Не удалось обновить справочники amoCRM')->danger()->send();
+                    }
+                }),
             Action::make('history')->label('История')->icon('heroicon-o-list-bullet')->url(FinderResource::getUrl('history')),
         ];
     }
@@ -70,7 +71,7 @@ class EditFinder extends EditRecord
 
         $state = app(\App\Services\Finder\InstallationContext::class)->encode($this->record);
 
-        return 'https://www.amocrm.ru/oauth/?'.http_build_query([
+        return CrmProvider::authorizationUrl(auth()->user()?->crm_provider).'?'.http_build_query([
             'client_id' => $clientId,
             'state' => $state,
             'uri' => FinderResource::getUrl('edit', ['record' => $this->record]),

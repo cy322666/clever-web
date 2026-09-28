@@ -8,6 +8,7 @@ use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use App\Services\Workflows\WorkflowFolders;
 use App\Services\Workflows\WorkflowStartNodes;
+use App\Support\Crm\CrmProvider;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -402,7 +403,7 @@ class ListWorkflows extends BaseListWorkflows
         $url = WorkflowResource::getUrl();
 
         return Redirect::to(
-            'https://www.amocrm.ru/oauth/?state='.urlencode($state)
+            CrmProvider::authorizationUrl($user->crm_provider).'?state='.urlencode($state)
             .'&client_id='.urlencode($clientId)
             .'&uri='.urlencode($url)
         );

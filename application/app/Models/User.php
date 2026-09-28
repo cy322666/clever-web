@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 use Rappasoft\LaravelAuthenticationLog\Traits\AuthenticationLoggable;
 
@@ -34,6 +35,9 @@ class User extends Authenticatable implements FilamentUser
         'uuid',
         'active',
         'count_inputs',
+        'locale',
+        'crm_provider',
+        'industry',
     ];
 
     /**
@@ -53,11 +57,18 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'onboarding_completed_at' => 'datetime',
     ];
 
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() === 'app' && (bool) $this->active;
+    }
+
+    public function needsOnboarding(): bool
+    {
+        return Schema::hasColumn($this->getTable(), 'onboarding_completed_at')
+            && ! $this->onboarding_completed_at;
     }
 
     public function canImpersonate()

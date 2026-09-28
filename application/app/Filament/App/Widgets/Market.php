@@ -4,6 +4,7 @@ namespace App\Filament\App\Widgets;
 
 use App\Models\App;
 use App\Services\Integrations\IntegrationProvisioningService;
+use App\Support\Onboarding\IndustryProfile;
 use Carbon\Carbon;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
@@ -26,7 +27,7 @@ class Market extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn(): Builder => $this->getFilteredQuery())
+            ->query(fn (): Builder => $this->getFilteredQuery())
             ->columns([
                 Stack::make([
                     Split::make([
@@ -35,14 +36,14 @@ class Market extends TableWidget
                             ->weight(FontWeight::Bold)
                             ->size(TextSize::Medium)
                             ->limit(28)
-                            ->state(fn(?App $app) => self::safeRecordTitle($app)),
+                            ->state(fn (?App $app) => self::safeRecordTitle($app)),
 
                         TextColumn::make('status')
                             ->label('Статус')
                             ->alignRight()
                             ->badge()
-                            ->state(fn(App $app): string => self::statusBadgeText($app))
-                            ->color(fn(App $app): string => match (self::effectiveStatus($app)) {
+                            ->state(fn (App $app): string => self::statusBadgeText($app))
+                            ->color(fn (App $app): string => match (self::effectiveStatus($app)) {
                                 App::STATE_CREATED => 'gray',
                                 App::STATE_INACTIVE => 'warning',
                                 App::STATE_ACTIVE => 'success',
@@ -57,11 +58,11 @@ class Market extends TableWidget
                         ->wrap()
                         ->extraAttributes(['class' => 'mt-3'])
                         ->state(
-                            fn(?App $record) => filled($record)
+                            fn (?App $record) => filled($record)
                                 ? Str::limit(trim(App::getTooltipText($record->name)), 160)
                                 : null
                         )
-                        ->visible(fn(?App $record) => filled(trim((string)App::getTooltipText($record?->name ?? '')))),
+                        ->visible(fn (?App $record) => filled(trim((string) App::getTooltipText($record?->name ?? '')))),
                 ])->space(3),
             ])
             ->contentGrid([
@@ -70,13 +71,13 @@ class Market extends TableWidget
             ])
             ->paginated(false)
             ->recordUrl(
-                fn(App $app): string => route('integrations.open', ['app' => $app->id])
+                fn (App $app): string => route('integrations.open', ['app' => $app->id])
             )
             ->heading(false)
             ->striped(false);
     }
 
-    public function getColumnSpan(): int | string | array
+    public function getColumnSpan(): int|string|array
     {
         return 2;
     }
@@ -94,6 +95,17 @@ class Market extends TableWidget
 
         $query->whereIn('name', $availableNames);
 
+        $recommended = IndustryProfile::recommendedApps(auth()->user()?->industry);
+
+        if ($recommended !== []) {
+            $case = collect($recommended)
+                ->values()
+                ->map(fn (string $name, int $position): string => 'WHEN ? THEN '.($position + 1))
+                ->implode(' ');
+
+            $query->orderByRaw('CASE name '.$case.' ELSE '.(count($recommended) + 1).' END', $recommended);
+        }
+
         return $query->orderBy('name');
     }
 
@@ -106,7 +118,7 @@ class Market extends TableWidget
         $this->catalogSynced = true;
 
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return;
         }
 
@@ -138,11 +150,11 @@ class Market extends TableWidget
         $status = self::effectiveStatus($app);
 
         if ($status === App::STATE_ACTIVE) {
-            if (!filled($app->expires_tariff_at)) {
+            if (! filled($app->expires_tariff_at)) {
                 return App::STATE_ACTIVE_WORD;
             }
 
-            return 'До ' . Carbon::parse($app->expires_tariff_at)->format('Y-m-d');
+            return 'До '.Carbon::parse($app->expires_tariff_at)->format('Y-m-d');
         }
 
         if ($status === App::STATE_EXPIRES && filled($app->expires_tariff_at)) {
@@ -150,7 +162,7 @@ class Market extends TableWidget
                 ->startOfDay()
                 ->diffInDays(now()->startOfDay());
 
-            return 'Истёк ' . $daysAgo . ' дн.';
+            return 'Истёк '.$daysAgo.' дн.';
         }
 
         return match ($status) {
@@ -162,10 +174,10 @@ class Market extends TableWidget
 
     private static function safeRecordTitle(?App $app): string
     {
-        if (!$app) {
+        if (! $app) {
             return '';
         }
 
-        return App::getTitle((string)$app->name, $app->resource_name);
+        return App::getTitle((string) $app->name, $app->resource_name);
     }
 }
