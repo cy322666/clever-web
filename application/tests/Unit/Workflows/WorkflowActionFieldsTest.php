@@ -166,12 +166,36 @@ class WorkflowActionFieldsTest extends TestCase
     {
         $html = view('filament.workflow-builder.workflow-json-tree', [
             'value' => ['items' => [['id' => 42, 'name' => 'Тест']]],
+            'title' => 'Ответ amoCRM',
         ])->render();
 
         $this->assertStringContainsString('workflow-json-tree', $html);
         $this->assertStringContainsString('Свернуть всё', $html);
         $this->assertStringContainsString('Развернуть всё', $html);
         $this->assertStringContainsString('toggle(row.path)', $html);
+        $this->assertStringContainsString('workflow-json-tree__header', $html);
+        $this->assertStringContainsString('workflow-json-tree__title">Ответ amoCRM</h3>', $html);
+        $this->assertStringContainsString('workflow-json-tree__viewport', $html);
+        $this->assertStringContainsString('workflow-json-tree__toggle', $html);
+        $this->assertStringContainsString('workflow-json-tree__content', $html);
+        $this->assertStringContainsString('viewBox="0 0 16 16"', $html);
+        $this->assertStringContainsString(':aria-expanded="!row.collapsed"', $html);
+    }
+
+    public function test_json_results_allow_a_reactive_title_without_rendering_untrusted_markup(): void
+    {
+        $html = view('filament.workflow-builder.workflow-json-tree', [
+            'expression' => 'responseData()',
+            'titleExpression' => "exchange() ? 'Ответ amoCRM' : 'Результат шага'",
+        ])->render();
+
+        $this->assertStringContainsString('x-effect="setValue(responseData())"', $html);
+        $this->assertStringContainsString('x-text="exchange()', $html);
+        $this->assertStringNotContainsString('x-html', $html);
+
+        $html = view('filament.workflow-builder.workflow-json-tree', ['title' => '<script>unsafe</script>'])->render();
+        $this->assertStringNotContainsString('<script>unsafe</script>', $html);
+        $this->assertStringContainsString('&lt;script&gt;unsafe&lt;/script&gt;', $html);
     }
 
     public function test_status_form_keeps_pipeline_and_status_expressions_as_strings(): void

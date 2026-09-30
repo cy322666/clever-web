@@ -6955,11 +6955,35 @@ svg.workflow-control-icon { color: #248548 !important; }
 .dark .workflow-workbench__tabs button:hover { background: var(--workflow-dark-hover) !important; }
 .dark .workflow-canvas-note :is(button, textarea) { background: var(--workflow-dark-panel); color: var(--workflow-dark-text); border-color: var(--workflow-dark-line); }
 .workflow-input-json { padding: 8px 0 12px 14px; font: 12px/21px ui-monospace, SFMono-Regular, Menlo, monospace; color: #64748b; }
-.workflow-json-tree { min-width: 0; overflow: auto; }
-.workflow-json-tree__actions { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 4px; }
-.workflow-json-tree__actions button { padding: 2px 0; border: 0; background: transparent; color: #64748b; font-size: 11px; }
-.workflow-json-tree__actions button:hover { color: #2563eb; }
-.workflow-json-tree .workflow-input-json { min-width: max-content; }
+.workflow-json-tree { min-width: 0; overflow: hidden; }
+.workflow-json-tree__header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; min-height: 42px; padding: 8px 14px; border-bottom: 1px solid #e1e5eb; }
+.workflow-json-tree .workflow-json-tree__title { flex: 1 1 140px; min-width: 0; margin: 0; padding: 0; color: #465262; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.workflow-json-tree__actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; margin-left: auto; }
+.workflow-json-tree .workflow-json-tree__actions > button { min-height: 26px; margin: 0; padding: 3px 7px; border: 0; border-radius: 4px; background: transparent; box-shadow: none; color: #64748b; font-size: 11px; line-height: 20px; white-space: nowrap; }
+.workflow-json-tree .workflow-json-tree__actions > button:hover { background: #e9edf2; color: #334155; }
+.workflow-json-tree__viewport { min-height: 100px; max-height: 32vh; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.workflow-json-tree .workflow-input-json { min-width: 0; padding: 10px 14px 14px; font-size: 12px; line-height: 22px; }
+.workflow-json-tree .workflow-input-json__line { display: flex; align-items: flex-start; min-height: 22px; }
+.workflow-json-tree__toggle { display: inline-flex; flex: 0 0 20px; height: 22px; margin-right: 2px; }
+.workflow-json-tree .workflow-input-json .workflow-input-json__fold { position: static; display: inline-grid; place-items: center; flex: 0 0 20px; width: 20px; min-width: 0; height: 22px; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 3px; background: transparent; box-shadow: none; color: #64748b; font: inherit; cursor: pointer; }
+.workflow-json-tree .workflow-input-json .workflow-input-json__fold:hover { background: #e2e8f0; color: #334155; }
+.workflow-json-tree .workflow-input-json__fold svg { width: 14px; height: 14px; }
+.workflow-json-tree .workflow-input-json__fold svg.is-expanded { transform: rotate(90deg); }
+.workflow-json-tree__content { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.workflow-json-tree :is(button, .workflow-json-tree__viewport):focus-visible { outline: 2px solid #6486c4; outline-offset: -2px; }
+.workflow-data-pane__selector { padding: 8px 14px 0; }
+.workflow-data-pane__selector select { width: 100%; }
+.dark .workflow-json-tree__header { border-color: var(--workflow-dark-line, #414955); }
+.dark .workflow-json-tree .workflow-json-tree__title { color: var(--workflow-dark-text, #d4dbe5); }
+.dark .workflow-json-tree .workflow-json-tree__actions > button,
+.dark .workflow-json-tree .workflow-input-json .workflow-input-json__fold { color: var(--workflow-dark-muted, #aab5c4); background: transparent; border: 0; }
+.dark .workflow-json-tree .workflow-json-tree__actions > button:hover,
+.dark .workflow-json-tree .workflow-input-json .workflow-input-json__fold:hover { color: var(--workflow-dark-text, #d4dbe5); background: var(--workflow-dark-hover, #414955); }
+@media (max-width: 760px) {
+    .workflow-data-panes { grid-template-columns: minmax(0, 1fr); }
+    .workflow-data-panes > section + section { border-left: 0; border-top: 1px solid #e1e5eb; }
+    .dark .workflow-data-panes > section + section { border-top-color: var(--workflow-dark-line, #414955); }
+}
 .workflow-expression-paint { position: absolute; pointer-events: none; overflow: hidden; box-sizing: border-box; z-index: 2; color: #364152; }
 .workflow-expression-token, .workflow-value-suggestions code { color: #c95718; }
 .workflow-expression-painted { color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: #364152; }
