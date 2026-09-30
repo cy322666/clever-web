@@ -103,8 +103,6 @@ class AuthController extends Controller
             $platformUserId,
         );
 
-        $this->notifyWidgetLifecycle('install', $widget, $request);
-
         return response()->json(['ok' => true, 'status' => 'queued'], 202);
     }
 
