@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Workflows;
 
 use App\Services\Workflows\Testing\WorkflowAcceptanceTelegramReporter;
+use App\Services\Workflows\Testing\WorkflowAcceptanceStorage;
 use App\Services\Workflows\Testing\WorkflowReportSanitizer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -47,11 +48,7 @@ class RunWorkflowAcceptance extends Command
         $reportPath = $directory.'/'.$report['run_id'].'.json';
         try {
             try {
-                if ($directory === '' || is_link($directory)) throw new RuntimeException('Unsafe report directory');
-                if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-                    throw new RuntimeException('Cannot create private report directory');
-                }
-                chmod($directory, 0700);
+                WorkflowAcceptanceStorage::prepareDirectory($directory);
                 // Redis failure must still reach the private report and Telegram path.
                 $lock = Cache::lock('workflow-acceptance-notified:'.$domain, 1800);
                 $lockAcquired = (bool) $lock->get();
@@ -142,7 +139,8 @@ class RunWorkflowAcceptance extends Command
             $json = json_encode(WorkflowReportSanitizer::sanitize($report), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             $temporary = tempnam(dirname($path), '.report-');
             if ($temporary === false || realpath(dirname($temporary)) !== realpath(dirname($path))) throw new RuntimeException('temporary report failed');
-            if (!chmod($temporary, 0600) || file_put_contents($temporary, $json, LOCK_EX) !== strlen($json)) throw new RuntimeException('write failed');
+            WorkflowAcceptanceStorage::secureFile($temporary, dirname($path));
+            if (file_put_contents($temporary, $json, LOCK_EX) !== strlen($json)) throw new RuntimeException('write failed');
             if (!rename($temporary, $path)) throw new RuntimeException('atomic rename failed');
             $temporary = null;
             return true;
