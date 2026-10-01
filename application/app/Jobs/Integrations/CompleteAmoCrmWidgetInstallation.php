@@ -82,7 +82,7 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         ]);
 
         $prefix = 'services.amocrm.widgets.'.$this->widget.'.';
-        $fallbackToPlatform = $this->widget !== 'yclients'
+        $fallbackToPlatform = $this->widget !== 'import-excel' && $this->widget !== 'yclients'
             && (bool) config($prefix.'fallback_to_platform_credentials', true);
 
         app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install_failed', $this->widget, [], [

@@ -195,6 +195,17 @@ class User extends Authenticatable implements FilamentUser
             ->latest('id')
             ->first();
 
+        if ($widget === 'import-excel') {
+            if ($specific) {
+                return $createIfMissing || \App\Services\ImportExcel\ExcelConnectionAccess::isWidgetAccount($specific)
+                    ? $specific : null;
+            }
+
+            return $createIfMissing
+                ? Account::query()->create(['user_id' => $this->id, 'widget' => $widget])
+                : null;
+        }
+
         // Marketplace installs must keep their own OAuth even after a reset.
         if ($widget === 'yclients' && $specific?->oauth_connector === Account::CONNECTOR_WIDGET) {
             return $specific;
@@ -208,9 +219,8 @@ class User extends Authenticatable implements FilamentUser
             return $specific;
         }
 
-        // One platform user is bound to one amoCRM domain. Any live OAuth
-        // connection for that domain is therefore valid for every integration,
-        // including the workflow editor.
+        // Preserve shared authorization for legacy integrations, but never
+        // use the dedicated Excel connection as their shared connector.
         $shared = $this->resolveAnyActiveAmoAccount($sharedClientId);
 
         if ($shared instanceof Account) {
@@ -263,6 +273,11 @@ class User extends Authenticatable implements FilamentUser
     private function resolveAnyActiveAmoAccount(?string $clientId = null): ?Account
     {
         return $this->accounts()
+            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'import-excel'))
+            ->when(trim((string) config('services.amocrm.widgets.import-excel.client_id', '')) !== '',
+                fn ($query) => $query->where(fn ($query) => $query
+                    ->whereNull('client_id')
+                    ->orWhere('client_id', '<>', config('services.amocrm.widgets.import-excel.client_id'))))
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->where('active', true)
             ->whereNotNull('subdomain')
