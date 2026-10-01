@@ -5,6 +5,7 @@ namespace App\Console\Commands\Core;
 use App\Services\Core\MonitoringCache;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 
@@ -49,6 +50,15 @@ class SmokeCheck extends Command
         }
 
         if (app()->environment('production')) {
+            try {
+                $access = Process::timeout(30)->run([PHP_BINARY, base_path('scripts/check-runtime-access.php')]);
+                if ($access->failed()) {
+                    $errors[] = 'Runtime source access failed: '.trim($access->errorOutput().' '.$access->output());
+                }
+            } catch (\Throwable $e) {
+                $errors[] = 'Runtime source access check failed: '.$e->getMessage();
+            }
+
             $queueConnection = (string)config('queue.default');
 
             if ($queueConnection === 'sync') {
