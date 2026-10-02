@@ -5,6 +5,7 @@ namespace Tests\Feature\Sqns;
 use App\Models\Integrations\Sqns\Setting;
 use App\Services\Sqns\Client;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Mockery;
 use RuntimeException;
@@ -145,6 +146,91 @@ class ClientTest extends TestCase
             && $request['dateFrom'] === '2026-09-01'
             && $request['dateTill'] === '2026-09-30'
         );
+    }
+
+    public function test_disconnects_and_clears_local_connection_state(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/hook_settings' => Http::response([], 200),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'token' => 'test-token',
+            'webhook_secret' => 'hook-secret',
+            'organization_id' => 77,
+            'organization_name' => 'Clinic',
+            'connected_at' => now(),
+        ]);
+        $setting->shouldReceive('save')->once()->andReturnTrue();
+
+        (new Client($setting))->disconnect('https://clever.example/api/sqns/hook/user/key');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://crm3.sqns.ru/api/v2/hook_settings'
+            && $request->method() === 'DELETE'
+            && $request->hasHeader('Authorization', 'Bearer test-token')
+            && $request['urls'] === ['https://clever.example/api/sqns/hook/user/key']
+        );
+        $this->assertNull($setting->token);
+        $this->assertNull($setting->webhook_secret);
+        $this->assertNull($setting->organization_id);
+        $this->assertNull($setting->organization_name);
+        $this->assertNull($setting->connected_at);
+    }
+
+    public function test_disconnect_treats_missing_webhook_as_already_removed(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/hook_settings' => Http::response([], 404),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'token' => 'test-token',
+            'connected_at' => now(),
+        ]);
+        $setting->shouldReceive('save')->once()->andReturnTrue();
+
+        (new Client($setting))->disconnect('https://clever.example/api/sqns/hook/user/key');
+
+        $this->assertNull($setting->token);
+        $this->assertNull($setting->connected_at);
+    }
+
+    public function test_keeps_local_connection_when_webhook_removal_fails(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/hook_settings' => Http::response(['message' => 'forbidden'], 403),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'token' => 'test-token',
+            'connected_at' => now(),
+        ]);
+        $setting->shouldNotReceive('save');
+
+        try {
+            (new Client($setting))->disconnect('https://clever.example/api/sqns/hook/user/key');
+            $this->fail('Expected SQNS webhook deletion to fail.');
+        } catch (RequestException) {
+            $this->assertSame('test-token', $setting->token);
+            $this->assertNotNull($setting->connected_at);
+        }
+    }
+
+    public function test_connection_state_depends_on_token(): void
+    {
+        $setting = $this->setting();
+
+        $this->assertTrue($setting->isConnected());
+
+        $setting->token = null;
+
+        $this->assertFalse($setting->isConnected());
     }
 
     public function test_rejects_untrusted_api_host(): void

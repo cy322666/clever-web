@@ -133,6 +133,11 @@ class Setting extends Model
         return true;
     }
 
+    public function isConnected(): bool
+    {
+        return filled($this->token);
+    }
+
     public static function sourceFieldOptions(): array
     {
         return [

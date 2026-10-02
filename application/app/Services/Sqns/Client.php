@@ -63,6 +63,27 @@ class Client
         $this->send($method, '/api/v2/hook_settings', ['urls' => [$url]]);
     }
 
+    public function disconnect(string $webhookUrl): void
+    {
+        $this->send(
+            'delete',
+            '/api/v2/hook_settings',
+            ['urls' => [$webhookUrl]],
+            acceptedStatuses: [404],
+        );
+
+        $this->setting->forceFill([
+            'token' => null,
+            'webhook_secret' => null,
+            'organization_id' => null,
+            'organization_name' => null,
+            'connected_at' => null,
+            'last_error' => null,
+        ])->save();
+
+        $this->token = null;
+    }
+
     public function getVisit(int $visitId): array
     {
         $data = $this->send('get', '/api/v2/visit/'.$visitId)->json() ?? [];
@@ -85,8 +106,13 @@ class Client
         ])->json() ?? [];
     }
 
-    private function send(string $method, string $path, array $data = [], bool $authorized = true): Response
-    {
+    private function send(
+        string $method,
+        string $path,
+        array $data = [],
+        bool $authorized = true,
+        array $acceptedStatuses = [],
+    ): Response {
         if ($authorized && blank($this->token)) {
             throw new RuntimeException('SQNS не подключён: отсутствует токен.');
         }
@@ -99,6 +125,7 @@ class Client
                 [500, 1000, 2000],
                 0,
                 fn (Throwable $exception): bool => $this->shouldRetry($exception),
+                false,
             );
 
         if ($authorized) {
@@ -111,7 +138,9 @@ class Client
             ? $request->get($url, $data)
             : $request->send(strtoupper($method), $url, ['json' => $data]);
 
-        $response->throw();
+        if (! in_array($response->status(), $acceptedStatuses, true)) {
+            $response->throw();
+        }
 
         return $response;
     }
