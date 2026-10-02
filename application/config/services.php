@@ -80,6 +80,7 @@ return [
                 'client_id' => env('AMO_SQNS_CLIENT_ID'),
                 'client_secret' => env('AMO_SQNS_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_SQNS_REDIRECT_URI', '/api/amocrm/install/sqns'),
+                'fallback_to_platform_credentials' => false,
             ],
             'vetmanager' => [
                 'client_id' => env('AMO_VETMANAGER_CLIENT_ID'),

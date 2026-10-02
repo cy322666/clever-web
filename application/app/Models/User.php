@@ -206,6 +206,23 @@ class User extends Authenticatable implements FilamentUser
                 : null;
         }
 
+        if ($widget === 'sqns') {
+            if ($specific) {
+                if ($createIfMissing) {
+                    \App\Services\Sqns\AmoCrmConnectionAccess::prepareForAuthorization($specific);
+
+                    return $specific;
+                }
+
+                return \App\Services\Sqns\AmoCrmConnectionAccess::isWidgetAccount($specific)
+                    ? $specific : null;
+            }
+
+            return $createIfMissing
+                ? Account::query()->create(['user_id' => $this->id, 'widget' => $widget])
+                : null;
+        }
+
         // Marketplace installs must keep their own OAuth even after a reset.
         if ($widget === 'yclients' && $specific?->oauth_connector === Account::CONNECTOR_WIDGET) {
             return $specific;
@@ -273,11 +290,8 @@ class User extends Authenticatable implements FilamentUser
     private function resolveAnyActiveAmoAccount(?string $clientId = null): ?Account
     {
         return $this->accounts()
-            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'import-excel'))
-            ->when(trim((string) config('services.amocrm.widgets.import-excel.client_id', '')) !== '',
-                fn ($query) => $query->where(fn ($query) => $query
-                    ->whereNull('client_id')
-                    ->orWhere('client_id', '<>', config('services.amocrm.widgets.import-excel.client_id'))))
+            ->where(fn ($query) => $query->whereNull('widget')
+                ->orWhereNotIn('widget', Account::dedicatedConnectorWidgets()))
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->where('active', true)
             ->whereNotNull('subdomain')
