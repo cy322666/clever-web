@@ -30,25 +30,7 @@ class EditSqns extends EditRecord
                 fn () => $this->amocrmUpdate(),
             ),
 
-            Action::make('connect_sqns')
-                ->label(fn (): string => $this->record->isConnected() ? 'Отключить SQNS' : 'Подключить SQNS')
-                ->icon(fn (): string => $this->record->isConnected() ? 'heroicon-o-link-slash' : 'heroicon-o-link')
-                ->color(fn (): string => $this->record->isConnected() ? 'danger' : 'warning')
-                ->requiresConfirmation(fn (): bool => $this->record->isConnected())
-                ->modalHeading('Отключить SQNS?')
-                ->modalDescription('Webhook будет удалён из SQNS, загрузка визитов остановится.')
-                ->modalSubmitActionLabel('Отключить SQNS')
-                ->action(function (): void {
-                    $this->record->refresh();
-
-                    if ($this->record->isConnected()) {
-                        $this->disconnectSqns();
-
-                        return;
-                    }
-
-                    $this->connectSqns();
-                }),
+            $this->sqnsConnectionAction(),
 
             Action::make('sync_visits')
                 ->label('Загрузить визиты')
@@ -86,6 +68,30 @@ class EditSqns extends EditRecord
                 ->icon('heroicon-o-list-bullet')
                 ->url(SqnsResource::getUrl('visits')),
         ];
+    }
+
+    protected function sqnsConnectionAction(): Action
+    {
+        return Action::make('connect_sqns')
+            ->label(fn (): string => $this->record->isConnected() ? 'Отключить SQNS' : 'Подключить SQNS')
+            ->icon(fn (): string => $this->record->isConnected() ? 'heroicon-o-link-slash' : 'heroicon-o-link')
+            ->color(fn (): string => $this->record->isConnected() ? 'danger' : 'warning')
+            ->requiresConfirmation()
+            ->modalHidden(fn (): bool => ! $this->record->isConnected())
+            ->modalHeading('Отключить SQNS?')
+            ->modalDescription('Webhook будет удалён из SQNS, загрузка визитов остановится.')
+            ->modalSubmitActionLabel('Отключить SQNS')
+            ->action(function (): void {
+                $this->record->refresh();
+
+                if ($this->record->isConnected()) {
+                    $this->disconnectSqns();
+
+                    return;
+                }
+
+                $this->connectSqns();
+            });
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
