@@ -8,7 +8,9 @@ use App\Jobs\Sqns\SyncVisitToAmo;
 use App\Models\Integrations\Sqns\Client;
 use App\Models\Integrations\Sqns\Setting;
 use App\Models\Integrations\Sqns\Visit;
+use App\Services\amoCRM\Client as AmoClient;
 use App\Services\Sqns\AmoFieldMapper;
+use App\Services\Sqns\AmoPrice;
 use Tests\TestCase;
 
 class VisitMappingTest extends TestCase
@@ -78,6 +80,30 @@ class VisitMappingTest extends TestCase
         $this->assertSame('Предпочитает утро', $values['client_comment']);
         $this->assertSame('М', $values['client_sex']);
         $this->assertSame(['Повторный'], $values['client_tags']);
+    }
+
+    public function test_rounds_sqns_cost_for_amocrm_budget(): void
+    {
+        $this->assertSame(9688, AmoPrice::normalize('9 687,50'));
+        $this->assertSame(9687, AmoPrice::normalize('9687.49'));
+        $this->assertNull(AmoPrice::normalize('not-a-number'));
+    }
+
+    public function test_system_price_mapping_sends_an_integer(): void
+    {
+        $amo = $this->getMockBuilder(AmoClient::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['requestV4'])
+            ->getMock();
+        $amo->expects($this->once())
+            ->method('requestV4')
+            ->with('PATCH', '/api/v4/leads/42', ['price' => 9688]);
+
+        $mapper = new AmoFieldMapper($amo, new Setting(['user_id' => 1]));
+        $mapper->apply('leads', 42, [[
+            'field_sqns' => 'cost',
+            'field_amo' => 'system:price',
+        ]], ['cost' => '9687.50']);
     }
 
     public function test_setting_is_ready_only_with_token_and_all_status_mappings(): void

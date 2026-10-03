@@ -42,7 +42,7 @@ class AmoFieldMapper
             }
 
             if ($entityType === 'leads' && $target === 'system:price') {
-                $price = $this->number($value);
+                $price = AmoPrice::normalize($value);
 
                 if ($price !== null) {
                     $payload['price'] = $price;

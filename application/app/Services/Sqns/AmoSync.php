@@ -64,6 +64,8 @@ class AmoSync
             ? $this->leads->update($lead, $status, $visit, $responsibleUserId)
             : $this->leads->create($contact, $amoApi, $status, $visit, $responsibleUserId);
 
+        $visit->forceFill(['lead_id' => $lead->id])->save();
+
         $values = AmoFieldMapper::values($visit, $client);
         $mapper = new AmoFieldMapper($amoApi, $setting);
 
