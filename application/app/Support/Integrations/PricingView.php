@@ -8,11 +8,45 @@ class PricingView
 {
     public static function sidebarHtml(array $cost, bool $showSavings = true, ?int $accountUserLimit = null): HtmlString
     {
-        $month1 = htmlspecialchars((string)($cost['1_month'] ?? '2 990 ₽'), ENT_QUOTES, 'UTF-8');
-        $month6 = htmlspecialchars((string)($cost['6_month'] ?? '14 900 ₽'), ENT_QUOTES, 'UTF-8');
-        $month12 = htmlspecialchars((string)($cost['12_month'] ?? '24 900 ₽'), ENT_QUOTES, 'UTF-8');
-        $month6Savings = $showSavings ? '<div class="integration-pricing__note">2 483 ₽/мес · экономия 3 000 ₽</div>' : '';
-        $month12Savings = $showSavings ? '<div class="integration-pricing__note">2 075 ₽/мес · экономия 7 000 ₽</div>' : '';
+        $cost += [
+            '1_month' => '2 990 ₽',
+            '6_month' => '14 900 ₽',
+            '12_month' => '24 900 ₽',
+        ];
+
+        $plans = [
+            '1_month' => ['label' => '1 месяц', 'class' => ''],
+            '3_month' => ['label' => '3 месяца', 'class' => ''],
+            '6_month' => [
+                'label' => '6 месяцев',
+                'class' => ' integration-pricing__card--accent',
+                'note' => $showSavings ? '2 483 ₽/мес · экономия 3 000 ₽' : null,
+            ],
+            '12_month' => [
+                'label' => '12 месяцев',
+                'class' => isset($cost['24_month']) ? '' : ' integration-pricing__card--best',
+                'note' => $showSavings ? '2 075 ₽/мес · экономия 7 000 ₽' : null,
+            ],
+            '24_month' => ['label' => '24 месяца', 'class' => ' integration-pricing__card--best'],
+        ];
+        $pricingCards = '';
+
+        foreach ($plans as $key => $plan) {
+            if (! array_key_exists($key, $cost)) {
+                continue;
+            }
+
+            $price = htmlspecialchars((string) $cost[$key], ENT_QUOTES, 'UTF-8');
+            $note = isset($plan['note'])
+                ? '<div class="integration-pricing__note">'.$plan['note'].'</div>'
+                : '';
+            $pricingCards .= '<div class="integration-pricing__card'.$plan['class'].'">'
+                .'<div class="integration-pricing__period">'.$plan['label'].'</div>'
+                .'<div class="integration-pricing__price">'.$price.'</div>'
+                .$note
+                .'</div>';
+        }
+
         $accountPricing = '';
         $perUserPricing = '';
 
@@ -111,22 +145,7 @@ class PricingView
 
 <div class="integration-pricing">
     {$accountPricing}
-    <div class="integration-pricing__card">
-        <div class="integration-pricing__period">1 месяц</div>
-        <div class="integration-pricing__price">{$month1}</div>
-    </div>
-
-    <div class="integration-pricing__card integration-pricing__card--accent">
-        <div class="integration-pricing__period">6 месяцев</div>
-        <div class="integration-pricing__price">{$month6}</div>
-        {$month6Savings}
-    </div>
-
-    <div class="integration-pricing__card integration-pricing__card--best">
-        <div class="integration-pricing__period">12 месяцев</div>
-        <div class="integration-pricing__price">{$month12}</div>
-        {$month12Savings}
-    </div>
+    {$pricingCards}
     {$perUserPricing}
 </div>
 HTML

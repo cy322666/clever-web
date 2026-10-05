@@ -153,7 +153,7 @@ class SqnsForm
                                 TextEntry::make('pricing')
                                     ->hiddenLabel()
                                     ->html()
-                                    ->state(fn ($model) => PricingView::sidebarHtml($model::$cost)),
+                                    ->state(fn ($model) => PricingView::sidebarHtml($model::$cost, showSavings: false)),
                             ]),
                     ])
                     ->compact()
