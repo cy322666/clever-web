@@ -57,7 +57,8 @@ class WorkflowHttpRequestAction
             if (is_string($headers)) $headers = json_decode($headers ?: '{}', true, 32, JSON_THROW_ON_ERROR);
             if (!is_array($headers)) throw new RuntimeException('Заголовки должны быть JSON-объектом.');
             foreach ($headers as $key => $value) {
-                if (!is_string($key) || !preg_match('/^[A-Za-z0-9-]+$/D', $key) || !is_scalar($value) || preg_match('/[\r\n]/', (string)$value) || in_array(strtolower($key), ['host','content-length','transfer-encoding','connection','proxy-authorization'], true)) throw new RuntimeException('Недопустимый заголовок запроса.');
+                // RFC 9110 field names are tokens, including underscores used by external APIs.
+                if (!is_string($key) || !preg_match('/^[!#$%&\'*+.^_`|~0-9A-Za-z-]+$/D', $key) || !is_scalar($value) || preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', (string)$value) || in_array(strtolower($key), ['host','content-length','transfer-encoding','connection','proxy-authorization'], true)) throw new RuntimeException('Недопустимый заголовок запроса.');
             }
             $body = $config['body'] ?? '';
             if (is_string($body) && $body !== '') $body = trim($body) === '{}' ? (object)[] : json_decode($body, true, 64, JSON_THROW_ON_ERROR);
