@@ -189,10 +189,6 @@ class AmoCrmWidgetInstallationService
                 'widget' => $widget,
             ]);
 
-            if ($widget === 'yclients') {
-                $account->oauth_connector = Account::CONNECTOR_WIDGET;
-            }
-
             $account->forceFill([
                 'user_id' => $user->id,
                 'widget' => $widget,
@@ -297,8 +293,7 @@ class AmoCrmWidgetInstallationService
     private function oauthConfig(string $widget): array
     {
         $prefix = 'services.amocrm.widgets.'.$widget.'.';
-        $fallbackToPlatform = $widget !== 'import-excel' && $widget !== 'yclients'
-            && (bool) config($prefix.'fallback_to_platform_credentials', true);
+        $fallbackToPlatform = (bool) config($prefix.'fallback_to_platform_credentials', true);
         $config = [
             'client_id' => $this->firstFilled([
                 config($prefix.'client_id'),

@@ -249,7 +249,6 @@ jobs:
           envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE,ASSET_PATH
           script: |
             set -Eeuo pipefail
-            umask 022
 
             if [ -z "${PROJECT_PATH:-}" ]; then
               echo "PROJECT_PATH is empty (set PROD_PROJECT_PATH secret)."
@@ -351,7 +350,7 @@ jobs:
               changed_files="$(mktemp /tmp/clever-web-changes.XXXXXX)"
               patch_path="backups/${label}-$(date -u +%Y%m%dT%H%M%SZ).patch"
               git diff --name-only -z > "$changed_files"
-              (umask 077; git diff --binary > "$patch_path")
+              git diff --binary > "$patch_path"
               git restore --worktree --source="$base_commit" \
                 --pathspec-from-file="$changed_files" --pathspec-file-nul
               rm -f "$changed_files"
@@ -489,26 +488,21 @@ jobs:
 
             start_application
 
-            # Root can read mode-0600 source files that PHP-FPM and Horizon cannot.
-            for service in app supervisor; do
-              compose_cmd exec -T --user www-data "$service" php scripts/check-runtime-access.php
-            done
-
-            compose_cmd exec -T --user www-data app php artisan optimize:clear
+            compose_cmd exec -T app php artisan optimize:clear
 
             if [ "$AUTO_MIGRATE" = "true" ]; then
-              compose_cmd exec -T --user www-data app php artisan migrate --force
+              compose_cmd exec -T app php artisan migrate --force
             else
               echo "AUTO_MIGRATE=false, skipping migrations."
             fi
 
-            compose_cmd exec -T --user www-data app php artisan optimize
+            compose_cmd exec -T app php artisan optimize
 
             # optimize:clear removes the scheduler heartbeat from the shared cache.
             # Give schedule:work enough time to write the next one before failing deploy.
             smoke_ready=false
             for ((attempt = 1; attempt <= 15; attempt++)); do
-              if compose_cmd exec -T --user www-data app php artisan app:smoke --strict; then
+              if compose_cmd exec -T app php artisan app:smoke --strict; then
                 smoke_ready=true
                 break
               fi

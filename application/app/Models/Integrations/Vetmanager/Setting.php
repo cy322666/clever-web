@@ -18,14 +18,14 @@ class Setting extends Model
         'contacts' => [
             'client_id' => [
                 'attribute' => 'contact_external_id_field_id',
-                'label' => 'ID клиента Ветменеджера',
+                'label' => 'ID клиента Vetmanager',
                 'types' => ['text', 'numeric'],
             ],
         ],
         'leads' => [
             'admission_id' => [
                 'attribute' => 'lead_external_id_field_id',
-                'label' => 'ID приема Ветменеджера',
+                'label' => 'ID приема Vetmanager',
                 'types' => ['text', 'numeric'],
             ],
             'admission_date' => [

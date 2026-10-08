@@ -41,11 +41,6 @@ class AuthController extends Controller
         return $this->installWidgetFromAmoCrm($request, 'import-excel', 'excel');
     }
 
-    public function installYclients(Request $request)
-    {
-        return $this->installWidgetFromAmoCrm($request, 'yclients', 'yclients');
-    }
-
     public function installFinder(Request $request)
     {
         if (! $request->isMethod('GET') || $request->expectsJson()) {
@@ -103,6 +98,8 @@ class AuthController extends Controller
             $platformUserId,
         );
 
+        $this->notifyWidgetLifecycle('install', $widget, $request);
+
         return response()->json(['ok' => true, 'status' => 'queued'], 202);
     }
 
@@ -114,11 +111,6 @@ class AuthController extends Controller
     public function offExcel(Request $request)
     {
         return $this->logWidgetOffCallback($request, 'excel', 'import-excel');
-    }
-
-    public function offYclients(Request $request)
-    {
-        return $this->logWidgetOffCallback($request, 'yclients', 'yclients');
     }
 
     public function offFinder(Request $request)
@@ -256,7 +248,7 @@ class AuthController extends Controller
                 );
             }
 
-            $useSharedConnector = $this->shouldUseSharedAmoConnector($widget, $account);
+            $useSharedConnector = $this->shouldUseSharedAmoConnector($widget);
             $sharedConnector = $useSharedConnector
                 ? $this->resolveSharedConnectorConfig($user, $account)
                 : null;
@@ -264,11 +256,6 @@ class AuthController extends Controller
                 ? ''
                 : (string) config('services.amocrm.widgets.'.$widget.'.client_id', '');
             $incomingClientId = trim((string) $request->input('client_id', ''));
-            if ($widget === 'import-excel' && trim($expectedWidgetClientId) === '') {
-                return $this->oauthErrorRedirect(
-                    $request, 'Не настроен client_id для виджета «Импорт Excel».', 422, $fallbackRedirect
-                );
-            }
             $globalClientId = $useSharedConnector
                 ? (string) ($sharedConnector['client_id'] ?? '')
                 : (string) config('services.amocrm.client_id', '');
@@ -307,11 +294,6 @@ class AuthController extends Controller
             }
 
             $oauthConfig = $this->resolveOauthConfigForWidget($widget, $user, $account);
-            if ($widget === 'import-excel' && trim((string) $oauthConfig['redirect_uri']) === '') {
-                return $this->oauthErrorRedirect(
-                    $request, 'Не настроен redirect_uri для виджета «Импорт Excel».', 422, $fallbackRedirect
-                );
-            }
             if ((string) $oauthConfig['client_secret'] === '') {
                 return $this->oauthErrorRedirect(
                     $request,
@@ -385,16 +367,8 @@ class AuthController extends Controller
                     continue;
                 }
 
-                if ($widget === 'import-excel') {
-                    \App\Services\ImportExcel\ExcelConnectionAccess::prepareForAuthorization($account);
-                }
                 $account->code = (string) $request->input('code', '');
                 $account->widget = $widget;
-                if ($widget === 'yclients') {
-                    $account->oauth_connector = $useSharedConnector
-                        ? Account::CONNECTOR_SHARED
-                        : Account::CONNECTOR_WIDGET;
-                }
                 $account->zone = $zone ?? $account->zone;
                 $account->client_id = $resolvedClientId;
                 $account->subdomain = $candidateSubdomain;
@@ -1003,14 +977,7 @@ class AuthController extends Controller
         ?User $user = null,
         ?Account $currentAccount = null
     ): array {
-        if ($widget === 'import-excel') {
-            return [
-                'client_secret' => trim((string) config('services.amocrm.widgets.import-excel.client_secret', '')),
-                'redirect_uri' => trim((string) config('services.amocrm.widgets.import-excel.redirect_uri', '')),
-            ];
-        }
-
-        if ($this->shouldUseSharedAmoConnector($widget, $currentAccount)) {
+        if ($this->shouldUseSharedAmoConnector($widget)) {
             if ($user instanceof User) {
                 $shared = $this->resolveSharedConnectorConfig($user, $currentAccount);
 
@@ -1031,10 +998,6 @@ class AuthController extends Controller
         $clientSecret = (string) config($prefix.'client_secret', '');
         $redirectUri = (string) config($prefix.'redirect_uri', '');
 
-        if ($widget === 'yclients') {
-            return ['client_secret' => $clientSecret, 'redirect_uri' => $redirectUri];
-        }
-
         return [
             'client_secret' => $clientSecret !== ''
                 ? $clientSecret
@@ -1045,9 +1008,10 @@ class AuthController extends Controller
         ];
     }
 
-    private function shouldUseSharedAmoConnector(string $widget, ?Account $account = null): bool
+    private function shouldUseSharedAmoConnector(string $widget): bool
     {
-        return ($account ?? new Account)->usesSharedConnectorForWidget($widget);
+        return Account::normalizeWidget($widget) === 'yclients'
+            && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
     }
 
     private function resolveSharedConnectorConfig(User $user, ?Account $currentAccount = null): array
@@ -1076,9 +1040,6 @@ class AuthController extends Controller
     private function resolveSharedSourceAccount(User $user, ?Account $exclude = null): ?Account
     {
         $query = $user->accounts()
-            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'import-excel'))
-            ->when(trim((string) config('services.amocrm.widgets.import-excel.client_id', '')) !== '',
-                fn ($query) => $query->where('client_id', '<>', config('services.amocrm.widgets.import-excel.client_id')))
             ->whereNotNull('client_id')
             ->where('client_id', '<>', '')
             ->whereNotNull('client_secret')

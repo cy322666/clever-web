@@ -25,8 +25,23 @@ class IntegrationBrandAssetsTest extends TestCase
             $this->assertStringStartsWith('logo/integrations/', config("integrations.definitions.{$name}.logo"));
         }
 
+    }
+
+    public function test_clever_widgets_use_distinct_original_vector_icons(): void
+    {
+        $logos = [];
         foreach (['finder', 'distribution', 'workflows'] as $name) {
-            $this->assertSame('logo/clever_mini_logo.png', config("integrations.definitions.{$name}.logo"));
+            $logo = config("integrations.definitions.{$name}.logo");
+            $this->assertStringStartsWith('logo/widgets/', $logo);
+            $this->assertStringEndsWith('.svg', $logo);
+
+            $dom = new \DOMDocument;
+            $this->assertTrue($dom->load(public_path($logo), LIBXML_NONET));
+            $this->assertSame('0 0 96 96', $dom->documentElement->getAttribute('viewBox'));
+            $this->assertSame(0, $dom->getElementsByTagName('script')->length);
+            $this->assertSame(0, $dom->getElementsByTagName('image')->length);
+            $logos[] = hash_file('sha256', public_path($logo));
         }
+        $this->assertCount(3, array_unique($logos));
     }
 }

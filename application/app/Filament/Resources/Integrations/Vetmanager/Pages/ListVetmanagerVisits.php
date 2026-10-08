@@ -19,7 +19,7 @@ class ListVetmanagerVisits extends ListRecords
 {
     protected static string $resource = VetmanagerResource::class;
 
-    protected static ?string $title = 'История посещений Ветменеджера';
+    protected static ?string $title = 'История посещений Vetmanager';
 
     protected function getTableQuery(): ?Builder
     {

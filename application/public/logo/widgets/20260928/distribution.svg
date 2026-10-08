@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>Distribution</title>
+  <defs>
+    <linearGradient id="distribution-tile" x1="16" y1="6" x2="79" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8654"/>
+      <stop offset=".48" stop-color="#F95736"/>
+      <stop offset="1" stop-color="#D32F32"/>
+    </linearGradient>
+    <linearGradient id="distribution-paper" x1="48" y1="17" x2="48" y2="78" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFE8D6"/>
+    </linearGradient>
+    <filter id="distribution-depth" x="8" y="13" width="81" height="72" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#852521" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="92" height="92" rx="23" fill="url(#distribution-tile)"/>
+  <path d="M25 2H71C83.7 2 94 12.3 94 25V32C57 51 34 33 2 52V25C2 12.3 12.3 2 25 2Z" fill="#FFFFFF" fill-opacity=".08"/>
+  <rect x="2.75" y="2.75" width="90.5" height="90.5" rx="22.25" stroke="#FFFFFF" stroke-opacity=".2" stroke-width="1.5"/>
+  <g filter="url(#distribution-depth)">
+    <path d="M48 37V59M23 60V55C23 51.7 25.7 49 29 49H67C70.3 49 73 51.7 73 55V60" stroke="#FFDDC3" stroke-width="5" stroke-linecap="round"/>
+    <rect x="34" y="17" width="28" height="23" rx="7" fill="url(#distribution-paper)"/>
+    <path d="M43 28.5H53" stroke="#EF6541" stroke-width="4" stroke-linecap="round"/>
+    <rect x="13" y="57" width="20" height="22" rx="6" fill="url(#distribution-paper)"/>
+    <rect x="38" y="57" width="20" height="22" rx="6" fill="url(#distribution-paper)"/>
+    <rect x="63" y="57" width="20" height="22" rx="6" fill="url(#distribution-paper)"/>
+    <path d="M20 68H26M45 68H51M70 68H76" stroke="#E74F37" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -22,7 +22,7 @@ class VetmanagerResource extends Resource
 
     protected static ?string $model = Setting::class;
 
-    protected static ?string $recordTitleAttribute = 'Ветменеджер';
+    protected static ?string $recordTitleAttribute = 'Vetmanager';
 
     protected static ?string $slug = 'integrations/vetmanager';
 

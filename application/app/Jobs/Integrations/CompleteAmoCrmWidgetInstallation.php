@@ -4,7 +4,6 @@ namespace App\Jobs\Integrations;
 
 use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Services\Integrations\AmoCrmWidgetInstallationService;
-use App\Services\Integrations\AmoCrmWidgetLifecycleTelegramNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -61,12 +60,6 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
                 'domain' => $result['account']->subdomain.'.amocrm.'.($result['account']->zone ?: 'ru'),
             ]);
         }
-
-        app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install', $this->widget, [], [
-            'account_id' => $result['account']->amo_account_id,
-            'referer' => $result['account']->subdomain.'.amocrm.'.($result['account']->zone ?: 'ru'),
-            'client_id' => $result['account']->client_id,
-        ]);
     }
 
     public function failed(Throwable $exception): void
@@ -79,17 +72,6 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
             'widget' => $this->widget,
             'referer' => $this->referer,
             'error' => $exception->getMessage(),
-        ]);
-
-        $prefix = 'services.amocrm.widgets.'.$this->widget.'.';
-        $fallbackToPlatform = $this->widget !== 'import-excel' && $this->widget !== 'yclients'
-            && (bool) config($prefix.'fallback_to_platform_credentials', true);
-
-        app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install_failed', $this->widget, [], [
-            'referer' => $this->referer,
-            'client_id' => config($prefix.'client_id')
-                ?: ($fallbackToPlatform ? config('services.amocrm.client_id') : null),
-            'exception' => $exception,
         ]);
     }
 }

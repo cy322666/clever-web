@@ -42,7 +42,6 @@ class Market extends Widget
                     App::STATE_EXPIRES => 'danger',
                     default => 'gray',
                 },
-                'action' => $status === App::STATE_CREATED ? 'Подключить' : 'Открыть',
             ];
         });
 

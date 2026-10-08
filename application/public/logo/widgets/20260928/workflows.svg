@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>Workflows</title>
+  <defs>
+    <linearGradient id="workflows-tile" x1="12" y1="4" x2="80" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28C6B1"/>
+      <stop offset=".5" stop-color="#079C99"/>
+      <stop offset="1" stop-color="#08657E"/>
+    </linearGradient>
+    <linearGradient id="workflows-route" x1="48" y1="25" x2="48" y2="73" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C5FFF0"/>
+    </linearGradient>
+    <filter id="workflows-depth" x="10" y="12" width="77" height="75" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#034C61" flood-opacity=".25"/>
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="92" height="92" rx="23" fill="url(#workflows-tile)"/>
+  <path d="M25 2H71C83.7 2 94 12.3 94 25V32C57 51 34 33 2 52V25C2 12.3 12.3 2 25 2Z" fill="#FFFFFF" fill-opacity=".08"/>
+  <rect x="2.75" y="2.75" width="90.5" height="90.5" rx="22.25" stroke="#FFFFFF" stroke-opacity=".2" stroke-width="1.5"/>
+  <g filter="url(#workflows-depth)">
+    <path d="M34 26H60C67.2 26 73 31.8 73 39V40M62 49H37C29.8 49 24 54.8 24 62V65" stroke="url(#workflows-route)" stroke-width="8" stroke-linecap="round"/>
+    <rect x="14" y="16" width="26" height="21" rx="7" fill="#F3FFFB"/>
+    <rect x="56" y="38" width="26" height="22" rx="7" fill="#F3FFFB"/>
+    <rect x="14" y="60" width="26" height="22" rx="7" fill="#B5F5CF"/>
+    <path d="M25 23L30 26.5L25 30V23Z" fill="#109E99"/>
+    <path d="M66 45L71 49L66 53" stroke="#109E99" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M22 71L25.5 74.5L32 67.5" stroke="#107E76" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

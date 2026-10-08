@@ -34,12 +34,12 @@ class VetmanagerForm
                     ->hiddenLabel()
                     ->extraAttributes(['class' => 'self-start h-fit'])
                     ->schema([
-                        Fieldset::make('Подключение Ветменеджера')
+                        Fieldset::make('Подключение Vetmanager')
                             ->schema([
                                 TextInput::make('base_url')
                                     ->label('Адрес кабинета')
                                     ->placeholder('https://clinic.vetmanager.ru')
-                                    ->helperText('HTTPS-адрес вашего кабинета Ветменеджера.')
+                                    ->helperText('HTTPS-адрес вашего кабинета Vetmanager.')
                                     ->required()
                                     ->rules([
                                         function (): Closure {
@@ -171,7 +171,7 @@ class VetmanagerForm
     {
         return [
             Select::make('field_vetmanager')
-                ->label('Ветменеджер')
+                ->label('Vetmanager')
                 ->options(Setting::sourceFieldOptions($entityType))
                 ->searchable()
                 ->live()

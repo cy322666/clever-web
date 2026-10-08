@@ -65,12 +65,16 @@ class MarketCatalogTest extends TestCase
             ->assertSee('Универсальные')
             ->assertSee('Отраслевые')
             ->assertSee('Истёк 34 дн.')
+            ->assertDontSee('Подключить')
+            ->assertDontSee('Открыть')
             ->assertSee(route('integrations.open', ['app' => $expired->id]), false)
             ->assertDontSee(route('integrations.open', ['app' => $otherUserApp->id]), false);
 
         $dom = new DOMDocument;
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$component->html());
         $xpath = new DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//div[@class="clever-market-card__footer"]')->length);
+        $this->assertStringContainsString('Истёк 34 дн.', $xpath->query('//div[@class="clever-market-card__footer"]')->item(0)->textContent);
         $titles = fn (string $category): array => array_map(
             fn ($node): string => trim($node->textContent),
             iterator_to_array($xpath->query('//section[@data-category="'.$category.'"]//h3')),
@@ -80,15 +84,16 @@ class MarketCatalogTest extends TestCase
             ['Контроль ответов', 'Тильда', 'Распределение', 'Импорт Excel', 'Потоки'],
             $titles('universal'),
         );
-        $this->assertSame(['Ветменеджер', 'SQNS', 'YClients'], $titles('industry'));
+        $this->assertSame(['Vetmanager', 'SQNS', 'YClients'], $titles('industry'));
         $this->assertSame(App::STATE_ACTIVE, $expired->fresh()->status);
         $this->assertSame(1, App::where('user_id', 2)->count());
     }
 
-    public function test_cards_show_icons_names_and_actions_without_marketing_copy_or_crm_badges(): void
+    public function test_cards_remain_clickable_without_separate_actions_or_marketing_copy(): void
     {
         $component = Livewire::test(Market::class)
-            ->assertSee('Подключить')
+            ->assertDontSee('Подключить')
+            ->assertDontSee('Открыть')
             ->assertDontSee('Можно подключить')
             ->assertDontSee('amoCRM')
             ->assertDontSee('КАТАЛОГ CLEVERCRM')
@@ -106,11 +111,17 @@ class MarketCatalogTest extends TestCase
         $cards = $xpath->query('//a[@class="clever-market-card"]');
 
         $this->assertCount(8, $cards);
+        $this->assertEqualsCanonicalizing(
+            App::all()->map(fn (App $app): string => route('integrations.open', ['app' => $app->id]))->all(),
+            array_map(fn ($card): string => $card->getAttribute('href'), iterator_to_array($cards)),
+        );
         foreach ($cards as $card) {
             $this->assertSame(1, $xpath->query('.//span[@class="clever-market-card__icon" and @aria-hidden="true"]/img[@alt="" and @width="48" and @height="48"]', $card)->length);
             $this->assertSame(1, $xpath->query('.//h3', $card)->length);
             $this->assertSame(0, $xpath->query('.//p', $card)->length);
+            $this->assertSame(0, $xpath->query('.//button | .//a | .//*[@class="clever-market-card__action"]', $card)->length);
         }
+        $this->assertSame(0, $xpath->query('//div[@class="clever-market-card__footer"]')->length);
         $this->assertSame(0, $xpath->query('//*[contains(@class, "fi-badge")]')->length);
         foreach (config('integrations.definitions') as $definition) {
             $component->assertSee(asset($definition['logo']), false);
@@ -139,7 +150,7 @@ class MarketCatalogTest extends TestCase
             ->assertSee('Распределение')
             ->assertSee('SQNS')
             ->assertDontSee('Контроль ответов')
-            ->assertDontSee('Ветменеджер');
+            ->assertDontSee('Vetmanager');
 
         $this->assertSame(2, App::whereIn('name', ['finder', 'vetmanager'])->count());
     }

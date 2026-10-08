@@ -20,5 +20,15 @@ The Vetmanager symbol is the second top-level group in its official header SVG.
 Only the wordmark group was omitted and the viewBox narrowed to `0 0 26.74 26.74`;
 the symbol's paths, proportions and colors are unchanged.
 
-Clever's own widgets (Distribution, Workflows and Response Control) reuse the
-existing `application/public/logo/clever_mini_logo.png` brand mark.
+## Original Widget Icons
+
+Clever's own widgets use individually drawn SVG icons in
+`application/public/logo/widgets/20260928/`, not third-party logos or stock
+icon-library glyphs. They share a 96-unit canvas, rounded tile, subtle highlight
+and solid foreground shapes that remain readable at the 48-pixel card size.
+
+| Widget | File | Visual meaning |
+| --- | --- | --- |
+| Distribution | `distribution.svg` | A deal card branching into three destinations; coral palette |
+| Workflows | `workflows.svg` | Connected start, action and completion steps; teal palette |
+| Response Control | `response-control.svg` | A conversation with a response timer; blue and amber palette |

@@ -14,7 +14,7 @@ return [
     'definitions' => [
         'finder' => [
             'category' => 'universal',
-            'logo' => 'logo/clever_mini_logo.png',
+            'logo' => 'logo/widgets/20260928/response-control.svg',
             'resource' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
             'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
@@ -31,7 +31,7 @@ return [
         ],
         'distribution' => [
             'category' => 'universal',
-            'logo' => 'logo/clever_mini_logo.png',
+            'logo' => 'logo/widgets/20260928/distribution.svg',
             'resource' => DistributionResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
@@ -58,8 +58,8 @@ return [
             'resource' => VetmanagerResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
-            'title' => 'Ветменеджер',
-            'description' => 'Передавайте посещения из Ветменеджера в контакты и сделки amoCRM.',
+            'title' => 'Vetmanager',
+            'description' => 'Передавайте посещения из Vetmanager в контакты и сделки amoCRM.',
         ],
         'import-excel' => [
             'category' => 'universal',
@@ -70,7 +70,7 @@ return [
         ],
         'workflows' => [
             'category' => 'universal',
-            'logo' => 'logo/clever_mini_logo.png',
+            'logo' => 'logo/widgets/20260928/workflows.svg',
             'resource' => WorkflowResource::class,
             'public' => true,
             'crm_providers' => ['amocrm'],
