@@ -25,8 +25,6 @@ class EditYClients extends EditRecord
                 fn () => $this->amocrmUpdate(),
             ),
 
-            UpdateButton::amoCRMResetButton($this->record->amoAccount(true)),
-
             Action::make('list')
                 ->label('История')
                 ->icon('heroicon-o-list-bullet')

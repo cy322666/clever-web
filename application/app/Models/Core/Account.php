@@ -19,9 +19,6 @@ class Account extends Model
 
     public const DEFAULT_WIDGET = 'default';
 
-    public const CONNECTOR_SHARED = 'shared';
-    public const CONNECTOR_WIDGET = 'widget';
-
     public $timestamps = false;
 
     protected $fillable = [
@@ -86,13 +83,6 @@ class Account extends Model
     public function statuses(): HasMany
     {
         return $this->hasMany(Status::class);
-    }
-
-    public function usesSharedConnectorForWidget(string $widget): bool
-    {
-        return static::normalizeWidget($widget) === 'yclients'
-            && $this->oauth_connector !== self::CONNECTOR_WIDGET
-            && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
     }
 
     public static function normalizeWidget(?string $widget): string

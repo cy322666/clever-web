@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 use Rappasoft\LaravelAuthenticationLog\Traits\AuthenticationLoggable;
 
@@ -35,9 +34,6 @@ class User extends Authenticatable implements FilamentUser
         'uuid',
         'active',
         'count_inputs',
-        'locale',
-        'crm_provider',
-        'industry',
     ];
 
     /**
@@ -57,18 +53,11 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'onboarding_completed_at' => 'datetime',
     ];
 
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() === 'app' && (bool) $this->active;
-    }
-
-    public function needsOnboarding(): bool
-    {
-        return Schema::hasColumn($this->getTable(), 'onboarding_completed_at')
-            && ! $this->onboarding_completed_at;
     }
 
     public function canImpersonate()
@@ -195,33 +184,14 @@ class User extends Authenticatable implements FilamentUser
             ->latest('id')
             ->first();
 
-        if ($widget === 'import-excel') {
-            if ($specific) {
-                return $createIfMissing || \App\Services\ImportExcel\ExcelConnectionAccess::isWidgetAccount($specific)
-                    ? $specific : null;
-            }
-
-            return $createIfMissing
-                ? Account::query()->create(['user_id' => $this->id, 'widget' => $widget])
-                : null;
-        }
-
-        // Marketplace installs must keep their own OAuth even after a reset.
-        if ($widget === 'yclients' && $specific?->oauth_connector === Account::CONNECTOR_WIDGET) {
+        if ($specific && $this->amoAccountIsUsable($specific)) {
             return $specific;
         }
 
-        $useSharedConnector = ($specific ?? new Account)->usesSharedConnectorForWidget($widget);
-        $sharedClientId = $useSharedConnector ? (string) config('services.amocrm.client_id', '') : null;
-
-        if ($specific && $this->amoAccountIsUsable($specific)
-            && (! $useSharedConnector || $specific->client_id === $sharedClientId)) {
-            return $specific;
-        }
-
-        // Preserve shared authorization for legacy integrations, but never
-        // use the dedicated Excel connection as their shared connector.
-        $shared = $this->resolveAnyActiveAmoAccount($sharedClientId);
+        // One platform user is bound to one amoCRM domain. Any live OAuth
+        // connection for that domain is therefore valid for every integration,
+        // including the workflow editor.
+        $shared = $this->resolveAnyActiveAmoAccount();
 
         if ($shared instanceof Account) {
             return $shared;
@@ -270,15 +240,9 @@ class User extends Authenticatable implements FilamentUser
             && (filled($account->access_token) || filled($account->refresh_token));
     }
 
-    private function resolveAnyActiveAmoAccount(?string $clientId = null): ?Account
+    private function resolveAnyActiveAmoAccount(): ?Account
     {
         return $this->accounts()
-            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'import-excel'))
-            ->when(trim((string) config('services.amocrm.widgets.import-excel.client_id', '')) !== '',
-                fn ($query) => $query->where(fn ($query) => $query
-                    ->whereNull('client_id')
-                    ->orWhere('client_id', '<>', config('services.amocrm.widgets.import-excel.client_id'))))
-            ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->where('active', true)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')

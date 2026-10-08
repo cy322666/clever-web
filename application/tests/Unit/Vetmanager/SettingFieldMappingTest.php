@@ -10,11 +10,11 @@ class SettingFieldMappingTest extends TestCase
     public function test_exposes_supported_source_fields_and_target_types(): void
     {
         $this->assertSame([
-            'client_id' => 'ID клиента Ветменеджера',
+            'client_id' => 'ID клиента Vetmanager',
         ], Setting::sourceFieldOptions('contacts'));
 
         $this->assertSame([
-            'admission_id' => 'ID приема Ветменеджера',
+            'admission_id' => 'ID приема Vetmanager',
             'admission_date' => 'Дата приема',
             'patient_name' => 'Питомец',
             'doctor_name' => 'Врач',

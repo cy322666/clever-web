@@ -13,7 +13,7 @@ class VetmanagerWebhookManager
     public function synchronize(Setting $setting): array
     {
         if (! $setting->active) {
-            throw new RuntimeException('Сначала включите интеграцию с Ветменеджером.');
+            throw new RuntimeException('Сначала включите интеграцию Vetmanager.');
         }
 
         $account = $setting->account()->first();
@@ -33,7 +33,7 @@ class VetmanagerWebhookManager
         }
 
         if (! str_starts_with($url, 'https://')) {
-            throw new RuntimeException('Для вебхука Ветменеджера требуется публичный HTTPS-адрес приложения.');
+            throw new RuntimeException('Для webhook Vetmanager требуется публичный HTTPS-адрес приложения.');
         }
 
         $client = new VetmanagerApiClient($setting);

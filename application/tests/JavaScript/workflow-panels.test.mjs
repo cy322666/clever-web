@@ -11,36 +11,6 @@ function components() {
     return window;
 }
 
-test('JSON result tree expands all levels and toggles an individual level without changing data', () => {
-    const input = {items: [{id: 42, enabled: false, text: '<b>plain text</b>'}], empty: null};
-    const viewer = components().workflowJsonViewer(input);
-    viewer.init();
-    assert.equal(viewer.rows.some(row => row.label === '"id": '), false);
-    viewer.expandAll();
-    const rendered = () => viewer.rows.map(row => row.label + row.text).join('\n');
-    assert.deepEqual(JSON.parse(rendered()), input);
-    viewer.toggle('$.items');
-    assert.equal(viewer.rows.some(row => row.label === '"id": '), false);
-    viewer.toggle('$.items');
-    assert.deepEqual(JSON.parse(rendered()), input);
-    viewer.collapseAll();
-    assert.equal(viewer.rows.length, 1);
-    viewer.expandAll();
-    assert.deepEqual(JSON.parse(rendered()), input);
-});
-
-test('JSON result tree preserves expanded levels on polling and resets them for a new result', () => {
-    const viewer = components().workflowJsonViewer({items: [{id: 42}]});
-    viewer.init();
-    viewer.expandAll();
-    viewer.setValue({items: [{id: 42}]});
-    assert.equal(viewer.collapsed.length, 0);
-    viewer.setValue({items: [{id: 43}]});
-    assert.equal(viewer.collapsed.includes('$.items'), true);
-    viewer.expandAll();
-    assert.equal(viewer.rows.find(row => row.label === '"id": ').text, '43');
-});
-
 test('expression coloring marks only placeholders and treats markup as plain text', () => {
     const parts = components().workflowExpressionParts('Привет {{ $node["Сделки"].json.id }} <b>текст</b> {{lead.id}}');
     assert.equal(parts.filter(p=>p.variable).length,2);

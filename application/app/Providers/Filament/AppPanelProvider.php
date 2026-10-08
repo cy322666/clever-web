@@ -5,17 +5,15 @@ namespace App\Providers\Filament;
 use App\Filament\App\Pages\Dashboard;
 use App\Filament\App\Pages\WorkflowAdmin;
 use App\Filament\Resources\Billing\InvoiceRequestResource;
+use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
-use App\Http\Middleware\ApplyUserLocale;
-use App\Http\Middleware\EnsureOnboardingCompleted;
 use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -87,12 +85,6 @@ class AppPanelProvider extends PanelProvider
             ->renderHook(\Filament\View\PanelsRenderHook::USER_MENU_BEFORE, fn () => request()->routeIs('filament.app.resources.workflows.index', 'filament.app.resources.workflows.analytics')
                     ? view('filament.workflow-builder.workflow-theme-toggle')
                     : '')
-            ->userMenuItems([
-                'profile' => MenuItem::make()
-                    ->label('Профиль')
-                    ->icon('heroicon-o-user-circle')
-                    ->url(fn (): string => UserResource::getUrl('view', ['record' => Auth::id()])),
-            ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
 
                 return $builder->groups([
@@ -100,9 +92,19 @@ class AppPanelProvider extends PanelProvider
                     NavigationGroup::make('')
                         ->items([
                             NavigationItem::make('Market')
-                                ->label('Интеграции')
-                                ->icon('heroicon-o-squares-2x2')
+                                ->label('Магазин')
+                                ->icon('heroicon-o-shopping-bag')
                                 ->url(fn (): string => Dashboard::getUrl()),
+
+                            NavigationItem::make('Home')
+                                ->label('Аккаунт')
+                                ->icon('heroicon-o-home')
+                                ->url(fn (): string => UserResource::getUrl('view', ['record' => Auth::id()])),
+
+                            NavigationItem::make('Tariffs')
+                                ->label('Тарифы')
+                                ->icon('heroicon-o-banknotes')
+                                ->url(fn (): string => SubscriptionPlanResource::getUrl()),
 
                             NavigationItem::make('InvoiceRequests')
                                 ->label('Заявки на счет')
@@ -124,7 +126,6 @@ class AppPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                ApplyUserLocale::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
@@ -134,7 +135,6 @@ class AppPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                EnsureOnboardingCompleted::class,
             ])
             ->sidebarCollapsibleOnDesktop();
     }

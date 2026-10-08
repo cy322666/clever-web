@@ -36,7 +36,7 @@ class EditVetmanager extends EditRecord
                 ->action(fn () => $this->testConnection()),
 
             Action::make('install_webhook')
-                ->label('Подключить Ветменеджер')
+                ->label('Подключить Vetmanager')
                 ->icon('heroicon-o-link')
                 ->action(fn () => $this->installWebhook()),
 
@@ -92,11 +92,11 @@ class EditVetmanager extends EditRecord
             (new VetmanagerApiClient($this->record))->ping();
 
             Notification::make()
-                ->title('Доступ к Ветменеджеру подтвержден')
+                ->title('Доступ к Vetmanager подтвержден')
                 ->success()
                 ->send();
         } catch (Throwable $exception) {
-            $this->failureNotification('Не удалось подключиться к Ветменеджеру', $exception);
+            $this->failureNotification('Не удалось подключиться к Vetmanager', $exception);
         }
     }
 
@@ -109,12 +109,12 @@ class EditVetmanager extends EditRecord
             $this->refreshFormData(['webhook_synced_at']);
 
             Notification::make()
-                ->title('Вебхук Ветменеджера подключен')
+                ->title('Webhook Vetmanager подключен')
                 ->body('Будут обрабатываться прием и изменение его суммы.')
                 ->success()
                 ->send();
         } catch (Throwable $exception) {
-            $this->failureNotification('Не удалось подключить вебхук Ветменеджера', $exception);
+            $this->failureNotification('Не удалось подключить webhook Vetmanager', $exception);
         }
     }
 
