@@ -48,9 +48,11 @@ foreach ($paths as $file) {
     if (is_link($file)) throw new RuntimeException('Refusing symlink target: '.$file);
     if (is_file($file) && !isset($manifest[$file]) && !placeholder($file)) throw new RuntimeException('Uncaptured existing target: '.$file);
 }
-$oldPaths = array_values(array_filter(explode("\0", git(['ls-files', '-z']))));
-$retired = array_values(array_filter(array_diff($oldPaths, $paths), fn ($file) => isset($manifest[$file]) && !str_starts_with($file, '.idea/')));
-$backup = (string) $options['backup'];
+$retired = array_values(array_diff(array_keys($manifest), $paths));
+$backupInput = (string) $options['backup'];
+$backupParent = realpath(dirname($backupInput));
+if ($backupParent === false) throw new RuntimeException('Backup parent must already exist.');
+$backup = $backupParent.'/'.basename($backupInput);
 if (file_exists($backup) || !str_starts_with($backup, $root.'/backups/')) throw new RuntimeException('Use a fresh backup directory inside this repository.');
 echo json_encode(['target' => $target, 'captured_files' => count($manifest), 'target_files' => count($paths), 'retired_source_files' => count($retired), 'apply' => isset($options['apply'])]).PHP_EOL;
 if (!isset($options['apply'])) exit(0);
@@ -68,6 +70,8 @@ file_put_contents($backup.'/changes.patch', git(['diff', '--binary', 'HEAD']));
 copy($gitDir.'/index', $backup.'/index');
 file_put_contents($backup.'/source.paths', implode("\0", array_keys($manifest))."\0");
 run(['tar', '--null', '-czf', $backup.'/source.tar.gz', '-T', $backup.'/source.paths']);
+$assets = array_values(array_filter(['application/public/build', 'application/bootstrap/workflow-runtime'], 'is_dir'));
+if ($assets !== []) run(['tar', '-czf', $backup.'/assets.tar.gz', ...$assets]);
 git(['branch', 'codex/pre-reconcile-'.substr($target, 0, 12), $expectedHead]);
 
 // Every source write comes from the already-published target commit.
@@ -75,6 +79,9 @@ file_put_contents($backup.'/target.paths', implode("\0", $paths)."\0");
 git(['restore', '--source='.$target, '--worktree', '--pathspec-from-file='.$backup.'/target.paths', '--pathspec-file-nul']);
 foreach ($retired as $file) {
     if (!file_exists($file)) continue;
+    // Old generated archives remain available; obsolete source is preserved away
+    // from application discovery. The target .gitignore is already installed.
+    try { git(['check-ignore', '--no-index', '--', $file]); continue; } catch (RuntimeException) {}
     $to = $backup.'/retired/'.$file;
     if (!is_dir(dirname($to))) mkdir(dirname($to), 0700, true);
     if (!rename($file, $to)) throw new RuntimeException('Cannot preserve retired source: '.$file);
