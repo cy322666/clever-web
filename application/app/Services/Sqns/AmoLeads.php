@@ -50,7 +50,7 @@ class AmoLeads
         [$pipelineId, $statusId] = $this->validatedStatus($status);
         $lead = $contact ? $contact->createLead() : $amoApi->service->leads()->create();
         $lead->name = 'Визит SQNS #'.$visit->visit_id;
-        $lead->sale = $visit->cost;
+        $lead->sale = AmoPrice::normalize($visit->cost);
         $lead->pipeline_id = $pipelineId;
         $lead->status_id = $statusId;
 
@@ -69,7 +69,7 @@ class AmoLeads
         $current = $lead;
 
         for ($attempt = 1; $attempt <= 5; $attempt++) {
-            $current->sale = $visit->cost;
+            $current->sale = AmoPrice::normalize($visit->cost);
             $current->pipeline_id = $pipelineId;
             $current->status_id = $statusId;
 

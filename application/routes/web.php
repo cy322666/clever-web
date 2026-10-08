@@ -35,8 +35,12 @@ Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::cl
 
 Route::get('/up', fn() => response('OK', 200))
     ->name('up');
-Route::get('/amocrm/finder/installation/{token}', \App\Http\Controllers\System\FinderInstallationController::class)
+Route::get('/amocrm/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
+    ->whereUuid('token')->middleware('throttle:60,1')->name('amocrm.installation.status');
+Route::get('/amocrm/finder/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
     ->whereUuid('token')->middleware('throttle:60,1')->name('finder.installation.status');
+Route::get('/amocrm/workflows/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
+    ->whereUuid('token')->middleware('throttle:60,1')->name('workflows.installation.status');
 Route::get('/metrics', MetricsController::class)->name('metrics');
 Route::get('/yclients/marketplace/register', [YClientsMarketplaceController::class, 'register'])
     ->middleware('throttle:30,1')

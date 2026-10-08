@@ -9,6 +9,7 @@ use App\Models\Integrations\Distribution\Setting as DistributionSetting;
 use App\Models\Integrations\Distribution\Transaction as DistributionTransaction;
 use App\Models\User;
 use App\Models\Workflows\Workflow;
+use App\Services\amoCRM\AmoCrmHttpTransport;
 use App\Services\amoCRM\Client;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
@@ -53,7 +54,7 @@ class WorkflowAmoCrmActionExecutor
             $account = $this->resolveAccount($context);
 
             if (!$account instanceof Account) {
-                return $this->failure('Не найден подключенный аккаунт amoCRM для процесса.');
+                return $this->failure('Подключите виджет «Потоки» к amoCRM. Подключения других виджетов не используются.');
             }
 
             // Client refreshes OAuth data in the existing storage. Workflow actions below use v4 HTTP endpoints directly.
@@ -134,6 +135,11 @@ class WorkflowAmoCrmActionExecutor
         $payload = [
             'name' => (string)($config['name'] ?? $this->defaultName($entity)),
         ];
+        // Omitting the name lets amoCRM choose its own default. An empty JSON
+        // object must remain an object even when no other fields were supplied.
+        if ($entity === 'lead' && trim((string) ($config['name'] ?? '')) === '') {
+            unset($payload['name']);
+        }
 
         if (!empty($config['responsible_user_id'])) {
             $payload['responsible_user_id'] = (int)$config['responsible_user_id'];
@@ -152,6 +158,18 @@ class WorkflowAmoCrmActionExecutor
 
             if (!empty($config['status_id'])) {
                 $payload['status_id'] = (int)$config['status_id'];
+            }
+
+            // Attach existing entities in the same create request, without a second
+            // write that could leave a partially linked lead or retry its creation.
+            foreach (['contact_id' => 'contacts', 'company_id' => 'companies'] as $field => $relation) {
+                $value = $config[$field] ?? null;
+                if ($value === null || (is_string($value) && trim($value) === '')) continue;
+                $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                if (is_bool($value) || $id === false) {
+                    throw new \InvalidArgumentException(($field === 'contact_id' ? 'ID контакта' : 'ID компании').' должен быть положительным целым числом или переменной с таким ID.');
+                }
+                $payload['_embedded'][$relation] = [['id' => $id]];
             }
         }
 
@@ -181,10 +199,12 @@ class WorkflowAmoCrmActionExecutor
             }
         }
 
-        $body = $this->amoRequest($account, 'POST', '/api/v4/' . $this->entityPlural($entity), [$payload]);
+        $body = $this->amoRequest($account, 'POST', '/api/v4/' . $this->entityPlural($entity), [$payload === [] ? new \stdClass : $payload]);
         $entityId = $this->extractEmbeddedEntityId($body, $entity);
 
-        $this->linkCreatedEntityToTarget($account, $entity, $entityId, $config, $context);
+        if ($entity !== 'lead' || (empty($payload['_embedded']['contacts']) && empty($payload['_embedded']['companies']))) {
+            $this->linkCreatedEntityToTarget($account, $entity, $entityId, $config, $context);
+        }
         $this->rememberAmoMutation($account, $context, 'amocrm_create_' . $entity, $entity, $entityId, [
             'add_' . $entity,
         ]);
@@ -884,7 +904,9 @@ class WorkflowAmoCrmActionExecutor
         if ($userId <= 0) return null;
 
         if ($triggerAccountId > 0) {
-            $query = Account::query()->whereKey($triggerAccountId)->where('active', true)->where('user_id', $userId);
+            $query = WorkflowConnectionAccess::accounts()->whereKey($triggerAccountId)
+                ->where('active', true)->where('user_id', $userId)
+                ->whereNotNull('refresh_token')->where('refresh_token', '<>', '');
 
             return $query->first();
         }
@@ -1672,20 +1694,23 @@ class WorkflowAmoCrmActionExecutor
         }
 
         try {
-            $response = Http::withToken((string)$account->access_token)
-                ->withoutRedirecting()
-                ->acceptJson()
-                ->asJson()
-                ->timeout(30)
-                ->send($method, $url, $options);
+            $response = app(AmoCrmHttpTransport::class)->send($account, function () use ($account, $method, $url, $options, $query, $payload): Response {
+                $response = Http::withToken((string)$account->access_token)
+                    ->withoutRedirecting()
+                    ->acceptJson()
+                    ->asJson()
+                    ->timeout(30)
+                    ->send($method, $url, $options);
+                $this->captureAmoRequest($method, $url, $query, $payload, $response, $this->responseBody($response));
+
+                return $response;
+            });
         } catch (\Illuminate\Http\Client\ConnectionException $error) {
             $this->captureAmoRequest($method, $url, $query, $payload, null, null);
             throw $error;
         }
 
         $body = $this->responseBody($response);
-        $this->captureAmoRequest($method, $url, $query, $payload, $response, $body);
-
         if ($response->failed() || ($expectedStatus !== null && $response->status() !== $expectedStatus)) {
             throw new RuntimeException($this->amoErrorMessage($method, $path, $response, $body));
         }
@@ -2047,3 +2072,4 @@ class WorkflowAmoCrmActionExecutor
         ];
     }
 }
+

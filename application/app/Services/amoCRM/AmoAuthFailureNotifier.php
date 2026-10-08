@@ -17,6 +17,8 @@ class AmoAuthFailureNotifier
             return;
         }
 
+        app(\App\Services\Integrations\IntegrationErrorNotifier::class)->authFailed($account, $exception);
+
         $email = $account->user?->email;
         if (!$email) {
             return;

@@ -13,7 +13,7 @@ class AmoCrmYClientsLifecycleRoutesTest extends TestCase
     {
         config(['app.key' => 'base64:'.base64_encode(str_repeat('x', 32)), 'cache.default' => 'array']);
         Bus::fake();
-        $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)->shouldNotReceive('notify');
+        $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)->shouldReceive('notify')->once();
 
         $this->postJson(route('amocrm.yclients.install'), ['code' => 'test-code', 'referer' => 'client.amocrm.ru'])
             ->assertStatus(202)->assertJson(['ok' => true, 'status' => 'queued']);

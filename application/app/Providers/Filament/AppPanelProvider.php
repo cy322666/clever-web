@@ -61,7 +61,7 @@ class AppPanelProvider extends PanelProvider
             ->login(\App\Filament\App\Auth\Login::class)
             ->registration(\App\Filament\App\Auth\Register::class)
             ->passwordReset()
-            ->brandName('CleverCRM')
+            ->brandName(fn (): string => request()->routeIs('filament.app.resources.workflows.*') ? '' : 'CleverCRM')
             ->brandLogo(asset('logo/full_logo.png'))
             ->brandLogoHeight('2rem')
             ->favicon(asset('favicon-clevercrm-20260922.ico'))

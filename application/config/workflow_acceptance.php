@@ -11,8 +11,8 @@ return [
     'timeout_seconds' => 900,
     'report_directory' => storage_path('app/private/workflow-acceptance'),
     'telegram' => [
-        'token' => env('WORKFLOW_ACCEPTANCE_TG_TOKEN', env('TELEGRAM_ALERTS_TOKEN', env('TG_DEBUG_TOKEN'))),
-        'chat_id' => env('WORKFLOW_ACCEPTANCE_TG_CHAT_ID', env('TELEGRAM_ALERTS_CHAT_ID', env('TG_DEBUG_CHAT_ID'))),
-        'message_thread_id' => env('WORKFLOW_ACCEPTANCE_TG_THREAD_ID'),
+        'token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+        'message_thread_id' => env('TELEGRAM_MESSAGE_THREAD_ID'),
     ],
 ];

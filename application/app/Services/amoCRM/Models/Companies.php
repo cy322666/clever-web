@@ -2,6 +2,7 @@
 
 namespace App\Services\amoCRM\Models;
 
+use App\Services\amoCRM\AmoCrmHttpTransport;
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -107,22 +108,22 @@ abstract class Companies extends Client
         if (key_exists('Телефоны', $arrayFields)) {
             foreach ($arrayFields['Телефоны'] as $phone) {
                 if ($phone) {
-                    $resp = Http::withHeaders([
+                    $resp = app(AmoCrmHttpTransport::class)->send($amoApi->account, fn () => Http::withHeaders([
                         'Content-Type' => 'application/json',
                         'Authorization' => 'Bearer ' . $amoApi->account->access_token,
-                    ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/companies?query=' . $phone);
+                    ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/companies?query=' . $phone));
                 }
             }
         }
 
         if (empty($resp->object()->_embedded->contacts[0]->id) && key_exists('Почта', $arrayFields)) {
             if ($arrayFields['Почта']) {
-                $resp = Http::withHeaders([
+                $resp = app(AmoCrmHttpTransport::class)->send($amoApi->account, fn () => Http::withHeaders([
                     'Content-Type' => 'application/json',
                     'Authorization' => 'Bearer ' . $amoApi->account->access_token,
                 ])->get(
                     'https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/companies?query=' . $arrayFields['Почта']
-                );
+                ));
             }
         }
 

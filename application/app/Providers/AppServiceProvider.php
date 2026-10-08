@@ -196,6 +196,7 @@ class AppServiceProvider extends ServiceProvider
 
             $registry->register(ManualTrigger::class);
             $registry->register(AmoCrmButtonTrigger::class);
+            $registry->register(\App\Workflows\Triggers\AmoCrmBulkTrigger::class);
             $registry->register(\App\Workflows\Triggers\DigitalPipelineTrigger::class);
             $registry->register(ScheduleTrigger::class);
             // Retain resolution for saved definitions, but never offer this legacy trigger in the picker.

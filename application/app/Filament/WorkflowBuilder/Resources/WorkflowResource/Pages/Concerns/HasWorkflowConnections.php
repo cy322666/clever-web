@@ -62,7 +62,7 @@ trait HasWorkflowConnections
 
     public function openAddActionOnConnection(string $source, string $port, ?string $target = null): void
     {
-        $this->enableExplicitConnections();
+        // Opening a picker is not an edit; materialize connections only on insertion.
         $nodes = WorkflowGraph::nodes($this->workflowActions);
         if (!isset(\App\Services\Workflows\WorkflowStartNodes::all($this->definition)[$source]) && !isset($nodes[$source])) return;
         $this->insertConnection = ['sourceId' => $source, 'sourcePort' => $port, 'targetId' => $target];
@@ -104,14 +104,37 @@ trait HasWorkflowConnections
         $this->enableExplicitConnections();
         $nodes = WorkflowGraph::nodes($this->workflowActions);
         if (!isset($nodes['action:'.$actionId])) return;
-        // Removing a node detaches its children; it never silently deletes an entire branch.
-        $this->workflowActions = array_values(array_map(function ($entry) {
+        $nodeId = 'action:'.$actionId;
+        $edges = $this->definition['connections'];
+        $remaining = array_values(array_filter($edges, fn ($edge) =>
+            $edge['sourceId'] !== $nodeId && $edge['targetId'] !== $nodeId));
+        // Only ordinary nodes have an unambiguous continuation. Removing a
+        // condition must not silently execute both its mutually exclusive arms.
+        if (!WorkflowGraph::condition($nodes[$nodeId]['step'])) {
+            foreach ($edges as $incoming) {
+                if ($incoming['targetId'] !== $nodeId) continue;
+                foreach ($edges as $outgoing) {
+                    if ($outgoing['sourceId'] !== $nodeId || $outgoing['sourcePort'] !== 'output') continue;
+                    $edge = array_merge($incoming, ['targetId' => $outgoing['targetId']]);
+                    if (!in_array($edge, $remaining, true)) $remaining[] = $edge;
+                }
+            }
+        }
+        $actions = array_values(array_map(function ($entry) {
             $step = $entry['step'];
             unset($step['config']['true_actions'], $step['config']['false_actions']);
             return $step;
         }, array_diff_key($nodes, ['action:'.$actionId => true])));
-        $this->definition['connections'] = array_values(array_filter($this->definition['connections'], fn ($edge) =>
-            $edge['sourceId'] !== 'action:'.$actionId && $edge['targetId'] !== 'action:'.$actionId));
+        try {
+            WorkflowGraph::ordered(array_merge($this->definition, ['actions' => $actions, 'connections' => $remaining]));
+        } catch (InvalidArgumentException $exception) {
+            Notification::make()->warning()->title('Нельзя соединить продолжение ветки')->body($exception->getMessage())->send();
+            return;
+        }
+        $this->workflowActions = $actions;
+        $this->definition['connections'] = $remaining;
+        unset($this->definition['canvas_layout'][$nodeId]);
         $this->syncDefinition();
     }
 }
+

@@ -28,9 +28,22 @@ trait HasWorkflowPageActions
     use HasWorkflowImport;
     use HasWorkflowDebugger;
     use HasWorkflowConnections;
+    use HasWorkflowClipboard;
     use HasWorkflowCredentials;
     use HasWorkflowStartNodes;
     use HasWorkflowNodeNames;
+
+    #[\Livewire\Attributes\Locked]
+    public ?array $savedWorkflowEditorState = null;
+
+    public function workflowEditorState(): array
+    {
+        return [
+            'name' => $this->data['name'] ?? '',
+            'group_name' => $this->data['group_name'] ?? null,
+            'definition' => array_merge($this->definition, ['trigger' => $this->trigger, 'actions' => $this->workflowActions]),
+        ];
+    }
 
     public ?string $insertActionPath = null;
 
@@ -978,3 +991,4 @@ trait HasWorkflowPageActions
         $this->syncDefinition();
     }
 }
+

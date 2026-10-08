@@ -2,6 +2,9 @@
 
 namespace App\Services\Integrations;
 
+use App\Models\Core\Account;
+use App\Models\User;
+use App\Support\Auth\AccountEmail;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -29,24 +32,12 @@ class AmoCrmWidgetLifecycleTelegramNotifier
         $widget = $widget !== '' ? $widget : 'amocrm';
         $label = (string) config("widget_lifecycle.labels.{$widget}", Str::headline($widget));
 
-        $accountId = $this->firstFilled([
-            $context['account_id'] ?? null,
-            data_get($payload, 'account_id'),
-            data_get($payload, 'account.id'),
-            data_get($payload, 'account.amo_account_id'),
-        ]);
         $referer = $this->firstFilled([
             $context['referer'] ?? null,
             data_get($payload, 'referer'),
             data_get($payload, 'account.referer'),
             data_get($payload, 'account.subdomain'),
             data_get($payload, 'subdomain'),
-        ]);
-        $clientId = $this->firstFilled([
-            $context['client_id'] ?? null,
-            data_get($payload, 'client_uuid'),
-            data_get($payload, 'client_id'),
-            data_get($payload, 'client.id'),
         ]);
         $referer = $this->domain($referer);
         $lines = [
@@ -58,14 +49,12 @@ class AmoCrmWidgetLifecycleTelegramNotifier
             'Виджет: '.$label,
         ];
 
-        if ($accountId !== '') {
-            $lines[] = 'Аккаунт: '.$accountId;
+        $email = $this->ownerEmail($widget, $context);
+        if ($email !== null) {
+            $lines[] = 'Почта: '.$email;
         }
 
-        $lines = array_merge($lines, [
-            'Домен: '.($referer !== '' ? $referer : 'не передан'),
-            'ID интеграции: '.($clientId !== '' ? $clientId : 'не передан'),
-        ]);
+        $lines[] = 'Домен: '.($referer !== '' ? $referer : 'не передан');
 
         if ($event === 'install_failed') {
             $lines[] = 'Причина: '.$this->failureReason($context['exception'] ?? null);
@@ -74,8 +63,6 @@ class AmoCrmWidgetLifecycleTelegramNotifier
         if (isset($context['updated'])) {
             $lines[] = 'Обновлено подключений: '.(int) $context['updated'];
         }
-
-        $lines[] = 'Время: '.now()->format('d.m.Y H:i:s');
 
         $body = [
             'chat_id' => $chatId,
@@ -116,6 +103,38 @@ class AmoCrmWidgetLifecycleTelegramNotifier
                 'exception' => $exception::class,
             ]);
         }
+    }
+
+    private function ownerEmail(string $widget, array $context): ?string
+    {
+        $email = AccountEmail::normalize($context['user_email'] ?? null);
+        if (AccountEmail::isValid($email)) {
+            return $email;
+        }
+
+        // Resolve only stored platform owners, never an email supplied by a callback.
+        try {
+            if ((int) ($context['user_id'] ?? 0) > 0) {
+                $email = User::query()->whereKey((int) $context['user_id'])->value('email');
+            } else {
+                $domain = $this->domain((string) ($context['referer'] ?? ''));
+                if (! preg_match('/^([a-z0-9-]+)\.amocrm\.(ru|com)$/', $domain, $matches)) {
+                    return null;
+                }
+                $owners = Account::query()->where('widget', $widget)->where('subdomain', $matches[1])
+                    ->where(fn ($query) => $query->where('zone', $matches[2])
+                        ->when($matches[2] === 'ru', fn ($query) => $query->orWhereNull('zone')))
+                    ->when(filled($context['client_id'] ?? null), fn ($query) => $query->where('client_id', $context['client_id']))
+                    ->pluck('user_id')->unique();
+                $email = $owners->count() === 1 ? User::query()->whereKey($owners->first())->value('email') : null;
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        $email = AccountEmail::normalize($email);
+
+        return AccountEmail::isValid($email) ? $email : null;
     }
 
     private function domain(string $referer): string

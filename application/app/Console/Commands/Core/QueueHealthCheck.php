@@ -15,9 +15,9 @@ class QueueHealthCheck extends Command
     protected $signature = 'app:monitor-queue-health
         {--stuck-after= : Порог для reserved jobs в секундах}
         {--monitor-stuck-after= : Порог для orphan-записей queue_monitors в секундах}
-        {--sample=5}';
+        {--sample=5 : Deprecated; retained for command compatibility}';
 
-    protected $description = 'Detect new failed/stuck queue jobs and send alerts';
+    protected $description = 'Record failed-job counts and alert on stuck queue jobs';
 
     public function handle(): int
     {
@@ -53,61 +53,16 @@ class QueueHealthCheck extends Command
         $cacheKey = 'monitoring:queue:last_failed_job_id';
         $lastSeenId = (int)MonitoringCache::get($cacheKey, 0);
 
-        if ($lastSeenId === 0) {
-            $initialCount = (int)DB::connection($failedConnection)
-                ->table($failedTable)
-                ->count();
-
-            if ($initialCount > 0) {
-                AlertService::critical(
-                    title: 'Очередь: обнаружены existing failed jobs',
-                    message: "В таблице {$failedTable} уже есть {$initialCount} failed jobs.",
-                    context: [
-                        'max_id' => $maxId,
-                        'connection' => $failedConnection,
-                    ],
-                    dedupeKey: 'queue:failed:bootstrap:max_id:' . $maxId,
-                    ttlSeconds: 3600,
-                );
-            }
-
-            MonitoringCache::forever($cacheKey, $maxId);
-
-            return $initialCount;
-        }
-
         if ($maxId <= $lastSeenId) {
             return 0;
         }
 
-        $newFailedQuery = DB::connection($failedConnection)
-            ->table($failedTable)
-            ->where('id', '>', $lastSeenId);
-
-        $newFailedCount = (int)$newFailedQuery->count();
-        $sampleLimit = max(1, (int)$this->option('sample'));
-
-        $sample = DB::connection($failedConnection)
+        // SendFailedJobAlert reports each failure; polling only maintains counters.
+        $newFailedCount = (int)DB::connection($failedConnection)
             ->table($failedTable)
             ->where('id', '>', $lastSeenId)
-            ->orderByDesc('id')
-            ->limit($sampleLimit)
-            ->get(['id', 'uuid', 'queue', 'failed_at', 'exception']);
-
-        $last = $sample->first();
-
-        AlertService::critical(
-            title: 'Очередь: новые failed jobs',
-            message: "Обнаружено {$newFailedCount} новых failed jobs.",
-            context: [
-                'from_id' => $lastSeenId + 1,
-                'to_id' => $maxId,
-                'last_queue' => (string)($last->queue ?? '-'),
-                'last_failed_at' => (string)($last->failed_at ?? '-'),
-            ],
-            dedupeKey: 'queue:failed:max_id:' . $maxId,
-            ttlSeconds: 3600,
-        );
+            ->where('id', '<=', $maxId)
+            ->count();
 
         MonitoringCache::forever($cacheKey, $maxId);
 

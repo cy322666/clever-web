@@ -43,7 +43,8 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
     public function test_get_and_post_install_queue_encrypted_finder_codes(): void
     {
         $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)
-            ->shouldNotReceive('notify');
+            ->shouldReceive('notify')->twice()
+            ->with('install', 'finder', Mockery::type('array'), Mockery::type('array'));
 
         foreach (['GET', 'POST'] as $method) {
             $this->json($method, '/api/amocrm/install/finder', [
@@ -53,7 +54,8 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
         }
 
         Queue::assertPushed(CompleteAmoCrmWidgetInstallation::class, 2);
-        Queue::assertPushed(CompleteAmoCrmWidgetInstallation::class, fn ($job): bool => $job->widget === 'finder'
+        Queue::assertPushed(CompleteAmoCrmWidgetInstallation::class, fn ($job): bool =>
+            $job->widget === 'finder'
             && $job->referer === 'https://widgetscenario.amocrm.ru'
             && $job->encryptedAuthorizationCode !== 'one-time-code'
             && Crypt::decryptString($job->encryptedAuthorizationCode) === 'one-time-code'

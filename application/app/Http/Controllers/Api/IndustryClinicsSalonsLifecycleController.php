@@ -6,12 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Services\Integrations\AmoCrmWidgetLifecycleTelegramNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
 
 class IndustryClinicsSalonsLifecycleController extends Controller
 {
-    public function redirect(Request $request): Response
+    public function redirect(Request $request): RedirectResponse
     {
         $this->logCallback('install', $request);
         app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify(
@@ -21,15 +21,14 @@ class IndustryClinicsSalonsLifecycleController extends Controller
             ['referer' => (string) $request->input('referer', $request->header('referer', ''))],
         );
 
-        return response(
-            '<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Clever</title></head>'
-            .'<body style="font-family:Arial,sans-serif;padding:32px;color:#23262f">'
-            .'<h1 style="font-size:24px">Решение установлено</h1>'
-            .'<p>Настройка «Клиники и салоны» продолжится в amoCRM.</p>'
-            .'</body></html>',
-            200,
-            ['Content-Type' => 'text/html; charset=UTF-8'],
-        );
+        $referer = trim((string) $request->input('referer', ''));
+        $host = parse_url(str_contains($referer, '://') ? $referer : 'https://'.$referer, PHP_URL_HOST);
+        $target = is_string($host) && preg_match('/^[a-z0-9-]+\.(?:amocrm\.(?:ru|com)|kommo\.com)$/i', $host)
+            ? 'https://'.strtolower($host).'/settings/widgets/'
+            : route('filament.app.pages.dashboard');
+
+        return redirect()->away($target, 303)
+            ->withHeaders(['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer']);
     }
 
     public function off(Request $request): JsonResponse

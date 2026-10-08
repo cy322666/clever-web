@@ -8,11 +8,31 @@ class PricingView
 {
     public static function sidebarHtml(array $cost, bool $showSavings = true, ?int $accountUserLimit = null): HtmlString
     {
-        $month1 = htmlspecialchars((string)($cost['1_month'] ?? '2 990 ₽'), ENT_QUOTES, 'UTF-8');
-        $month6 = htmlspecialchars((string)($cost['6_month'] ?? '14 900 ₽'), ENT_QUOTES, 'UTF-8');
-        $month12 = htmlspecialchars((string)($cost['12_month'] ?? '24 900 ₽'), ENT_QUOTES, 'UTF-8');
+        $month1 = htmlspecialchars((string) ($cost['1_month'] ?? '2 990 ₽'), ENT_QUOTES, 'UTF-8');
+        $month6 = htmlspecialchars((string) ($cost['6_month'] ?? '14 900 ₽'), ENT_QUOTES, 'UTF-8');
+        $month12 = htmlspecialchars((string) ($cost['12_month'] ?? '24 900 ₽'), ENT_QUOTES, 'UTF-8');
         $month6Savings = $showSavings ? '<div class="integration-pricing__note">2 483 ₽/мес · экономия 3 000 ₽</div>' : '';
         $month12Savings = $showSavings ? '<div class="integration-pricing__note">2 075 ₽/мес · экономия 7 000 ₽</div>' : '';
+        $cards = isset($cost['3_month']) || isset($cost['24_month'])
+            ? static::termCards($cost, $showSavings)
+            : <<<HTML
+    <div class="integration-pricing__card">
+        <div class="integration-pricing__period">1 месяц</div>
+        <div class="integration-pricing__price">{$month1}</div>
+    </div>
+
+    <div class="integration-pricing__card integration-pricing__card--accent">
+        <div class="integration-pricing__period">6 месяцев</div>
+        <div class="integration-pricing__price">{$month6}</div>
+        {$month6Savings}
+    </div>
+
+    <div class="integration-pricing__card integration-pricing__card--best">
+        <div class="integration-pricing__period">12 месяцев</div>
+        <div class="integration-pricing__price">{$month12}</div>
+        {$month12Savings}
+    </div>
+HTML;
         $accountPricing = '';
         $perUserPricing = '';
 
@@ -35,7 +55,9 @@ class PricingView
 
     .integration-pricing__card {
         border: 1px solid rgb(216 208 197 / 0.85);
-        border-radius: 0.75rem;
+        border-radius: 0.5rem;
+        min-width: 0;
+        overflow-wrap: break-word;
         background: rgb(255 255 255 / 0.88);
         padding: 0.75rem 0.875rem;
         box-shadow: 0 3px 10px rgb(15 15 15 / 0.04);
@@ -111,25 +133,38 @@ class PricingView
 
 <div class="integration-pricing">
     {$accountPricing}
-    <div class="integration-pricing__card">
-        <div class="integration-pricing__period">1 месяц</div>
-        <div class="integration-pricing__price">{$month1}</div>
-    </div>
-
-    <div class="integration-pricing__card integration-pricing__card--accent">
-        <div class="integration-pricing__period">6 месяцев</div>
-        <div class="integration-pricing__price">{$month6}</div>
-        {$month6Savings}
-    </div>
-
-    <div class="integration-pricing__card integration-pricing__card--best">
-        <div class="integration-pricing__period">12 месяцев</div>
-        <div class="integration-pricing__price">{$month12}</div>
-        {$month12Savings}
-    </div>
+    {$cards}
     {$perUserPricing}
 </div>
 HTML
         );
+    }
+
+    private static function termCards(array $cost, bool $showSavings): string
+    {
+        $cards = '';
+
+        foreach ([1 => '1 месяц', 3 => '3 месяца', 6 => '6 месяцев', 12 => '12 месяцев', 24 => '24 месяца'] as $months => $label) {
+            if (! isset($cost[$months.'_month'])) {
+                continue;
+            }
+
+            $priceLabel = (string) $cost[$months.'_month'];
+            $price = htmlspecialchars($priceLabel, ENT_QUOTES, 'UTF-8');
+            $amount = (int) preg_replace('/\D+/', '', $priceLabel);
+            $note = $showSavings && $amount > 0
+                ? '<div class="integration-pricing__note">'.number_format(round($amount / $months), 0, '.', ' ').' руб./мес.</div>'
+                : '';
+            $accent = match ($months) {
+                12 => ' integration-pricing__card--accent',
+                24 => ' integration-pricing__card--best',
+                default => '',
+            };
+            $cards .= '<div class="integration-pricing__card'.$accent.'">'
+                .'<div class="integration-pricing__period">'.$label.'</div>'
+                .'<div class="integration-pricing__price">'.$price.'</div>'.$note.'</div>';
+        }
+
+        return $cards;
     }
 }

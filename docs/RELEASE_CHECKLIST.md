@@ -4,8 +4,8 @@
 
 1. Убедиться, что `.env` содержит:
 
-- `TELEGRAM_ALERTS_TOKEN`
-- `TELEGRAM_ALERTS_CHAT_ID`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
 - `ALERTS_*` переменные (если нужны email-алерты)
 
 2. Прогнать базовые проверки:

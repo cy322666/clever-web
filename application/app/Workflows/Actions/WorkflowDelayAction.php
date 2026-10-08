@@ -71,6 +71,7 @@ class WorkflowDelayAction
         $outputs = $context?->getStepOutputs() ?? [];
 
         return ['success' => true, 'delay_seconds' => (int) $seconds, 'simulated' => $preview,
-            'output' => $outputs ? end($outputs) : ($context?->getTriggerData() ?? [])];
+            'output' => $context instanceof \App\Workflows\Context\WorkflowContext
+                ? $context->getNodeInput() : ($outputs ? end($outputs) : ($context?->getTriggerData() ?? []))];
     }
 }

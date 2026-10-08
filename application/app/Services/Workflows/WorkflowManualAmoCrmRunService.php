@@ -36,9 +36,21 @@ class WorkflowManualAmoCrmRunService
         return $this->startForEntry($workflow, $account, $leadId, $input, 'amo-button');
     }
 
-    private function startForEntry(Workflow $workflow, Account $account, int $leadId, array $input, string $startType): array
+    public function startBulkForEntity(Workflow $workflow, Account $account, string $entityType, int $entityId): array
     {
-        $triggerData = $this->triggerData($workflow, $account, $leadId, $input);
+        if (! in_array($entityType, ['lead', 'contact', 'company'], true) || $entityId < 1) {
+            throw new \InvalidArgumentException('Некорректная сущность для массового запуска.');
+        }
+
+        return $this->startForEntry($workflow, $account, $entityId, [
+            'source' => 'amocrm-list-bulk',
+            'widget_source' => 'amocrm-list-bulk',
+        ], 'amo-bulk', $entityType);
+    }
+
+    private function startForEntry(Workflow $workflow, Account $account, int $leadId, array $input, string $startType, string $entityType = 'lead'): array
+    {
+        $triggerData = $this->triggerData($workflow, $account, $leadId, $input, $entityType);
         $triggerData['event'] = $triggerData['action'] = $startType;
         $triggerData['is_manual'] = $startType === 'manual';
         $triggerSource = $startType === 'manual' ? TriggerType::MANUAL : TriggerType::WEBHOOK;
@@ -69,6 +81,7 @@ class WorkflowManualAmoCrmRunService
             throw new \InvalidArgumentException(match ($startType) {
                 'manual' => 'В сценарии нет ручного запуска.',
                 'amo-button' => 'В сценарии нет запуска кнопкой.',
+                'amo-bulk' => 'В потоке нет запуска «Массовое действие».',
                 default => 'В сценарии нет запуска Digital Pipeline.',
             });
         }
@@ -80,29 +93,31 @@ class WorkflowManualAmoCrmRunService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    private function triggerData(Workflow $workflow, Account $account, int $leadId, array $input): array
+    private function triggerData(Workflow $workflow, Account $account, int $entityId, array $input, string $entityType): array
     {
         $receivedAt = now()->toIso8601String();
-        $lead = [
-            'id' => $leadId,
-            'name' => (string) ($input['lead_name'] ?? ''),
+        $item = [
+            'id' => $entityId,
+            'name' => (string) ($input[$entityType.'_name'] ?? ''),
         ];
 
         return [
             'source' => (string) ($input['source'] ?? 'amocrm-widget'),
             'event' => 'manual',
-            'entity' => 'lead',
+            'entity' => $entityType,
+            'entity_id' => $entityId,
             'action' => 'manual',
             'workflow_id' => (int) $workflow->id,
             'is_manual' => true,
-            'item' => $lead,
-            'lead' => $lead,
+            'item' => $item,
+            $entityType => $item,
             'payload' => [
-                'lead_id' => $leadId,
-                'lead_name' => $lead['name'],
+                $entityType.'_id' => $entityId,
+                $entityType.'_name' => $item['name'],
+            ] + ($entityType === 'lead' ? [
                 'pipeline_id' => $input['pipeline_id'] ?? null,
                 'status_id' => $input['status_id'] ?? null,
-            ],
+            ] : []),
             'account' => [
                 'id' => (int) $account->id,
                 'user_id' => (int) $account->user_id,
@@ -111,8 +126,8 @@ class WorkflowManualAmoCrmRunService
             ],
             'widget' => [
                 'source' => (string) ($input['widget_source'] ?? 'amocrm-card'),
-                'entity' => 'lead',
-                'entity_id' => $leadId,
+                'entity' => $entityType,
+                'entity_id' => $entityId,
                 'pipeline_id' => $input['pipeline_id'] ?? null,
                 'status_id' => $input['status_id'] ?? null,
             ],

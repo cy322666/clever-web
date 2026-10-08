@@ -22,6 +22,12 @@ class Account extends Model
     public const CONNECTOR_SHARED = 'shared';
     public const CONNECTOR_WIDGET = 'widget';
 
+    private const DEDICATED_CONNECTOR_WIDGETS = [
+        'import-excel',
+        'workflows',
+        'sqns',
+    ];
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -48,6 +54,17 @@ class Account extends Model
         'amo_account_id' => 'integer',
         'active' => 'boolean',
     ];
+
+    public function save(array $options = [])
+    {
+        $bindingChanged = !$this->exists || $this->isDirty(['subdomain', 'zone', 'user_id', 'amo_account_id'])
+            || ($this->isDirty('active') && $this->active);
+        if ($bindingChanged && $this->user_id && filled($this->subdomain)) {
+            return app(\App\Services\Integrations\AmoCrmOwnershipGuard::class)->save($this, fn () => parent::save($options));
+        }
+
+        return parent::save($options);
+    }
 
     protected static function booted(): void
     {
@@ -93,6 +110,17 @@ class Account extends Model
         return static::normalizeWidget($widget) === 'yclients'
             && $this->oauth_connector !== self::CONNECTOR_WIDGET
             && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
+    }
+
+    public static function requiresDedicatedConnectorForWidget(?string $widget): bool
+    {
+        return in_array(static::normalizeWidget($widget), self::DEDICATED_CONNECTOR_WIDGETS, true);
+    }
+
+    /** @return list<string> */
+    public static function dedicatedConnectorWidgets(): array
+    {
+        return self::DEDICATED_CONNECTOR_WIDGETS;
     }
 
     public static function normalizeWidget(?string $widget): string

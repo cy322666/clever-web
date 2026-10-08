@@ -229,6 +229,11 @@ class ListWorkflows extends BaseListWorkflows
                 'icon' => 'amocrm-button',
                 'types' => ['amo-button'],
             ],
+            'bulk-actions' => [
+                'label' => 'Массовое действие',
+                'icon' => 'heroicon-o-rectangle-stack',
+                'types' => ['amo-bulk'],
+            ],
             'webhooks' => [
                 'label' => 'Webhooks',
                 'icon' => 'heroicon-o-globe-alt',
@@ -476,7 +481,7 @@ class ListWorkflows extends BaseListWorkflows
 
     private function connectedWorkflowAmoAccountQuery()
     {
-        return Account::query()
+        return \App\Services\Workflows\WorkflowConnectionAccess::accounts()
             ->where('active', true)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')
@@ -496,6 +501,7 @@ class ListWorkflows extends BaseListWorkflows
         $account ??= $this->workflowAmoAccount();
 
         return $account instanceof Account
+            && \App\Services\Workflows\WorkflowConnectionAccess::isWidgetAccount($account)
             && (bool) $account->active
             && filled($account->subdomain)
             && (filled($account->refresh_token) || filled($account->access_token));

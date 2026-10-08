@@ -20,6 +20,7 @@ class WorkflowDebugger extends WorkflowTestRunner
             ->setVariable('_capture_amo_exchange', true);
         if ($definition !== []) {
             $context->setVariable('_node_names', \App\Services\Workflows\WorkflowExpressionCatalog::nodeNames($definition['actions'] ?? [], $definition));
+            $session['input_definition'] = $definition;
         }
         $session['context'] = $context->toArray();
         return $this->advance($session);
@@ -69,9 +70,12 @@ class WorkflowDebugger extends WorkflowTestRunner
         unset($one['config']['true_actions'], $one['config']['false_actions']);
         $started = microtime(true);
         try {
+            $context->scopeToNode($session['input_definition'] ?? $session['definition'], 'action:'.$step['id']);
             $result = $this->executeTestStep($one, $context, $entry['path']);
         } catch (Throwable $exception) {
             $result = ['id' => $step['id'], 'type' => $step['type'], 'path' => $entry['path'], 'status' => 'error', 'error' => $exception->getMessage(), 'input' => $one['config'], 'output' => []];
+        } finally {
+            $context->clearNodeScope();
         }
         $result['name'] = $step['name'] ?? $this->getActionName($step['type']);
         $result['duration_ms'] = (int) round((microtime(true) - $started) * 1000);

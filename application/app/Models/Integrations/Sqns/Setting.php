@@ -26,9 +26,11 @@ class Setting extends Model
     public static string $resource = SqnsResource::class;
 
     public static array $cost = [
-        '1_month' => '2 990 ₽',
-        '6_month' => '14 900 ₽',
-        '12_month' => '24 900 ₽',
+        '1_month' => '2 990 руб',
+        '3_month' => '7 990 руб',
+        '6_month' => '14 900 руб',
+        '12_month' => '24 900 руб',
+        '24_month' => '39 900 руб',
     ];
 
     protected $fillable = [
@@ -131,6 +133,11 @@ class Setting extends Model
         }
 
         return true;
+    }
+
+    public function isConnected(): bool
+    {
+        return filled($this->token);
     }
 
     public static function sourceFieldOptions(): array

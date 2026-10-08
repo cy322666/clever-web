@@ -206,6 +206,34 @@ class User extends Authenticatable implements FilamentUser
                 : null;
         }
 
+        if ($widget === 'workflows') {
+            if ($specific) {
+                return $createIfMissing || \App\Services\Workflows\WorkflowConnectionAccess::isWidgetAccount($specific)
+                    ? $specific : null;
+            }
+
+            return $createIfMissing
+                ? Account::query()->create(['user_id' => $this->id, 'widget' => $widget])
+                : null;
+        }
+
+        if ($widget === 'sqns') {
+            if ($specific) {
+                if ($createIfMissing) {
+                    \App\Services\Sqns\AmoCrmConnectionAccess::prepareForAuthorization($specific);
+
+                    return $specific;
+                }
+
+                return \App\Services\Sqns\AmoCrmConnectionAccess::isWidgetAccount($specific)
+                    ? $specific : null;
+            }
+
+            return $createIfMissing
+                ? Account::query()->create(['user_id' => $this->id, 'widget' => $widget])
+                : null;
+        }
+
         // Marketplace installs must keep their own OAuth even after a reset.
         if ($widget === 'yclients' && $specific?->oauth_connector === Account::CONNECTOR_WIDGET) {
             return $specific;
@@ -219,8 +247,7 @@ class User extends Authenticatable implements FilamentUser
             return $specific;
         }
 
-        // Preserve shared authorization for legacy integrations, but never
-        // use the dedicated Excel connection as their shared connector.
+        // Preserve legacy sharing; Workflows, Excel and SQNS keep dedicated connections.
         $shared = $this->resolveAnyActiveAmoAccount($sharedClientId);
 
         if ($shared instanceof Account) {
@@ -273,7 +300,8 @@ class User extends Authenticatable implements FilamentUser
     private function resolveAnyActiveAmoAccount(?string $clientId = null): ?Account
     {
         return $this->accounts()
-            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'import-excel'))
+            ->where(fn ($query) => $query->whereNull('widget')
+                ->orWhereNotIn('widget', Account::dedicatedConnectorWidgets()))
             ->when(trim((string) config('services.amocrm.widgets.import-excel.client_id', '')) !== '',
                 fn ($query) => $query->where(fn ($query) => $query
                     ->whereNull('client_id')

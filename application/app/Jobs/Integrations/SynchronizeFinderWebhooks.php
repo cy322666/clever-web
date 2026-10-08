@@ -31,6 +31,11 @@ class SynchronizeFinderWebhooks implements ShouldBeUnique, ShouldQueueAfterCommi
         return 'finder-webhooks:'.$this->settingId;
     }
 
+    public function tags(): array
+    {
+        return ['widget:finder', 'finder_setting:'.$this->settingId];
+    }
+
     public function backoff(): array
     {
         return [15, 60, 300];

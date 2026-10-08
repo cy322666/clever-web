@@ -75,11 +75,13 @@ return [
                 'client_id' => env('AMO_WORKFLOWS_CLIENT_ID'),
                 'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_WORKFLOWS_REDIRECT_URI', '/api/amocrm/install/flow'),
+                'fallback_to_platform_credentials' => false,
             ],
             'sqns' => [
                 'client_id' => env('AMO_SQNS_CLIENT_ID'),
                 'client_secret' => env('AMO_SQNS_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_SQNS_REDIRECT_URI', '/api/amocrm/install/sqns'),
+                'fallback_to_platform_credentials' => false,
             ],
             'vetmanager' => [
                 'client_id' => env('AMO_VETMANAGER_CLIENT_ID'),
@@ -128,8 +130,8 @@ return [
     ],
 
     'telegram' => [
-        'token' => env('TELEGRAM_ALERTS_TOKEN', env('TG_DEBUG_TOKEN')),
-        'chat_id' => env('TELEGRAM_ALERTS_CHAT_ID', env('TG_DEBUG_CHAT_ID')),
+        'token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
     ],
 
     'clever_bayers_invoice_telegram' => [

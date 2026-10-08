@@ -54,6 +54,21 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         }
         $result = $installation->install(...$arguments);
 
+        if ($this->completionToken ?? null) {
+            app(\App\Services\Integrations\AmoCrmInstallationStatus::class)->put($this->completionToken, [
+                'status' => 'completed',
+                'widget' => $this->widget,
+                'user_id' => (int) $result['user']->id,
+            ]);
+        }
+
+        if ($this->widget === 'workflows' && ($this->completionToken ?? null)) {
+            app(\App\Services\Workflows\WorkflowInstallationStatus::class)->put($this->completionToken, [
+                'status' => 'completed',
+                'user_id' => (int) $result['user']->id,
+            ]);
+        }
+
         if ($this->widget === 'finder' && ($this->completionToken ?? null)) {
             app(\App\Services\Finder\InstallationStatus::class)->put($this->completionToken, [
                 'status' => 'completed',
@@ -63,6 +78,7 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         }
 
         app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install', $this->widget, [], [
+            'user_email' => $result['user']->email,
             'account_id' => $result['account']->amo_account_id,
             'referer' => $result['account']->subdomain.'.amocrm.'.($result['account']->zone ?: 'ru'),
             'client_id' => $result['account']->client_id,
@@ -71,6 +87,16 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
+        if ($this->completionToken ?? null) {
+            app(\App\Services\Integrations\AmoCrmInstallationStatus::class)->put($this->completionToken, [
+                'status' => 'failed', 'widget' => $this->widget,
+            ]);
+        }
+
+        if ($this->widget === 'workflows' && ($this->completionToken ?? null)) {
+            app(\App\Services\Workflows\WorkflowInstallationStatus::class)->put($this->completionToken, ['status' => 'failed']);
+        }
+
         if ($this->widget === 'finder' && ($this->completionToken ?? null)) {
             app(\App\Services\Finder\InstallationStatus::class)->put($this->completionToken, ['status' => 'failed']);
         }
@@ -86,6 +112,7 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
             && (bool) config($prefix.'fallback_to_platform_credentials', true);
 
         app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install_failed', $this->widget, [], [
+            'user_id' => $this->platformUserId ?? null,
             'referer' => $this->referer,
             'client_id' => config($prefix.'client_id')
                 ?: ($fallbackToPlatform ? config('services.amocrm.client_id') : null),

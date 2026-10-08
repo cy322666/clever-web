@@ -7,11 +7,16 @@ return [
 
     'cache_store' => env('ALERTS_CACHE_STORE', 'monitoring'),
 
+    'integration_errors' => [
+        'enabled' => (bool) env('ALERTS_INTEGRATION_ERRORS_ENABLED', env('APP_ENV') !== 'testing'),
+        'cooldown_seconds' => (int) env('ALERTS_INTEGRATION_ERRORS_COOLDOWN', 1800),
+    ],
+
     'channels' => [
         'telegram' => [
             'enabled' => (bool)env('ALERTS_TG_ENABLED', true),
-            'token' => env('TELEGRAM_ALERTS_TOKEN', env('TG_DEBUG_TOKEN')),
-            'chat_id' => env('TELEGRAM_ALERTS_CHAT_ID', env('TG_DEBUG_CHAT_ID')),
+            'token' => env('TELEGRAM_BOT_TOKEN'),
+            'chat_id' => env('TELEGRAM_CHAT_ID'),
         ],
 
         'mail' => [

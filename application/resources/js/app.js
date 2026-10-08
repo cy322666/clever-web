@@ -143,6 +143,20 @@ window.workflowSortableList = (path) => ({
 });
 
 window.workflowWorkbench = () => ({
+    get hasUnsavedChanges() {
+        const saved = this.$wire?.savedWorkflowEditorState;
+        if (!saved) return true;
+        const state = {
+            name: this.$wire.data?.name ?? '',
+            group_name: this.$wire.data?.group_name ?? null,
+            definition: {...this.$wire.definition, trigger: this.$wire.trigger, actions: this.$wire.workflowActions},
+        };
+        // Ignore object key ordering, but preserve action/branch order and values.
+        const stable = value => Array.isArray(value) ? value.map(stable)
+            : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
+        return JSON.stringify(stable(state)) !== JSON.stringify(stable(saved));
+    },
+
     initWorkbench() {
         this.$nextTick(() => this.syncEditorHeight());
     },
@@ -156,19 +170,16 @@ window.workflowWorkbench = () => ({
     },
 });
 
-window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = {}) => ({
+window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null) => ({
     layoutKey,
     initialLayout,
     positions: {},
     scale: 1,
     translateX: 0,
     translateY: 0,
-    panning: false,
     pointerId: null,
     pointerStartX: 0,
     pointerStartY: 0,
-    translateStartX: 0,
-    translateStartY: 0,
     draggingNodeId: null,
     draggingNodeElement: null,
     nodeStartX: 0,
@@ -178,36 +189,106 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     suppressedNodeId: null,
     refreshFrame: null,
     settleFrame: null,
-    saveTimer: null,
     mutationObserver: null,
     resizeObserver: null,
     observedGeometry: null,
     observedStage: null,
     releaseMorphHook: null,
+    releaseBeforeMorphHook: null,
+    morphPositions: null,
+    clipboardPositions: null,
+    clipboardCopy: null,
+    pasteCount: 0,
+    pasting: false,
     executionState: null,
     connecting: null,
     connectionCursor: null,
+    connectionDragOrigin: null,
     selectedEdge: null,
     pendingEdgeDrag: null,
     suppressEdgeClickUntil: 0,
     selectedNodeIds: [],
-    selectionMode: false,
     selectionBox: null,
     selectionOrigin: null,
     groupDragOrigins: {},
     pendingInsertion: null,
     initialized: false,
 
-    captureInsertion(sourceId, targetId) {
+    cardPositions() {
+        const rect = this.$refs.stage?.getBoundingClientRect();
+        if (!rect) return {};
+        return Object.fromEntries(this.nodeElements().map(node => {
+            const card = node.querySelector('[data-workflow-node-card]') || node;
+            const box = card.getBoundingClientRect();
+            // A card's hover/focus lift is decoration, not a saved coordinate.
+            const matrix = card !== node ? window.getComputedStyle?.(card).transform?.match(/^matrix\(([^)]+)\)$/)?.[1].split(',').map(Number) : null;
+            return [node.dataset.workflowNodeId, {x:(box.left-rect.left)/this.scale-(matrix?.[4] || 0),y:(box.top-rect.top)/this.scale-(matrix?.[5] || 0)}];
+        }));
+    },
+
+    restoreCardPositions(desired) {
+        const actual = this.cardPositions();
+        let changed = false;
+        Object.entries(desired || {}).forEach(([id, point]) => {
+            if (!actual[id]) return;
+            const dx = point.x - actual[id].x, dy = point.y - actual[id].y;
+            if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
+            const offset = this.positions[id] || {x:0,y:0};
+            this.positions[id] = {x:offset.x+dx,y:offset.y+dy};
+            changed = true;
+        });
+        if (changed) {
+            this.applyNodePositions();
+            this.saveNodeLayout();
+        }
+        return changed;
+    },
+
+    async clipboardShortcut(event) {
+        if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.repeat) return;
+        if (event.target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+        if (!this.$el?.isConnected || this.$el.getClientRects?.().length === 0) return;
+        const key = (event.code || event.key).toLowerCase();
+        if ((key === 'keyc' || key === 'c') && this.selectedNodeIds.length) {
+            event.preventDefault();
+            const ids = [...this.selectedNodeIds];
+            const points = this.cardPositions();
+            this.clipboardCopy = this.$wire.copyWorkflowNodes(ids).then(copied => {
+                if (copied) {
+                    this.clipboardPositions = Object.fromEntries(ids.filter(id => points[id]).map(id => [id, points[id]]));
+                    this.pasteCount = 0;
+                }
+            });
+            await this.clipboardCopy;
+        } else if ((key === 'keyv' || key === 'v') && (this.clipboardPositions || this.clipboardCopy) && !this.pasting) {
+            event.preventDefault();
+            this.pasting = true;
+            try {
+                await this.clipboardCopy;
+                if (!this.clipboardPositions) return;
+                const map = await this.$wire.pasteWorkflowNodes();
+                if (!Object.keys(map || {}).length) return;
+                await this.$nextTick();
+                await new Promise(resolve => window.requestAnimationFrame(resolve));
+                const shift = 80 * ++this.pasteCount;
+                const desired = Object.fromEntries(Object.entries(map).filter(([id]) => this.clipboardPositions[id]).map(([oldId, newId]) => [newId, {
+                    x:this.clipboardPositions[oldId].x+shift, y:this.clipboardPositions[oldId].y+shift,
+                }]));
+                this.applyNodePositions();
+                this.restoreCardPositions(desired);
+                this.selectedNodeIds = Object.values(map);
+                this.applyNodeSelection();
+                this.scheduleGraphRefreshAfterPaint();
+            } finally { this.pasting = false; }
+        }
+    },
+
+    captureInsertion(sourceId, targetId, dropPosition = null) {
         const stage = this.$refs.stage;
         if (!stage) return;
-        const rect = stage.getBoundingClientRect();
-        const nodes = Object.fromEntries(this.nodeElements().map(node => {
-            const box = (node.querySelector('[data-workflow-node-card]') || node).getBoundingClientRect();
-            return [node.dataset.workflowNodeId, {x:(box.left-rect.left)/this.scale,y:(box.top-rect.top)/this.scale}];
-        }));
+        const nodes = this.cardPositions();
         const edges = Array.from(stage.querySelectorAll('[data-workflow-edge-target]')).map(e => ({source:e.dataset.workflowEdgeSource,target:e.dataset.workflowEdgeTarget}));
-        this.pendingInsertion = {sourceId,targetId,nodes,edges};
+        this.pendingInsertion = {sourceId,targetId,nodes,edges,dropPosition};
     },
 
     placeInsertedNode(detail) {
@@ -219,6 +300,12 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             if (!source) return;
             const desired = {...before.nodes};
             const inserted = {x:source.x+192,y:before.nodes[detail.targetId]?.y ?? source.y+(detail.sourcePort === 'yes' ? -180 : detail.sourcePort === 'no' ? 180 : 0)};
+            if (before.dropPosition) {
+                const node = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId);
+                const box = node?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
+                inserted.x = before.dropPosition.x - (box?.width ?? 96 * this.scale) / this.scale / 2;
+                inserted.y = before.dropPosition.y - (box?.height ?? 96 * this.scale) / this.scale / 2;
+            }
             const downstream = new Set();
             const queue = detail.targetId ? [detail.targetId] : [];
             while (queue.length) {
@@ -229,20 +316,11 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             }
             // Keep unrelated nodes where the user put them; make room downstream.
             const target = desired[detail.targetId];
-            const shift = target ? Math.max(0, inserted.x+192-target.x) : 0;
+            const shift = target && !before.dropPosition ? Math.max(0, inserted.x+192-target.x) : 0;
             downstream.forEach(id => { if(desired[id]) desired[id] = {...desired[id],x:desired[id].x+shift}; });
-            while (Object.values(desired).some(p=>Math.abs(p.x-inserted.x)<144 && Math.abs(p.y-inserted.y)<144)) inserted.y += 180;
+            while (!before.dropPosition && Object.values(desired).some(p=>Math.abs(p.x-inserted.x)<144 && Math.abs(p.y-inserted.y)<144)) inserted.y += 180;
             desired[detail.nodeId] = inserted;
-            const rect = this.$refs.stage.getBoundingClientRect();
-            this.nodeElements().forEach(node => {
-                const id = node.dataset.workflowNodeId;
-                if (!desired[id]) return;
-                const box = (node.querySelector('[data-workflow-node-card]') || node).getBoundingClientRect();
-                const current = this.positions[id] || {x:0,y:0};
-                this.positions[id] = {x:current.x+desired[id].x-(box.left-rect.left)/this.scale,y:current.y+desired[id].y-(box.top-rect.top)/this.scale};
-            });
-            this.applyNodePositions();
-            this.saveNodeLayout();
+            this.restoreCardPositions(desired);
             this.scheduleGraphRefreshAfterPaint();
         }));
     },
@@ -279,6 +357,25 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action'}}));
         this.$wire.openAddActionOnConnection(sourceId, sourcePort, targetId);
     },
+    openPaletteAtDrop(event) {
+        const viewport = this.$refs.viewport?.getBoundingClientRect?.();
+        const stage = this.$refs.stage?.getBoundingClientRect?.();
+        if (!viewport || !stage || event.clientX < viewport.left || event.clientX > viewport.right
+            || event.clientY < viewport.top || event.clientY > viewport.bottom) return false;
+        const hit = document.elementFromPoint?.(event.clientX, event.clientY);
+        if (hit?.closest('button, input, select, textarea, a, [data-workflow-node-card], .workflow-connection-menu')) return false;
+        const connection = this.connecting;
+        // Releasing a new branch does not replace any existing outgoing edges.
+        // When reconnecting an existing edge, insertion keeps its old target.
+        this.captureInsertion(connection.sourceId, connection.replaceTarget ?? null, {
+            x: (event.clientX - stage.left) / this.scale,
+            y: (event.clientY - stage.top) / this.scale,
+        });
+        this.cancelConnection();
+        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action'}}));
+        this.$wire.openAddActionOnConnection(connection.sourceId, connection.sourcePort, connection.replaceTarget ?? null);
+        return true;
+    },
     connectionTargetAt(event) {
         const {clientX: x, clientY: y} = event;
         const valid = id => id?.startsWith('action:') && id !== this.connecting?.sourceId && id !== this.connecting?.replaceTarget;
@@ -308,6 +405,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         event.preventDefault();
         if (event.pointerId !== undefined) this.$refs.viewport?.setPointerCapture?.(event.pointerId);
         this.connecting = {sourceId, sourcePort, replaceTarget: null};
+        this.connectionDragOrigin = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
         this.selectedEdge = null;
         this.connectionCursor = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
         this.scheduleGraphRefresh();
@@ -327,12 +425,13 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         await this.$wire.connectWorkflowNodes(connection.sourceId, connection.sourcePort, targetId, connection.replaceTarget);
         this.scheduleGraphRefreshAfterPaint();
     },
-    cancelConnection() { this.connecting = null; this.pendingEdgeDrag = null; this.connectionCursor = null; this.selectedEdge = null; this.scheduleGraphRefresh(); },
+    cancelConnection() { this.connecting = null; this.pendingEdgeDrag = null; this.connectionCursor = null; this.connectionDragOrigin = null; this.selectedEdge = null; this.scheduleGraphRefresh(); },
     reconnectSelectedEdge(event = {}) { if (this.selectedEdge) this.beginEdgeReconnect(this.selectedEdge, event); },
     beginEdgeReconnect(edge, event = {}) {
         event.preventDefault?.();
         if (event.pointerId !== undefined) this.$refs.viewport?.setPointerCapture?.(event.pointerId);
         this.connecting = {...edge, replaceTarget: edge.targetId};
+        this.connectionDragOrigin = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
         this.selectedEdge = edge;
         this.connectionCursor = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
         this.scheduleGraphRefresh();
@@ -378,11 +477,19 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.restoreNodeLayout();
         this.applyNodePositions();
         this.observeCanvas();
+        this.releaseBeforeMorphHook = window.Livewire?.hook('morph', ({el}) => {
+            if (el === this.$el || el?.contains(this.$el)) this.morphPositions = this.cardPositions();
+        });
         this.releaseMorphHook = window.Livewire?.hook('morphed', ({el}) => {
             if (el === this.$el || el?.contains(this.$el)) {
+                const before = this.morphPositions;
+                this.morphPositions = null;
                 this.$nextTick(() => {
                     if (this.observedStage !== this.$refs.stage) this.observeCanvas();
                     this.applyNodePositions();
+                    // Flex/tree bases change when nodes are inserted, removed or
+                    // flattened. Retain card coordinates, not stale translations.
+                    this.restoreCardPositions(before);
                     this.observeNodeGeometry();
                     this.scheduleGraphRefreshAfterPaint();
                 });
@@ -400,6 +507,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.mutationObserver?.disconnect();
         this.resizeObserver?.disconnect();
         this.releaseMorphHook?.();
+        this.releaseBeforeMorphHook?.();
 
         if (this.refreshFrame !== null) {
             window.cancelAnimationFrame(this.refreshFrame);
@@ -409,63 +517,99 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             window.cancelAnimationFrame(this.settleFrame);
         }
 
-        if (this.saveTimer !== null) {
-            window.clearTimeout(this.saveTimer);
-        }
     },
 
     restoreNodeLayout() {
+        // The saved workflow is authoritative. Browser-only positions are a
+        // migration fallback for older workflows that have no saved layout yet.
+        let nodes = this.initialLayout;
         try {
-            const stored = JSON.parse(window.localStorage.getItem(this.layoutKey) || '{}');
-            const nodes = stored?.version === 1 && stored.nodes && typeof stored.nodes === 'object'
-                ? stored.nodes
-                : this.initialLayout;
-
-            this.positions = Object.fromEntries(Object.entries(nodes).flatMap(([nodeId, position]) => {
+            if (nodes === null) {
+                const stored = JSON.parse(window.localStorage.getItem(this.layoutKey) || '{}');
+                nodes = stored?.version === 1 ? stored.nodes : {};
+            }
+        } catch { /* Use the saved layout when browser storage is unavailable. */ }
+        this.positions = Object.fromEntries(Object.entries(nodes || {}).flatMap(([nodeId, position]) => {
                 const x = Number(position?.x);
                 const y = Number(position?.y);
-
                 return Number.isFinite(x) && Number.isFinite(y)
                     ? [[nodeId, {x, y}]]
                     : [];
-            }));
-        } catch {
-            this.positions = {...this.initialLayout};
-        }
+        }));
     },
 
     saveNodeLayout() {
-        if (this.saveTimer !== null) {
-            window.clearTimeout(this.saveTimer);
-        }
-
-        this.saveTimer = window.setTimeout(() => {
-            const activeNodeIds = new Set(this.nodeElements().map((node) => node.dataset.workflowNodeId));
-            const nodes = Object.fromEntries(Object.entries(this.positions).filter(([nodeId]) => activeNodeIds.has(nodeId)));
-
-            try {
-                window.localStorage.setItem(this.layoutKey, JSON.stringify({version: 1, nodes}));
-                this.positions = nodes;
-            } catch {
-                // A disabled or full localStorage must not make the editor unusable.
-            }
-
-            this.saveTimer = null;
-        }, 80);
+        const activeNodeIds = new Set(this.nodeElements().map(node => node.dataset.workflowNodeId));
+        const nodes = Object.fromEntries(Object.entries(this.positions).filter(([nodeId]) => activeNodeIds.has(nodeId)));
+        // Defer the network request, not the state update, so an immediate Save
+        // includes the final drag position and the dirty indicator updates now.
+        this.$wire?.$set?.('definition.canvas_layout', nodes, false);
+        try {
+            window.localStorage.setItem(this.layoutKey, JSON.stringify({version: 1, nodes}));
+        } catch { /* Server saving still works when browser storage is unavailable. */ }
+        this.positions = nodes;
     },
 
     resetNodeLayout() {
-        this.positions = {};
+        const controls = this.$refs.stage?.querySelector('.workflow-node-edge-controls') || this.$refs.edgeControls;
+        const edges = Array.from(controls?.querySelectorAll('[data-workflow-edge-target]') || []).map(el => ({
+            source: el.dataset.workflowEdgeSource, target: el.dataset.workflowEdgeTarget, port: el.dataset.workflowEdgePort,
+        }));
+        const desired = this.graphLayout(this.nodeElements().map(node => node.dataset.workflowNodeId), edges);
+        if (!desired) return; // Never destroy a saved layout for an invalid cyclic graph.
+        this.restoreCardPositions(desired);
+        this.scheduleGraphRefreshAfterPaint();
+        this.$nextTick(() => this.fitView());
+    },
 
-        try {
-            window.localStorage.removeItem(this.layoutKey);
-        } catch {
-            // Keep the in-memory reset when localStorage is unavailable.
+    graphLayout(ids, edges) {
+        const nodes = new Map(ids.map(id => [id, {id, incoming: [], outgoing: [], rank: 0, children: []}]));
+        const seen = new Set();
+        edges.forEach(edge => {
+            const key = JSON.stringify([edge.source, edge.target]);
+            if (!nodes.has(edge.source) || !nodes.has(edge.target) || seen.has(key)) return;
+            seen.add(key);
+            nodes.get(edge.source).outgoing.push(edge);
+            nodes.get(edge.target).incoming.push(edge);
+        });
+        const pending = new Map([...nodes].map(([id, node]) => [id, node.incoming.length]));
+        const queue = [...nodes.values()].filter(node => !node.incoming.length);
+        const ordered = [];
+        for (let index = 0; index < queue.length; index++) {
+            const node = queue[index];
+            ordered.push(node);
+            node.outgoing.forEach(edge => {
+                const target = nodes.get(edge.target);
+                target.rank = Math.max(target.rank, node.rank + 1);
+                pending.set(target.id, pending.get(target.id) - 1);
+                if (!pending.get(target.id)) queue.push(target);
+            });
         }
-
-        this.applyNodePositions();
-        this.scheduleGraphRefresh();
-        this.$nextTick(() => this.centerView());
+        if (ordered.length !== nodes.size) return null;
+        // A shared continuation has one layout parent, but retains all real edges.
+        ordered.forEach(node => {
+            const parent = [...node.incoming].sort((a, b) => nodes.get(b.source).rank - nodes.get(a.source).rank)[0];
+            if (parent) nodes.get(parent.source).children.push({node, port: parent.port});
+        });
+        const portOrder = {yes: 0, output: 1, no: 2};
+        nodes.forEach(node => node.children.sort((a, b) => (portOrder[a.port] ?? 1) - (portOrder[b.port] ?? 1)));
+        // Post-order leaf lanes keep both short and nested branches apart.
+        let lane = 0;
+        const points = {};
+        const stack = [...nodes.values()].filter(node => !node.incoming.length).reverse().map(node => ({node, visited: false}));
+        while (stack.length) {
+            const {node, visited} = stack.pop();
+            if (!visited && node.children.length) {
+                stack.push({node, visited: true});
+                [...node.children].reverse().forEach(child => stack.push({node: child.node, visited: false}));
+                continue;
+            }
+            const y = node.children.length
+                ? (points[node.children[0].node.id].y + points[node.children.at(-1).node.id].y) / 2
+                : 48 + lane++ * 208;
+            points[node.id] = {x: 48 + node.rank * 248, y};
+        }
+        return points;
     },
 
     nodeElements() {
@@ -495,6 +639,27 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     setExecutionState(state) {
         this.executionState = state;
         this.applyExecutionState();
+        this.scheduleGraphRefresh();
+    },
+
+    edgeCompleted(edge, active) {
+        if (!edge?.targetId) return false;
+        if (active !== undefined) return active === 'true';
+        const results = new Map((this.executionState?.results || []).map(result => ['action:' + result.id, result]));
+        const target = results.get(edge.targetId), source = results.get(edge.sourceId);
+        const completed = result => ['completed', 'success'].includes(result?.status);
+        if (!completed(target)) return false;
+        if (edge.sourceId.startsWith('trigger')) {
+            const starts = this.nodeElements().filter(node => node.dataset.workflowNodeId.startsWith('trigger'));
+            return edge.sourceId === (target.input?._workflow_start_node_id || this.executionState?.start_node_id || (starts.length === 1 ? starts[0].dataset.workflowNodeId : null));
+        }
+        if (!completed(source)) return false;
+        if (edge.sourcePort === 'yes' || edge.sourcePort === 'no') {
+            const passed = source.output?.passed ?? source.condition_result;
+            if (passed === undefined) return false;
+            return edge.sourcePort === (passed === true || passed === 1 || passed === 'true' ? 'yes' : 'no');
+        }
+        return true;
     },
 
     applyExecutionState() {
@@ -614,7 +779,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     onCanvasWheel(event) {
         if (event.target.closest('input, textarea, select, [contenteditable="true"], .workflow-canvas-note')) return;
         event.preventDefault();
-        if (this.draggingNodeId !== null || this.selectionOrigin || this.panning || this.pendingEdgeDrag) return;
+        if (this.draggingNodeId !== null || this.selectionOrigin || this.pendingEdgeDrag) return;
         const viewport = this.$refs.viewport;
         const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
         const dx = event.deltaX * unit;
@@ -741,7 +906,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        this.startCanvasPan(event);
+        this.startBoxSelection(event);
     },
 
     startNodeDrag(event, node = null) {
@@ -782,7 +947,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.nodeDragMoved = false;
     },
 
-    startCanvasPan(event) {
+    startBoxSelection(event) {
         if (event.button !== 0 || this.connecting || this.pendingEdgeDrag) {
             return;
         }
@@ -791,23 +956,12 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        if (event.shiftKey || this.selectionMode) {
-            const rect = this.$refs.viewport.getBoundingClientRect();
-            this.selectionOrigin = {x:event.clientX,y:event.clientY,rect,previous:event.shiftKey ? [...this.selectedNodeIds] : []};
-            this.selectionBox = {x:event.clientX-rect.left,y:event.clientY-rect.top,width:0,height:0};
-            this.pointerId = event.pointerId;
-            this.$refs.viewport.setPointerCapture?.(event.pointerId);
-            event.preventDefault();
-            return;
-        }
-        this.clearNodeSelection();
-
-        this.panning = true;
+        const rect = this.$refs.viewport.getBoundingClientRect();
+        this.selectionOrigin = {x:event.clientX,y:event.clientY,rect,previous:event.shiftKey ? [...this.selectedNodeIds] : []};
+        if (!event.shiftKey) this.selectedNodeIds = [];
+        this.applyNodeSelection();
+        this.selectionBox = {x:event.clientX-rect.left,y:event.clientY-rect.top,width:0,height:0};
         this.pointerId = event.pointerId;
-        this.pointerStartX = event.clientX;
-        this.pointerStartY = event.clientY;
-        this.translateStartX = this.translateX;
-        this.translateStartY = this.translateY;
         this.$refs.viewport?.setPointerCapture?.(event.pointerId);
         event.preventDefault();
     },
@@ -835,6 +989,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 button: 0, clientX: event.clientX, clientY: event.clientY,
                 preventDefault: () => event.preventDefault(),
             });
+            this.connectionDragOrigin = {x: pending.x, y: pending.y};
         }
         if (this.connecting) {
             this.connectionCursor = {x: event.clientX, y: event.clientY};
@@ -869,14 +1024,6 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        if (!this.panning || event.pointerId !== this.pointerId) {
-            return;
-        }
-
-        this.translateX = this.translateStartX + event.clientX - this.pointerStartX;
-        this.translateY = this.translateStartY + event.clientY - this.pointerStartY;
-        this.saveViewport();
-        this.scheduleGraphRefresh();
     },
 
     stopCanvasInteraction(event) {
@@ -897,7 +1044,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             }
             this.pendingEdgeDrag = null;
         }
-        if (this.$refs.viewport?.hasPointerCapture?.(event.pointerId) && this.draggingNodeId === null && !this.panning) {
+        if (this.$refs.viewport?.hasPointerCapture?.(event.pointerId) && this.draggingNodeId === null) {
             this.$refs.viewport.releasePointerCapture(event.pointerId);
         }
         if (this.connecting) {
@@ -907,6 +1054,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 // Resolve the actual drop position, including a detached card.
                 const targetId = this.connectionTargetAt(event);
                 if (targetId) this.finishConnection(targetId, event);
+                else if (this.connectionDragOrigin && Math.hypot(event.clientX - this.connectionDragOrigin.x, event.clientY - this.connectionDragOrigin.y) >= 4) {
+                    if (!this.openPaletteAtDrop(event)) this.cancelConnection();
+                }
             }
         }
         if (this.draggingNodeId !== null && event.pointerId === this.pointerId) {
@@ -934,24 +1084,12 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        if (!this.panning || event.pointerId !== this.pointerId) {
-            return;
-        }
-
-        this.panning = false;
-        this.pointerId = null;
-        this.$refs.viewport?.releasePointerCapture?.(event.pointerId);
-        this.scheduleGraphRefresh();
-    },
-
-    stopCanvasPan(event) {
-        this.stopCanvasInteraction(event);
     },
 
     suppressNodeClick(event) {
         const target = event.target instanceof Element ? event.target : null;
         const nodeId = target?.closest('[data-workflow-node-id]')?.dataset.workflowNodeId;
-        if (nodeId && (this.selectionMode || event.shiftKey || event.ctrlKey || event.metaKey)
+        if (nodeId && (event.shiftKey || event.ctrlKey || event.metaKey)
             && target.closest('[data-workflow-node-card]') && !target.closest('button, a, input, textarea, select')) {
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -1163,6 +1301,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             default: '#78716c',
             yes: '#22c55e',
             no: '#ef4444',
+            completed: '#4d9c70',
         };
 
         Object.entries(markerColors).forEach(([name, color]) => {
@@ -1185,10 +1324,11 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const edgePaths = paths.flatMap(({d, port, active, edge, preview, control}) => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const modifier = port === 'yes' || port === 'no' ? ` workflow-node-edge--${port}` : '';
-            const marker = port === 'yes' || port === 'no' ? port : 'default';
+            const completed = !preview && this.edgeCompleted(edge, active);
+            const marker = completed ? 'completed' : port === 'yes' || port === 'no' ? port : 'default';
 
             path.setAttribute('d', d);
-            path.setAttribute('class', `workflow-node-edge${modifier}`);
+            path.setAttribute('class', `workflow-node-edge${modifier}${completed ? ' workflow-node-edge--completed' : ''}`);
             path.setAttribute('marker-end', `url(#workflow-edge-arrow-${marker})`);
             path.dataset.workflowEdgePort = port;
             if (active !== undefined) path.dataset.workflowEdgeActive = active;
@@ -1268,6 +1408,8 @@ window.workflowExecutionViewer = (graph) => ({
             configuration: this.current().resolved_input ?? this.current().input ?? {}};
     },
     responseData() {
+        if (this.isAmoStep() && this.exchange() && this.current().display_responses) return this.current().display_responses[this.exchangeIndex] ?? this.current().display_responses[0] ?? null;
+        if (Object.prototype.hasOwnProperty.call(this.current(), 'display_output')) return this.current().display_output;
         if (this.isAmoStep() && this.exchange()) return this.exchange().response?.body ?? null;
         const output = this.current().output ?? {};
         return this.current().error ? {...output, error:this.current().error} : output;
@@ -1581,3 +1723,5 @@ document.addEventListener('livewire:navigated', () => {
 window.addEventListener('resize', () => {
     window.lockCleverSidebarCollapsed?.();
 });
+
+

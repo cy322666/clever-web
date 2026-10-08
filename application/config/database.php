@@ -179,6 +179,19 @@ return [
             'database' => env('REDIS_DB', '0'),
         ],
 
+        // Same shared store and prefix, with bounded I/O for synchronous admission.
+        'amocrm_throttle' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'timeout' => 1.0,
+            'read_timeout' => 1.0,
+            'max_retries' => 0,
+        ],
+
         'cache' => [
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),

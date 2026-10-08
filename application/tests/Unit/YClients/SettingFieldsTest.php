@@ -71,7 +71,9 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Стоимость записи (cost)', $fields['cost']);
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
         $this->assertSame('Сумма покупок (paid)', $fields['paid']);
-        $this->assertSame('Категория (categories) - строка', $fields['categories']);
+        $this->assertSame('Категория клиента (categories) - строка', $fields['categories']);
+        $this->assertSame('Категория записи (record_categories) - строка/мультисписок', $fields['record_categories']);
+        $this->assertContains('record_categories', Setting::YCfields());
     }
 
     public function test_yc_get_fields_includes_record_and_company_ids(): void
@@ -107,6 +109,9 @@ class SettingFieldsTest extends TestCase
                 'created_user_id' => 4321,
                 'record_from' => 'CRM',
                 'create_date' => '2026-05-20 14:10:00',
+                'record_labels' => [
+                    (object)['id' => 16456995, 'title' => 'Колл-центр Богод Групп'],
+                ],
             ],
         ]);
         $yc->method('getUserPermissions')->willReturn(
@@ -180,6 +185,8 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Да', $fields['sms_not']);
         $this->assertSame('БЛОГЕР, РЖД (Антон)', $fields['categories']);
         $this->assertSame(['БЛОГЕР', 'РЖД (Антон)'], $fields['categories_values']);
+        $this->assertSame('Колл-центр Богод Групп', $fields['record_categories']);
+        $this->assertSame(['Колл-центр Богод Групп'], $fields['record_categories_values']);
     }
 
     public function test_yc_get_fields_resolves_created_user_role_and_department_from_permissions(): void

@@ -65,12 +65,12 @@
             <button type="button" x-on:click="active = null" aria-label="Закрыть карточку"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
         </header>
         <div x-show="active?.id" class="workflow-variable-browser__detail">
-            <span>ID</span><code x-text="active?.id"></code>
-            <button type="button" x-on:click="copy(active.id)" x-text="copied === active?.id ? 'Скопировано' : 'Копировать'"></button>
+            <span>ID</span>
+            <button type="button" aria-label="Копировать ID" x-on:click="copy(active.id)" x-text="copied === active?.id ? 'Скопировано' : 'Копировать'"></button>
         </div>
         <div x-show="active?.value" class="workflow-variable-browser__detail">
-            <span>Переменная</span><code x-text="active?.value"></code>
-            <button type="button" x-on:click="copy(active.value)" x-text="copied === active?.value ? 'Скопировано' : 'Копировать'"></button>
+            <span>Переменная</span>
+            <button type="button" aria-label="Копировать переменную" x-on:click="copy(active.value)" x-text="copied === active?.value ? 'Скопировано' : 'Копировать'"></button>
         </div>
         <button x-show="active?.options?.length" type="button" class="workflow-variable-browser__show-options" x-on:click="showOptions(active)">Показать значения поля</button>
     </section>
@@ -79,7 +79,6 @@
             <div class="workflow-variable-browser__row">
                 <button type="button" class="workflow-variable-browser__item" :title="'Показать ID и переменную: ' + item.label" x-on:click="showDetails(item)">
                     <strong x-text="item.label"></strong>
-                    <code x-show="item.id" x-text="'ID ' + item.id"></code>
                     <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
                 </button>
             </div>

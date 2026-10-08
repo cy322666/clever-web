@@ -31,6 +31,7 @@ class EditWorkflow extends BaseEditWorkflow
         $this->authorizeAccess();
         $this->initializeWorkflowOwnerContext();
         $this->fillForm();
+        $this->savedWorkflowEditorState = $this->workflowEditorState();
         $this->previousUrl = url()->previous();
     }
 
@@ -61,6 +62,11 @@ class EditWorkflow extends BaseEditWorkflow
     protected function getSavedNotificationTitle(): ?string
     {
         return null;
+    }
+
+    protected function afterSave(): void
+    {
+        $this->savedWorkflowEditorState = $this->workflowEditorState();
     }
 
     public function getTitle(): string

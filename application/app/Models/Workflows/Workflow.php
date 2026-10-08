@@ -222,7 +222,7 @@ class Workflow extends BaseWorkflow
             return;
         }
 
-        if (! in_array(data_get($this->definition, 'trigger.type'), [GenericWebhookTrigger::type(), \App\Workflows\Triggers\DigitalPipelineTrigger::type()], true)) {
+        if (! in_array(data_get($this->definition, 'trigger.type'), [GenericWebhookTrigger::type(), \App\Workflows\Triggers\DigitalPipelineTrigger::type(), \App\Workflows\Triggers\AmoCrmBulkTrigger::type()], true)) {
             return;
         }
 

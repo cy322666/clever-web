@@ -29,7 +29,16 @@ class WorkflowJavascriptAction
             $outputs = $context?->getStepOutputs() ?? [];
             $nodes = array_map(fn ($output) => ['json' => $output], $outputs);
             $nodes['trigger'] = ['json' => $context?->getTriggerData() ?? []];
-            $data = ['json' => $outputs ? end($outputs) : ($context?->getTriggerData() ?? []), 'nodes' => $nodes];
+            $inputError = null;
+            try {
+                $json = $context instanceof \App\Workflows\Context\WorkflowContext
+                    ? $context->getNodeInput() : ($outputs ? end($outputs) : ($context?->getTriggerData() ?? []));
+            } catch (\InvalidArgumentException $error) {
+                // Explicit $node references remain usable at a multi-input join.
+                $json = null;
+                $inputError = $error->getMessage();
+            }
+            $data = ['json' => $json, 'inputError' => $inputError, 'nodes' => $nodes];
             $input = json_encode(['code' => $config['javascript_code'] ?? '', 'data' => $data], JSON_THROW_ON_ERROR);
             if (strlen($input) > 1024 * 1024) throw new \RuntimeException('Входные данные кода превышают 1 МБ.');
             $entry = base_path('bootstrap/workflow-runtime/run-javascript.mjs');

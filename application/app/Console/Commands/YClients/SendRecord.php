@@ -70,7 +70,7 @@ class SendRecord extends Command
             );
         }
 
-        $amoApi = (new Client($account))->init();
+        $amoApi = app(Client::class, ['account' => $account])->init();
         $ycApi = (new YClients($setting));
 
         $lead = null;

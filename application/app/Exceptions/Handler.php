@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,6 +21,13 @@ class Handler extends ExceptionHandler
         'password_confirmation',
     ];
 
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        return $this->shouldReturnJson($request, $exception)
+            ? response()->json(['message' => $exception->getMessage()], 401)
+            : redirect()->guest($exception->redirectTo($request) ?? route('filament.app.auth.login'));
+    }
+
     /**
      * Register the exception handling callbacks for the application.
      */
@@ -36,8 +44,54 @@ class Handler extends ExceptionHandler
                 ], Response::HTTP_SERVICE_UNAVAILABLE);
             }
 
-            return response('Service temporarily unavailable', Response::HTTP_SERVICE_UNAVAILABLE);
+            return $this->serverErrorResponse($request, Response::HTTP_SERVICE_UNAVAILABLE);
         });
+    }
+
+    protected function renderExceptionResponse($request, Throwable $e)
+    {
+        $status = $this->isHttpException($e) ? $e->getStatusCode() : Response::HTTP_INTERNAL_SERVER_ERROR;
+
+        if ($status >= 500) {
+            if ($this->shouldReturnJson($request, $e) || $request->is('api/*')) {
+                return $this->prepareJsonResponse($request, $e);
+            }
+
+            return $this->serverErrorResponse($request, $status, $this->isHttpException($e) ? $e->getHeaders() : []);
+        }
+
+        return parent::renderExceptionResponse($request, $e);
+    }
+
+    private function serverErrorResponse($request, int $status, array $headers = []): Response
+    {
+        // A plain PHP view works even when Blade's compiled-view directory is unavailable.
+        return response()->view('errors.server', [
+            'statusCode' => $status,
+            'locale' => app()->getLocale(),
+            'backUrl' => $this->safeBackUrl($request),
+        ], $status, array_merge($headers, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-store, private',
+            'X-Robots-Tag' => 'noindex, nofollow',
+            'Referrer-Policy' => 'no-referrer',
+        ]));
+    }
+
+    private function safeBackUrl($request): string
+    {
+        $fallback = '/panel/dashboard';
+        $previous = (string) $request->headers->get('referer', '');
+        $origin = $request->getSchemeAndHttpHost();
+
+        if (!str_starts_with($previous, $origin.'/') || str_contains($previous, '\\')
+            || preg_match('/[\x00-\x20]/', $previous)) {
+            return $fallback;
+        }
+
+        $path = substr($previous, strlen($origin));
+
+        return str_starts_with($path, '//') || $path === $request->getRequestUri() ? $fallback : $path;
     }
 
     public function report(Throwable $e): void

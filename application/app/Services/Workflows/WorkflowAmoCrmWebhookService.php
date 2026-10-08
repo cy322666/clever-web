@@ -416,7 +416,8 @@ class WorkflowAmoCrmWebhookService
 
     private function accountCanUseWebhooks(Account $account): bool
     {
-        return (bool)$account->active
+        return WorkflowConnectionAccess::isWidgetAccount($account)
+            && (bool)$account->active
             && filled($account->subdomain)
             && filled($account->refresh_token);
     }

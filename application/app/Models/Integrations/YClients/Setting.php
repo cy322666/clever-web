@@ -25,9 +25,10 @@ class Setting extends Model
     public static string $resource = YClientsResource::class;
 
     static array $cost = [
-        '1_month' => '2 990 ₽',
-        '6_month' => '14 900 ₽',
-        '12_month' => '24 900 ₽',
+        '3_month' => '7 990 руб.',
+        '6_month' => '14 900 руб.',
+        '12_month' => '24 900 руб.',
+        '24_month' => '39 900 руб.',
     ];
 
     protected $fillable = [
@@ -443,7 +444,16 @@ class Setting extends Model
             );
 
             if ($enumValues) {
-                $customField->field->enums = (object)$enumValues;
+                $runtimeEnums = $customField->field->enums;
+
+                // The SDK protects the property, but shares its mutable enum object.
+                if ($runtimeEnums instanceof \stdClass) {
+                    foreach ($enumValues as $enumId => $enumValue) {
+                        $runtimeEnums->{(string)$enumId} = $enumValue;
+                    }
+                } else {
+                    $customField->field->enums = (object)$enumValues;
+                }
             }
         } catch (Throwable) {
             //
@@ -700,7 +710,8 @@ class Setting extends Model
             'comment' => self::fieldLabel('Комментарий', 'comment', 'строка'),
             'sms_check' => self::fieldLabel('Поздравлять с ДР', 'sms_check', 'флаг/строка'),
             'sms_not' => self::fieldLabel('Отправлять рассылку', 'sms_not', 'флаг/строка'),
-            'categories' => self::fieldLabel('Категория', 'categories', 'строка'),
+            'categories' => self::fieldLabel('Категория клиента', 'categories', 'строка'),
+            'record_categories' => self::fieldLabel('Категория записи', 'record_categories', 'строка/мультисписок'),
             'branch' => self::humanFieldLabel('Филиал'),
             'company_id' => self::humanFieldLabel('Филиал записи'),
             'record_id' => self::humanFieldLabel('Запись'),
@@ -733,6 +744,7 @@ class Setting extends Model
             'sms_check',
             'sms_not',
             'categories',
+            'record_categories',
             'branch',
             'company_id',
             'record_id',
@@ -933,6 +945,7 @@ class Setting extends Model
         $categoryFields = self::YCGetClientCategoryFields($client, $record, $clientYC, $recordYC);
         $fields['categories'] = $categoryFields['categories'];
         $fields['categories_values'] = $categoryFields['categories_values'];
+        $fields = array_merge($fields, self::YCGetRecordCategoryFields($recordYC));
 
         $fields['visits'] = data_get($clientYC, 'visits');
         $fields['services'] = trim((string)$record->title);
@@ -943,6 +956,16 @@ class Setting extends Model
         $fields['client_id'] = $record->client_id;
 
         return $fields;
+    }
+
+    public static function YCGetRecordCategoryFields(mixed $recordYC): array
+    {
+        $values = self::categoryValues(data_get($recordYC, 'record_labels'));
+
+        return [
+            'record_categories' => $values ? implode(', ', $values) : null,
+            'record_categories_values' => $values,
+        ];
     }
 
     public static function YCGetClientCategoryFields(
@@ -1003,6 +1026,11 @@ class Setting extends Model
             ?? data_get($recordYC, 'client.category')
             ?? data_get($recordYC, 'client.client_tags');
 
+        return self::categoryValues($categories);
+    }
+
+    private static function categoryValues(mixed $categories): array
+    {
         if ($categories === null || $categories === '') {
             return [];
         }
@@ -1033,8 +1061,8 @@ class Setting extends Model
 
     private static function valueForAmoField(?string $fieldYc, Field $amoField, mixed $value, array $ycFields): mixed
     {
-        if ($fieldYc === 'categories' && self::isMultiEnumField($amoField)) {
-            $values = $ycFields['categories_values'] ?? null;
+        if (in_array($fieldYc, ['categories', 'record_categories'], true) && self::isMultiEnumField($amoField)) {
+            $values = $ycFields[$fieldYc . '_values'] ?? null;
 
             if (is_array($values)) {
                 return $values;

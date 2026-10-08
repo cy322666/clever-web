@@ -27,8 +27,8 @@ final class WorkflowDefinitionValidator
             $step = $entry['step'];
             if ($step['disabled'] ?? false) continue;
             $type = $step['type'] ?? '';
-            $label = $step['name'] ?? $metadata[$type]['name'] ?? $type;
-            $prefix = '«'.$label.'» ['.$step['id'].']: ';
+            $label = $names[$step['id']] ?? 'Нода';
+            $prefix = '«'.$label.'»: ';
             if (!app(ActionRegistry::class)->has($type) || in_array($type, WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), true)) {
                 $errors[] = $prefix.'действие не поддерживается.';
                 continue;
@@ -39,8 +39,12 @@ final class WorkflowDefinitionValidator
             array_walk_recursive($config, function ($value) use (&$errors, $prefix, $references): void {
                 if (!is_string($value)) return;
                 if (substr_count($value, '{{') !== substr_count($value, '}}')) $errors[] = $prefix.'незакрытая переменная {{ … }}.';
-                preg_match_all('/\$node\[\s*([\'"])(.*?)\1\s*\]/u', $value, $matches);
-                foreach ($matches[2] as $reference) if (!in_array($reference, $references, true)) $errors[] = $prefix.'ссылка на отсутствующую ноду «'.$reference.'».';
+                $quoted = '("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
+                preg_match_all('/(?:\$node\[|\$\()\s*'.$quoted.'\s*[\])]/u', $value, $matches);
+                foreach ($matches[1] as $literal) {
+                    $reference = $literal[0] === '"' ? json_decode($literal, true) : str_replace(["\\'", '\\\\'], ["'", '\\'], substr($literal, 1, -1));
+                    if (!in_array($reference, $references, true)) $errors[] = $prefix.'ссылка на отсутствующую ноду «'.$reference.'».';
+                }
             });
         }
 
@@ -52,7 +56,7 @@ final class WorkflowDefinitionValidator
         $errors = [];
         $required = match ($type) {
             'amocrm_start_salesbot' => ['bot_id' => 'Выберите SalesBot.'],
-            'amocrm_create_contact', 'amocrm_create_company', 'amocrm_create_lead' => ['name' => 'Укажите название создаваемой сущности.'],
+            'amocrm_create_contact', 'amocrm_create_company' => ['name' => 'Укажите название создаваемой сущности.'],
             'amocrm_add_note' => ['text' => 'Заполните текст примечания.'],
             'amocrm_create_task' => ['text' => 'Заполните текст задачи.'],
             'amocrm_change_lead_status' => ['status_id' => 'Выберите этап сделки.'],
@@ -108,3 +112,5 @@ final class WorkflowDefinitionValidator
         return is_string($value) && str_contains($value, '{{') && str_contains($value, '}}');
     }
 }
+
+

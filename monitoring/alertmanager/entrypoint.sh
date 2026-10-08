@@ -21,8 +21,13 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 3h
+  routes:
+    # Application errors are already delivered by the platform.
+    - receiver: application-errors
+      matchers: ['alertname="FailedJobsDetected"']
 
 receivers:
+  - name: application-errors
   - name: default
 YAML
 
@@ -32,7 +37,15 @@ if [ "$HAS_TELEGRAM" -eq 1 ]; then
       - bot_token: "${ALERTMANAGER_TELEGRAM_BOT_TOKEN}"
         chat_id: ${ALERTMANAGER_TELEGRAM_CHAT_ID}
         parse_mode: "HTML"
-        message: '{{ if eq .Status "firing" }}<b>Тревога</b>{{ else }}<b>Восстановлено</b>{{ end }}: {{ if eq .CommonLabels.alertname "AppUnavailable" }}Приложение недоступно{{ else if eq .CommonLabels.alertname "AppMetricsScrapeFailed" }}Метрики приложения недоступны{{ else if eq .CommonLabels.alertname "SchedulerHeartbeatStale" }}Задержка heartbeat планировщика{{ else if eq .CommonLabels.alertname "FailedJobsDetected" }}Обнаружены упавшие задачи{{ else if eq .CommonLabels.alertname "QueueBacklogHigh" }}Переполнена очередь задач{{ else if eq .CommonLabels.alertname "QueueOldestJobTooOld" }}Слишком старые задачи в очереди{{ else if eq .CommonLabels.alertname "MetricsCollectionError" }}Ошибка сбора метрик приложения{{ else if eq .CommonLabels.alertname "PostgresExporterDown" }}Недоступен Postgres exporter{{ else if eq .CommonLabels.alertname "DbSlowQueriesBurst" }}Всплеск медленных запросов к БД{{ else }}{{ .CommonLabels.alertname }}{{ end }}{{ if .CommonLabels.severity }} [{{ if eq .CommonLabels.severity "critical" }}критично{{ else if eq .CommonLabels.severity "warning" }}предупреждение{{ else }}{{ .CommonLabels.severity }}{{ end }}]{{ end }}{{ if .CommonLabels.instance }}\nИнстанс: <code>{{ .CommonLabels.instance }}</code>{{ end }}'
+        message: |-
+          <b>{{ if eq .Status "firing" }}Тревога{{ else }}Восстановлено{{ end }}: Clever Web</b>
+          {{ range .Alerts }}
+          <b>{{ if .Annotations.summary }}{{ .Annotations.summary | html }}{{ else }}{{ .Labels.alertname | html }}{{ end }}</b>
+          {{ .Annotations.description | html }}
+          {{ if .Labels.container_label_com_docker_compose_service }}Сервис: <code>{{ .Labels.container_label_com_docker_compose_service | html }}</code>{{ end }}
+          {{ if .Labels.instance }}Узел: <code>{{ .Labels.instance | html }}</code>{{ end }}
+          {{ if .Labels.severity }}Уровень: {{ if eq .Labels.severity "critical" }}критично{{ else if eq .Labels.severity "warning" }}предупреждение{{ else }}{{ .Labels.severity | html }}{{ end }}{{ end }}
+          {{ end }}
         send_resolved: true
 EOF
 fi

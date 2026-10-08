@@ -23,7 +23,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -52,22 +51,6 @@ class DistributionResource extends Resource
                 Section::make()
                     ->hiddenLabel()
                     ->schema([
-
-                        Section::make()
-                            ->label('Инструкция')
-                            ->schema([
-
-                                TextEntry::make('instruction')
-                                    ->hiddenLabel()
-                                    ->bulleted()
-                                    ->size(TextSize::Small)
-                                    ->state(fn() => Distribution\Setting::$instruction),
-
-                                TextEntry::make('ps')
-                                    ->hiddenLabel()
-                                    ->size(TextSize::ExtraSmall)
-                                    ->state(fn() => 'Если есть сложности то смотри Видео инструкцию (кнопка справа) или напиши в чат ниже'),
-                            ]),
 
                         Repeater::make('settings')
                             ->label('')

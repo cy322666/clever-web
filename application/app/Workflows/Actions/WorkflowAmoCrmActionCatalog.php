@@ -728,9 +728,8 @@ abstract class WorkflowAmoCrmAction
             ->schema([
                 WorkflowValueInput::make('name')
                     ->label('Название сделки')
-                    ->placeholder('Название')
-                    ->columnSpanFull()
-                    ->required(),
+                    ->placeholder('Необязательно: название задаст amoCRM')
+                    ->columnSpanFull(),
 
                 WorkflowValueInput::make('price')->label('Бюджет')->placeholder('0'),
 
@@ -747,6 +746,16 @@ abstract class WorkflowAmoCrmAction
                     ->label('Теги')
                     ->suggestions(fn () => \App\Services\Workflows\WorkflowNodeReferences::options('tags:leads'))
                     ->placeholder('Новый, VIP, {{tag}}'),
+
+                WorkflowValueInput::make('contact_id')
+                    ->label('ID контакта')
+                    ->placeholder('Необязательно: ID или переменная')
+                    ->helperText('Существующий контакт будет прикреплён к новой сделке.'),
+
+                WorkflowValueInput::make('company_id')
+                    ->label('ID компании')
+                    ->placeholder('Необязательно: ID или переменная')
+                    ->helperText('Существующая компания будет прикреплена к новой сделке.'),
             ]);
     }
 
@@ -2117,3 +2126,4 @@ class AmoCrmUnlinkEntityAction extends AmoCrmLinkEntityAction
         return '#DC2626';
     }
 }
+
