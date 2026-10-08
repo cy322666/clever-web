@@ -94,6 +94,8 @@ return [
 
         // Persistent guard window for amoCRM events caused by our own workflow actions.
         'loop_guard_ttl_seconds' => env('WORKFLOWS_LOOP_GUARD_TTL_SECONDS', 900),
+        // Enable only after the event-guard migration and a staging acceptance run.
+        'precise_loop_guard' => env('WORKFLOWS_PRECISE_LOOP_GUARD', false),
 
         // Heavy raw JSON is scrubbed nightly after this many days, aggregates stay monthly.
         'raw_retention_days' => env('WORKFLOWS_RAW_RETENTION_DAYS', 3),

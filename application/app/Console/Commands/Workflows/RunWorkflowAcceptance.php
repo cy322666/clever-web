@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Workflows;
 
 use App\Services\Workflows\Testing\WorkflowAcceptanceTelegramReporter;
+use App\Services\Workflows\Testing\WorkflowAcceptanceDiagnostics;
 use App\Services\Workflows\Testing\WorkflowAcceptanceStorage;
 use App\Services\Workflows\Testing\WorkflowReportSanitizer;
 use Illuminate\Console\Command;
@@ -74,6 +75,11 @@ class RunWorkflowAcceptance extends Command
                 $report['finished_at'] = now()->toIso8601String();
             }
             $report['counts'] = array_count_values(array_column($report['cases'] ?? [], 'status'));
+            $identity = app(WorkflowAcceptanceDiagnostics::class)->context($workflowId, $domain);
+            $report['user_id'] = $identity['user_id'];
+            $report['owner_email'] = $identity['owner_email'];
+            $report['source_workflow_id'] = $workflowId;
+            $report['account'] = array_replace($identity['account'], $report['account'] ?? []);
             if (empty($report['cases']) && empty($report['fatal_error'])) $report['fatal_error'] = 'Ни одна проверка не выполнена.';
             $report['_redaction_secrets'] = [(string) config('workflow_acceptance.telegram.token')];
             $report = WorkflowReportSanitizer::sanitize($report);
@@ -106,6 +112,8 @@ class RunWorkflowAcceptance extends Command
 
     protected function runProcess(int $workflowId, string $domain, string $reportPath, string $statePath): int
     {
+        // Reject an absent/foreign connection before spawning a mutating runner.
+        app(WorkflowAcceptanceDiagnostics::class)->assertReady($workflowId, $domain);
         // Isolate CRM HTTP guards, auth state and signal handlers from Telegram delivery.
         $process = new Process([
             PHP_BINARY, base_path('scripts/workflow-acceptance.php'),

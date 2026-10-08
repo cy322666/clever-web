@@ -53,10 +53,10 @@ class WorkflowManualAmoCrmController extends Controller
             return null;
         }
 
-        return Account::query()
+        return \App\Services\Workflows\WorkflowConnectionAccess::accounts()
             ->where('active', true)
+            ->whereNotNull('refresh_token')->where('refresh_token', '<>', '')
             ->whereRaw('lower(subdomain) = ?', [$subdomain])
-            ->orderByRaw("case when widget = 'workflows' then 0 else 1 end")
             ->latest('id')
             ->first();
     }

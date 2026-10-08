@@ -49,6 +49,33 @@ class ListWorkflows extends BaseListWorkflows
         return [];
     }
 
+    public function pendingEventReviews(): \Illuminate\Support\Collection
+    {
+        if (!\App\Services\Workflows\WorkflowWriteJournal::enabled()) return collect();
+        return \App\Models\Workflows\WorkflowEventReview::where('user_id', auth()->id())
+            ->where('status', 'review')->oldest('id')->limit(50)->get();
+    }
+
+    public function reviewEventAction(): Action
+    {
+        return Action::make('reviewEvent')->label('Проверить событие')->modalHeading('Событие не запущено автоматически')
+            ->modalWidth('lg')->modalSubmitActionLabel('Применить')
+            ->modalDescription('Неясный источник не запускает другие процессы. Подтверждённое независимое событие можно передать в очередь один раз.')
+            ->schema(fn (array $arguments) => [
+                \Filament\Schemas\Components\View::make('filament.workflow-builder.workflow-event-evidence')
+                    ->viewData(['event'=>\App\Models\Workflows\WorkflowEventReview::where('user_id',auth()->id())->findOrFail($arguments['id'] ?? 0)]),
+                \Filament\Forms\Components\Select::make('choice')->label('Действие')->required()->default('check')
+                    ->options(['check'=>'Проверить источник снова','ignore'=>'Оставить без запуска','release'=>'Выполнить подтверждённое независимое событие один раз']),
+            ])->action(function (array $data, array $arguments): void {
+                try {
+                    app(\App\Services\Workflows\WorkflowEventReviewService::class)->resolve((int)($arguments['id'] ?? 0), (int)auth()->id(), $data['choice']);
+                    Notification::make()->title('Событие проверено')->success()->send();
+                } catch (\InvalidArgumentException $error) {
+                    Notification::make()->title('Событие сохранено без запуска')->body($error->getMessage())->warning()->send();
+                }
+            });
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [];
@@ -476,7 +503,7 @@ class ListWorkflows extends BaseListWorkflows
 
     private function connectedWorkflowAmoAccountQuery()
     {
-        return Account::query()
+        return \App\Services\Workflows\WorkflowConnectionAccess::accounts()
             ->where('active', true)
             ->whereNotNull('subdomain')
             ->where('subdomain', '<>', '')
@@ -496,6 +523,7 @@ class ListWorkflows extends BaseListWorkflows
         $account ??= $this->workflowAmoAccount();
 
         return $account instanceof Account
+            && \App\Services\Workflows\WorkflowConnectionAccess::isWidgetAccount($account)
             && (bool) $account->active
             && filled($account->subdomain)
             && (filled($account->refresh_token) || filled($account->access_token));

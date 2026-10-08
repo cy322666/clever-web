@@ -314,7 +314,26 @@ class WorkflowAmoCrmWebhookService
 
                 foreach ($event['items'] ?? [$event['item']] as $item) {
                     $itemEvent = array_replace($event, ['item' => $item]);
-                    $recentMutation = $this->loopGuard->matchingRecentMutation($workflow, $account, $itemEvent);
+                    if (WorkflowWriteJournal::enabled()) {
+                        $decision = app(WorkflowWriteJournal::class)->decide($account, $itemEvent);
+                        if ($decision['decision'] !== 'external') {
+                            $fingerprint = \App\Services\Workflows\WorkflowMutationEvidence::hash([
+                                'account'=>$account->id, 'workflow'=>$workflow->id, 'start'=>$startId,
+                                'event'=>$eventCode, 'item'=>$item,
+                            ]);
+                            \App\Models\Workflows\WorkflowEventReview::firstOrCreate(['fingerprint'=>$fingerprint], [
+                                'user_id'=>$account->user_id, 'account_id'=>$account->id, 'workflow_id'=>$workflow->id,
+                                'start_id'=>$startId, 'event'=>$eventCode, 'entity_id'=>(int)($item['element_id'] ?? $item['id'] ?? 0),
+                                'status'=>$decision['decision'] === 'own' ? 'ignored' : 'review', 'reason'=>$decision['reason'],
+                                'envelope'=>['event'=>$itemEvent, 'payload'=>$normalized['payload'], 'definition'=>$workflow->definition],
+                            ]);
+                            $skipped++;
+                            continue;
+                        }
+                        $recentMutation = null;
+                    } else {
+                        $recentMutation = $this->loopGuard->matchingRecentMutation($workflow, $account, $itemEvent);
+                    }
 
                     if ($recentMutation !== null) {
                         $skipped++;
@@ -416,7 +435,8 @@ class WorkflowAmoCrmWebhookService
 
     private function accountCanUseWebhooks(Account $account): bool
     {
-        return (bool)$account->active
+        return WorkflowConnectionAccess::isWidgetAccount($account)
+            && (bool)$account->active
             && filled($account->subdomain)
             && filled($account->refresh_token);
     }
@@ -473,13 +493,14 @@ class WorkflowAmoCrmWebhookService
      * @param array<string, mixed> $payload
      * @param array<string, mixed> $headers
      */
-    private function startWorkflow(
+    public function startWorkflow(
         Workflow $workflow,
         Account $account,
         array $event,
         array $payload,
         array $headers,
         string $startId = 'trigger',
+        bool $pinDefinition = false,
     ): void {
         $eventCode = (string)$event['event'];
         $entity = (string)$event['entity'];
@@ -526,7 +547,11 @@ class WorkflowAmoCrmWebhookService
 
         $run->update(['context_data' => $context->toArray()]);
 
-        ExecuteWorkflowJob::dispatch((int)$run->id);
+        if ($pinDefinition) {
+            $context->setVariable('_definition_snapshot', $workflow->definition)->setVariable('_snapshot_workflow_id', (int)$workflow->id);
+            $run->update(['context_data'=>$context->toArray()]);
+        }
+        ExecuteWorkflowJob::dispatch((int)$run->id)->afterCommit();
     }
 
     /**

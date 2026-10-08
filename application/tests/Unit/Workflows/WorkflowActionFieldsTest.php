@@ -148,8 +148,7 @@ class WorkflowActionFieldsTest extends TestCase
     {
         $page = Livewire::test(WorkflowCanvasFixture::class)->call('openWorkflowActionEditor', 'task');
         $page->assertSet('mountedActions.0.name', 'configureWorkflowAction');
-        view()->share('errors', new \Illuminate\Support\ViewErrorBag);
-        $html = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance())->toHtml();
+        $html = $page->getMountedActionModalHtml();
         $this->assertFalse(str_contains($html, 'Данные шагов'));
         $this->assertTrue(str_contains($html, 'workflow-node-output'));
         $this->assertTrue(str_contains($html, 'Запустить'));

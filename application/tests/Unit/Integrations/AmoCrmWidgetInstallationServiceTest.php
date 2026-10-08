@@ -425,61 +425,6 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_excel_install_uses_its_own_keys_and_preserves_other_widget_tokens(): void
-    {
-        config([
-            'services.amocrm.widgets.import-excel.client_id' => 'excel-client',
-            'services.amocrm.widgets.import-excel.client_secret' => 'excel-secret',
-            'services.amocrm.widgets.import-excel.redirect_uri' => 'https://platform.example/api/amocrm/install/excel',
-            'services.amocrm.client_id' => 'platform-client',
-            'services.amocrm.client_secret' => 'platform-secret',
-        ]);
-        $owner = User::withoutEvents(fn () => User::create([
-            'name' => 'Owner', 'email' => 'owner@example.test', 'password' => 'test',
-        ]));
-        $shared = (new Account)->forceFill([
-            'user_id' => $owner->id, 'widget' => 'default', 'amo_account_id' => 33098322,
-            'subdomain' => 'widgetscenario', 'zone' => 'ru', 'active' => true,
-            'client_id' => 'platform-client', 'client_secret' => 'platform-secret',
-            'access_token' => 'shared-access', 'refresh_token' => 'shared-refresh',
-        ]);
-        $shared->save();
-        $before = $shared->fresh()->getAttributes();
-
-        Http::preventStrayRequests();
-        Http::fake([
-            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response([
-                'access_token' => 'excel-access', 'refresh_token' => 'excel-refresh',
-            ]),
-            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response([
-                'id' => 33098322, 'current_user_id' => 778899,
-            ]),
-            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response([
-                'id' => 778899, 'email' => 'installer@example.test',
-            ]),
-        ]);
-        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
-        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
-        Password::shouldReceive('sendResetLink')->never();
-        Artisan::shouldReceive('call')->once()->andReturn(0);
-
-        $result = app(AmoCrmWidgetInstallationService::class)
-            ->install('excel-code', 'widgetscenario.amocrm.ru', 'import-excel');
-
-        $this->assertSame($owner->id, $result['user']->id);
-        $this->assertSame('excel-client', $result['account']->client_id);
-        $this->assertSame('excel-secret', $result['account']->client_secret);
-        $this->assertSame('excel-access', $result['account']->access_token);
-        $this->assertSame('excel-refresh', $result['account']->refresh_token);
-        $this->assertSame($result['account']->id, $owner->resolveAmoAccountForWidget('import-excel')->id);
-        $this->assertSame($before, $shared->fresh()->getAttributes());
-        Http::assertSentCount(3);
-        Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/oauth2/access_token')
-            && $request['client_id'] === 'excel-client'
-            && $request['client_secret'] === 'excel-secret'
-            && $request['redirect_uri'] === 'https://platform.example/api/amocrm/install/excel');
-    }
-
     private function prepareFinderPlatformInstall(): User
     {
         Queue::fake();

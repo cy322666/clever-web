@@ -18,7 +18,7 @@
         <label :for="mode === 'value' && @js($hasOptions) ? @js($getId()) : @js($getId().'-value')">{{ $getLabel() }}@if($isRequired())<span aria-hidden="true"> *</span>@endif</label>
         <div class="workflow-value-field__modes" role="group" aria-label="Способ задания значения">
             <button type="button" :aria-pressed="mode === 'value'" x-on:click="mode = 'value'; if (String(state ?? '').includes('{' + '{')) state = ''">Значение</button>
-            <button type="button" :aria-pressed="mode === 'expression'" x-on:click="mode = 'expression'; $nextTick(() => $refs.value.focus())">Переменная</button>
+            <button type="button" :aria-pressed="mode === 'expression'" x-on:click="mode = 'expression'; $nextTick(() => { $refs.value.focus(); $dispatch('workflow-open-sources'); })">Переменная</button>
         </div>
         </div>
         @if ($hasOptions)
@@ -51,6 +51,9 @@
             <datalist id="{{ $getId() }}-suggestions">@foreach($getValueSuggestions() as $suggestion)<option value="{{ $suggestion }}"></option>@endforeach</datalist>
             @endif
         </x-filament::input.wrapper>
+        <div class="workflow-value-binding" x-show="binding" x-cloak>
+            <strong x-text="binding?.label"></strong><small x-text="binding?.preview"></small>
+        </div>
         <div class="workflow-value-suggestions" x-show="suggestions.length" x-cloak role="listbox" aria-label="Подсказки переменных">
             <template x-for="(item, index) in suggestions" :key="item.expression">
                 <button type="button" role="option" :aria-selected="index === suggestionIndex"

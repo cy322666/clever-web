@@ -178,8 +178,10 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         $start = \App\Services\Workflows\WorkflowStartNodes::selected($definition, $context->getTriggerData());
         $active = array_fill_keys(WorkflowGraph::targets($connections, $start), true);
         $index = 0;
+        try {
         foreach (WorkflowGraph::ordered($definition) as $id => $entry) {
             if (!isset($active[$id])) continue;
+            if ($context instanceof AppWorkflowContext) $context->scopeToNode($definition, $id);
             $step = $entry['step'];
             unset($step['config']['true_actions'], $step['config']['false_actions']);
             $run->update(['current_step_index' => $index++]);
@@ -196,6 +198,9 @@ class WorkflowExecutor extends BaseWorkflowExecutor
             if (WorkflowGraph::condition($step) && !$result['success']) continue;
             $port = WorkflowGraph::condition($step) ? (($result['output']['passed'] ?? false) ? 'yes' : 'no') : 'output';
             foreach (WorkflowGraph::targets($connections, $id, $port) as $target) $active[$target] = true;
+        }
+        } finally {
+            if ($context instanceof AppWorkflowContext) $context->clearNodeScope();
         }
         $run->update(['context_data' => $context->toArray()]);
     }

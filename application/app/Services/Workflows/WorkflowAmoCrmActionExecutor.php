@@ -26,6 +26,7 @@ class WorkflowAmoCrmActionExecutor
      * @var array<int, array<string, mixed>>
      */
     private array $capturedAmoExchange = [];
+    private ?WorkflowContext $mutationContext = null;
 
     public function __construct(
         private readonly WorkflowAmoCrmLoopGuard $loopGuard,
@@ -41,6 +42,7 @@ class WorkflowAmoCrmActionExecutor
         $client = null;
         $this->captureAmoExchange = true;
         $this->capturedAmoExchange = [];
+        $this->mutationContext = $context;
 
         try {
             $config = $this->normalizeEntitySource($config);
@@ -53,7 +55,7 @@ class WorkflowAmoCrmActionExecutor
             $account = $this->resolveAccount($context);
 
             if (!$account instanceof Account) {
-                return $this->failure('Не найден подключенный аккаунт amoCRM для процесса.');
+                return $this->failure('Подключите виджет «Потоки» к amoCRM. Подключения других виджетов не используются.');
             }
 
             // Client refreshes OAuth data in the existing storage. Workflow actions below use v4 HTTP endpoints directly.
@@ -99,6 +101,8 @@ class WorkflowAmoCrmActionExecutor
             if ($e instanceof \InvalidArgumentException) $result['retryable'] = false;
 
             return $this->captureAmoExchange ? $this->withAmoExchange($result, $client) : $result;
+        } finally {
+            $this->mutationContext = null;
         }
     }
 
@@ -134,6 +138,11 @@ class WorkflowAmoCrmActionExecutor
         $payload = [
             'name' => (string)($config['name'] ?? $this->defaultName($entity)),
         ];
+        // Omitting the name lets amoCRM choose its own default. An empty JSON
+        // object must remain an object even when no other fields were supplied.
+        if ($entity === 'lead' && trim((string) ($config['name'] ?? '')) === '') {
+            unset($payload['name']);
+        }
 
         if (!empty($config['responsible_user_id'])) {
             $payload['responsible_user_id'] = (int)$config['responsible_user_id'];
@@ -152,6 +161,18 @@ class WorkflowAmoCrmActionExecutor
 
             if (!empty($config['status_id'])) {
                 $payload['status_id'] = (int)$config['status_id'];
+            }
+
+            // Attach existing entities in the same create request, without a second
+            // write that could leave a partially linked lead or retry its creation.
+            foreach (['contact_id' => 'contacts', 'company_id' => 'companies'] as $field => $relation) {
+                $value = $config[$field] ?? null;
+                if ($value === null || (is_string($value) && trim($value) === '')) continue;
+                $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                if (is_bool($value) || $id === false) {
+                    throw new \InvalidArgumentException(($field === 'contact_id' ? 'ID контакта' : 'ID компании').' должен быть положительным целым числом или переменной с таким ID.');
+                }
+                $payload['_embedded'][$relation] = [['id' => $id]];
             }
         }
 
@@ -181,10 +202,12 @@ class WorkflowAmoCrmActionExecutor
             }
         }
 
-        $body = $this->amoRequest($account, 'POST', '/api/v4/' . $this->entityPlural($entity), [$payload]);
+        $body = $this->amoRequest($account, 'POST', '/api/v4/' . $this->entityPlural($entity), [$payload === [] ? new \stdClass : $payload]);
         $entityId = $this->extractEmbeddedEntityId($body, $entity);
 
-        $this->linkCreatedEntityToTarget($account, $entity, $entityId, $config, $context);
+        if ($entity !== 'lead' || (empty($payload['_embedded']['contacts']) && empty($payload['_embedded']['companies']))) {
+            $this->linkCreatedEntityToTarget($account, $entity, $entityId, $config, $context);
+        }
         $this->rememberAmoMutation($account, $context, 'amocrm_create_' . $entity, $entity, $entityId, [
             'add_' . $entity,
         ]);
@@ -884,7 +907,9 @@ class WorkflowAmoCrmActionExecutor
         if ($userId <= 0) return null;
 
         if ($triggerAccountId > 0) {
-            $query = Account::query()->whereKey($triggerAccountId)->where('active', true)->where('user_id', $userId);
+            $query = WorkflowConnectionAccess::accounts()->whereKey($triggerAccountId)
+                ->where('active', true)->where('user_id', $userId)
+                ->whereNotNull('refresh_token')->where('refresh_token', '<>', '');
 
             return $query->first();
         }
@@ -903,7 +928,7 @@ class WorkflowAmoCrmActionExecutor
      */
     private function normalizeEntitySource(array $config): array
     {
-        if (in_array($config['entity_source'] ?? null, ['context', 'manual'], true)) {
+        if (in_array($config['entity_source'] ?? null, ['context', 'trigger', 'input', 'manual'], true)) {
             return $config;
         }
 
@@ -918,7 +943,7 @@ class WorkflowAmoCrmActionExecutor
      */
     private function entitySource(array $config): string
     {
-        if (in_array($config['entity_source'] ?? null, ['context', 'manual'], true)) {
+        if (in_array($config['entity_source'] ?? null, ['context', 'trigger', 'input', 'manual'], true)) {
             return $config['entity_source'];
         }
 
@@ -938,7 +963,7 @@ class WorkflowAmoCrmActionExecutor
         $configured = $this->singularEntity($configured);
         $allowed = array_values(array_unique(array_map(fn(string $entity): string => $this->singularEntity($entity), $allowed)));
 
-        if ($this->entitySource($config) === 'manual') {
+        if ($this->entitySource($config) !== 'context') {
             return $configured;
         }
 
@@ -984,6 +1009,23 @@ class WorkflowAmoCrmActionExecutor
     {
         $entity = $this->singularEntity($entity);
 
+        if ($this->entitySource($config) === 'input') {
+            if (!$context instanceof \App\Workflows\Context\WorkflowContext) {
+                throw new \InvalidArgumentException('Вход ноды недоступен. Укажите ID или переменную.');
+            }
+            $input = $context->getNodeInput();
+            if (!is_array($input)) return 0;
+            if (isset($input['items']) || array_is_list($input)) {
+                throw new \InvalidArgumentException('На входе список. Выберите ID конкретной записи через переменную.');
+            }
+            // Never select an arbitrary related record or a record from another branch.
+            $inputType = $this->singularEntity((string)($input['entity_type'] ?? $input['entity'] ?? ''));
+            if ($inputType === $entity) {
+                return $this->numericId($input['entity_id'] ?? $input['id'] ?? Arr::get($input, 'item.id'));
+            }
+            return $this->numericId(Arr::get($input, $entity . '.id'));
+        }
+
         if ($this->entitySource($config) === 'manual') {
             foreach (['target_entity_id', 'entity_id'] as $key) {
                 if (array_key_exists($key, $config)) {
@@ -1003,7 +1045,7 @@ class WorkflowAmoCrmActionExecutor
                     ?: $this->numericId(Arr::get($data, 'id')))
                 : 0);
 
-        if ($triggerId > 0) {
+        if ($triggerId > 0 || $this->entitySource($config) === 'trigger') {
             return $triggerId;
         }
 
@@ -1671,6 +1713,19 @@ class WorkflowAmoCrmActionExecutor
             $options['json'] = $payload;
         }
 
+        $journal = app(WorkflowWriteJournal::class);
+        $intent = null;
+        $linkPath = $relatedPath = null;
+        if (WorkflowWriteJournal::enabled() && $this->mutationContext && ($target = $journal->target($method, $path))) {
+            if (in_array($target['operation'], ['link','unlink'])) {
+                $linkPath = preg_replace('~/(link|unlink)$~', '', $path);
+                $related = $journal->related($target, $payload[0] ?? $payload ?? []);
+                $relatedPath = $related && $related['id'] > 0 ? '/api/v4/'.$this->entityPlural($related['entity']).'/'.$related['id'] : null;
+            }
+            $before = $linkPath || ($method === 'PATCH' && $target['entity_id'] > 0) ? $this->amoRequest($account, 'GET', $linkPath ?? $path) : [];
+            $relatedBefore = $relatedPath ? $this->amoRequest($account, 'GET', $relatedPath) : [];
+            $intent = $journal->begin($account, $this->mutationContext, $target, $payload ?? [], $before, $relatedBefore);
+        }
         try {
             $response = Http::withToken((string)$account->access_token)
                 ->withoutRedirecting()
@@ -1680,6 +1735,7 @@ class WorkflowAmoCrmActionExecutor
                 ->send($method, $url, $options);
         } catch (\Illuminate\Http\Client\ConnectionException $error) {
             $this->captureAmoRequest($method, $url, $query, $payload, null, null);
+            $journal->finish($intent, 'uncertain');
             throw $error;
         }
 
@@ -1687,9 +1743,21 @@ class WorkflowAmoCrmActionExecutor
         $this->captureAmoRequest($method, $url, $query, $payload, $response, $body);
 
         if ($response->failed() || ($expectedStatus !== null && $response->status() !== $expectedStatus)) {
+            $journal->finish($intent, $response->clientError() && $response->status() !== 408 ? 'failed' : 'uncertain');
             throw new RuntimeException($this->amoErrorMessage($method, $path, $response, $body));
         }
 
+        $after = $relatedAfter = [];
+        if ($intent && $linkPath) {
+            try {
+                $after = $this->amoRequest($account, 'GET', $linkPath);
+                $relatedAfter = $relatedPath ? $this->amoRequest($account, 'GET', $relatedPath) : [];
+            } catch (Throwable) {
+                // The write succeeded. A failed verification read must not repeat it.
+                // Missing revision evidence keeps the resulting webhook under review.
+            }
+        }
+        $journal->finish($intent, 'confirmed', is_array($body) ? $body : [], $after, $relatedAfter);
         return is_array($body) ? $body : [];
     }
 
@@ -2025,6 +2093,7 @@ class WorkflowAmoCrmActionExecutor
         int $entityId,
         array $events
     ): void {
+        if (WorkflowWriteJournal::enabled()) return;
         $this->loopGuard->rememberMutation($account, $context, $actionType, $entity, $entityId, $events);
     }
 

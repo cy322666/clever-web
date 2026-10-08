@@ -1,5 +1,19 @@
 <x-filament-panels::page class="workflow-list-page">
     @include('filament.workflow-builder.workflow-overview-nav', ['active' => 'workflows'])
+    @php($eventReviews = $this->pendingEventReviews())
+    @if($eventReviews->isNotEmpty())
+    <details class="workflow-event-reviews">
+        <summary>События требуют проверки: {{ $eventReviews->count() }}{{ $eventReviews->count() === 50 ? '+' : '' }}</summary>
+        <p>Запуски приостановлены: не удалось подтвердить, кем сделано изменение. Данные сохранены.</p>
+        @foreach($eventReviews as $eventReview)
+            <div wire:key="event-review-{{ $eventReview->id }}">
+                <span>{{ $eventReview->created_at->format('d.m H:i') }} · {{ $eventReview->event }} · ID {{ $eventReview->entity_id }}</span>
+                <small>{{ $eventReview->reason }}</small>
+                {{ ($this->reviewEventAction)(['id'=>$eventReview->id]) }}
+            </div>
+        @endforeach
+    </details>
+    @endif
     @if((bool) auth()->user()?->is_root)
         {{ $this->table }}
     @else

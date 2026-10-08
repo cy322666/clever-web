@@ -148,7 +148,6 @@ class WorkflowWebhookSetupTest extends TestCase
     public function test_current_workflow_oauth_secret_and_redirect_are_applied_before_api_calls(): void
     {
         Schema::table('accounts', function (Blueprint $table): void {
-            $table->string('client_id')->nullable();
             $table->string('client_secret')->nullable();
             $table->string('redirect_uri')->nullable();
         });
@@ -187,6 +186,6 @@ class WorkflowWebhookSetupTest extends TestCase
 
     private function account(): Account
     {
-        return (new Account)->forceFill(['id' => 1, 'user_id' => 1, 'active' => true, 'subdomain' => 'test', 'refresh_token' => 'test-only']);
+        return (new Account)->forceFill(['id' => 1, 'user_id' => 1, 'widget' => 'workflows', 'client_id' => 'workflow-client-id', 'active' => true, 'subdomain' => 'test', 'refresh_token' => 'test-only']);
     }
 }

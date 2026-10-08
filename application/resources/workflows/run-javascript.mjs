@@ -24,10 +24,13 @@ try {
     result = context.evalCode(`(() => {
         const data = JSON.parse(__input_json);
         delete globalThis.__input_json;
-        const $json = data.json ?? {};
+        Object.defineProperty(globalThis, '$json', { get() {
+            if (data.inputError) throw new Error(data.inputError);
+            return data.json ?? {};
+        } });
         const $node = data.nodes ?? {};
-        const items = Array.isArray($json.items) ? $json.items.map(item => ({ json: item })) : [{ json: $json }];
-        const $input = Object.freeze({ all: () => items, first: () => items[0] ?? { json: {} } });
+        const inputItems = () => Array.isArray($json.items) ? $json.items.map(item => ({ json: item })) : [{ json: $json }];
+        const $input = Object.freeze({ all: inputItems, first: () => inputItems()[0] ?? { json: {} } });
         const logs = [];
         const console = Object.freeze({ log: (...args) => { if (logs.length < 50) logs.push(args.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join(' ').slice(0, 2000)); } });
         const output = (function () { 'use strict';\n${request.code}\n})();

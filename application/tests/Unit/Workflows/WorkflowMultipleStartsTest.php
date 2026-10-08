@@ -14,6 +14,21 @@ use Tests\TestCase;
 
 class WorkflowMultipleStartsTest extends TestCase
 {
+    public function test_clicking_a_start_opens_the_picker_for_that_start_not_a_new_branch(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class);
+        $before = $page->get('workflowActions');
+        $page->set('definition', ['trigger' => $page->get('trigger'), 'actions' => $before]);
+        $page->call('beginTriggerReplace', 'trigger')
+            ->assertSet('replacingTriggerNodeId', 'trigger')
+            ->assertDispatched('workflow-node-library-open', mode: 'trigger')
+            ->call('selectTriggerType', 'amo-button');
+        $this->assertSame('amo-button', $page->get('trigger')['type']);
+        $this->assertSame($before, $page->get('workflowActions'));
+        $this->assertEmpty($page->get('definition')['additional_triggers'] ?? []);
+        $page->assertSee('Выбрать запуск:', false);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

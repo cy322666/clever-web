@@ -54,6 +54,13 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         }
         $result = $installation->install(...$arguments);
 
+        if ($this->widget === 'workflows' && ($this->completionToken ?? null)) {
+            app(\App\Services\Workflows\WorkflowInstallationStatus::class)->put($this->completionToken, [
+                'status' => 'completed',
+                'user_id' => (int) $result['user']->id,
+            ]);
+        }
+
         if ($this->widget === 'finder' && ($this->completionToken ?? null)) {
             app(\App\Services\Finder\InstallationStatus::class)->put($this->completionToken, [
                 'status' => 'completed',
@@ -71,6 +78,10 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
+        if ($this->widget === 'workflows' && ($this->completionToken ?? null)) {
+            app(\App\Services\Workflows\WorkflowInstallationStatus::class)->put($this->completionToken, ['status' => 'failed']);
+        }
+
         if ($this->widget === 'finder' && ($this->completionToken ?? null)) {
             app(\App\Services\Finder\InstallationStatus::class)->put($this->completionToken, ['status' => 'failed']);
         }
@@ -82,7 +93,7 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         ]);
 
         $prefix = 'services.amocrm.widgets.'.$this->widget.'.';
-        $fallbackToPlatform = $this->widget !== 'import-excel' && $this->widget !== 'yclients'
+        $fallbackToPlatform = $this->widget !== 'yclients'
             && (bool) config($prefix.'fallback_to_platform_credentials', true);
 
         app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install_failed', $this->widget, [], [

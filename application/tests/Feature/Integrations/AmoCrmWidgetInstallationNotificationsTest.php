@@ -177,21 +177,6 @@ class AmoCrmWidgetInstallationNotificationsTest extends TestCase
             && ! str_contains($request['text'], 'unrelated-client'));
     }
 
-    public function test_missing_excel_client_id_does_not_report_the_platform_client(): void
-    {
-        config([
-            'services.amocrm.widgets.import-excel.client_id' => '',
-            'services.amocrm.widgets.import-excel.fallback_to_platform_credentials' => true,
-            'services.amocrm.client_id' => 'unrelated-client',
-        ]);
-        $job = new CompleteAmoCrmWidgetInstallation('encrypted', 'verified.amocrm.ru', 'import-excel');
-        $job->failed(new \RuntimeException('amoCRM import-excel client_id is not configured.'));
-
-        Http::assertSentCount(1);
-        Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Не настроены параметры OAuth для виджета.')
-            && ! str_contains($request['text'], 'unrelated-client'));
-    }
-
     private function job(?string $token = null): CompleteAmoCrmWidgetInstallation
     {
         return new CompleteAmoCrmWidgetInstallation(

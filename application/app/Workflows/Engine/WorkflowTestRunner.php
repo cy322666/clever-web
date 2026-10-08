@@ -34,8 +34,10 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         $edges = \App\Services\Workflows\WorkflowGraph::connections($this->graphDefinition);
         $active = array_fill_keys(\App\Services\Workflows\WorkflowGraph::targets($edges, \App\Services\Workflows\WorkflowStartNodes::selected($this->graphDefinition, $context->getTriggerData())), true);
         $results = [];
+        try {
         foreach (\App\Services\Workflows\WorkflowGraph::ordered($this->graphDefinition) as $id => $node) {
             if (!isset($active[$id])) continue;
+            if ($context instanceof WorkflowContext) $context->scopeToNode($this->graphDefinition, $id);
             $step = $node['step'];
             unset($step['config']['true_actions'], $step['config']['false_actions']);
             $condition = \App\Services\Workflows\WorkflowGraph::condition($step);
@@ -44,6 +46,9 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             if (in_array($result['status'], ['error', 'validation_error'], true)) break;
             $port = $condition ? ((($step['disabled'] ?? false) || ($result['condition_result'] ?? false)) ? 'yes' : 'no') : 'output';
             foreach (\App\Services\Workflows\WorkflowGraph::targets($edges, $id, $port) as $target) $active[$target] = true;
+        }
+        } finally {
+            if ($context instanceof WorkflowContext) $context->clearNodeScope();
         }
         return $results;
     }

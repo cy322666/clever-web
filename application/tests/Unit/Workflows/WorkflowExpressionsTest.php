@@ -67,7 +67,7 @@ class WorkflowExpressionsTest extends TestCase
         $sources = WorkflowExpressionCatalog::sources($actions, 'no', []);
         $this->assertSame(['trigger', 'before', 'if'], array_column($sources, 'id'));
         $this->assertFalse($sources[1]['available']);
-        $this->assertContains('{{ $node['.json_encode($sources[1]['name'], JSON_UNESCAPED_UNICODE).'].json.items[0].id }}', array_column($sources[1]['fields'], 'expression'));
+        $this->assertContains('{{ $('.json_encode($sources[1]['name'], JSON_UNESCAPED_UNICODE).')[0].id }}', array_column($sources[1]['fields'], 'expression'));
     }
 
     public function test_read_query_does_not_invent_lead_fields_before_execution(): void
@@ -76,9 +76,9 @@ class WorkflowExpressionsTest extends TestCase
         $sources = WorkflowExpressionCatalog::sources($actions, 'next', []);
         $paths = array_column($sources[1]['fields'], 'path');
 
-        $this->assertContains('.data', $paths);
-        $this->assertContains('.items[0].id', $paths);
-        $this->assertNotContains('.items[0].pipeline_id', $paths);
+        $this->assertNotContains('.data', $paths);
+        $this->assertContains('[0].id', $paths);
+        $this->assertNotContains('[0].pipeline_id', $paths);
         $this->assertFalse($sources[1]['available']);
     }
 
@@ -155,7 +155,7 @@ class WorkflowExpressionsTest extends TestCase
         $input = ['body'=>$body,'payload'=>$body,'headers'=>['host'=>'test'],'query'=>[], 'method'=>'POST','received_at'=>'today'];
         $definition = ['trigger'=>['type'=>'generic-webhook','name'=>'Вебхук']];
         $source = WorkflowExpressionCatalog::sources([],null,['trigger_data'=>$input],null,$definition)[0];
-        $this->assertSame('.body',$source['fields'][0]['key']);
+        $this->assertSame('',$source['fields'][0]['key']);
         $this->assertSame(['Результат','leads','status','[0]','id'],array_column($source['fields'],'label'));
         $context = (new WorkflowContext($input))->setVariable('_node_names',WorkflowExpressionCatalog::nodeNames([],$definition));
         $this->assertSame(42,$context->resolve($source['fields'][4]['expression']));

@@ -18,7 +18,8 @@ class WorkflowNodeLibraryTest extends TestCase
         }
         $this->assertStringContainsString('<strong>Примечания</strong>', $html);
         $this->assertStringContainsString('<strong>Теги</strong>', $html);
-        $this->assertStringContainsString('<small>Контакты</small>', $html);
+        $this->assertStringNotContainsString('<small>', $html);
+        $this->assertStringContainsString('<strong>Телеграм</strong>', $html);
         $this->assertStringNotContainsString(' · GET', $html);
         $this->assertStringNotContainsString('GET-запрос', $html);
         $this->assertStringContainsString('<strong>Запрос amoCRM</strong>', $html);

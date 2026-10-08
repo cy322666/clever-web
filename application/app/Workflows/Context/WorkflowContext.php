@@ -11,16 +11,80 @@ use Leek\FilamentWorkflows\Context\WorkflowContext as BaseWorkflowContext;
 
 class WorkflowContext extends BaseWorkflowContext
 {
+    private ?array $graphInputs = null;
+    private ?array $upstreamStepIds = null;
+
+    /** Scope implicit input to connected predecessors; explicit node references stay available. */
+    public function scopeToNode(array $definition, string $nodeId): void
+    {
+        $graph = \App\Services\Workflows\WorkflowGraph::class;
+        $nodes = $graph::nodes($definition['actions'] ?? []);
+        $edges = $graph::connections($definition);
+        $start = \App\Services\Workflows\WorkflowStartNodes::selected($definition, $this->getTriggerData());
+        $this->upstreamStepIds = array_fill_keys(array_map(fn ($id) => substr($id, 7), $graph::ancestors($definition, $nodeId)), true);
+        $resolve = function (string $target, array $visited = []) use (&$resolve, $nodes, $edges, $start, $graph): array {
+            if (isset($visited[$target])) return [];
+            $visited[$target] = true;
+            $inputs = [];
+            foreach ($edges as $edge) {
+                if ($edge['targetId'] !== $target) continue;
+                $source = $edge['sourceId'];
+                if ($source === $start) {
+                    $inputs[$source] = $this->getTriggerData();
+                    continue;
+                }
+                if (!isset($nodes[$source])) continue;
+                $step = $nodes[$source]['step'];
+                if ($step['disabled'] ?? false) {
+                    if (!$graph::condition($step) || $edge['sourcePort'] === 'yes') {
+                        $inputs += $resolve($source, $visited);
+                    }
+                    continue;
+                }
+                if (!$this->hasStepOutput($step['id'])) continue;
+                $output = $this->getStepOutput($step['id']);
+                if ($graph::condition($step) && $edge['sourcePort'] !== (($output['passed'] ?? false) ? 'yes' : 'no')) continue;
+                $inputs[$source] = $output;
+            }
+            return $inputs;
+        };
+        $this->graphInputs = $resolve($nodeId);
+    }
+
+    public function clearNodeScope(): void
+    {
+        $this->graphInputs = $this->upstreamStepIds = null;
+    }
+
+    public function getStepOutputs(): array
+    {
+        $outputs = parent::getStepOutputs();
+        return $this->upstreamStepIds === null ? $outputs : array_intersect_key($outputs, $this->upstreamStepIds);
+    }
+
+    public function getNodeInput(): mixed
+    {
+        if ($this->graphInputs !== null) {
+            if (count($this->graphInputs) > 1) {
+                throw new \InvalidArgumentException('У ноды несколько входов. Вместо $json выберите данные конкретной ноды.');
+            }
+            return $this->graphInputs === [] ? null : reset($this->graphInputs);
+        }
+        $outputs = $this->getStepOutputs();
+        return $outputs === [] ? $this->getTriggerData() : end($outputs);
+    }
+
     public function get(string $path): mixed
     {
         if ($path === '$json' || str_starts_with($path, '$json.')) {
-            $outputs = $this->getStepOutputs();
-            $value = $outputs === [] ? $this->getTriggerData() : end($outputs);
+            $value = $this->getNodeInput();
             return $path === '$json' ? $value : Arr::get($value, $this->expressionPath(substr($path, 6)));
         }
         $quoted = '("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
+        $shortReference = false;
         if (preg_match('/^\$node\['.$quoted.'\]\.json(.*)$/u', $path, $match)
-            || preg_match('/^\$\('.$quoted.'\)\.(?:item|first\(\))\.json(.*)$/u', $path, $match)) {
+            || preg_match('/^\$\('.$quoted.'\)\.(?:item|first\(\))\.json(.*)$/u', $path, $match)
+            || ($shortReference = (bool) preg_match('/^\$\('.$quoted.'\)((?:[.\[].*)?)$/u', $path, $match))) {
             $key = $match[1][0] === '"' ? json_decode($match[1], true) : str_replace(["\\'", '\\\\'], ["'", '\\'], substr($match[1], 1, -1));
             if (!is_string($key)) return null;
             $legacyTrigger = $key === 'trigger';
@@ -31,9 +95,11 @@ class WorkflowContext extends BaseWorkflowContext
             if ($key === 'trigger' || str_starts_with($key, 'trigger:')) {
                 if (!$legacyTrigger && $key !== ($this->getTriggerData()['_workflow_start_node_id'] ?? 'trigger')) return null;
                 $nested = $this->expressionPath($match[2]);
-                return $nested === '' ? $this->getTriggerData() : Arr::get($this->getTriggerData(), $nested);
+                $value = $shortReference ? \App\Services\Workflows\WorkflowOutputView::trigger($this->getTriggerData()) : $this->getTriggerData();
+                return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
             }
             $value = $this->getStepOutput($key);
+            if ($shortReference) $value = \App\Services\Workflows\WorkflowOutputView::value($value);
             $nested = $this->expressionPath($match[2]);
             return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
         }

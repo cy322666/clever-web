@@ -72,7 +72,7 @@ trait SyncAmoCRMPage
                         ->title('Не настроен client_id для виджета')
                         ->body(
                             'Для подключения amoCRM укажите client_id в services.amocrm.widgets.'.$widget.'.client_id'
-                            .($widget === 'import-excel' ? '' : ' или общий services.amocrm.client_id')
+                            .($widget === 'workflows' ? '' : ' или общий services.amocrm.client_id')
                         )
                         ->danger()
                         ->send();
@@ -211,16 +211,12 @@ trait SyncAmoCRMPage
 
     protected function resolveOauthClientId(string $widget, Account $account): string
     {
-        if (Account::normalizeWidget($widget) === 'import-excel') {
-            return trim((string) config('services.amocrm.widgets.import-excel.client_id', ''));
-        }
-
         if ($this->shouldUseSharedAmoConnector($widget, $account)) {
             return (string) config('services.amocrm.client_id', '') ?: (string) $account->client_id;
         }
 
         $configWidgetClientId = (string) config('services.amocrm.widgets.'.$widget.'.client_id', '');
-        if (Account::normalizeWidget($widget) === 'yclients') {
+        if (in_array(Account::normalizeWidget($widget), ['yclients', 'workflows'], true)) {
             return $configWidgetClientId;
         }
 

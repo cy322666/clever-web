@@ -112,6 +112,11 @@ final class WorkflowExecutionGraph
             $result['occurrence_count'] = $attemptCounts[$result['id']] ?? 1;
             $result['name'] ??= $names['action:'.$result['id']] ?? $metadata[$result['type']]['name'] ?? 'Нода';
             $result['explanation'] = WorkflowExecutionExplanation::forResult($result);
+            $output = $result['output'] ?? [];
+            $result['display_output'] = WorkflowOutputView::isCondition($output)
+                ? ($output['passed'] ? 'Условие выполнено. Ветка «Да».' : 'Условие не выполнено. Ветка «Нет».')
+                : WorkflowOutputView::value($output);
+            $result['display_responses'] = array_map(fn ($exchange) => WorkflowOutputView::entity($exchange['response']['body'] ?? null), $output['amo_exchange'] ?? []);
         }
         unset($result);
 

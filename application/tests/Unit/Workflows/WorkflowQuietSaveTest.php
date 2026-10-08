@@ -47,12 +47,34 @@ class WorkflowQuietSaveTest extends TestCase
             'user_id' => 1, 'name' => 'До сохранения', 'is_active' => false,
             'definition' => ['trigger' => ['type' => 'manual', 'config' => []], 'actions' => []],
         ]);
-        Livewire::test(EditWorkflow::class, ['record' => $record->id])
+        $page = Livewire::test(EditWorkflow::class, ['record' => $record->id]);
+        $canvasDirectives = $this->canvasDirectives($page->html());
+        $saved = $page->get('savedWorkflowEditorState');
+        $this->assertNotNull($saved);
+        $page
             ->set('definition.description', 'После сохранения')
+            ->set('definition.canvas_layout', ['trigger' => ['x' => 120, 'y' => 80]])
             ->call('save')
             ->assertHasNoErrors()
             ->assertNoRedirect();
         $this->assertSame('После сохранения', $record->fresh()->definition['description']);
+        $this->assertSame(['trigger' => ['x' => 120, 'y' => 80]], $record->fresh()->definition['canvas_layout']);
+        $this->assertNotEquals($saved, $page->get('savedWorkflowEditorState'));
+        $this->assertSame($page->instance()->workflowEditorState(), $page->get('savedWorkflowEditorState'));
+        $this->assertSame($canvasDirectives, $this->canvasDirectives($page->html()),
+            'Saving coordinates must not replace x-data and destroy the live canvas observers.');
+        $page->set('definition.canvas_layout.trigger', ['x' => 250, 'y' => -100]);
+        $this->assertSame($canvasDirectives, $this->canvasDirectives($page->html()),
+            'Further coordinate edits must retain the canvas lifecycle directives.');
+        Livewire::test(EditWorkflow::class, ['record'=>$record->id])
+            ->assertSet('definition.canvas_layout', ['trigger'=>['x'=>120,'y'=>80]]);
+    }
+
+    private function canvasDirectives(string $html): array
+    {
+        preg_match_all('/x-data="workflowNodeCanvas[^"]*"|x-init="[^"]*initializeCanvas\\(\\)[^"]*"/', $html, $directives);
+        $this->assertCount(2, $directives[0]);
+        return $directives[0];
     }
 
     public function test_node_save_keeps_data_and_warnings_without_a_saved_toast(): void

@@ -12,6 +12,16 @@ use Tests\TestCase;
 
 class WorkflowConnectionsTest extends TestCase
 {
+    public function test_opening_and_cancelling_a_palette_does_not_change_the_definition(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class);
+        $before = $page->get('definition');
+        $page->call('openAddActionOnConnection', 'action:condition', 'yes', null)
+            ->assertDispatched('workflow-node-library-open', mode: 'action')
+            ->call('cancelActionInsertion');
+        $this->assertSame($before, $page->get('definition'));
+    }
+
     public function test_switching_catalogue_categories_keeps_the_plus_insertion_edge(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class)

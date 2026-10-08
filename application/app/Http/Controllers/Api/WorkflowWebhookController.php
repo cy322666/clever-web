@@ -26,6 +26,11 @@ class WorkflowWebhookController extends Controller
             ], 403);
         }
 
+        if (!\App\Services\Workflows\WorkflowConnectionAccess::isWidgetAccount($account)
+            || !$account->active || !filled($account->refresh_token)) {
+            return response()->json(['ok' => false, 'message' => 'Подключите виджет «Потоки» к amoCRM.'], 403);
+        }
+
         if (!app(WidgetSubscriptionAccessService::class)->canUse((int)$account->user_id, 'workflows')) {
             return response()->json([
                 'ok' => false,

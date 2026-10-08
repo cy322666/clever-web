@@ -13,7 +13,7 @@ class WorkflowButtonEntitySnapshot
     {
         if (($data['source'] ?? '') !== 'amocrm-button' || ($data['entity_snapshot']['version'] ?? null) === 1) return $data;
         $leadId = filter_var($data['lead']['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-        $account = Account::query()->whereKey($data['account']['id'] ?? 0)->where('user_id',$userId)->where('active',true)->first();
+        $account = WorkflowConnectionAccess::accounts()->whereKey($data['account']['id'] ?? 0)->where('user_id',$userId)->where('active',true)->first();
         if (!$leadId || !$account || !filled($account->refresh_token)) throw new NonRetryableWorkflowException('Не удалось загрузить карточку: нет сделки или активного подключения amoCRM.');
         $client = $this->client($account);
         $lead = $client->requestV4('GET','/api/v4/leads/'.$leadId,query:['with'=>'contacts,catalog_elements,loss_reason,source,is_price_modified_by_robot']);

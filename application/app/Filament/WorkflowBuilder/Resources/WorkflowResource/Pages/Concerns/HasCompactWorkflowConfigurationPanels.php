@@ -9,6 +9,48 @@ use Filament\Schemas\Components\View;
 
 trait HasCompactWorkflowConfigurationPanels
 {
+    public function workflowNodeNavigation(): array
+    {
+        $definition = array_merge($this->definition, ['actions' => $this->workflowActions, 'trigger' => $this->trigger]);
+        $isTrigger = ($this->mountedActions[0]['name'] ?? '') === 'configureTrigger';
+        $current = $isTrigger ? $this->editingTriggerNodeId : 'action:'.$this->editingActionId;
+        $names = \App\Services\Workflows\WorkflowExpressionCatalog::referenceNames($this->workflowActions, $definition);
+        $starts = \App\Services\Workflows\WorkflowStartNodes::all($definition);
+        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions);
+        $navigation = ['name' => $names[$isTrigger ? $current : $this->editingActionId] ?? 'Нода', 'previous' => [], 'next' => []];
+        foreach (\App\Services\Workflows\WorkflowGraph::connections($definition) as $edge) {
+            $direction = $edge['sourceId'] === $current ? 'next' : ($edge['targetId'] === $current ? 'previous' : null);
+            if ($direction === null) continue;
+            $id = $direction === 'next' ? $edge['targetId'] : $edge['sourceId'];
+            if (!isset($nodes[$id]) && !in_array($starts[$id]['type'] ?? '', ['schedule', 'generic-webhook'], true)) continue;
+            $name = $names[str_starts_with($id, 'action:') ? substr($id, 7) : $id] ?? 'Нода';
+            $branch = ['yes' => 'Да', 'no' => 'Нет'][$edge['sourcePort']] ?? null;
+            $navigation[$direction][$id] = ['id' => $id, 'name' => $name, 'label' => $branch ? $branch.' · '.$name : $name];
+        }
+        $navigation['previous'] = array_values($navigation['previous']);
+        $navigation['next'] = array_values($navigation['next']);
+        return $navigation;
+    }
+
+    public function navigateWorkflowNode(string $target): void
+    {
+        if (count($this->mountedActions) !== 1 || !in_array($this->mountedActions[0]['name'] ?? '', ['configureWorkflowAction', 'configureTrigger'], true)) return;
+        $navigation = $this->workflowNodeNavigation();
+        if (!in_array($target, array_column(array_merge($navigation['previous'], $navigation['next']), 'id'), true)) return;
+        // Use the same validation, dehydration and save handler as the Done button.
+        // This updates the editor draft only, not the saved/published workflow.
+        $this->callMountedAction();
+        if ($this->mountedActions !== []) return;
+        // Mounting another node uses the same action name and nesting index.
+        // Discard the previous schema, as Filament's replaceMountedAction() does.
+        $this->cachedMountedActions = null;
+        foreach (array_keys($this->cachedSchemas) as $schemaName) {
+            if (str_starts_with($schemaName, 'mountedActionSchema')) unset($this->cachedSchemas[$schemaName]);
+        }
+        if (str_starts_with($target, 'action:')) $this->openWorkflowActionEditor(substr($target, 7));
+        else $this->editTriggerNode($target);
+    }
+
     public function refreshEditingNodeReferences(): void
     {
         $step = $this->getEditingWorkflowAction();
@@ -41,7 +83,7 @@ trait HasCompactWorkflowConfigurationPanels
     {
         return parent::configureTriggerAction()
             ->visible(fn (): bool => in_array($this->editingTriggerNode()['type'] ?? '', ['schedule', 'generic-webhook'], true))
-            ->modalHeading(fn () => $this->getTriggerName($this->editingTriggerNode()['type'] ?? ''))
+            ->modalHeading(fn () => new \Illuminate\Support\HtmlString(view('filament.workflow-builder.workflow-node-navigation', $this->workflowNodeNavigation())->render()))
             ->fillForm(fn () => ($this->editingTriggerNode()['type'] ?? '') === 'schedule'
                 ? \App\Workflows\Triggers\ScheduleTrigger::normalize($this->editingTriggerNode()['config'] ?? [])
                 : ($this->editingTriggerNode()['config'] ?? []))
@@ -60,12 +102,13 @@ trait HasCompactWorkflowConfigurationPanels
     public function configureWorkflowActionAction(): Action
     {
         return parent::configureWorkflowActionAction()
+            ->modalHeading(fn () => new \Illuminate\Support\HtmlString(view('filament.workflow-builder.workflow-node-navigation', $this->workflowNodeNavigation())->render()))
             ->fillForm(function () {
                 $step = $this->getEditingWorkflowAction();
                 $config = $step['config'] ?? [];
                 if (str_starts_with((string)($step['type'] ?? ''), 'amocrm_')) {
                     $configuredId = $config['target_entity_id'] ?? $config['entity_id'] ?? null;
-                    if (!in_array($config['entity_source'] ?? null, ['context', 'manual'], true)) {
+                    if (!in_array($config['entity_source'] ?? null, ['context', 'trigger', 'input', 'manual'], true)) {
                         $config['entity_source'] = filled($configuredId) ? 'manual' : 'context';
                     }
 
@@ -189,7 +232,14 @@ trait HasCompactWorkflowConfigurationPanels
         $step = $this->getEditingWorkflowAction();
         $referenceType = $step['type'] ?? '';
         $referencePlan = \App\Services\Workflows\WorkflowNodeReferences::plan($referenceType, $this->mountedActions[array_key_last($this->mountedActions)]['data'] ?? $step['config'] ?? []);
-        return [Grid::make(3)->extraAttributes(['class' => 'workflow-node-settings__workspace'])->schema([
+        return [Grid::make(3)->extraAttributes([
+            'class' => 'workflow-node-settings__workspace workflow-node-settings__workspace--focused',
+            'x-data' => '{ drawer: null }',
+            'x-bind:data-drawer' => 'drawer',
+            'x-on:workflow-open-sources.window' => "if (\$el.closest('.fi-modal-window')?.contains(\$event.target)) drawer = 'sources'",
+            'x-on:workflow-close-sources' => "drawer = null",
+            'x-on:keydown.escape' => "if (drawer) { \$event.stopPropagation(); drawer = null; }",
+        ])->schema([
             View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => $this->getWorkflowExpressionSources()]),
             Group::make([View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')), ...$schema])->extraAttributes(['class' => 'workflow-node-settings__parameters']),
             View::make('filament.workflow-builder.workflow-node-output'),

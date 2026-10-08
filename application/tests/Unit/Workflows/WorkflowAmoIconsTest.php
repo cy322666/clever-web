@@ -16,8 +16,9 @@ class WorkflowAmoIconsTest extends TestCase
         $svg = \Illuminate\Support\Facades\Blade::render(
             '<x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/>',
         );
-        $this->assertStringContainsString('fill="#229ED9"', $svg);
-        $this->assertStringContainsString('fill="#fff"', $svg);
+        $this->assertStringContainsString('stop-color="#229ED9"', $svg);
+        $this->assertStringContainsString('fill="#FFFFFF"', $svg);
+        $this->assertStringContainsString('viewBox="0 0 1000 1000"', $svg);
 
         foreach ([
             resource_path('views/vendor/filament-workflows/components/workflows/node-library.blade.php'),
@@ -51,12 +52,15 @@ class WorkflowAmoIconsTest extends TestCase
         $this->assertCount(3,$svg->g->circle);
         $this->assertSame('white',(string)$svg->g['fill']);
     }
-    public function test_task_and_customer_icons_use_the_filled_two_tone_style(): void
+    public function test_entity_icons_render_as_outlines_on_every_workflow_surface(): void
     {
-        foreach (['task', 'customer'] as $entity) {
-            $svg = app(Factory::class)->svg('amocrm-'.$entity)->toHtml();
-            $this->assertStringContainsString('fill="currentColor"', $svg);
-            $this->assertMatchesRegularExpression('/(?:fill|stroke)="white"/', $svg);
+        foreach (['lead', 'task', 'customer', 'imbox', 'catalog', 'button'] as $entity) {
+            $html = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="amocrm-'.$entity.'"/>');
+            $svg = simplexml_load_string(trim($html));
+            $this->assertSame('none', (string) $svg['fill']);
+            $this->assertSame('currentColor', (string) $svg['stroke']);
+            $this->assertStringContainsString('workflow-amo-icon', $html);
+            $this->assertDoesNotMatchRegularExpression('/fill="(?:currentColor|white)"/', $html);
         }
     }
 
@@ -67,15 +71,14 @@ class WorkflowAmoIconsTest extends TestCase
         $this->assertSame('none', (string) $svg->path['fill']);
     }
 
-    public function test_repeated_deal_icons_have_independent_clipping_references(): void
+    public function test_repeated_brand_icons_have_independent_gradient_references(): void
     {
-        $first = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="amocrm-lead"/>');
-        $second = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="amocrm-lead"/>');
+        $first = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="service-telegram"/>');
+        $second = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="service-telegram"/>');
         preg_match_all('/\bid=["\']([^"\']+)["\']/', $first, $ids);
         $this->assertNotEmpty($ids[1]);
         foreach ($ids[1] as $id) $this->assertStringNotContainsString($id, $second);
-        $this->assertStringContainsString('workflow-amo-icon', $first);
-        $this->assertStringNotContainsString('url(#b)', $first);
+        $this->assertStringNotContainsString('url(#linearGradient-1)', $first);
         $this->assertStringContainsString('workflow-amo-icon', \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="heroicon-o-user" :amo="true"/>'));
         $this->assertStringNotContainsString('workflow-amo-icon', \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="heroicon-o-play"/>'));
     }

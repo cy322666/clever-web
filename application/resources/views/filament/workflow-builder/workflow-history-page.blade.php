@@ -116,6 +116,8 @@
                         </div>
                     </div>
 
+                    @include('filament.workflow-builder.workflow-run-failure', ['run' => $selectedRun])
+
                     <div class="workflow-history-detail__content">
                         @include('filament.workflow-builder.workflow-execution-canvas', ['graph' => \App\Services\Workflows\WorkflowExecutionGraph::fromRun($selectedRun), 'runId' => $selectedRun->getKey()])
                     </div>

@@ -34,7 +34,8 @@ class WorkflowCanvasRunTest extends TestCase
             ->assertSee('Выполнить ноду: Запрос сделок')
             ->call('runWorkflowCanvasNode', 'fetch')->assertHasNoErrors()
             ->assertSet('nodeRunResults.fetch.output.count', 2)
-            ->assertSet('editingActionId', 'fetch');
+            ->assertSet('editingActionId', null)
+            ->assertSet('mountedActions', []);
         $this->assertCount(1, $page->get('nodeRunResults'));
         $page->call('unmountAction')->call('runWorkflowCanvasNode', 'if')->assertHasNoErrors()
             ->assertSet('nodeRunResults.if.output.passed', true);

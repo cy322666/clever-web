@@ -49,7 +49,7 @@ class WorkflowConnectionAccessTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    public function test_activation_accepts_any_active_connection_for_the_same_amo_domain(): void
+    public function test_activation_requires_the_widgets_own_connection_for_the_same_amo_domain(): void
     {
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
         $id = DB::table('accounts')->insertGetId(['user_id'=>2,'widget'=>'workflows','subdomain'=>'client','active'=>false,'refresh_token'=>'test']);
@@ -57,8 +57,11 @@ class WorkflowConnectionAccessTest extends TestCase
         DB::table('accounts')->where('id',$id)->update(['active'=>true,'refresh_token'=>'']);
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
         DB::table('accounts')->where('id',$id)->update(['refresh_token'=>'test','widget'=>'tilda']);
+        $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
+        $this->assertNull(User::findOrFail(2)->resolveAmoAccountForWidget('workflows'));
+        DB::table('accounts')->where('id',$id)->update(['widget'=>'workflows']);
         $this->assertTrue(WorkflowConnectionAccess::hasActiveConnection(2));
-        $this->assertSame('tilda', User::findOrFail(2)->resolveAmoAccountForWidget('workflows')?->widget);
+        $this->assertSame('workflows', User::findOrFail(2)->resolveAmoAccountForWidget('workflows')?->widget);
         DB::table('accounts')->insert(['user_id'=>2,'widget'=>'default','subdomain'=>'different','active'=>true,'refresh_token'=>'old']);
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
     }

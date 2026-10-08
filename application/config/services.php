@@ -54,7 +54,6 @@ return [
                 'client_id' => env('AMO_IMPORT_EXCEL_CLIENT_ID'),
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_IMPORT_EXCEL_REDIRECT_URI', '/api/amocrm/install/excel'),
-                'fallback_to_platform_credentials' => false,
             ],
             'yclients' => [
                 'client_id' => env('AMO_YCLIENTS_CLIENT_ID'),
@@ -75,6 +74,7 @@ return [
                 'client_id' => env('AMO_WORKFLOWS_CLIENT_ID'),
                 'client_secret' => env('AMO_WORKFLOWS_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_WORKFLOWS_REDIRECT_URI', '/api/amocrm/install/flow'),
+                'fallback_to_platform_credentials' => false,
             ],
             'sqns' => [
                 'client_id' => env('AMO_SQNS_CLIENT_ID'),

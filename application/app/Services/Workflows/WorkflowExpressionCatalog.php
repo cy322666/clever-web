@@ -43,9 +43,7 @@ final class WorkflowExpressionCatalog
         $startId = $context['trigger_data']['_workflow_start_node_id'] ?? 'trigger';
         if (!isset($names[$startId])) $startId = 'trigger';
         $input = $context['trigger_data'] ?? [];
-        $start = WorkflowStartNodes::all($definition)[$startId] ?? [];
-        $webhookBody = array_key_exists('body', $input) && (($start['type'] ?? '') === 'generic-webhook' || array_key_exists('headers', $input));
-        $sources = [self::source($startId, $names[$startId] ?? 'Данные запуска', $webhookBody ? $input['body'] : $input, array_key_exists('trigger_data', $context), $webhookBody ? '.body' : '')];
+        $sources = [self::source($startId, $names[$startId] ?? 'Данные запуска', WorkflowOutputView::trigger($input), array_key_exists('trigger_data', $context))];
         $upstream = $connections !== null && $editingId !== null
             ? array_map(fn ($id) => substr($id, 7), WorkflowGraph::ancestors(['actions' => $actions, 'connections' => $connections], 'action:'.$editingId))
             : (self::before($actions, $editingId) ?? []);
@@ -63,14 +61,7 @@ final class WorkflowExpressionCatalog
                 'amocrm_read' => ['data' => [], 'items' => [['id' => null]], 'count' => null, 'has_more' => null],
                 default => [],
             };
-            $exchanges = is_array($output) ? ($output['amo_exchange'] ?? []) : [];
-            $last = array_key_last($exchanges);
-            if ($last !== null && array_key_exists('body', $exchanges[$last]['response'] ?? [])) {
-                $sources[] = self::source($id, $names[$id], $exchanges[$last]['response']['body'], $available, '.amo_exchange['.$last.'].response.body');
-            } else {
-                if (is_array($output)) unset($output['amo_exchange'], $output['amo_exchange_truncated']);
-                $sources[] = self::source($id, $names[$id], $output, $available);
-            }
+            $sources[] = self::source($id, $names[$id], WorkflowOutputView::value($output), $available);
         }
 
         return $sources;
@@ -91,6 +82,10 @@ final class WorkflowExpressionCatalog
             $old = json_encode($name, JSON_UNESCAPED_UNICODE);
             $new = json_encode($after[$id] ?? $id, JSON_UNESCAPED_UNICODE);
             $replacements['$node['.$old.'].json'] = '$node['.$new.'].json';
+            $replacements['$('.$old.')'] = '$('.$new.')';
+            $singleOld = "'".str_replace(['\\', "'"], ['\\\\', "\\'"], $name)."'";
+            $replacements['$('.$singleOld.')'] = '$('.$new.')';
+            $replacements['$node['.$singleOld.'].json'] = '$node['.$new.'].json';
         }
         return preg_replace_callback('/\{\{(.*?)\}\}/su', fn ($match) => '{{'.strtr($match[1], $replacements).'}}', $value);
     }
@@ -109,7 +104,7 @@ final class WorkflowExpressionCatalog
                 'key' => $path, 'parent' => $parent, 'label' => $label, 'depth' => $depth,
                 'type' => is_array($value) ? (array_is_list($value) ? 'array' : 'object') : get_debug_type($value),
                 'count' => is_array($value) && $available ? count($value) : null,
-                'expression' => '{{ $node['.json_encode($name, JSON_UNESCAPED_UNICODE).'].json'.$path.' }}',
+                'expression' => '{{ $('.json_encode($name, JSON_UNESCAPED_UNICODE).')'.$path.' }}',
                 'value' => $available ? $value : null, 'available' => $available,
             ];
             if (! is_array($value)) {

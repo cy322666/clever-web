@@ -118,7 +118,7 @@ class WorkflowAcceptanceCommandTest extends TestCase
         $this->assertSame(1, $command->handle(new WorkflowAcceptanceTelegramReporter));
 
         Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => str_starts_with($request['text'], '🔴') && str_contains($request['text'], 'Redis connection unavailable'));
+        Http::assertSent(fn ($request) => str_starts_with($request['text'], '🔴') && str_contains($request['text'], 'Redis недоступен'));
         $files = glob($this->directory.'/*.json');
         $this->assertCount(1, $files);
         $report = json_decode(file_get_contents($files[0]), true, flags: JSON_THROW_ON_ERROR);

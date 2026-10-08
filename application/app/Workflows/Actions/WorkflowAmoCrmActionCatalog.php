@@ -420,7 +420,7 @@ abstract class WorkflowAmoCrmAction
                         }
                     }
                 )
-                ->visible(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual'),
+                ->visible(fn(Get $get): bool => ($get('entity_source') ?? 'context') !== 'context'),
 
             static::targetEntityIdInput($defaultEntity)
                 ->required(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual')
@@ -451,8 +451,10 @@ abstract class WorkflowAmoCrmAction
         return ToggleButtons::make('entity_source')
             ->label('Как выбрать сущность')
             ->options([
-                'context' => 'Из контекста',
-                'manual' => 'Указать вручную',
+                'context' => 'Автоматически (как раньше)',
+                'trigger' => 'Сущность запуска',
+                'input' => 'Из входящей ноды',
+                'manual' => 'ID или переменная',
             ])
             ->default('context')
             ->inline()
@@ -464,21 +466,31 @@ abstract class WorkflowAmoCrmAction
         return Placeholder::make('__entity_context_summary')
             ->hiddenLabel()
             ->content(function (Get $get) use ($defaultEntity): HtmlString {
-                $source = ($get('entity_source') ?? 'context') === 'manual' ? 'manual' : 'context';
+                $source = $get('entity_source') ?? 'context';
                 $entity = (string)($source === 'context'
                     ? ($get('__context_entity') ?: $get('target_entity') ?: $defaultEntity)
                     : ($get('target_entity') ?: $defaultEntity));
-                $id = $source === 'context' ? $get('__context_entity_id') : $get('target_entity_id');
+                $id = match ($source) {
+                    'context' => $get('__context_entity_id'),
+                    'manual' => $get('target_entity_id'),
+                    default => null,
+                };
                 $type = static::entityLabel($entity);
-                $idText = filled($id) ? '#' . e((string)$id) : ($source === 'context' ? 'ID появится из входа ноды' : 'ID не указан');
-                $badge = $source === 'context' ? 'Автоматически' : 'Вручную';
+                $idText = filled($id) ? '#' . e((string)$id) : ($source === 'manual' ? 'ID не указан' : 'ID определится при запуске');
+                $badge = match ($source) { 'trigger' => 'Запуск', 'input' => 'Вход ноды', 'manual' => 'Вручную', default => 'Автоматически' };
+                $hint = match ($source) {
+                    'trigger' => 'Только сущность события запуска. Без подмены результатом другой ноды.',
+                    'input' => 'Только данные подключённой предыдущей ноды. Для списка выберите ID переменной.',
+                    'context' => 'Совместимость: сначала сущность запуска, затем результат предыдущей ноды.',
+                    default => '',
+                };
 
                 return new HtmlString(
                     '<div class="workflow-entity-context">'
                     . '<span class="workflow-entity-context__badge">' . $badge . '</span>'
                     . '<strong>' . e($type) . '</strong>'
                     . '<span>' . $idText . '</span>'
-                    . ($source === 'context' ? '<small>Контекст запуска или результат предыдущей ноды</small>' : '')
+                    . ($hint !== '' ? '<small>' . e($hint) . '</small>' : '')
                     . '</div>'
                 );
             });
@@ -685,10 +697,12 @@ abstract class WorkflowAmoCrmAction
         ];
     }
 
-    protected static function bodyMode(): ToggleButtons
+    protected static function bodyMode(): Section
     {
-        return ToggleButtons::make('body_mode')->hiddenLabel()
-            ->options(['fields' => 'Поля', 'json' => 'JSON'])->default('fields')->inline()->live();
+        return Section::make('Расширенная настройка')->compact()->collapsible()
+            ->collapsed(fn (Get $get): bool => $get('body_mode') !== 'json')
+            ->schema([ToggleButtons::make('body_mode')->label('Способ настройки')
+                ->options(['fields' => 'Поля формы', 'json' => 'JSON'])->default('fields')->inline()->live()]);
     }
 
     protected static function standardUpdateFields(string $entity): array
@@ -728,9 +742,8 @@ abstract class WorkflowAmoCrmAction
             ->schema([
                 WorkflowValueInput::make('name')
                     ->label('Название сделки')
-                    ->placeholder('Название')
-                    ->columnSpanFull()
-                    ->required(),
+                    ->placeholder('Необязательно: название задаст amoCRM')
+                    ->columnSpanFull(),
 
                 WorkflowValueInput::make('price')->label('Бюджет')->placeholder('0'),
 
@@ -747,6 +760,16 @@ abstract class WorkflowAmoCrmAction
                     ->label('Теги')
                     ->suggestions(fn () => \App\Services\Workflows\WorkflowNodeReferences::options('tags:leads'))
                     ->placeholder('Новый, VIP, {{tag}}'),
+
+                WorkflowValueInput::make('contact_id')
+                    ->label('ID контакта')
+                    ->placeholder('Необязательно: ID или переменная')
+                    ->helperText('Существующий контакт будет прикреплён к новой сделке.'),
+
+                WorkflowValueInput::make('company_id')
+                    ->label('ID компании')
+                    ->placeholder('Необязательно: ID или переменная')
+                    ->helperText('Существующая компания будет прикреплена к новой сделке.'),
             ]);
     }
 

@@ -8,6 +8,29 @@ use Tests\TestCase;
 
 class WorkflowJavascriptTest extends TestCase
 {
+    public function test_join_supports_explicit_nodes_but_rejects_ambiguous_implicit_input(): void
+    {
+        $definition = ['trigger' => ['type' => 'manual'], 'actions' => array_map(
+            fn ($id) => ['id' => $id, 'type' => 'workflow_javascript', 'config' => []], ['a', 'b', 'c'],
+        ), 'connections' => [
+            ['sourceId' => 'trigger', 'sourcePort' => 'output', 'targetId' => 'action:a'],
+            ['sourceId' => 'trigger', 'sourcePort' => 'output', 'targetId' => 'action:b'],
+            ['sourceId' => 'action:a', 'sourcePort' => 'output', 'targetId' => 'action:c'],
+            ['sourceId' => 'action:b', 'sourcePort' => 'output', 'targetId' => 'action:c'],
+        ]];
+        $context = (new WorkflowContext)->setStepOutput('a', ['id' => 111])->setStepOutput('b', ['id' => 222]);
+        $context->scopeToNode($definition, 'action:c');
+        $action = new WorkflowJavascriptAction;
+        $explicit = $action->handle(['javascript_code' => 'return {a: $node.a.json.id, b: $node.b.json.id};'], $context);
+        $this->assertTrue($explicit['success'], $explicit['error'] ?? '');
+        $this->assertSame(['a' => 111, 'b' => 222], $explicit['output']);
+        foreach (['return $json;', 'return $input.all();'] as $code) {
+            $result = $action->handle(['javascript_code' => $code], $context);
+            $this->assertFalse($result['success']);
+            $this->assertStringContainsString('несколько входов', $result['error']);
+        }
+    }
+
     public function test_javascript_receives_typed_data_and_returns_items_and_logs(): void
     {
         $context = (new WorkflowContext)->setTriggerData(['seed' => 3]);

@@ -86,7 +86,9 @@ final class WorkflowAcceptanceTelegramReporter
 
         $critical = [];
         if (! empty($report['fatal_error'])) {
-            $critical[] = 'Прогон остановлен: '.$clean($report['fatal_error']);
+            $reason = WorkflowAcceptanceDiagnostics::reason((string) $report['fatal_error']);
+            $critical[] = 'Прогон остановлен: '.($reason === 'acceptance_process'
+                ? $clean($report['fatal_error']) : WorkflowAcceptanceDiagnostics::REASONS[$reason]);
         }
         if (! empty($report['report_write_errors'])) {
             $critical[] = 'Не удалось полностью сохранить подробный отчёт.';
@@ -113,6 +115,12 @@ final class WorkflowAcceptanceTelegramReporter
             'Запуск: '.$this->runTime($report),
             'Успешно: '.$counts['passed'].' · Ошибок: '.$counts['failed'].' · Пропущено: '.$counts['skipped'],
         ];
+        // The platform owner's email is explicitly requested for diagnostics.
+        // Other CRM emails and personal data still go through cleanLine().
+        $ownerEmail = $report['owner_email'] ?? null;
+        if (is_string($ownerEmail) && strlen($ownerEmail) <= 254 && filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)) {
+            array_splice($lines, 2, 0, ['Клиент: '.$ownerEmail]);
+        }
         if (($report['suite'] ?? '') === 'read_only_acceptance') {
             $lines[] = 'Режим: только чтение; изменения в amoCRM не проверялись.';
         }

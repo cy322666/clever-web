@@ -54,7 +54,7 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertStringContainsString('x-model="type"', $html);
         $this->assertStringNotContainsString('x-text="item.value"', $html);
         $this->assertStringContainsString('x-text="item.label"', $html);
-        $this->assertStringContainsString("x-text=\"'ID ' + item.id\"", $html);
+        $this->assertStringNotContainsString("x-text=\"'ID ' + item.id\"", $html);
         $this->assertStringContainsString('x-on:click="showDetails(item)"', $html);
         $this->assertStringContainsString('x-on:click="copy(active.id)"', $html);
         $this->assertStringContainsString('x-on:click="copy(active.value)"', $html);
@@ -68,7 +68,7 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertSame(1, substr_count($html, '{{lead.id}}'));
     }
 
-    public function test_custom_fields_show_ids_and_keep_distinct_copy_expressions(): void
+    public function test_custom_fields_hide_raw_ids_and_expressions_but_keep_distinct_copy_values(): void
     {
         $html = view('filament.workflow-builder.mask-reference', ['groups'=>[
             'Сделка'=>[
@@ -85,8 +85,9 @@ class WorkflowReferencePanelTest extends TestCase
         }
         $this->assertStringContainsString('ID 42', $html); // Part of the actual name is not removed.
         $this->assertStringContainsString('Email', $html);
-        $this->assertStringContainsString('<code x-text="active?.id"></code>', $html);
-        $this->assertStringContainsString('<code x-text="active?.value"></code>', $html);
+        $this->assertStringNotContainsString('<code', $html);
+        $this->assertStringContainsString('aria-label="Копировать ID"', $html);
+        $this->assertStringContainsString('aria-label="Копировать переменную"', $html);
         $this->assertStringNotContainsString('workflow-variable-browser__pages', $html);
     }
 }

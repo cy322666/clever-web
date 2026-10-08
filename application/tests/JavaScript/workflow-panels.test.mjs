@@ -11,6 +11,33 @@ function components() {
     return window;
 }
 
+test('business picker searches readable names without dropping captured API response fields', () => {
+    const fields = [
+        {key:'p',path:'.amo_exchange[0].response.body.price',label:'price',type:'int',value:0,available:true},
+        {key:'s',path:'.amo_exchange[0].response.body._links.self.href',label:'href',type:'string'},
+        {key:'r',path:'',label:'Root',type:'object'},
+    ];
+    const picker = components().workflowExpressionPicker([{id:'a',name:'Сделка',available:true,fields}]);
+    assert.equal(picker.businessFields.length,1);
+    picker.query='бюджет';
+    assert.equal(picker.businessFields[0].value,0);
+    picker.query='нет такого';
+    assert.equal(picker.businessFields.length,0);
+    assert.equal(fields.length,3);
+});
+
+test('readable binding preserves false and custom field labels', () => {
+    const fields = [
+        {path:'.contact.custom_fields_values[0].field_name',value:'Согласие'},
+        {path:'.contact.custom_fields_values[0].values[0].value',label:'value',value:false,available:true,expression:'{{ $node["a"].json.contact.custom_fields_values[0].values[0].value }}'},
+    ];
+    const field = components().workflowValueField(fields[1].expression);
+    field.sources = [{id:'a',name:'Контакт',available:true,fields}];
+    assert.equal(field.binding.label,'Контакт → Согласие · значение');
+    assert.equal(field.binding.preview,'Пример: false');
+    assert.equal(field.state,fields[1].expression);
+});
+
 test('JSON result tree expands all levels and toggles an individual level without changing data', () => {
     const input = {items: [{id: 42, enabled: false, text: '<b>plain text</b>'}], empty: null};
     const viewer = components().workflowJsonViewer(input);

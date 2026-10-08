@@ -104,8 +104,8 @@ test('dragging a connected ordinary output starts a second branch without replac
     f.canvas.startConnection('trigger','output',f.event());
     assert.equal(f.canvas.connecting.replaceTarget,null);
     assert.equal(f.captures(),1);
-    f.canvas.startCanvasPan(f.event());
-    assert.equal(f.canvas.panning,false);
+    f.canvas.startBoxSelection(f.event());
+    assert.equal(f.canvas.selectionOrigin,null);
 });
 
 test('captured plus taps open once and movement does not animate behind the edges', () => {
@@ -143,9 +143,11 @@ function fixture() {
     let hitElement = null, hitStack = null;
     const events = [];
     const viewportStorage = new Map();
+    const layoutStorage = new Map();
     const CustomEvent = class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } };
     const window = { addEventListener() {}, dispatchEvent(event) { events.push({type:event.type,detail:event.detail}); }, requestAnimationFrame(callback) { callback(); }, setTimeout(callback) { callback(); return 1; }, clearTimeout() {} };
     window.sessionStorage = {getItem: key => viewportStorage.get(key) ?? null, setItem: (key, value) => viewportStorage.set(key, value)};
+    window.localStorage = {getItem: key => layoutStorage.get(key) ?? null, setItem: (key, value) => layoutStorage.set(key, value)};
     let mutationCallback, observedOptions, resizeCallback;
     const resizedElements = new Set();
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
@@ -172,7 +174,7 @@ function fixture() {
     target.closest = (selector) => selector === '[data-workflow-node-id]' ? node : selector === '[data-workflow-node-card]' ? card : null;
     const canvas = window.workflowNodeCanvas();
     canvas.nodeElements = () => [node];
-    canvas.$nextTick = callback => callback();
+    canvas.$nextTick = callback => callback ? callback() : Promise.resolve();
     let captures = 0;
     let saves = 0;
     canvas.$refs = { viewport: { setPointerCapture() { captures++; }, releasePointerCapture() {}, classList: node.classList } };
@@ -181,21 +183,250 @@ function fixture() {
     canvas.saveNodeLayout = () => { saves++; };
     const event = (x = 10, y = 20) => ({ target, pointerId: 1, button: 0, clientX: x, clientY: y, prevented: false, preventDefault() { this.prevented = true; } });
 
-    return { canvas, node, target, event, viewportStorage, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves, events: () => events };
+    return { canvas, workbench: window.workflowWorkbench(), rawCanvas: window.workflowNodeCanvas, node, target, event, viewportStorage, layoutStorage, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves, events: () => events };
 }
 
-test('selection mode draws a fresh rectangle without a modifier and does not pan', () => {
+test('alignment follows graph connections instead of action array order and separates branches', () => {
+    const f = fixture();
+    const ids = ['trigger', 'c', 'b', 'a', 'yes1', 'no1', 'yes2', 'join', 'detached'];
+    const edges = [
+        ['trigger','a'], ['a','b'], ['b','c'], ['c','no1','no'], ['c','yes1','yes'],
+        ['yes1','yes2'], ['yes2','join'], ['no1','join'],
+    ].map(([source,target,port='output']) => ({source,target,port}));
+    const layout = f.canvas.graphLayout(ids,edges);
+    for (const edge of edges) assert.ok(layout[edge.target].x > layout[edge.source].x);
+    assert.equal(layout.a.y,layout.b.y);
+    assert.ok(layout.yes1.y < layout.no1.y);
+    assert.equal(layout.yes1.y,layout.yes2.y);
+    assert.ok(Math.abs(layout.yes1.y-layout.no1.y) >= 208);
+    assert.ok(layout.detached.y > layout.no1.y);
+    assert.equal(JSON.stringify(layout),JSON.stringify(f.canvas.graphLayout(ids,edges)), 'Repeated alignment is stable');
+    const copy = JSON.stringify(edges);
+    f.canvas.graphLayout(ids,edges);
+    assert.equal(JSON.stringify(edges),copy,'Alignment must not change connections');
+});
+
+test('alignment handles merging starts, duplicate edges and rejects cycles without corrupting positions', () => {
+    const f=fixture();
+    const edges=[{source:'trigger',target:'a'},{source:'trigger:2',target:'a'},{source:'a',target:'b'}];
+    const points=f.canvas.graphLayout(['trigger','trigger:2','a','b'],[...edges,edges[0],{source:'missing',target:'a'}]);
+    assert.equal(Object.keys(points).length,4);
+    assert.notEqual(points.trigger.y,points['trigger:2'].y);
+    assert.ok(points.a.x>points['trigger:2'].x);
+    assert.equal(f.canvas.graphLayout(['a','b'],[{source:'a',target:'b'},{source:'b',target:'a'}]),null);
+});
+
+test('align applies and persists real coordinates, then fits without resetting to the DOM row', () => {
+    const f=fixture();
+    let points, fits=0;
+    f.canvas.$refs.edgeControls={querySelectorAll:()=>[]};
+    f.canvas.restoreCardPositions=value=>{points=value;};
+    f.canvas.fitView=()=>fits++;
+    f.canvas.resetNodeLayout();
+    assert.equal(points['action:test'].x,48);
+    assert.equal(points['action:test'].y,48);
+    assert.equal(fits,1);
+});
+
+test('completed edges include the selected false branch but never pending, failed or unselected paths', () => {
+    const f=fixture();
+    f.canvas.nodeElements=()=>[{dataset:{workflowNodeId:'trigger'}}];
+    f.canvas.executionState={results:[
+        {id:'a',status:'completed',output:{passed:false}},
+        {id:'b',status:'completed'}, {id:'failed',status:'error'}, {id:'sim',status:'simulated'},
+    ]};
+    const edge=(sourceId,targetId,sourcePort='output')=>({sourceId,targetId,sourcePort});
+    assert.equal(f.canvas.edgeCompleted(edge('trigger','action:a')),true);
+    assert.equal(f.canvas.edgeCompleted(edge('action:a','action:b','no')),true);
+    assert.equal(f.canvas.edgeCompleted(edge('action:a','action:b','yes')),false);
+    assert.equal(f.canvas.edgeCompleted(edge('action:a','action:missing')),false);
+    assert.equal(f.canvas.edgeCompleted(edge('action:a','action:failed')),false);
+    assert.equal(f.canvas.edgeCompleted(edge('action:failed','action:b')),false);
+    assert.equal(f.canvas.edgeCompleted(edge('action:sim','action:b')),false);
+    assert.equal(f.canvas.edgeCompleted(edge('action:a',null)),false);
+    assert.equal(f.canvas.edgeCompleted(edge('action:a','action:b'),'false'),false);
+    f.canvas.executionState={results:[]};
+    assert.equal(f.canvas.edgeCompleted(edge('trigger','action:a')),false);
+});
+
+test('execution changes redraw arrows and the canvas controls stay large on the right without zoom buttons', () => {
+    const f=fixture(); let refreshes=0;
+    f.canvas.scheduleGraphRefresh=()=>refreshes++;
+    f.canvas.setExecutionState({results:[]});
+    assert.equal(refreshes,1);
+    const blade=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    const css=readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
+    assert.doesNotMatch(blade,/aria-label="(?:Увеличить|Уменьшить) масштаб"/);
+    assert.match(css,/\.workflow-canvas-controls \{[^}]*right: 16px;[^}]*top: 68px;/);
+    assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-fit \{[^}]*width: 44px; height: 44px;/);
+    assert.match(css,/\.workflow-node-card__tools button \{ flex: 0 0 1\.5rem;/);
+    assert.match(css,/\.workflow-node-edge\.workflow-node-edge--completed \{ stroke: #4d9c70 !important;/);
+});
+
+test('structural edits rebase relative offsets and retain absolute card positions', () => {
+    const f = fixture();
+    let base = 300;
+    f.canvas.scale = 0.5;
+    f.canvas.$refs.stage = {getBoundingClientRect:()=>({left:100,top:50})};
+    f.node.getBoundingClientRect = () => ({left:100+(base+(f.canvas.positions['action:test']?.x||0))*0.5,top:50+80*0.5});
+    f.canvas.positions = {'action:test':{x:40,y:0}};
+    const before = f.canvas.cardPositions();
+    base += 224; // A new sibling changed the flex base, not the user's position.
+    assert.equal(f.canvas.restoreCardPositions(before),true);
+    assert.equal(f.canvas.positions['action:test'].x,-184);
+    assert.equal(f.canvas.cardPositions()['action:test'].x,340);
+    assert.equal(f.saves(),1);
+    assert.equal(f.canvas.restoreCardPositions(before),false);
+    assert.equal(f.saves(),1, 'An unchanged modal close must not dirty the workflow');
+    base -= 448; // Deletion/flattening changes the base in the other direction.
+    f.canvas.restoreCardPositions(before);
+    assert.equal(f.canvas.cardPositions()['action:test'].x,340);
+});
+
+test('Ctrl/Cmd copy and paste preserve group spacing, wait for copy, and ignore text editing', async () => {
+    const f = fixture();
+    const calls = [], placed = [];
+    f.canvas.$el = {isConnected:true,getClientRects:()=>[{}]};
+    f.canvas.selectedNodeIds = ['action:a','action:b'];
+    f.canvas.cardPositions = () => ({'action:a':{x:20,y:30},'action:b':{x:220,y:90}});
+    f.canvas.restoreCardPositions = positions => placed.push(JSON.parse(JSON.stringify(positions)));
+    f.canvas.$wire = {copyWorkflowNodes:async ids=>{calls.push([...ids]);return true;},pasteWorkflowNodes:async()=>({'action:a':'action:c','action:b':'action:d'})};
+    const event = (code, metaKey=false, editing=false) => ({code,ctrlKey:!metaKey,metaKey,target:{closest:()=>editing},preventDefault(){this.prevented=true;}});
+    const copy = event('KeyC'), paste = event('KeyV',true);
+    await Promise.all([f.canvas.clipboardShortcut(copy),f.canvas.clipboardShortcut(paste)]);
+    assert.equal(copy.prevented,true);
+    assert.equal(paste.prevented,true);
+    assert.deepEqual(calls,[['action:a','action:b']]);
+    assert.deepEqual(placed[0],{'action:c':{x:100,y:110},'action:d':{x:300,y:170}});
+    assert.deepEqual([...f.canvas.selectedNodeIds],['action:c','action:d']);
+    const inputPaste = event('KeyV',true,true);
+    await f.canvas.clipboardShortcut(inputPaste);
+    assert.equal(inputPaste.prevented,undefined);
+    assert.equal(placed.length,1);
+    await f.canvas.clipboardShortcut(event('KeyV'));
+    assert.equal(placed[1]['action:c'].x,180);
+});
+
+test('dropping an output or plus on empty canvas opens insertion there, including Yes and No', () => {
+    for (const port of ['output','yes','no']) {
+        const f = fixture();
+        const calls = [];
+        f.canvas.$wire = {openAddActionOnConnection: (...args) => calls.push(args)};
+        f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0,right:1000,bottom:800});
+        f.canvas.$refs.stage = {getBoundingClientRect: () => ({left:100,top:50}),querySelectorAll:()=>[]};
+        f.node.getBoundingClientRect = () => ({left:110,top:60});
+        f.canvas.scale = .5;
+        f.canvas.startConnection('action:test', port, f.event());
+        f.canvas.stopCanvasInteraction(f.event(400,300));
+        assert.deepEqual(calls, [['action:test',port,null]]);
+        assert.equal(f.canvas.connecting, null);
+        assert.equal(f.canvas.pendingInsertion.dropPosition.x,600);
+        assert.equal(f.canvas.pendingInsertion.dropPosition.y,500);
+        assert.equal(f.events()[0].detail.mode,'action');
+    }
+});
+
+test('drop outside the canvas or pointer cancel never opens the catalogue', () => {
+    for (const type of ['pointerup','pointercancel']) {
+        const f = fixture();
+        f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0,right:100,bottom:100});
+        f.canvas.$refs.stage = {getBoundingClientRect: () => ({left:0,top:0})};
+        f.canvas.$wire = {openAddActionOnConnection: () => assert.fail('must not insert')};
+        f.canvas.startConnection('action:test','output',f.event());
+        f.canvas.stopCanvasInteraction({...f.event(400,300),type});
+        assert.equal(f.canvas.connecting,null);
+        assert.equal(f.canvas.pendingInsertion,null);
+    }
+});
+
+test('a dropped node uses the release point without moving unrelated nodes', () => {
+    const f = fixture();
+    const boxes = {source:{x:0,y:0},unrelated:{x:500,y:300},inserted:{x:900,y:0}};
+    f.canvas.nodeElements = () => Object.entries(boxes).map(([id,p]) => ({dataset:{workflowNodeId:id},style:{},children:[],querySelector:()=>null,getBoundingClientRect:()=>({left:p.x,top:p.y})}));
+    f.canvas.$refs.stage = {getBoundingClientRect:()=>({left:0,top:0})};
+    f.canvas.pendingInsertion = {sourceId:'source',targetId:null,nodes:{source:boxes.source,unrelated:boxes.unrelated},edges:[],dropPosition:{x:700,y:400}};
+    f.canvas.placeInsertedNode({sourceId:'source',targetId:null,nodeId:'inserted'});
+    assert.equal(boxes.inserted.x+f.canvas.positions.inserted.x,652);
+    assert.equal(boxes.inserted.y+f.canvas.positions.inserted.y,352);
+    assert.equal(f.canvas.positions.unrelated?.x ?? 0,0);
+});
+
+test('save state changes only for persisted edits and resets to clean on acknowledgement', () => {
+    const f = fixture();
+    const wire = {data:{name:'Поток',group_name:null},definition:{trigger:{type:'manual'},actions:[]},trigger:{type:'manual'},workflowActions:[]};
+    f.workbench.$wire = wire;
+    assert.equal(f.workbench.hasUnsavedChanges,true,'new unsaved workflow');
+    const acknowledge = () => wire.savedWorkflowEditorState = structuredClone({name:wire.data.name,group_name:null,definition:{...wire.definition,trigger:wire.trigger,actions:wire.workflowActions}});
+    acknowledge();
+    assert.equal(f.workbench.hasUnsavedChanges,false);
+    wire.definition = {actions:[],trigger:{type:'manual'}};
+    wire.debugState = {step:1};
+    assert.equal(f.workbench.hasUnsavedChanges,false,'key order and debugger are not edits');
+    wire.workflowActions.push({id:'one',config:{name:'Сделка'}});
+    assert.equal(f.workbench.hasUnsavedChanges,true);
+    acknowledge();
+    assert.equal(f.workbench.hasUnsavedChanges,false);
+    wire.workflowActions[0].config.name = 'Другая';
+    assert.equal(f.workbench.hasUnsavedChanges,true);
+    wire.workflowActions[0].config.name = 'Сделка';
+    assert.equal(f.workbench.hasUnsavedChanges,false,'reverting to saved values is clean');
+});
+
+test('node positions update deferred save data immediately, unlike viewport panning', () => {
+    const f = fixture();
+    const calls = [];
+    f.canvas.$wire = {$set:(...args)=>calls.push(args)};
+    f.canvas.positions = {'action:test':{x:10,y:20},removed:{x:40,y:30}};
+    f.rawCanvas().saveNodeLayout.call(f.canvas);
+    assert.equal(calls[0][0],'definition.canvas_layout');
+    assert.equal(calls[0][1]['action:test'].x,10);
+    assert.equal(calls[0][1].removed,undefined);
+    assert.equal(calls[0][2],false);
+    assert.equal(JSON.parse(f.layoutStorage.get(f.canvas.layoutKey)).nodes['action:test'].x,10);
+});
+
+test('reopening uses server coordinates, never an empty or stale browser snapshot', () => {
+    const f = fixture();
+    f.canvas.initialLayout = {'action:test':{x:-197,y:346.3}};
+    for (const nodes of [{}, {'action:test':{x:0,y:0}}]) {
+        f.layoutStorage.set(f.canvas.layoutKey, JSON.stringify({version:1,nodes}));
+        f.canvas.restoreNodeLayout();
+        assert.equal(f.canvas.positions['action:test'].x,-197);
+        assert.equal(f.canvas.positions['action:test'].y,346.3);
+    }
+    f.canvas.initialLayout = [];
+    f.canvas.restoreNodeLayout();
+    assert.deepEqual(Object.keys(f.canvas.positions), [], 'explicit server reset must not revive old positions');
+});
+
+test('legacy browser-only coordinates are captured before Save without requiring another drag', () => {
+    const f = fixture();
+    const calls = [];
+    f.canvas.$wire = {$set:(...args)=>calls.push(args)};
+    f.layoutStorage.set(f.canvas.layoutKey, JSON.stringify({version:1,nodes:{'action:test':{x:42,y:-155}}}));
+    f.canvas.restoreNodeLayout();
+    f.rawCanvas().saveNodeLayout.call(f.canvas);
+    assert.equal(calls[0][1]['action:test'].y,-155);
+    f.layoutStorage.clear(); // Same saved workflow, another browser.
+    f.canvas.initialLayout = calls[0][1];
+    f.canvas.restoreNodeLayout();
+    assert.equal(f.canvas.positions['action:test'].x,42);
+    const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
+    assert.match(view,/x-on:submit.window.capture="if \(\$event.target.contains\(\$el\)\) saveNodeLayout\(\)"/);
+    assert.doesNotMatch(view,/selectionMode|Выделить несколько нод/);
+});
+
+test('plain drag on empty canvas draws a fresh selection without a mode button or panning', () => {
     const f = fixture();
     f.target.closest = () => null;
     f.node.getBoundingClientRect = () => ({left:20,top:30,right:70,bottom:80});
     f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0});
-    f.canvas.selectionMode = true;
     f.canvas.selectedNodeIds = ['old-selection'];
     f.canvas.startCanvasInteraction(f.event(0,0));
     f.canvas.moveCanvas(f.event(100,100));
     assert.deepEqual([...f.canvas.selectedNodeIds], ['action:test']);
-    assert.equal(f.canvas.panning, false);
     assert.equal(f.canvas.translateX, 0);
+    assert.equal(f.canvas.translateY, 0);
     f.canvas.stopCanvasInteraction(f.event(100,100));
     assert.equal(f.canvas.selectionBox, null);
 });
@@ -218,11 +449,10 @@ test('Shift, Ctrl and Cmd clicks toggle membership without opening or dragging a
     }
 });
 
-test('selection-mode clicks never open configuration and captions can drag the whole group', () => {
+test('captions drag the whole selected group and suppress only the trailing drag click', () => {
     const f = fixture();
     const closest = f.target.closest;
     f.target.closest = selector => selector.includes('.workflow-node-card__caption') ? {} : closest(selector);
-    f.canvas.selectionMode = true;
     f.canvas.selectedNodeIds = ['action:test', 'action:second'];
     f.canvas.startNodeDrag(f.event(), f.node);
     f.canvas.moveCanvas(f.event(50,70));
@@ -390,13 +620,21 @@ test('each unsaved editor gets a stable draft layout key, not a shared request U
     assert.match(blade, /wire:key="workflow-start-\{\{ \$startId \}\}"/);
 });
 
+test('editing coordinates and debugging never rewrite Alpine canvas lifecycle attributes', () => {
+    const blade = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
+    assert.match(blade, /wire:key="workflow-canvas-\{\{ \$workflowLayoutKey \}\}"/);
+    assert.match(blade, /x-data="workflowNodeCanvas\(@js\(\$workflowLayoutKey\), \$wire\.definition\.canvas_layout \?\? null\)"/);
+    assert.match(blade, /setExecutionState\(\$wire\.debugState\)/);
+    assert.doesNotMatch(blade, /@js\(\$this->(?:definition\['canvas_layout'\]|debugState)/);
+});
+
 test('Shift rectangle selects several nodes and group drag preserves relative spacing at zoom', () => {
     const f = fixture();
     const second = {...f.node, dataset:{workflowNodeId:'action:second'},style:{},getBoundingClientRect:()=>({left:100,top:40,right:140,bottom:80})};
     f.node.getBoundingClientRect=()=>({left:20,top:40,right:60,bottom:80});
     f.canvas.nodeElements=()=>[f.node,second];
     f.canvas.$refs.viewport.getBoundingClientRect=()=>({left:0,top:0});
-    f.canvas.startCanvasPan({...f.event(0,0),shiftKey:true});
+    f.canvas.startBoxSelection({...f.event(0,0),shiftKey:true});
     f.canvas.moveCanvas(f.event(160,100));
     assert.deepEqual([...f.canvas.selectedNodeIds],['action:test','action:second']);
     f.canvas.stopCanvasInteraction(f.event(160,100));
@@ -425,8 +663,8 @@ test('inserting between nodes creates space downstream while preserving unrelate
     assert.equal(boxes.inserted.x+f.canvas.positions.inserted.x,192);
     assert.equal(boxes.target.x+f.canvas.positions.target.x,384);
     assert.equal(boxes.tail.x+f.canvas.positions.tail.x,576);
-    assert.equal(f.canvas.positions.unrelated.x,0);
-    assert.equal(f.canvas.positions.unrelated.y,0);
+    assert.equal(f.canvas.positions.unrelated?.x ?? 0,0);
+    assert.equal(f.canvas.positions.unrelated?.y ?? 0,0);
     assert.equal(f.saves(),1);
 });
 

@@ -195,9 +195,9 @@ class User extends Authenticatable implements FilamentUser
             ->latest('id')
             ->first();
 
-        if ($widget === 'import-excel') {
+        if ($widget === 'workflows') {
             if ($specific) {
-                return $createIfMissing || \App\Services\ImportExcel\ExcelConnectionAccess::isWidgetAccount($specific)
+                return $createIfMissing || \App\Services\Workflows\WorkflowConnectionAccess::isWidgetAccount($specific)
                     ? $specific : null;
             }
 
@@ -219,8 +219,7 @@ class User extends Authenticatable implements FilamentUser
             return $specific;
         }
 
-        // Preserve shared authorization for legacy integrations, but never
-        // use the dedicated Excel connection as their shared connector.
+        // Preserve legacy sharing for other integrations. Workflows are isolated.
         $shared = $this->resolveAnyActiveAmoAccount($sharedClientId);
 
         if ($shared instanceof Account) {
@@ -273,11 +272,7 @@ class User extends Authenticatable implements FilamentUser
     private function resolveAnyActiveAmoAccount(?string $clientId = null): ?Account
     {
         return $this->accounts()
-            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'import-excel'))
-            ->when(trim((string) config('services.amocrm.widgets.import-excel.client_id', '')) !== '',
-                fn ($query) => $query->where(fn ($query) => $query
-                    ->whereNull('client_id')
-                    ->orWhere('client_id', '<>', config('services.amocrm.widgets.import-excel.client_id'))))
+            ->where(fn ($query) => $query->whereNull('widget')->orWhere('widget', '<>', 'workflows'))
             ->when($clientId !== null, fn ($query) => $query->where('client_id', $clientId))
             ->where('active', true)
             ->whereNotNull('subdomain')

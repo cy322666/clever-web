@@ -38,11 +38,22 @@ trait HasWorkflowDebugger
     {
         $node = \App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)['action:'.$actionId] ?? null;
         abort_unless($node, 404);
-        Cache::lock('workflow-node-run:'.(Auth::id() ?? 'guest').':'.$this->getId(), 120)->get(function () use ($actionId): void {
-            if ($this->debugOpen) $this->prepareWorkflowDebugInput();
-            // Only mount and execute this node. No save or traversal of the rest of the flow.
-            $this->openWorkflowActionEditor($actionId);
-            $this->runEditingWorkflowNode();
+        Cache::lock('workflow-node-run:'.(Auth::id() ?? 'guest').':'.$this->getId(), 120)->get(function () use ($actionId, $node): void {
+            try {
+                if ($this->debugOpen) $this->prepareWorkflowDebugInput();
+                $this->syncDefinition();
+                // Canvas play must not mount a form, change selection or discard a draft.
+                $this->executeWorkflowNodePreview($node['step'], $this->workflowNodeRunInput());
+            } catch (Throwable $exception) {
+                $this->nodeRunResults[$actionId] = ['id' => $actionId, 'status' => 'error', 'error' => $exception->getMessage()];
+                $this->publishNodePreviewResults();
+            }
+            $result = $this->nodeRunResults[$actionId] ?? [];
+            if (in_array($result['status'] ?? '', ['error', 'failed', 'validation_error'], true)) {
+                $names = \App\Services\Workflows\WorkflowExpressionCatalog::referenceNames($this->workflowActions, $this->definition);
+                Notification::make()->danger()->title($names[$actionId] ?? 'Нода')
+                    ->body($result['error'] ?? 'Не удалось выполнить ноду.')->send();
+            }
         });
     }
 
@@ -50,20 +61,7 @@ trait HasWorkflowDebugger
     {
         try {
             $data = $this->getMountedActionSchema(0)?->getState() ?? [];
-            $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-            $input = json_decode($this->debugInput, true, 64, JSON_THROW_ON_ERROR);
-            if (!is_array($input) || ($input !== [] && array_is_list($input))) throw new \InvalidArgumentException('Нужен JSON-объект входных данных.');
-            if ($input === [] && !$this->debugSessionId && !$this->nodePreviewSessionId && $record?->exists
-                && (int) $record->user_id === (int) Auth::id()) {
-                // Match the trigger data displayed by the expression picker. Do not reuse old action outputs.
-                $lastRun = \App\Services\Workflows\WorkflowRunReplay::ownedRuns((int) Auth::id())
-                    ->where('workflow_id', $record->getKey())->latest('id')->first();
-                $input = $lastRun?->context_data['trigger_data'] ?? [];
-                if ($input !== []) {
-                    $this->debugInput = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-                    $this->debugInputSource = 'Данные запуска #'.$lastRun->getKey();
-                }
-            }
+            $input = $this->workflowNodeRunInput();
             if (($this->mountedActions[0]['name'] ?? '') === 'configureTrigger') {
                 $this->saveTriggerNodeConfig($data);
                 $this->nodeRunResults[$this->editingTriggerNodeId] = ['status' => 'success', 'output' => $input + ['_workflow_start_node_id' => $this->editingTriggerNodeId]];
@@ -74,22 +72,51 @@ trait HasWorkflowDebugger
             $name = $data['_action_name'] ?? null;
             unset($data['_action_name']);
             $this->updateWorkflowActionConfig($id, $data, $name);
-            $step = $this->getEditingWorkflowAction();
-            // Node play is always a real execution, independent of the whole-flow debug mode.
-            $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), true, $this->definition);
-            $this->nodeRunResults[$id] = $session['results'][0] ?? [];
-            $this->nodePreviewSessionId ??= (string) Str::uuid();
-            Cache::put($this->nodePreviewCacheKey(), $session['context'], now()->addHour());
-            $results = collect($this->debugState['results'] ?? [])->keyBy('id')->all();
-            foreach ($this->nodeRunResults as $nodeId => $result) {
-                if (isset($result['id'])) $results[$nodeId] = $result;
-            }
-            $this->dispatch('workflow-debug-updated', state: ['results' => array_values($results)]);
+            $this->executeWorkflowNodePreview($this->getEditingWorkflowAction(), $input);
         } catch (\Illuminate\Validation\ValidationException $exception) {
             throw $exception;
         } catch (Throwable $exception) {
             $this->nodeRunResults[$this->editingActionId ?? $this->editingTriggerNodeId] = ['status' => 'error', 'error' => $exception->getMessage()];
         }
+    }
+
+    private function workflowNodeRunInput(): array
+    {
+        $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
+        $input = json_decode($this->debugInput, true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($input) || ($input !== [] && array_is_list($input))) throw new \InvalidArgumentException('Нужен JSON-объект входных данных.');
+        if ($input === [] && !$this->debugSessionId && !$this->nodePreviewSessionId && $record?->exists
+            && (int) $record->user_id === (int) Auth::id()) {
+            // Match the picker input without reusing outputs from an old run.
+            $lastRun = \App\Services\Workflows\WorkflowRunReplay::ownedRuns((int) Auth::id())
+                ->where('workflow_id', $record->getKey())->latest('id')->first();
+            $input = $lastRun?->context_data['trigger_data'] ?? [];
+            if ($input !== []) {
+                $this->debugInput = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $this->debugInputSource = 'Данные запуска #'.$lastRun->getKey();
+            }
+        }
+        return $input;
+    }
+
+    private function executeWorkflowNodePreview(array $step, array $input): void
+    {
+        $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
+        // Both play buttons execute only this node, independently of full-flow debug mode.
+        $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), true, $this->definition);
+        $this->nodeRunResults[$step['id']] = $session['results'][0] ?? [];
+        $this->nodePreviewSessionId ??= (string) Str::uuid();
+        Cache::put($this->nodePreviewCacheKey(), $session['context'], now()->addHour());
+        $this->publishNodePreviewResults();
+    }
+
+    private function publishNodePreviewResults(): void
+    {
+        $results = collect($this->debugState['results'] ?? [])->keyBy('id')->all();
+        foreach ($this->nodeRunResults as $nodeId => $result) {
+            if (isset($result['id'])) $results[$nodeId] = $result;
+        }
+        $this->dispatch('workflow-debug-updated', state: ['results' => array_values($results)]);
     }
 
     public function editingNodeResult(): array

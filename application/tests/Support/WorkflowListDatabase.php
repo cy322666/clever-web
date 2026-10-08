@@ -11,6 +11,7 @@ class WorkflowListDatabase
     public static function prepare(string $database = ':memory:'): void
     {
         WorkflowCanvasDatabase::prepare($database);
+        config(['services.amocrm.widgets.workflows.client_id' => 'workflow-client-id']);
 
         if (Schema::hasTable('workflows')) {
             return;
@@ -38,6 +39,7 @@ class WorkflowListDatabase
             $table->id();
             $table->integer('user_id');
             $table->string('widget');
+            $table->string('client_id')->nullable()->default('workflow-client-id');
             $table->boolean('active')->default(false);
             $table->string('subdomain')->nullable();
             $table->string('access_token')->nullable();

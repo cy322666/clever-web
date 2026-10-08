@@ -1,12 +1,24 @@
 <div class="workflow-expression-picker" wire:key="workflow-expression-sources-{{ md5(json_encode($sources)) }}" x-data="workflowExpressionPicker(@js($sources))"
     x-on:focusin.window="rememberField($event)" x-on:input.window="updatePreview($event)">
+    <header class="workflow-source-header"><strong>Выбрать данные</strong><button type="button" x-on:click="$dispatch('workflow-close-sources')" aria-label="Закрыть выбор данных">✕</button></header>
+    <small class="workflow-expression-picker__hint" x-text="fieldLabel ? 'Вставить в: ' + fieldLabel : 'Сначала выберите поле или скопируйте переменную'"></small>
     <div class="workflow-expression-picker__row">
     <select class="workflow-expression-picker__select" style="flex: 1 1 auto; width: 0" x-model="selectedId" x-on:change="limit = 30; expanded = []; collapsedJson = []; preview = null" aria-label="Шаг с данными">
         @foreach($sources as $source)<option value="{{ $source['id'] }}">{{ $source['name'] }}</option>@endforeach
     </select>
     <button class="workflow-expression-picker__insert" type="button" x-show="selectedSource?.fields.length" x-on:mousedown.prevent x-on:click="insert(selectedSource.fields[0])" aria-label="Подставить весь результат шага" title="Подставить весь результат шага"><x-filament::icon icon="heroicon-m-plus" class="h-3 w-3"/></button>
     </div>
+    <input type="search" x-model="query" class="workflow-expression-picker__select" placeholder="Найти поле по названию" aria-label="Поиск данных" />
     <div class="workflow-expression-picker__content">
+        <div class="workflow-business-fields">
+            <template x-for="item in businessFields" :key="item.key">
+                <button type="button" class="workflow-business-field" x-on:mousedown.prevent x-on:click="insert(item)" :title="item.expression">
+                    <strong x-text="friendlyLabel(item)"></strong><small x-text="fieldSummary(item)"></small>
+                </button>
+            </template>
+            <p x-show="businessFields.length === 0">Нет подходящих полей. Попробуйте другой запрос или откройте JSON.</p>
+        </div>
+        <details class="workflow-source-technical"><summary>Технический режим · JSON</summary>
         <div class="workflow-input-json" aria-label="JSON данных шага">
             <template x-for="row in jsonRows" :key="row.id">
                 <div class="workflow-input-json__line" :style="'padding-left:' + row.depth * 14 + 'px'">
@@ -16,6 +28,7 @@
                 </div>
             </template>
         </div>
+        </details>
     </div>
     <small class="workflow-expression-picker__hint" x-show="!selectedSource?.available">Нет результата запуска. Показана структура данных.</small>
     <small class="workflow-expression-picker__hint" x-show="selectedSource?.truncated">Показана часть данных. Подстановка передаст значение целиком.</small>

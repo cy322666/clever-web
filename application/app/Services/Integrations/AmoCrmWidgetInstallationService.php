@@ -297,7 +297,7 @@ class AmoCrmWidgetInstallationService
     private function oauthConfig(string $widget): array
     {
         $prefix = 'services.amocrm.widgets.'.$widget.'.';
-        $fallbackToPlatform = $widget !== 'import-excel' && $widget !== 'yclients'
+        $fallbackToPlatform = ! in_array($widget, ['yclients', 'workflows'], true)
             && (bool) config($prefix.'fallback_to_platform_credentials', true);
         $config = [
             'client_id' => $this->firstFilled([
