@@ -22,6 +22,11 @@ class Account extends Model
     public const CONNECTOR_SHARED = 'shared';
     public const CONNECTOR_WIDGET = 'widget';
 
+    private const DEDICATED_CONNECTOR_WIDGETS = [
+        'import-excel',
+        'sqns',
+    ];
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -93,6 +98,17 @@ class Account extends Model
         return static::normalizeWidget($widget) === 'yclients'
             && $this->oauth_connector !== self::CONNECTOR_WIDGET
             && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
+    }
+
+    public static function requiresDedicatedConnectorForWidget(?string $widget): bool
+    {
+        return in_array(static::normalizeWidget($widget), self::DEDICATED_CONNECTOR_WIDGETS, true);
+    }
+
+    /** @return list<string> */
+    public static function dedicatedConnectorWidgets(): array
+    {
+        return self::DEDICATED_CONNECTOR_WIDGETS;
     }
 
     public static function normalizeWidget(?string $widget): string

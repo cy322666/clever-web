@@ -30,10 +30,7 @@ class EditSqns extends EditRecord
                 fn () => $this->amocrmUpdate(),
             ),
 
-            Action::make('connect_sqns')
-                ->label('Подключить SQNS')
-                ->icon('heroicon-o-link')
-                ->action(fn () => $this->connectSqns()),
+            $this->sqnsConnectionAction(),
 
             Action::make('sync_visits')
                 ->label('Загрузить визиты')
@@ -73,6 +70,30 @@ class EditSqns extends EditRecord
         ];
     }
 
+    protected function sqnsConnectionAction(): Action
+    {
+        return Action::make('connect_sqns')
+            ->label(fn (): string => $this->record->isConnected() ? 'Отключить SQNS' : 'Подключить SQNS')
+            ->icon(fn (): string => $this->record->isConnected() ? 'heroicon-o-link-slash' : 'heroicon-o-link')
+            ->color(fn (): string => $this->record->isConnected() ? 'danger' : 'warning')
+            ->requiresConfirmation()
+            ->modalHidden(fn (): bool => ! $this->record->isConnected())
+            ->modalHeading('Отключить SQNS?')
+            ->modalDescription('Webhook будет удалён из SQNS, загрузка визитов остановится.')
+            ->modalSubmitActionLabel('Отключить SQNS')
+            ->action(function (): void {
+                $this->record->refresh();
+
+                if ($this->record->isConnected()) {
+                    $this->disconnectSqns();
+
+                    return;
+                }
+
+                $this->connectSqns();
+            });
+    }
+
     protected function mutateFormDataBeforeFill(array $data): array
     {
         unset($data['token'], $data['webhook_secret'], $data['webhook_key']);
@@ -98,6 +119,7 @@ class EditSqns extends EditRecord
             $this->save(false, false);
             $this->record->refresh();
             (new Client($this->record))->connect($this->record->webhookUrl());
+            $this->record->refresh();
             $this->refreshFormData(['organization_name', 'connected_at', 'last_error']);
 
             Notification::make()
@@ -114,6 +136,33 @@ class EditSqns extends EditRecord
 
             Notification::make()
                 ->title('Не удалось подключить SQNS')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function disconnectSqns(): void
+    {
+        try {
+            (new Client($this->record))->disconnect($this->record->webhookUrl());
+            $this->record->refresh();
+            $this->refreshFormData(['organization_name', 'connected_at', 'last_error']);
+
+            Notification::make()
+                ->title('SQNS отключён, webhook удалён')
+                ->success()
+                ->send();
+        } catch (Throwable $exception) {
+            $this->record->forceFill(['last_error' => $exception->getMessage()])->save();
+
+            Log::error('SQNS disconnection failed.', [
+                'setting_id' => $this->record->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            Notification::make()
+                ->title('Не удалось отключить SQNS')
                 ->body($exception->getMessage())
                 ->danger()
                 ->send();

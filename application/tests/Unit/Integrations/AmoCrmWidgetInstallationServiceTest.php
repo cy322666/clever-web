@@ -425,6 +425,60 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_sqns_marketplace_install_uses_widget_oauth_and_preserves_shared_tokens(): void
+    {
+        config([
+            'services.amocrm.widgets.sqns.client_id' => 'sqns-client',
+            'services.amocrm.widgets.sqns.client_secret' => 'sqns-secret',
+            'services.amocrm.widgets.sqns.redirect_uri' => 'https://platform.example/api/amocrm/install/sqns',
+            'services.amocrm.client_id' => 'platform-client',
+            'services.amocrm.client_secret' => 'platform-secret',
+        ]);
+        $owner = User::withoutEvents(fn () => User::create([
+            'name' => 'Owner', 'email' => 'owner@example.test', 'password' => 'test',
+        ]));
+        $shared = (new Account)->forceFill([
+            'user_id' => $owner->id, 'widget' => 'default', 'amo_account_id' => 33098322,
+            'subdomain' => 'widgetscenario', 'zone' => 'ru', 'active' => true,
+            'client_id' => 'platform-client', 'client_secret' => 'platform-secret',
+            'access_token' => 'shared-access', 'refresh_token' => 'shared-refresh',
+        ]);
+        $shared->save();
+        $before = $shared->fresh()->getAttributes();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response([
+                'access_token' => 'sqns-access', 'refresh_token' => 'sqns-refresh',
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response([
+                'id' => 33098322, 'current_user_id' => 778899,
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response([
+                'id' => 778899, 'email' => 'installer@example.test',
+            ]),
+        ]);
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)
+            ->install('sqns-code', 'widgetscenario.amocrm.ru', 'sqns');
+
+        $this->assertSame($owner->id, $result['user']->id);
+        $this->assertSame('sqns', $result['account']->widget);
+        $this->assertSame(Account::CONNECTOR_WIDGET, $result['account']->oauth_connector);
+        $this->assertSame('sqns-client', $result['account']->client_id);
+        $this->assertSame('sqns-secret', $result['account']->client_secret);
+        $this->assertSame($result['account']->id, $owner->resolveAmoAccountForWidget('sqns')->id);
+        $this->assertSame($before, $shared->fresh()->getAttributes());
+        Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/oauth2/access_token')
+            && $request['client_id'] === 'sqns-client'
+            && $request['client_secret'] === 'sqns-secret'
+            && $request['redirect_uri'] === 'https://platform.example/api/amocrm/install/sqns');
+    }
+
     public function test_excel_install_uses_its_own_keys_and_preserves_other_widget_tokens(): void
     {
         config([
