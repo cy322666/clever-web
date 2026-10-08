@@ -75,13 +75,17 @@ class AmoCrmExcelLifecycleRoutesTest extends TestCase
         ));
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame(['ok' => true], $response->getData(true));
-        Log::shouldHaveReceived('info')->once()->with(
+        $this->assertSame([
+            'ok' => true,
+            'updated' => 0,
+            'mail_queued' => 0,
+        ], $response->getData(true));
+        Log::shouldHaveReceived('info')->with(
             'amocrm.excel.off received',
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.account.id') === 33098322
                 && data_get($context, 'payload.account.subdomain') === 'widgetscenario'
             ),
-        );
+        )->once();
     }
 
     public function test_excel_oauth_uses_excel_callback_by_default(): void

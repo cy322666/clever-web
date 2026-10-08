@@ -8,8 +8,6 @@ use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use App\Services\Workflows\WorkflowFolders;
 use App\Services\Workflows\WorkflowStartNodes;
-use App\Support\Crm\CrmProvider;
-use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\TextInput;
@@ -26,7 +24,9 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Validation\ValidationException;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\ListWorkflows as BaseListWorkflows;
+use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
 use Livewire\Attributes\Url;
+use Throwable;
 
 class ListWorkflows extends BaseListWorkflows
 {
@@ -41,8 +41,8 @@ class ListWorkflows extends BaseListWorkflows
     #[Url(as: 'folder')]
     public ?string $workflowGroupFilter = null;
 
-    #[Url(as: 'launch')]
-    public ?string $workflowLaunchFilter = null;
+    #[Url(as: 'start')]
+    public ?string $workflowStartTypeFilter = null;
 
     public function getBreadcrumbs(): array
     {
@@ -61,16 +61,14 @@ class ListWorkflows extends BaseListWorkflows
         }
 
         $this->workflowGroupFilter = $name;
-        $this->workflowLaunchFilter = null;
+        $this->workflowStartTypeFilter = null;
         $this->resetPage();
     }
 
-    public function selectLaunchType(string $key): void
+    public function selectStartType(string $type): void
     {
-        abort_unless(array_key_exists($key, $this->launchTypeGroups()), 404);
-
-        $this->workflowLaunchFilter = $key;
         $this->workflowGroupFilter = null;
+        $this->workflowStartTypeFilter = $type;
         $this->resetPage();
     }
 
@@ -92,35 +90,70 @@ class ListWorkflows extends BaseListWorkflows
     }
 
     /**
-     * @return array<int, array{key: string, label: string, icon: string, count: int}>
+     * @return array<int, array{type: string, label: string, icon: string, count: int}>
      */
-    public function launchTypeOverview(): array
+    public function startTypeOverview(): array
     {
-        $counts = array_fill_keys(array_keys($this->launchTypeGroups()), 0);
+        $counts = [];
 
         Workflow::query()
             ->where('user_id', auth()->id())
-            ->get(['id', 'definition'])
+            ->get(['definition'])
             ->each(function (Workflow $workflow) use (&$counts): void {
-                $types = $this->workflowStartTypes($workflow);
+                try {
+                    $types = collect(WorkflowStartNodes::all((array) $workflow->definition))
+                        ->pluck('type')
+                        ->filter(fn (mixed $type): bool => is_string($type) && $type !== '')
+                        ->unique();
+                } catch (Throwable) {
+                    return;
+                }
 
-                foreach ($this->launchTypeGroups() as $key => $group) {
-                    if (array_intersect($types, $group['types']) !== []) {
-                        $counts[$key]++;
-                    }
+                foreach ($types as $type) {
+                    $counts[$type] = ($counts[$type] ?? 0) + 1;
                 }
             });
 
-        return collect($this->launchTypeGroups())
-            ->map(fn (array $group, string $key): array => [
-                'key' => $key,
-                'label' => $group['label'],
-                'icon' => $group['icon'],
-                'count' => $counts[$key],
+        $priority = array_flip([
+            'digital-pipeline',
+            'amo-button',
+            'amo-bulk',
+            'generic-webhook',
+            'manual',
+            'schedule',
+            'workflow-completed',
+        ]);
+
+        return collect($counts)
+            ->map(fn (int $count, string $type): array => [
+                'type' => $type,
+                'label' => $this->startTypeLabel($type),
+                'icon' => $this->startTypeIcon($type),
+                'count' => $count,
             ])
-            ->filter(fn (array $group): bool => $group['count'] > 0)
+            ->sort(function (array $left, array $right) use ($priority): int {
+                $leftPriority = $priority[$left['type']] ?? PHP_INT_MAX;
+                $rightPriority = $priority[$right['type']] ?? PHP_INT_MAX;
+
+                return $leftPriority <=> $rightPriority ?: strcasecmp($left['label'], $right['label']);
+            })
             ->values()
             ->all();
+    }
+
+    public function currentListHeading(): ?string
+    {
+        if ($this->workflowStartTypeFilter !== null) {
+            return $this->startTypeLabel($this->workflowStartTypeFilter);
+        }
+
+        if ($this->workflowGroupFilter === null) {
+            return null;
+        }
+
+        return $this->workflowGroupFilter === WorkflowFolders::WITHOUT_FOLDER
+            ? 'Без папки'
+            : $this->workflowGroupFilter;
     }
 
     public function createFolderAction(): Action
@@ -190,14 +223,8 @@ class ListWorkflows extends BaseListWorkflows
         if ($query instanceof Builder) {
             $query = WorkflowResource::applyGroupHeaderFilter($query, $this->workflowGroupFilter);
 
-            if ($this->workflowLaunchFilter !== null) {
-                $types = $this->launchTypeGroups()[$this->workflowLaunchFilter]['types'] ?? [];
-
-                $query->where(function (Builder $query) use ($types): void {
-                    foreach ($types as $type) {
-                        $query->orWhere(fn (Builder $query): Builder => $query->withStartType($type));
-                    }
-                });
+            if ($this->workflowStartTypeFilter !== null) {
+                $query->withStartType($this->workflowStartTypeFilter);
             }
 
             return $query;
@@ -206,80 +233,37 @@ class ListWorkflows extends BaseListWorkflows
         return $query;
     }
 
-    public function selectedLaunchTypeLabel(): ?string
+    private function startTypeLabel(string $type): string
     {
-        return $this->workflowLaunchFilter !== null
-            ? ($this->launchTypeGroups()[$this->workflowLaunchFilter]['label'] ?? null)
-            : null;
-    }
+        $override = match ($type) {
+            'digital-pipeline' => 'Digital Pipeline',
+            'amo-button' => 'Кнопки',
+            'amo-bulk' => 'Массовое действие',
+            'generic-webhook' => 'Webhooks',
+            'manual' => 'Ручной запуск',
+            default => null,
+        };
 
-    /**
-     * @return array<string, array{label: string, icon: string, types: array<int, string>}>
-     */
-    private function launchTypeGroups(): array
-    {
-        return [
-            'digital-pipeline' => [
-                'label' => 'Digital Pipeline',
-                'icon' => 'amocrm-digital-pipeline',
-                'types' => ['digital-pipeline'],
-            ],
-            'buttons' => [
-                'label' => 'Кнопки',
-                'icon' => 'amocrm-button',
-                'types' => ['amo-button'],
-            ],
-            'webhooks' => [
-                'label' => 'Webhooks',
-                'icon' => 'heroicon-o-globe-alt',
-                'types' => ['generic-webhook'],
-            ],
-            'amocrm-events' => [
-                'label' => 'События amoCRM',
-                'icon' => 'heroicon-o-bolt',
-                'types' => array_map(
-                    fn (string $triggerClass): string => $triggerClass::type(),
-                    AmoCrmWebhookTriggerCatalog::classes(),
-                ),
-            ],
-            'manual' => [
-                'label' => 'Ручной запуск',
-                'icon' => 'heroicon-o-play',
-                'types' => ['manual'],
-            ],
-            'schedule' => [
-                'label' => 'Расписание',
-                'icon' => 'heroicon-o-clock',
-                'types' => ['schedule'],
-            ],
-            'workflow' => [
-                'label' => 'Из другого сценария',
-                'icon' => 'heroicon-o-arrow-right-circle',
-                'types' => ['workflow-completed'],
-            ],
-            'date' => [
-                'label' => 'По дате',
-                'icon' => 'heroicon-o-calendar-days',
-                'types' => ['date-condition'],
-            ],
-        ];
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function workflowStartTypes(Workflow $workflow): array
-    {
-        try {
-            return collect(WorkflowStartNodes::all($workflow->definition ?? []))
-                ->pluck('type')
-                ->filter(fn (mixed $type): bool => is_string($type) && $type !== '')
-                ->unique()
-                ->values()
-                ->all();
-        } catch (\InvalidArgumentException) {
-            return [];
+        if ($override !== null) {
+            return $override;
         }
+
+        $registry = app(TriggerRegistry::class);
+        $class = $registry->has($type) ? $registry->get($type) : null;
+
+        return is_string($class) && method_exists($class, 'name')
+            ? (string) $class::name()
+            : $type;
+    }
+
+    private function startTypeIcon(string $type): string
+    {
+        $registry = app(TriggerRegistry::class);
+        $class = $registry->has($type) ? $registry->get($type) : null;
+
+        return is_string($class) && method_exists($class, 'icon')
+            ? (string) $class::icon()
+            : 'heroicon-o-bolt';
     }
 
     public function content(Schema $schema): Schema
@@ -403,7 +387,7 @@ class ListWorkflows extends BaseListWorkflows
         $url = WorkflowResource::getUrl();
 
         return Redirect::to(
-            CrmProvider::authorizationUrl($user->crm_provider).'?state='.urlencode($state)
+            'https://www.amocrm.ru/oauth/?state='.urlencode($state)
             .'&client_id='.urlencode($clientId)
             .'&uri='.urlencode($url)
         );

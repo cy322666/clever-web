@@ -5,7 +5,6 @@ namespace App\Console\Commands\Billing;
 use App\Models\App;
 use App\Models\Billing\SubscriptionPlan;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 use Throwable;
 
 class SyncSubscriptionPlans extends Command
@@ -18,11 +17,15 @@ class SyncSubscriptionPlans extends Command
 
     private const PERIODS = [
         '1_month' => ['label' => '1 месяц', 'days' => 30, 'sort' => 10],
+        '3_month' => ['label' => '3 месяца', 'days' => 90, 'sort' => 15],
         '6_month' => ['label' => '6 месяцев', 'days' => 180, 'sort' => 20],
         '12_month' => ['label' => '12 месяцев', 'days' => 365, 'sort' => 30],
+        '24_month' => ['label' => '24 месяца', 'days' => 730, 'sort' => 40],
     ];
 
-    protected $signature = 'subscriptions:sync-plans {--dry-run : Только показать, что будет создано или обновлено}';
+    protected $signature = 'subscriptions:sync-plans
+        {--widget= : Синхронизировать тарифы только выбранного виджета}
+        {--dry-run : Только показать изменения без сохранения}';
 
     protected $description = 'Заполняет тарифы виджетов из прайсов моделей настроек';
 
@@ -31,14 +34,28 @@ class SyncSubscriptionPlans extends Command
         $dryRun = (bool)$this->option('dry-run');
         $created = 0;
         $updated = 0;
+        $deactivated = 0;
+        $definitions = App::definitions();
+        $selectedWidget = $this->option('widget');
+        if ($selectedWidget !== null) {
+            if (!$definitions->has($selectedWidget)) {
+                $this->error('Неизвестный виджет: '.$selectedWidget);
 
-        foreach (App::definitions() as $widget => $definition) {
+                return self::FAILURE;
+            }
+            $definitions = $definitions->only([$selectedWidget]);
+        }
+
+        foreach ($definitions as $widget => $definition) {
             $cost = $this->resolveCost((string)($definition['resource'] ?? ''));
             $title = App::getTitle($widget, $definition['resource'] ?? null);
             $description = App::getTooltipText($widget);
 
             foreach (self::PERIODS as $periodKey => $period) {
-                $priceLabel = (string)($cost[$periodKey] ?? self::DEFAULT_COST[$periodKey]);
+                if (!array_key_exists($periodKey, $cost)) {
+                    continue;
+                }
+                $priceLabel = (string)$cost[$periodKey];
                 $slug = $widget . '-' . str_replace('_', '-', $periodKey);
 
                 $payload = [
@@ -70,11 +87,27 @@ class SyncSubscriptionPlans extends Command
 
                 $existing ? $updated++ : $created++;
             }
+
+            // Retain obsolete plans for existing subscriptions and payment history.
+            $retiredSlugs = array_map(
+                fn (string $period): string => $widget.'-'.str_replace('_', '-', $period),
+                array_keys(array_diff_key(self::PERIODS, $cost)),
+            );
+            $retired = SubscriptionPlan::query()->where('widget', $widget)
+                ->whereIn('slug', $retiredSlugs)->where('is_active', true);
+            if ($dryRun) {
+                foreach ($retired->pluck('slug') as $slug) {
+                    $this->line('deactivate '.$slug);
+                }
+            } else {
+                $deactivated += $retired->update(['is_active' => false]);
+            }
         }
 
         $this->info('Синхронизация тарифов завершена.');
         $this->line('Создано: ' . $created);
         $this->line('Обновлено: ' . $updated);
+        $this->line('Отключено: ' . $deactivated);
 
         return self::SUCCESS;
     }
@@ -92,7 +125,7 @@ class SyncSubscriptionPlans extends Command
                 $cost = $modelClass::$cost;
 
                 if (is_array($cost) && $cost !== []) {
-                    return array_replace(self::DEFAULT_COST, $cost);
+                    return $cost;
                 }
             }
         } catch (Throwable) {

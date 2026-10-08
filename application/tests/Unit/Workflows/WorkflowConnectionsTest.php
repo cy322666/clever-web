@@ -50,26 +50,6 @@ class WorkflowConnectionsTest extends TestCase
         $this->assertSame(['action:note'], WorkflowGraph::targets($page->get('definition')['connections'], 'trigger'));
     }
 
-    public function test_condition_output_handle_adds_second_and_third_branches_without_replacing_existing_ones(): void
-    {
-        $page = Livewire::test(WorkflowCanvasFixture::class)
-            ->call('openDetachedActionPalette')
-            ->call('selectActionType', 'amocrm_add_note')
-            ->call('openDetachedActionPalette')
-            ->call('selectActionType', 'amocrm_create_task');
-
-        $actions = $page->get('workflowActions');
-        $second = 'action:'.$actions[1]['id'];
-        $third = 'action:'.$actions[2]['id'];
-        $page
-            ->call('connectWorkflowNodes', 'action:condition', 'yes', $second)
-            ->call('connectWorkflowNodes', 'action:condition', 'yes', $third);
-
-        $targets = WorkflowGraph::targets($page->get('definition')['connections'], 'action:condition', 'yes');
-
-        $this->assertSame(['action:task', $second, $third], $targets);
-    }
-
     public function test_an_unconnected_company_action_can_connect_to_a_detached_condition(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class);
@@ -135,26 +115,6 @@ class WorkflowConnectionsTest extends TestCase
         $test = app(WorkflowTestRunner::class)->test($definition, ['_dry_run' => true]);
         $this->assertTrue($test['success']);
         $this->assertSame(['if', 'yes', 'join'], array_column($test['steps'], 'id'));
-    }
-
-    public function test_condition_port_runs_every_connected_branch(): void
-    {
-        $definition = $this->definition();
-        $definition['connections'][] = [
-            'sourceId' => 'action:if',
-            'sourcePort' => 'yes',
-            'targetId' => 'action:orphan',
-        ];
-
-        $session = app(WorkflowDebugger::class)->start($definition, [], null, null);
-
-        while ($session['status'] === 'ready') {
-            $session = app(WorkflowDebugger::class)->advance($session);
-        }
-
-        $this->assertSame('completed', $session['status']);
-        $this->assertEqualsCanonicalizing(['if', 'yes', 'join', 'orphan'], array_column($session['results'], 'id'));
-        $this->assertCount(4, $session['results']);
     }
 
     public function test_replacing_an_attached_edge_removes_only_the_old_connection(): void

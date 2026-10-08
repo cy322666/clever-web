@@ -1,0 +1,28 @@
+{
+    "widget": {
+        "name": "widget.name",
+        "description": "widget.description",
+        "short_description": "widget.short_description",
+        "version": "0.2.0",
+        "interface_version": 2,
+        "init_once": true,
+        "locale": [
+            "ru"
+        ],
+        "installation": true,
+        "support": {
+            "link": "https://clevercrm.pro",
+            "email": "support@clevercrm.pro"
+        }
+    },
+    "locations": [
+        "crm_template"
+    ],
+    "settings": {
+        "noop": {
+            "name": "settings.noop",
+            "type": "text",
+            "required": false
+        }
+    }
+}

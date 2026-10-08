@@ -39,15 +39,6 @@ memory limit to retain headroom for Excel previews; CLI, Horizon and scheduler
 limits are unchanged. Tune the pool only after measuring memory under load.
 FPM and supervisor use the same `www-data` UID/GID 33 so both can write Laravel's
 shared storage and cache directories.
-After every code update, including a manual patch, verify file access as that user:
-```bash
-docker compose exec -T --user www-data app php scripts/check-runtime-access.php
-docker compose exec -T --user www-data supervisor php scripts/check-runtime-access.php
-docker compose exec -T --user www-data app php artisan app:smoke --strict
-```
-The access check refuses to run as root, which can hide unreadable source files.
-Use `umask 022` when updating source; keep backups private in a separate `umask 077`
-subshell. Do not make secrets or private storage world-readable to pass a check.
 Container logs for `app` rotate at 10 MB with three files retained; HTTP access
 and error logs use the existing host nginx log rotation.
 

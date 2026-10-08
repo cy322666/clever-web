@@ -4,7 +4,6 @@ namespace App\Helpers\Traits;
 
 use App\Models\Core\Account;
 use App\Services\amoCRM\Client;
-use App\Support\Crm\CrmProvider;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
@@ -16,13 +15,13 @@ trait SyncAmoCRMPage
 {
     public function mountSyncAmoCRMPage(): void
     {
-        $authState = (string) (session('amocrm_auth') ?? request()->query('amocrm_auth', ''));
+        $authState = (string)(session('amocrm_auth') ?? request()->query('amocrm_auth', ''));
 
         if ($authState === '') {
             return;
         }
 
-        $message = trim((string) (session('amocrm_auth_message') ?? request()->query('amocrm_auth_message', '')));
+        $message = trim((string)(session('amocrm_auth_message') ?? request()->query('amocrm_auth_message', '')));
         if ($message === '') {
             $message = $authState === 'success'
                 ? 'amoCRM успешно подключена.'
@@ -53,7 +52,7 @@ trait SyncAmoCRMPage
             $widget = $this->resolveAmoWidgetKey();
             $account = $user?->resolveAmoAccountForWidget($widget, true);
 
-            if (! $user || ! $account) {
+            if (!$user || !$account) {
                 Notification::make()
                     ->title('Не удалось определить amoCRM аккаунт')
                     ->danger()
@@ -62,7 +61,7 @@ trait SyncAmoCRMPage
                 return;
             }
 
-            if (! $account->active) {
+            if (!$account->active) {
                 $url = $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
                 $state = $this->encodeOauthState($user->uuid, $widget);
                 $clientId = $this->resolveOauthClientId($widget, $account);
@@ -71,8 +70,7 @@ trait SyncAmoCRMPage
                     Notification::make()
                         ->title('Не настроен client_id для виджета')
                         ->body(
-                            'Для подключения amoCRM укажите client_id в services.amocrm.widgets.'.$widget.'.client_id'
-                            .($widget === 'import-excel' ? '' : ' или общий services.amocrm.client_id')
+                            'Для подключения amoCRM укажите client_id в services.amocrm.widgets.' . $widget . '.client_id или общий services.amocrm.client_id'
                         )
                         ->danger()
                         ->send();
@@ -81,9 +79,9 @@ trait SyncAmoCRMPage
                 }
 
                 Redirect::to(
-                    CrmProvider::authorizationUrl($user->crm_provider).'?state='.urlencode($state)
-                    .'&client_id='.urlencode($clientId)
-                    .'&uri='.urlencode($url)
+                    'https://www.amocrm.ru/oauth/?state=' . urlencode($state)
+                    . '&client_id=' . urlencode($clientId)
+                    . '&uri=' . urlencode($url)
                 );
             } else {
                 $this->resetAmoCrmAccount($account);
@@ -113,7 +111,7 @@ trait SyncAmoCRMPage
             $user = Auth::user();
             $account = $user?->resolveAmoAccountForWidget($this->resolveAmoWidgetKey(), true);
 
-            if (! $user || ! $account) {
+            if (!$user || !$account) {
                 Notification::make()
                     ->title('Не удалось определить amoCRM аккаунт')
                     ->danger()
@@ -163,7 +161,7 @@ trait SyncAmoCRMPage
     {
         $account = Auth::user()?->resolveAmoAccountForWidget($this->resolveAmoWidgetKey(), false);
 
-        if (! $account) {
+        if (!$account) {
             Notification::make()
                 ->title('amoCRM аккаунт не найден')
                 ->danger()
@@ -184,18 +182,17 @@ trait SyncAmoCRMPage
                 ->title('Успешно обновлено')
                 ->success()
                 ->send();
-        } else {
+        } else
             Notification::make()
                 ->title('Ошибка авторизации')
                 ->danger()
                 ->send();
-        }
     }
 
     protected function resolveAmoWidgetKey(): string
     {
         if (method_exists($this, 'getAmoWidgetKey')) {
-            $widget = (string) $this->getAmoWidgetKey();
+            $widget = (string)$this->getAmoWidgetKey();
 
             if ($widget !== '') {
                 return Account::normalizeWidget($widget);
@@ -211,33 +208,16 @@ trait SyncAmoCRMPage
 
     protected function resolveOauthClientId(string $widget, Account $account): string
     {
-        if (Account::normalizeWidget($widget) === 'import-excel') {
-            return trim((string) config('services.amocrm.widgets.import-excel.client_id', ''));
-        }
-
-        if ($this->shouldUseSharedAmoConnector($widget, $account)) {
-            return (string) config('services.amocrm.client_id', '') ?: (string) $account->client_id;
-        }
-
-        $configWidgetClientId = (string) config('services.amocrm.widgets.'.$widget.'.client_id', '');
-        if (Account::normalizeWidget($widget) === 'yclients') {
-            return $configWidgetClientId;
-        }
-
+        $configWidgetClientId = (string)config('services.amocrm.widgets.' . $widget . '.client_id', '');
         if ($configWidgetClientId !== '') {
             return $configWidgetClientId;
         }
 
-        if ((string) $account->client_id !== '') {
-            return (string) $account->client_id;
+        if ((string)$account->client_id !== '') {
+            return (string)$account->client_id;
         }
 
-        return (string) config('services.amocrm.client_id');
-    }
-
-    protected function shouldUseSharedAmoConnector(string $widget, ?Account $account = null): bool
-    {
-        return ($account ?? new Account)->usesSharedConnectorForWidget($widget);
+        return (string)config('services.amocrm.client_id');
     }
 
     protected function encodeOauthState(string $userUuid, string $widget): string

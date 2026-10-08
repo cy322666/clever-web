@@ -11,36 +11,6 @@ function components() {
     return window;
 }
 
-test('JSON result tree expands all levels and toggles an individual level without changing data', () => {
-    const input = {items: [{id: 42, enabled: false, text: '<b>plain text</b>'}], empty: null};
-    const viewer = components().workflowJsonViewer(input);
-    viewer.init();
-    assert.equal(viewer.rows.some(row => row.label === '"id": '), false);
-    viewer.expandAll();
-    const rendered = () => viewer.rows.map(row => row.label + row.text).join('\n');
-    assert.deepEqual(JSON.parse(rendered()), input);
-    viewer.toggle('$.items');
-    assert.equal(viewer.rows.some(row => row.label === '"id": '), false);
-    viewer.toggle('$.items');
-    assert.deepEqual(JSON.parse(rendered()), input);
-    viewer.collapseAll();
-    assert.equal(viewer.rows.length, 1);
-    viewer.expandAll();
-    assert.deepEqual(JSON.parse(rendered()), input);
-});
-
-test('JSON result tree preserves expanded levels on polling and resets them for a new result', () => {
-    const viewer = components().workflowJsonViewer({items: [{id: 42}]});
-    viewer.init();
-    viewer.expandAll();
-    viewer.setValue({items: [{id: 42}]});
-    assert.equal(viewer.collapsed.length, 0);
-    viewer.setValue({items: [{id: 43}]});
-    assert.equal(viewer.collapsed.includes('$.items'), true);
-    viewer.expandAll();
-    assert.equal(viewer.rows.find(row => row.label === '"id": ').text, '43');
-});
-
 test('expression coloring marks only placeholders and treats markup as plain text', () => {
     const parts = components().workflowExpressionParts('Привет {{ $node["Сделки"].json.id }} <b>текст</b> {{lead.id}}');
     assert.equal(parts.filter(p=>p.variable).length,2);
@@ -189,16 +159,19 @@ test('input tree hides repeated paths and only expands the selected branch', () 
     assert.equal(picker.fieldSummary({type:'object'}), '{}');
 });
 
-test('reference browser keeps one scrollable list, filters, and drills into field options', () => {
+test('reference browser paginates, filters, and drills into field options without expanding all rows', () => {
     const browser = components().workflowVariableBrowser({Fields: Array.from({length: 45}, (_, i) => ({
         label: 'Поле ' + i, value: String(i), options: [{id: 100 + i, name: 'Вариант ' + i}],
     }))});
     assert.equal(browser.items.length, 0);
     browser.type = 'Fields';
-    assert.equal(browser.visibleItems.length, 45);
-    assert.equal('pageCount' in browser, false);
+    assert.equal(browser.visibleItems.length, 20);
+    assert.equal(browser.pageCount, 3);
+    browser.page = 2;
+    assert.equal(browser.visibleItems.length, 5);
     browser.showOptions(browser.items[0]);
-    assert.equal(browser.visibleItems[0].id, '100');
+    assert.equal(browser.page, 0);
+    assert.equal(browser.visibleItems[0].value, '100');
     browser.reset();
     assert.equal(browser.items.length, 45);
     browser.query = 'поле 44';

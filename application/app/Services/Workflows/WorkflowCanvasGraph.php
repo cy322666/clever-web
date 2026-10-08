@@ -11,22 +11,9 @@ final class WorkflowCanvasGraph
             $nodes = WorkflowGraph::nodes($actions);
             $edges = array_map(fn ($edge) => $edge + ['path' => '', 'index' => 0], $connections);
             foreach (array_fill_keys($startIds, ['step' => ['type' => 'trigger']]) + $nodes as $id => $node) {
-                $condition = WorkflowGraph::condition($node['step']);
-
-                foreach ($condition ? ['yes', 'no'] : ['output'] as $port) {
-                    $targets = WorkflowGraph::targets($connections, $id, $port);
-
-                    if ($targets === []) {
+                foreach (WorkflowGraph::condition($node['step']) ? ['yes', 'no'] : ['output'] as $port) {
+                    if (WorkflowGraph::targets($connections, $id, $port) === []) {
                         $edges[] = ['sourceId' => $id, 'sourcePort' => $port, 'targetId' => null, 'path' => '', 'index' => 0];
-                    } elseif ($condition && ! $execution) {
-                        $edges[] = [
-                            'sourceId' => $id,
-                            'sourcePort' => $port,
-                            'targetId' => null,
-                            'branch' => true,
-                            'path' => '',
-                            'index' => count($targets),
-                        ];
                     }
                 }
             }
@@ -48,24 +35,12 @@ final class WorkflowCanvasGraph
                     foreach (['true_actions' => 'yes', 'false_actions' => 'no'] as $branch => $port) {
                         $branchPath = $stepPath . '.config.' . $branch;
                         $enabled = !$execution || ($step['config'][$port === 'yes' ? 'has_true_branch' : 'has_false_branch'] ?? ($port === 'yes'));
-                        $branchSteps = $enabled ? ($step['config'][$branch] ?? []) : [];
-                        $incoming = array_merge($incoming, $walk($branchSteps, $branchPath, [[
+                        $incoming = array_merge($incoming, $walk($enabled ? ($step['config'][$branch] ?? []) : [], $branchPath, [[
                             'sourceId' => $nodeId,
                             'sourcePort' => $port,
                             'path' => $branchPath,
                             'index' => 0,
                         ]]));
-
-                        if (! $execution && $branchSteps !== []) {
-                            $edges[] = [
-                                'sourceId' => $nodeId,
-                                'sourcePort' => $port,
-                                'targetId' => null,
-                                'branch' => true,
-                                'path' => $branchPath,
-                                'index' => count($branchSteps),
-                            ];
-                        }
                     }
                 } else {
                     $incoming = [[

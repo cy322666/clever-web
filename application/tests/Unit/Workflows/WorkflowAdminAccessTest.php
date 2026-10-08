@@ -28,6 +28,7 @@ class WorkflowAdminAccessTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
         WorkflowListDatabase::prepare();
         Schema::table('users', function (Blueprint $table): void {
             $table->boolean('is_root')->default(false);
@@ -40,6 +41,7 @@ class WorkflowAdminAccessTest extends TestCase
             ['user_id' => 1, 'widget' => 'workflows', 'active' => true, 'subdomain' => 'admin'],
             ['user_id' => 2, 'widget' => 'workflows', 'active' => true, 'subdomain' => 'client'],
         ]);
+
         $this->root = User::query()->findOrFail(1);
         $this->owner = User::query()->findOrFail(2);
 
@@ -51,23 +53,29 @@ class WorkflowAdminAccessTest extends TestCase
             ['user_id' => 1, 'workflow_id' => 1, 'status' => 'completed', 'created_at' => now(), 'updated_at' => now()],
             ['user_id' => 2, 'workflow_id' => 2, 'status' => 'failed', 'created_at' => now(), 'updated_at' => now()],
         ]);
+
         WorkflowCredential::query()->create([
-            'user_id' => 2, 'provider' => 'telegram', 'name' => 'Бот поддержки', 'secret' => '123456:private-token',
+            'user_id' => 2,
+            'provider' => 'telegram',
+            'name' => 'Бот поддержки',
+            'secret' => '123456:private-token',
         ]);
     }
 
-    public function test_regular_user_remains_limited_to_own_data(): void
+    public function test_regular_user_remains_limited_to_own_workflows_and_runs(): void
     {
         $this->actingAs($this->owner);
+
         $this->assertSame(['Сценарий клиента'], Workflow::query()->pluck('name')->all());
         $this->assertSame([2], WorkflowRun::query()->pluck('workflow_id')->all());
         $this->assertFalse(WorkflowAdmin::canAccess());
         $this->assertFalse(WorkflowCredentialResource::canViewAny());
     }
 
-    public function test_root_sees_global_data_and_summary(): void
+    public function test_root_sees_all_workflows_runs_and_admin_summary(): void
     {
         $this->actingAs($this->root);
+
         $this->assertCount(2, WorkflowResource::getEloquentQuery()->get());
         $this->assertCount(2, WorkflowRun::query()->get());
         $this->assertTrue(WorkflowAdmin::canAccess());
@@ -81,10 +89,13 @@ class WorkflowAdminAccessTest extends TestCase
         $this->assertSame(1, $summary['credentials']);
     }
 
-    public function test_root_switches_only_the_current_request_to_the_owner(): void
+    public function test_root_can_switch_request_context_to_workflow_owner(): void
     {
         $this->actingAs($this->root);
-        $owner = WorkflowAdminAccess::useWorkflowOwner(Workflow::query()->findOrFail(2));
+        $workflow = Workflow::query()->findOrFail(2);
+
+        $owner = WorkflowAdminAccess::useWorkflowOwner($workflow);
+
         $this->assertSame(2, $owner->getKey());
         $this->assertSame(2, auth()->id());
         $this->assertSame(['Сценарий клиента'], Workflow::query()->pluck('name')->all());
@@ -119,6 +130,7 @@ class WorkflowAdminAccessTest extends TestCase
         $page->initialize();
         $this->assertTrue($page->workflowAdminAccess);
         $this->assertSame(2, auth()->id());
+
         $this->actingAs($this->root);
         $page->restore();
         $this->assertSame(2, auth()->id());
@@ -138,18 +150,23 @@ class WorkflowAdminAccessTest extends TestCase
         }
     }
 
-    public function test_credential_secret_stays_hidden(): void
+    public function test_credential_secret_stays_hidden_from_admin_serialization(): void
     {
         $this->actingAs($this->root);
+
         $credential = WorkflowCredential::query()->firstOrFail();
         $this->assertArrayNotHasKey('secret', $credential->toArray());
         $this->assertStringNotContainsString('private-token', $credential->toJson());
     }
 
-    public function test_root_admin_overview_renders(): void
+    public function test_root_admin_overview_renders_the_account_and_workflow(): void
     {
-        Livewire::actingAs($this->root)->test(WorkflowAdmin::class)
-            ->assertOk()->assertSee('client')->assertSee('Сценарий клиента')->assertSee('Все подключения');
+        Livewire::actingAs($this->root)
+            ->test(WorkflowAdmin::class)
+            ->assertOk()
+            ->assertSee('client')
+            ->assertSee('Сценарий клиента')
+            ->assertSee('Все подключения');
     }
 
     /** @return array<string, mixed> */

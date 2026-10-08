@@ -1041,14 +1041,14 @@ final class WorkflowLiveAcceptance
     {
         $json=json_encode($data,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE|JSON_THROW_ON_ERROR);
         $dir=dirname($path);
-        if(!is_dir($dir)) WorkflowAcceptanceStorage::prepareDirectory($dir);
+        if(!is_dir($dir) && !@mkdir($dir,0700,true) && !is_dir($dir)) throw new RuntimeException('Could not create acceptance report directory');
         // Write and secure the complete replacement before publishing it to readers.
         $temporary=$path.'.'.bin2hex(random_bytes(6)).'.tmp';
         try {
             $handle=@fopen($temporary,'xb');
             if($handle===false) throw new RuntimeException('Could not create acceptance report');
             try {
-                WorkflowAcceptanceStorage::secureFile($temporary,$dir);
+                if(!@chmod($temporary,0600)) throw new RuntimeException('Could not restrict acceptance report permissions');
                 $offset=0;
                 while($offset<strlen($json)) {
                     $written=fwrite($handle,substr($json,$offset));

@@ -166,36 +166,12 @@ class WorkflowActionFieldsTest extends TestCase
     {
         $html = view('filament.workflow-builder.workflow-json-tree', [
             'value' => ['items' => [['id' => 42, 'name' => 'Тест']]],
-            'title' => 'Ответ amoCRM',
         ])->render();
 
         $this->assertStringContainsString('workflow-json-tree', $html);
         $this->assertStringContainsString('Свернуть всё', $html);
         $this->assertStringContainsString('Развернуть всё', $html);
         $this->assertStringContainsString('toggle(row.path)', $html);
-        $this->assertStringContainsString('workflow-json-tree__header', $html);
-        $this->assertStringContainsString('workflow-json-tree__title">Ответ amoCRM</h3>', $html);
-        $this->assertStringContainsString('workflow-json-tree__viewport', $html);
-        $this->assertStringContainsString('workflow-json-tree__toggle', $html);
-        $this->assertStringContainsString('workflow-json-tree__content', $html);
-        $this->assertStringContainsString('viewBox="0 0 16 16"', $html);
-        $this->assertStringContainsString(':aria-expanded="!row.collapsed"', $html);
-    }
-
-    public function test_json_results_allow_a_reactive_title_without_rendering_untrusted_markup(): void
-    {
-        $html = view('filament.workflow-builder.workflow-json-tree', [
-            'expression' => 'responseData()',
-            'titleExpression' => "exchange() ? 'Ответ amoCRM' : 'Результат шага'",
-        ])->render();
-
-        $this->assertStringContainsString('x-effect="setValue(responseData())"', $html);
-        $this->assertStringContainsString('x-text="exchange()', $html);
-        $this->assertStringNotContainsString('x-html', $html);
-
-        $html = view('filament.workflow-builder.workflow-json-tree', ['title' => '<script>unsafe</script>'])->render();
-        $this->assertStringNotContainsString('<script>unsafe</script>', $html);
-        $this->assertStringContainsString('&lt;script&gt;unsafe&lt;/script&gt;', $html);
     }
 
     public function test_status_form_keeps_pipeline_and_status_expressions_as_strings(): void
@@ -274,56 +250,6 @@ class WorkflowActionFieldsTest extends TestCase
             && $request->url()==='https://workflow-fields.test/api/v4/leads'
             && $request[0]['name']==='Новая 42' && $request[0]['price']==0
             && $request[0]['pipeline_id']===10 && $request[0]['status_id']===20 && $request[0]['responsible_user_id']===9);
-        Http::assertSentCount(1);
-    }
-
-    public function test_create_company_sends_fields_and_returns_the_created_id(): void
-    {
-        Http::fake(['https://workflow-fields.test/*' => Http::response(['_embedded'=>['companies'=>[['id'=>321]]]])]);
-        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
-        $account = (new Account)->forceFill(['id'=>1,'endpoint'=>'https://workflow-fields.test','access_token'=>'test-only']);
-        $method = new \ReflectionMethod($executor, 'createEntity');
-        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
-
-        $result = $method->invoke($executor, $client, $account, 'company', [
-            'name'=>'ООО Тест',
-            'responsible_user_id'=>'9',
-            'tags'=>'Партнёр, VIP',
-        ], null);
-
-        $this->assertTrue($result['success']);
-        $this->assertSame(321, $result['output']['entity_id']);
-        Http::assertSent(fn ($request) => $request->method()==='POST'
-            && $request->url()==='https://workflow-fields.test/api/v4/companies'
-            && $request[0]['name']==='ООО Тест'
-            && $request[0]['responsible_user_id']===9
-            && $request[0]['_embedded']['tags']===[['name'=>'Партнёр'], ['name'=>'VIP']]);
-        Http::assertSentCount(1);
-    }
-
-    public function test_link_entities_posts_a_company_link_to_the_selected_lead(): void
-    {
-        Http::fake(['https://workflow-fields.test/*' => Http::response([])]);
-        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
-        $account = (new Account)->forceFill(['id'=>1,'endpoint'=>'https://workflow-fields.test','access_token'=>'test-only']);
-        $method = new \ReflectionMethod($executor, 'linkEntity');
-        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
-
-        $result = $method->invoke($executor, $client, $account, [
-            'entity_source' => 'manual',
-            'target_entity' => 'lead',
-            'target_entity_id' => 42,
-            'linked_entity' => 'company',
-            'linked_entity_id' => 77,
-        ], null);
-
-        $this->assertTrue($result['success']);
-        $this->assertSame('company', $result['output']['linked_entity']);
-        $this->assertSame(77, $result['output']['linked_entity_id']);
-        Http::assertSent(fn ($request) => $request->method()==='POST'
-            && $request->url()==='https://workflow-fields.test/api/v4/leads/42/link'
-            && $request[0]['to_entity_id']===77
-            && $request[0]['to_entity_type']==='companies');
         Http::assertSentCount(1);
     }
 }

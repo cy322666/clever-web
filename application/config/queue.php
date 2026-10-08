@@ -66,7 +66,9 @@ return [
             'driver' => 'redis',
             'connection' => 'default',
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => 200,
+            // Workflows share this connection and may run for 900 seconds.
+            // Keep visibility above that timeout, even with an unsafe env override.
+            'retry_after' => max(960, (int) env('REDIS_QUEUE_RETRY_AFTER', 960)),
             'block_for' => null,
             'after_commit' => false,
         ],

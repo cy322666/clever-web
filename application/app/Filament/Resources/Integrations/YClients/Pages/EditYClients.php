@@ -7,7 +7,6 @@ use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Support\Facades\Auth;
 
 class EditYClients extends EditRecord
 {
@@ -38,10 +37,6 @@ class EditYClients extends EditRecord
     {
         $data['fields_contact'] = json_decode($data['fields_contact'], true);
         $data['fields_lead'] = json_decode($data['fields_lead'], true);
-
-        $data['link'] = \route('yclients.hook', [
-            'user' => Auth::user()->uuid,
-        ]);
 
         return $data;
     }

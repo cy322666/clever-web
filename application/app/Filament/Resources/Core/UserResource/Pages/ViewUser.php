@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Core\UserResource\Pages;
 
-use App\Filament\App\Pages\Onboarding;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\Resources\Core\UserResource\Widgets\UserAccountOverview;
 use Filament\Actions\Action;
@@ -13,11 +12,11 @@ class ViewUser extends ViewRecord
 {
     protected static string $resource = UserResource::class;
 
-    protected static ?string $title = 'Профиль';
+    protected static ?string $title = '';
 
     public function getHeading(): string
     {
-        return 'Профиль';
+        return '';
     }
 
     public function mountCanAuthorizeResourceAccess(): void
@@ -28,26 +27,17 @@ class ViewUser extends ViewRecord
     protected function getActions(): array
     {
         return [
-            Action::make('edit_profile')
-                ->label('Изменить данные')
-                ->icon('heroicon-o-pencil-square')
-                ->url(fn (): string => UserResource::getUrl('edit', ['record' => $this->record])),
-            Action::make('platform_setup')
-                ->label('Настройка платформы')
-                ->icon('heroicon-o-adjustments-horizontal')
-                ->color('gray')
-                ->url(fn (): string => Onboarding::getUrl()),
             Action::make('root')
                 ->label('Монитор')
                 ->icon('heroicon-o-chart-bar-square')
                 ->url(UserResource::getUrl())
-                ->hidden(fn () => ! Auth::user()->is_root),
+                ->hidden(fn() => !Auth::user()->is_root),
         ];
     }
 
     public function mount(int|string $record): void
     {
-        if (! Auth::user()?->is_root && Auth::id() !== (int) $record) {
+        if (!Auth::user()?->is_root && Auth::id() !== (int)$record) {
             $this->redirect(UserResource::getUrl('view', ['record' => Auth::id()]));
 
             return;
@@ -70,7 +60,7 @@ class ViewUser extends ViewRecord
 
     protected function authorizeAccess(): void
     {
-        if (! Auth::user()->is_root && Auth::id() !== $this->record->id) {
+        if (!Auth::user()->is_root && Auth::id() !== $this->record->id) {
 
             $this->redirect(UserResource::getUrl('view', ['record' => Auth::id()]));
         }

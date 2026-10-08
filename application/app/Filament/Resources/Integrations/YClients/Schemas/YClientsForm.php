@@ -40,15 +40,6 @@ class YClientsForm
                     ->hiddenLabel()
                     ->extraAttributes(['class' => 'self-start h-fit'])
                     ->schema([
-                        Fieldset::make('Ссылки')
-                            ->schema([
-                                TextInput::make('link')
-                                    ->label('Вебхук записи')
-                                    ->helperText('Вставьте эту ссылку в настройки интеграции')
-                                    ->copyable()
-                                    ->disabled(),
-                            ]),
-
                         Fieldset::make('Доступы')
                             ->schema([
                                 TextInput::make('partner_token')

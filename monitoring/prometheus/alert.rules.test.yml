@@ -1,0 +1,28 @@
+rule_files:
+  - alert.rules.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: PostgreSQL connection failure must persist for one minute
+    interval: 30s
+    input_series:
+      - series: 'pg_up{job="postgres_exporter", instance="postgres-exporter:9187"}'
+        values: '1 0 0 0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PostgresUnavailable
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PostgresUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: postgres_exporter
+              instance: postgres-exporter:9187
+              severity: critical
+            exp_annotations:
+              summary: "База данных недоступна"
+              description: "Postgres exporter не может подключиться к PostgreSQL более 1 минуты."
+      - eval_time: 3m
+        alertname: PostgresUnavailable
+        exp_alerts: []

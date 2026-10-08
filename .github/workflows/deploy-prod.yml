@@ -81,13 +81,6 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: application/package-lock.json
-
       - name: Prepare Composer Auth
         run: |
           if grep -q "filament-workflow-engine.composer.sh" composer.lock composer.json; then
@@ -133,11 +126,6 @@ jobs:
 
       - name: Install Composer Dependencies
         run: composer install --no-interaction --prefer-dist --no-progress --no-ansi
-
-      - name: Build JavaScript Runtime
-        run: |
-          npm ci --no-audit --no-fund
-          node scripts/build-workflow-runtime.mjs
 
       - name: Prepare Laravel Environment
         run: |
@@ -224,12 +212,10 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           source: application/public/build,application/bootstrap/workflow-runtime
-          target: /tmp/clever-web-deploy
+          target: ${{ secrets.PROD_PROJECT_PATH }}
           overwrite: true
 
       - name: Deploy via SSH with rollback
-        id: production_deploy
-        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_SHA: ${{ github.sha }}
@@ -238,18 +224,16 @@ jobs:
           COMPOSE_FILES: ${{ secrets.PROD_COMPOSE_FILES }}
           APP_HEALTHCHECK_URL: ${{ secrets.PROD_APP_URL }}
           AUTO_MIGRATE: ${{ secrets.PROD_AUTO_MIGRATE }}
-          ASSET_PATH: /tmp/clever-web-deploy/application
         with:
           host: ${{ secrets.PROD_SSH_HOST }}
           username: ${{ secrets.PROD_SSH_USER }}
           key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
-          command_timeout: 30m
-          envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE,ASSET_PATH
+          script_stop: true
+          envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE
           script: |
             set -Eeuo pipefail
-            umask 022
 
             if [ -z "${PROJECT_PATH:-}" ]; then
               echo "PROJECT_PATH is empty (set PROD_PROJECT_PATH secret)."
@@ -265,8 +249,6 @@ jobs:
             }
 
             HOST_NGINX_HELPER=""
-            REBUILD_IMAGES=false
-            LOCAL_CHANGES_PATCH=""
 
             start_application() {
               # Retain the helper across git checkout when rolling back old revisions.
@@ -277,16 +259,11 @@ jobs:
                 cp ops/nginx/configure-host.py "$HOST_NGINX_HELPER"
               fi
 
-              local image_args=(--no-build)
-              if [ "$REBUILD_IMAGES" = "true" ]; then
-                image_args=(--build)
-              fi
-
               # Older revisions use a web container or artisan serve on port 8080.
               if compose_cmd config --services | grep -qx web; then
-                compose_cmd up -d "${image_args[@]}" postgresql app supervisor web
+                compose_cmd up -d --build postgresql app supervisor web
               else
-                compose_cmd up -d "${image_args[@]}" postgresql app supervisor
+                compose_cmd up -d --build postgresql app supervisor
               fi
 
               if [ -n "$HOST_NGINX_HELPER" ]; then
@@ -315,18 +292,6 @@ jobs:
               fi
             }
 
-            external_healthcheck() {
-              local healthcheck_url="${APP_HEALTHCHECK_URL%/}"
-              [ -n "$healthcheck_url" ] || return 0
-
-              case "$healthcheck_url" in
-                */up) ;;
-                *) healthcheck_url="${healthcheck_url}/up" ;;
-              esac
-
-              curl -fsS --connect-timeout 5 --max-time 15 "$healthcheck_url"
-            }
-
             cd "$PROJECT_PATH"
 
             if [ -f ops/nginx/configure-host.py ]; then
@@ -337,39 +302,9 @@ jobs:
 
             CURRENT_COMMIT=""
 
-            backup_and_clear_tracked_changes() {
-              local label="$1"
-              local base_commit="$2"
-              local changed_files patch_path
-
-              if git diff --quiet; then
-                LOCAL_CHANGES_PATCH=""
-                return 0
-              fi
-
-              mkdir -p backups
-              changed_files="$(mktemp /tmp/clever-web-changes.XXXXXX)"
-              patch_path="backups/${label}-$(date -u +%Y%m%dT%H%M%SZ).patch"
-              git diff --name-only -z > "$changed_files"
-              (umask 077; git diff --binary > "$patch_path")
-              git restore --worktree --source="$base_commit" \
-                --pathspec-from-file="$changed_files" --pathspec-file-nul
-              rm -f "$changed_files"
-
-              LOCAL_CHANGES_PATCH="$patch_path"
-              echo "Saved tracked local changes to $patch_path"
-            }
-
             rollback() {
-              local exit_code="$1"
-              local failed_line="$2"
-              local failed_command="$3"
+              local exit_code=$?
               trap - ERR
-
-              failed_command="${failed_command//$'\n'/ }"
-              printf 'exit=%s; line=%s; command=%s\n' \
-                "$exit_code" "$failed_line" "$failed_command" \
-                > /tmp/clever-web-deploy-error
 
               echo "Deployment failed, starting code rollback..."
 
@@ -379,27 +314,10 @@ jobs:
               fi
 
               if [ -n "$CURRENT_COMMIT" ]; then
-                local failed_state_patch=""
-                if ! git diff --quiet; then
-                  backup_and_clear_tracked_changes \
-                    "failed-deploy-${DEPLOY_SHA:0:12}" "$(git rev-parse HEAD)"
-                  failed_state_patch="$LOCAL_CHANGES_PATCH"
-                fi
-
                 echo "Reverting code to ${CURRENT_COMMIT}"
                 git checkout -B "$DEPLOY_BRANCH" "$CURRENT_COMMIT"
-
-                if [ -n "$PRE_DEPLOY_CHANGES_PATCH" ]; then
-                  git apply "$PRE_DEPLOY_CHANGES_PATCH"
-                  echo "Restored pre-deploy tracked changes from $PRE_DEPLOY_CHANGES_PATCH"
-                fi
-                if [ -n "$failed_state_patch" ]; then
-                  echo "Preserved failed deploy state in $failed_state_patch"
-                fi
               fi
 
-              # Rollback reuses the images that were running before deployment.
-              REBUILD_IMAGES=false
               start_application
               compose_cmd exec -T app php artisan optimize:clear || true
               compose_cmd exec -T app php artisan optimize || true
@@ -425,12 +343,14 @@ jobs:
               compose_cmd exec -T --user "$supervisor_uid:$supervisor_gid" supervisor sh -c \
                 'test -w /var/www/html/storage && test -w /var/www/html/bootstrap/cache'
 
-              external_healthcheck >/dev/null || true
+              if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
+                curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null || true
+              fi
               echo "Rollback completed."
               exit "$exit_code"
             }
 
-            trap 'rollback "$?" "$LINENO" "$BASH_COMMAND"' ERR
+            trap rollback ERR
 
             git fetch origin "$DEPLOY_BRANCH" --prune
 
@@ -439,89 +359,29 @@ jobs:
             fi
 
             CURRENT_COMMIT="$(git rev-parse HEAD)"
-            PRE_DEPLOY_CHANGES_PATCH=""
             echo "Current commit: $CURRENT_COMMIT"
             echo "Target commit:  $DEPLOY_SHA"
 
-            if ! git diff --quiet "$CURRENT_COMMIT" "$DEPLOY_SHA" -- \
-              docker docker-compose.yml monitoring/docker-compose.monitoring.prod.yml; then
-              REBUILD_IMAGES=true
-              echo "Docker configuration changed; images will be rebuilt."
-            else
-              echo "Docker configuration unchanged; existing images will be reused."
-            fi
-
-            dirty_tracked="$(mktemp /tmp/clever-web-dirty.XXXXXX)"
-            git diff --name-only -z > "$dirty_tracked"
-            unsafe_local_changes=false
-            while IFS= read -r -d '' file; do
-              target_blob="$(git rev-parse "${DEPLOY_SHA}:${file}" 2>/dev/null || true)"
-              if [ -f "$file" ] && [ -n "$target_blob" ] && \
-                [ "$(git hash-object "$file")" = "$target_blob" ]; then
-                echo "Local change is already tracked by target commit: $file"
-              elif [ "$file" = "application/public/build/manifest.json" ]; then
-                echo "Local generated asset will be replaced by the staged build: $file"
-              else
-                echo "Refusing to overwrite uncommitted production change: $file" >&2
-                unsafe_local_changes=true
-              fi
-            done < "$dirty_tracked"
-            rm -f "$dirty_tracked"
-
-            if [ "$unsafe_local_changes" = "true" ]; then
-              trap - ERR
-              exit 1
-            fi
-
-            if ! git diff --quiet; then
-              backup_and_clear_tracked_changes \
-                "pre-deploy-${CURRENT_COMMIT:0:12}" "$CURRENT_COMMIT"
-              PRE_DEPLOY_CHANGES_PATCH="$LOCAL_CHANGES_PATCH"
-            fi
-
             git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
-
-            test -f "$ASSET_PATH/public/build/manifest.json"
-            test -f "$ASSET_PATH/bootstrap/workflow-runtime/run-javascript.mjs"
-            mkdir -p application/public/build application/bootstrap/workflow-runtime
-            cp -a "$ASSET_PATH/public/build/." application/public/build/
-            cp -a "$ASSET_PATH/bootstrap/workflow-runtime/." application/bootstrap/workflow-runtime/
 
             start_application
 
-            # Root can read mode-0600 source files that PHP-FPM and Horizon cannot.
-            for service in app supervisor; do
-              compose_cmd exec -T --user www-data "$service" php scripts/check-runtime-access.php
-            done
-
-            compose_cmd exec -T --user www-data app php artisan optimize:clear
+            compose_cmd exec -T app php artisan optimize:clear
 
             if [ "$AUTO_MIGRATE" = "true" ]; then
-              compose_cmd exec -T --user www-data app php artisan migrate --force
+              compose_cmd exec -T app php artisan migrate --force
             else
               echo "AUTO_MIGRATE=false, skipping migrations."
             fi
 
-            compose_cmd exec -T --user www-data app php artisan optimize
+            compose_cmd exec -T app php artisan optimize
+            compose_cmd exec -T app php artisan app:smoke --strict
 
-            # optimize:clear removes the scheduler heartbeat from the shared cache.
-            # Give schedule:work enough time to write the next one before failing deploy.
-            smoke_ready=false
-            for ((attempt = 1; attempt <= 15; attempt++)); do
-              if compose_cmd exec -T --user www-data app php artisan app:smoke --strict; then
-                smoke_ready=true
-                break
-              fi
-              echo "Smoke check is not ready yet (${attempt}/15); retrying in 5s."
-              sleep 5
-            done
-            if [ "$smoke_ready" != "true" ]; then
-              echo "Strict smoke check did not pass within 75 seconds." >&2
-              exit 1
+            if [ -n "${APP_HEALTHCHECK_URL:-}" ]; then
+              curl -fsS "${APP_HEALTHCHECK_URL%/}/up" >/dev/null
             fi
 
             trap - ERR
-            rm -f /tmp/clever-web-deploy-error
 
             echo "Pruning stopped containers and unused images older than 7 days..."
             docker container prune -f --filter "until=168h" || \
@@ -530,69 +390,3 @@ jobs:
               echo "Warning: unused image cleanup failed."
 
             echo "Deploy successful on ${DEPLOY_SHA}"
-
-      - name: Report production deploy failure
-        if: steps.production_deploy.outcome == 'failure'
-        env:
-          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
-          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
-          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
-          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
-          PROD_SSH_FINGERPRINT: ${{ secrets.PROD_SSH_FINGERPRINT }}
-        run: |
-          set -Eeuo pipefail
-          key_path="$RUNNER_TEMP/clever-production-key"
-          known_hosts_path="$RUNNER_TEMP/clever-production-known-hosts"
-
-          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > "$key_path"
-          chmod 600 "$key_path"
-          ssh-keyscan -p "$PROD_SSH_PORT" "$PROD_SSH_HOST" > "$known_hosts_path" 2>/dev/null
-
-          if [ -n "$PROD_SSH_FINGERPRINT" ] && \
-            ! ssh-keygen -lf "$known_hosts_path" -E sha256 | awk '{ print $2 }' | grep -Fxq "$PROD_SSH_FINGERPRINT"; then
-            echo '::error title=Production deploy failed::Production SSH host fingerprint mismatch.'
-            exit 1
-          fi
-
-          details="$(ssh -i "$key_path" -p "$PROD_SSH_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$known_hosts_path" \
-            "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            'cat /tmp/clever-web-deploy-error 2>/dev/null || true')"
-
-          if [ -z "$details" ]; then
-            details='Remote deploy failed before diagnostic details were recorded.'
-          fi
-
-          details="${details//$'\n'/ }"
-          echo "::error title=Production deploy failed::$details"
-          exit 1
-
-      - name: Verify public production healthcheck
-        if: steps.production_deploy.outcome == 'success'
-        env:
-          PROD_APP_URL: ${{ secrets.PROD_APP_URL }}
-        run: |
-          set -Eeuo pipefail
-          health_url="${PROD_APP_URL%/}"
-          if [[ "$health_url" != */up ]]; then
-            health_url="${health_url}/up"
-          fi
-
-          for attempt in {1..12}; do
-            if curl -fsS --connect-timeout 5 --max-time 10 "$health_url" | grep -Fxq 'OK'; then
-              echo "Public production healthcheck passed."
-              exit 0
-            fi
-            echo "Public healthcheck is not ready yet (${attempt}/12); retrying in 5s."
-            sleep 5
-          done
-
-          echo '::error title=Production healthcheck failed::Public /up did not return OK after 12 attempts.'
-          exit 1
-
-      - name: Remove production SSH key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/clever-production-key" "$RUNNER_TEMP/clever-production-known-hosts"

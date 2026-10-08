@@ -2,65 +2,83 @@
 
 namespace App\Filament\App\Widgets;
 
-use App\Filament\App\Pages\Onboarding;
 use App\Models\App;
 use App\Services\Integrations\IntegrationProvisioningService;
-use App\Support\Crm\CrmProvider;
-use App\Support\Onboarding\IndustryProfile;
 use Carbon\Carbon;
-use Filament\Widgets\Widget;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
-class Market extends Widget
+class Market extends TableWidget
 {
     protected static bool $isLazy = false;
 
-    protected string $view = 'filament.app.widgets.market';
-
-    protected int|string|array $columnSpan = 'full';
-
     private bool $catalogSynced = false;
 
-    protected function getViewData(): array
+    public function table(Table $table): Table
     {
-        $definitions = App::definitions();
-        $cards = $this->getFilteredQuery()->get()->map(function (App $app) use ($definitions): array {
-            $status = self::effectiveStatus($app);
+        return $table
+            ->query(fn(): Builder => $this->getFilteredQuery())
+            ->columns([
+                Stack::make([
+                    Split::make([
+                        TextColumn::make('title')
+                            ->label('Название')
+                            ->weight(FontWeight::Bold)
+                            ->size(TextSize::Medium)
+                            ->limit(28)
+                            ->state(fn(?App $app) => self::safeRecordTitle($app)),
 
-            return [
-                'id' => $app->id,
-                'category' => $definitions->get($app->name)['category'] ?? 'universal',
-                'title' => self::safeRecordTitle($app),
-                'logo' => asset($definitions->get($app->name)['logo'] ?? 'logo/clever_mini_logo.png'),
-                'url' => route('integrations.open', ['app' => $app->id]),
-                'status' => self::statusBadgeText($app),
-                'color' => match ($status) {
-                    App::STATE_INACTIVE => 'warning',
-                    App::STATE_ACTIVE => 'success',
-                    App::STATE_EXPIRES => 'danger',
-                    default => 'gray',
-                },
-                'action' => $status === App::STATE_CREATED ? 'Подключить' : 'Открыть',
-            ];
-        });
+                        TextColumn::make('status')
+                            ->label('Статус')
+                            ->alignRight()
+                            ->badge()
+                            ->state(fn(App $app): string => self::statusBadgeText($app))
+                            ->color(fn(App $app): string => match (self::effectiveStatus($app)) {
+                                App::STATE_CREATED => 'gray',
+                                App::STATE_INACTIVE => 'warning',
+                                App::STATE_ACTIVE => 'success',
+                                App::STATE_EXPIRES => 'danger',
+                            }),
+                    ]),
 
-        return [
-            'sections' => [
-                'universal' => [
-                    'title' => 'Универсальные',
-                    'cards' => $cards->where('category', 'universal'),
-                ],
-                'industry' => [
-                    'title' => 'Отраслевые',
-                    'cards' => $cards->where('category', 'industry'),
-                ],
-            ],
-            'isEmpty' => $cards->isEmpty(),
-            'crmLabel' => CrmProvider::label(auth()->user()?->crm_provider),
-            'settingsUrl' => Onboarding::getUrl(),
-        ];
+                    TextColumn::make('excerpt')
+                        ->label('')
+                        ->color('gray')
+                        ->size(TextSize::Small)
+                        ->wrap()
+                        ->extraAttributes(['class' => 'mt-3'])
+                        ->state(
+                            fn(?App $record) => filled($record)
+                                ? Str::limit(trim(App::getTooltipText($record->name)), 160)
+                                : null
+                        )
+                        ->visible(fn(?App $record) => filled(trim((string)App::getTooltipText($record?->name ?? '')))),
+                ])->space(3),
+            ])
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
+            ->paginated(false)
+            ->recordUrl(
+                fn(App $app): string => route('integrations.open', ['app' => $app->id])
+            )
+            ->heading(false)
+            ->striped(false);
+    }
+
+    public function getColumnSpan(): int | string | array
+    {
+        return 2;
     }
 
     protected function getFilteredQuery(): Builder
@@ -70,23 +88,11 @@ class Market extends Widget
         $query = App::query()
             ->where('user_id', auth()->id());
 
-        $availableNames = App::definitionNamesForCrmProvider(
-            auth()->user()?->crm_provider,
-            app()->environment('production') ? true : null,
-        );
+        $availableNames = app()->environment('production')
+            ? App::definitionNames(true)
+            : App::definitionNames();
 
         $query->whereIn('name', $availableNames);
-
-        $recommended = IndustryProfile::recommendedApps(auth()->user()?->industry);
-
-        if ($recommended !== []) {
-            $case = collect($recommended)
-                ->values()
-                ->map(fn (string $name, int $position): string => 'WHEN ? THEN '.($position + 1))
-                ->implode(' ');
-
-            $query->orderByRaw('CASE name '.$case.' ELSE '.(count($recommended) + 1).' END', $recommended);
-        }
 
         return $query->orderBy('name');
     }
@@ -100,7 +106,7 @@ class Market extends Widget
         $this->catalogSynced = true;
 
         $user = auth()->user();
-        if (! $user) {
+        if (!$user) {
             return;
         }
 
@@ -127,16 +133,16 @@ class Market extends Widget
         return $app->status;
     }
 
-    private static function statusBadgeText(App $app): ?string
+    private static function statusBadgeText(App $app): string
     {
         $status = self::effectiveStatus($app);
 
         if ($status === App::STATE_ACTIVE) {
-            if (! filled($app->expires_tariff_at)) {
+            if (!filled($app->expires_tariff_at)) {
                 return App::STATE_ACTIVE_WORD;
             }
 
-            return 'До '.Carbon::parse($app->expires_tariff_at)->format('Y-m-d');
+            return 'До ' . Carbon::parse($app->expires_tariff_at)->format('Y-m-d');
         }
 
         if ($status === App::STATE_EXPIRES && filled($app->expires_tariff_at)) {
@@ -144,11 +150,11 @@ class Market extends Widget
                 ->startOfDay()
                 ->diffInDays(now()->startOfDay());
 
-            return 'Истёк '.$daysAgo.' дн.';
+            return 'Истёк ' . $daysAgo . ' дн.';
         }
 
         return match ($status) {
-            App::STATE_CREATED => null,
+            App::STATE_CREATED => App::STATE_CREATED_WORD,
             App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
             default => App::STATE_EXPIRES_WORD,
         };
@@ -156,10 +162,10 @@ class Market extends Widget
 
     private static function safeRecordTitle(?App $app): string
     {
-        if (! $app) {
+        if (!$app) {
             return '';
         }
 
-        return App::getTitle((string) $app->name, $app->resource_name);
+        return App::getTitle((string)$app->name, $app->resource_name);
     }
 }

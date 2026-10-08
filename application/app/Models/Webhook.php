@@ -27,4 +27,8 @@ class Webhook extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function getcourseSetting()
+    {
+        return $this->belongsTo(\App\Models\GetCourse\Setting::class, 'setting_id', 'id');
+    }
 }

@@ -78,6 +78,7 @@ class CreateFields extends Command
             'enums' => [
                 ['value' => 'Наличные'],
                 ['value' => 'СБП'],
+                ['value' => 'GetCourse'],
             ],
             //required_statuses
         ]);

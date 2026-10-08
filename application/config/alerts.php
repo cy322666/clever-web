@@ -10,8 +10,8 @@ return [
     'channels' => [
         'telegram' => [
             'enabled' => (bool)env('ALERTS_TG_ENABLED', true),
-            'token' => env('TELEGRAM_ALERTS_TOKEN', env('TG_DEBUG_TOKEN')),
-            'chat_id' => env('TELEGRAM_ALERTS_CHAT_ID', env('TG_DEBUG_CHAT_ID')),
+            'token' => env('TELEGRAM_BOT_TOKEN'),
+            'chat_id' => env('TELEGRAM_CHAT_ID'),
         ],
 
         'mail' => [

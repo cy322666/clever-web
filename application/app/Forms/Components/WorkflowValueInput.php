@@ -11,9 +11,9 @@ class WorkflowValueInput extends TextInput
     protected string $view = 'forms.components.workflow-value-input';
 
     protected array|Closure $valueOptions = [];
-    protected bool|Closure $hasValueOptions = false;
+    protected bool $hasValueOptions = false;
 
-    public function hasValueOptions(): bool { return (bool) $this->evaluate($this->hasValueOptions); }
+    public function hasValueOptions(): bool { return $this->hasValueOptions; }
     protected int $textareaRows = 0;
     protected array|Closure $valueSuggestions = [];
 
@@ -23,10 +23,10 @@ class WorkflowValueInput extends TextInput
     public function multiline(int $rows = 4): static { $this->textareaRows = $rows; return $this; }
     public function getTextareaRows(): int { return $this->textareaRows; }
 
-    public function options(array|Closure $options, bool|Closure $condition = true): static
+    public function options(array|Closure $options): static
     {
         $this->valueOptions = $options;
-        $this->hasValueOptions = $condition;
+        $this->hasValueOptions = true;
         return $this;
     }
 

@@ -15,23 +15,17 @@ class WorkflowCanvasTest extends TestCase
         WorkflowCanvasDatabase::prepare();
     }
 
-    public function test_it_renders_hover_controls_only_for_existing_connections(): void
+    public function test_it_renders_branch_connections_and_opens_the_selected_insertion_point(): void
     {
         Livewire::test(WorkflowCanvasFixture::class)
             ->assertStatus(200)
             ->assertSee('data-workflow-edge-target="action:task"', false)
             ->assertSee('data-workflow-edge-target="action:note"', false)
-            ->assertSee("startConnection('action:' + 'condition', 'yes', \$event)", false)
-            ->assertSee('aria-label="Выход Да:', false)
-            ->assertSee('aria-label="Выход Нет:', false)
-            ->assertSee('workflow-node-edge-add', false)
-            ->assertSee('data-workflow-edge-delete', false)
-            ->assertSee('Добавить промежуточную ноду')
-            ->assertSee('Удалить связь')
-            ->assertSee('showEdgeControls($el)', false)
             ->assertDontSee('data-workflow-edge-branch', false)
             ->assertDontSee('Добавить ещё одну ветку')
-            ->assertDontSee('Добавить действие в ветку')
+            ->assertSee('data-workflow-edge-delete', false)
+            ->assertSee('Удалить связь')
+            ->assertSee('showEdgeControls($el)', false)
             ->call('openAddActionAtPath', '0.config.false_actions', 1)
             ->assertSet('insertActionPath', '0.config.false_actions')
             ->assertSet('insertActionIndex', 1)
@@ -39,16 +33,12 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('workflow-node-library__context', false);
     }
 
-    public function test_empty_condition_branches_offer_pluses_and_keep_their_output_handles(): void
+    public function test_it_renders_add_connections_for_both_empty_condition_branches(): void
     {
         Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [
             ['id' => 'empty-condition', 'type' => 'control-condition', 'config' => []],
         ]])
             ->assertStatus(200)
-            ->assertSee('aria-label="Выход Да:', false)
-            ->assertSee('aria-label="Выход Нет:', false)
-            ->assertSee('workflow-edge-add-action:empty-condition-yes-end', false)
-            ->assertSee('workflow-edge-add-action:empty-condition-no-end', false)
             ->assertSee('Добавить действие в ветку «Да»')
             ->assertSee('Добавить действие в ветку «Нет»');
     }

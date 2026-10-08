@@ -95,6 +95,38 @@ abstract class Leads
         ?int $responsibleUserId = null
     ): Lead
     {
+        if ((int)$lead->id <= 0) {
+            throw new InvalidArgumentException('Existing amoCRM lead ID is required for YClients lead update.');
+        }
+
+        return AmoTransportRetry::run(function (int $attempt) use ($lead, $objectStatus, $record, $responsibleUserId): Lead {
+            $currentLead = $lead;
+
+            if ($attempt > 1) {
+                $currentLead = $lead->service->find($lead->id);
+
+                if (!$currentLead instanceof Lead || (int)$currentLead->id !== (int)$lead->id) {
+                    throw new \RuntimeException('Existing amoCRM lead not found while retrying YClients update.');
+                }
+            }
+
+            return self::updateWithConflictRetry($currentLead, $objectStatus, $record, $responsibleUserId);
+        }, [
+            'record_db_id' => $record->id,
+            'record_id' => $record->record_id,
+            'account_id' => $record->account_id,
+            'setting_id' => $record->setting_id,
+            'lead_id' => $lead->id,
+        ]);
+    }
+
+    private static function updateWithConflictRetry(
+        Lead $lead,
+        object $objectStatus,
+        Record $record,
+        ?int $responsibleUserId
+    ): Lead
+    {
         $statusId = (int)($objectStatus->status_id ?? 0);
         $pipelineId = (int)($objectStatus->pipeline_id ?? 0);
 

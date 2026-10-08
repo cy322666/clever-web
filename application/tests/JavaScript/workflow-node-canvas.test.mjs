@@ -9,19 +9,6 @@ test('canvas keeps its dotted grid and uses vertical input ports', () => {
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
 });
 
-test('new branches start from white output handles while existing edges keep hover controls', () => {
-    const card = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/action-card.blade.php', import.meta.url), 'utf8');
-    const edges = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php', import.meta.url), 'utf8');
-    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
-    assert.match(card, /workflow-node-port--output-\{\{ \$port \}\}.*startConnection\('action:' \+ @js\(\$actionId\), @js\(\$port\), \$event\)/s);
-    assert.match(css, /button\.workflow-node-port--output:hover[^{]*\{[^}]*background:\s*#c5cbd5/s);
-    assert.match(edges, /@if\(\$edge\['targetId'\]\)/);
-    assert.match(edges, /heroicon-o-plus/);
-    assert.match(edges, /heroicon-o-trash/);
-    assert.doesNotMatch(edges, /data-workflow-edge-branch|Добавить ещё одну ветку/);
-    assert.match(edges, /empty\(\$edge\['branch'\]\)/);
-});
-
 test('connected edge controls reveal together and hide after leaving the edge', () => {
     const f = fixture();
     const attributes = () => {
@@ -117,35 +104,29 @@ test('captured plus taps open once and movement does not animate behind the edge
     f.canvas.stopCanvasInteraction(f.event());
     f.canvas.openEdgePalette('trigger','output',null);
     assert.equal(calls,1);
-    assert.equal(f.events().length, 1);
-    assert.equal(f.events()[0].type, 'workflow-node-library-open');
-    assert.equal(f.events()[0].detail.mode, 'action');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     const rule = css.match(/\.workflow-sortable-item\s*\{([^}]+)\}/)[1];
     assert.doesNotMatch(rule,/transition:[^;]*transform/);
 });
 
-test('dragging from a connected condition output adds another branch', async () => {
+test('clicking a connected output reassigns that edge, including after pointer release', async () => {
     const f = fixture();
     f.canvas.$refs.edgeControls = {querySelectorAll: () => [{dataset: {workflowEdgeSource:'action:if', workflowEdgePort:'no', workflowEdgeTarget:'action:old'}}]};
     let args;
     f.canvas.$wire = {connectWorkflowNodes: async (...values) => { args = values; }};
     f.canvas.startConnection('action:if','no',f.event());
     f.canvas.stopCanvasInteraction(f.event());
-    assert.equal(f.canvas.connecting.replaceTarget, null);
+    assert.equal(f.canvas.connecting.replaceTarget, 'action:old');
     await f.canvas.completeConnection('action:new');
-    assert.deepEqual(args,['action:if','no','action:new',null]);
+    assert.deepEqual(args,['action:if','no','action:new','action:old']);
     assert.equal(f.canvas.connecting,null);
 });
 
 function fixture() {
     class Element {}
     let hitElement = null, hitStack = null;
-    const events = [];
     const viewportStorage = new Map();
-    const CustomEvent = class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } };
-    const window = { addEventListener() {}, dispatchEvent(event) { events.push({type:event.type,detail:event.detail}); }, requestAnimationFrame(callback) { callback(); }, setTimeout(callback) { callback(); return 1; }, clearTimeout() {} };
-    window.sessionStorage = {getItem: key => viewportStorage.get(key) ?? null, setItem: (key, value) => viewportStorage.set(key, value)};
+    const window = { sessionStorage: {getItem: key => viewportStorage.get(key) ?? null, setItem: (key, value) => viewportStorage.set(key, value)}, addEventListener() {}, requestAnimationFrame(callback) { callback(); }, setTimeout(callback) { callback(); return 1; }, clearTimeout() {} };
     let mutationCallback, observedOptions, resizeCallback;
     const resizedElements = new Set();
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
@@ -153,7 +134,7 @@ function fixture() {
             return {attributes:{}, dataset:{}, listeners:{}, classList:{add(){}},
                 setAttribute(key,value) {this.attributes[key]=value;}, appendChild(){},
                 addEventListener(key,fn) {this.listeners[key]=fn;}};
-        } }, Element, CustomEvent,
+        } }, Element,
         MutationObserver: class {
             constructor(callback) { mutationCallback = callback; }
             disconnect() {}
@@ -181,7 +162,7 @@ function fixture() {
     canvas.saveNodeLayout = () => { saves++; };
     const event = (x = 10, y = 20) => ({ target, pointerId: 1, button: 0, clientX: x, clientY: y, prevented: false, preventDefault() { this.prevented = true; } });
 
-    return { canvas, node, target, event, viewportStorage, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves, events: () => events };
+    return { canvas, node, target, event, viewportStorage, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves };
 }
 
 test('selection mode draws a fresh rectangle without a modifier and does not pan', () => {

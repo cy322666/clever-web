@@ -49,15 +49,13 @@ class Client
             'zone' => $account->zone ?? null,
         ], $account);
 
-        Oauthapi::setOauthStorage($this->storage);
-
-        $this->service = Oauthapi::setInstance([
+        $this->service = IsolatedOauthClient::forAccount([
             'domain' => $this->storage->model->subdomain,
             'client_id' => $this->storage->model->client_id,
             'client_secret' => $this->storage->model->client_secret,
             'redirect_uri' => $this->storage->model->redirect_uri,
             'zone' => $this->storage->model->zone,
-        ]);
+        ], $this->storage);
 
         $this->init();
     }
@@ -287,11 +285,11 @@ class Client
             $options['json'] = $payload;
         }
 
-        return Http::acceptJson()
+        return app(AmoCrmHttpTransport::class)->send($this->account, fn (): Response => Http::acceptJson()
             ->asJson()
             ->withToken((string)$this->account->access_token)
             ->timeout(20)
-            ->send(strtoupper($method), $this->amoCrmBaseUrl() . '/' . ltrim($path, '/'), $options);
+            ->send(strtoupper($method), $this->amoCrmBaseUrl() . '/' . ltrim($path, '/'), $options));
     }
 
     private function amoCrmBaseUrl(): string

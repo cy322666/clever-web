@@ -148,11 +148,36 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
 
             $existing = Arr::get($payload, 'contacts.' . $action, []);
             $existing = is_array($existing) ? $existing : [];
-            foreach ($items as $item) if (!in_array($item, $existing, true)) $existing[] = $item;
+            $compared = array_map($this->canonicalComparisonValue(...), $existing);
+            foreach ($items as $item) {
+                $canonical = $this->canonicalComparisonValue($item);
+                if (!in_array($canonical, $compared, true)) {
+                    $existing[] = $item;
+                    $compared[] = $canonical;
+                }
+            }
             Arr::set($payload, 'contacts.' . $action, $existing);
         }
 
         return $payload;
+    }
+
+    /** Object key order is irrelevant; value types and sequence order are not. */
+    private function canonicalComparisonValue(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        $isList = array_is_list($value);
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->canonicalComparisonValue($item);
+        }
+        if (!$isList) {
+            ksort($value, SORT_STRING);
+        }
+
+        return $value;
     }
 
     /**

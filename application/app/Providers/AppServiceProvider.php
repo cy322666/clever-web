@@ -22,6 +22,7 @@ use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\ManualTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
+use Filament\Panel;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Facades\FilamentView;
@@ -62,6 +63,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Error toasts dispatch another Livewire request and can recursively fail.
+        // Native Livewire handling also pauses polling after an expired session.
+        Panel::configureUsing(fn (Panel $panel) => $panel->errorNotifications(false));
+
         $this->registerSafeBladeCompiler();
         $this->registerFilamentAuthResponses();
 
@@ -125,10 +130,6 @@ class AppServiceProvider extends ServiceProvider
         app(\BladeUI\Icons\Factory::class)->add('amocrm', [
             'path' => resource_path('svg/amocrm'),
             'prefix' => 'amocrm',
-        ]);
-        app(\BladeUI\Icons\Factory::class)->add('service', [
-            'path' => resource_path('svg/services'),
-            'prefix' => 'service',
         ]);
         QueueMonitor::observe(QueueMonitorObserver::class);
 
@@ -196,6 +197,7 @@ class AppServiceProvider extends ServiceProvider
 
             $registry->register(ManualTrigger::class);
             $registry->register(AmoCrmButtonTrigger::class);
+            $registry->register(\App\Workflows\Triggers\AmoCrmBulkTrigger::class);
             $registry->register(\App\Workflows\Triggers\DigitalPipelineTrigger::class);
             $registry->register(ScheduleTrigger::class);
             // Retain resolution for saved definitions, but never offer this legacy trigger in the picker.

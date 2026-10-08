@@ -253,7 +253,7 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
         ]);
     }
 
-    public function test_sqns_oauth_uses_the_sqns_callback_by_default(): void
+    public function test_sqns_oauth_uses_sqns_callback_by_default(): void
     {
         $this->assertSame(
             rtrim((string) config('app.url'), '/').'/api/amocrm/install/sqns',

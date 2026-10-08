@@ -8,6 +8,7 @@ use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
+use App\Services\YClients\AmoTransportRetry;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -64,7 +65,7 @@ class UpdateEntities extends Command
         $setting = Setting::query()->findOrFail($settingId);
         $client = $record->scopedClient();
 
-        $amoApi = (new Client($account))->init();
+        $amoApi = app(Client::class, ['account' => $account])->init();
 
         try {
             if ($setting->fields_contact || $setting->fields_lead) {
@@ -106,6 +107,27 @@ class UpdateEntities extends Command
         ?int $contactId,
         array $arrayFields,
         int $maxAttempts = 5
+    ): void {
+        AmoTransportRetry::run(
+            fn () => $this->updateAmoEntitiesWithConflictRetry($amoApi, $setting, $record, $contactId, $arrayFields, $maxAttempts),
+            [
+                'record_db_id' => $record->id,
+                'record_id' => $record->record_id,
+                'account_id' => $record->account_id,
+                'setting_id' => $record->setting_id,
+                'lead_id' => $record->lead_id,
+                'contact_id' => $contactId,
+            ],
+        );
+    }
+
+    private function updateAmoEntitiesWithConflictRetry(
+        Client $amoApi,
+        Setting $setting,
+        Record $record,
+        ?int $contactId,
+        array $arrayFields,
+        int $maxAttempts
     ): void {
         $maxAttempts = max(1, $maxAttempts);
 

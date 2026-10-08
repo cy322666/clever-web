@@ -44,7 +44,7 @@ class RemovedIntegrationEndpointsTest extends TestCase
         $routes = app('router')->getRoutes();
         $retiredRoutes = collect($routes->getRoutes())
             ->filter(fn ($route): bool => preg_match(
-                '/alfacrm|calculator|getcourse/i',
+                '/alfacrm|calculator/i',
                 $route->uri().' '.$route->getName(),
             ) === 1)
             ->map(fn ($route): string => $route->uri().' '.$route->getName())
@@ -55,6 +55,7 @@ class RemovedIntegrationEndpointsTest extends TestCase
 
         foreach ([
             'tilda.hook',
+            'getcourse.order',
             'distribution.hook',
             'yclients.hook',
             'sqns.hook',
@@ -70,17 +71,17 @@ class RemovedIntegrationEndpointsTest extends TestCase
         $definitions = App::definitionNames();
         $resources = Filament::getPanel('app')->getResources();
 
-        foreach (['alfacrm', 'calculator', 'getcourse'] as $name) {
+        foreach (['alfacrm', 'calculator'] as $name) {
             $this->assertArrayNotHasKey($name, config('integrations.definitions'));
             $this->assertNotContains($name, $definitions);
         }
 
         $this->assertSame([], array_values(array_filter(
             $resources,
-            fn (string $resource): bool => preg_match('/\\\\Alfa(?:\\\\|Resource)|Calculator|GetCourse/i', $resource) === 1,
+            fn (string $resource): bool => preg_match('/\\\\Alfa(?:\\\\|Resource)|Calculator/i', $resource) === 1,
         )));
 
-        foreach (['tilda', 'distribution', 'yclients', 'sqns', 'vetmanager', 'workflows'] as $name) {
+        foreach (['tilda', 'getcourse', 'distribution', 'yclients', 'sqns', 'vetmanager', 'workflows'] as $name) {
             $this->assertContains($name, $definitions, $name);
             $this->assertContains(config("integrations.definitions.{$name}.resource"), $resources, $name);
         }
@@ -102,11 +103,11 @@ class RemovedIntegrationEndpointsTest extends TestCase
     public function test_existing_retired_app_records_cannot_be_opened_or_provisioned(): void
     {
         $user = (new User)->forceFill(['id' => 42, 'is_root' => false]);
-        Auth::shouldReceive('user')->times(3)->andReturn($user);
+        Auth::shouldReceive('user')->twice()->andReturn($user);
         $provisioning = $this->createMock(IntegrationProvisioningService::class);
         $provisioning->expects($this->never())->method('ensureSettingForApp');
 
-        foreach (['alfacrm', 'calculator', 'getcourse'] as $name) {
+        foreach (['alfacrm', 'calculator'] as $name) {
             $app = (new App)->forceFill(['user_id' => 42, 'name' => $name]);
 
             try {

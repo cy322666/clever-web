@@ -41,9 +41,21 @@ class WorkflowAdmin extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('workflows')->label('Все сценарии')->icon('heroicon-o-squares-2x2')->color('gray')->url(WorkflowResource::getUrl()),
-            Action::make('runs')->label('Все исполнения')->icon('heroicon-o-play-circle')->color('gray')->url(WorkflowRunResource::getUrl()),
-            Action::make('credentials')->label('Все подключения')->icon('heroicon-o-key')->color('gray')->url(WorkflowCredentialResource::getUrl()),
+            Action::make('workflows')
+                ->label('Все сценарии')
+                ->icon('heroicon-o-squares-2x2')
+                ->color('gray')
+                ->url(WorkflowResource::getUrl()),
+            Action::make('runs')
+                ->label('Все исполнения')
+                ->icon('heroicon-o-play-circle')
+                ->color('gray')
+                ->url(WorkflowRunResource::getUrl()),
+            Action::make('credentials')
+                ->label('Все подключения')
+                ->icon('heroicon-o-key')
+                ->color('gray')
+                ->url(WorkflowCredentialResource::getUrl()),
         ];
     }
 
@@ -71,7 +83,9 @@ class WorkflowAdmin extends Page
         $since = now()->subDay();
 
         return User::query()
-            ->where(fn (Builder $query) => $query->whereHas('workflows')->orWhereHas('workflowCredentials'))
+            ->where(function (Builder $query): void {
+                $query->whereHas('workflows')->orWhereHas('workflowCredentials');
+            })
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('email', 'like', '%'.$search.'%')
@@ -98,7 +112,9 @@ class WorkflowAdmin extends Page
     {
         return Workflow::withoutGlobalScope('tenant')
             ->with(['owner.accounts', 'latestRun'])
-            ->withCount(['runs as queued_runs_count' => fn (Builder $query): Builder => $query->where('status', RunStatus::PENDING->value)])
+            ->withCount([
+                'runs as queued_runs_count' => fn (Builder $query): Builder => $query->where('status', RunStatus::PENDING->value),
+            ])
             ->latest('updated_at')
             ->limit(15)
             ->get();

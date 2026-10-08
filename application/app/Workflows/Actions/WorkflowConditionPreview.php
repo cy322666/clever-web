@@ -124,8 +124,6 @@ class WorkflowConditionPreview
             'equals' => '=',
             'strict_equals' => '=',
             'not_equals' => '≠',
-            'is_true' => 'Да',
-            'is_false' => 'Нет',
             'gt' => '>',
             'lt' => '<',
             'is_empty' => '∅',

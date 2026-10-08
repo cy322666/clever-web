@@ -1,0 +1,20 @@
+<form class="industry-solution__form industry-solution__form--wide">
+    {% crm_template_block %}
+        <div class="industry-solution__block">
+            <ul class="industry-solution__review-list">
+                <li><b>{{ langs.organization }}:</b> {{ organization }}</li>
+                <li>{{ langs.pipelines }}</li>
+                <li>{{ langs.samples }}</li>
+                <li>{{ langs.task }}</li>
+                <li><b>{{ langs.integrations }}:</b> {{ integrations }}</li>
+            </ul>
+        </div>
+    {% end_crm_template_block %}
+
+    {{ include_control('button', {
+        class_name: 'js-industry-review-submit industry-solution__button',
+        name: 'button',
+        blue: true,
+        text: langs.confirm
+    }) }}
+</form>

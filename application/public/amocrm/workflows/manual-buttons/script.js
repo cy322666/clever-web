@@ -2,7 +2,7 @@ define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
     var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
-    var VERSION = '1.0.45';
+    var VERSION = '1.0.46';
     var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=' + VERSION;
     var LOAD_RETRIES = 0;
 
@@ -522,55 +522,47 @@ define(['jquery'], function ($) {
 
         }
 
-        function selectedLeadIds() {
-            var selected = {};
-            var ids = [];
+        function selectedEntities() {
+            var selected = [];
+            var entities = [];
+            var seen = {};
+            var invalid = false;
+            var aliases = { lead: 'lead', leads: 'lead', contact: 'contact', contacts: 'contact', company: 'company', companies: 'company' };
+            var path = String(window.location.pathname);
+            var fallback = currentArea().indexOf('llist') === 0 ? 'lead'
+                : (/^\/companies\//.test(path) ? 'company' : '');
 
             try {
-                selected = self.list_selected ? (self.list_selected().selected || {}) : {};
+                selected = self.list_selected ? (self.list_selected().selected || []) : [];
             } catch (e) {
-                selected = {};
+                selected = [];
             }
 
-            function pushId(value) {
-                var id = parseInt(value, 10);
-
-                if (id > 0 && ids.indexOf(id) === -1) {
-                    ids.push(id);
-                }
-            }
-
-            function collect(value, key, depth) {
-                if (depth > 3 || value === null || typeof value === 'undefined') {
+            // Read only entity IDs, never indexes, phone numbers or linked entity IDs.
+            $.each(selected, function (_, item) {
+                var id = item && Number(item.id || item.ID || item.entity_id);
+                var rawType = item && (item.type || item.entity_type);
+                var type = rawType ? aliases[String(rawType).toLowerCase()] : fallback;
+                if (!type || !id || id < 1 || Math.floor(id) !== id || id > 9007199254740991) {
+                    invalid = true;
                     return;
                 }
-
-                if (typeof value !== 'object') {
-                    if (/^\d+$/.test(String(key || '')) || /^(id|ID|entity_id|entityId)$/.test(String(key || ''))) {
-                        pushId(value || key);
-                    }
-
-                    return;
+                var key = type + ':' + id;
+                if (!seen[key]) {
+                    seen[key] = true;
+                    entities.push({ type: type, id: id });
                 }
+            });
 
-                pushId(value.id || value.ID || value.entity_id || value.entityId);
-
-                if (/^\d+$/.test(String(key || ''))) {
-                    pushId(key);
-                }
-
-                $.each(value, function (childKey, childValue) {
-                    collect(childValue, childKey, depth + 1);
-                });
-            }
-
-            collect(selected, '', 0);
-
-            return ids;
+            return invalid ? null : entities;
         }
 
-        function captureListSelection(leadIds) {
-            var ids = leadIds || [];
+        function entityLinkSelector(entity) {
+            var area = { lead: 'leads', contact: 'contacts', company: 'companies' }[entity.type];
+            return 'a[href*="/' + area + '/detail/' + entity.id + '"]';
+        }
+
+        function captureListSelection(entities) {
             var $checked = $('input[type="checkbox"]:checked')
                 .not('#' + BULK_MODAL_ID + ' input[type="checkbox"]');
             var $rows = $();
@@ -579,21 +571,14 @@ define(['jquery'], function ($) {
                 $rows = $rows.add($(this).closest('tr, .list-row, .list__body-row, .pipeline_leads__item, .entity-row'));
             });
 
-            $.each(ids, function (_, id) {
-                var selector = [
-                    '[data-id="' + id + '"]',
-                    '[data-entity-id="' + id + '"]',
-                    '[data-lead-id="' + id + '"]',
-                    'a[href*="/leads/detail/' + id + '"]'
-                ].join(',');
-
-                $(selector).each(function () {
+            $.each(entities, function (_, entity) {
+                $(entityLinkSelector(entity)).each(function () {
                     $rows = $rows.add($(this).closest('tr, .list-row, .list__body-row, .pipeline_leads__item, .entity-row'));
                 });
             });
 
             return {
-                ids: ids.slice(0),
+                entities: entities.slice(0),
                 checkboxes: $checked.toArray(),
                 rows: $rows.toArray()
             };
@@ -626,15 +611,8 @@ define(['jquery'], function ($) {
                 markSelectedRow($(row));
             });
 
-            $.each(snapshot.ids || [], function (_, id) {
-                var selector = [
-                    '[data-id="' + id + '"]',
-                    '[data-entity-id="' + id + '"]',
-                    '[data-lead-id="' + id + '"]',
-                    'a[href*="/leads/detail/' + id + '"]'
-                ].join(',');
-
-                $(selector).each(function () {
+            $.each(snapshot.entities || [], function (_, entity) {
+                $(entityLinkSelector(entity)).each(function () {
                     markSelectedRow($(this).closest('tr, .list-row, .list__body-row, .pipeline_leads__item, .entity-row'));
                 });
             });
@@ -656,9 +634,9 @@ define(['jquery'], function ($) {
         function openBulkModal() {
             injectStyles();
 
-            var leadIds = selectedLeadIds();
+            var entities = selectedEntities();
             var subdomain = accountSubdomain();
-            var selectionSnapshot = captureListSelection(leadIds);
+            var selectionSnapshot = captureListSelection(entities || []);
 
             $('#' + BULK_MODAL_ID).remove();
             $('body').append([
@@ -669,7 +647,7 @@ define(['jquery'], function ($) {
                 '<button type="button" class="clever-workflow-bulk__close" aria-label="Закрыть">×</button>',
                 '</div>',
                 '<div class="clever-workflow-bulk__body">',
-                '<div class="clever-workflow-bulk__meta">Выбрано сделок: ' + leadIds.length + '</div>',
+                '<div class="clever-workflow-bulk__meta">Выбрано элементов: ' + (entities || []).length + '. Отдельный запуск для каждого.</div>',
                 '<div class="clever-workflow-bulk__content">',
                 '<div class="clever-workflow-bulk__message clever-workflow-card__loader">Загрузка потоков</div>',
                 '</div>',
@@ -678,11 +656,15 @@ define(['jquery'], function ($) {
                 '</div>'
             ].join(''));
 
-            $('#' + BULK_MODAL_ID).data('lead-ids', leadIds);
+            $('#' + BULK_MODAL_ID).data('entities', entities);
             restoreListSelectionSoon(selectionSnapshot);
 
-            if (!leadIds.length) {
-                bulkMessage('Выберите сделки для запуска потока.', true);
+            if (!entities) {
+                bulkMessage('Не удалось определить тип выбранных элементов. Обновите страницу и повторите выбор.', true);
+                return;
+            }
+            if (!entities.length || entities.length > 250) {
+                bulkMessage('Выберите от 1 до 250 сделок, контактов или компаний.', true);
                 return;
             }
 
@@ -691,7 +673,7 @@ define(['jquery'], function ($) {
                 API_BASE,
                 {
                     subdomain: subdomain,
-                    source: 'amo-button'
+                    source: 'amo-bulk'
                 },
                 function (response) {
                     var workflows = response.workflows || [];
@@ -702,7 +684,7 @@ define(['jquery'], function ($) {
                     }
 
                     if (!workflows.length) {
-                        bulkMessage('Нет включенных потоков с запуском кнопкой.', false);
+                        bulkMessage('Нет включенных потоков с запуском «Массовое действие». Добавьте этот способ запуска в нужный поток и включите его.', false);
                         return;
                     }
 
@@ -732,15 +714,15 @@ define(['jquery'], function ($) {
 
         function runBulkWorkflow($button) {
             var $modal = $('#' + BULK_MODAL_ID);
-            var leadIds = $modal.data('lead-ids') || [];
+            var entities = $modal.data('entities') || [];
             var workflowId = $button.data('workflow-id');
             var $buttons = $modal.find('.clever-workflow-bulk__scenario');
 
-            if (!leadIds.length) {
-                bulkMessage('Выберите сделки для запуска потока.', true);
+            if (!entities.length || entities.length > 250 || $modal.data('run-pending')) {
                 return;
             }
 
+            $modal.data('run-pending', true);
             $buttons.prop('disabled', true);
             $button.text('Запускаю...');
 
@@ -750,18 +732,20 @@ define(['jquery'], function ($) {
                 {
                     subdomain: accountSubdomain(),
                     workflow_id: workflowId,
-                    lead_ids: leadIds,
-                    source: 'amo-button'
+                    entities: entities,
+                    source: 'amo-bulk'
                 },
                 function (response) {
                     if (response.ok) {
                         $('#' + BULK_MODAL_ID).remove();
                     } else {
+                        $modal.data('run-pending', false);
                         $buttons.prop('disabled', false);
                         bulkMessage(response.message || 'Не удалось запустить поток.', true);
                     }
                 },
                 function () {
+                    $modal.data('run-pending', false);
                     $buttons.prop('disabled', false);
                     bulkMessage('Не удалось запустить поток.', true);
                 }
@@ -898,6 +882,18 @@ define(['jquery'], function ($) {
                 return true;
             },
             leads: {
+                selected: function () {
+                    openBulkModal();
+                    return true;
+                }
+            },
+            contacts: {
+                selected: function () {
+                    openBulkModal();
+                    return true;
+                }
+            },
+            companies: {
                 selected: function () {
                     openBulkModal();
                     return true;

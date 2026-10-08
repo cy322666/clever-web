@@ -57,6 +57,7 @@ docker compose --env-file monitoring/.env.monitoring -f docker-compose.yml -f mo
 - QueueBacklogHigh
 - QueueOldestJobTooOld
 - MetricsCollectionError
+- PostgresUnavailable (PostgreSQL не принимает подключение более 1 минуты)
 - PostgresExporterDown
 - DbSlowQueriesBurst
 
@@ -87,6 +88,19 @@ Alertmanager теперь автоматически собирает конфи
     - `ALERTMANAGER_SLACK_CHANNEL` (опционально)
 
 Можно включить сразу оба канала.
+
+На production эти две Telegram-переменные должны также находиться в корневом
+`.env`: его автоматически читает Docker Compose, в том числе при деплое без
+`--env-file`. Используйте тот же чат, что у системных уведомлений платформы, и
+действующий токен бота с доступом к этому чату. Секреты не коммитятся.
+Единый получатель production: «Clever x Админский чат». Приложение использует
+`TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` для ошибок, сводок, уведомлений виджетов
+и отчётов проверок. Значения `ALERTMANAGER_TELEGRAM_*` должны совпадать с ними.
+
+Alertmanager отправляет инфраструктурные тревоги и сообщения о восстановлении.
+`FailedJobsDetected` остаётся видимым в мониторинге, но направляется в получатель
+без уведомлений: ошибки задач уже отправляет приложение. Остальные алерты
+попадают в Telegram, повтор нерешённой тревоги происходит раз в 3 часа.
 
 Применить изменения:
 
@@ -180,7 +194,7 @@ sudo ufw deny 9187/tcp
 
 Добавлены команды:
 
-- `app:monitor-queue-health` — проверка новых `failed_jobs` и зависших jobs c отправкой алертов (TG/mail).
+- `app:monitor-queue-health`: учёт новых `failed_jobs` без повторных уведомлений; алерты (TG/mail) только по зависшим задачам и записям монитора. Об отдельных падениях сообщает `SendFailedJobAlert`.
 - `app:queue-backfill-failed` — backfill `failed_jobs` -> `queue_monitors`, чтобы UI очередей показывал исторические
   падения.
 - `app:smoke` — post-deploy smoke checks (БД, таблицы очередей, роуты, heartbeat).

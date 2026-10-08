@@ -33,8 +33,6 @@ class WorkflowNodeLibraryTest extends TestCase
             ['type' => 'amocrm_create_task', 'name' => 'Создать задачу'],
             ['type' => 'amocrm_add_note', 'name' => 'Добавить примечание'],
             ['type' => 'amocrm_change_tags', 'name' => 'Сменить теги'],
-            ['type' => 'amocrm_create_company', 'name' => 'Создать компанию'],
-            ['type' => 'amocrm_link_entity', 'name' => 'Связать сущности'],
         ];
 
         $html = $this->renderNodeLibrary($actions, true);
@@ -47,66 +45,7 @@ class WorkflowNodeLibraryTest extends TestCase
         $this->assertStringContainsString('Задача · действие', $html);
         $this->assertStringContainsString('Примечание · действие', $html);
         $this->assertStringContainsString('Теги · действие', $html);
-        $this->assertStringContainsString('Компания · действие', $html);
-        $this->assertStringContainsString('Связи · действие', $html);
         $this->assertStringContainsString('<strong>Теги</strong>', $html);
-    }
-
-    public function test_company_creation_node_can_be_added_from_the_real_catalog(): void
-    {
-        \Tests\Support\WorkflowListDatabase::prepare();
-        \Illuminate\Support\Facades\Http::preventStrayRequests();
-
-        $page = Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
-            ->assertSee('Создать компанию')
-            ->call('openDetachedActionPalette')
-            ->call('selectActionType', 'amocrm_create_company');
-
-        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
-        $action = end($nodes)['step'];
-        $this->assertSame('amocrm_create_company', $action['type']);
-
-        $page->call('openWorkflowActionEditor', $action['id'])
-            ->assertStatus(200)
-            ->set('mountedActions.0.data.name', 'ООО Тест')
-            ->call('callMountedAction')
-            ->assertHasNoErrors();
-
-        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
-        $this->assertSame('ООО Тест', $nodes['action:'.$action['id']]['step']['config']['name']);
-        \Illuminate\Support\Facades\Http::assertNothingSent();
-    }
-
-    public function test_universal_entity_link_node_can_be_added_and_configured(): void
-    {
-        \Tests\Support\WorkflowListDatabase::prepare();
-        \Illuminate\Support\Facades\Http::preventStrayRequests();
-
-        $page = Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
-            ->assertSee('Связать сущности')
-            ->call('openDetachedActionPalette')
-            ->call('selectActionType', 'amocrm_link_entity');
-
-        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
-        $action = end($nodes)['step'];
-        $this->assertSame('amocrm_link_entity', $action['type']);
-
-        $page->call('openWorkflowActionEditor', $action['id'])
-            ->set('mountedActions.0.data.entity_source', 'manual')
-            ->set('mountedActions.0.data.target_entity', 'lead')
-            ->set('mountedActions.0.data.target_entity_id', '42')
-            ->set('mountedActions.0.data.linked_entity', 'company')
-            ->set('mountedActions.0.data.linked_entity_id', '77')
-            ->call('callMountedAction')
-            ->assertHasNoErrors();
-
-        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
-        $config = $nodes['action:'.$action['id']]['step']['config'];
-        $this->assertSame('lead', $config['target_entity']);
-        $this->assertSame('42', $config['target_entity_id']);
-        $this->assertSame('company', $config['linked_entity']);
-        $this->assertSame('77', $config['linked_entity_id']);
-        \Illuminate\Support\Facades\Http::assertNothingSent();
     }
 
     public function test_tags_action_can_be_added_from_the_real_catalog_and_configured(): void

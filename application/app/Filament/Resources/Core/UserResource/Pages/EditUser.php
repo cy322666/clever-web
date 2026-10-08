@@ -3,12 +3,24 @@
 namespace App\Filament\Resources\Core\UserResource\Pages;
 
 use App\Filament\Resources\Core\UserResource;
-use App\Helpers\Traits\SyncAmoCRMPage;
-use Filament\Forms\Components\TextInput;
-use Filament\Resources\Pages\EditRecord;
+use App\Models\amoCRM\Staff;
+use App\Models\amoCRM\Status;
+use App\Models\User;
+use App\Services\amoCRM\Client;
+use App\Services\amoCRM\Models\Account;
 use Filament\Schemas\Components\Section;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
+use App\Helpers\Traits\SyncAmoCRMPage;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\URL;
 
 class EditUser extends EditRecord
 {
@@ -16,7 +28,7 @@ class EditUser extends EditRecord
 
     protected static string $resource = UserResource::class;
 
-    //    protected static ?string $navigationLabel = 'Профиль';
+//    protected static ?string $navigationLabel = 'Профиль';
 
     public function form(Schema $schema): Schema
     {
@@ -25,24 +37,14 @@ class EditUser extends EditRecord
                 Section::make('Основная информация')
                     ->schema([
                         TextInput::make('email')
-                            ->label('Почта')
-                            ->email()
-                            ->required()
-                            ->maxLength(255)
-                            ->unique(ignoreRecord: true),
+                            ->label('Почта'),
                         TextInput::make('name')
-                            ->label('Имя')
-                            ->required()
-                            ->maxLength(255),
+                            ->label('Логин'),
                         TextInput::make('uuid')
                             ->label('Идентификатор')
-                            ->disabled()
-                            ->visible(fn (): bool => (bool) auth()->user()?->is_root),
+                            ->disabled(),
                         TextInput::make('new_password')
-                            ->label('Новый пароль')
-                            ->password()
-                            ->revealable()
-                            ->minLength(8),
+                            ->label('Новый пароль'),
                     ])->columnSpan([
                         'sm' => 2,
                     ]),
@@ -54,13 +56,11 @@ class EditUser extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if (! empty($data['new_password'])) {
+        if (!empty($data['new_password'])) {
 
             $this->record->password = Hash::make($data['new_password']);
             $this->record->save();
         }
-
-        unset($data['new_password']);
 
         return $data;
     }

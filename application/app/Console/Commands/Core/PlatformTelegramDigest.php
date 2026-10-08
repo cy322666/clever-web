@@ -35,7 +35,7 @@ class PlatformTelegramDigest extends Command
         }
 
         if (blank(config('alerts.channels.telegram.token')) || blank(config('alerts.channels.telegram.chat_id'))) {
-            $this->error('Не настроены TELEGRAM_ALERTS_TOKEN / TELEGRAM_ALERTS_CHAT_ID.');
+            $this->error('Не настроены TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.');
 
             return self::FAILURE;
         }

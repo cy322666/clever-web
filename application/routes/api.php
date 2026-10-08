@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DistributionController;
+use App\Http\Controllers\Api\GetCourseController;
 use App\Http\Controllers\Api\IndustryClinicsSalonsLifecycleController;
 use App\Http\Controllers\Api\SqnsController;
 use App\Http\Controllers\Api\TildaController;
@@ -21,6 +22,13 @@ Route::post('yclients/marketplace/callback', [YClientsMarketplaceController::cla
     ->name('yclients.marketplace.callback');
 
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
+
+    Route::group(['prefix' => 'getcourse', 'middleware' => ['integration.active:getcourse']], function () {
+
+        Route::get('orders/{user:uuid}/{template}', [GetCourseController::class, 'order'])->name('getcourse.order');
+
+        Route::get('forms/{user:uuid}/{form}', [GetCourseController::class, 'form'])->name('getcourse.form');
+    });
 
     Route::group(['prefix' => 'tilda', 'middleware' => ['integration.active:tilda']], function () {
 
@@ -67,6 +75,12 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::match(['get', 'post'], 'install/flow', [AuthController::class, 'installFlow'])
         ->middleware('throttle:30,1')
         ->name('amocrm.flow.install');
+    Route::match(['get', 'post'], 'install/finder', [AuthController::class, 'installFinder'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.finder.install');
+    Route::match(['get', 'post'], 'off/finder', [AuthController::class, 'offFinder'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.finder.off');
     Route::match(['get', 'post'], 'off/flow', [AuthController::class, 'offFlow'])
         ->middleware('throttle:60,1')
         ->name('amocrm.flow.off');
@@ -82,18 +96,24 @@ Route::group(['prefix' => 'amocrm'], function () {
     Route::match(['get', 'post'], 'off/yclients', [AuthController::class, 'offYclients'])
         ->middleware('throttle:60,1')
         ->name('amocrm.yclients.off');
-    Route::match(['get', 'post'], 'install/finder', [AuthController::class, 'installFinder'])
-        ->middleware('throttle:30,1')
-        ->name('amocrm.finder.install');
-    Route::match(['get', 'post'], 'off/finder', [AuthController::class, 'offFinder'])
-        ->middleware('throttle:60,1')
-        ->name('amocrm.finder.off');
     Route::match(['get', 'post'], 'install/sqns', [AuthController::class, 'installSqns'])
         ->middleware('throttle:30,1')
         ->name('amocrm.sqns.install');
     Route::match(['get', 'post'], 'off/sqns', [AuthController::class, 'offSqns'])
         ->middleware('throttle:60,1')
         ->name('amocrm.sqns.off');
+    Route::match(['get', 'post'], 'install/tilda', [AuthController::class, 'installTilda'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.tilda.install');
+    Route::match(['get', 'post'], 'off/tilda', [AuthController::class, 'offTilda'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.tilda.off');
+    Route::match(['get', 'post'], 'install/distribution', [AuthController::class, 'installDistribution'])
+        ->middleware('throttle:30,1')
+        ->name('amocrm.distribution.install');
+    Route::match(['get', 'post'], 'off/distribution', [AuthController::class, 'offDistribution'])
+        ->middleware('throttle:60,1')
+        ->name('amocrm.distribution.off');
 
     Route::get('redirect', [AuthController::class, 'redirect']);
     Route::match(['get', 'post'], 'off', [AuthController::class, 'off'])

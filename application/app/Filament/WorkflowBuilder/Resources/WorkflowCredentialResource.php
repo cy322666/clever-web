@@ -68,15 +68,30 @@ class WorkflowCredentialResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('user.email')->label('Аккаунт')
+                TextColumn::make('user.email')
+                    ->label('Аккаунт')
                     ->description(fn (WorkflowCredential $record): ?string => $record->user?->accounts?->sortByDesc('id')->first()?->subdomain)
-                    ->searchable()->sortable(),
-                TextColumn::make('provider')->label('Сервис')->badge()
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('provider')
+                    ->label('Сервис')
+                    ->badge()
                     ->formatStateUsing(fn (string $state): string => WorkflowCredentials::providers()[$state] ?? $state),
-                TextColumn::make('name')->label('Подключение')->searchable()->weight('medium'),
-                IconColumn::make('secret_stored')->label('Секрет')->state(true)->boolean()
-                    ->trueIcon('heroicon-o-lock-closed')->trueColor('success')->tooltip('Токен сохранён и скрыт'),
-                TextColumn::make('updated_at')->label('Обновлено')->dateTime('d.m.Y H:i')->sortable(),
+                TextColumn::make('name')
+                    ->label('Подключение')
+                    ->searchable()
+                    ->weight('medium'),
+                IconColumn::make('secret_stored')
+                    ->label('Секрет')
+                    ->state(true)
+                    ->boolean()
+                    ->trueIcon('heroicon-o-lock-closed')
+                    ->trueColor('success')
+                    ->tooltip('Токен сохранён и скрыт'),
+                TextColumn::make('updated_at')
+                    ->label('Обновлено')
+                    ->dateTime('d.m.Y H:i')
+                    ->sortable(),
             ])
             ->defaultSort('updated_at', 'desc')
             ->paginated([25, 50, 100])
@@ -89,6 +104,8 @@ class WorkflowCredentialResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => Pages\ListWorkflowCredentials::route('/')];
+        return [
+            'index' => Pages\ListWorkflowCredentials::route('/'),
+        ];
     }
 }

@@ -34,7 +34,7 @@ class TelegramSendMessageAction
 
     public static function workflowIcon(): string
     {
-        return 'service-telegram';
+        return 'heroicon-o-paper-airplane';
     }
 
     public static function workflowCategory(): string

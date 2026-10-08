@@ -1,0 +1,32 @@
+<form class="industry-solution__form industry-solution__form--wide">
+    {% for group in groups %}
+        <section class="industry-solution__group">
+            <h3 class="industry-solution__group-title">{{ group.title }}</h3>
+            <div class="industry-solution__grid">
+                {% for integration in group.integrations %}
+                    {% crm_template_block 'industry-solution__card js-industry-integration-card' %}
+                        <div class="industry-solution__switcher-row">
+                            <p class="industry-solution__label"><b>{{ integration.title }}</b></p>
+                            {{ include_control('switcher', {
+                                blue: true,
+                                checked: integration.code in selected,
+                                switcher_wrapper_class: 'industry-solution__switcher',
+                                id: 'industry-solution-' ~ integration.code,
+                                value: integration.code,
+                                name: 'integrations[' ~ integration.code ~ ']'
+                            }) }}
+                        </div>
+                        <p class="industry-solution__hint">{{ integration.description }}</p>
+                    {% end_crm_template_block %}
+                {% endfor %}
+            </div>
+        </section>
+    {% endfor %}
+
+    {{ include_control('button', {
+        class_name: 'js-industry-integrations-submit industry-solution__button',
+        name: 'button',
+        blue: true,
+        text: langs.submit
+    }) }}
+</form>

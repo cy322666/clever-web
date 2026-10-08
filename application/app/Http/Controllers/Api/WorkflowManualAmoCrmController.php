@@ -26,8 +26,8 @@ class WorkflowManualAmoCrmController extends Controller
             return response()->json(['ok' => false, 'message' => 'Доступ к виджету сценариев не активен.', 'workflows' => []]);
         }
 
-        $validated = $request->validate(['source' => ['nullable', 'in:manual,digital-pipeline,amo-button']]);
-        $source = $request->has('lead_id') ? 'amo-button' : ($validated['source'] ?? 'manual');
+        $validated = $request->validate(['source' => ['nullable', 'in:manual,digital-pipeline,amo-button,amo-bulk']]);
+        $source = $validated['source'] ?? ($request->has('lead_id') ? 'amo-button' : 'manual');
         $workflows = $this->manualWorkflowQuery((int)$account->user_id, $source)
             ->orderBy('name')->get(['id', 'name'])
             ->map(fn(Workflow $workflow): array => ['id' => (int)$workflow->id, 'name' => (string)$workflow->name])
@@ -156,8 +156,13 @@ class WorkflowManualAmoCrmController extends Controller
     ): JsonResponse {
         $validated = $request->validate([
             'workflow_id' => ['required', 'integer'],
-            'lead_ids' => ['required', 'array', 'min:1', 'max:250'],
+            'lead_ids' => ['required_without:entities', 'prohibits:entities', 'array', 'min:1', 'max:250'],
             'lead_ids.*' => ['required', 'integer', 'min:1'],
+            'entities' => ['required_without:lead_ids', 'prohibits:lead_ids', 'array', 'min:1', 'max:250'],
+            'entities.*' => ['required', 'array:type,id'],
+            'entities.*.type' => ['required', 'in:lead,contact,company'],
+            'entities.*.id' => ['required', 'integer', 'min:1'],
+            'source' => ['required_with:entities', 'in:manual,amo-button,amo-bulk'],
             'subdomain' => ['nullable', 'string', 'max:255'],
             'account_subdomain' => ['nullable', 'string', 'max:255'],
         ]);
@@ -178,40 +183,55 @@ class WorkflowManualAmoCrmController extends Controller
             ], 403);
         }
 
-        $workflow = $this->manualWorkflowQuery((int)$account->user_id)
+        $startType = $validated['source'] ?? 'manual';
+        if (isset($validated['entities']) && $startType !== 'amo-bulk') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'source' => 'Для выбранных сущностей нужен запуск «Массовое действие».',
+            ]);
+        }
+
+        $workflow = $this->manualWorkflowQuery((int)$account->user_id, $startType)
             ->whereKey((int)$validated['workflow_id'])
             ->first();
 
         if (!$workflow instanceof Workflow) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Ручной сценарий не найден или выключен.',
+                'message' => 'Поток с выбранным способом запуска не найден или выключен.',
             ], 404);
         }
 
-        $leadIds = array_values(array_unique(array_map(
-            static fn(mixed $leadId): int => (int)$leadId,
-            $validated['lead_ids'],
-        )));
+        // Old installed clients can still send lead_ids; new ones send typed entities.
+        $entities = collect($validated['entities'] ?? array_map(
+            static fn(mixed $id): array => ['type' => 'lead', 'id' => (int)$id],
+            $validated['lead_ids'] ?? [],
+        ))->unique(fn(array $entity): string => $entity['type'].':'.(int)$entity['id'])->values();
 
         $runs = [];
 
-        foreach ($leadIds as $leadId) {
-            $runs[] = $manualRuns->startForLead(
-                workflow: $workflow,
-                account: $account,
-                leadId: $leadId,
-                input: [
-                    'source' => 'amocrm-list-bulk',
-                    'widget_source' => 'amocrm-list-bulk',
-                ],
-            );
+        foreach ($entities as $entity) {
+            if ($startType === 'amo-bulk') {
+                $run = $manualRuns->startBulkForEntity($workflow, $account, $entity['type'], (int)$entity['id']);
+            } else {
+                $method = $startType === 'amo-button' ? 'startButtonForLead' : 'startForLead';
+                $run = $manualRuns->$method(
+                    workflow: $workflow,
+                    account: $account,
+                    leadId: (int)$entity['id'],
+                    input: [
+                        'source' => 'amocrm-list-bulk',
+                        'widget_source' => 'amocrm-list-bulk',
+                    ],
+                );
+            }
+            array_push($runs, ...($run['runs'] ?? [$run]));
         }
 
         return response()->json([
             'ok' => true,
             'queued' => true,
             'count' => count($runs),
+            'entity_count' => $entities->count(),
             'run_ids' => array_column($runs, 'run_id'),
             'run_ulids' => array_column($runs, 'run_ulid'),
         ], 202);

@@ -4,7 +4,7 @@
 
 Настройки окружения: WORKFLOW_ACCEPTANCE_ENABLED=true, WORKFLOW_ACCEPTANCE_WORKFLOW_ID=15, WORKFLOW_ACCEPTANCE_DOMAIN=widgetscenario, WORKFLOW_ACCEPTANCE_AMO_ACCOUNT_ID=33098322. Время и пояс задаются WORKFLOW_ACCEPTANCE_TIME/WORKFLOW_ACCEPTANCE_TIMEZONE.
 
-Telegram: используются TELEGRAM_ALERTS_TOKEN/TELEGRAM_ALERTS_CHAT_ID (резерв TG_DEBUG_*). Отдельный личный чат — WORKFLOW_ACCEPTANCE_TG_TOKEN/WORKFLOW_ACCEPTANCE_TG_CHAT_ID. До включения проверить доступ к чату; пользователь должен начать разговор с ботом. Полный CRM JSON в Telegram не отправляется.
+Telegram: используются единые TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID и необязательный TELEGRAM_MESSAGE_THREAD_ID. Отчёты приходят в общий админский чат вместе с остальными системными уведомлениями. Полный CRM JSON в Telegram не отправляется.
 
 Команда `php artisan workflows:acceptance` выполняет тот же набор вручную. Это реальные действия, не dry run. Сначала запускайте без расписания и проверяйте cleanup отчёта, затем включайте ежедневный режим.
 

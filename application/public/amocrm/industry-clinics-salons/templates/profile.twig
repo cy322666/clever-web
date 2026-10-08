@@ -1,0 +1,29 @@
+<form class="industry-solution__form">
+    {% crm_template_block %}
+        <div class="industry-solution__block">
+            <p class="industry-solution__label"><b>{{ langs.organization_format }}</b></p>
+            {{ include_control('select', {
+                class_name: 'industry-solution__control industry-solution__select',
+                name: 'organization_format',
+                items: organization_formats,
+                selected: values.organization_format|default('single')
+            }) }}
+
+            <p class="industry-solution__hint">Для сети поле «Филиал» станет обязательным при записи клиента.</p>
+        </div>
+    {% end_crm_template_block %}
+
+    {% crm_template_block %}
+        <div class="industry-solution__block">
+            <p class="industry-solution__label"><b>{{ langs.standard_task }}</b></p>
+            <p class="industry-solution__hint">Штатный триггер amoCRM: при создании сделки на первом этапе ответственному ставится задача «Взять в работу» со сроком 30 минут.</p>
+        </div>
+    {% end_crm_template_block %}
+
+    {{ include_control('button', {
+        class_name: 'js-industry-profile-submit industry-solution__button',
+        name: 'button',
+        blue: true,
+        text: langs.submit
+    }) }}
+</form>

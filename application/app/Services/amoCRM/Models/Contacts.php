@@ -2,6 +2,7 @@
 
 namespace App\Services\amoCRM\Models;
 
+use App\Services\amoCRM\AmoCrmHttpTransport;
 use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,10 +21,10 @@ abstract class Contacts extends Client
 
                 if ($phone) {
 
-                    $resp = Http::withHeaders([
+                    $resp = app(AmoCrmHttpTransport::class)->send($amoApi->account, fn () => Http::withHeaders([
                         'Content-Type' => 'application/json',
                         'Authorization' => 'Bearer ' . $amoApi->account->access_token,
-                    ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $phone);
+                    ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $phone));
                 }
             }
         }
@@ -53,10 +54,10 @@ abstract class Contacts extends Client
 
         if ((empty(data_get($resp?->object(), '_embedded.contacts.0.id'))) && $emailCandidates) {
             foreach ($emailCandidates as $email) {
-                $resp = Http::withHeaders([
+                $resp = app(AmoCrmHttpTransport::class)->send($amoApi->account, fn () => Http::withHeaders([
                     'Content-Type' => 'application/json',
                     'Authorization' => 'Bearer ' . $amoApi->account->access_token,
-                ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $email);
+                ])->get('https://' . $amoApi->account->subdomain . '.amocrm.com/api/v4/contacts?query=' . $email));
 
                 if (!empty(data_get($resp->object(), '_embedded.contacts.0.id'))) {
                     break;

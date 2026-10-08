@@ -10,6 +10,7 @@ return new class extends Migration {
     public function up(): void
     {
         $commands = [
+            'install:getcourse',
             'install:tilda',
             'install:distribution',
             'install:yclients',

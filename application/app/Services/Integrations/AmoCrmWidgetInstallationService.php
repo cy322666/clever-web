@@ -6,7 +6,6 @@ use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
-use App\Support\Auth\AccountEmail;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -68,8 +67,8 @@ class AmoCrmWidgetInstallationService
             ->throw()
             ->json();
 
-        $email = AccountEmail::normalize(data_get($amoUser, 'email', ''));
-        if (! AccountEmail::isValid($email)) {
+        $email = Str::lower(trim((string) data_get($amoUser, 'email', '')));
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('amoCRM installer email is missing or invalid.');
         }
 
@@ -189,10 +188,6 @@ class AmoCrmWidgetInstallationService
                 'widget' => $widget,
             ]);
 
-            if ($widget === 'yclients') {
-                $account->oauth_connector = Account::CONNECTOR_WIDGET;
-            }
-
             $account->forceFill([
                 'user_id' => $user->id,
                 'widget' => $widget,
@@ -297,8 +292,7 @@ class AmoCrmWidgetInstallationService
     private function oauthConfig(string $widget): array
     {
         $prefix = 'services.amocrm.widgets.'.$widget.'.';
-        $fallbackToPlatform = $widget !== 'import-excel' && $widget !== 'yclients'
-            && (bool) config($prefix.'fallback_to_platform_credentials', true);
+        $fallbackToPlatform = (bool) config($prefix.'fallback_to_platform_credentials', true);
         $config = [
             'client_id' => $this->firstFilled([
                 config($prefix.'client_id'),

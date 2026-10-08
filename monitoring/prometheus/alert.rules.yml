@@ -64,6 +64,15 @@ groups:
           summary: "Ошибка сбора метрик приложения"
           description: "Endpoint /metrics сообщает об ошибках сбора метрик."
 
+      - alert: PostgresUnavailable
+        expr: pg_up{job="postgres_exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "База данных недоступна"
+          description: "Postgres exporter не может подключиться к PostgreSQL более 1 минуты."
+
       - alert: PostgresExporterDown
         expr: up{job="postgres_exporter"} == 0
         for: 2m

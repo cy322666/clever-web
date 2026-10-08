@@ -214,8 +214,10 @@ class SubscriptionPlanResource extends Resource
     {
         return match ((int)$record->period_days) {
             30 => '1 месяц',
+            90 => '3 месяца',
             180 => '6 месяцев',
             365 => '12 месяцев',
+            730 => '24 месяца',
             default => filled($record->period_days) ? $record->period_days . ' дн.' : 'Период по запросу',
         };
     }
@@ -230,12 +232,17 @@ class SubscriptionPlanResource extends Resource
         }
 
         $months = match ($periodDays) {
+            90 => 3,
             180 => 6,
             365 => 12,
+            730 => 24,
             default => max(1, (int)round($periodDays / 30)),
         };
 
-        return 'примерно ' . number_format((int)floor($price / $months), 0, '.', ' ') . ' ₽/мес.';
+        $currency = $record->widget === 'yclients' ? ' руб./мес.' : ' ₽/мес.';
+        $monthly = $record->widget === 'yclients' ? round($price / $months) : floor($price / $months);
+
+        return 'примерно ' . number_format((int)$monthly, 0, '.', ' ') . $currency;
     }
 
     public static function getPages(): array
