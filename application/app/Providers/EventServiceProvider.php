@@ -38,6 +38,11 @@ class EventServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->app->singleton(\App\Listeners\AdminErrorSubscriber::class);
+        \Illuminate\Support\Facades\Event::subscribe(\App\Listeners\AdminErrorSubscriber::class);
+        foreach (array_keys(\App\Services\Integrations\IntegrationErrorNotifier::MODELS) as $model) {
+            $model::observe(\App\Observers\IntegrationFailureObserver::class);
+        }
         User::observe(UserObserver::class);
         WidgetSubscription::observe(WidgetSubscriptionObserver::class);
     }

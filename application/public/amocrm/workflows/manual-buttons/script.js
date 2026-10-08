@@ -2,7 +2,7 @@ define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
     var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
-    var VERSION = '1.0.45';
+    var VERSION = '1.0.46';
     var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=' + VERSION;
     var LOAD_RETRIES = 0;
 
@@ -370,19 +370,12 @@ define(['jquery'], function ($) {
                 payload = {};
             }
 
-            if (typeof self.crm_post === 'function') {
-                self.crm_post(
-                    url,
-                    payload,
-                    success,
-                    'json',
-                    fail
-                );
-
+            if (typeof self.$authorizedAjax !== 'function') {
+                fail({message: 'Обновите виджет: требуется защищённый запрос amoCRM.'});
                 return;
             }
 
-            $.ajax({
+            self.$authorizedAjax({
                 url: url,
                 method: method,
                 data: method === 'GET' ? payload : JSON.stringify(payload),
@@ -827,10 +820,13 @@ define(['jquery'], function ($) {
                     }
 
                     $select.html('<option value="">Выберите поток</option>' + workflows.map(function (workflow) {
-                        return '<option value="' + workflow.id + '">' + escapeHtml(workflow.name || ('Поток #' + workflow.id)) + '</option>';
+                        return '<option value="' + escapeHtml(workflow.dp_token || '') + '">' + escapeHtml(workflow.name || ('Поток #' + workflow.id)) + '</option>';
                     }).join(''));
 
                     $select.prop('disabled', false).val(currentValue);
+                    if (currentValue && currentValue.indexOf('.') === -1) {
+                        $container.find('.clever-workflow-dp__hint').text('Выберите поток заново и сохраните действие, чтобы включить проверку подписи.');
+                    }
                     $select.on('change', function () {
                         $input.val($(this).val()).trigger('input').trigger('change');
                     });

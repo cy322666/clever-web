@@ -49,6 +49,17 @@ class Account extends Model
         'active' => 'boolean',
     ];
 
+    public function save(array $options = [])
+    {
+        $bindingChanged = !$this->exists || $this->isDirty(['subdomain', 'zone', 'user_id', 'amo_account_id'])
+            || ($this->isDirty('active') && $this->active);
+        if ($bindingChanged && $this->user_id && filled($this->subdomain)) {
+            return app(\App\Services\Integrations\AmoCrmOwnershipGuard::class)->save($this, fn () => parent::save($options));
+        }
+
+        return parent::save($options);
+    }
+
     protected static function booted(): void
     {
         static::saving(function (Account $account): void {

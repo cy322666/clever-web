@@ -21,6 +21,10 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping();
 
+        $schedule->command('app:check-amo-ownership')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
+
         $schedule->command('app:queue-backfill-failed --limit=1000')
             ->everyMinute()
             ->withoutOverlapping();

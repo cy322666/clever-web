@@ -64,18 +64,30 @@ class AmoCrmExcelLifecycleRoutesTest extends TestCase
         );
     }
 
-    public function test_off_hook_logs_excel_callback(): void
+    public function test_off_hook_delegates_to_the_excel_disconnect_handler(): void
     {
         Log::spy();
 
-        $response = (new AuthController)->offExcel(Request::create(
+        $controller = new class extends AuthController
+        {
+            public ?string $disconnectedWidget = null;
+
+            public function off(Request $request, ?string $forcedWidget = null)
+            {
+                $this->disconnectedWidget = $forcedWidget;
+
+                return response()->json(['ok' => true, 'updated' => 1]);
+            }
+        };
+        $response = $controller->offExcel(Request::create(
             '/api/amocrm/off/excel',
             'POST',
             ['account' => ['id' => 33098322, 'subdomain' => 'widgetscenario']],
         ));
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame(['ok' => true], $response->getData(true));
+        $this->assertSame('import-excel', $controller->disconnectedWidget);
+        $this->assertSame(['ok' => true, 'updated' => 1], $response->getData(true));
         Log::shouldHaveReceived('info')->once()->with(
             'amocrm.excel.off received',
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.account.id') === 33098322

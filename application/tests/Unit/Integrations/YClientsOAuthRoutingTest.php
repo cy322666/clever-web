@@ -50,7 +50,7 @@ class YClientsOAuthRoutingTest extends TestCase
     {
         $shared = $this->account('default', 'shared-client');
         $this->account('import-excel', 'excel-client');
-        $this->account('default', 'shared-client', ['user_id' => 2]);
+        $this->account('default', 'shared-client', ['user_id' => 2, 'subdomain' => 'foreign-client']);
 
         $this->assertSame($shared->id, User::findOrFail(1)->resolveAmoAccountForWidget('yclients')->id);
         $this->assertConnector($shared, 'shared-client', 'shared-secret', 'https://platform.example/api/amocrm/redirect');

@@ -29,56 +29,20 @@ class WorkflowManualAmoCrmController extends Controller
         $validated = $request->validate(['source' => ['nullable', 'in:manual,digital-pipeline,amo-button']]);
         $source = $request->has('lead_id') ? 'amo-button' : ($validated['source'] ?? 'manual');
         $workflows = $this->manualWorkflowQuery((int)$account->user_id, $source)
-            ->orderBy('name')->get(['id', 'name'])
-            ->map(fn(Workflow $workflow): array => ['id' => (int)$workflow->id, 'name' => (string)$workflow->name])
+            ->orderBy('name')->get(['id', 'name', 'user_id'])
+            ->map(fn(Workflow $workflow): array => [
+                'id' => (int)$workflow->id, 'name' => (string)$workflow->name,
+                ...($source === 'digital-pipeline' ? ['dp_token' => app(\App\Services\Workflows\WorkflowRequestAccess::class)
+                    ->digitalPipelineToken($account, $workflow)] : []),
+            ])
             ->values();
 
         return response()->json(['ok' => true, 'workflows' => $workflows]);
     }
 
-    private function resolveAccount(Request $request): ?Account
+    private function resolveAccount(Request $request, bool $digitalPipeline = false): ?Account
     {
-        $subdomain = $this->normalizeSubdomain(
-            (string)(
-                $request->input('subdomain')
-                ?: $request->input('account_subdomain')
-                ?: $request->input('account.subdomain')
-                ?: $request->input('account.domain')
-                ?: $request->input('account')
-                ?: $request->headers->get('referer')
-            )
-        );
-
-        if ($subdomain === '') {
-            return null;
-        }
-
-        return Account::query()
-            ->where('active', true)
-            ->whereRaw('lower(subdomain) = ?', [$subdomain])
-            ->orderByRaw("case when widget = 'workflows' then 0 else 1 end")
-            ->latest('id')
-            ->first();
-    }
-
-    private function normalizeSubdomain(string $value): string
-    {
-        $value = Str::lower(trim($value));
-
-        if ($value === '') {
-            return '';
-        }
-
-        $value = preg_replace('#^https?://#', '', $value) ?? $value;
-        $value = explode('/', $value)[0] ?? $value;
-
-        foreach (['.amocrm.ru', '.amocrm.com', '.kommo.com'] as $suffix) {
-            if (str_ends_with($value, $suffix)) {
-                return substr($value, 0, -strlen($suffix));
-            }
-        }
-
-        return $value;
+        return app(\App\Services\Workflows\WorkflowRequestAccess::class)->authenticate($request, $digitalPipeline);
     }
 
     private function manualWorkflowQuery(int $userId, string $startType = 'manual'): Builder
@@ -222,7 +186,7 @@ class WorkflowManualAmoCrmController extends Controller
         WidgetSubscriptionAccessService $access,
         WorkflowManualAmoCrmRunService $manualRuns,
     ): JsonResponse {
-        $account = $this->resolveAccount($request);
+        $account = $this->resolveAccount($request, true);
         $payload = $request->all();
         $workflowId = $this->extractWorkflowId($payload);
         $leadId = $this->extractLeadId($payload);
@@ -345,17 +309,7 @@ class WorkflowManualAmoCrmController extends Controller
      */
     private function extractWorkflowId(array $payload): int
     {
-        $value = $this->firstFilled($payload, [
-            'workflow_id',
-            'settings.workflow_id',
-            'widget.settings.workflow_id',
-            'data.settings.workflow_id',
-            'entity.settings.workflow_id',
-            'action.settings.workflow_id',
-            'action.settings.widget.settings.workflow_id',
-            'action.params.workflow_id',
-            'params.workflow_id',
-        ]);
+        $value = \App\Services\Workflows\WorkflowRequestAccess::workflowSetting($payload);
 
         return (int)$value;
     }
@@ -430,7 +384,9 @@ class WorkflowManualAmoCrmController extends Controller
                 continue;
             }
 
-            $preview[(string)$key] = is_string($value) ? Str::limit($value, 120) : $value;
+            $preview[(string)$key] = in_array($key, \App\Services\Workflows\WorkflowRequestAccess::SETTING_PATHS, true)
+                ? (int) $value
+                : (is_string($value) ? Str::limit($value, 120) : $value);
 
             if (count($preview) >= 30) {
                 break;

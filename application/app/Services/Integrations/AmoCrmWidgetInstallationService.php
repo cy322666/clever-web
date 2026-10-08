@@ -73,7 +73,7 @@ class AmoCrmWidgetInstallationService
             throw new RuntimeException('amoCRM installer email is missing or invalid.');
         }
 
-        $result = DB::transaction(function () use (
+        $result = app(AmoCrmOwnershipGuard::class)->transaction($domain['subdomain'], $domain['zone'], $amoAccountId, function () use (
             $accountData,
             $accessToken,
             $amoAccountId,
@@ -109,7 +109,9 @@ class AmoCrmWidgetInstallationService
 
             $ownerUserIds = $ownerAccounts->pluck('user_id')->filter()->unique()->values();
             if ($ownerUserIds->count() > 1) {
-                throw new RuntimeException('Several platform users are linked to this amoCRM account.');
+                throw new \App\Exceptions\AmoCrmOwnershipConflict(
+                    $domain['subdomain'].'.amocrm.'.$domain['zone'], $ownerUserIds->all(), $ownerAccounts->pluck('id')->all(),
+                );
             }
 
             if (! $account) {
@@ -221,7 +223,7 @@ class AmoCrmWidgetInstallationService
             ]);
 
             return compact('user', 'account', 'createdUser');
-        }, 3);
+        });
 
         /** @var User $user */
         $user = $result['user'];

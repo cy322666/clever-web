@@ -30,6 +30,31 @@ class AlertService
             return;
         }
 
+        $adminErrors = app(\App\Services\Integrations\IntegrationErrorNotifier::class);
+        $operational = $level === 'critical' || ($level === 'warning'
+            && preg_match('/^(Horizon:|Очередь:|Процессы: зависшие|Ошибка подключения amoCRM)/u', $title));
+        $adminHandled = $operational && $adminErrors->enabled();
+        if ($adminHandled) {
+            $error = $context['exception'] ?? $context['error'] ?? $message;
+            $error = $error instanceof \Throwable ? $error->getMessage() : (is_string($error) ? $error : 'Error');
+            $run = null;
+            if (isset($context['workflow_id'], $context['run_id'])) {
+                try {
+                    $run = \App\Models\Workflows\WorkflowRun::query()
+                        ->where('workflow_id', $context['workflow_id'])->find($context['run_id']);
+                } catch (\Throwable) {
+                    // Database failures must still reach the platform error channel.
+                }
+            }
+            if ($run) {
+                $adminErrors->modelFailed($run, $error);
+            } else {
+                $adminErrors->report((string) ($context['widget'] ?? 'platform'), $error,
+                    (int) ($context['user_id'] ?? 0), (int) ($context['account_id'] ?? 0),
+                    $title, immediate: true);
+            }
+        }
+
         $ttl = $ttlSeconds ?? (int)config('alerts.dedupe_ttl_seconds', 900);
 
         if ($ttl > 0) {
@@ -42,7 +67,9 @@ class AlertService
 
         $text = self::buildText($level, $title, $message, $context);
 
-        self::sendTelegram($text, $level, $title);
+        if (! $adminHandled) {
+            self::sendTelegram($text, $level, $title);
+        }
         self::sendMail($text, $level, $title);
     }
 

@@ -21,9 +21,10 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
         $response = $this->get('/api/amocrm/industry-clinics-salons/redirect?code=secret-code&referer=example.amocrm.ru&platform=1');
 
         $response
-            ->assertOk()
-            ->assertSee('Решение установлено')
-            ->assertSee('Клиники и салоны');
+            ->assertStatus(303)
+            ->assertRedirect('https://example.amocrm.ru/settings/widgets/')
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertDontSee('Решение установлено');
 
         Log::shouldHaveReceived('info')->with(
             'amocrm.industry-clinics-salons.install received',
@@ -71,8 +72,19 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
                 && $context['message_id'] === 502),
         )->once();
         Http::assertSent(fn ($request): bool => str_contains($request['text'], '🔴 Виджет отключён')
-            && str_contains($request['text'], 'Аккаунт: 123')
-            && str_contains($request['text'], 'ID интеграции: client-id')
+            && ! str_contains($request['text'], 'Аккаунт:')
+            && ! str_contains($request['text'], 'ID интеграции:')
+            && ! str_contains($request['text'], 'Время:')
             && ! str_contains($request['text'], 'secret'));
+    }
+
+    public function test_native_solution_return_never_redirects_to_a_foreign_host(): void
+    {
+        config(['widget_lifecycle.telegram.token' => '']);
+        Log::spy();
+        foreach (['evil.test', 'tenant.amocrm.ru.evil.test', 'javascript:alert(1)', 'tenant.amocrm.ru@evil.test'] as $referer) {
+            $this->get('/api/amocrm/industry-clinics-salons/redirect?'.http_build_query(['referer' => $referer]))
+                ->assertRedirect(route('filament.app.pages.dashboard'));
+        }
     }
 }

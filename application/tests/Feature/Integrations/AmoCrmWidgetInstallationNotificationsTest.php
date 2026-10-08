@@ -55,6 +55,7 @@ class AmoCrmWidgetInstallationNotificationsTest extends TestCase
             'referer' => 'https://verified.amocrm.ru',
             'account_id' => 999,
             'client_id' => 'untrusted-callback-client-id',
+            'email' => 'forged@example.test',
         ])->assertStatus(202);
 
         Http::assertNothingSent();
@@ -73,9 +74,12 @@ class AmoCrmWidgetInstallationNotificationsTest extends TestCase
 
         Http::assertSentCount(1);
         Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Виджет установлен')
-            && str_contains($request['text'], 'Аккаунт: 33098322')
+            && str_contains($request['text'], 'Почта: owner@example.test')
             && str_contains($request['text'], 'Домен: verified.amocrm.ru')
-            && str_contains($request['text'], 'ID интеграции: verified-client-id')
+            && ! str_contains($request['text'], 'Аккаунт:')
+            && ! str_contains($request['text'], 'ID интеграции:')
+            && ! str_contains($request['text'], 'Время:')
+            && ! str_contains($request['text'], 'forged@example.test')
             && ! str_contains($request['text'], '999')
             && ! str_contains($request['text'], 'untrusted-callback-client-id')
             && ! str_contains($request['text'], 'one-time-code'));
@@ -94,7 +98,7 @@ class AmoCrmWidgetInstallationNotificationsTest extends TestCase
         $job->handle($installation);
 
         Http::assertSentCount(1);
-        Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Аккаунт: 33098322')
+        Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Почта: owner@example.test')
             && ! str_contains($request['text'], 'не передан'));
     }
 
@@ -122,7 +126,7 @@ class AmoCrmWidgetInstallationNotificationsTest extends TestCase
         Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Не удалось установить виджет')
             && str_contains($request['text'], 'Аккаунт платформы уже подключён к другой amoCRM.')
             && str_contains($request['text'], 'Домен: verified.amocrm.ru')
-            && str_contains($request['text'], 'ID интеграции: finder-client-id')
+            && ! str_contains($request['text'], 'ID интеграции:')
             && ! str_contains($request['text'], 'Виджет установлен')
             && ! str_contains($request['text'], 'Виджет отключён')
             && ! str_contains($request['text'], 'Аккаунт: не передан'));
@@ -202,7 +206,7 @@ class AmoCrmWidgetInstallationNotificationsTest extends TestCase
     private function installationResult(): array
     {
         return [
-            'user' => (new User)->forceFill(['id' => 42]),
+            'user' => (new User)->forceFill(['id' => 42, 'email' => 'owner@example.test']),
             'account' => (new Account)->forceFill([
                 'id' => 7, 'amo_account_id' => 33098322, 'subdomain' => 'verified',
                 'zone' => 'ru', 'client_id' => 'verified-client-id',

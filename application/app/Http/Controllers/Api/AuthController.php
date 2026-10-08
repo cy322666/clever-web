@@ -33,39 +33,65 @@ class AuthController extends Controller
 {
     public function installFlow(Request $request)
     {
-        return $this->installWidgetFromAmoCrm($request, 'workflows', 'flow');
+        return $this->installWidgetWithBrowserReturn($request, 'workflows', 'flow');
     }
 
     public function installExcel(Request $request)
     {
-        return $this->installWidgetFromAmoCrm($request, 'import-excel', 'excel');
+        return $this->installWidgetWithBrowserReturn($request, 'import-excel', 'excel');
     }
 
     public function installYclients(Request $request)
     {
-        return $this->installWidgetFromAmoCrm($request, 'yclients', 'yclients');
+        return $this->installWidgetWithBrowserReturn($request, 'yclients', 'yclients');
     }
 
     public function installFinder(Request $request)
     {
-        if (! $request->isMethod('GET') || $request->expectsJson()) {
-            return $this->installWidgetFromAmoCrm($request, 'finder', 'finder');
-        }
-
-        $status = app(\App\Services\Finder\InstallationStatus::class);
-        $token = $status->start();
-        $response = $this->installWidgetFromAmoCrm($request, 'finder', 'finder', $token);
-        if ($response->getStatusCode() !== 202) {
-            $status->put($token, ['status' => 'failed']);
-        }
-
-        return redirect()->route('finder.installation.status', ['token' => $token], 303)
-            ->withHeaders(['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer']);
+        return $this->installWidgetWithBrowserReturn($request, 'finder', 'finder');
     }
 
     public function installSqns(Request $request)
     {
-        return $this->installWidgetFromAmoCrm($request, 'sqns', 'sqns');
+        return $this->installWidgetWithBrowserReturn($request, 'sqns', 'sqns');
+    }
+
+    private function installWidgetWithBrowserReturn(Request $request, string $widget, string $callback)
+    {
+        if (! $request->isMethod('GET') || $request->expectsJson()) {
+            return $this->installWidgetFromAmoCrm($request, $widget, $callback);
+        }
+
+        $statuses = app(\App\Services\Integrations\AmoCrmInstallationStatus::class);
+        $token = null;
+
+        try {
+            $token = $statuses->start($widget);
+            $response = $this->installWidgetFromAmoCrm($request, $widget, $callback, $token);
+            if ($response->getStatusCode() !== 202) {
+                $statuses->put($token, ['status' => 'failed', 'widget' => $widget]);
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+
+            try {
+                if ($token !== null) {
+                    $statuses->put($token, ['status' => 'failed', 'widget' => $widget]);
+                }
+            } catch (Throwable) {
+                $token = null;
+            }
+
+            if ($token === null) {
+                return response()->view('errors.server', [
+                    'statusCode' => 503, 'locale' => app()->getLocale(),
+                    'backUrl' => route('filament.app.pages.dashboard'),
+                ], 503, ['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer']);
+            }
+        }
+
+        return redirect()->route('amocrm.installation.status', ['token' => $token], 303)
+            ->withHeaders(['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer']);
     }
 
     private function installWidgetFromAmoCrm(Request $request, string $widget, string $callback, ?string $completionToken = null): \Illuminate\Http\JsonResponse
@@ -108,22 +134,22 @@ class AuthController extends Controller
 
     public function offFlow(Request $request)
     {
-        return $this->logWidgetOffCallback($request, 'flow', 'workflows');
+        return $this->disconnectWidget($request, 'flow', 'workflows');
     }
 
     public function offExcel(Request $request)
     {
-        return $this->logWidgetOffCallback($request, 'excel', 'import-excel');
+        return $this->disconnectWidget($request, 'excel', 'import-excel');
     }
 
     public function offYclients(Request $request)
     {
-        return $this->logWidgetOffCallback($request, 'yclients', 'yclients');
+        return $this->disconnectWidget($request, 'yclients', 'yclients');
     }
 
     public function offFinder(Request $request)
     {
-        return $this->logWidgetOffCallback($request, 'finder', 'finder');
+        return $this->disconnectWidget($request, 'finder', 'finder');
     }
 
     public function offSqns(Request $request)
@@ -165,16 +191,16 @@ class AuthController extends Controller
         return $this->off($request, 'sqns');
     }
 
-    private function logWidgetOffCallback(
+    private function disconnectWidget(
         Request $request,
         string $callback,
         string $widget,
     ): \Illuminate\Http\JsonResponse
     {
+        $response = $this->off($request, $widget);
         $this->logWidgetLifecycleCallback($callback, 'off', $request);
-        $this->notifyWidgetLifecycle('off', $widget, $request);
 
-        return response()->json(['ok' => true]);
+        return $response;
     }
 
     private function notifyWidgetLifecycle(
@@ -454,6 +480,7 @@ class AuthController extends Controller
             ]);
 
             $this->notifyWidgetLifecycle('install', $widget, $request, [
+                'user_email' => $user->email,
                 'account_id' => $account->amo_account_id,
                 'referer' => $account->subdomain,
                 'client_id' => $account->client_id,
@@ -490,10 +517,8 @@ class AuthController extends Controller
 
             Mail::to($user->email)->queue(new SignUp($user));
 
-            $redirectPath = $this->sanitizeRelativeRedirect(
-                $request->input('uri'),
-                $fallbackRedirect
-            );
+            $redirectPath = app(\App\Services\Integrations\IntegrationReturnTarget::class)->forUser((int) $user->id, $widget)
+                ?? $this->sanitizeRelativeRedirect($request->input('uri'), $fallbackRedirect);
 
             return redirect()
                 ->to(
@@ -505,6 +530,16 @@ class AuthController extends Controller
                     ])
                 );
         } catch (Throwable $e) {
+            if ($e instanceof \App\Exceptions\AmoCrmOwnershipConflict) {
+                return $this->oauthErrorRedirect(
+                    $request,
+                    'Эта amoCRM уже связана с другим аккаунтом платформы. Автоматическая перепривязка запрещена.',
+                    409,
+                    $fallbackRedirect,
+                    $e,
+                );
+            }
+
             if ($e instanceof HttpExceptionInterface) {
                 return $this->oauthErrorRedirect(
                     $request,
@@ -558,7 +593,10 @@ class AuthController extends Controller
 
         // Existing account: do not auto-login from external widget callback.
         if ($user) {
-            return redirect()->to(route('filament.app.auth.login'));
+            return redirect()->to(
+                app(\App\Services\Integrations\IntegrationReturnTarget::class)->forUser((int) $user->id, $widget)
+                    ?? route('filament.app.auth.login')
+            );
         }
 
         $pass = Str::random(10);
@@ -619,73 +657,15 @@ class AuthController extends Controller
 
     public function off(Request $request, ?string $forcedWidget = null)
     {
-        $payload = $request->all();
-        $flat = $this->flattenPayload($payload);
-
-        $clientId = $this->firstFilledValue($flat, [
-            'client_uuid',
-            'client_id',
-            'client.id',
-            'account.client_id',
-        ]);
-
-        $rawAccountId = $this->firstFilledValue($flat, [
-            'account_id',
-            'account.id',
-            'account.amo_account_id',
-        ]);
-        $amoAccountId = is_numeric($rawAccountId) && (int) $rawAccountId > 0
-            ? (int) $rawAccountId
+        $verified = app(\App\Services\Integrations\AmoCrmOffSignature::class)->verify($request, $forcedWidget);
+        $clientId = $verified['client_id'];
+        $amoAccountId = $verified['account_id'];
+        $accounts = app(\App\Services\Integrations\AmoCrmDisconnectService::class)
+            ->disconnect($clientId, $amoAccountId, $forcedWidget);
+        $subdomain = $accounts->first()?->subdomain;
+        $referer = filled($subdomain)
+            ? $subdomain.'.amocrm.'.($accounts->first()->zone ?: 'ru')
             : null;
-
-        $referer = (string) ($this->firstFilledValue($flat, ['referer', 'account.referer']) ?? '');
-        if ($referer === '') {
-            $referer = (string) $request->header('referer', '');
-        }
-
-        $subdomain = $this->extractAmoDomainParts($referer)['subdomain']
-            ?? $this->normalizeSubdomain(
-                (string) ($this->firstFilledValue($flat, [
-                    'subdomain',
-                    'account.subdomain',
-                    'account.domain',
-                    'domain',
-                ]) ?? '')
-            );
-
-        $accountsQuery = Account::query();
-
-        if ($forcedWidget !== null) {
-            $accountsQuery->where('widget', Account::normalizeWidget($forcedWidget));
-        }
-
-        if ($clientId !== null && $clientId !== '') {
-            $accountsQuery->where('client_id', $clientId);
-        }
-
-        if ($amoAccountId !== null) {
-            $accountsQuery->where('amo_account_id', $amoAccountId);
-        }
-
-        if ($subdomain !== null && $subdomain !== '') {
-            $accountsQuery->whereRaw('LOWER(subdomain) = ?', [Str::lower($subdomain)]);
-        }
-
-        if ($amoAccountId === null && ($subdomain === null || $subdomain === '')) {
-            Log::warning('amocrm.off: account matcher is missing', [
-                'payload' => $payload,
-            ]);
-
-            return response()->json([
-                'ok' => true,
-                'updated' => 0,
-                'reason' => 'No account_id/subdomain in payload',
-            ]);
-        }
-
-        $accounts = $accountsQuery
-            ->with('user:id,name,email')
-            ->get();
 
         $mailPayloadByUser = [];
 
@@ -707,13 +687,6 @@ class AuthController extends Controller
                     $mailPayloadByUser[$userId]['subdomains'][] = Str::lower((string) $account->subdomain);
                 }
             }
-
-            $account->code = null;
-            $account->access_token = null;
-            $account->refresh_token = null;
-            $account->subdomain = null;
-            $account->active = false;
-            $account->save();
         }
 
         $mailsQueued = 0;
@@ -750,13 +723,13 @@ class AuthController extends Controller
 
         $notificationWidget = Account::normalizeWidget((string) (
             $forcedWidget
-            ?? $request->input('source')
             ?? $accounts->first()?->widget
             ?? Account::DEFAULT_WIDGET
         ));
         $this->notifyWidgetLifecycle('off', $notificationWidget, $request, [
-            'account_id' => $amoAccountId ?? $accounts->first()?->amo_account_id,
-            'referer' => $referer !== '' ? $referer : $subdomain,
+            'user_email' => $accounts->first()?->user?->email,
+            'account_id' => $amoAccountId,
+            'referer' => $referer,
             'client_id' => $clientId,
             'updated' => $accounts->count(),
         ]);

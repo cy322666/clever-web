@@ -20,13 +20,12 @@ class EloquentStorage extends AbstractStorage
 
     public function initClient(Oauthapi $client)
     {
-        static::$_oauth = $this->getOauth();
+        $this->assertClient($client);
     }
 
     public function setOauthData(Oauthapi $client, array $oauth): bool
     {
-        static::$_oauth = $oauth;
-
+        $this->assertClient($client);
         $this->setOauth($oauth);
 
         return true;
@@ -34,7 +33,19 @@ class EloquentStorage extends AbstractStorage
 
     public function getOauthData(Oauthapi $client, $field = null): string|array
     {
+        $this->assertClient($client);
         return $this->getOauth($field);
+    }
+
+    private function assertClient(Oauthapi $client): void
+    {
+        foreach (['domain' => 'subdomain', 'client_id' => 'client_id', 'zone' => 'zone'] as $option => $attribute) {
+            $expected = (string) ($this->model->$attribute ?: ($option === 'zone' ? 'ru' : ''));
+            $actual = (string) ($client->getAuth($option) ?: ($option === 'zone' ? 'ru' : ''));
+            if ($actual !== $expected) {
+                throw new \LogicException('amoCRM OAuth storage does not belong to this client.');
+            }
+        }
     }
 
     protected function getOauth(?string $field = null) : string|array

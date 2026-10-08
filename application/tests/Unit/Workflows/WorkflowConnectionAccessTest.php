@@ -167,7 +167,11 @@ class WorkflowConnectionAccessTest extends TestCase
         $this->assertArrayHasKey('settings', $manifest);
         $this->assertSame('custom', $manifest['settings']['connection']['type']);
         $this->assertFalse($manifest['settings']['connection']['required']);
-        $this->assertSame('1.0.45', $manifest['widget']['version']);
+        $this->assertSame('1.0.46', $manifest['widget']['version']);
+        $this->assertStringContainsString('self.$authorizedAjax({', $script);
+        $this->assertStringNotContainsString('crm_post(', $script);
+        $this->assertStringNotContainsString('$.ajax(', $script);
+        $this->assertStringContainsString('workflow.dp_token', $script);
         $this->assertStringNotContainsString('Сценарии Clever', $script);
         $this->assertStringNotContainsString('Сценарий #', $script);
         $this->assertStringNotContainsString('Нет включённых потоков с запуском', $script);

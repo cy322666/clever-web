@@ -43,7 +43,8 @@ class AmoCrmWidgetLifecycleTelegramNotifierTest extends TestCase
                 'client_uuid' => 'client-id',
                 'code' => 'must-not-leak',
                 'signature' => 'must-not-leak',
-            ]);
+                'email' => 'forged@example.test',
+            ], ['user_email' => 'owner@example.test']);
 
             Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Виджет: '.$label));
         }
@@ -51,6 +52,11 @@ class AmoCrmWidgetLifecycleTelegramNotifierTest extends TestCase
         Http::assertSentCount(count($widgets));
         Http::assertSent(fn ($request): bool => $request->url() === 'https://api.telegram.org/botshared-token/sendMessage'
             && $request['chat_id'] === '-100123'
+            && str_contains($request['text'], 'Почта: owner@example.test')
+            && ! str_contains($request['text'], 'forged@example.test')
+            && ! str_contains($request['text'], 'Аккаунт:')
+            && ! str_contains($request['text'], 'ID интеграции:')
+            && ! str_contains($request['text'], 'Время:')
             && ! str_contains($request['text'], 'must-not-leak'));
     }
 
@@ -93,5 +99,45 @@ class AmoCrmWidgetLifecycleTelegramNotifierTest extends TestCase
             'different owner' => ['owner', 'Эта amoCRM уже подключена к другому пользователю платформы.'],
             'unexpected error' => ['unknown', 'Внутренняя ошибка подключения. Подробности в журнале сервера.'],
         ];
+    }
+
+    public function test_failed_installation_uses_stored_owner_email_not_callback_email(): void
+    {
+        \Tests\Support\FinderDatabase::prepare();
+        \Illuminate\Support\Facades\Schema::table('accounts', function (\Illuminate\Database\Schema\Blueprint $table): void {
+            $table->string('client_id')->nullable();
+        });
+        \Illuminate\Support\Facades\DB::table('accounts')->where('id', 1)->update([
+            'widget' => 'sqns', 'subdomain' => 'tenant', 'zone' => 'ru', 'client_id' => 'sqns-client',
+        ]);
+        \Illuminate\Support\Facades\DB::table('accounts')->insert([
+            'user_id' => 2, 'widget' => 'sqns', 'subdomain' => 'tenant', 'zone' => 'com', 'client_id' => 'sqns-client',
+        ]);
+        config(['widget_lifecycle.telegram.token' => 'shared-token', 'widget_lifecycle.telegram.chat_id' => '-100123']);
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+
+        app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install_failed', 'sqns', [
+            'email' => 'forged@example.test', 'user_id' => 2,
+        ], ['referer' => 'tenant.amocrm.ru', 'client_id' => 'sqns-client']);
+
+        Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Почта: finder@example.test')
+            && ! str_contains($request['text'], 'other@example.test')
+            && ! str_contains($request['text'], 'forged@example.test')
+            && ! str_contains($request['text'], 'ID интеграции:')
+            && ! str_contains($request['text'], 'Время:'));
+    }
+
+    public function test_missing_database_does_not_prevent_failure_notification(): void
+    {
+        config(['database.default' => 'missing-connection', 'widget_lifecycle.telegram.token' => 'shared-token',
+            'widget_lifecycle.telegram.chat_id' => '-100123']);
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+        app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify('install_failed', 'sqns', [], [
+            'referer' => 'tenant.amocrm.ru', 'user_id' => 1,
+        ]);
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request): bool => str_contains($request['text'], 'Не удалось установить виджет')
+            && ! str_contains($request['text'], 'Почта:')
+            && ! str_contains($request['text'], 'missing-connection'));
     }
 }

@@ -7,12 +7,15 @@ use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
 use App\Services\Billing\WidgetSubscriptionAccessService;
 use App\Services\Workflows\WorkflowManualAmoCrmRunService;
+use App\Services\Workflows\WorkflowRequestAccess;
 use App\Services\Workflows\WorkflowTransfer;
 use App\Workflows\Triggers\DigitalPipelineTrigger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 use Leek\FilamentWorkflows\Engine\WorkflowExecutor;
 use Leek\FilamentWorkflows\Enums\TriggerType;
 use Leek\FilamentWorkflows\Jobs\ExecuteWorkflowJob;
@@ -27,7 +30,36 @@ class WorkflowDigitalPipelineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); WorkflowListDatabase::prepare(); Http::preventStrayRequests(); Bus::fake();
-        DB::table('accounts')->insert(['id'=>1,'user_id'=>1,'widget'=>'workflows','subdomain'=>'dp-test','active'=>true,'refresh_token'=>'test']);
+        config([
+            'services.amocrm.widgets.workflows.client_id' => 'workflow-client',
+            'services.amocrm.widgets.workflows.client_secret' => 'local-workflow-secret',
+            'services.amocrm.widgets.workflows.redirect_uri' => 'https://platform.example/callback',
+        ]);
+        Schema::table('users', fn (Blueprint $table) => $table->boolean('active')->default(true));
+        Schema::table('accounts', function (Blueprint $table) {
+            $table->string('zone')->nullable();
+            $table->string('client_id')->nullable();
+            $table->unsignedBigInteger('amo_account_id')->nullable();
+        });
+        DB::table('accounts')->insert(['id'=>1,'user_id'=>1,'widget'=>'workflows','subdomain'=>'dp-test','active'=>true,'refresh_token'=>'test',
+            'zone'=>'ru', 'client_id'=>'workflow-client', 'amo_account_id'=>101]);
+    }
+
+    private function signedRequest(string $method, array $payload): Request
+    {
+        $encode = fn (array $data) => rtrim(strtr(base64_encode(json_encode($data)), '+/', '-_'), '=');
+        $jwt = $encode(['alg' => 'HS256', 'typ' => 'JWT']).'.'.$encode([
+            'iss' => 'https://dp-test.amocrm.ru', 'aud' => 'https://platform.example',
+            'iat' => time(), 'nbf' => time(), 'exp' => time() + 1800,
+            'account_id' => 101, 'user_id' => 555, 'client_uuid' => 'workflow-client',
+        ]);
+        $jwt .= '.'.rtrim(strtr(base64_encode(hash_hmac('sha256', $jwt, 'local-workflow-secret', true)), '+/', '-_'), '=');
+        return Request::create('/test', $method, $payload, server: ['HTTP_X_AUTH_TOKEN' => $jwt]);
+    }
+
+    private function dpToken(int $id): string
+    {
+        return app(WorkflowRequestAccess::class)->digitalPipelineToken(Account::findOrFail(1), Workflow::findOrFail($id));
     }
 
     private function seedFlow(int $id, string $type, array $starts = [], int $owner = 1, bool $active = true): void
@@ -50,10 +82,10 @@ class WorkflowDigitalPipelineTest extends TestCase
         $this->seedFlow(4,'digital-pipeline',owner:2); $this->seedFlow(5,'digital-pipeline',active:false); $this->seedFlow(6,'schedule');
         $controller = new WorkflowManualAmoCrmController;
         foreach (['digital-pipeline'=>[2,3], 'manual'=>[1,3]] as $source=>$ids) {
-            $response = $controller->index(Request::create('/test','GET',['subdomain'=>'dp-test','source'=>$source]),$this->access());
+            $response = $controller->index($this->signedRequest('GET',['subdomain'=>'dp-test','source'=>$source]),$this->access());
             $this->assertSame($ids,array_column($response->getData(true)['workflows'],'id'));
         }
-        $this->assertSame([], $controller->index(Request::create('/test','GET',['subdomain'=>'dp-test','lead_id'=>42]),$this->access())->getData(true)['workflows']);
+        $this->assertSame([], $controller->index($this->signedRequest('GET',['subdomain'=>'dp-test','lead_id'=>42]),$this->access())->getData(true)['workflows']);
     }
 
     public function test_button_selector_and_run_exclude_manual_and_dp_flows(): void
@@ -62,15 +94,15 @@ class WorkflowDigitalPipelineTest extends TestCase
         $this->seedFlow(4,'manual',[['id'=>'trigger:button','type'=>'amo-button','config'=>[]]]);
         $this->seedFlow(5,'amo-button',owner:2); $this->seedFlow(6,'amo-button',active:false);
         $controller = new WorkflowManualAmoCrmController;
-        $response = $controller->index(Request::create('/test','GET',['subdomain'=>'dp-test','source'=>'amo-button']),$this->access());
+        $response = $controller->index($this->signedRequest('GET',['subdomain'=>'dp-test','source'=>'amo-button']),$this->access());
         $this->assertSame([3,4],array_column($response->getData(true)['workflows'],'id'));
-        $card = $controller->index(Request::create('/test','GET',['subdomain'=>'dp-test','lead_id'=>42]),$this->access());
+        $card = $controller->index($this->signedRequest('GET',['subdomain'=>'dp-test','lead_id'=>42]),$this->access());
         $this->assertSame([3,4],array_column($card->getData(true)['workflows'],'id'));
         $runs = $this->createMock(WorkflowManualAmoCrmRunService::class);
         $runs->expects($this->never())->method('startForLead');
         $runs->expects($this->once())->method('startButtonForLead')->willReturn(['run_id'=>9,'run_ulid'=>'test']);
         foreach ([1,2,3,5,6] as $id) {
-            $response = $controller->run(Request::create('/test','POST',['subdomain'=>'dp-test','workflow_id'=>$id,'lead_id'=>42]),$this->access(),$runs);
+            $response = $controller->run($this->signedRequest('POST',['subdomain'=>'dp-test','workflow_id'=>$id,'lead_id'=>42]),$this->access(),$runs);
             $this->assertSame($id===3 ? 202 : 404,$response->status());
         }
     }
@@ -81,13 +113,18 @@ class WorkflowDigitalPipelineTest extends TestCase
         $runs = $this->createMock(WorkflowManualAmoCrmRunService::class);
         $runs->expects($this->never())->method('startDigitalPipelineForLead');
         $runs->expects($this->never())->method('startForLead');
-        foreach ([1,2,3] as $id) {
+        foreach ([1,3] as $id) {
             $response = (new WorkflowManualAmoCrmController)->digitalPipeline(Request::create('/test','POST',[
-                'subdomain'=>'dp-test','workflow_id'=>$id,'lead_id'=>42,
+                'subdomain'=>'dp-test','workflow_id'=>$this->dpToken($id),'lead_id'=>42,
             ]),$this->access(),$runs);
             $this->assertFalse($response->getData(true)['ok']);
         }
         Bus::assertNothingDispatched();
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $foreignToken = preg_replace('/^1\./', '2.', $this->dpToken(1));
+        (new WorkflowManualAmoCrmController)->digitalPipeline(Request::create('/test', 'POST', [
+            'workflow_id' => $foreignToken, 'lead_id' => 42,
+        ]), $this->access(), $runs);
     }
 
     public function test_callback_uses_dp_service_and_never_manual_entry_point(): void
@@ -99,7 +136,7 @@ class WorkflowDigitalPipelineTest extends TestCase
             ->with($this->callback(fn($flow)=>$flow->id===2),$this->callback(fn($account)=>$account->id===1),42,$this->callback(fn($input)=>$input['pipeline_id']===10 && $input['status_id']===20))
             ->willReturn(['run_id'=>9,'run_ulid'=>'test']);
         $response = (new WorkflowManualAmoCrmController)->digitalPipeline(Request::create('/test','POST',[
-            'account'=>['subdomain'=>'dp-test'],'settings'=>['workflow_id'=>2],'event'=>['data'=>['id'=>42,'pipeline_id'=>10,'status_id'=>20]],
+            'account'=>['subdomain'=>'dp-test'],'settings'=>['workflow_id'=>$this->dpToken(2)],'event'=>['data'=>['id'=>42,'pipeline_id'=>10,'status_id'=>20]],
         ]),$this->access(),$runs);
         $this->assertTrue($response->getData(true)['queued']);
     }

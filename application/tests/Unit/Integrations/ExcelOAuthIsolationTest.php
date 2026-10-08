@@ -70,7 +70,7 @@ class ExcelOAuthIsolationTest extends TestCase
     {
         $shared = $this->account('default', 'platform-client');
         $workflow = $this->account('workflows', 'workflow-client');
-        $foreign = $this->account('import-excel', 'excel-client', ['user_id' => 2]);
+        $foreign = $this->account('import-excel', 'excel-client', ['user_id' => 2, 'subdomain' => 'foreign-client']);
         $before = [$shared->getAttributes(), $workflow->getAttributes(), $foreign->getAttributes()];
         $user = User::findOrFail(1);
 

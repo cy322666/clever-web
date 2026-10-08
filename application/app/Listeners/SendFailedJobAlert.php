@@ -11,6 +11,10 @@ class SendFailedJobAlert
 {
     public function handle(JobFailed $event): void
     {
+        if (app(\App\Services\Integrations\IntegrationErrorNotifier::class)->queueFailed($event)) {
+            return;
+        }
+
         $payload = $this->resolvePayload($event);
 
         $queue = (string)($event->job->getQueue() ?? '-');

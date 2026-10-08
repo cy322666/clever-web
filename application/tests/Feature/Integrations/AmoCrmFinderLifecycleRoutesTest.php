@@ -75,24 +75,20 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_off_uses_notification_flow_without_touching_shared_authorization(): void
+    public function test_unsigned_off_does_not_touch_shared_authorization_or_notify(): void
     {
         DB::shouldReceive('connection')->never();
         $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)
-            ->shouldReceive('notify')->twice()
-            ->with('off', 'finder', Mockery::type('array'), Mockery::type('array'));
+            ->shouldNotReceive('notify');
 
         foreach (['GET', 'POST'] as $method) {
             $this->json($method, '/api/amocrm/off/finder', [
                 'account_id' => 33098322,
                 'signature' => 'callback-signature',
-            ])->assertOk()->assertExactJson(['ok' => true]);
+            ])->assertForbidden();
         }
 
-        Log::shouldHaveReceived('info')->twice()->with(
-            'amocrm.finder.off received',
-            Mockery::on(fn (array $context): bool => data_get($context, 'payload.signature') === '[received]'),
-        );
+        Log::shouldNotHaveReceived('info');
         Queue::assertNothingPushed();
         Http::assertNothingSent();
     }

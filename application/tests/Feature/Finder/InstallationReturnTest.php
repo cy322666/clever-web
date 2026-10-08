@@ -37,7 +37,7 @@ class InstallationReturnTest extends TestCase
         $location = $response->headers->get('Location');
         $this->assertStringNotContainsString('test-code', $location);
         $token = basename(parse_url($location, PHP_URL_PATH));
-        $this->assertSame('pending', app(InstallationStatus::class)->get($token)['status']);
+        $this->assertSame('pending', app(\App\Services\Integrations\AmoCrmInstallationStatus::class)->get($token)['status']);
         $this->get($location)->assertOk()->assertSee('Подключаем amoCRM')->assertDontSee('amoCRM подключена');
 
         $job = Queue::pushed(CompleteAmoCrmWidgetInstallation::class)->first();
@@ -48,7 +48,9 @@ class InstallationReturnTest extends TestCase
         ]);
         $job->handle($installation);
 
-        $this->get($location)->assertRedirect(route('filament.app.resources.integrations.finder.edit', ['record' => 1]));
+        $target = route('integrations.open', ['app' => \App\Models\App::where('name', 'finder')->value('id')]);
+        $this->get($location)->assertRedirect($target);
+        $this->get($target)->assertRedirect(route('filament.app.resources.integrations.finder.edit', ['record' => 1]));
         $this->assertSame(1, Auth::id());
     }
 
@@ -59,9 +61,12 @@ class InstallationReturnTest extends TestCase
         $statuses->put($token, ['status' => 'completed', 'user_id' => 1, 'domain' => 'finder-test.amocrm.ru']);
         $url = route('finder.installation.status', ['token' => $token]);
 
-        $this->get($url)->assertOk()->assertSee('amoCRM подключена')->assertSee('Войти в платформу');
+        $target = route('integrations.open', ['app' => \App\Models\App::where('name', 'finder')->value('id')]);
+        $this->get($url)->assertRedirect($target);
         $this->assertGuest();
-        $this->actingAs(User::findOrFail(2))->get($url)->assertOk()->assertSee('Войти в платформу');
+        $this->get($target)->assertRedirect(route('filament.app.auth.login'))->assertSessionHas('url.intended', $target);
+        $this->actingAs(User::findOrFail(2))->get($url)->assertRedirect($target);
+        $this->get($target)->assertForbidden();
         $this->assertSame(2, Auth::id());
     }
 
