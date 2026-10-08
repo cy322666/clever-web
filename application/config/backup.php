@@ -2,6 +2,14 @@
 
 return [
 
+    'telegram' => [
+        'enabled' => (bool) env('BACKUP_TELEGRAM_ENABLED', false),
+        'disk' => env('BACKUP_TELEGRAM_DISK', 'local'),
+        'token' => env('BACKUP_TELEGRAM_BOT_TOKEN', env('TELEGRAM_BOT_TOKEN')),
+        'chat_id' => env('BACKUP_TELEGRAM_CHAT_ID', env('TELEGRAM_CHAT_ID')),
+        'message_thread_id' => env('BACKUP_TELEGRAM_THREAD_ID', env('TELEGRAM_MESSAGE_THREAD_ID')),
+    ],
+
     'backup' => [
 
         /*

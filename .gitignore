@@ -2,3 +2,14 @@ node_modules
 /.env
 monitoring/.env.monitoring
 monitoring/.env.monitoring.local
+.DS_Store
+._*
+.env.*
+!.env.example
+auth.json
+*.backup*
+/backups/
+/output/
+/reports/
+/tmp/
+/.idea/

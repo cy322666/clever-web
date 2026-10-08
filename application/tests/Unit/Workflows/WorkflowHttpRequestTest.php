@@ -15,6 +15,38 @@ class WorkflowHttpRequestTest extends TestCase
             protected function addresses(string $host): array { return $this->ips; }
         };
     }
+
+    public function test_standard_token_header_names_are_sent_without_renaming(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['*' => Http::response(['ok' => true])]);
+        $headers = ['ACCESS_TOKEN' => 'example-token', "X-!#$%&'*+.^_`|~" => 'value'];
+        $result = $this->action()->handle([
+            'url' => 'https://public.example/orders',
+            'method' => 'POST',
+            'headers' => json_encode($headers),
+        ]);
+        $this->assertTrue($result['success']);
+        Http::assertSent(fn ($request) => $request->hasHeader('ACCESS_TOKEN', 'example-token')
+            && $request->hasHeader("X-!#$%&'*+.^_`|~", 'value'));
+    }
+
+    public function test_invalid_and_transport_headers_remain_blocked(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake();
+        foreach (['Bad Header', 'Bad:Header', "Bad\r\nHeader", 'Host', 'CONTENT-LENGTH',
+            'Transfer-Encoding', 'Connection', 'Proxy-Authorization', '', 'Header/Name'] as $name) {
+            $result = $this->action()->handle(['url' => 'https://public.example', 'headers' => [$name => 'value']]);
+            $this->assertFalse($result['success'], $name);
+        }
+        foreach (["value\r\nInjected: yes", "value\0", "value\x7f", ['nested']] as $value) {
+            $this->assertFalse($this->action()->handle([
+                'url' => 'https://public.example', 'headers' => ['ACCESS_TOKEN' => $value],
+            ])['success']);
+        }
+        Http::assertNothingSent();
+    }
     public function test_request_preserves_json_and_pins_public_dns_without_redirects(): void
     {
         Http::preventStrayRequests();
