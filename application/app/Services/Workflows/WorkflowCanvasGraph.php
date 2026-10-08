@@ -13,7 +13,7 @@ final class WorkflowCanvasGraph
             foreach (array_fill_keys($startIds, ['step' => ['type' => 'trigger']]) + $nodes as $id => $node) {
                 $condition = WorkflowGraph::condition($node['step']);
 
-                foreach ($condition ? ['yes', 'no'] : ['output'] as $port) {
+                foreach (WorkflowGraph::ports($node['step']) as $port) {
                     $targets = WorkflowGraph::targets($connections, $id, $port);
 
                     if ($targets === []) {

@@ -36,6 +36,13 @@ final class WorkflowGraph
         return in_array($step['type'] ?? '', ['condition', 'control-condition'], true);
     }
 
+    public static function loop(array $step): bool { return ($step['type'] ?? '') === 'workflow_loop'; }
+
+    public static function ports(array $step): array
+    {
+        return self::loop($step) ? ['each', 'done'] : (self::condition($step) ? ['yes', 'no'] : ['output']);
+    }
+
     public static function connections(array $definition): array
     {
         if (array_key_exists('connections', $definition) && !is_array($definition['connections'])) throw new InvalidArgumentException('Некорректный список связей.');
@@ -63,7 +70,7 @@ final class WorkflowGraph
             $source = $edge['sourceId'] ?? '';
             $target = $edge['targetId'] ?? '';
             $port = $edge['sourcePort'] ?? '';
-            $ports = isset($nodes[$source]) && self::condition($nodes[$source]['step']) ? ['yes', 'no'] : ['output'];
+            $ports = isset($nodes[$source]) ? self::ports($nodes[$source]['step']) : ['output'];
             if ((!isset($starts[$source]) && !isset($nodes[$source])) || !isset($nodes[$target]) || !in_array($port, $ports, true) || $source === $target) {
                 throw new InvalidArgumentException('Связь содержит недоступную ноду или выход.');
             }

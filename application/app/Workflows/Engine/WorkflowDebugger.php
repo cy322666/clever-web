@@ -18,11 +18,28 @@ class WorkflowDebugger extends WorkflowTestRunner
         $context = WorkflowContext::fromArray($contextData ?: $session['context'])
             ->setWorkflowId($workflowId)->setWorkflowRunId(null)->setTriggeredBy($userId)->setTriggerSource('debug')
             ->setVariable('_capture_amo_exchange', true);
+        // The temporary one-node graph uses a primary start, but input belongs to the actual start.
+        if ($contextData === []) $context->setTriggerData($input);
         if ($definition !== []) {
             $context->setVariable('_node_names', \App\Services\Workflows\WorkflowExpressionCatalog::nodeNames($definition['actions'] ?? [], $definition));
             $session['input_definition'] = $definition;
         }
         $session['context'] = $context->toArray();
+        if (WorkflowGraph::loop($step)) {
+            $context->setVariable('_dry_run', !$real)->setVariable('_test_mode', !$real);
+            $this->sideEffectActions = $real ? [] : ['send_email', 'send_notification', 'create_record', 'update_records', 'delete_record', 'assign_record', 'clone_record', 'http_request', 'run_workflow'];
+            $graph = $definition ?: $session['definition'];
+            foreach (WorkflowGraph::nodes($graph['actions']) as $entry) {
+                if ($entry['step']['id'] === $step['id']) data_set($graph['actions'], $entry['path'], $step);
+            }
+            $session['results'] = $this->executeLoopTestGraph($graph, $context, $step['id'], true);
+            $session['context'] = $context->toArray();
+            $last = end($session['results']);
+            $session['error'] = $last['error'] ?? null;
+            $session['status'] = $session['error'] ? 'failed' : 'completed';
+            $session['pending'] = [];
+            return $session;
+        }
         return $this->advance($session);
     }
 
@@ -41,6 +58,7 @@ class WorkflowDebugger extends WorkflowTestRunner
         $context->setVariable('_node_names', \App\Services\Workflows\WorkflowExpressionCatalog::nodeNames($definition['actions'], $definition));
 
         $explicit = array_key_exists('connections', $definition);
+        if (\App\Services\Workflows\WorkflowLoopRunner::present($definition)) new \App\Services\Workflows\WorkflowLoopRunner($definition);
         $pending = $explicit ? array_values(WorkflowGraph::ordered($definition)) : $this->queue($definition['actions']);
         $active = $explicit ? WorkflowGraph::targets($definition['connections'], \App\Services\Workflows\WorkflowStartNodes::selected($definition, $input)) : [];
         if ($explicit) $pending = $this->skipInactive($pending, $active);
@@ -69,6 +87,20 @@ class WorkflowDebugger extends WorkflowTestRunner
         $one = $step;
         unset($one['config']['true_actions'], $one['config']['false_actions']);
         $started = microtime(true);
+        if (WorkflowGraph::loop($step)) {
+            $batch = $this->executeLoopTestGraph($session['definition'], $context, $step['id']);
+            foreach ($batch as $result) {
+                $result['sequence'] = count($session['results']) + 1;
+                $session['results'][] = $result;
+            }
+            $last = end($batch);
+            $session['error'] = $last['error'] ?? null;
+            if (!$session['error']) $session['graph_active'] = array_values(array_unique(array_merge($session['graph_active'], WorkflowGraph::targets($session['definition']['connections'], 'action:'.$step['id'], 'done'))));
+            $session['pending'] = $this->skipInactive($session['pending'], $session['graph_active']);
+            $session['context'] = $context->toArray();
+            $session['status'] = $session['error'] ? 'failed' : ($session['pending'] === [] ? 'completed' : 'ready');
+            return $session;
+        }
         try {
             $context->scopeToNode($session['input_definition'] ?? $session['definition'], 'action:'.$step['id']);
             $result = $this->executeTestStep($one, $context, $entry['path']);

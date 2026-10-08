@@ -120,7 +120,7 @@ class WorkflowDebugInputTest extends TestCase
             ->assertSet('nodeRunResults.if.status', 'completed')->assertSet('nodeRunResults.if.output.passed', true)
             ->assertSet('debugInputSource', 'Данные запуска #1');
         $input = json_decode($page->get('debugInput'), true);
-        $this->assertSame(['item' => ['pipeline_id' => 11003486]], $input);
+        $this->assertSame(['item' => ['pipeline_id' => 11003486], '_workflow_start_node_id' => 'trigger'], $input);
         $context = \Illuminate\Support\Facades\Cache::get('workflow-node-preview:1:'.$page->get('nodePreviewSessionId'));
         $this->assertArrayNotHasKey('old', $context['step_outputs']);
         Http::assertNothingSent();

@@ -825,6 +825,7 @@ trait HasWorkflowPageActions
             return;
         }
 
+        if ($type === 'workflow_loop') $this->enableExplicitConnections();
         $path = (string)($this->insertActionPath ?? $this->targetPath ?? '');
 
         $detached = $this->insertConnection === null && $this->insertActionPath === null && $this->targetPath === null;
@@ -857,7 +858,7 @@ trait HasWorkflowPageActions
             $this->syncDefinition();
             if ($connection['targetId']) $this->disconnectWorkflowNodes($connection['sourceId'], $connection['sourcePort'], $connection['targetId']);
             $this->connectWorkflowNodes($connection['sourceId'], $connection['sourcePort'], 'action:'.$actionId);
-            if ($connection['targetId']) $this->connectWorkflowNodes('action:'.$actionId, $type === 'control-condition' ? 'yes' : 'output', $connection['targetId']);
+            if ($connection['targetId']) $this->connectWorkflowNodes('action:'.$actionId, $type === 'workflow_loop' ? 'each' : ($type === 'control-condition' ? 'yes' : 'output'), $connection['targetId']);
         }
         $this->insertConnection = null;
 
@@ -991,4 +992,3 @@ trait HasWorkflowPageActions
         $this->syncDefinition();
     }
 }
-

@@ -31,6 +31,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
     protected function executeTestSteps(array $steps, \Leek\FilamentWorkflows\Context\WorkflowContext $context, string $parentPath): array
     {
         if ($this->graphDefinition === null || $parentPath !== '') return parent::executeTestSteps($steps, $context, $parentPath);
+        if (\App\Services\Workflows\WorkflowLoopRunner::present($this->graphDefinition)) return $this->executeLoopTestGraph($this->graphDefinition, $context);
         $edges = \App\Services\Workflows\WorkflowGraph::connections($this->graphDefinition);
         $active = array_fill_keys(\App\Services\Workflows\WorkflowGraph::targets($edges, \App\Services\Workflows\WorkflowStartNodes::selected($this->graphDefinition, $context->getTriggerData())), true);
         $results = [];
@@ -49,6 +50,40 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         }
         } finally {
             if ($context instanceof WorkflowContext) $context->clearNodeScope();
+        }
+        return $results;
+    }
+
+    protected function executeLoopTestGraph(array $definition, WorkflowContext $context, ?string $root = null, bool $preview = false): array
+    {
+        $results = [];
+        $lastId = $root ?? '';
+        try {
+            $runner = new \App\Services\Workflows\WorkflowLoopRunner($definition);
+            $execute = function (array $step, WorkflowContext $context, string $path, array $iteration) use (&$results, &$lastId): array {
+                $lastId = $step['id'];
+                $started = microtime(true);
+                try { $result = $this->executeTestStep($step, $context, $path); }
+                catch (\Throwable $error) { $result = ['id' => $step['id'], 'type' => $step['type'], 'status' => 'error', 'error' => $error->getMessage(), 'input' => $step['config'], 'output' => []]; }
+                $result['name'] = $step['name'] ?? $this->getActionName($step['type']);
+                $result['iteration'] = $iteration;
+                $result['duration_ms'] = (int) round((microtime(true) - $started) * 1000);
+                $result['sequence'] = count($results) + 1;
+                if (\App\Services\Workflows\WorkflowGraph::condition($step)) {
+                    $result['condition_result'] = ($step['disabled'] ?? false) ? null : ($result['output']['passed'] ?? false);
+                    $result['executed_branch'] = (($step['disabled'] ?? false) || $result['condition_result']) ? 'true' : 'false';
+                }
+                if ($result['output']['dry_run'] ?? false) $result['status'] = 'simulated';
+                $results[] = $result;
+                return ['success' => !in_array($result['status'], ['error', 'validation_error', 'failed'], true), 'output' => $result['output'] ?? [], 'error' => $result['error'] ?? null];
+            };
+            if ($root !== null) $runner->runNode('action:'.$root, $context, $execute, $preview);
+            else $runner->run($context, $execute);
+            if ($preview && isset($results[0])) $results[0]['output'] = $context->getStepOutput($root);
+        } catch (\Throwable $error) {
+            if (!in_array($results[array_key_last($results)]['status'] ?? '', ['error', 'validation_error', 'failed'], true)) {
+                $results[] = ['id' => $lastId, 'type' => 'workflow_loop', 'status' => 'error', 'error' => $error->getMessage(), 'output' => []];
+            }
         }
         return $results;
     }

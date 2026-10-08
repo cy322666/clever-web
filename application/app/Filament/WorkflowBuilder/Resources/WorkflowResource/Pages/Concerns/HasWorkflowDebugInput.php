@@ -52,6 +52,8 @@ trait HasWorkflowDebugInput
 
     public function updatedDebugStartNodeId(): void
     {
+        $this->editWorkflowDebugInput();
+        $this->debugInput = '{}';
         if ($this->debugInputMode === 'builder') $this->selectDebugStartDefaults();
     }
 

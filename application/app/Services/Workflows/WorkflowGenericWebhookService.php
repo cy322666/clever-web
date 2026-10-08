@@ -62,6 +62,7 @@ class WorkflowGenericWebhookService
         $run = WorkflowRun::query()
             ->where('workflow_id', $workflow->getKey())
             ->where('trigger_source', TriggerType::WEBHOOK->value)
+            ->where('context_data->trigger_data->event', GenericWebhookTrigger::type())
             ->whereNotNull('context_data')
             ->latest('created_at')
             ->first(['id', 'workflow_id', 'context_data']);

@@ -14,6 +14,8 @@ final class WorkflowDefinitionValidator
         $errors = [];
         try { $nodes = WorkflowGraph::ordered($definition); }
         catch (\InvalidArgumentException $error) { return [$error->getMessage()]; }
+        try { if (WorkflowLoopRunner::present($definition)) new WorkflowLoopRunner($definition); }
+        catch (\InvalidArgumentException $error) { return [$error->getMessage()]; }
         $starts = WorkflowStartNodes::all($definition);
         if ($starts === []) $errors[] = 'Добавьте триггер запуска.';
         foreach ($starts as $start) {
@@ -35,6 +37,10 @@ final class WorkflowDefinitionValidator
             }
             $config = $step['config'] ?? [];
             foreach (self::configIssues($type, $config) as $error) $errors[] = $prefix.$error;
+            if ($type === 'http_request') {
+                if (($config['body_format'] ?? 'json') === 'form') unset($config['body']);
+                else unset($config['form_fields']);
+            }
             unset($config['true_actions'], $config['false_actions'], $config['javascript_code']);
             array_walk_recursive($config, function ($value) use (&$errors, $prefix, $references): void {
                 if (!is_string($value)) return;
@@ -54,6 +60,13 @@ final class WorkflowDefinitionValidator
     public static function configIssues(string $type, array $config): array
     {
         $errors = [];
+        if ($type === 'workflow_loop') {
+            if (!in_array($config['mode'] ?? 'all', ['all', 'once'], true)) $errors[] = 'Выберите режим цикла.';
+            if (!self::expression($config['items'] ?? null)) {
+                try { \App\Workflows\Actions\WorkflowLoopAction::items($config['items'] ?? null); }
+                catch (\InvalidArgumentException $error) { $errors[] = $error->getMessage(); }
+            }
+        }
         $required = match ($type) {
             'amocrm_start_salesbot' => ['bot_id' => 'Выберите SalesBot.'],
             'amocrm_create_contact', 'amocrm_create_company' => ['name' => 'Укажите название создаваемой сущности.'],
@@ -91,7 +104,10 @@ final class WorkflowDefinitionValidator
         }
         if ($type === 'http_request') {
             if (!in_array(strtoupper((string) ($config['method'] ?? 'GET')), ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'], true)) $errors[] = 'Недопустимый HTTP-метод.';
-            foreach (['headers', 'body'] as $key) {
+            try {
+                if (WorkflowHttpBody::format($config) === 'form') WorkflowHttpBody::form($config['form_fields'] ?? []);
+            } catch (\RuntimeException $error) { $errors[] = $error->getMessage(); }
+            foreach (($config['body_format'] ?? 'json') === 'form' ? ['headers'] : ['headers', 'body'] as $key) {
                 if (is_string($config[$key] ?? null) && filled($config[$key]) && !self::expression($config[$key])) {
                     json_decode($config[$key], true);
                     if (json_last_error() !== JSON_ERROR_NONE) $errors[] = $key.': некорректный JSON.';
@@ -112,5 +128,3 @@ final class WorkflowDefinitionValidator
         return is_string($value) && str_contains($value, '{{') && str_contains($value, '}}');
     }
 }
-
-

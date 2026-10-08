@@ -3,6 +3,7 @@
 namespace App\Workflows\Context;
 
 use BackedEnum;
+use App\Services\Workflows\WorkflowOutputView;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Arr;
@@ -13,6 +14,7 @@ class WorkflowContext extends BaseWorkflowContext
 {
     private ?array $graphInputs = null;
     private ?array $upstreamStepIds = null;
+    private ?array $customFieldScope = null;
 
     /** Scope implicit input to connected predecessors; explicit node references stay available. */
     public function scopeToNode(array $definition, string $nodeId): void
@@ -21,6 +23,7 @@ class WorkflowContext extends BaseWorkflowContext
         $nodes = $graph::nodes($definition['actions'] ?? []);
         $edges = $graph::connections($definition);
         $start = \App\Services\Workflows\WorkflowStartNodes::selected($definition, $this->getTriggerData());
+        $this->customFieldScope = compact('nodes', 'edges', 'start', 'nodeId');
         $this->upstreamStepIds = array_fill_keys(array_map(fn ($id) => substr($id, 7), $graph::ancestors($definition, $nodeId)), true);
         $resolve = function (string $target, array $visited = []) use (&$resolve, $nodes, $edges, $start, $graph): array {
             if (isset($visited[$target])) return [];
@@ -44,7 +47,7 @@ class WorkflowContext extends BaseWorkflowContext
                 if (!$this->hasStepOutput($step['id'])) continue;
                 $output = $this->getStepOutput($step['id']);
                 if ($graph::condition($step) && $edge['sourcePort'] !== (($output['passed'] ?? false) ? 'yes' : 'no')) continue;
-                $inputs[$source] = $output;
+                $inputs[$source] = $graph::loop($step) ? WorkflowOutputView::value($output) : $output;
             }
             return $inputs;
         };
@@ -54,6 +57,23 @@ class WorkflowContext extends BaseWorkflowContext
     public function clearNodeScope(): void
     {
         $this->graphInputs = $this->upstreamStepIds = null;
+        $this->customFieldScope = null;
+    }
+
+    public function forgetStepOutputs(array $ids): void
+    {
+        foreach ($ids as $id) {
+            unset($this->stepOutputs[$id]);
+            $this->forgetVariable('_resolved_inputs.'.$id);
+        }
+    }
+
+    /** Preserve execution identity and trigger; isolate mutable data between iterations. */
+    public function restoreLoopState(array $snapshot): void
+    {
+        $this->stepOutputs = $snapshot['step_outputs'] ?? [];
+        $this->variables = $snapshot['variables'] ?? [];
+        $this->clearNodeScope();
     }
 
     public function getStepOutputs(): array
@@ -76,6 +96,10 @@ class WorkflowContext extends BaseWorkflowContext
 
     public function get(string $path): mixed
     {
+        // Resolve the node first, then find the field by ID, never by its array position.
+        if (preg_match('/^(?<source>\$\(.+\).*)\.cf\(\s*(?<field>\d+)\s*\)$/u', $path, $field)) {
+            return $this->customFieldFromEntity($this->get($field['source']), $field['field']);
+        }
         if ($path === '$json' || str_starts_with($path, '$json.')) {
             $value = $this->getNodeInput();
             return $path === '$json' ? $value : Arr::get($value, $this->expressionPath(substr($path, 6)));
@@ -95,12 +119,13 @@ class WorkflowContext extends BaseWorkflowContext
             if ($key === 'trigger' || str_starts_with($key, 'trigger:')) {
                 if (!$legacyTrigger && $key !== ($this->getTriggerData()['_workflow_start_node_id'] ?? 'trigger')) return null;
                 $nested = $this->expressionPath($match[2]);
-                $value = $shortReference ? \App\Services\Workflows\WorkflowOutputView::trigger($this->getTriggerData()) : $this->getTriggerData();
+                if ($shortReference) return \App\Services\Workflows\WorkflowOutputView::triggerPath($this->getTriggerData(), $nested);
+                $value = $this->getTriggerData();
                 return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
             }
             $value = $this->getStepOutput($key);
-            if ($shortReference) $value = \App\Services\Workflows\WorkflowOutputView::value($value);
             $nested = $this->expressionPath($match[2]);
+            if ($shortReference) return WorkflowOutputView::actionPath($value, $nested);
             return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
         }
         if (preg_match('/^step\.([^.]+)$/', $path, $match)) return $this->getStepOutput($match[1]);
@@ -156,6 +181,9 @@ class WorkflowContext extends BaseWorkflowContext
             // HTTP JSON is parsed before interpolation, so quotes in variable values
             // stay data and whole placeholders keep numbers, arrays and booleans.
             if (isset($value['url'], $value['method'])) {
+                // Preserve both formats in the editor, but only resolve the active body at runtime.
+                if (($value['body_format'] ?? 'json') === 'form') unset($value['body']);
+                else unset($value['form_fields']);
                 foreach (['headers','body'] as $field) {
                     $json = $value[$field] ?? null;
                     if (is_string($json) && str_contains($json, '{{') && !preg_match('/^\s*\{\{.*\}\}\s*$/s', $json)) {
@@ -567,13 +595,104 @@ class WorkflowContext extends BaseWorkflowContext
             return ['found' => false, 'value' => null];
         }
 
-        $entityData = Arr::get($this->getTriggerData(), $entity);
+        return ['found' => true, 'value' => $this->customFieldFromEntity($this->customFieldEntity($entity), $fieldId)];
+    }
 
-        if (!is_array($entityData)) {
-            return ['found' => false, 'value' => null];
+    private function customFieldFromEntity(mixed $data, string $fieldId): mixed
+    {
+        if (!is_array($data)) return null;
+        if (array_is_list($data)) {
+            if (count($data) > 1) {
+                throw new \InvalidArgumentException('Для поля '.$fieldId.' найдено несколько записей. Выберите конкретную запись в результате ноды.');
+            }
+            $data = $data[0] ?? null;
+        }
+        return is_array($data) ? $this->extractCustomFieldValue($data['custom_fields_values'] ?? null, $fieldId)['value'] : null;
+    }
+
+    /** The closest entity on each connected, active input path wins, including empty results. */
+    private function customFieldEntity(string $entity): mixed
+    {
+        if ($this->customFieldScope !== null) {
+            $scope = $this->customFieldScope;
+            $cache = [];
+            $visit = function (string $target, array $visited = []) use (&$visit, &$cache, $scope, $entity): array {
+                if (array_key_exists($target, $cache)) return $cache[$target];
+                if (isset($visited[$target])) return [];
+                $visited[$target] = true;
+                $candidates = [];
+                foreach ($scope['edges'] as $edge) {
+                    if ($edge['targetId'] !== $target) continue;
+                    $source = $edge['sourceId'];
+                    if ($source === $scope['start']) {
+                        $trigger = $this->customFieldTriggerEntity($entity);
+                        if ($trigger !== null) $candidates[$source] = $trigger;
+                        continue;
+                    }
+                    $step = $scope['nodes'][$source]['step'] ?? null;
+                    if ($step === null) continue;
+                    $disabled = (bool) ($step['disabled'] ?? false);
+                    $output = $this->getStepOutput($step['id']);
+                    if (\App\Services\Workflows\WorkflowGraph::condition($step)
+                        && $edge['sourcePort'] !== ($disabled ? 'yes' : (isset($output['passed']) ? ($output['passed'] ? 'yes' : 'no') : null))) continue;
+                    $candidate = $disabled ? null : $this->customFieldOutputEntity($entity, $output, $step);
+                    if ($candidate !== null) {
+                        $candidates[$source] = $candidate['data'];
+                    } else {
+                        $candidates += $visit($source, $visited);
+                    }
+                }
+                return $cache[$target] = $candidates;
+            };
+            $candidates = $visit($scope['nodeId']);
+            if (count($candidates) > 1) {
+                throw new \InvalidArgumentException('Для переменной '.$entity.'.cf(...) есть несколько источников. Укажите ноду через $("Название ноды").cf(ID поля).');
+            }
+            return $candidates === [] ? null : reset($candidates);
         }
 
-        return $this->extractCustomFieldValue($entityData['custom_fields_values'] ?? null, $fieldId);
+        // Legacy sequential runs have no node scope. Only typed outputs can replace trigger data.
+        $definition = $this->getVariable('_definition_snapshot', []);
+        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($definition['actions'] ?? []);
+        foreach (array_reverse($this->getStepOutputs(), true) as $id => $output) {
+            $candidate = $this->customFieldOutputEntity($entity, $output, $nodes['action:'.$id]['step'] ?? []);
+            if ($candidate !== null) return $candidate['data'];
+        }
+        return $this->customFieldTriggerEntity($entity);
+    }
+
+    /** Null means unrelated output; ['data' => null] means this entity was requested but not returned. */
+    private function customFieldOutputEntity(string $entity, mixed $output, array $step): ?array
+    {
+        $output = is_array($output) ? $output : [];
+        $type = $output['entity_type'] ?? $output['entity'] ?? null;
+        $plural = ['lead' => 'leads', 'contact' => 'contacts', 'company' => 'companies', 'customer' => 'customers'];
+        $operation = ($step['config'] ?? $step['properties'] ?? [])['operation'] ?? '';
+        $stepType = $step['type'] ?? '';
+        if ($stepType === 'amocrm_get_contact') $type = 'contact';
+        if (in_array($stepType, ['amocrm_query_leads', 'amocrm_contact_leads'], true)) $type = 'lead';
+        if ($stepType === 'amocrm_read' && preg_match('/^(leads|contacts|companies|customers)\.(one|list)$/', $operation, $match)) {
+            $type = array_search($match[1], $plural, true);
+        }
+        // Raw collection responses retain reliable entity metadata even in older runs.
+        $embedded = $output['data']['_embedded'] ?? [];
+        if ($type === null && isset($plural[$entity]) && is_array($embedded) && array_key_exists($plural[$entity], $embedded)
+            && !isset($output['data']['id'])) $type = $entity;
+        if ($type !== $entity && $type !== ($plural[$entity] ?? $entity)) return null;
+        $data = WorkflowOutputView::value($output);
+        if (array_key_exists($entity, $output)) $data = WorkflowOutputView::entity($output[$entity]);
+        return ['data' => $data];
+    }
+
+    private function customFieldTriggerEntity(string $entity): mixed
+    {
+        $input = $this->getTriggerData();
+        if (array_key_exists($entity, $input) && is_array($input[$entity])) return $input[$entity];
+        if (($input['entity'] ?? null) === $entity) return WorkflowOutputView::trigger($input);
+        $plural = ['lead' => 'leads', 'contact' => 'contacts', 'company' => 'companies', 'customer' => 'customers'][$entity] ?? null;
+        $body = $input['body'] ?? $input;
+        if ($plural !== null && is_array($body) && array_key_exists($plural, $body)) return WorkflowOutputView::trigger($input);
+        return null;
     }
 
     /**
@@ -632,4 +751,3 @@ class WorkflowContext extends BaseWorkflowContext
         return $result;
     }
 }
-

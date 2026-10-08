@@ -299,7 +299,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const source = before.nodes[detail.sourceId];
             if (!source) return;
             const desired = {...before.nodes};
-            const inserted = {x:source.x+192,y:before.nodes[detail.targetId]?.y ?? source.y+(detail.sourcePort === 'yes' ? -180 : detail.sourcePort === 'no' ? 180 : 0)};
+            const inserted = {x:source.x+192,y:before.nodes[detail.targetId]?.y ?? source.y+(['yes', 'each'].includes(detail.sourcePort) ? -180 : ['no', 'done'].includes(detail.sourcePort) ? 180 : 0)};
             if (before.dropPosition) {
                 const node = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId);
                 const box = node?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
@@ -1167,11 +1167,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 if (remove.style.visibility !== 'visible') remove.style.visibility = 'visible';
             }
         };
-        const sourceSelector = (port) => port === 'yes'
-            ? '.workflow-node-port--output-yes'
-            : port === 'no'
-                ? '.workflow-node-port--output-no'
-                : '.workflow-node-port--output:not(.workflow-node-port--output-yes):not(.workflow-node-port--output-no)';
+        const sourceSelector = (port) => ['yes', 'no', 'each', 'done'].includes(port)
+            ? `.workflow-node-port--output-${port}`
+            : '.workflow-node-port--output:not(.workflow-node-port--output-yes):not(.workflow-node-port--output-no):not(.workflow-node-port--output-each):not(.workflow-node-port--output-done)';
 
         const portVector = (portRect, cardRect, fallback) => {
             if (!portRect || !cardRect) {
@@ -1260,7 +1258,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 return;
             }
             const buttonX = startX + 100;
-            const buttonY = startY + (port === 'yes' ? -44 : port === 'no' ? 44 : 0);
+            const buttonY = startY + (['yes', 'each'].includes(port) ? -44 : ['no', 'done'].includes(port) ? 44 : 0);
             const buttonRadius = (button.getBoundingClientRect?.().width || 22 * scale) / scale / 2;
             const endX = buttonX - buttonRadius;
 
@@ -1723,5 +1721,3 @@ document.addEventListener('livewire:navigated', () => {
 window.addEventListener('resize', () => {
     window.lockCleverSidebarCollapsed?.();
 });
-
-

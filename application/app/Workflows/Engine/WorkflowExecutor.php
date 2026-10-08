@@ -25,6 +25,7 @@ use Throwable;
 
 class WorkflowExecutor extends BaseWorkflowExecutor
 {
+    private array $loopIteration = [];
     public function __construct(ActionRegistry $actionRegistry)
     {
         parent::__construct($actionRegistry);
@@ -79,11 +80,13 @@ class WorkflowExecutor extends BaseWorkflowExecutor
 
     protected function executeStep(array $step, WorkflowContext $context, WorkflowRun $run): array
     {
+        $nodeId = $step['id'];
+        $step['id'] = \App\Services\Workflows\WorkflowLoopRunner::executionId($nodeId, $this->loopIteration);
         $logs = $run->steps()->where('step_id', $step['id']);
         // Protect against duplicate delivery; never repeat an already completed write.
         $completed = (clone $logs)->where('action_type', $step['type'] ?? null)->where('status', StepStatus::COMPLETED)->latest('id')->first();
         if ($completed) {
-            $context->setStepOutput($step['id'], $completed->output_data ?? []);
+            $context->setStepOutput($nodeId, $completed->output_data ?? []);
             return ['success' => true, 'output' => $completed->output_data ?? [], 'reused' => true];
         }
         $attempt = (clone $logs)->count() + 1;
@@ -97,6 +100,7 @@ class WorkflowExecutor extends BaseWorkflowExecutor
                 if (isset($result['output'])) $fields['output_data'] = is_array($result['output']) ? $result['output'] : ['value' => $result['output']];
                 $resolvedInput = $context->getVariable('_resolved_inputs.'.$step['id']);
                 if (is_array($resolvedInput)) $fields['input_data'] = array_merge($last->input_data ?? [], ['_resolved_input' => $resolvedInput]);
+                if ($this->loopIteration !== []) $fields['input_data'] = array_merge($fields['input_data'] ?? $last->input_data ?? [], ['_node_id' => $nodeId, '_loop_iteration' => $this->loopIteration]);
                 $last->update($fields);
             }
             if (!($result['success'] ?? false)) {
@@ -174,6 +178,25 @@ class WorkflowExecutor extends BaseWorkflowExecutor
     protected function executeGraph(WorkflowContext $context, WorkflowRun $run): void
     {
         $definition = $run->workflow->definition;
+        if (\App\Services\Workflows\WorkflowLoopRunner::present($definition)) {
+            $runner = new \App\Services\Workflows\WorkflowLoopRunner($definition);
+            $index = 0;
+            try {
+                $runner->run($context, function (array $step, $context, string $path, array $iteration) use ($run, &$index): array {
+                    $this->loopIteration = $iteration;
+                    $run->update(['current_step_index' => $index++]);
+                    if ($step['disabled'] ?? false) {
+                        $this->logSkippedStep($step, $run);
+                        return ['success' => true, 'output' => ['passed' => true]];
+                    }
+                    return $this->executeStep($step, $context, $run);
+                });
+            } finally {
+                $this->loopIteration = [];
+                $run->update(['context_data' => $context->toArray()]);
+            }
+            return;
+        }
         $connections = WorkflowGraph::connections($definition);
         $start = \App\Services\Workflows\WorkflowStartNodes::selected($definition, $context->getTriggerData());
         $active = array_fill_keys(WorkflowGraph::targets($connections, $start), true);
@@ -211,12 +234,12 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         $stepModelClass = config('filament-workflows.models.workflow_run_step', WorkflowRunStep::class);
         $stepModelClass::create([
             'workflow_run_id' => $run->id,
-            'step_id' => $step['id'] ?? 'step_' . Str::ulid(),
+            'step_id' => \App\Services\Workflows\WorkflowLoopRunner::executionId($step['id'] ?? 'step_' . Str::ulid(), $this->loopIteration),
             'step_type' => $step['componentType'] ?? 'task',
             'action_type' => $step['type'] ?? null,
             'status' => StepStatus::SKIPPED,
             'attempt_number' => 1,
-            'input_data' => $step['config'] ?? $step['properties'] ?? [],
+            'input_data' => array_merge($step['config'] ?? $step['properties'] ?? [], $this->loopIteration === [] ? [] : ['_node_id' => $step['id'], '_loop_iteration' => $this->loopIteration]),
             'output_data' => ['reason' => 'node_disabled'],
             'completed_at' => now(),
             'duration_ms' => 0,

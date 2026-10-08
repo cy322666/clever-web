@@ -3,6 +3,10 @@
 namespace App\Workflows\Actions;
 
 use App\Forms\Components\WorkflowValueInput;
+use App\Services\Workflows\WorkflowHttpBody;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Facades\Http;
 use Leek\FilamentWorkflows\Concerns\WorkflowAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
@@ -17,14 +21,24 @@ class WorkflowHttpRequestAction
     public static function workflowDescription(): string { return 'Запрос к внешнему API'; }
     public static function workflowIcon(): string { return 'heroicon-o-globe-alt'; }
     public static function workflowCategory(): string { return 'Управление потоком'; }
-    public static function workflowDefaultConfig(): array { return ['method'=>'GET', 'timeout'=>15, 'headers'=>'{}', 'body'=>'']; }
+    public static function workflowDefaultConfig(): array { return ['method'=>'GET', 'timeout'=>15, 'headers'=>'{}', 'body_format'=>'json', 'body'=>'', 'form_fields'=>[]]; }
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
         return [
             WorkflowValueInput::make('method')->label('Метод')->options(array_combine(['GET','POST','PUT','PATCH','DELETE','HEAD'], ['GET','POST','PUT','PATCH','DELETE','HEAD']))->default('GET')->required(),
             WorkflowValueInput::make('url')->label('URL')->placeholder('https://api.example.com/…')->required(),
             WorkflowValueInput::make('headers')->label('Заголовки · JSON')->multiline(3)->default('{}'),
-            WorkflowValueInput::make('body')->label('Тело · JSON')->multiline(6),
+            Select::make('body_format')->label('Формат тела')->options(WorkflowHttpBody::FORMATS)
+                ->default('json')->afterStateHydrated(function (Select $component, mixed $state): void {
+                    if ($state === null) $component->state('json');
+                })->required()->live(),
+            WorkflowValueInput::make('body')->label('Тело · JSON')->multiline(6)
+                ->visible(fn (Get $get): bool => ($get('body_format') ?? 'json') === 'json')->dehydratedWhenHidden(),
+            Repeater::make('form_fields')->label('Параметры формы')->schema([
+                WorkflowValueInput::make('name')->label('Параметр')->required(fn (Get $get): bool => $get('../../body_format') === 'form'),
+                WorkflowValueInput::make('value')->label('Значение'),
+            ])->columns(2)->defaultItems(0)->addActionLabel('Добавить параметр')->reorderable(false)
+                ->visible(fn (Get $get): bool => $get('body_format') === 'form')->dehydratedWhenHidden(),
             WorkflowValueInput::make('timeout')->label('Таймаут, секунд')->default(15),
         ];
     }
@@ -60,9 +74,14 @@ class WorkflowHttpRequestAction
                 // RFC 9110 field names are tokens, including underscores used by external APIs.
                 if (!is_string($key) || !preg_match('/^[!#$%&\'*+.^_`|~0-9A-Za-z-]+$/D', $key) || !is_scalar($value) || preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', (string)$value) || in_array(strtolower($key), ['host','content-length','transfer-encoding','connection','proxy-authorization'], true)) throw new RuntimeException('Недопустимый заголовок запроса.');
             }
-            $body = $config['body'] ?? '';
-            if (is_string($body) && $body !== '') $body = trim($body) === '{}' ? (object)[] : json_decode($body, true, 64, JSON_THROW_ON_ERROR);
-            if (strlen(json_encode($body)) > 1048576) throw new RuntimeException('Тело запроса превышает 1 МБ.');
+            $format = WorkflowHttpBody::format($config);
+            if ($format === 'form') {
+                $body = WorkflowHttpBody::form($config['form_fields'] ?? []);
+            } else {
+                $body = $config['body'] ?? '';
+                if (is_string($body) && $body !== '') $body = trim($body) === '{}' ? (object)[] : json_decode($body, true, 64, JSON_THROW_ON_ERROR);
+                if (strlen(json_encode($body)) > 1048576) throw new RuntimeException('Тело запроса превышает 1 МБ.');
+            }
             if ($context?->getTriggerSource() === 'test' || $context?->getVariable('_dry_run') || $context?->getVariable('_test_mode')) {
                 return ['success'=>true, 'output'=>['dry_run'=>true, 'method'=>$method, 'message'=>'HTTP-запрос не отправлен в тестовом режиме.']];
             }
@@ -78,8 +97,15 @@ class WorkflowHttpRequestAction
             $options = ['allow_redirects'=>false, 'proxy'=>'', 'verify'=>true, 'stream'=>true,
                 'curl'=>[CURLOPT_RESOLVE=>[$host.':'.$port.':'.$address]],
             ];
-            if (!in_array($method, ['GET','HEAD'], true) && $body !== '') $options['json'] = $body;
-            $response = Http::withHeaders($headers)->withHeaders(['Accept-Encoding'=>'identity'])->connectTimeout(5)->timeout($timeout)->send($method, $url, $options);
+            $hasBody = !in_array($method, ['GET','HEAD'], true);
+            if ($hasBody && $format === 'form') {
+                // The selected format owns Content-Type, including saved mixed-case JSON headers.
+                $headers = array_filter($headers, fn ($key) => strtolower($key) !== 'content-type', ARRAY_FILTER_USE_KEY);
+            }
+            $request = Http::withHeaders($headers)->withHeaders(['Accept-Encoding'=>'identity'])->connectTimeout(5)->timeout($timeout);
+            if ($hasBody && $format === 'form') $request->withBody($body, 'application/x-www-form-urlencoded');
+            elseif ($hasBody && $body !== '') $options['json'] = $body;
+            $response = $request->send($method, $url, $options);
             $stream = $response->toPsrResponse()->getBody();
             try {
                 $raw = '';

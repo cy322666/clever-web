@@ -39,7 +39,7 @@ class VetmanagerApiClientTest extends TestCase
     public function test_rejects_non_vetmanager_host(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Адрес должен принадлежать домену Vetmanager.');
+        $this->expectExceptionMessage('Адрес должен принадлежать домену Ветменеджера.');
 
         VetmanagerApiClient::normalizeBaseUrl('https://example.test');
     }

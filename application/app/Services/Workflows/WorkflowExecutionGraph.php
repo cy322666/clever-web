@@ -12,9 +12,10 @@ final class WorkflowExecutionGraph
     {
         $results = $run->steps->sortBy('id')->values()->map(fn ($step, $index) => [
             'execution_id' => $step->getKey(),
-            'id' => $step->step_id, 'type' => $step->action_type ?? $step->step_type,
+            'id' => $step->input_data['_node_id'] ?? $step->step_id, 'type' => $step->action_type ?? $step->step_type,
+            'iteration' => $step->input_data['_loop_iteration'] ?? [],
             'status' => $step->status instanceof \BackedEnum ? $step->status->value : (string) $step->status,
-            'input' => \Illuminate\Support\Arr::except($step->input_data ?? [], ['_resolved_input']), 'output' => $step->output_data ?? [],
+            'input' => \Illuminate\Support\Arr::except($step->input_data ?? [], ['_resolved_input', '_node_id', '_loop_iteration']), 'output' => $step->output_data ?? [],
             // A final context belongs to the last attempt, never substitute it into older attempts.
             'resolved_input' => data_get($step->input_data, '_resolved_input'),
             'error' => $step->error_message, 'duration_ms' => $step->duration_ms,
@@ -149,4 +150,3 @@ final class WorkflowExecutionGraph
         return in_array($type, ['condition', 'control-condition'], true);
     }
 }
-

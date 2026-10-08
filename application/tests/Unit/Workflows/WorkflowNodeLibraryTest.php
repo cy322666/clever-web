@@ -9,6 +9,34 @@ use Tests\TestCase;
 
 class WorkflowNodeLibraryTest extends TestCase
 {
+    public function test_create_contact_is_visible_in_contact_group_and_search_and_can_be_configured(): void
+    {
+        $html = $this->renderNodeLibrary([
+            ['type' => 'amocrm_create_contact', 'name' => 'Создать контакт'],
+            ['type' => 'amocrm_update_contact_fields', 'name' => 'Обновить контакт'],
+        ], true);
+        $this->assertSame(2, substr_count($html, '<strong>Создать контакт</strong>'));
+        $this->assertSame(2, substr_count($html, '<strong>Обновить контакт</strong>'));
+        $this->assertStringContainsString('Контакт · действие', $html);
+
+        \Tests\Support\WorkflowListDatabase::prepare();
+        \Illuminate\Support\Facades\Http::preventStrayRequests();
+        $page = Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
+            ->assertSee('Создать контакт')
+            ->call('openDetachedActionPalette')
+            ->call('selectActionType', 'amocrm_create_contact');
+        $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
+        $action = end($nodes)['step'];
+        $this->assertSame('amocrm_create_contact', $action['type']);
+        $page->call('openWorkflowActionEditor', $action['id'])
+            ->assertStatus(200)
+            ->set('mountedActions.0.data.name', 'Тестовый контакт')
+            ->call('callMountedAction')->assertHasNoErrors();
+        $config = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'))['action:'.$action['id']]['step']['config'];
+        $this->assertSame('Тестовый контакт', $config['name']);
+        \Illuminate\Support\Facades\Http::assertNothingSent();
+    }
+
     public function test_query_menu_and_search_only_render_available_operations(): void
     {
         $html = $this->renderNodeLibrary([], false);

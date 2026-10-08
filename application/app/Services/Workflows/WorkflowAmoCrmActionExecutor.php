@@ -273,6 +273,15 @@ class WorkflowAmoCrmActionExecutor
         if (($config['body_mode'] ?? '') === 'json') {
             $payload = WorkflowJsonBody::parse($config['json_body'] ?? null);
             unset($payload['id']);
+            $customFields = $payload['custom_fields_values'] ?? [];
+            foreach (is_array($customFields) ? $customFields : [] as $index => $field) {
+                if (!is_array($field) || !is_array($field['values'] ?? null)) continue;
+                $key = $field['field_id'] ?? $field['field_code'] ?? null;
+                if (!is_int($key) && !is_string($key)) continue;
+                $payload['custom_fields_values'][$index]['values'] = $this->prepareCustomFieldValues(
+                    $field['values'], $this->field($account, $entity, (string) $key),
+                );
+            }
         } else {
             $fields = $config['fields'] ?? [];
             foreach (($config['standard_fields'] ?? []) as $name => $value) {
@@ -1153,7 +1162,7 @@ class WorkflowAmoCrmActionExecutor
                 continue;
             }
 
-            $fieldPayload['values'] = $this->customFieldValuesPayload($value);
+            $fieldPayload['values'] = $this->prepareCustomFieldValues($this->customFieldValuesPayload($value), $amoField);
 
             $payload[] = $fieldPayload;
         }
@@ -1241,6 +1250,28 @@ class WorkflowAmoCrmActionExecutor
             $values[] = ['value' => is_array($item) ? ($item['value'] ?? $item) : $item];
         }
 
+        return $values;
+    }
+
+    /** Only text/number conversion. Boolean, date, enum and compound field values are unchanged. */
+    private function prepareCustomFieldValues(array $values, ?AmoCrmField $field): array
+    {
+        $type = $field?->type;
+        if (!in_array($type, ['text', 'textarea', 'numeric'], true)) return $values;
+        foreach ($values as &$item) {
+            if (!is_array($item) || !array_key_exists('value', $item)) continue;
+            $value = $item['value'];
+            // Preserve clearing semantics and never turn missing input into zero.
+            if ($value === null || $value === '') continue;
+            if ($type === 'numeric' && (!is_numeric($value) || is_bool($value)
+                || (is_float($value) && !is_finite($value)))) {
+                throw new \InvalidArgumentException('Поле «'.($field->name ?: $field->field_id).'»: ожидается число.');
+            }
+            // amoCRM requires a JSON string for both text and numeric custom fields.
+            // Keep numeric strings intact to preserve precision and leading zeroes.
+            if (is_int($value) || (is_float($value) && is_finite($value))) $item['value'] = (string) $value;
+        }
+        unset($item);
         return $values;
     }
 
@@ -2072,4 +2103,3 @@ class WorkflowAmoCrmActionExecutor
         ];
     }
 }
-

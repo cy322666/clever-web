@@ -82,29 +82,57 @@ trait HasWorkflowDebugger
 
     private function workflowNodeRunInput(): array
     {
+        $input = $this->workflowNodeInputContext()['trigger_data'] ?? [];
+        $this->debugInput = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        return $input;
+    }
+
+    /** A single source of truth for both the data picker and node execution. */
+    private function workflowNodeInputContext(): array
+    {
+        $context = $this->workflowDebugContext();
+        if ($context !== []) return $context;
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
         $input = json_decode($this->debugInput, true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($input) || ($input !== [] && array_is_list($input))) throw new \InvalidArgumentException('Нужен JSON-объект входных данных.');
-        if ($input === [] && !$this->debugSessionId && !$this->nodePreviewSessionId && $record?->exists
-            && (int) $record->user_id === (int) Auth::id()) {
-            // Match the picker input without reusing outputs from an old run.
+        $startId = (($this->mountedActions[0]['name'] ?? '') === 'configureTrigger')
+            ? $this->editingTriggerNodeId : $this->debugStartNodeId;
+        $starts = \App\Services\Workflows\WorkflowStartNodes::all($this->definition);
+        if (!isset($starts[$startId])) $startId = 'trigger';
+        if ($input !== []) return ['trigger_data' => $input + ['_workflow_start_node_id' => $startId]];
+        if ($record?->exists && (int) $record->user_id === (int) Auth::id()) {
+            // Only this selected webhook start may use webhook preview data.
+            if (($starts[$startId]['type'] ?? '') === 'generic-webhook') {
+                $preview = app(\App\Services\Workflows\WorkflowGenericWebhookService::class)->latestPreview($record);
+                if ($preview) return ['trigger_data' => [
+                    '_workflow_start_node_id' => $startId,
+                    'body' => $preview['payload'], 'payload' => $preview['payload'],
+                    'query' => $preview['query'], 'headers' => $preview['headers'],
+                    'method' => $preview['method'], 'received_at' => $preview['received_at'],
+                ]];
+            }
             $lastRun = \App\Services\Workflows\WorkflowRunReplay::ownedRuns((int) Auth::id())
-                ->where('workflow_id', $record->getKey())->latest('id')->first();
+                ->where('workflow_id', $record->getKey())
+                ->where(function ($query) use ($startId): void {
+                    $query->where('context_data->trigger_data->_workflow_start_node_id', $startId);
+                    if ($startId === 'trigger') $query->orWhereNull('context_data->trigger_data->_workflow_start_node_id');
+                })->latest('id')->first();
             $input = $lastRun?->context_data['trigger_data'] ?? [];
             if ($input !== []) {
-                $this->debugInput = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
                 $this->debugInputSource = 'Данные запуска #'.$lastRun->getKey();
+                return ['trigger_data' => $input + ['_workflow_start_node_id' => $startId]];
             }
         }
-        return $input;
+        return ['trigger_data' => ['_workflow_start_node_id' => $startId]];
     }
 
     private function executeWorkflowNodePreview(array $step, array $input): void
     {
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-        // Both play buttons execute only this node, independently of full-flow debug mode.
+        // A loop preview executes its body once; ordinary play still executes only one node.
         $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), true, $this->definition);
-        $this->nodeRunResults[$step['id']] = $session['results'][0] ?? [];
+        foreach ($session['results'] as $result) $this->nodeRunResults[$result['id']] = $result;
+        if ($session['error'] ?? null) $this->nodeRunResults[$step['id']] = ['id' => $step['id'], 'status' => 'error', 'error' => $session['error']];
         $this->nodePreviewSessionId ??= (string) Str::uuid();
         Cache::put($this->nodePreviewCacheKey(), $session['context'], now()->addHour());
         $this->publishNodePreviewResults();
@@ -225,20 +253,11 @@ trait HasWorkflowDebugger
 
     public function getWorkflowExpressionSources(): array
     {
-        $context = $this->workflowDebugContext();
-        $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-        if ($context === [] && $record?->exists && Auth::id()) {
-            $context = \App\Models\Workflows\WorkflowRun::query()->where('user_id', Auth::id())->where('workflow_id', $record->getKey())->latest('id')->value('context_data') ?? [];
-        }
-        if (!$this->nodePreviewSessionId && !$this->debugSessionId && $record?->exists
-            && (int) $record->user_id === (int) Auth::id()
-            && \App\Services\Workflows\WorkflowStartNodes::ofType($this->definition, 'generic-webhook') !== []) {
-            $preview = app(\App\Services\Workflows\WorkflowGenericWebhookService::class)->latestPreview($record);
-            if ($preview) $context['trigger_data'] = [
-                'body' => $preview['payload'], 'payload' => $preview['payload'],
-                'query' => $preview['query'], 'headers' => $preview['headers'],
-                'method' => $preview['method'], 'received_at' => $preview['received_at'],
-            ];
+        try {
+            $context = $this->workflowNodeInputContext();
+        } catch (\JsonException|\InvalidArgumentException) {
+            // The run button reports invalid draft JSON; the editor must remain usable.
+            $context = [];
         }
 
         return \App\Services\Workflows\WorkflowExpressionCatalog::sources($this->workflowActions, $this->editingActionId, $context, $this->definition['connections'] ?? null, $this->definition);

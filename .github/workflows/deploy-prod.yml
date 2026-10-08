@@ -214,6 +214,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+          git rev-parse HEAD > public/build/.source-commit
 
       - name: Upload Frontend Assets
         uses: appleboy/scp-action@v1.0.0
@@ -224,7 +225,7 @@ jobs:
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           source: application/public/build,application/bootstrap/workflow-runtime
-          target: /tmp/clever-web-deploy
+          target: /tmp/clever-web-deploy-${{ github.sha }}
           overwrite: true
 
       - name: Deploy via SSH with rollback
@@ -238,7 +239,7 @@ jobs:
           COMPOSE_FILES: ${{ secrets.PROD_COMPOSE_FILES }}
           APP_HEALTHCHECK_URL: ${{ secrets.PROD_APP_URL }}
           AUTO_MIGRATE: ${{ secrets.PROD_AUTO_MIGRATE }}
-          ASSET_PATH: /tmp/clever-web-deploy/application
+          ASSET_PATH: /tmp/clever-web-deploy-${{ github.sha }}/application
         with:
           host: ${{ secrets.PROD_SSH_HOST }}
           username: ${{ secrets.PROD_SSH_USER }}
@@ -265,7 +266,7 @@ jobs:
 
             HOST_NGINX_HELPER=""
             REBUILD_IMAGES=false
-            LOCAL_CHANGES_PATCH=""
+            RELEASE_BACKUP=""
 
             start_application() {
               # Retain the helper across git checkout when rolling back old revisions.
@@ -336,29 +337,6 @@ jobs:
 
             CURRENT_COMMIT=""
 
-            backup_and_clear_tracked_changes() {
-              local label="$1"
-              local base_commit="$2"
-              local changed_files patch_path
-
-              if git diff --quiet; then
-                LOCAL_CHANGES_PATCH=""
-                return 0
-              fi
-
-              mkdir -p backups
-              changed_files="$(mktemp /tmp/clever-web-changes.XXXXXX)"
-              patch_path="backups/${label}-$(date -u +%Y%m%dT%H%M%SZ).patch"
-              git diff --name-only -z > "$changed_files"
-              git diff --binary > "$patch_path"
-              git restore --worktree --source="$base_commit" \
-                --pathspec-from-file="$changed_files" --pathspec-file-nul
-              rm -f "$changed_files"
-
-              LOCAL_CHANGES_PATCH="$patch_path"
-              echo "Saved tracked local changes to $patch_path"
-            }
-
             rollback() {
               local exit_code="$1"
               local failed_line="$2"
@@ -378,22 +356,15 @@ jobs:
               fi
 
               if [ -n "$CURRENT_COMMIT" ]; then
-                local failed_state_patch=""
-                if ! git diff --quiet; then
-                  backup_and_clear_tracked_changes \
-                    "failed-deploy-${DEPLOY_SHA:0:12}" "$(git rev-parse HEAD)"
-                  failed_state_patch="$LOCAL_CHANGES_PATCH"
+                if ! bash ops/deploy/assert-clean-tree.sh; then
+                  echo 'Rollback stopped: unexpected source changes need reconciliation. Nothing overwritten.' >&2
+                  exit "$exit_code"
                 fi
 
                 echo "Reverting code to ${CURRENT_COMMIT}"
                 git checkout -B "$DEPLOY_BRANCH" "$CURRENT_COMMIT"
-
-                if [ -n "$PRE_DEPLOY_CHANGES_PATCH" ]; then
-                  git apply "$PRE_DEPLOY_CHANGES_PATCH"
-                  echo "Restored pre-deploy tracked changes from $PRE_DEPLOY_CHANGES_PATCH"
-                fi
-                if [ -n "$failed_state_patch" ]; then
-                  echo "Preserved failed deploy state in $failed_state_patch"
+                if [ -n "$RELEASE_BACKUP" ]; then
+                  tar -xzf "$RELEASE_BACKUP/assets.tar.gz"
                 fi
               fi
 
@@ -438,7 +409,6 @@ jobs:
             fi
 
             CURRENT_COMMIT="$(git rev-parse HEAD)"
-            PRE_DEPLOY_CHANGES_PATCH=""
             echo "Current commit: $CURRENT_COMMIT"
             echo "Target commit:  $DEPLOY_SHA"
 
@@ -450,37 +420,22 @@ jobs:
               echo "Docker configuration unchanged; existing images will be reused."
             fi
 
-            dirty_tracked="$(mktemp /tmp/clever-web-dirty.XXXXXX)"
-            git diff --name-only -z > "$dirty_tracked"
-            unsafe_local_changes=false
-            while IFS= read -r -d '' file; do
-              target_blob="$(git rev-parse "${DEPLOY_SHA}:${file}" 2>/dev/null || true)"
-              if [ -f "$file" ] && [ -n "$target_blob" ] && \
-                [ "$(git hash-object "$file")" = "$target_blob" ]; then
-                echo "Local change is already tracked by target commit: $file"
-              elif [ "$file" = "application/public/build/manifest.json" ]; then
-                echo "Local generated asset will be replaced by the staged build: $file"
-              else
-                echo "Refusing to overwrite uncommitted production change: $file" >&2
-                unsafe_local_changes=true
-              fi
-            done < "$dirty_tracked"
-            rm -f "$dirty_tracked"
-
-            if [ "$unsafe_local_changes" = "true" ]; then
+            # Never silently stash, restore or overwrite production drift.
+            if ! git show "${DEPLOY_SHA}:ops/deploy/assert-clean-tree.sh" | bash; then
               trap - ERR
               exit 1
             fi
 
-            if ! git diff --quiet; then
-              backup_and_clear_tracked_changes \
-                "pre-deploy-${CURRENT_COMMIT:0:12}" "$CURRENT_COMMIT"
-              PRE_DEPLOY_CHANGES_PATCH="$LOCAL_CHANGES_PATCH"
-            fi
+            mkdir -p backups
+            RELEASE_BACKUP="$(mktemp -d "$PWD/backups/git-release-${DEPLOY_SHA:0:12}.XXXXXX")"
+            printf '%s\n' "$CURRENT_COMMIT" > "$RELEASE_BACKUP/commit"
+            tar -czf "$RELEASE_BACKUP/assets.tar.gz" \
+              application/public/build application/bootstrap/workflow-runtime
 
             git checkout -B "$DEPLOY_BRANCH" "$DEPLOY_SHA"
 
             test -f "$ASSET_PATH/public/build/manifest.json"
+            test "$(cat "$ASSET_PATH/public/build/.source-commit")" = "$DEPLOY_SHA"
             test -f "$ASSET_PATH/bootstrap/workflow-runtime/run-javascript.mjs"
             mkdir -p application/public/build application/bootstrap/workflow-runtime
             cp -a "$ASSET_PATH/public/build/." application/public/build/
@@ -513,6 +468,10 @@ jobs:
               echo "Strict smoke check did not pass within 75 seconds." >&2
               exit 1
             fi
+
+            bash ops/deploy/assert-clean-tree.sh "$DEPLOY_SHA"
+            test "$(cat application/public/build/.source-commit)" = "$DEPLOY_SHA"
+            external_healthcheck >/dev/null
 
             trap - ERR
             rm -f /tmp/clever-web-deploy-error

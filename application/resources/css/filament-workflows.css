@@ -5806,6 +5806,18 @@ body:has(.workflow-editor-page) .fi-page-content {
     background: #dc6565;
 }
 
+.workflow-node-port--output-each,
+.workflow-node-editor #workflow-canvas .workflow-node-port--output-each {
+    top: 30%;
+    background: #22a463;
+}
+
+.workflow-node-port--output-done,
+.workflow-node-editor #workflow-canvas .workflow-node-port--output-done {
+    top: 70%;
+    background: #737373;
+}
+
 .workflow-node-port__label {
     position: absolute;
     top: -1.125rem;
