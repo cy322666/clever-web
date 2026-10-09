@@ -57,7 +57,8 @@ class SettingFieldsTest extends TestCase
     {
         $fields = Setting::YCfieldsSelect();
 
-        $this->assertSame('Запись', $fields['record_id']);
+        $this->assertSame('ID записи', $fields['record_id']);
+        $this->assertSame('ID клиента', $fields['client_id']);
         $this->assertSame('Дата и время записи', $fields['record_datetime']);
         $this->assertSame('Дата записи', $fields['record_date']);
         $this->assertSame('Время записи', $fields['record_time']);

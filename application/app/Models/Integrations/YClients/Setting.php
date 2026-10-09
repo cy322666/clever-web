@@ -714,7 +714,7 @@ class Setting extends Model
             'record_categories' => self::fieldLabel('Категория записи', 'record_categories', 'строка/мультисписок'),
             'branch' => self::humanFieldLabel('Филиал'),
             'company_id' => self::humanFieldLabel('Филиал записи'),
-            'record_id' => self::humanFieldLabel('Запись'),
+            'record_id' => self::humanFieldLabel('ID записи'),
             'record_datetime' => self::humanFieldLabel('Дата и время записи'),
             'record_date' => self::humanFieldLabel('Дата записи'),
             'record_time' => self::humanFieldLabel('Время записи'),
@@ -730,7 +730,7 @@ class Setting extends Model
             'cost' => self::fieldLabel('Стоимость записи', 'cost'),
             'paid' => self::fieldLabel('Сумма покупок', 'paid'),
             'ltv' => self::fieldLabel('Выручка', 'ltv'),
-            'client_id' => self::humanFieldLabel('Клиент'),
+            'client_id' => self::humanFieldLabel('ID клиента'),
         ];
     }
 
