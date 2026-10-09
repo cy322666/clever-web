@@ -49,6 +49,7 @@ final class WorkflowLiveAcceptance
     private int $observerAfterRunId = 0;
     private array $pendingCreates = [];
     private bool $recurringStateStarted = false;
+    private int $preRunLeadClosureId = 0;
     private bool $qaLinkMayExist = false;
     private bool $cancellationRequested = false;
     private bool $customersDisabledVerified = false;
@@ -151,8 +152,9 @@ final class WorkflowLiveAcceptance
             $this->originalContacts = $this->list('contacts');
             $companies = $this->list('companies');
             $this->report['before'] = ['leads'=>$this->originalLeads, 'contact_ids'=>array_column($this->originalContacts,'id'), 'company_ids'=>array_column($companies,'id')];
+            $prepareRecurringLeads = $this->canPrepareRecurringLeads();
             if ($this->recurringStatePath) {
-                self::assertRecurringInventory($this->originalLeads, $this->originalContacts, $companies);
+                self::assertRecurringInventory($this->originalLeads, $this->originalContacts, $companies, !$prepareRecurringLeads);
                 if (empty($this->recurringState['fixtures']['lead_id'])) foreach ($this->originalLeads as $lead) {
                     if (str_starts_with((string)($lead['name']??''),'Clever QA recurring ')) throw new RuntimeException('An untracked recurring QA lead already exists; recover the checkpoint instead of creating more fixtures');
                 }
@@ -171,6 +173,7 @@ final class WorkflowLiveAcceptance
                 $this->save();
             }
             $this->pauseWorkflows();
+            if ($prepareRecurringLeads) $this->prepareRecurringLeads();
             $this->setupObserver();
             if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled before CRM mutations');
             $this->mutationsPrepared = true;
@@ -201,7 +204,7 @@ final class WorkflowLiveAcceptance
                 fwrite(STDERR, 'Acceptance report could not be saved; cleanup results remain in the returned report.'.PHP_EOL);
             }
             if ($this->recurringStateStarted) {
-                $safe = $this->pendingCreates === [] && empty($this->recurringState['read_fixtures']['pending']) && empty($this->report['report_write_errors'])
+                $safe = $this->preRunLeadClosureId === 0 && $this->pendingCreates === [] && empty($this->recurringState['read_fixtures']['pending']) && empty($this->report['report_write_errors'])
                     && !array_filter($this->report['cleanup'], fn($item)=>!($item['ok']??false));
                 $this->recurringState['phase'] = $safe ? 'ready' : 'recovery_required';
                 try { $this->saveRecurringState(); }
@@ -240,24 +243,80 @@ final class WorkflowLiveAcceptance
             if ($this->recurringStatePath) self::assertRecurringMutation($method, $path, $body, [
                 'lead_id'=>$this->leadId, 'contact_id'=>$this->contactId, 'task_ids'=>$this->tasks,
                 'hook_url'=>$this->hookUrl, 'pending_creates'=>$this->pendingCreates,
+                'pre_run_lead_closure_id'=>$this->preRunLeadClosureId,
             ]);
             return $request;
         });
     }
 
-    public static function assertRecurringInventory(array $leads, array $contacts, array $companies): void
+    public static function assertRecurringInventory(array $leads, array $contacts, array $companies, bool $requireClosed = true): void
     {
         if (count($leads)>10 || count($contacts)>10 || count($companies)>10) throw new RuntimeException('Recurring acceptance account exceeds its ten-entity cap');
-        foreach ($leads as $lead) if (!in_array((int)($lead['status_id']??0), [142,143], true)) {
+        foreach ($leads as $lead) if ($requireClosed && !in_array((int)($lead['status_id']??0), [142,143], true)) {
             throw new RuntimeException('Recurring acceptance requires all existing leads to be closed; it will not change non-QA deals');
         }
+    }
+
+    private function canPrepareRecurringLeads(): bool
+    {
+        $scope = config('workflow_acceptance.lead_cleanup_scope', []);
+        return $this->recurringStatePath !== null
+            && (int)($scope['workflow_id'] ?? 0) > 0
+            && (int)($scope['amo_account_id'] ?? 0) > 0
+            && (int)$this->source->id === (int)$scope['workflow_id']
+            && $this->account->subdomain === ($scope['domain'] ?? null)
+            && (int)($this->report['account']['amo_account_id'] ?? 0) === (int)$scope['amo_account_id'];
+    }
+
+    private function prepareRecurringLeads(): void
+    {
+        if (!$this->canPrepareRecurringLeads() || !$this->workflowsPaused) {
+            throw new RuntimeException('Recurring lead preparation is not authorized or workflows are not paused');
+        }
+        $leads = $this->list('leads');
+        self::assertRecurringInventory($leads, $this->originalContacts, $this->report['before']['company_ids'], false);
+        $ids = array_map('intval', array_column($leads, 'id'));
+        $originalIds = array_map('intval', array_column($this->originalLeads, 'id'));
+        sort($ids); sort($originalIds);
+        if ($ids !== $originalIds || count(array_unique($ids)) !== count($leads)
+            || array_filter($ids, fn($id) => $id <= 0)
+            || array_filter($leads, fn($lead) => (int)($lead['status_id'] ?? 0) <= 0)) {
+            throw new RuntimeException('Lead inventory changed before recurring preparation; no leads were closed');
+        }
+        $open = array_values(array_filter($leads, fn($lead) => !in_array((int)($lead['status_id'] ?? 0), [142,143], true)));
+        $this->report['preparation']['close_existing_leads'] = [
+            'target_status'=>143, 'before'=>array_map(fn($lead) => ['id'=>(int)$lead['id'], 'status_id'=>(int)($lead['status_id'] ?? 0)], $open),
+            'closed_ids'=>[], 'verified'=>false,
+        ];
+        $this->save();
+        foreach ($open as $lead) {
+            if ($this->cancellationRequested) throw new RuntimeException('Acceptance run cancelled during lead preparation');
+            // Persist the exact intent before allowing one status-only PATCH through the guard.
+            $this->preRunLeadClosureId = (int)$lead['id'];
+            $this->save();
+            $this->client->requestV4('PATCH', '/api/v4/leads/'.$this->preRunLeadClosureId, ['status_id'=>143]);
+            if (!$this->verifyEntity('leads', $this->preRunLeadClosureId, ['status_id'=>143])['passed']) {
+                throw new RuntimeException('Recurring lead preparation could not confirm status 143');
+            }
+            $this->report['preparation']['close_existing_leads']['closed_ids'][] = $this->preRunLeadClosureId;
+            $this->preRunLeadClosureId = 0;
+            $this->save();
+        }
+        $after = $this->list('leads');
+        self::assertRecurringInventory($after, $this->originalContacts, $this->report['before']['company_ids']);
+        $afterIds = array_map('intval', array_column($after, 'id'));
+        sort($afterIds);
+        if ($afterIds !== $ids) throw new RuntimeException('Lead inventory changed during recurring preparation');
+        $this->report['preparation']['close_existing_leads']['verified'] = true;
+        $this->save();
     }
 
     public static function assertRecurringCheckpoint(array $state, int $workflowId, string $domain, int $accountId): void
     {
         if (($state['schema_version']??0)!==1 || ($state['phase']??'')!=='ready'
             || (int)($state['source_workflow_id']??0)!==$workflowId || ($state['domain']??'')!==$domain
-            || (int)($state['amo_account_id']??0)!==$accountId || !empty($state['read_fixtures']['pending'])) {
+            || (int)($state['amo_account_id']??0)!==$accountId || !empty($state['read_fixtures']['pending'])
+            || !empty($state['recovery']['pre_run_lead_closure_id'])) {
             throw new RuntimeException('Recurring acceptance checkpoint requires manual recovery or belongs to another account; no mutations were started');
         }
     }
@@ -266,6 +325,8 @@ final class WorkflowLiveAcceptance
     public static function assertRecurringMutation(string $method, string $path, array $body, array $scope): void
     {
         $leadId=(int)($scope['lead_id']??0); $contactId=(int)($scope['contact_id']??0);
+        $closureId=(int)($scope['pre_run_lead_closure_id']??0);
+        if ($method==='PATCH' && $closureId>0 && $path==='/api/v4/leads/'.$closureId && $body===['status_id'=>143]) return;
         if ($path==='/api/v4/webhooks' && in_array($method,['POST','DELETE'],true)
             && !empty($scope['hook_url']) && ($body['destination']??null)===$scope['hook_url']) return;
         if ($method==='POST' && $path==='/api/v4/leads' && in_array('lead',$scope['pending_creates']??[],true)) {
@@ -309,7 +370,7 @@ final class WorkflowLiveAcceptance
         $this->recurringState['recovery']=['restore_fields'=>$this->restore,'task_ids'=>$this->tasks,
             'paused_workflow_ids'=>$this->paused,'observer_workflow_id'=>$this->observer?->id,
             'pending_creates'=>$this->pendingCreates,'lead_id'=>$this->leadId,'qa_link_may_exist'=>$this->qaLinkMayExist,
-            'qa_webhook_creation_attempted'=>$this->qaWebhookCreationAttempted];
+            'qa_webhook_creation_attempted'=>$this->qaWebhookCreationAttempted,'pre_run_lead_closure_id'=>$this->preRunLeadClosureId];
         $this->writePrivateJson($this->recurringStatePath,$this->recurringState);
     }
 
@@ -1026,7 +1087,8 @@ final class WorkflowLiveAcceptance
     {
         if ($persistState && $this->recurringStateStarted) $this->saveRecurringState();
         $this->report['recovery']=['restore_fields'=>$this->restore,'task_ids'=>$this->tasks,'paused_workflow_ids'=>$this->paused,
-            'observer_workflow_id'=>$this->observer?->id,'qa_webhook_creation_attempted'=>$this->qaWebhookCreationAttempted];
+            'observer_workflow_id'=>$this->observer?->id,'qa_webhook_creation_attempted'=>$this->qaWebhookCreationAttempted,
+            'pre_run_lead_closure_id'=>$this->preRunLeadClosureId];
         $data=$this->report;
         $data['_redaction_secrets']=[
             $this->account->access_token,$this->account->refresh_token,$this->account->client_secret,

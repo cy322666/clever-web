@@ -6,6 +6,8 @@ return [
     'workflow_id' => (int) env('WORKFLOW_ACCEPTANCE_WORKFLOW_ID', 15),
     'domain' => env('WORKFLOW_ACCEPTANCE_DOMAIN', 'widgetscenario'),
     'amo_account_id' => (int) env('WORKFLOW_ACCEPTANCE_AMO_ACCOUNT_ID', 33098322),
+    // Closing existing deals is authorized only for this technical acceptance account.
+    'lead_cleanup_scope' => ['workflow_id' => 15, 'domain' => 'widgetscenario', 'amo_account_id' => 33098322],
     'time' => env('WORKFLOW_ACCEPTANCE_TIME', '03:00'),
     'timezone' => env('WORKFLOW_ACCEPTANCE_TIMEZONE', 'Europe/Kaliningrad'),
     'timeout_seconds' => 900,

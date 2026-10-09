@@ -29,6 +29,7 @@ final class WorkflowRecurringAcceptanceSafetyTest extends TestCase
         return [
             ['PATCH','/api/v4/leads/101',['name'=>'QA']],
             ['PATCH','/api/v4/leads/101',['status_id'=>143]],
+            ['PATCH','/api/v4/leads/501',['status_id'=>143], ['pre_run_lead_closure_id'=>501]],
             ['PATCH','/api/v4/contacts/201',['name'=>'Original']],
             ['PATCH','/api/v4/tasks/301',['is_completed'=>true]],
             ['POST','/api/v4/leads/101/link',[['to_entity_id'=>201,'to_entity_type'=>'contacts']]],
@@ -50,6 +51,10 @@ final class WorkflowRecurringAcceptanceSafetyTest extends TestCase
     {
         return [
             ['PATCH','/api/v4/leads/999',['status_id'=>143]],
+            ['PATCH','/api/v4/leads/999',['status_id'=>143], ['pre_run_lead_closure_id'=>501]],
+            ['PATCH','/api/v4/leads/501',['status_id'=>142], ['pre_run_lead_closure_id'=>501]],
+            ['PATCH','/api/v4/leads/501',['status_id'=>143,'name'=>'Changed'], ['pre_run_lead_closure_id'=>501]],
+            ['PATCH','/api/v4/contacts/501',['status_id'=>143], ['pre_run_lead_closure_id'=>501]],
             ['PATCH','/api/v4/leads/101',['status_id'=>123]],
             ['PATCH','/api/v4/contacts/999',['name'=>'QA']],
             ['PATCH','/api/v4/contacts/201',['name'=>'QA','responsible_user_id'=>2]],
@@ -114,7 +119,8 @@ final class WorkflowRecurringAcceptanceSafetyTest extends TestCase
     public static function badCheckpoint(): array
     {
         return [[['phase'=>'running']],[['phase'=>'recovery_required']],[['phase'=>null]],
-            [['source_workflow_id'=>16]],[['domain'=>'another']],[['amo_account_id'=>999]],[['schema_version'=>2]]];
+            [['source_workflow_id'=>16]],[['domain'=>'another']],[['amo_account_id'=>999]],[['schema_version'=>2]],
+            [['recovery'=>['pre_run_lead_closure_id'=>501]]]];
     }
 
     #[DataProvider('webhookCases')]
