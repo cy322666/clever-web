@@ -713,7 +713,7 @@ class Setting extends Model
             'categories' => self::fieldLabel('Категория клиента', 'categories', 'строка'),
             'record_categories' => self::fieldLabel('Категория записи', 'record_categories', 'строка/мультисписок'),
             'branch' => self::humanFieldLabel('Филиал'),
-            'company_id' => self::humanFieldLabel('Филиал записи'),
+            'company_id' => self::humanFieldLabel('ID филиала'),
             'record_id' => self::humanFieldLabel('ID записи'),
             'record_datetime' => self::humanFieldLabel('Дата и время записи'),
             'record_date' => self::humanFieldLabel('Дата записи'),

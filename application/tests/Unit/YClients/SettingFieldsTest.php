@@ -67,7 +67,8 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Кто создал', $fields['created_user_name']);
         $this->assertSame('Роль создателя', $fields['created_user_role_name']);
         $this->assertSame('Отдел создателя', $fields['created_user_department']);
-        $this->assertSame('Филиал записи', $fields['company_id']);
+        $this->assertSame('ID филиала', $fields['company_id']);
+        $this->assertSame('Филиал', $fields['branch']);
         $this->assertSame('Услуги (services)', $fields['services']);
         $this->assertSame('Стоимость записи (cost)', $fields['cost']);
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
