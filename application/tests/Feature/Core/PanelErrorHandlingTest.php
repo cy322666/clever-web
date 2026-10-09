@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Core;
 
+use App\Exceptions\Handler;
 use App\Filament\App\Pages\Dashboard;
 use App\Providers\Filament\CatalogPanelProvider;
 use Filament\Facades\Filament;
 use Filament\Panel;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Tests\TestCase;
 
 class PanelErrorHandlingTest extends TestCase
@@ -43,5 +46,18 @@ class PanelErrorHandlingTest extends TestCase
     public function test_normal_database_notifications_stay_enabled(): void
     {
         $this->assertTrue(Filament::getPanel('app')->hasDatabaseNotifications());
+    }
+
+    public function test_expired_livewire_requests_stay_419_without_a_redirect(): void
+    {
+        $request = Request::create('/livewire-test/update', 'POST', server: [
+            'HTTP_X_LIVEWIRE' => '1',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = app(Handler::class)->render($request, new TokenMismatchException('CSRF token mismatch.'));
+
+        $this->assertSame(419, $response->getStatusCode());
+        $this->assertFalse($response->headers->has('Location'));
     }
 }

@@ -22,6 +22,7 @@ use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\ManualTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
+use Filament\Panel;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Facades\FilamentView;
@@ -62,6 +63,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Filament's error notifications recurse on failed Livewire 4 requests.
+        // Keep native error handling, which pauses polling when the session expires.
+        Panel::configureUsing(fn (Panel $panel) => $panel->errorNotifications(false));
+
         $this->registerSafeBladeCompiler();
         $this->registerFilamentAuthResponses();
 
