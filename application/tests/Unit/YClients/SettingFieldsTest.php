@@ -71,6 +71,8 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('Филиал', $fields['branch']);
         $this->assertSame('Услуги (services)', $fields['services']);
         $this->assertSame('Стоимость записи (cost)', $fields['cost']);
+        $this->assertSame('Сумма оплаты', $fields['record_paid']);
+        $this->assertContains('record_paid', Setting::YCfields());
         $this->assertSame('Пол (sex) - список М/Ж/строка', $fields['sex']);
         $this->assertSame('Сумма покупок (paid)', $fields['paid']);
         $this->assertSame('Категория клиента (categories) - строка', $fields['categories']);

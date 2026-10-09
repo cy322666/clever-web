@@ -17,10 +17,13 @@ class YClients
 
     private ?array $branches = null;
 
+    private bool $includeFinanceTransactions = false;
+
     public function __construct(Setting $setting)
     {
         $this->userToken = $setting->user_token;
         $this->partnerToken = $setting->partner_token;
+        $this->includeFinanceTransactions = $setting->hasFieldMapping('record_paid');
     }
 
     public function getPartnerToken(): string
@@ -56,7 +59,12 @@ class YClients
      */
     public function getRecord(string $companyId, string $recordId): ?object
     {
-        return $this->get('record/' . $companyId . '/' . $recordId);
+        $path = 'record/' . $companyId . '/' . $recordId;
+        if ($this->includeFinanceTransactions) {
+            $path .= '?' . http_build_query(['include_finance_transactions' => 1]);
+        }
+
+        return $this->get($path);
     }
 
     /**

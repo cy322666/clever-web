@@ -598,6 +598,19 @@ class Setting extends Model
         return false;
     }
 
+    public function hasFieldMapping(string $fieldYc): bool
+    {
+        $fields = array_merge(self::mappingRows($this->fields_contact), self::mappingRows($this->fields_lead));
+
+        foreach ($fields as $field) {
+            if (($field['field_yc'] ?? null) === $fieldYc && !blank($field['field_amo'] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function responsibleUserIdForRecord(Record $record): ?int
     {
         $ycUserKey = (string)$record->company_id . ':' . (string)$record->created_user_id;
@@ -728,6 +741,7 @@ class Setting extends Model
             'services' => self::fieldLabel('Услуги', 'services'),
             'staff' => self::fieldLabel('Мастер', 'staff'),
             'cost' => self::fieldLabel('Стоимость записи', 'cost'),
+            'record_paid' => self::humanFieldLabel('Сумма оплаты'),
             'paid' => self::fieldLabel('Сумма покупок', 'paid'),
             'ltv' => self::fieldLabel('Выручка', 'ltv'),
             'client_id' => self::humanFieldLabel('ID клиента'),
@@ -761,6 +775,7 @@ class Setting extends Model
             'services',
             'staff',
             'cost',
+            'record_paid',
             'paid',
             'ltv',
             'client_id',
@@ -951,11 +966,53 @@ class Setting extends Model
         $fields['services'] = trim((string)$record->title);
         $fields['staff'] = $record->staff_name;
         $fields['cost'] = $record->cost ?? data_get($recordYC, 'cost');
+        $fields['record_paid'] = self::YCGetRecordPaymentAmount($recordYC, $record->record_id);
         $fields['paid'] = data_get($clientYC, 'paid');
         $fields['ltv'] = data_get($clientYC, 'paid');
         $fields['client_id'] = $record->client_id;
 
         return $fields;
+    }
+
+    public static function YCGetRecordPaymentAmount(mixed $recordYC, int|string $recordId): ?float
+    {
+        $transactions = data_get($recordYC, 'finance_transactions');
+
+        // Missing financial data must not overwrite a previously synced payment with zero.
+        if (!is_array($transactions)) {
+            return null;
+        }
+
+        $cents = 0;
+        $seen = [];
+
+        foreach ($transactions as $transaction) {
+            if (!is_array($transaction) && !is_object($transaction)) {
+                return null;
+            }
+
+            if ((string)data_get($transaction, 'record_id', $recordId) !== (string)$recordId
+                || in_array(data_get($transaction, 'deleted'), [true, 1, '1'], true)) {
+                continue;
+            }
+
+            $id = data_get($transaction, 'id');
+            if ($id !== null && isset($seen[(string)$id])) {
+                continue;
+            }
+
+            $amount = data_get($transaction, 'amount');
+            if (!is_numeric($amount) || !is_finite((float)$amount)) {
+                return null;
+            }
+
+            $cents += round((float)$amount * 100);
+            if ($id !== null) {
+                $seen[(string)$id] = true;
+            }
+        }
+
+        return round($cents / 100, 2);
     }
 
     public static function YCGetRecordCategoryFields(mixed $recordYC): array
