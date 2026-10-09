@@ -59,6 +59,7 @@ class YClientsMarketplaceService
             Log::warning('yclients.marketplace.activation_expired', [
                 'user_id' => $request->user()->id,
                 'salon_id' => data_get($context, 'salon_id'),
+                'salon_ids' => $this->salonIds($context),
             ]);
 
             return false;
@@ -161,14 +162,14 @@ class YClientsMarketplaceService
     }
 
     /**
-     * @return array{salon_id:int, application_id:int|null, user_data:array, received_at:int}
+     * @return array{salon_id:int, salon_ids:list<int>, application_id:int|null, user_data:array, received_at:int}
      */
     private function registrationContext(Request $request): array
     {
-        $salonId = $this->positiveInteger($request->query('salon_id'));
+        $salonIds = $this->salonIds($request->query());
 
-        if (!$salonId) {
-            abort(422, 'YClients salon_id is required.');
+        if ($salonIds === []) {
+            abort(422, 'YClients salon_id or a valid salon_ids list is required.');
         }
 
         $queryApplicationId = $this->positiveInteger($request->query('application_id'));
@@ -179,7 +180,8 @@ class YClientsMarketplaceService
         }
 
         return [
-            'salon_id' => $salonId,
+            'salon_id' => $salonIds[0],
+            'salon_ids' => $salonIds,
             'application_id' => $queryApplicationId,
             'user_data' => $this->decodeUserData($request),
             'received_at' => now()->timestamp,
@@ -216,22 +218,74 @@ class YClientsMarketplaceService
 
     private function activateFromContext(Request $request, User $user, array $context): bool
     {
-        try {
-            $this->activateForUser($user, $context);
+        $salonIds = $this->salonIds($context);
+        if ($salonIds === []) {
             $request->session()->forget(self::SESSION_KEY);
-
-            return true;
-        } catch (Throwable $exception) {
-            Log::error('yclients.marketplace.activation_failed', [
-                'user_id' => $user->id,
-                'salon_id' => data_get($context, 'salon_id'),
-                'application_id' => data_get($context, 'application_id'),
-                'error' => $exception->getMessage(),
-                'exception' => $exception::class,
-            ]);
 
             return false;
         }
+
+        $pendingSalonIds = [];
+        foreach ($salonIds as $salonId) {
+            try {
+                $installation = $this->activateForUser($user, [
+                    'salon_id' => $salonId,
+                    'application_id' => data_get($context, 'application_id'),
+                ]);
+                Log::info('yclients.marketplace.activation_succeeded', [
+                    'user_id' => $user->id,
+                    'setting_id' => $installation->setting_id,
+                    'salon_id' => $salonId,
+                    'application_id' => $installation->application_id,
+                ]);
+            } catch (Throwable $exception) {
+                $pendingSalonIds[] = $salonId;
+                Log::error('yclients.marketplace.activation_failed', [
+                    'user_id' => $user->id,
+                    'salon_id' => $salonId,
+                    'application_id' => data_get($context, 'application_id'),
+                    'error' => $exception->getMessage(),
+                    'exception' => $exception::class,
+                ]);
+            }
+        }
+
+        if ($pendingSalonIds === []) {
+            $request->session()->forget(self::SESSION_KEY);
+
+            return true;
+        }
+
+        $context['salon_id'] = $pendingSalonIds[0];
+        $context['salon_ids'] = $pendingSalonIds;
+        $request->session()->put(self::SESSION_KEY, $context);
+
+        return false;
+    }
+
+    /** @return list<int> */
+    private function salonIds(array $context): array
+    {
+        $values = $context['salon_ids'] ?? [$context['salon_id'] ?? null];
+        if (!is_array($values) || $values === []) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($values as $value) {
+            $id = $this->positiveInteger($value);
+            if ($id === null) {
+                return [];
+            }
+            $ids[] = $id;
+        }
+
+        if (array_key_exists('salon_id', $context)
+            && !in_array($this->positiveInteger($context['salon_id']), $ids, true)) {
+            return [];
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**

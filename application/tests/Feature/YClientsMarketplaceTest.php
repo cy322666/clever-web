@@ -11,6 +11,7 @@ use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\YClients\YClientsMarketplaceService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -46,6 +47,203 @@ class YClientsMarketplaceTest extends TestCase
         $response->assertRedirect(url('/panel/register'));
         $this->assertSame(4564, session(YClientsMarketplaceService::SESSION_KEY.'.salon_id'));
         $this->assertSame([], session(YClientsMarketplaceService::SESSION_KEY.'.user_data'));
+    }
+
+    public function test_registration_redirect_keeps_all_selected_salons(): void
+    {
+        $this->createMarketplaceTables();
+        DB::table('users')->insert(['id' => 7, 'email' => 'user@example.com']);
+        $userData = json_encode(['email' => 'user@example.com'], JSON_THROW_ON_ERROR);
+
+        $response = $this->get(route('yclients.marketplace.register', [
+            'salon_ids' => ['775848', '1114763', '1196465', '775848'],
+            'user_data' => base64_encode($userData),
+            'user_data_sign' => hash_hmac('sha256', $userData, 'partner-secret'),
+        ]));
+
+        $response->assertRedirect(url('/panel/login'));
+        $this->assertSame([775848, 1114763, 1196465], session(YClientsMarketplaceService::SESSION_KEY.'.salon_ids'));
+        $this->assertSame('user@example.com', session(YClientsMarketplaceService::SESSION_KEY.'.user_data.email'));
+    }
+
+    public function test_registration_rejects_invalid_salon_lists_without_saving_context(): void
+    {
+        foreach ([[], '775848', [775848, 0], [775848, -1], [[775848]], [775848, 'bad-id']] as $salonIds) {
+            $response = $this->get(route('yclients.marketplace.register', ['salon_ids' => $salonIds]));
+
+            $response->assertUnprocessable();
+            $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+        }
+    }
+
+    public function test_multi_salon_registration_still_checks_the_user_data_signature(): void
+    {
+        $response = $this->get(route('yclients.marketplace.register', [
+            'salon_ids' => [775848, 1114763],
+            'user_data' => base64_encode('{"email":"user@example.com"}'),
+            'user_data_sign' => 'invalid-signature',
+        ]));
+
+        $response->assertUnprocessable();
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+    }
+
+    public function test_multi_salon_registration_rejects_another_application(): void
+    {
+        $this->get(route('yclients.marketplace.register', [
+            'salon_ids' => [775848, 1114763], 'application_id' => 999,
+        ]))->assertUnprocessable();
+
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+    }
+
+    public function test_registration_rejects_conflicting_single_and_multiple_salon_ids(): void
+    {
+        $this->get(route('yclients.marketplace.register', [
+            'salon_id' => 999, 'salon_ids' => [775848, 1114763],
+        ]))->assertUnprocessable();
+
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+    }
+
+    public function test_authenticated_registration_activates_every_selected_salon_once(): void
+    {
+        $user = $this->prepareUserForActivation();
+        Http::fake(['https://api.yclients.ru/*' => Http::response([], 201)]);
+
+        $response = $this->actingAs($user)->get(route('yclients.marketplace.register', [
+            'salon_ids' => [775848, 1114763, 1196465, 775848],
+        ]));
+
+        $response->assertRedirect(route('filament.app.pages.dashboard'));
+        Http::assertSentCount(3);
+        foreach ([775848, 1114763, 1196465] as $salonId) {
+            $this->assertDatabaseHas('yclients_marketplace_installations', [
+                'salon_id' => $salonId, 'user_id' => 7, 'setting_id' => 30,
+                'application_id' => 123, 'status' => MarketplaceInstallation::STATUS_ACTIVE,
+            ]);
+            Http::assertSent(fn (HttpRequest $request): bool => $request->data() === [
+                'salon_id' => $salonId, 'application_id' => 123,
+                'webhook_urls' => [route('yclients.hook', ['user' => 'user-7'])],
+            ]);
+        }
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+        $this->assertDatabaseCount('yclients_settings', 1);
+    }
+
+    public function test_all_selected_salons_are_activated_after_login(): void
+    {
+        $user = $this->prepareUserForActivation();
+        Http::fake(['https://api.yclients.ru/*' => Http::response([], 201)]);
+
+        $this->get(route('yclients.marketplace.register', ['salon_ids' => [775848, 1114763]]))
+            ->assertRedirect(url('/panel/register'));
+
+        $this->assertTrue(app(YClientsMarketplaceService::class)
+            ->activatePendingForAuthenticatedUser($this->authenticatedRequest($user)));
+
+        Http::assertSentCount(2);
+        $this->assertDatabaseCount('yclients_marketplace_installations', 2);
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+    }
+
+    public function test_partial_failure_keeps_only_failed_salons_for_retry(): void
+    {
+        $user = $this->prepareUserForActivation();
+        $context = ['salon_ids' => [775848, 1114763, 1196465], 'received_at' => now()->timestamp];
+        session()->put(YClientsMarketplaceService::SESSION_KEY, $context);
+        Http::fake([
+            'https://api.yclients.ru/*' => Http::sequence()->push([], 201)->push([], 503)
+                ->push([], 201)->push([], 201),
+        ]);
+        $service = app(YClientsMarketplaceService::class);
+        $request = $this->authenticatedRequest($user);
+
+        $this->assertFalse($service->activatePendingForAuthenticatedUser($request));
+
+        Http::assertSentCount(3);
+        $this->assertDatabaseCount('yclients_marketplace_installations', 2);
+        $this->assertDatabaseMissing('yclients_marketplace_installations', ['salon_id' => 1114763]);
+        $this->assertSame([1114763], session(YClientsMarketplaceService::SESSION_KEY.'.salon_ids'));
+        $this->assertSame($context['received_at'], session(YClientsMarketplaceService::SESSION_KEY.'.received_at'));
+
+        $this->assertTrue($service->activatePendingForAuthenticatedUser($request));
+        Http::assertSentCount(4);
+        $this->assertSame([775848, 1114763, 1196465, 1114763], Http::recorded()
+            ->map(fn (array $recorded): int => $recorded[0]['salon_id'])->all());
+        $this->assertDatabaseCount('yclients_marketplace_installations', 3);
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
+    }
+
+    public function test_multi_salon_activation_skips_remote_activation_for_an_active_installation(): void
+    {
+        $user = $this->prepareUserForActivation();
+        DB::table('yclients_marketplace_installations')->insert([
+            'user_id' => 7, 'setting_id' => 30, 'salon_id' => 775848, 'application_id' => 123,
+            'status' => MarketplaceInstallation::STATUS_ACTIVE,
+        ]);
+        session()->put(YClientsMarketplaceService::SESSION_KEY, [
+            'salon_ids' => [775848, 1114763], 'received_at' => now()->timestamp,
+        ]);
+        Http::fake(['https://api.yclients.ru/*' => Http::response([], 201)]);
+
+        $this->assertTrue(app(YClientsMarketplaceService::class)
+            ->activatePendingForAuthenticatedUser($this->authenticatedRequest($user)));
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (HttpRequest $request): bool => $request['salon_id'] === 1114763);
+        $this->assertDatabaseCount('yclients_marketplace_installations', 2);
+    }
+
+    public function test_existing_single_salon_session_is_still_supported(): void
+    {
+        $user = $this->prepareUserForActivation();
+        session()->put(YClientsMarketplaceService::SESSION_KEY, [
+            'salon_id' => 775848, 'received_at' => now()->timestamp,
+        ]);
+        Http::fake(['https://api.yclients.ru/*' => Http::response([], 201)]);
+
+        $this->assertTrue(app(YClientsMarketplaceService::class)
+            ->activatePendingForAuthenticatedUser($this->authenticatedRequest($user)));
+
+        Http::assertSentCount(1);
+        $this->assertDatabaseHas('yclients_marketplace_installations', ['salon_id' => 775848, 'user_id' => 7]);
+    }
+
+    public function test_multi_salon_activation_does_not_take_over_another_users_installation(): void
+    {
+        $user = $this->prepareUserForActivation();
+        DB::table('yclients_marketplace_installations')->insert([
+            'user_id' => 8, 'salon_id' => 1114763, 'application_id' => 123,
+            'status' => MarketplaceInstallation::STATUS_ACTIVE,
+        ]);
+        session()->put(YClientsMarketplaceService::SESSION_KEY, [
+            'salon_ids' => [775848, 1114763], 'received_at' => now()->timestamp,
+        ]);
+        Http::fake(['https://api.yclients.ru/*' => Http::response([], 201)]);
+
+        $this->assertFalse(app(YClientsMarketplaceService::class)
+            ->activatePendingForAuthenticatedUser($this->authenticatedRequest($user)));
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (HttpRequest $request): bool => $request['salon_id'] === 775848);
+        $this->assertDatabaseHas('yclients_marketplace_installations', ['salon_id' => 1114763, 'user_id' => 8]);
+        $this->assertSame([1114763], session(YClientsMarketplaceService::SESSION_KEY.'.salon_ids'));
+    }
+
+    public function test_expired_multi_salon_context_does_not_activate_anything(): void
+    {
+        $user = $this->prepareUserForActivation();
+        session()->put(YClientsMarketplaceService::SESSION_KEY, [
+            'salon_ids' => [775848, 1114763], 'received_at' => now()->subHours(2)->timestamp,
+        ]);
+        Http::fake();
+
+        $this->assertFalse(app(YClientsMarketplaceService::class)
+            ->activatePendingForAuthenticatedUser($this->authenticatedRequest($user)));
+
+        Http::assertNothingSent();
+        $this->assertNull(session(YClientsMarketplaceService::SESSION_KEY));
     }
 
     public function test_marketplace_callback_rejects_an_invalid_partner_token(): void
@@ -191,6 +389,34 @@ class YClientsMarketplaceTest extends TestCase
                     ],
                 ];
         });
+    }
+
+    private function authenticatedRequest(User $user): Request
+    {
+        $request = Request::create('/panel');
+        $request->setLaravelSession(session()->driver());
+        $request->setUserResolver(fn () => $user);
+
+        return $request;
+    }
+
+    private function prepareUserForActivation(): User
+    {
+        $this->createMarketplaceTables();
+        DB::table('users')->insert(['id' => 7, 'uuid' => 'user-7', 'email' => 'user@example.com']);
+        DB::table('apps')->insert([
+            'id' => 20, 'user_id' => 7, 'setting_id' => 30, 'name' => 'yclients', 'status' => App::STATE_CREATED,
+        ]);
+        DB::table('yclients_settings')->insert(['id' => 30, 'user_id' => 7, 'active' => false]);
+        $app = App::query()->findOrFail(20);
+        $provisioning = $this->createMock(IntegrationProvisioningService::class);
+        $provisioning->method('ensureSettingForApp')->willReturn($app);
+        $this->app->instance(IntegrationProvisioningService::class, $provisioning);
+        $access = $this->createMock(WidgetSubscriptionAccessService::class);
+        $access->method('canUse')->willReturn(true);
+        $this->app->instance(WidgetSubscriptionAccessService::class, $access);
+
+        return User::query()->findOrFail(7);
     }
 
     private function createMarketplaceTables(): void
