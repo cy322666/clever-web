@@ -877,6 +877,8 @@ trait HasWorkflowPageActions
         $this->dispatch('workflow-node-library-open', mode: 'action');
         if (isset($connection)) {
             $this->dispatch('workflow-node-inserted', nodeId: 'action:'.$actionId, sourceId: $connection['sourceId'], sourcePort: $connection['sourcePort'], targetId: $connection['targetId']);
+        } elseif ($detached) {
+            $this->dispatch('workflow-node-created', nodeId: 'action:'.$actionId);
         }
     }
 

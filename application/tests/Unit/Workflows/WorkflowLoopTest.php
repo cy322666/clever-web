@@ -133,11 +133,9 @@ class WorkflowLoopTest extends TestCase
     public function test_invalid_cycles_are_rejected_before_execution(): void
     {
         $def = $this->definition();
-        $def['connections'][] = $this->edge('after', 'loop');
-        $this->assertStringContainsString('создаёт цикл', implode(' ', WorkflowDefinitionValidator::issues($def)));
-        $def = $this->definition();
-        $def['connections'][] = $this->edge('loop', 'body', 'done');
-        $this->assertStringContainsString('не должна начинаться', implode(' ', WorkflowDefinitionValidator::issues($def)));
+        $def['connections'][] = $this->edge('body', 'after');
+        $def['connections'][] = $this->edge('after', 'body');
+        $this->assertStringContainsString('неуправляемый цикл', implode(' ', WorkflowDefinitionValidator::issues($def)));
     }
 
     private function debugger(): WorkflowDebugger

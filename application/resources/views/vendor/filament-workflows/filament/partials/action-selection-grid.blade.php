@@ -14,7 +14,7 @@
             'title' => 'Логика',
             'description' => 'Условия и запуск другого процесса.',
             'icon' => 'heroicon-o-adjustments-horizontal',
-            'types' => ['control-condition', 'run_workflow'],
+            'types' => ['control-condition', 'workflow_set_variable', 'run_workflow'],
             'items' => [],
         ],
         'communication' => [

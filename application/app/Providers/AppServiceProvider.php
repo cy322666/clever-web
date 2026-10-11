@@ -232,6 +232,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(\App\Workflows\Actions\WorkflowDelayAction::class);
             $registry->register(\App\Workflows\Actions\WorkflowFilterListAction::class);
             $registry->register(\App\Workflows\Actions\WorkflowLoopAction::class);
+            $registry->register(\App\Workflows\Actions\WorkflowSetVariableAction::class);
             $registry->register(\App\Workflows\Actions\WorkflowHttpRequestAction::class);
             $registry->register(\App\Workflows\Actions\TelegramSendMessageAction::class);
             $registry->register(RunWorkflowAction::class);

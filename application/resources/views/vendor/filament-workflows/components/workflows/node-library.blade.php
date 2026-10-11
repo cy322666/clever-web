@@ -117,6 +117,7 @@
         'workflow_delay',
         'workflow_filter_list',
         'workflow_loop',
+        'workflow_set_variable',
         'http_request',
         'amocrm_create_lead',
         'amocrm_create_contact',
@@ -212,7 +213,7 @@
             'amoCRM действие узел',
         ]));
 
-        if (in_array($type, ['control-condition', 'workflow_loop', 'workflow_javascript', 'workflow_delay', 'workflow_filter_list', 'http_request'], true)) {
+        if (in_array($type, ['control-condition', 'workflow_loop', 'workflow_set_variable', 'workflow_javascript', 'workflow_delay', 'workflow_filter_list', 'http_request'], true)) {
             $logicActions[] = $action;
             continue;
         }

@@ -329,6 +329,24 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         }));
     },
 
+    placeCreatedNode(detail) {
+        this.pendingInsertion = null;
+        this.$nextTick(() => window.requestAnimationFrame(() => {
+            const viewport = this.$refs.viewport?.getBoundingClientRect();
+            const stage = this.$refs.stage?.getBoundingClientRect();
+            const node = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId);
+            const card = node?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
+            if (!viewport || !stage || !card) return;
+            this.restoreCardPositions({[detail.nodeId]: {
+                x: (viewport.left + viewport.width / 2 - stage.left - card.width / 2) / this.scale,
+                y: (viewport.top + viewport.height / 2 - stage.top - card.height / 2) / this.scale,
+            }});
+            this.selectedNodeIds = [detail.nodeId];
+            this.applyNodeSelection();
+            this.scheduleGraphRefreshAfterPaint();
+        }));
+    },
+
     selectionStyle() {
         const b = this.selectionBox;
         return b ? `left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px` : '';
@@ -1483,7 +1501,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 return;
             }
             const buttonX = startX + 100;
-            const buttonY = startY + (['yes', 'each'].includes(port) ? -44 : ['no', 'done'].includes(port) ? 44 : 0);
+            const buttonY = startY + (['yes', 'done'].includes(port) ? -44 : ['no', 'each'].includes(port) ? 44 : 0);
             const buttonRadius = (button.getBoundingClientRect?.().width || 22 * scale) / scale / 2;
             const endX = buttonX - buttonRadius;
 

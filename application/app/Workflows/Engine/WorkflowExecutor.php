@@ -86,6 +86,7 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         // Protect against duplicate delivery; never repeat an already completed write.
         $completed = (clone $logs)->where('action_type', $step['type'] ?? null)->where('status', StepStatus::COMPLETED)->latest('id')->first();
         if ($completed) {
+            if (($step['type'] ?? '') === 'workflow_set_variable') \App\Workflows\Actions\WorkflowSetVariableAction::applyOutput($completed->output_data ?? [], $context);
             $context->setStepOutput($nodeId, $completed->output_data ?? []);
             return ['success' => true, 'output' => $completed->output_data ?? [], 'reused' => true];
         }
@@ -177,6 +178,7 @@ class WorkflowExecutor extends BaseWorkflowExecutor
 
     protected function executeGraph(WorkflowContext $context, WorkflowRun $run): void
     {
+        $context->forgetVariable('_workflow_values');
         $definition = $run->workflow->definition;
         if (\App\Services\Workflows\WorkflowLoopRunner::present($definition)) {
             $runner = new \App\Services\Workflows\WorkflowLoopRunner($definition);

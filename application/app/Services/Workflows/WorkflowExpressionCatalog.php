@@ -64,6 +64,26 @@ final class WorkflowExpressionCatalog
             $sources[] = self::source($id, $names[$id], WorkflowOutputView::value($output), $available);
         }
 
+        $variables = [];
+        foreach ($upstream as $id) {
+            if (($flat[$id]['type'] ?? '') !== 'workflow_set_variable') continue;
+            foreach ($flat[$id]['config']['assignments'] ?? [] as $row) {
+                $key = $row['name'] ?? null;
+                if (is_string($key) && preg_match('/^[A-Za-z][A-Za-z0-9_]{0,63}$/D', $key)) $variables[$key] = $context['variables']['_workflow_values'][$key] ?? null;
+            }
+        }
+        if ($variables !== []) {
+            $source = self::source('$vars', 'Переменные текущего прохода', $variables, true);
+            foreach ($source['fields'] as &$field) {
+                $field['expression'] = '{{ $vars'.$field['key'].' }}';
+                preg_match('/^\.([A-Za-z][A-Za-z0-9_]*)/', $field['key'], $match);
+                $name = $match[1] ?? '';
+                $field['available'] = $field['key'] === '' || array_key_exists($name, $context['variables']['_workflow_values'] ?? []);
+            }
+            unset($field);
+            $sources[] = $source;
+        }
+
         return $sources;
     }
 

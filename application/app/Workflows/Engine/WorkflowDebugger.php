@@ -82,6 +82,18 @@ class WorkflowDebugger extends WorkflowTestRunner
             'send_email', 'send_notification', 'create_record', 'update_records',
             'delete_record', 'assign_record', 'clone_record', 'http_request', 'run_workflow',
         ];
+        if (!isset($session['input_definition']) && \App\Services\Workflows\WorkflowLoopRunner::present($session['definition'])
+            && (new \App\Services\Workflows\WorkflowLoopRunner($session['definition']))->requiresGraphScheduler()) {
+            // Feedback can revisit nodes before the current loop. Use the same
+            // bounded scheduler as production, instead of a visited-node queue.
+            $session['results'] = $this->executeLoopTestGraph($session['definition'], $context);
+            $last = end($session['results']);
+            $session['error'] = $last['error'] ?? null;
+            $session['status'] = $session['error'] ? 'failed' : 'completed';
+            $session['context'] = $context->toArray();
+            $session['pending'] = [];
+            return $session;
+        }
         $entry = array_shift($session['pending']);
         $step = $entry['step'];
         $isCondition = in_array($step['type'] ?? '', ['condition', 'control-condition'], true);

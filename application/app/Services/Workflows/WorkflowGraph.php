@@ -85,10 +85,37 @@ final class WorkflowGraph
 
     public static function forwardConnections(array $definition): array
     {
-        return array_values(array_diff_key(self::connections($definition), self::loopReturns($definition)));
+        return array_values(array_diff_key(self::connections($definition), self::loopReturns($definition), self::loopFeedback($definition)));
     }
 
-    /** Validates endpoints; only structured iteration returns may close a cycle. */
+    /** Done is a normal continuation, including explicit jumps to earlier nodes. */
+    public static function loopFeedback(array $definition): array
+    {
+        $nodes = self::nodes($definition['actions'] ?? []);
+        $returns = self::loopReturns($definition);
+        $edges = array_diff_key(self::connections($definition), $returns);
+        $reachable = static function (array $pending, ?int $skip = null) use ($edges): array {
+            $seen = [];
+            while ($pending !== []) {
+                $id = array_pop($pending);
+                if (isset($seen[$id])) continue;
+                $seen[$id] = true;
+                foreach ($edges as $index => $edge) if ($index !== $skip && $edge['sourceId'] === $id) $pending[] = $edge['targetId'];
+            }
+            return $seen;
+        };
+        $feedback = [];
+        foreach ($edges as $index => $edge) {
+            if ($edge['sourcePort'] !== 'done' || !isset($nodes[$edge['sourceId']]) || !self::loop($nodes[$edge['sourceId']]['step'])) continue;
+            $next = $reachable([$edge['targetId']], $index);
+            $ownReturns = array_column(array_filter($returns, fn ($return) => $return['targetId'] === $edge['sourceId']), 'sourceId');
+            if (isset($next[$edge['sourceId']]) || array_intersect(array_keys($next), $ownReturns) !== []
+                || in_array($edge['targetId'], self::targets($edges, $edge['sourceId'], 'each'), true)) $feedback[$index] = $edge;
+        }
+        return $feedback;
+    }
+
+    /** Validate the acyclic execution order apart from explicit loop continuations. */
     public static function ordered(array $definition): array
     {
         $nodes = self::nodes($definition['actions'] ?? []);
@@ -107,7 +134,8 @@ final class WorkflowGraph
             $target = $edge['targetId'] ?? '';
             $port = $edge['sourcePort'] ?? '';
             $ports = isset($nodes[$source]) ? self::ports($nodes[$source]['step']) : ['output'];
-            if ((!isset($starts[$source]) && !isset($nodes[$source])) || !isset($nodes[$target]) || !in_array($port, $ports, true) || $source === $target) {
+            if ((!isset($starts[$source]) && !isset($nodes[$source])) || !isset($nodes[$target]) || !in_array($port, $ports, true)
+                || ($source === $target && $port !== 'done')) {
                 throw new InvalidArgumentException('Связь содержит недоступную ноду или выход.');
             }
             $key = $source.'|'.$port.'|'.$target;
@@ -131,7 +159,7 @@ final class WorkflowGraph
                 if (--$incoming[$target] === 0) $ready[] = $target;
             }
         }
-        if (count($ordered) !== count($nodes)) throw new InvalidArgumentException('Связь создаёт цикл. Возвращаться можно только во вход своей ноды «Цикл».');
+        if (count($ordered) !== count($nodes)) throw new InvalidArgumentException('Связь создаёт неуправляемый цикл. Используйте ноду «Цикл» или её выход «Готово».');
         return $ordered;
     }
 

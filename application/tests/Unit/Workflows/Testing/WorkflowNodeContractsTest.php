@@ -118,7 +118,7 @@ class WorkflowNodeContractsTest extends TestCase
 
     public static function publicCases(): array
     {
-        return array_map(fn ($type) => [$type], ['control-condition', 'workflow_javascript', 'workflow_delay', 'workflow_filter_list', 'http_request', 'telegram_send_message']);
+        return array_map(fn ($type) => [$type], ['control-condition', 'workflow_javascript', 'workflow_delay', 'workflow_filter_list', 'workflow_set_variable', 'http_request', 'telegram_send_message']);
     }
 
     #[DataProvider('publicCases')]

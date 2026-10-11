@@ -11,7 +11,7 @@
         'flow' => [
             'title' => 'Логика процесса',
             'icon' => 'heroicon-o-adjustments-horizontal',
-            'types' => ['control-condition', 'workflow_loop', 'run_workflow'],
+            'types' => ['control-condition', 'workflow_loop', 'workflow_set_variable', 'run_workflow'],
             'items' => [],
         ],
         'communication' => [

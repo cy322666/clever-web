@@ -87,6 +87,41 @@ test('another-branch plus is positioned by the card without inventing an edge', 
     assert.deepEqual(positions, [[112,78]]);
 });
 
+test('loop empty outputs keep done above each without crossing their plus buttons', () => {
+    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const code = source.slice(source.indexOf('controls.filter((button) => !button.dataset.workflowEdgeTarget)'), source.indexOf('        controls.forEach((button) => {'));
+    for (const scale of [0.25, 1, 2]) {
+        const controls = ['each', 'done'].map(port => ({dataset:{workflowEdgeSource:'loop',workflowEdgePort:port},getBoundingClientRect:()=>({width:22*scale})}));
+        const card = {querySelector:port=>({getBoundingClientRect:()=>({left:100*scale,top:(port==='done'?38:62)*scale,width:0,height:0})})};
+        const positions = {}, paths = [];
+        runInNewContext(code, {controls,nodeById:new Map([['loop',{querySelector:()=>card}]]),sourceSelector:port=>port,stageRect:{left:0,top:0},scale,paths,positionControl:(button,x,y)=>{positions[button.dataset.workflowEdgePort]={x,y};},maxX:0,maxY:0});
+        assert.ok(positions.done.y < 38);
+        assert.ok(positions.each.y > 62);
+        assert.equal(positions.done.x, positions.each.x);
+        assert.equal(paths.length, 2);
+    }
+});
+
+test('new detached node is centered in visible viewport at any zoom and pan without moving other nodes', () => {
+    for (const scale of [0.2, 1, 2]) {
+        const f = fixture();
+        f.canvas.scale = scale;
+        f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:320,top:100,width:1000,height:700});
+        f.canvas.$refs.stage = {getBoundingClientRect:()=>({left:-400,top:-250})};
+        f.node.querySelector = () => ({getBoundingClientRect:()=>({width:96*scale,height:96*scale})});
+        let desired;
+        f.canvas.restoreCardPositions = value => {desired = value;};
+        f.canvas.applyNodeSelection = () => {};
+        f.canvas.placeCreatedNode({nodeId:'action:test'});
+        assert.deepEqual(Object.keys(desired), ['action:test']);
+        assert.equal(-400 + (desired['action:test'].x+48)*scale, 820);
+        assert.equal(-250 + (desired['action:test'].y+48)*scale, 450);
+        assert.deepEqual(Array.from(f.canvas.selectedNodeIds), ['action:test']);
+    }
+    const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    assert.match(markup, /workflow-node-created.window="placeCreatedNode\(\$event.detail\)"/);
+});
+
 test('an imported layout survives unavailable local storage', () => {
     const f = fixture();
     f.canvas.initialLayout = {'action:test':{x:120,y:80}};

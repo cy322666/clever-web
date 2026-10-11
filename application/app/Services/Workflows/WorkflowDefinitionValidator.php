@@ -60,6 +60,10 @@ final class WorkflowDefinitionValidator
     public static function configIssues(string $type, array $config): array
     {
         $errors = [];
+        if ($type === 'workflow_set_variable') {
+            try { \App\Workflows\Actions\WorkflowSetVariableAction::validateAssignments($config['assignments'] ?? null); }
+            catch (\InvalidArgumentException $error) { $errors[] = $error->getMessage(); }
+        }
         if ($type === 'workflow_loop') {
             if (!in_array($config['mode'] ?? 'all', ['all', 'once'], true)) $errors[] = 'Выберите режим цикла.';
             if (!self::expression($config['items'] ?? null)) {

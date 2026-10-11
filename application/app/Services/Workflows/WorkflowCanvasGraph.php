@@ -9,7 +9,8 @@ final class WorkflowCanvasGraph
     {
         if ($connections !== null) {
             $nodes = WorkflowGraph::nodes($actions);
-            $returns = WorkflowGraph::loopReturns(['actions' => $actions, 'connections' => $connections]);
+            $definition = ['actions' => $actions, 'connections' => $connections];
+            $returns = WorkflowGraph::loopReturns($definition) + WorkflowGraph::loopFeedback($definition);
             $edges = [];
             foreach ($connections as $index => $edge) {
                 $edges[] = $edge + ['path' => '', 'index' => 0, 'loopReturn' => isset($returns[$index])];

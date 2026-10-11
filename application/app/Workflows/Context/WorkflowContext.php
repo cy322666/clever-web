@@ -104,13 +104,16 @@ class WorkflowContext extends BaseWorkflowContext
 
     public function get(string $path): mixed
     {
+        if ($path === '$vars' || str_starts_with($path, '$vars.')) {
+            return \App\Services\Workflows\WorkflowValuePath::get($this->getVariable('_workflow_values', []), $path === '$vars' ? '' : $this->expressionPath(substr($path, 6)));
+        }
         // Resolve the node first, then find the field by ID, never by its array position.
         if (preg_match('/^(?<source>\$\(.+\).*)\.cf\(\s*(?<field>\d+)\s*\)$/u', $path, $field)) {
             return $this->customFieldFromEntity($this->get($field['source']), $field['field']);
         }
         if ($path === '$json' || str_starts_with($path, '$json.')) {
             $value = $this->getNodeInput();
-            return $path === '$json' ? $value : Arr::get($value, $this->expressionPath(substr($path, 6)));
+            return $path === '$json' ? $value : \App\Services\Workflows\WorkflowValuePath::get($value, $this->expressionPath(substr($path, 6)));
         }
         $quoted = '("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
         $shortReference = false;
@@ -129,12 +132,12 @@ class WorkflowContext extends BaseWorkflowContext
                 $nested = $this->expressionPath($match[2]);
                 if ($shortReference) return \App\Services\Workflows\WorkflowOutputView::triggerPath($this->getTriggerData(), $nested);
                 $value = $this->getTriggerData();
-                return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
+                return \App\Services\Workflows\WorkflowValuePath::get($value, $nested);
             }
             $value = $this->getStepOutput($key);
             $nested = $this->expressionPath($match[2]);
             if ($shortReference) return WorkflowOutputView::actionPath($value, $nested);
-            return $nested === '' ? $value : (is_array($value) ? Arr::get($value, $nested) : null);
+            return \App\Services\Workflows\WorkflowValuePath::get($value, $nested);
         }
         if (preg_match('/^step\.([^.]+)$/', $path, $match)) return $this->getStepOutput($match[1]);
         if (str_starts_with($path, 'current.')) {

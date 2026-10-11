@@ -46,10 +46,13 @@ final class WorkflowOutputView
     {
         $visible = self::trigger($input);
         if ($path === '') return $visible;
-        if (is_array($visible) && \Illuminate\Support\Arr::has($visible, $path)) return \Illuminate\Support\Arr::get($visible, $path);
+        $missing = new \stdClass;
+        $found = WorkflowValuePath::get($visible, $path, $missing);
+        if ($found !== $missing) return $found;
         // Existing short expressions may still contain the old transport envelope.
         foreach ([$input, $input['body'] ?? null, $input['payload'] ?? null] as $legacy) {
-            if (is_array($legacy) && \Illuminate\Support\Arr::has($legacy, $path)) return \Illuminate\Support\Arr::get($legacy, $path);
+            $found = WorkflowValuePath::get($legacy, $path, $missing);
+            if ($found !== $missing) return $found;
         }
         return null;
     }
@@ -84,7 +87,7 @@ final class WorkflowOutputView
         if (self::isSingleContactCreation($output) && ($path === '0' || str_starts_with($path, '0.'))) {
             $path = $path === '0' ? '' : substr($path, 2);
         }
-        return $path === '' ? $value : (is_array($value) ? \Illuminate\Support\Arr::get($value, $path) : null);
+        return WorkflowValuePath::get($value, $path);
     }
 
     private static function isSingleContactCreation(mixed $output): bool
