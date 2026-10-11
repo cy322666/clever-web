@@ -33,20 +33,12 @@ final class WorkflowLoopRunner
                     throw new InvalidArgumentException('Возврат в цикл должен идти из его ветки «Каждый элемент», не из «Готово».');
                 }
             }
-            foreach ($this->edges as $edge) {
-                if (in_array($edge['targetId'], $body, true) && !in_array($edge['sourceId'], $body, true)
-                    && !($edge['sourceId'] === $id && $edge['sourcePort'] === 'each')) {
-                    throw new InvalidArgumentException('Внутрь цикла нельзя входить из другой ветки. Подключите её ко входу ноды «Цикл».');
-                }
-            }
             $depth = 1;
             foreach ($this->bodies as $outer => $outerBody) {
                 if ($id === $outer) continue;
                 if (in_array($id, $outerBody, true)) {
                     $depth++;
                     if (array_diff($body, $outerBody) !== []) throw new InvalidArgumentException('Вложенный цикл должен целиком находиться внутри внешнего.');
-                } elseif (!in_array($outer, $body, true) && array_intersect($body, $outerBody) !== []) {
-                    throw new InvalidArgumentException('У двух циклов не может быть общей повторяемой ветки.');
                 }
             }
             if ($depth > 8) throw new InvalidArgumentException('Допустимо до 8 вложенных циклов.');
@@ -77,31 +69,31 @@ final class WorkflowLoopRunner
         // A resumed run is rebuilt from its completed logs, not from stale iteration outputs.
         $context->forgetStepOutputs(array_map(fn ($id) => substr($id, 7), array_keys($this->nodes)));
         $start = WorkflowStartNodes::selected($this->definition, $context->getTriggerData());
-        $this->sequence(array_keys($this->nodes), WorkflowGraph::targets($this->edges, $start), $context, $execute, []);
+        $this->sequence(array_keys($this->nodes), WorkflowGraph::targets($this->edges, $start), $context, $execute, [], $start);
     }
 
     /** Preview is deliberately bounded to one item and never runs the done branch. */
-    public function runNode(string $id, WorkflowContext $context, callable $execute, bool $preview = false): bool
+    public function runNode(string $id, WorkflowContext $context, callable $execute, bool $preview = false, ?array $inputSources = null): bool
     {
         $entry = $this->nodes[$id] ?? throw new InvalidArgumentException('Нода цикла не найдена.');
         if (!WorkflowGraph::loop($entry['step'])) throw new InvalidArgumentException('Выберите ноду цикла.');
         if ($preview) $entry['step']['config']['mode'] = 'once';
-        $context->forgetStepOutputs(array_map(fn ($key) => substr($key, 7), $this->reachable([$id])));
-        $result = $this->execute($entry, $context, $execute, []);
+        $context->forgetStepOutputs(array_map(fn ($key) => substr($key, 7), array_diff($this->reachable([$id]), $inputSources ?? [])));
+        $result = $this->execute($entry, $context, $execute, [], $inputSources);
         return ($entry['step']['disabled'] ?? false) || $this->iterate($id, $result['output'] ?? [], $context, $execute, [], $preview);
     }
 
-    private function sequence(array $allowed, array $active, WorkflowContext $context, callable $execute, array $iteration, ?string $returnTo = null): bool
+    private function sequence(array $allowed, array $active, WorkflowContext $context, callable $execute, array $iteration, string $source, ?string $returnTo = null): bool
     {
-        // A nested body is visited only by its owning loop, never by the outer sequence.
-        $hidden = [];
-        foreach ($this->bodies as $id => $body) if (in_array($id, $allowed, true)) $hidden = array_merge($hidden, $body);
-        $visible = array_fill_keys(array_diff($allowed, $hidden), true);
-        $active = array_fill_keys($active, true);
+        // Connections activate nodes, not static membership in a loop body. The
+        // same node may run once through an external branch and once per item.
+        $remaining = array_intersect_key($this->nodes, array_fill_keys($allowed, true));
+        $active = array_fill_keys($active, [$source]);
         $returned = false;
-        foreach ($this->nodes as $id => $entry) {
-            if (!isset($visible[$id], $active[$id])) continue;
-            $result = $this->execute($entry, $context, $execute, $iteration);
+        while (($id = array_key_first(array_intersect_key($remaining, $active))) !== null) {
+            $entry = $remaining[$id];
+            unset($remaining[$id]);
+            $result = $this->execute($entry, $context, $execute, $iteration, $active[$id]);
             $step = $entry['step'];
             if (WorkflowGraph::loop($step)) {
                 if (!($step['disabled'] ?? false) && !$this->iterate($id, $result['output'] ?? [], $context, $execute, $iteration)) continue;
@@ -109,18 +101,24 @@ final class WorkflowLoopRunner
             } else {
                 $port = WorkflowGraph::condition($step) ? ((($step['disabled'] ?? false) || ($result['output']['passed'] ?? false)) ? 'yes' : 'no') : 'output';
             }
-            foreach (WorkflowGraph::targets($this->edges, $id, $port) as $target) $active[$target] = true;
-            if ($returnTo !== null && in_array($returnTo, WorkflowGraph::targets($this->returns, $id, $port), true)) $returned = true;
+            foreach (WorkflowGraph::targets($this->edges, $id, $port) as $target) $active[$target][] = $id;
+            foreach (WorkflowGraph::targets($this->returns, $id, $port) as $target) {
+                if ($target === $returnTo) $returned = true;
+                // Entering a body from outside can reach a not-yet-started loop.
+                // It starts normally; a loop already visited in this scope is
+                // never restarted by a second converging branch.
+                else $active[$target][] = $id;
+            }
         }
         return $returned;
     }
 
-    private function execute(array $entry, WorkflowContext $context, callable $execute, array $iteration): array
+    private function execute(array $entry, WorkflowContext $context, callable $execute, array $iteration, ?array $inputSources = null): array
     {
         if (++$this->executed > 5000) throw new InvalidArgumentException('Превышен лимит 5000 выполнений нод. Обработайте список частями.');
         $step = $entry['step'];
         unset($step['config']['true_actions'], $step['config']['false_actions']);
-        $context->scopeToNode($this->definition, 'action:'.$step['id']);
+        $context->scopeToNode($this->definition, 'action:'.$step['id'], $inputSources);
         try { $result = $execute($step, $context, $entry['path'], $iteration); }
         finally { $context->clearNodeScope(); }
         if (!($result['success'] ?? false)) throw new \RuntimeException($result['error'] ?? 'Не удалось выполнить ноду.');
@@ -134,16 +132,14 @@ final class WorkflowLoopRunner
         $body = $this->bodies[$id];
         $context->forgetStepOutputs(array_map(fn ($key) => substr($key, 7), $body));
         $baseline = $context->toArray();
-        $explicitReturn = ($this->nodes[$id]['step']['config']['require_return'] ?? false)
-            || in_array($id, array_column($this->returns, 'targetId'), true);
         foreach ($items as $index => $item) {
             $context->restoreLoopState($baseline);
             $context->setStepOutput(substr($id, 7), ['_workflow_loop' => true, 'item' => $item, 'index' => $index]);
             $iteration = [...$parent, ['node' => substr($id, 7), 'index' => $index]];
-            $returned = $this->sequence($body, WorkflowGraph::targets($this->edges, $id, 'each'), $context, $execute, $iteration, $id);
-            // Legacy definitions retain implicit iteration. In a closed loop only
-            // a selected return path requests the next item; an open path stops here.
-            if ($explicitReturn && !$returned) return false;
+            $returned = $this->sequence($body, WorkflowGraph::targets($this->edges, $id, 'each'), $context, $execute, $iteration, $id, $id);
+            // Only a selected return path requests the next item, including old
+            // definitions that predate explicit return connections.
+            if (!$returned) return false;
         }
         if (!$preview || $items === []) {
             $context->restoreLoopState($baseline);

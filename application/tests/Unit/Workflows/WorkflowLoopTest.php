@@ -71,7 +71,9 @@ class WorkflowLoopTest extends TestCase
     public function test_all_items_repeat_body_and_done_runs_once_without_wrappers(): void
     {
         $context = $this->context();
-        $calls = $this->execute($this->definition(), $context);
+        $def = $this->definition();
+        $def['connections'][] = $this->edge('body', 'loop');
+        $calls = $this->execute($def, $context);
         $this->assertSame(['loop', 'body', 'body', 'body', 'after'], array_column($calls, 'id'));
         $this->assertSame([['id' => 1], ['id' => 2], ['id' => 3]], array_column(array_slice($calls, 1, 3), 'input'));
         $this->assertSame([['id' => 1], ['id' => 2], ['id' => 3]], $calls[4]['input']);
@@ -81,7 +83,9 @@ class WorkflowLoopTest extends TestCase
 
     public function test_once_and_empty_input(): void
     {
-        $this->assertSame(['loop', 'body', 'after'], array_column($this->execute($this->definition([['id' => 1], ['id' => 2]], 'once')), 'id'));
+        $def = $this->definition([['id' => 1], ['id' => 2]], 'once');
+        $def['connections'][] = $this->edge('body', 'loop');
+        $this->assertSame(['loop', 'body', 'after'], array_column($this->execute($def), 'id'));
         $this->assertSame(['loop', 'after'], array_column($this->execute($this->definition([])), 'id'));
     }
 
@@ -96,6 +100,8 @@ class WorkflowLoopTest extends TestCase
         // Converging on the after branch must not run it on each iteration.
         $def['connections'][] = $this->edge('yes', 'after');
         $def['connections'][] = $this->edge('no', 'after');
+        $def['connections'][] = $this->edge('yes', 'loop');
+        $def['connections'][] = $this->edge('no', 'loop');
         $calls = $this->execute($def, null, function ($step, $ctx) {
             if ($step['id'] === 'body') {
                 $this->assertNull($ctx->getStepOutput('yes'));
@@ -114,6 +120,8 @@ class WorkflowLoopTest extends TestCase
         $def['actions'][1] = $this->step('body', 'workflow_loop', ['items' => [1, 2]]);
         $def['actions'][] = $this->step('inner');
         $def['connections'][] = $this->edge('body', 'inner', 'each');
+        $def['connections'][] = $this->edge('inner', 'body');
+        $def['connections'][] = $this->edge('body', 'loop', 'done');
         $calls = $this->execute($def);
         $inner = array_values(array_filter($calls, fn ($call) => $call['id'] === 'inner'));
         $this->assertCount(4, $inner);
@@ -122,11 +130,8 @@ class WorkflowLoopTest extends TestCase
         $this->assertSame($keys[0], WorkflowLoopRunner::executionId('inner', $inner[0]['iteration']));
     }
 
-    public function test_invalid_cross_entry_and_cycles_are_rejected_before_execution(): void
+    public function test_invalid_cycles_are_rejected_before_execution(): void
     {
-        $def = $this->definition();
-        $def['connections'][] = $this->edge('trigger', 'body');
-        $this->assertStringContainsString('Внутрь цикла', implode(' ', WorkflowDefinitionValidator::issues($def)));
         $def = $this->definition();
         $def['connections'][] = $this->edge('after', 'loop');
         $this->assertStringContainsString('создаёт цикл', implode(' ', WorkflowDefinitionValidator::issues($def)));
@@ -160,7 +165,9 @@ class WorkflowLoopTest extends TestCase
     public function test_full_debugger_runs_all_iterations_and_advances_to_after(): void
     {
         $runner = $this->debugger();
-        $session = $runner->advance($runner->start($this->definition(), [], null, null));
+        $def = $this->definition();
+        $def['connections'][] = $this->edge('body', 'loop');
+        $session = $runner->advance($runner->start($def, [], null, null));
         $this->assertSame(['loop', 'body', 'body', 'body'], array_column($session['results'], 'id'));
         $this->assertSame('after', $session['pending'][0]['step']['id']);
         $this->assertSame([1, 2, 3], array_column(array_column(array_slice($session['results'], 1), 'output'), 'id'));
@@ -198,16 +205,25 @@ class WorkflowLoopTest extends TestCase
         $def['actions'][1] = $this->step('body', 'workflow_loop', ['items' => range(1, 10)]);
         $def['actions'][] = $this->step('inner');
         $def['connections'][] = $this->edge('body', 'inner', 'each');
+        $def['connections'][] = $this->edge('inner', 'body');
+        $def['connections'][] = $this->edge('body', 'loop', 'done');
         $this->expectExceptionMessage('лимит 5000');
         $this->execute($def);
     }
 
-    public function test_production_logs_separate_iterations_and_replay_reuses_each_write(): void
+    public static function entryVariants(): array
+    {
+        return ['loop only' => [false], 'loop and external entry' => [true]];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('entryVariants')]
+    public function test_production_logs_separate_iterations_and_replay_reuses_each_write(bool $external): void
     {
         \Tests\Support\WorkflowListDatabase::prepare();
         (require database_path('migrations/2026_06_09_160734_create_workflow_run_steps_table.php'))->up();
         $def = $this->definition();
         $def['connections'][] = $this->edge('body', 'loop');
+        if ($external) $def['connections'][] = $this->edge('trigger', 'body');
         $run = $this->getMockBuilder(\Leek\FilamentWorkflows\Models\WorkflowRun::class)->onlyMethods(['update'])->getMock();
         $run->id = 20;
         $run->method('update')->willReturn(true);
@@ -226,12 +242,15 @@ class WorkflowLoopTest extends TestCase
         };
         $context = $this->context();
         $executor->graph($context, $run);
-        $this->assertSame([['id' => 1], ['id' => 2], ['id' => 3], []], $executor->writes);
+        $expectedWrites = [['id' => 1], ['id' => 2], ['id' => 3]];
+        if ($external) $expectedWrites[] = ['id' => null];
+        $expectedWrites[] = [];
+        $this->assertSame($expectedWrites, $executor->writes);
         $executor->graph($context, $run);
-        $this->assertCount(4, $executor->writes);
+        $this->assertCount(count($expectedWrites), $executor->writes);
         $logs = $run->steps()->orderBy('id')->get();
-        $this->assertCount(5, $logs);
-        $this->assertCount(5, array_unique($logs->pluck('step_id')->all()));
+        $this->assertCount(count($expectedWrites) + 1, $logs);
+        $this->assertCount(count($expectedWrites) + 1, array_unique($logs->pluck('step_id')->all()));
         $this->assertSame('body', $logs[1]->input_data['_node_id']);
         $this->assertSame(0, $logs[1]->input_data['_loop_iteration'][0]['index']);
         $this->assertSame(1, $logs[2]->input_data['_loop_iteration'][0]['index']);
@@ -239,7 +258,7 @@ class WorkflowLoopTest extends TestCase
         $run->context_data = ['variables' => ['_definition_snapshot' => $def]];
         $run->setRelation('steps', $logs);
         $graph = \App\Services\Workflows\WorkflowExecutionGraph::fromRun($run);
-        $this->assertSame(['loop', 'body', 'body', 'body', 'after'], array_column($graph['results'], 'id'));
+        $this->assertSame($external ? ['loop', 'body', 'body', 'body', 'body', 'after'] : ['loop', 'body', 'body', 'body', 'after'], array_column($graph['results'], 'id'));
         $this->assertArrayNotHasKey('_node_id', $graph['results'][1]['input']);
         Http::assertNothingSent();
     }
@@ -375,7 +394,7 @@ class WorkflowLoopTest extends TestCase
         $this->assertSame(['loop', 'body', 'second', 'body', 'second', 'after'], array_column($this->execute($def), 'id'));
     }
 
-    public function test_import_export_preserves_return_edges_and_rejects_cross_entry(): void
+    public function test_import_export_preserves_return_edges_and_allows_cross_entry(): void
     {
         $def = $this->definition();
         $def['actions'][1]['type'] = $def['actions'][2]['type'] = 'http_request';
@@ -384,8 +403,111 @@ class WorkflowLoopTest extends TestCase
         $decoded = \App\Services\Workflows\WorkflowTransfer::decode($json);
         $this->assertSame($def['connections'], $decoded['definition']['connections']);
         $def['connections'][] = $this->edge('trigger', 'body');
-        $this->expectExceptionMessage('Внутрь цикла');
-        \App\Services\Workflows\WorkflowTransfer::decode(\App\Services\Workflows\WorkflowTransfer::encode('Недопустимый вход', $def));
+        $decoded = \App\Services\Workflows\WorkflowTransfer::decode(\App\Services\Workflows\WorkflowTransfer::encode('Внешний вход', $def));
+        $this->assertSame($def['connections'], $decoded['definition']['connections']);
+    }
+
+    public function test_old_and_new_open_loops_stop_after_first_item_regardless_of_legacy_flag(): void
+    {
+        foreach ([null, false, true] as $flag) {
+            $def = $this->definition();
+            if ($flag !== null) $def['actions'][0]['config']['require_return'] = $flag;
+            $calls = $this->execute($def);
+            $this->assertSame(['loop', 'body'], array_column($calls, 'id'));
+            $this->assertSame(['id' => 1], $calls[1]['input']);
+            $runner = $this->debugger();
+            $session = $runner->advance($runner->start($def, [], null, null));
+            $this->assertSame(['loop', 'body'], array_column($session['results'], 'id'));
+            $this->assertSame('completed', $session['status']);
+            $this->assertSame([], $session['pending']);
+        }
+    }
+
+    public function test_editor_allows_external_entry_and_each_scope_runs_with_its_own_input(): void
+    {
+        $def = $this->definition([['id' => 1], ['id' => 2]]);
+        $def['connections'][] = $this->edge('body', 'loop');
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $def['actions']])->set('definition', $def)
+            ->call('connectWorkflowNodes', 'trigger', 'output', 'action:body');
+        $def = $page->get('definition');
+        $this->assertContains($this->edge('trigger', 'body'), $def['connections']);
+        $context = $this->context()->setTriggerData(['external' => true]);
+        $calls = $this->execute($def, $context);
+        $this->assertSame(['loop', 'body', 'body', 'body', 'after'], array_column($calls, 'id'));
+        $this->assertSame([['id' => 1], ['id' => 2], ['external' => true]], array_column(array_slice($calls, 1, 3), 'input'));
+        $this->assertSame([], $calls[3]['iteration']);
+        $this->assertCount(5, array_unique(array_map(fn ($call) => WorkflowLoopRunner::executionId($call['id'], $call['iteration']), $calls)));
+
+        $runner = $this->debugger();
+        $session = $runner->start($def, ['external' => true], null, null);
+        for ($i = 0; $i < 8 && $session['status'] === 'ready'; $i++) $session = $runner->advance($session);
+        $this->assertSame('completed', $session['status'], $session['error'] ?? '');
+        $this->assertSame(array_column($calls, 'id'), array_column($session['results'], 'id'));
+        $this->assertEmpty($session['results'][3]['iteration'] ?? []);
+    }
+
+    public function test_external_entry_can_run_an_open_body_without_starting_the_loop(): void
+    {
+        $def = $this->definition();
+        $def['connections'][0] = $this->edge('trigger', 'body');
+        $calls = $this->execute($def, $this->context()->setTriggerData(['external' => true]));
+        $this->assertSame(['body'], array_column($calls, 'id'));
+        $this->assertSame(['external' => true], $calls[0]['input']);
+        $this->assertSame([], $calls[0]['iteration']);
+    }
+
+    public function test_external_return_starts_unvisited_loop_with_the_returning_node_input(): void
+    {
+        $def = $this->definition();
+        $def['connections'][0] = $this->edge('trigger', 'body');
+        $def['connections'][] = $this->edge('body', 'loop');
+        $def['actions'][0]['config']['items'] = '{{ $json }}';
+        $def['actions'][1]['config'] = [['id' => 8], ['id' => 9]];
+        $calls = $this->execute($def);
+        $this->assertSame(['body', 'loop', 'body', 'body', 'after'], array_column($calls, 'id'));
+        $this->assertSame([['id' => 8], ['id' => 9]], $calls[1]['input']);
+        $this->assertSame([['id' => 8], ['id' => 9]], array_column(array_slice($calls, 2, 2), 'input'));
+
+        $runner = $this->debugger();
+        $session = $runner->start($def, [], null, null);
+        for ($i = 0; $i < 8 && $session['status'] === 'ready'; $i++) $session = $runner->advance($session);
+        $this->assertSame('completed', $session['status'], $session['error'] ?? '');
+        $this->assertSame(array_column($calls, 'id'), array_column($session['results'], 'id'));
+    }
+
+    public function test_two_loops_can_share_nodes_without_advancing_each_other(): void
+    {
+        $def = $this->definition([['id' => 1], ['id' => 2]]);
+        $def['actions'][] = $this->step('other', 'workflow_loop', ['items' => [['id' => 3], ['id' => 4]]]);
+        $def['connections'][] = $this->edge('trigger', 'other');
+        $def['connections'][] = $this->edge('other', 'body', 'each');
+        $def['connections'][] = $this->edge('body', 'loop');
+        $def['connections'][] = $this->edge('body', 'other');
+        $calls = $this->execute($def);
+        $this->assertSame(['loop', 'body', 'body', 'other', 'body', 'body', 'after'], array_column($calls, 'id'));
+        $body = array_values(array_filter($calls, fn ($call) => $call['id'] === 'body'));
+        $this->assertSame([['id' => 1], ['id' => 2], ['id' => 3], ['id' => 4]], array_column($body, 'input'));
+        $this->assertCount(4, array_unique(array_map(fn ($call) => WorkflowLoopRunner::executionId('body', $call['iteration']), $body)));
+        $runner = $this->debugger();
+        $session = $runner->start($def, [], null, null);
+        for ($i = 0; $i < 8 && $session['status'] === 'ready'; $i++) $session = $runner->advance($session);
+        $this->assertSame('completed', $session['status'], $session['error'] ?? '');
+        $this->assertSame(array_column($calls, 'id'), array_column($session['results'], 'id'));
+    }
+
+    public function test_an_inactive_external_branch_does_not_run_or_override_loop_input(): void
+    {
+        $def = $this->definition([['id' => 7], ['id' => 8]]);
+        $def['actions'][] = $this->step('gate', 'control-condition');
+        $def['actions'][] = $this->step('external');
+        $def['connections'][0] = $this->edge('trigger', 'gate');
+        $def['connections'][] = $this->edge('gate', 'loop', 'yes');
+        $def['connections'][] = $this->edge('gate', 'external', 'no');
+        $def['connections'][] = $this->edge('external', 'body');
+        $def['connections'][] = $this->edge('body', 'loop');
+        $calls = $this->execute($def, null, fn () => ['success' => true, 'output' => ['passed' => true]]);
+        $this->assertSame(['gate', 'loop', 'body', 'body', 'after'], array_column($calls, 'id'));
+        $this->assertSame([['id' => 7], ['id' => 8]], array_column(array_slice($calls, 2, 2), 'input'));
     }
 
     public function test_inserting_on_return_and_removing_tail_preserve_the_loop(): void

@@ -17,11 +17,19 @@ class WorkflowContext extends BaseWorkflowContext
     private ?array $customFieldScope = null;
 
     /** Scope implicit input to connected predecessors; explicit node references stay available. */
-    public function scopeToNode(array $definition, string $nodeId): void
+    public function scopeToNode(array $definition, string $nodeId, ?array $inputSources = null): void
     {
         $graph = \App\Services\Workflows\WorkflowGraph::class;
         $nodes = $graph::nodes($definition['actions'] ?? []);
         $edges = $graph::forwardConnections($definition);
+        if ($inputSources !== null) {
+            // Use the incoming paths actually taken in this execution scope.
+            // A static external input must not replace the current loop item.
+            $edges = array_values(array_filter($edges, fn ($edge) => $edge['targetId'] !== $nodeId));
+            foreach ($graph::connections($definition) as $edge) {
+                if ($edge['targetId'] === $nodeId && in_array($edge['sourceId'], $inputSources, true)) $edges[] = $edge;
+            }
+        }
         $start = \App\Services\Workflows\WorkflowStartNodes::selected($definition, $this->getTriggerData());
         $this->customFieldScope = compact('nodes', 'edges', 'start', 'nodeId');
         $this->upstreamStepIds = array_fill_keys(array_map(fn ($id) => substr($id, 7), $graph::ancestors($definition, $nodeId)), true);

@@ -23,13 +23,13 @@ class WorkflowLoopAction
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
         return [
-            \Filament\Forms\Components\Hidden::make('require_return')->default(false),
+            \Filament\Forms\Components\Hidden::make('require_return')->default(true),
             WorkflowValueInput::make('items')->label('Что подать в цикл')->required()
                 ->default('{{ $json }}')->placeholder('{{ $("Получить заказы").result }}')
                 ->helperText('Выберите список из предыдущей ноды или укажите JSON-массив. Внутри ветки текущий элемент доступен через $("Цикл").'),
             Select::make('mode')->label('Сколько элементов обработать')->required()->default('all')
                 ->options(['all' => 'Все элементы', 'once' => 'Один раз: только первый элемент'])
-                ->helperText('Соедините конец ветки «Каждый элемент» со входом цикла: возврат берёт следующий элемент. «Готово» сработает после всего списка. Старые потоки без возвратной связи сохраняют прежний перебор.'),
+                ->helperText('Соедините конец ветки «Каждый элемент» со входом цикла: возврат берёт следующий элемент. Без возврата выполняется только первый элемент. «Готово» сработает после возврата с последнего элемента или для пустого списка.'),
         ];
     }
 
