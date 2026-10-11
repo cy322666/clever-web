@@ -21,7 +21,7 @@ class WorkflowContext extends BaseWorkflowContext
     {
         $graph = \App\Services\Workflows\WorkflowGraph::class;
         $nodes = $graph::nodes($definition['actions'] ?? []);
-        $edges = $graph::connections($definition);
+        $edges = $graph::forwardConnections($definition);
         $start = \App\Services\Workflows\WorkflowStartNodes::selected($definition, $this->getTriggerData());
         $this->customFieldScope = compact('nodes', 'edges', 'start', 'nodeId');
         $this->upstreamStepIds = array_fill_keys(array_map(fn ($id) => substr($id, 7), $graph::ancestors($definition, $nodeId)), true);

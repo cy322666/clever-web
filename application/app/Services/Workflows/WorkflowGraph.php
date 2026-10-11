@@ -52,7 +52,43 @@ final class WorkflowGraph
         ));
     }
 
-    /** Validates endpoints and rejects cycles, including cycles among disconnected nodes. */
+    /** Return edges close a loop's own iteration, not an arbitrary graph cycle. */
+    public static function loopReturns(array $definition): array
+    {
+        $nodes = self::nodes($definition['actions'] ?? []);
+        $edges = self::connections($definition);
+        $returns = [];
+        foreach ($nodes as $id => $node) {
+            if (!self::loop($node['step'])) continue;
+            $pending = self::targets($edges, $id, 'each');
+            $seen = [];
+            while ($pending !== []) {
+                $next = array_pop($pending);
+                if ($next === $id || isset($seen[$next]) || !isset($nodes[$next])) continue;
+                $seen[$next] = true;
+                // A nested loop is opaque: only its done branch belongs to this iteration.
+                foreach ($edges as $edge) {
+                    if ($edge['sourceId'] === $next && (!self::loop($nodes[$next]['step']) || $edge['sourcePort'] === 'done')) {
+                        $pending[] = $edge['targetId'];
+                    }
+                }
+            }
+            foreach ($edges as $index => $edge) {
+                if ($edge['targetId'] === $id && isset($seen[$edge['sourceId']])
+                    && (!self::loop($nodes[$edge['sourceId']]['step']) || $edge['sourcePort'] === 'done')) {
+                    $returns[$index] = $edge;
+                }
+            }
+        }
+        return $returns;
+    }
+
+    public static function forwardConnections(array $definition): array
+    {
+        return array_values(array_diff_key(self::connections($definition), self::loopReturns($definition)));
+    }
+
+    /** Validates endpoints; only structured iteration returns may close a cycle. */
     public static function ordered(array $definition): array
     {
         $nodes = self::nodes($definition['actions'] ?? []);
@@ -76,13 +112,15 @@ final class WorkflowGraph
             }
             $key = $source.'|'.$port.'|'.$target;
             if (isset($seen[$key])) throw new InvalidArgumentException('Эта связь уже существует.');
-            if (isset($nodes[$source]) && self::condition($nodes[$source]['step'])) {
+            if (isset($nodes[$source]) && self::condition($nodes[$source]['step']) && !self::loop($nodes[$target]['step'])) {
                 $other = $source.'|'.($port === 'yes' ? 'no' : 'yes').'|'.$target;
                 if (isset($seen[$other])) throw new InvalidArgumentException('Ветки «Да» и «Нет» одного условия нельзя подключить к одной ноде.');
             }
             $seen[$key] = true;
-            if (!isset($starts[$source])) $incoming[$target]++;
-            $outgoing[$source][] = $target;
+        }
+        foreach (self::forwardConnections($definition) as $edge) {
+            if (!isset($starts[$edge['sourceId']])) $incoming[$edge['targetId']]++;
+            $outgoing[$edge['sourceId']][] = $edge['targetId'];
         }
         $ready = array_keys(array_filter($incoming, fn ($count) => $count === 0));
         $ordered = [];
@@ -93,7 +131,7 @@ final class WorkflowGraph
                 if (--$incoming[$target] === 0) $ready[] = $target;
             }
         }
-        if (count($ordered) !== count($nodes)) throw new InvalidArgumentException('Связь создаёт цикл. Уберите обратную связь.');
+        if (count($ordered) !== count($nodes)) throw new InvalidArgumentException('Связь создаёт цикл. Возвращаться можно только во вход своей ноды «Цикл».');
         return $ordered;
     }
 
@@ -105,7 +143,7 @@ final class WorkflowGraph
 
     public static function ancestors(array $definition, string $target): array
     {
-        $edges = self::connections($definition);
+        $edges = self::forwardConnections($definition);
         $seen = [];
         $visit = function (string $id) use (&$visit, &$seen, $edges): void {
             foreach ($edges as $edge) {

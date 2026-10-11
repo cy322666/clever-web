@@ -54,9 +54,12 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         return $results;
     }
 
+    protected bool $loopReachedDone = false;
+
     protected function executeLoopTestGraph(array $definition, WorkflowContext $context, ?string $root = null, bool $preview = false): array
     {
         $results = [];
+        $this->loopReachedDone = false;
         $lastId = $root ?? '';
         try {
             $runner = new \App\Services\Workflows\WorkflowLoopRunner($definition);
@@ -77,7 +80,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
                 $results[] = $result;
                 return ['success' => !in_array($result['status'], ['error', 'validation_error', 'failed'], true), 'output' => $result['output'] ?? [], 'error' => $result['error'] ?? null];
             };
-            if ($root !== null) $runner->runNode('action:'.$root, $context, $execute, $preview);
+            if ($root !== null) $this->loopReachedDone = $runner->runNode('action:'.$root, $context, $execute, $preview);
             else $runner->run($context, $execute);
             if ($preview && isset($results[0])) $results[0]['output'] = $context->getStepOutput($root);
         } catch (\Throwable $error) {

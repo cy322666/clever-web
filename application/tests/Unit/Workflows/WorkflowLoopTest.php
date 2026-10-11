@@ -128,7 +128,7 @@ class WorkflowLoopTest extends TestCase
         $def['connections'][] = $this->edge('trigger', 'body');
         $this->assertStringContainsString('Внутрь цикла', implode(' ', WorkflowDefinitionValidator::issues($def)));
         $def = $this->definition();
-        $def['connections'][] = $this->edge('body', 'loop');
+        $def['connections'][] = $this->edge('after', 'loop');
         $this->assertStringContainsString('создаёт цикл', implode(' ', WorkflowDefinitionValidator::issues($def)));
         $def = $this->definition();
         $def['connections'][] = $this->edge('loop', 'body', 'done');
@@ -207,6 +207,7 @@ class WorkflowLoopTest extends TestCase
         \Tests\Support\WorkflowListDatabase::prepare();
         (require database_path('migrations/2026_06_09_160734_create_workflow_run_steps_table.php'))->up();
         $def = $this->definition();
+        $def['connections'][] = $this->edge('body', 'loop');
         $run = $this->getMockBuilder(\Leek\FilamentWorkflows\Models\WorkflowRun::class)->onlyMethods(['update'])->getMock();
         $run->id = 20;
         $run->method('update')->willReturn(true);
@@ -250,7 +251,7 @@ class WorkflowLoopTest extends TestCase
         $node = $page->get('workflowActions')[0];
         $this->assertSame('workflow_loop', $node['type']);
         $this->assertArrayHasKey('connections', $page->get('definition'));
-        $page->assertSee('Каждый элемент')->assertSee('После цикла');
+        $page->assertSee('Каждый элемент')->assertSee('Готово');
         $page->call('openWorkflowActionEditor', $node['id']);
         $schema = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance());
         view()->share('errors', new \Illuminate\Support\ViewErrorBag);
@@ -258,8 +259,150 @@ class WorkflowLoopTest extends TestCase
         $page->set('mountedActions.0.data.items', '[{"id":17},{"id":18}]')->set('mountedActions.0.data.mode', 'once')
             ->call('callMountedAction')->assertHasNoErrors();
         $this->assertSame('once', $page->get('workflowActions')[0]['config']['mode']);
+        $this->assertTrue($page->get('workflowActions')[0]['config']['require_return']);
         $page->call('openWorkflowActionEditor', $node['id'])->assertSet('mountedActions.0.data.mode', 'once');
         $edges = WorkflowCanvasGraph::edges([$node], []);
         $this->assertSame(['each', 'done'], array_column(array_filter($edges, fn ($edge) => $edge['sourceId'] === 'action:'.$node['id']), 'sourcePort'));
+    }
+
+    public function test_explicit_return_advances_items_without_reexecuting_loop_and_done_runs_once(): void
+    {
+        $def = $this->definition();
+        $def['connections'][] = $this->edge('body', 'loop');
+        $context = $this->context();
+        $calls = $this->execute($def, $context);
+        $this->assertSame(['loop', 'body', 'body', 'body', 'after'], array_column($calls, 'id'));
+        $this->assertSame([['id' => 1], ['id' => 2], ['id' => 3]], $calls[4]['input']);
+        $this->assertSame([], WorkflowGraph::ancestors($def, 'action:loop'));
+        $this->assertSame(['action:loop'], WorkflowGraph::ancestors($def, 'action:body'));
+        $edges = WorkflowCanvasGraph::edges($def['actions'], $def['connections']);
+        $returns = array_values(array_filter($edges, fn ($e) => $e['loopReturn'] ?? false));
+        $this->assertCount(1, $returns);
+        $this->assertSame('action:body', $returns[0]['sourceId']);
+        $this->assertSame('action:loop', $returns[0]['targetId']);
+    }
+
+    public function test_either_condition_output_can_return_directly_to_its_loop(): void
+    {
+        $def = $this->definition();
+        $def['actions'][1] = $this->step('body', 'control-condition');
+        $def['connections'][] = $this->edge('body', 'loop', 'yes');
+        $def['connections'][] = $this->edge('body', 'loop', 'no');
+        $calls = $this->execute($def, null, fn ($step, $ctx) => ['success' => true, 'output' => ['passed' => $ctx->get('$("Цикл").id') !== 2]]);
+        $this->assertSame(['loop', 'body', 'body', 'body', 'after'], array_column($calls, 'id'));
+    }
+
+    public function test_an_open_selected_branch_stops_iteration_without_done(): void
+    {
+        $def = $this->definition();
+        $def['actions'][1] = $this->step('body', 'control-condition');
+        $def['connections'][] = $this->edge('body', 'loop', 'yes');
+        $calls = $this->execute($def, null, fn ($step, $ctx) => ['success' => true, 'output' => ['passed' => $ctx->get('$("Цикл").id') !== 2]]);
+        $this->assertSame(['loop', 'body', 'body'], array_column($calls, 'id'));
+        $def['actions'][0]['config']['require_return'] = true;
+        array_pop($def['connections']);
+        $this->assertSame(['loop', 'body'], array_column($this->execute($def), 'id'));
+    }
+
+    public function test_closed_nested_loops_return_to_their_own_scope(): void
+    {
+        $def = $this->definition([1, 2]);
+        $def['actions'][1] = $this->step('body', 'workflow_loop', ['items' => [10, 20]]);
+        $def['actions'][] = $this->step('inner');
+        $def['connections'][] = $this->edge('body', 'inner', 'each');
+        $def['connections'][] = $this->edge('inner', 'body');
+        $def['connections'][] = $this->edge('body', 'loop', 'done');
+        $calls = $this->execute($def);
+        $this->assertSame(['loop', 'body', 'inner', 'inner', 'body', 'inner', 'inner', 'after'], array_column($calls, 'id'));
+        $this->assertCount(2, WorkflowGraph::loopReturns($def));
+        $def['connections'][] = $this->edge('inner', 'loop');
+        $this->expectException(\InvalidArgumentException::class);
+        new WorkflowLoopRunner($def);
+    }
+
+    public function test_closed_loop_once_empty_disabled_and_failure(): void
+    {
+        foreach ([['once', [1, 2], ['loop', 'body', 'after']], ['all', [], ['loop', 'after']]] as [$mode, $items, $expected]) {
+            $def = $this->definition($items, $mode);
+            $def['connections'][] = $this->edge('body', 'loop');
+            $this->assertSame($expected, array_column($this->execute($def), 'id'));
+        }
+        $def = $this->definition();
+        $def['connections'][] = $this->edge('body', 'loop');
+        $def['actions'][0]['disabled'] = true;
+        $this->assertSame(['loop', 'after'], array_column($this->execute($def), 'id'));
+        unset($def['actions'][0]['disabled']);
+        $this->expectExceptionMessage('test failure');
+        $this->execute($def, null, fn () => ['success' => false, 'error' => 'test failure']);
+    }
+
+    public function test_debugger_only_activates_done_after_an_actual_return(): void
+    {
+        $def = $this->definition();
+        $def['actions'][0]['config']['require_return'] = true;
+        $runner = $this->debugger();
+        $session = $runner->advance($runner->start($def, [], null, null));
+        $this->assertSame(['loop', 'body'], array_column($session['results'], 'id'));
+        $this->assertSame([], $session['pending']);
+        $def['connections'][] = $this->edge('body', 'loop');
+        $session = $runner->advance($runner->start($def, [], null, null));
+        $this->assertSame('after', $session['pending'][0]['step']['id']);
+        $preview = $runner->executeNode($def['actions'][0], [], [], null, null, false, $def);
+        $this->assertSame(['loop', 'body'], array_column($preview['results'], 'id'));
+        $this->assertSame(1, $preview['results'][1]['output']['id']);
+    }
+
+    public function test_editor_connects_and_disconnects_a_return_without_enabling_implicit_iteration(): void
+    {
+        $def = $this->definition();
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $def['actions']])->set('definition', $def)
+            ->call('connectWorkflowNodes', 'action:body', 'output', 'action:loop');
+        $this->assertCount(4, $page->get('definition')['connections']);
+        $this->assertTrue($page->get('workflowActions')[0]['config']['require_return']);
+        $page->assertSeeHtml('data-workflow-loop-return="true"');
+        $page->call('disconnectWorkflowNodes', 'action:body', 'output', 'action:loop');
+        $this->assertTrue($page->get('workflowActions')[0]['config']['require_return']);
+        $this->assertSame(['loop', 'body'], array_column($this->execute($page->get('definition')), 'id'));
+    }
+
+    public function test_parallel_returns_advance_once_and_keep_both_branches(): void
+    {
+        $def = $this->definition([1, 2]);
+        $def['actions'][] = $this->step('second');
+        $def['connections'][] = $this->edge('loop', 'second', 'each');
+        $def['connections'][] = $this->edge('body', 'loop');
+        $def['connections'][] = $this->edge('second', 'loop');
+        $this->assertSame(['loop', 'body', 'second', 'body', 'second', 'after'], array_column($this->execute($def), 'id'));
+    }
+
+    public function test_import_export_preserves_return_edges_and_rejects_cross_entry(): void
+    {
+        $def = $this->definition();
+        $def['actions'][1]['type'] = $def['actions'][2]['type'] = 'http_request';
+        $def['connections'][] = $this->edge('body', 'loop');
+        $json = \App\Services\Workflows\WorkflowTransfer::encode('Замкнутый цикл', $def);
+        $decoded = \App\Services\Workflows\WorkflowTransfer::decode($json);
+        $this->assertSame($def['connections'], $decoded['definition']['connections']);
+        $def['connections'][] = $this->edge('trigger', 'body');
+        $this->expectExceptionMessage('Внутрь цикла');
+        \App\Services\Workflows\WorkflowTransfer::decode(\App\Services\Workflows\WorkflowTransfer::encode('Недопустимый вход', $def));
+    }
+
+    public function test_inserting_on_return_and_removing_tail_preserve_the_loop(): void
+    {
+        $def = $this->definition();
+        $def['actions'][0]['config']['require_return'] = true;
+        $def['connections'][] = $this->edge('body', 'loop');
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $def['actions']])->set('definition', $def);
+        $page->call('openAddActionOnConnection', 'action:body', 'output', 'action:loop')->call('selectActionType', 'http_request');
+        $this->assertCount(4, $page->get('workflowActions'));
+        $this->assertCount(1, WorkflowGraph::loopReturns($page->get('definition')));
+        $this->assertCount(8, $this->execute($page->get('definition')));
+        $return = array_values(WorkflowGraph::loopReturns($page->get('definition')))[0];
+        $page->call('removeWorkflowAction', substr($return['sourceId'], 7));
+        $this->assertSame('action:body', array_values(WorkflowGraph::loopReturns($page->get('definition')))[0]['sourceId']);
+        $page->call('removeWorkflowAction', 'body');
+        $this->assertSame([], WorkflowGraph::targets($page->get('definition')['connections'], 'action:loop', 'each'));
+        $this->assertSame(['loop'], array_column($this->execute($page->get('definition')), 'id'));
     }
 }

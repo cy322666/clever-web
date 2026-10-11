@@ -287,8 +287,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const stage = this.$refs.stage;
         if (!stage) return;
         const nodes = this.cardPositions();
-        const edges = Array.from(stage.querySelectorAll('[data-workflow-edge-target]')).map(e => ({source:e.dataset.workflowEdgeSource,target:e.dataset.workflowEdgeTarget}));
-        this.pendingInsertion = {sourceId,targetId,nodes,edges,dropPosition};
+        const controls = Array.from(stage.querySelectorAll('[data-workflow-edge-target]'));
+        const loopReturn = controls.some(e => e.dataset.workflowEdgeSource === sourceId && e.dataset.workflowEdgeTarget === targetId && e.dataset.workflowLoopReturn === 'true');
+        const edges = controls.filter(e => e.dataset.workflowLoopReturn !== 'true').map(e => ({source:e.dataset.workflowEdgeSource,target:e.dataset.workflowEdgeTarget}));
+        this.pendingInsertion = {sourceId,targetId,nodes,edges,dropPosition,loopReturn};
     },
 
     placeInsertedNode(detail) {
@@ -299,7 +301,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const source = before.nodes[detail.sourceId];
             if (!source) return;
             const desired = {...before.nodes};
-            const inserted = {x:source.x+192,y:before.nodes[detail.targetId]?.y ?? source.y+(['yes', 'each'].includes(detail.sourcePort) ? -180 : ['no', 'done'].includes(detail.sourcePort) ? 180 : 0)};
+            const inserted = before.loopReturn
+                ? {x:(source.x + (before.nodes[detail.targetId]?.x ?? source.x)) / 2,y:Math.max(...Object.values(desired).map(p=>p.y))+180}
+                : {x:source.x+192,y:before.nodes[detail.targetId]?.y ?? source.y+(['yes', 'done'].includes(detail.sourcePort) ? -180 : ['no', 'each'].includes(detail.sourcePort) ? 180 : 0)};
             if (before.dropPosition) {
                 const node = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId);
                 const box = node?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
@@ -307,7 +311,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 inserted.y = before.dropPosition.y - (box?.height ?? 96 * this.scale) / this.scale / 2;
             }
             const downstream = new Set();
-            const queue = detail.targetId ? [detail.targetId] : [];
+            const queue = detail.targetId && !before.loopReturn ? [detail.targetId] : [];
             while (queue.length) {
                 const id = queue.shift();
                 if (downstream.has(id) || id === detail.sourceId) continue;
@@ -554,6 +558,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const controls = this.$refs.stage?.querySelector('.workflow-node-edge-controls') || this.$refs.edgeControls;
         const edges = Array.from(controls?.querySelectorAll('[data-workflow-edge-target]') || []).map(el => ({
             source: el.dataset.workflowEdgeSource, target: el.dataset.workflowEdgeTarget, port: el.dataset.workflowEdgePort,
+            loopReturn: el.dataset.workflowLoopReturn === 'true',
         }));
         const desired = this.graphLayout(this.nodeElements().map(node => node.dataset.workflowNodeId), edges);
         if (!desired) return; // Never destroy a saved layout for an invalid cyclic graph.
@@ -566,6 +571,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const nodes = new Map(ids.map(id => [id, {id, incoming: [], outgoing: [], rank: 0, children: []}]));
         const seen = new Set();
         edges.forEach(edge => {
+            if (edge.loopReturn) return;
             const key = JSON.stringify([edge.source, edge.target]);
             if (!nodes.has(edge.source) || !nodes.has(edge.target) || seen.has(key)) return;
             seen.add(key);
@@ -591,7 +597,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const parent = [...node.incoming].sort((a, b) => nodes.get(b.source).rank - nodes.get(a.source).rank)[0];
             if (parent) nodes.get(parent.source).children.push({node, port: parent.port});
         });
-        const portOrder = {yes: 0, output: 1, no: 2};
+        const portOrder = {yes: 0, done: 0, output: 1, no: 2, each: 2};
         nodes.forEach(node => node.children.sort((a, b) => (portOrder[a.port] ?? 1) - (portOrder[b.port] ?? 1)));
         // Post-order leaf lanes keep both short and nested branches apart.
         let lane = 0;
@@ -805,6 +811,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             node.querySelector('[data-workflow-node-card]') || node,
             node.querySelector('.workflow-node-card__caption'),
         ].filter(Boolean).map((el) => el.getBoundingClientRect()));
+        const edgeLayer = stage.querySelector?.('.workflow-node-edge-layer') || this.$refs.edgeLayer;
+        boxes.push(...Array.from(edgeLayer?.querySelectorAll?.('[data-workflow-loop-return]') || []).map(el => el.getBoundingClientRect()));
         if (!boxes.length) return;
         const left = (Math.min(...boxes.map((r) => r.left)) - stageRect.left) / currentScale;
         const top = (Math.min(...boxes.map((r) => r.top)) - stageRect.top) / currentScale;
@@ -1135,6 +1143,16 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         });
     },
 
+    loopReturnPath(startX, startY, endX, endY, bottom) {
+        const right = Math.max(startX, endX) + 48;
+        const left = Math.min(startX, endX) - 48;
+        const r = 16;
+        return {
+            d: `M ${startX} ${startY} H ${right-r} Q ${right} ${startY} ${right} ${startY+r} V ${bottom-r} Q ${right} ${bottom} ${right-r} ${bottom} H ${left+r} Q ${left} ${bottom} ${left} ${bottom-r} V ${endY+r} Q ${left} ${endY} ${left+r} ${endY} H ${endX}`,
+            x: (left + right) / 2, y: bottom, right,
+        };
+    },
+
     drawConnections() {
         const stage = this.$refs.stage;
         const edgeLayer = stage?.querySelector('.workflow-node-edge-layer') || this.$refs.edgeLayer;
@@ -1189,6 +1207,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         };
         let maxX = stage.clientWidth;
         let maxY = stage.clientHeight;
+        let returnLane = 0;
 
         controls.filter((button) => button.dataset.workflowEdgeTarget).forEach((button) => {
             const sourceId = button.dataset.workflowEdgeSource;
@@ -1213,6 +1232,21 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const startY = (sourceRect.top + sourceRect.height / 2 - stageRect.top) / scale;
             const endX = ((targetPortElement ? targetRect.left + targetRect.width / 2 : targetRect.left) - stageRect.left) / scale;
             const endY = (targetRect.top + targetRect.height / 2 - stageRect.top) / scale;
+            if (button.dataset.workflowLoopReturn === 'true') {
+                // Keep the return below cards and their captions, including all
+                // branches between the loop and its tail. Never cut through a node.
+                const bottoms = nodes.map(node => node.querySelector('[data-workflow-node-card]')?.getBoundingClientRect())
+                    .filter(rect => rect && rect.right >= Math.min(sourceRect.left, targetRect.left) && rect.left <= Math.max(sourceRect.right, targetRect.right))
+                    .map(rect => (rect.top + rect.height - stageRect.top) / scale);
+                const bottom = Math.max(startY, endY, ...bottoms) + 96 + returnLane++ * 24;
+                const route = this.loopReturnPath(startX, startY, endX, endY, bottom);
+                paths.push({d:route.d, port:sourcePort, active:button.dataset.workflowEdgeActive, loopReturn:true,
+                    edge:{sourceId,sourcePort,targetId:button.dataset.workflowEdgeTarget},control:button});
+                positionControl(button, route.x, route.y);
+                maxX = Math.max(maxX, route.right);
+                maxY = Math.max(maxY, bottom + 24);
+                return;
+            }
             const distance = Math.hypot(endX - startX, endY - startY);
             const curve = Math.min(240, Math.max(48, distance * 0.38));
             const sourceVector = portVector(sourcePortElement ? sourceRect : null, sourceCardRect, {x: 1, y: 0});
@@ -1319,7 +1353,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             definitions.appendChild(marker);
         });
 
-        const edgePaths = paths.flatMap(({d, port, active, edge, preview, control}) => {
+        const edgePaths = paths.flatMap(({d, port, active, edge, preview, control, loopReturn}) => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const modifier = port === 'yes' || port === 'no' ? ` workflow-node-edge--${port}` : '';
             const completed = !preview && this.edgeCompleted(edge, active);
@@ -1328,6 +1362,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             path.setAttribute('d', d);
             path.setAttribute('class', `workflow-node-edge${modifier}${completed ? ' workflow-node-edge--completed' : ''}`);
             path.setAttribute('marker-end', `url(#workflow-edge-arrow-${marker})`);
+            if (loopReturn) path.setAttribute('data-workflow-loop-return', 'true');
             path.dataset.workflowEdgePort = port;
             if (active !== undefined) path.dataset.workflowEdgeActive = active;
             if (preview) path.classList.add('workflow-node-edge--preview');

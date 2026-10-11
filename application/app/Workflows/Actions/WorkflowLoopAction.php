@@ -18,17 +18,18 @@ class WorkflowLoopAction
     public static function workflowDescription(): string { return 'Выполнить ветку для каждого элемента списка'; }
     public static function workflowIcon(): string { return 'heroicon-o-arrow-path'; }
     public static function workflowCategory(): string { return 'Управление потоком'; }
-    public static function workflowDefaultConfig(): array { return ['items' => '{{ $json }}', 'mode' => 'all']; }
+    public static function workflowDefaultConfig(): array { return ['items' => '{{ $json }}', 'mode' => 'all', 'require_return' => true]; }
 
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
         return [
+            \Filament\Forms\Components\Hidden::make('require_return')->default(false),
             WorkflowValueInput::make('items')->label('Что подать в цикл')->required()
                 ->default('{{ $json }}')->placeholder('{{ $("Получить заказы").result }}')
                 ->helperText('Выберите список из предыдущей ноды или укажите JSON-массив. Внутри ветки текущий элемент доступен через $("Цикл").'),
             Select::make('mode')->label('Сколько элементов обработать')->required()->default('all')
                 ->options(['all' => 'Все элементы', 'once' => 'Один раз: только первый элемент'])
-                ->helperText('«Каждый элемент» повторяет подключённую ветку. «После цикла» выполняется один раз после её завершения. Обратная связь не нужна.'),
+                ->helperText('Соедините конец ветки «Каждый элемент» со входом цикла: возврат берёт следующий элемент. «Готово» сработает после всего списка. Старые потоки без возвратной связи сохраняют прежний перебор.'),
         ];
     }
 

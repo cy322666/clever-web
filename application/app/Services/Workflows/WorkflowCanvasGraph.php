@@ -9,7 +9,11 @@ final class WorkflowCanvasGraph
     {
         if ($connections !== null) {
             $nodes = WorkflowGraph::nodes($actions);
-            $edges = array_map(fn ($edge) => $edge + ['path' => '', 'index' => 0], $connections);
+            $returns = WorkflowGraph::loopReturns(['actions' => $actions, 'connections' => $connections]);
+            $edges = [];
+            foreach ($connections as $index => $edge) {
+                $edges[] = $edge + ['path' => '', 'index' => 0, 'loopReturn' => isset($returns[$index])];
+            }
             foreach (array_fill_keys($startIds, ['step' => ['type' => 'trigger']]) + $nodes as $id => $node) {
                 $condition = WorkflowGraph::condition($node['step']);
 

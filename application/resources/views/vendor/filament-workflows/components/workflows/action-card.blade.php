@@ -11,7 +11,7 @@
     $actionType = $action['type'] ?? '';
     $isCondition = in_array($actionType, ['condition', 'control-condition'], true);
     $isLoop = $actionType === 'workflow_loop';
-    $branchPorts = $isLoop ? ['each' => 'Каждый элемент', 'done' => 'После цикла'] : ['yes' => 'Да', 'no' => 'Нет'];
+    $branchPorts = $isLoop ? ['done' => 'Готово', 'each' => 'Каждый элемент'] : ['yes' => 'Да', 'no' => 'Нет'];
     $disabled = (bool) ($action['disabled'] ?? false);
     $actionName = trim((string) ($action['name'] ?? '')) ?: ($isCondition ? 'Условие' : ($metadata['name'] ?? 'Действие'));
     $icon = $metadata['icon'] ?? ($isCondition ? 'heroicon-o-arrows-right-left' : 'heroicon-o-cog-6-tooth');

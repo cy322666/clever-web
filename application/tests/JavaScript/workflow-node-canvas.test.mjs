@@ -184,6 +184,58 @@ function fixture() {
     return { canvas, node, target, event, viewportStorage, mutate: (records) => mutationCallback(records), resize: () => resizeCallback(), resizedElements, observedOptions: () => observedOptions, setHit: (el) => {hitElement = el;}, setHitStack: els => {hitStack = els;}, captures: () => captures, saves: () => saves, events: () => events };
 }
 
+test('layout ignores iteration returns but rejects ordinary cycles and puts done above each', () => {
+    const {canvas} = fixture();
+    const ids = ['trigger', 'loop', 'body', 'done'];
+    const edges = [{source:'trigger',target:'loop',port:'output'}, {source:'loop',target:'body',port:'each'},
+        {source:'loop',target:'done',port:'done'}, {source:'body',target:'loop',port:'output',loopReturn:true}];
+    const layout = canvas.graphLayout(ids,edges);
+    assert.ok(layout);
+    assert.ok(layout.body.x > layout.loop.x);
+    assert.ok(layout.done.y < layout.body.y);
+    edges[3].loopReturn = false;
+    assert.equal(canvas.graphLayout(ids,edges),null);
+});
+
+test('return path is rounded below the body and ends at the loop input', () => {
+    const {canvas} = fixture();
+    const route = canvas.loopReturnPath(600,160,100,160,360);
+    assert.match(route.d,/^M 600 160 H 632 Q 648 160/);
+    assert.match(route.d,/360 H 68 Q 52 360/);
+    assert.match(route.d,/H 100$/);
+    assert.equal(route.y,360);
+    assert.equal(route.right,648);
+});
+
+test('drawn return controls sit below all intermediate cards and expand the canvas', () => {
+    const f = fixture();
+    const makeNode = (id,left,top) => {
+        const card = {querySelector:()=>null,getBoundingClientRect:()=>({left,top,right:left+96,width:96,height:96})};
+        return {dataset:{workflowNodeId:id},querySelector:()=>card};
+    };
+    f.canvas.nodeElements = () => [makeNode('loop',100,100),makeNode('branch',300,300),makeNode('body',600,100)];
+    f.canvas.$refs.stage = {clientWidth:800,clientHeight:500,querySelector:()=>null,getBoundingClientRect:()=>({left:0,top:0})};
+    const control = {dataset:{workflowEdgeSource:'body',workflowEdgePort:'output',workflowEdgeTarget:'loop',workflowLoopReturn:'true'},style:{}};
+    f.canvas.$refs.edgeControls = {querySelectorAll:()=>[control]};
+    let elements;
+    f.canvas.$refs.edgeLayer = {style:{},setAttribute(){},replaceChildren(...items){elements=items;}};
+    f.canvas.drawConnections();
+    assert.equal(control.style.top,'492px');
+    assert.ok(elements.some(e => e.attributes.d?.includes('492')));
+});
+
+test('return insertion keeps the loop and existing body in place', () => {
+    const f = fixture();
+    const positions = {loop:{x:48,y:100},body:{x:500,y:100}};
+    f.canvas.pendingInsertion = {sourceId:'body',targetId:'loop',nodes:positions,edges:[],dropPosition:null,loopReturn:true};
+    let result;
+    f.canvas.restoreCardPositions = desired => {result=desired;};
+    f.canvas.placeInsertedNode({sourceId:'body',targetId:'loop',sourcePort:'output',nodeId:'new'});
+    assert.deepEqual(result.loop,positions.loop);
+    assert.deepEqual(result.body,positions.body);
+    assert.ok(result.new.y > result.body.y);
+});
+
 test('selection mode draws a fresh rectangle without a modifier and does not pan', () => {
     const f = fixture();
     f.target.closest = () => null;

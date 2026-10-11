@@ -40,6 +40,7 @@ final class WorkflowTransfer
             }
         }
         WorkflowGraph::ordered($definition);
+        if (WorkflowLoopRunner::present($definition)) new WorkflowLoopRunner($definition);
         $definition = self::clean($definition);
         $definition['canvas_layout'] = self::layout($file['layout'] ?? []);
         return ['name'=>trim($file['name']), 'definition'=>$definition];

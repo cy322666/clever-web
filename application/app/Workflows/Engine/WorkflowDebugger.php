@@ -95,7 +95,7 @@ class WorkflowDebugger extends WorkflowTestRunner
             }
             $last = end($batch);
             $session['error'] = $last['error'] ?? null;
-            if (!$session['error']) $session['graph_active'] = array_values(array_unique(array_merge($session['graph_active'], WorkflowGraph::targets($session['definition']['connections'], 'action:'.$step['id'], 'done'))));
+            if (!$session['error'] && $this->loopReachedDone) $session['graph_active'] = array_values(array_unique(array_merge($session['graph_active'], WorkflowGraph::targets($session['definition']['connections'], 'action:'.$step['id'], 'done'))));
             $session['pending'] = $this->skipInactive($session['pending'], $session['graph_active']);
             $session['context'] = $context->toArray();
             $session['status'] = $session['error'] ? 'failed' : ($session['pending'] === [] ? 'completed' : 'ready');

@@ -38,6 +38,7 @@
                 data-workflow-edge-source="{{ $edge['sourceId'] }}"
                 data-workflow-edge-port="{{ $edge['sourcePort'] }}"
                 data-workflow-edge-target="{{ $edge['targetId'] }}"
+                data-workflow-loop-return="{{ !empty($edge['loopReturn']) ? 'true' : 'false' }}"
                 class="workflow-node-edge-add"
                 aria-label="Добавить промежуточную ноду"
                 title="Добавить промежуточную ноду · Перетащите, чтобы изменить связь"

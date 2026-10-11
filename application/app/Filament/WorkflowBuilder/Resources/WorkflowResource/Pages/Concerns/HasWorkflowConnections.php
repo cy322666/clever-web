@@ -82,17 +82,28 @@ trait HasWorkflowConnections
         $definition['connections'][] = ['sourceId' => $source, 'sourcePort' => $port, 'targetId' => $target];
         try {
             WorkflowGraph::ordered($definition);
+            $nodes = WorkflowGraph::nodes($definition['actions']);
+            foreach (WorkflowGraph::loopReturns($definition) as $edge) {
+                data_set($definition['actions'], $nodes[$edge['targetId']]['path'].'.config.require_return', true);
+            }
+            if (\App\Services\Workflows\WorkflowLoopRunner::present($definition)) new \App\Services\Workflows\WorkflowLoopRunner($definition);
         } catch (InvalidArgumentException $exception) {
             Notification::make()->warning()->title($exception->getMessage())->send();
             return;
         }
         $this->definition = $definition;
+        $this->workflowActions = $definition['actions'];
         $this->dispatch('workflow-connections-updated');
     }
 
     public function disconnectWorkflowNodes(string $source, string $port, string $target): void
     {
         $this->enableExplicitConnections();
+        $nodes = WorkflowGraph::nodes($this->workflowActions);
+        foreach (WorkflowGraph::loopReturns($this->definition) as $edge) {
+            data_set($this->workflowActions, $nodes[$edge['targetId']]['path'].'.config.require_return', true);
+        }
+        $this->syncDefinition();
         $this->definition['connections'] = array_values(array_filter($this->definition['connections'], fn ($edge) => !(
             $edge['sourceId'] === $source && $edge['sourcePort'] === $port && $edge['targetId'] === $target
         )));
@@ -116,6 +127,7 @@ trait HasWorkflowConnections
                 foreach ($edges as $outgoing) {
                     if ($outgoing['sourceId'] !== $nodeId || $outgoing['sourcePort'] !== 'output') continue;
                     $edge = array_merge($incoming, ['targetId' => $outgoing['targetId']]);
+                    if ($edge['sourceId'] === $edge['targetId']) continue;
                     if (!in_array($edge, $remaining, true)) $remaining[] = $edge;
                 }
             }

@@ -26,7 +26,7 @@
                 </main>
                 <div x-ref="edgeControls" hidden>
                     @foreach($graph['edges'] as $edge)
-                        <span data-workflow-edge-source="{{ $edge['sourceId'] }}" data-workflow-edge-port="{{ $edge['sourcePort'] }}" data-workflow-edge-target="{{ $edge['targetId'] }}" data-workflow-edge-active="{{ $edge['active'] ? 'true' : 'false' }}"></span>
+                        <span data-workflow-edge-source="{{ $edge['sourceId'] }}" data-workflow-edge-port="{{ $edge['sourcePort'] }}" data-workflow-edge-target="{{ $edge['targetId'] }}" data-workflow-loop-return="{{ !empty($edge['loopReturn']) ? 'true' : 'false' }}" data-workflow-edge-active="{{ $edge['active'] ? 'true' : 'false' }}"></span>
                     @endforeach
                 </div>
             </div>
