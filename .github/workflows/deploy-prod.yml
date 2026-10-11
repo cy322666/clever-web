@@ -152,6 +152,9 @@ jobs:
           node --test tests/JavaScript/panel-error-handling.test.mjs
           ./vendor/bin/phpunit tests/Feature/Core/PanelErrorHandlingTest.php tests/Feature/Core/AuthenticationRedirectTest.php
 
+      - name: Check Redis Network Boundary
+        run: ./vendor/bin/phpunit tests/Feature/Core/RedisNetworkBoundaryTest.php
+
       - name: Run Workflow Widget Tests
         run: |
           ./vendor/bin/phpunit --stop-on-failure \
