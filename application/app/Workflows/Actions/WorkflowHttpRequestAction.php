@@ -4,8 +4,10 @@ namespace App\Workflows\Actions;
 
 use App\Forms\Components\WorkflowValueInput;
 use App\Services\Workflows\WorkflowHttpBody;
+use App\Services\Workflows\WorkflowHttpStatusCodes;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Facades\Http;
 use Leek\FilamentWorkflows\Concerns\WorkflowAction;
@@ -21,7 +23,7 @@ class WorkflowHttpRequestAction
     public static function workflowDescription(): string { return 'Запрос к внешнему API'; }
     public static function workflowIcon(): string { return 'heroicon-o-globe-alt'; }
     public static function workflowCategory(): string { return 'Управление потоком'; }
-    public static function workflowDefaultConfig(): array { return ['method'=>'GET', 'timeout'=>15, 'headers'=>'{}', 'body_format'=>'json', 'body'=>'', 'form_fields'=>[]]; }
+    public static function workflowDefaultConfig(): array { return ['method'=>'GET', 'timeout'=>15, 'headers'=>'{}', 'body_format'=>'json', 'body'=>'', 'form_fields'=>[], 'allowed_status_codes'=>'']; }
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
         return [
@@ -40,6 +42,13 @@ class WorkflowHttpRequestAction
             ])->columns(2)->defaultItems(0)->addActionLabel('Добавить параметр')->reorderable(false)
                 ->visible(fn (Get $get): bool => $get('body_format') === 'form')->dehydratedWhenHidden(),
             WorkflowValueInput::make('timeout')->label('Таймаут, секунд')->default(15),
+            TextInput::make('allowed_status_codes')->label('Допустимые коды ответа')->placeholder('404, 409')
+                ->maxLength(255)
+                ->helperText('Ответы 2xx проходят всегда. Укажите дополнительные коды через запятую, чтобы передать ответ дальше, например в условие. Пусто: остальные коды остановят запуск.')
+                ->rules([fn () => function (string $attribute, mixed $value, \Closure $fail): void {
+                    try { WorkflowHttpStatusCodes::parse($value); }
+                    catch (RuntimeException $error) { $fail($error->getMessage()); }
+                }]),
         ];
     }
 
@@ -53,6 +62,7 @@ class WorkflowHttpRequestAction
     public function handle(array $config, ?WorkflowContext $context = null): array
     {
         try {
+            $allowedStatusCodes = WorkflowHttpStatusCodes::parse($config['allowed_status_codes'] ?? null);
             $config = $context ? $context->resolve($config) : $config;
             $url = (string)($config['url'] ?? '');
             $parts = parse_url($url);
@@ -114,7 +124,8 @@ class WorkflowHttpRequestAction
             } finally { $stream->close(); }
             $decoded = json_decode($raw, true);
             $output = ['status'=>$response->status(), 'body'=>json_last_error() === JSON_ERROR_NONE ? $decoded : $raw, 'success'=>$response->successful()];
-            return $response->successful() ? ['success'=>true,'output'=>$output] : ['success'=>false,'error'=>'HTTP '.$response->status(),'output'=>$output];
+            $accepted = $response->successful() || in_array($response->status(), $allowedStatusCodes, true);
+            return $accepted ? ['success'=>true,'output'=>$output] : ['success'=>false,'error'=>'HTTP '.$response->status(),'output'=>$output];
         } catch (\JsonException) {
             return ['success'=>false,'error'=>'Некорректный JSON в заголовках или теле запроса.'];
         } catch (\Illuminate\Http\Client\ConnectionException) {

@@ -103,6 +103,8 @@ final class WorkflowDefinitionValidator
             if (!$url || empty($url['host']) || !in_array($url['scheme'] ?? '', ['http', 'https'], true) || isset($url['user']) || isset($url['pass'])) $errors[] = 'Нужен корректный HTTP(S) URL без логина и пароля.';
         }
         if ($type === 'http_request') {
+            try { WorkflowHttpStatusCodes::parse($config['allowed_status_codes'] ?? null); }
+            catch (\RuntimeException $error) { $errors[] = $error->getMessage(); }
             if (!in_array(strtoupper((string) ($config['method'] ?? 'GET')), ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'], true)) $errors[] = 'Недопустимый HTTP-метод.';
             try {
                 if (WorkflowHttpBody::format($config) === 'form') WorkflowHttpBody::form($config['form_fields'] ?? []);
