@@ -199,12 +199,13 @@ test('layout ignores iteration returns but rejects ordinary cycles and puts done
 
 test('return path is rounded below the body and ends at the loop input', () => {
     const {canvas} = fixture();
-    const route = canvas.loopReturnPath(600,160,100,160,360);
-    assert.match(route.d,/^M 600 160 H 632 Q 648 160/);
-    assert.match(route.d,/360 H 68 Q 52 360/);
-    assert.match(route.d,/H 100$/);
+    const route = canvas.obstacleEdgeRoute({x:600,y:160},{x:100,y:160},[],360);
+    assert.match(route.d,/^M 600 160 L/);
+    assert.match(route.d,/Q/);
+    assert.doesNotMatch(route.d,/C/);
+    assert.match(route.d,/L 100 160$/);
     assert.equal(route.y,360);
-    assert.equal(route.right,648);
+    assert.equal(route.right,624);
 });
 
 test('drawn return controls sit below all intermediate cards and expand the canvas', () => {
@@ -220,8 +221,102 @@ test('drawn return controls sit below all intermediate cards and expand the canv
     let elements;
     f.canvas.$refs.edgeLayer = {style:{},setAttribute(){},replaceChildren(...items){elements=items;}};
     f.canvas.drawConnections();
-    assert.equal(control.style.top,'492px');
-    assert.ok(elements.some(e => e.attributes.d?.includes('492')));
+    assert.equal(control.style.top,'460px');
+    assert.ok(elements.some(e => e.attributes.d?.includes('460')));
+});
+
+function routingFixture(boxes, edges, scale = 1) {
+    const f = fixture(), origin = {x:57,y:89};
+    const screenRect = r => ({left:origin.x+r.left*scale,top:origin.y+r.top*scale,
+        right:origin.x+r.right*scale,bottom:origin.y+r.bottom*scale,width:(r.right-r.left)*scale,height:(r.bottom-r.top)*scale});
+    const nodes = boxes.map(box => {
+        const rect = () => ({left:box.x,top:box.y,right:box.x+96,bottom:box.y+96});
+        const caption = {getBoundingClientRect:()=>screenRect({left:box.x-42,top:box.y+110,right:box.x+138,bottom:box.y+154})};
+        const card = {getBoundingClientRect:()=>screenRect(rect()),querySelector:selector => {
+            if (selector === '.workflow-node-card__caption') return caption;
+            const input = selector === '.workflow-node-port--input';
+            const ratio = /-(yes|done)$/.test(selector) ? .3 : /-(no|each)$/.test(selector) ? .7 : .5;
+            return {getBoundingClientRect:()=>screenRect({left:box.x+(input?0:96),right:box.x+(input?0:96),top:box.y+96*ratio,bottom:box.y+96*ratio})};
+        }};
+        return {dataset:{workflowNodeId:box.id},querySelector:()=>card};
+    });
+    f.canvas.nodeElements = () => nodes;
+    f.canvas.scale = scale;
+    f.canvas.$refs.stage = {clientWidth:1200,clientHeight:900,querySelector:()=>null,getBoundingClientRect:()=>({left:origin.x,top:origin.y})};
+    const controls = edges.map(e => ({dataset:{workflowEdgeSource:e.source,workflowEdgeTarget:e.target,workflowEdgePort:e.port??'output',workflowLoopReturn:String(e.loopReturn??false)},style:{}}));
+    f.canvas.$refs.edgeControls = {querySelectorAll:()=>controls};
+    let rendered;
+    f.canvas.$refs.edgeLayer = {style:{},setAttribute(){},replaceChildren(...items){rendered=items;}};
+    const draw = () => {
+        f.canvas.drawConnections();
+        return rendered.filter(e => (e.attributes.class??'').split(' ').includes('workflow-node-edge')).map(e=>e.attributes.d);
+    };
+    return {...f,draw,controls};
+}
+
+// Sample actual SVG curves, independently of the router's collision predicate.
+function assertNoNodeCrossing(d, boxes) {
+    const tokens = d.match(/[MLQC]|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi);
+    let current, i = 0;
+    const point = () => ({x:Number(tokens[i++]),y:Number(tokens[i++])});
+    while (i < tokens.length) {
+        const command = tokens[i++], a = current;
+        if (command === 'M') { current = point(); continue; }
+        const b = point(), c = command !== 'L' ? point() : b, end = command === 'C' ? point() : c;
+        for (let step = 1; step <= 200; step++) {
+            const t = step/200, u = 1-t;
+            const p = command === 'L' ? {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}
+                : command === 'Q' ? {x:u*u*a.x+2*u*t*b.x+t*t*c.x,y:u*u*a.y+2*u*t*b.y+t*t*c.y}
+                : {x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*end.x,y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*end.y};
+            for (const box of boxes) {
+                const card = p.x>box.x+.1 && p.x<box.x+95.9 && p.y>box.y+.1 && p.y<box.y+95.9;
+                const caption = p.x>box.x-42 && p.x<box.x+138 && p.y>box.y+110 && p.y<box.y+154;
+                assert.ok(!card && !caption, `Path crossed ${box.id} at ${JSON.stringify(p)}: ${d}`);
+            }
+        }
+        current = end;
+    }
+}
+
+test('backward links are angular even without refreshed loop metadata and avoid captions', () => {
+    const boxes = [{id:'loop',x:140,y:350},{id:'http',x:500,y:90},{id:'if',x:780,y:90},{id:'done',x:440,y:580}];
+    const f = routingFixture(boxes,[{source:'if',target:'loop',port:'no'}]);
+    const [path] = f.draw();
+    assert.match(path,/Q/);
+    assert.doesNotMatch(path,/C/);
+    assertNoNodeCrossing(path,boxes);
+    assert.ok(parseFloat(f.controls[0].style.top)>boxes[3].y+154);
+});
+
+test('loop side legs also avoid cards and long captions, with distinct return lanes', () => {
+    const boxes = [{id:'loop',x:140,y:160},{id:'body',x:780,y:160},{id:'side',x:890,y:340},{id:'below',x:90,y:470}];
+    const f = routingFixture(boxes,[{source:'body',target:'loop',port:'yes',loopReturn:true},{source:'body',target:'loop',port:'no',loopReturn:true}]);
+    const paths = f.draw();
+    paths.forEach(path=>assertNoNodeCrossing(path,boxes));
+    assert.equal(parseFloat(f.controls[1].style.top)-parseFloat(f.controls[0].style.top),24);
+});
+
+test('forward edges detour around an intervening node and reroute after it moves', () => {
+    const boxes = [{id:'source',x:100,y:150},{id:'middle',x:400,y:150},{id:'target',x:720,y:150}];
+    const f = routingFixture(boxes,[{source:'source',target:'target'}]);
+    const [blocked] = f.draw();
+    assert.doesNotMatch(blocked,/C/);
+    assertNoNodeCrossing(blocked,boxes);
+    boxes[1].y = 400;
+    const [clear] = f.draw();
+    assert.match(clear,/C/);
+    assertNoNodeCrossing(clear,boxes);
+});
+
+test('connection routing uses canvas coordinates at different zoom levels', () => {
+    const boxes = [{id:'loop',x:100,y:300},{id:'body',x:700,y:100},{id:'obstacle',x:350,y:300}];
+    const edges = [{source:'body',target:'loop',loopReturn:true}];
+    const expected = routingFixture(boxes,edges).draw();
+    for (const scale of [.5,2]) {
+        const paths = routingFixture(boxes,edges,scale).draw();
+        assert.deepEqual(paths,expected);
+        paths.forEach(path=>assertNoNodeCrossing(path,boxes));
+    }
 });
 
 test('return insertion keeps the loop and existing body in place', () => {
@@ -404,6 +499,7 @@ test('attribute-only Livewire resets restore node positions and schedule edge co
     f.canvas.observeCanvas();
     assert.equal(f.observedOptions().attributes, true);
     assert.ok(f.observedOptions().attributeFilter.includes('style'));
+    assert.ok(f.observedOptions().attributeFilter.includes('data-workflow-loop-return'));
     f.mutate([{type:'attributes',attributeName:'style',target:f.node}]);
     assert.equal(f.node.style.transform, 'translate3d(40px, 180px, 0px)');
     assert.equal(refreshes, 1);
@@ -423,7 +519,10 @@ test('new and resized card ports redraw edges after layout settles', () => {
     const f = fixture();
     const first = {}, added = {};
     let geometry = [first], refreshes = 0;
-    f.canvas.$refs.stage = {querySelector: () => null, querySelectorAll: () => geometry};
+    f.canvas.$refs.stage = {querySelector: () => null, querySelectorAll: selector => {
+        assert.ok(selector.includes('.workflow-node-card__caption'));
+        return geometry;
+    }};
     f.canvas.scheduleGraphRefreshAfterPaint = () => refreshes++;
     f.canvas.observeCanvas();
     assert.ok(f.resizedElements.has(first));
