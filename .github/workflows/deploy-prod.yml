@@ -155,6 +155,9 @@ jobs:
       - name: Check Redis Network Boundary
         run: ./vendor/bin/phpunit tests/Feature/Core/RedisNetworkBoundaryTest.php
 
+      - name: Check PostgreSQL Network Boundary
+        run: ./vendor/bin/phpunit tests/Feature/Core/PostgresqlNetworkBoundaryTest.php
+
       - name: Run Workflow Widget Tests
         run: |
           ./vendor/bin/phpunit --stop-on-failure \
