@@ -231,12 +231,13 @@ function routingFixture(boxes, edges, scale = 1) {
         right:origin.x+r.right*scale,bottom:origin.y+r.bottom*scale,width:(r.right-r.left)*scale,height:(r.bottom-r.top)*scale});
     const nodes = boxes.map(box => {
         const rect = () => ({left:box.x,top:box.y,right:box.x+96,bottom:box.y+96});
-        const caption = {getBoundingClientRect:()=>screenRect({left:box.x-42,top:box.y+110,right:box.x+138,bottom:box.y+154})};
+        const caption = {getBoundingClientRect:()=>screenRect({left:box.x-(box.captionLeft??42),top:box.y+110,right:box.x+(box.captionRight??138),bottom:box.y+154})};
         const card = {getBoundingClientRect:()=>screenRect(rect()),querySelector:selector => {
             if (selector === '.workflow-node-card__caption') return caption;
             const input = selector === '.workflow-node-port--input';
             const ratio = /-(yes|done)$/.test(selector) ? .3 : /-(no|each)$/.test(selector) ? .7 : .5;
-            return {getBoundingClientRect:()=>screenRect({left:box.x+(input?0:96),right:box.x+(input?0:96),top:box.y+96*ratio,bottom:box.y+96*ratio})};
+            const x = box.x+(input?(box.portInset??0):96-(box.portInset??0));
+            return {getBoundingClientRect:()=>screenRect({left:x,right:x,top:box.y+96*ratio,bottom:box.y+96*ratio})};
         }};
         return {dataset:{workflowNodeId:box.id},querySelector:()=>card};
     });
@@ -270,7 +271,7 @@ function assertNoNodeCrossing(d, boxes) {
                 : {x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*end.x,y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*end.y};
             for (const box of boxes) {
                 const card = p.x>box.x+.1 && p.x<box.x+95.9 && p.y>box.y+.1 && p.y<box.y+95.9;
-                const caption = p.x>box.x-42 && p.x<box.x+138 && p.y>box.y+110 && p.y<box.y+154;
+                const caption = p.x>box.x-(box.captionLeft??42) && p.x<box.x+(box.captionRight??138) && p.y>box.y+110 && p.y<box.y+154;
                 assert.ok(!card && !caption, `Path crossed ${box.id} at ${JSON.stringify(p)}: ${d}`);
             }
         }
@@ -278,12 +279,12 @@ function assertNoNodeCrossing(d, boxes) {
     }
 }
 
-test('backward links are angular even without refreshed loop metadata and avoid captions', () => {
+test('ordinary backward links remain smooth and avoid captions', () => {
     const boxes = [{id:'loop',x:140,y:350},{id:'http',x:500,y:90},{id:'if',x:780,y:90},{id:'done',x:440,y:580}];
     const f = routingFixture(boxes,[{source:'if',target:'loop',port:'no'}]);
     const [path] = f.draw();
-    assert.match(path,/Q/);
-    assert.doesNotMatch(path,/C/);
+    assert.match(path,/C/);
+    assert.doesNotMatch(path,/Q/);
     assertNoNodeCrossing(path,boxes);
     assert.ok(parseFloat(f.controls[0].style.top)>boxes[3].y+154);
 });
@@ -292,7 +293,11 @@ test('loop side legs also avoid cards and long captions, with distinct return la
     const boxes = [{id:'loop',x:140,y:160},{id:'body',x:780,y:160},{id:'side',x:890,y:340},{id:'below',x:90,y:470}];
     const f = routingFixture(boxes,[{source:'body',target:'loop',port:'yes',loopReturn:true},{source:'body',target:'loop',port:'no',loopReturn:true}]);
     const paths = f.draw();
-    paths.forEach(path=>assertNoNodeCrossing(path,boxes));
+    paths.forEach(path=>{
+        assert.match(path,/Q/);
+        assert.doesNotMatch(path,/C/);
+        assertNoNodeCrossing(path,boxes);
+    });
     assert.equal(parseFloat(f.controls[1].style.top)-parseFloat(f.controls[0].style.top),24);
 });
 
@@ -300,12 +305,41 @@ test('forward edges detour around an intervening node and reroute after it moves
     const boxes = [{id:'source',x:100,y:150},{id:'middle',x:400,y:150},{id:'target',x:720,y:150}];
     const f = routingFixture(boxes,[{source:'source',target:'target'}]);
     const [blocked] = f.draw();
-    assert.doesNotMatch(blocked,/C/);
+    assert.match(blocked,/C/);
+    assert.doesNotMatch(blocked,/Q/);
     assertNoNodeCrossing(blocked,boxes);
     boxes[1].y = 400;
     const [clear] = f.draw();
     assert.match(clear,/C/);
     assertNoNodeCrossing(clear,boxes);
+});
+
+test('parallel start nodes join a long-caption node with flowing cubic connections', () => {
+    const boxes = [{id:'schedule',x:100,y:100},{id:'manual',x:100,y:300},
+        {id:'settings',x:350,y:100,captionLeft:80,captionRight:180}];
+    const edges = [{source:'schedule',target:'settings'},{source:'manual',target:'settings'}];
+    const expected = routingFixture(boxes,edges).draw();
+    for (const scale of [.5,1,2]) {
+        const paths = routingFixture(boxes,edges,scale).draw();
+        assert.deepEqual(paths,expected);
+        paths.forEach(path=>{
+            assert.match(path,/C/);
+            assert.doesNotMatch(path,/[LQ]/);
+            assertNoNodeCrossing(path,boxes);
+        });
+    }
+});
+
+test('real port centres inset into card borders do not force ordinary connections into detours', () => {
+    const boxes = [{id:'schedule',x:100,y:100},{id:'manual',x:100,y:300},{id:'settings',x:350,y:100}]
+        .map(box=>({...box,captionLeft:48,captionRight:144,portInset:2}));
+    const edges = [{source:'schedule',target:'settings'},{source:'manual',target:'settings'}];
+    for (const scale of [.5,1,2]) {
+        routingFixture(boxes,edges,scale).draw().forEach(path=>{
+            assert.match(path,/C/);
+            assert.doesNotMatch(path,/[LQ]/);
+        });
+    }
 });
 
 test('connection routing uses canvas coordinates at different zoom levels', () => {

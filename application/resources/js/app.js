@@ -1232,7 +1232,19 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return null; // Overlapping cards can leave no physical path from a port.
     },
 
-    roundedEdgeRoute(raw) {
+    edgeCurveBlocked(a, b, c, end, obstacles) {
+        let previous = a;
+        for (let i = 1; i <= 64; i++) {
+            const t = i/64, u = 1-t;
+            const point = {x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*end.x,
+                y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*end.y};
+            if (this.edgeSegmentBlocked(previous,point,obstacles)) return true;
+            previous = point;
+        }
+        return false;
+    },
+
+    roundedEdgeRoute(raw, smooth = false, obstacles = []) {
         const points = [];
         for (const p of raw) {
             const last = points.at(-1), before = points.at(-2);
@@ -1244,8 +1256,24 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         for (let i = 1; i < points.length - 1; i++) {
             const a = points[i-1], b = points[i], c = points[i+1];
             const before = Math.hypot(b.x-a.x,b.y-a.y), after = Math.hypot(c.x-b.x,c.y-b.y);
-            const r = Math.min(10,before/2,after/2);
-            d += ` L ${b.x+(a.x-b.x)*r/before} ${b.y+(a.y-b.y)*r/before} Q ${b.x} ${b.y} ${b.x+(c.x-b.x)*r/after} ${b.y+(c.y-b.y)*r/after}`;
+            let r = Math.min(smooth ? 96 : 10,before/2,after/2);
+            if (smooth) {
+                // Wide, tangent-continuous bends for ordinary connections. Retain
+                // four pixels of clearance inside the router's 16px safety margin.
+                const clearance = obstacles.map(rect => ({left:rect.left+12,right:rect.right-12,top:rect.top+12,bottom:rect.bottom-12}));
+                let start, end, c1, c2;
+                do {
+                    start = {x:b.x+(a.x-b.x)*r/before,y:b.y+(a.y-b.y)*r/before};
+                    end = {x:b.x+(c.x-b.x)*r/after,y:b.y+(c.y-b.y)*r/after};
+                    c1 = {x:start.x+(b.x-start.x)*.55228475,y:start.y+(b.y-start.y)*.55228475};
+                    c2 = {x:end.x+(b.x-end.x)*.55228475,y:end.y+(b.y-end.y)*.55228475};
+                    if (!this.edgeCurveBlocked(start,c1,c2,end,clearance) || r < 1) break;
+                    r /= 2;
+                } while (true);
+                d += ` L ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
+            } else {
+                d += ` L ${b.x+(a.x-b.x)*r/before} ${b.y+(a.y-b.y)*r/before} Q ${b.x} ${b.y} ${b.x+(c.x-b.x)*r/after} ${b.y+(c.y-b.y)*r/after}`;
+            }
         }
         const end = points.at(-1);
         d += ` L ${end.x} ${end.y}`;
@@ -1261,7 +1289,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return {d,points,x:middle.x,y:middle.y,right:Math.max(...points.map(p=>p.x)),bottom:Math.max(...points.map(p=>p.y))};
     },
 
-    obstacleEdgeRoute(start, end, obstacles, bottom = null) {
+    obstacleEdgeRoute(start, end, obstacles, bottom = null, smooth = false) {
         const exit = {x:start.x+24,y:start.y}, entry = {x:end.x-24,y:end.y};
         let points;
         if (bottom !== null) {
@@ -1271,7 +1299,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             if (outward && inward && !this.edgeSegmentBlocked(a,b,obstacles)) points = [...outward,...inward];
         } else points = this.orthogonalEdgePoints(exit,entry,obstacles);
         if (!points) return null;
-        const route = this.roundedEdgeRoute([start,...points,end]);
+        const route = this.roundedEdgeRoute([start,...points,end],smooth,obstacles);
         if (bottom !== null) { route.x = (exit.x+entry.x)/2; route.y = bottom; }
         return route;
     },
@@ -1365,13 +1393,13 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const startY = (sourceRect.top + sourceRect.height / 2 - stageRect.top) / scale;
             const endX = ((targetPortElement ? targetRect.left + targetRect.width / 2 : targetRect.left) - stageRect.left) / scale;
             const endY = (targetRect.top + targetRect.height / 2 - stageRect.top) / scale;
-            // Backward edges need the same safe, angular route even while older
-            // Livewire markup has not yet supplied its semantic loop-return flag.
+            // Angular routing belongs to semantic loop returns, not the position
+            // of a node or an ordinary connection passing near a caption.
             const loopReturn = button.dataset.workflowLoopReturn === 'true';
             if (loopReturn || endX <= startX) {
                 const bottoms = obstacles.filter(rect => rect.right >= Math.min(startX,endX)-24 && rect.left <= Math.max(startX,endX)+24).map(rect=>rect.bottom);
                 const bottom = Math.max(startY, endY, ...bottoms) + 48 + returnLane++ * 24;
-                const route = this.obstacleEdgeRoute({x:startX,y:startY},{x:endX,y:endY},obstacles,bottom);
+                const route = this.obstacleEdgeRoute({x:startX,y:startY},{x:endX,y:endY},obstacles,bottom,!loopReturn);
                 if (route) {
                     paths.push({d:route.d, port:sourcePort, active:button.dataset.workflowEdgeActive, loopReturn,
                         edge:{sourceId,sourcePort,targetId:button.dataset.workflowEdgeTarget},control:button});
@@ -1385,21 +1413,32 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const curve = Math.min(240, Math.max(48, distance * 0.38));
             const sourceVector = portVector(sourcePortElement ? sourceRect : null, sourceCardRect, {x: 1, y: 0});
             const targetVector = portVector(targetPortElement ? targetRect : null, targetCardRect, {x: -1, y: 0});
-            const sourceControlX = startX + sourceVector.x * curve;
-            const sourceControlY = startY + sourceVector.y * curve;
-            const targetControlX = endX + targetVector.x * curve;
-            const targetControlY = endY + targetVector.y * curve;
+            let sourceControlX = startX + sourceVector.x * curve;
+            let sourceControlY = startY + sourceVector.y * curve;
+            let targetControlX = endX + targetVector.x * curve;
+            let targetControlY = endY + targetVector.y * curve;
 
-            const curveObstacles = obstacles.filter(rect => rect.caption || ![sourceId,button.dataset.workflowEdgeTarget].includes(rect.nodeId));
-            let previousPoint = {x:startX,y:startY}, blocked = false;
-            for (let i = 1; i <= 32 && !blocked; i++) {
-                const t = i/32, u = 1-t;
-                const point = {x:u*u*u*startX+3*u*u*t*sourceControlX+3*u*t*t*targetControlX+t*t*t*endX,
-                    y:u*u*u*startY+3*u*u*t*sourceControlY+3*u*t*t*targetControlY+t*t*t*endY};
-                blocked = this.edgeSegmentBlocked(previousPoint,point,curveObstacles);
-                previousPoint = point;
+            const curveObstacles = obstacles.map(rect => {
+                // Real port centres sit up to 2px inside the card's border.
+                const inset = rect.caption ? 12 : [sourceId,button.dataset.workflowEdgeTarget].includes(rect.nodeId) ? 18 : 0;
+                return {...rect,left:rect.left+inset,right:rect.right-inset,top:rect.top+inset,bottom:rect.bottom-inset};
+            });
+            let blocked = true;
+            // Adjust handle lengths before taking a detour: this keeps parallel
+            // start nodes connected by a single flowing curve beside long labels.
+            const gap = endX-startX;
+            const handles = [[curve,curve],[curve,curve*1.5],[curve*1.5,curve],[24,curve],[curve,24],[24,24],
+                ...[.25,1/3,.5,2/3,.75].map(t => [gap*t,gap*(1-t)]),[24,curve*2],[curve*2,24]];
+            for (const [outward,inward] of handles) {
+                sourceControlX = startX + sourceVector.x * outward;
+                sourceControlY = startY + sourceVector.y * outward;
+                targetControlX = endX + targetVector.x * inward;
+                targetControlY = endY + targetVector.y * inward;
+                blocked = this.edgeCurveBlocked({x:startX,y:startY},{x:sourceControlX,y:sourceControlY},
+                    {x:targetControlX,y:targetControlY},{x:endX,y:endY},curveObstacles);
+                if (!blocked) break;
             }
-            const detour = blocked ? this.obstacleEdgeRoute({x:startX,y:startY},{x:endX,y:endY},obstacles) : null;
+            const detour = blocked ? this.obstacleEdgeRoute({x:startX,y:startY},{x:endX,y:endY},obstacles,null,true) : null;
             if (detour) {
                 paths.push({d:detour.d,port:sourcePort,active:button.dataset.workflowEdgeActive,
                     edge:{sourceId,sourcePort,targetId:button.dataset.workflowEdgeTarget},control:button});
