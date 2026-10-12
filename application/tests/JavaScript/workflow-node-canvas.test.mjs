@@ -410,7 +410,7 @@ test('dragging a connected ordinary output starts a second branch without replac
 test('captured plus taps open once and movement does not animate behind the edges', () => {
     const f = fixture();
     let calls=0;
-    f.canvas.$wire = {openAddActionOnConnection: () => calls++};
+    f.canvas.$wire = {$set: (key, value, live) => { assert.equal(live, false); if (key === 'insertConnection') calls++; }};
     f.canvas.startEdgeControlDrag('trigger','output',null,f.event());
     assert.equal(f.captures(),1);
     f.canvas.stopCanvasInteraction(f.event());
@@ -1007,7 +1007,7 @@ test('inserting between nodes creates space downstream while preserving unrelate
 test('clicking plus still opens the palette, dragging plus connects to a detached card', async () => {
     const f = fixture();
     let added = 0, connected;
-    f.canvas.$wire = {openAddActionOnConnection: () => added++, connectWorkflowNodes: async (...args) => {connected=args;}};
+    f.canvas.$wire = {$set: (key, value, live) => { assert.equal(live, false); if (key === 'insertConnection') added++; }, connectWorkflowNodes: async (...args) => {connected=args;}};
     f.canvas.startEdgeControlDrag('action:company','output',null,f.event());
     f.canvas.moveCanvas(f.event(12,21));
     f.canvas.stopCanvasInteraction(f.event(12,21));

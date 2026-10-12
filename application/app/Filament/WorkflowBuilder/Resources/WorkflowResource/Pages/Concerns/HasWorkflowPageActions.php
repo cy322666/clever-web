@@ -62,6 +62,7 @@ trait HasWorkflowPageActions
 
     public function selectTriggerType(string $type, bool $add = false): void
     {
+        if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft()) return;
         if ($add) $this->replacingTriggerNodeId = null;
         $registry = app(TriggerRegistry::class);
 
@@ -776,6 +777,7 @@ trait HasWorkflowPageActions
 
     public function selectActionType(string $type): void
     {
+        if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft()) return;
         $registry = app(ActionRegistry::class);
 
         if (in_array($type, array_merge(WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), ['run_workflow']), true)) {

@@ -27,10 +27,15 @@
 <div
     data-workflow-node-card
     @if(! $readOnly)
-        wire:click="beginTriggerReplace(@js($nodeId))"
-        x-on:click="window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger' } }))"
+        x-data="workflowInlineNodeName(@js($nodeId), @js($name))"
+        @if($hasSettings)
+            x-on:click="if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } }))"
+        @else
+            wire:click="beginTriggerReplace(@js($nodeId))"
+            x-on:click="if (!renaming) window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger', replace: true } }))"
+        @endif
         tabindex="0"
-        x-on:keydown.enter.self.prevent="$wire.beginTriggerReplace(@js($nodeId)); window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger' } }))"
+        x-on:keydown.enter.self.prevent="$el.click()"
         aria-label="Выбрать запуск: {{ $name }}"
     @else
         aria-label="{{ $name }}"
@@ -48,16 +53,20 @@
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
     @include('filament.workflow-builder.workflow-node-status')
     <div class="workflow-node-card__body workflow-node-card__caption">
-        <h4 class="workflow-node-card__title" title="{{ $name }}">{{ $name }}</h4>
+        @if($readOnly)
+            <h4 class="workflow-node-card__title" title="{{ $name }}">{{ $name }}</h4>
+        @else
+            @include('filament.workflow-builder.workflow-inline-node-name')
+        @endif
         <p class="workflow-node-card__subtitle">{{ $subtitle }}</p>
     </div>
 
     @unless($readOnly)
         <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop>
             @if($hasSettings)
-                <button type="button" wire:click.stop="editTriggerNode(@js($nodeId))" aria-label="Настроить запуск: {{ $name }}" title="Настроить запуск"><x-filament::icon icon="heroicon-o-cog-6-tooth" class="h-4 w-4"/></button>
+                <button type="button" x-on:click.stop="window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } }))" aria-label="Настроить запуск: {{ $name }}" title="Настроить запуск"><x-filament::icon icon="heroicon-o-cog-6-tooth" class="h-4 w-4"/></button>
             @endif
-            <button type="button" wire:click.stop="mountAction('renameWorkflowNode', { id: @js($nodeId) })" aria-label="Переименовать ноду: {{ $name }}" title="Переименовать ноду"><x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/></button>
+            <button type="button" x-on:click.stop="startRename()" aria-label="Переименовать ноду: {{ $name }}" title="Переименовать ноду"><x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/></button>
             <button
                 type="button"
                 wire:click="beginTriggerReplace(@js($nodeId))"

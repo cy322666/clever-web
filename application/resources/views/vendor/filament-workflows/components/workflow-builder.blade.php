@@ -38,6 +38,8 @@
     x-data="workflowWorkbench()"
     x-init="initWorkbench()"
     x-on:resize.window="syncEditorHeight()"
+    x-on:workflow-inspector-state.window="if ($event.detail.componentId === $wire.$id) inspectorOpen = $event.detail.open"
+    x-bind:class="{ 'has-inspector': inspectorOpen }"
     @class([
         'workflow-workbench',
         'workflow-workbench--page' => $pageMode,
@@ -168,6 +170,7 @@
                 x-on:workflow-node-created.window="placeCreatedNode($event.detail)"
                 x-on:workflow-nodes-copied.window="placeCopiedNodes($event.detail)"
                 x-on:workflow-connections-updated.window="scheduleGraphRefresh()"
+                x-on:workflow-node-library-closed.window="pendingDropPosition = null; pendingInsertion = null"
                 x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
                 class="workflow-node-editor"
             >
@@ -177,6 +180,8 @@
                 x-on:pointerdown="startCanvasInteraction($event)"
                 x-on:wheel="onCanvasWheel($event)"
                 x-on:click.capture="suppressNodeClick($event)"
+                x-on:dblclick="openCanvasPalette($event)"
+                x-on:contextmenu="openCanvasPalette($event)"
                 x-bind:class="{
                     'is-node-dragging': draggingNodeId !== null,
                     'is-selecting': selectionBox !== null,

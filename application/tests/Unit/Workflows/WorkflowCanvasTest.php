@@ -73,7 +73,8 @@ class WorkflowCanvasTest extends TestCase
             $items = $xpath->query('./div[@role="menu"]/button[@role="menuitem"]', $toolbar);
             $this->assertCount(2, $items);
             $this->assertSame('Переименовать', trim($items[0]->textContent));
-            $this->assertStringContainsString('renameWorkflowNode', $items[0]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('startRename()', $items[0]->getAttribute('x-on:click.stop'));
+            $this->assertFalse($items[0]->hasAttribute('wire:click.stop'));
             $this->assertSame('Скопировать', trim($items[1]->textContent));
             $this->assertStringContainsString('duplicateWorkflowActionStep', $items[1]->getAttribute('wire:click.stop'));
         }

@@ -73,9 +73,30 @@ class WorkflowEditorSaveStateTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_main_save_applies_open_inspector_fields_before_persisting_workflow(): void
+    {
+        self::prepareDatabase();
+        Http::preventStrayRequests();
+        Queue::fake();
+        $this->actingAs(User::findOrFail(2));
+        $flow = Workflow::create(['name'=>'Inspector draft','user_id'=>2,'is_active'=>false,'definition'=>[
+            'version'=>2,'trigger'=>['type'=>'manual','config'=>[]],
+            'actions'=>[['id'=>'delay','type'=>'workflow_delay','config'=>['seconds'=>5]]],
+        ]]);
+        Livewire::test(SaveStateEditor::class,['record'=>$flow->id])
+            ->call('openWorkflowInspector','action:delay')->set('mountedActions.0.data.seconds',19)
+            ->call('save')->assertHasNoErrors()->assertSet('mountedActions',[]);
+        $this->assertSame(19,$flow->fresh()->definition['actions'][0]['config']['seconds']);
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
     public static function prepareDatabase(): void
     {
         WorkflowListDatabase::prepare();
+        \Illuminate\Support\Facades\Schema::table('workflow_runs', function (\Illuminate\Database\Schema\Blueprint $table): void {
+            $table->json('context_data')->nullable();
+        });
         \Illuminate\Support\Facades\Schema::create('amocrm_fields', function (\Illuminate\Database\Schema\Blueprint $table): void {
             $table->id();
             foreach (['user_id', 'field_id'] as $field) $table->integer($field)->nullable();

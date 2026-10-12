@@ -177,7 +177,122 @@ window.workflowSortableList = (path) => ({
     },
 });
 
+// The dock opens before the request. Tabs, canvas and library stay interactive;
+// only the selected node's real Filament form is fetched by its partial renderer.
+window.workflowInspector = () => ({
+    opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
+    desired: undefined, processing: false, currentId: null, opener: null,
+    positionInspector() {
+        const canvas = document.querySelector('.workflow-workbench__main') || document.querySelector('.workflow-node-editor');
+        const top = canvas?.getBoundingClientRect().top ?? 100;
+        this.position = {top: `${Math.max(0, top)}px`, bottom: '0'};
+    },
+    announce() {
+        window.dispatchEvent(new CustomEvent('workflow-inspector-state', {detail: {componentId: this.$wire.$id, open: this.opened}}));
+    },
+    inspectorMounted(element) {
+        this.currentId = element.dataset.inspectorNode;
+        if (!this.processing) {
+            this.title = element.dataset.inspectorTitle;
+            this.opened = true;
+            this.positionInspector();
+            this.announce();
+        }
+    },
+    nextTab(direction) {
+        const tabs = ['settings', 'input', 'output'];
+        this.tab = tabs[(tabs.indexOf(this.tab) + direction + tabs.length) % tabs.length];
+        this.$nextTick(() => this.$el.querySelector('[role=tab][aria-selected=true]')?.focus());
+    },
+    openInspector(detail) {
+        if (detail.nodeId === this.currentId && this.opened && !this.processing) return;
+        this.opener = document.activeElement;
+        this.opened = true;
+        this.title = detail.name;
+        this.error = '';
+        this.desired = detail;
+        this.positionInspector();
+        this.announce();
+        return this.flushInspector();
+    },
+    closeInspector(save = true) {
+        this.desired = {close: true, save};
+        return this.flushInspector();
+    },
+    async flushInspector() {
+        if (this.processing) return;
+        this.processing = this.loading = true;
+        try {
+            while (this.desired) {
+                const target = this.desired;
+                this.desired = undefined;
+                if (target.close) {
+                    if (this.$wire.mountedActions?.length) {
+                        if (target.save) await this.$wire.callMountedAction();
+                        else await this.$wire.unmountAction();
+                    }
+                    if (!this.$wire.mountedActions?.length) {
+                        this.opened = false;
+                        this.currentId = null;
+                        this.opener?.isConnected && this.opener.focus();
+                    } else this.tab = 'settings';
+                } else {
+                    await this.$wire.openWorkflowInspector(target.nodeId);
+                    const action = this.$wire.mountedActions?.[0];
+                    this.currentId = action?.name === 'configureTrigger' ? this.$wire.editingTriggerNodeId
+                        : action?.name === 'configureWorkflowAction' ? 'action:' + this.$wire.editingActionId : null;
+                    if (this.currentId !== target.nodeId) {
+                        this.desired = undefined;
+                        this.tab = 'settings';
+                        this.error = 'Проверьте настройки текущей ноды перед переходом.';
+                    }
+                }
+            }
+        } catch {
+            this.error = 'Не удалось загрузить или применить настройки. Повторите попытку.';
+            this.desired = undefined;
+        } finally {
+            this.processing = this.loading = false;
+            this.$nextTick(() => {
+                const form = this.$el.querySelector('[data-inspector-node]');
+                if (form) this.title = form.dataset.inspectorTitle;
+            });
+            this.announce();
+        }
+    },
+});
+
+window.workflowInlineNodeName = (nodeId, initialName) => ({
+    renaming: false, nameDraft: '', renameError: '', renamingBusy: false,
+    get nodeName() {
+        if (nodeId === 'trigger') return this.$wire.trigger?.name || initialName;
+        if (nodeId.startsWith('trigger:')) return this.$wire.definition?.additional_triggers?.find(node => node.id === nodeId)?.name || initialName;
+        const find = steps => (steps || []).flatMap(step => [step, ...find(step.config?.true_actions), ...find(step.config?.false_actions)]);
+        return find(this.$wire.workflowActions).find(node => node.id === nodeId)?.name || initialName;
+    },
+    startRename() {
+        this.nameDraft = this.nodeName;
+        this.renameError = '';
+        this.renaming = true;
+        this.$nextTick(() => { this.$refs.nodeNameInput.focus(); this.$refs.nodeNameInput.select(); });
+    },
+    async commitRename() {
+        if (!this.renaming || this.renamingBusy) return;
+        const name = this.nameDraft.trim();
+        if (!name || [...name].length > 100) { this.renameError = 'От 1 до 100 символов'; return; }
+        if (name === this.nodeName) { this.renaming = false; return; }
+        this.renamingBusy = true;
+        try {
+            await this.$wire.renameWorkflowNode(nodeId, name);
+            if (this.nodeName === name) this.renaming = false;
+            else this.renameError = 'Это название уже используется или нода удалена.';
+        } catch { this.renameError = 'Не удалось переименовать. Попробуйте ещё раз.'; }
+        finally { this.renamingBusy = false; }
+    },
+});
+
 window.workflowWorkbench = () => ({
+    inspectorOpen: false,
     get hasUnsavedChanges() {
         const saved = this.$wire?.savedWorkflowEditorState;
         if (!saved) return true;
@@ -200,6 +315,9 @@ window.workflowWorkbench = () => ({
         // Ignore object key ordering, but preserve action/branch order and values.
         const stable = value => Array.isArray(value) ? value.map(stable)
             : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
+        const mounted = this.$wire.mountedActions?.[0];
+        if (['configureWorkflowAction', 'configureTrigger'].includes(mounted?.name) && this.$wire.workflowInspectorInitialData !== null
+            && JSON.stringify(stable(mounted.data)) !== JSON.stringify(stable(this.$wire.workflowInspectorInitialData))) return true;
         return JSON.stringify(stable(editorState(state))) !== JSON.stringify(stable(editorState(saved)));
     },
 
@@ -283,6 +401,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     selectionOrigin: null,
     groupDragOrigins: {},
     pendingInsertion: null,
+    pendingDropPosition: null,
     initialized: false,
 
     canvasActions(steps = this.$wire?.workflowActions || []) {
@@ -543,9 +662,34 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
     placeCreatedNode(detail) {
         this.pendingInsertion = null;
+        const point = this.pendingDropPosition;
+        this.pendingDropPosition = null;
         this.$nextTick(() => window.requestAnimationFrame(() => {
-            this.centerNodeGroup({[detail.nodeId]:{x:0,y:0}});
+            if (!point) return this.centerNodeGroup({[detail.nodeId]:{x:0,y:0}});
+            const card = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId)?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
+            this.restoreCardPositions({...this.cardPositions(), [detail.nodeId]: {
+                x: this.snapCoordinate(point.x - (card?.width ?? 96 * this.scale) / this.scale / 2),
+                y: this.snapCoordinate(point.y - (card?.height ?? 96 * this.scale) / this.scale / 2),
+            }});
+            this.scheduleGraphRefreshAfterPaint();
         }));
+    },
+
+    openCanvasPalette(event) {
+        if (event.target.closest('button, input, textarea, select, a, [data-workflow-node-card], .workflow-connection-menu, .workflow-node-edge')) return;
+        const stage = this.$refs.stage?.getBoundingClientRect();
+        if (!stage) return;
+        event.preventDefault();
+        this.pendingInsertion = null;
+        this.pendingDropPosition = {x: (event.clientX - stage.left) / this.scale, y: (event.clientY - stage.top) / this.scale};
+        this.preparePalette(null, {x: event.clientX, y: event.clientY});
+    },
+    preparePalette(connection, anchor = null) {
+        // Keep the draft on the client; browsing and opening the menu do not
+        // round-trip or morph the canvas. The insertion request validates it.
+        this.$wire.$set('insertConnection', connection, false);
+        ['insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
+        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action', anchor}}));
     },
 
     selectionStyle() {
@@ -577,8 +721,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     openEdgePalette(sourceId, sourcePort, targetId) {
         if (Date.now() <= this.suppressEdgeClickUntil) return;
         this.captureInsertion(sourceId, targetId);
-        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action'}}));
-        this.$wire.openAddActionOnConnection(sourceId, sourcePort, targetId);
+        this.preparePalette({sourceId, sourcePort, targetId});
     },
     openPaletteAtDrop(event) {
         const viewport = this.$refs.viewport?.getBoundingClientRect?.();
@@ -595,8 +738,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             y: (event.clientY - stage.top) / this.scale,
         });
         this.cancelConnection();
-        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action'}}));
-        this.$wire.openAddActionOnConnection(connection.sourceId, connection.sourcePort, connection.replaceTarget ?? null);
+        this.preparePalette({sourceId: connection.sourceId, sourcePort: connection.sourcePort, targetId: connection.replaceTarget ?? null}, {x: event.clientX, y: event.clientY});
         return true;
     },
     connectionTargetAt(event) {

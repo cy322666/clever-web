@@ -56,6 +56,12 @@ trait HasWorkflowNodeNames
         }
         $after = WorkflowExpressionCatalog::referenceNames($definition['actions'], $definition);
         $definition['actions'] = WorkflowExpressionCatalog::remapReferences($definition['actions'], $before, $after);
+        foreach ($this->mountedActions as &$mounted) {
+            if (isset($mounted['data']) && in_array($mounted['name'], ['configureWorkflowAction', 'configureTrigger'], true)) {
+                $mounted['data'] = WorkflowExpressionCatalog::remapReferences($mounted['data'], $before, $after);
+            }
+        }
+        unset($mounted);
         $definition = WorkflowExpressionCatalog::normalizeNames($definition);
         $this->trigger = $definition['trigger'];
         $this->workflowActions = $definition['actions'];

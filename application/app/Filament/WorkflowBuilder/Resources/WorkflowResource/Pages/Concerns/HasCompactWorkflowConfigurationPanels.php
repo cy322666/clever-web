@@ -3,12 +3,53 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns;
 
 use Filament\Actions\Action;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\View;
 
 trait HasCompactWorkflowConfigurationPanels
 {
+    public ?array $workflowInspectorInitialData = null;
+
+    public function isWorkflowInspectorAction(Action $action): bool
+    {
+        return in_array($action->getName(), ['configureWorkflowAction', 'configureTrigger'], true);
+    }
+
+    protected function applyWorkflowInspectorDraft(): bool
+    {
+        if ($this->mountedActions === [] || !$this->isWorkflowInspectorAction($this->getMountedAction())) return true;
+        $this->callMountedAction();
+        return $this->mountedActions === [];
+    }
+
+    public function openWorkflowInspector(string $nodeId): void
+    {
+        $isAction = str_starts_with($nodeId, 'action:');
+        $exists = $isAction
+            ? isset(\App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)[$nodeId])
+            : in_array(\App\Services\Workflows\WorkflowStartNodes::all($this->definition)[$nodeId]['type'] ?? '', ['schedule', 'generic-webhook'], true);
+        abort_unless($exists, 422);
+
+        if ($this->mountedActions !== []) {
+            // Switching nodes commits the current draft using the real form's
+            // validation/dehydration. Invalid input stays open, never discarded.
+            if (count($this->mountedActions) !== 1 || !$this->isWorkflowInspectorAction($this->getMountedAction())) return;
+            if (($isAction && ($this->mountedActions[0]['name'] ?? '') === 'configureWorkflowAction' && $this->editingActionId === substr($nodeId, 7))
+                || (!$isAction && ($this->mountedActions[0]['name'] ?? '') === 'configureTrigger' && $this->editingTriggerNodeId === $nodeId)) return;
+            $this->callMountedAction();
+            if ($this->mountedActions !== []) return;
+        }
+        $this->cachedMountedActions = null;
+        foreach (array_keys($this->cachedSchemas) as $schemaName) {
+            if (str_starts_with($schemaName, 'mountedActionSchema')) unset($this->cachedSchemas[$schemaName]);
+        }
+        if ($isAction) $this->openWorkflowActionEditor(substr($nodeId, 7));
+        else $this->editTriggerNode($nodeId);
+        // Switching forms does not change graph geometry. Reuse Filament's
+        // partial action rendering instead of rebuilding every card and catalog.
+        app(\Filament\Support\Livewire\Partials\PartialsComponentHook::class)->forceRender($this, false);
+    }
+
     public function workflowNodeNavigation(): array
     {
         $definition = array_merge($this->definition, ['actions' => $this->workflowActions, 'trigger' => $this->trigger]);
@@ -82,14 +123,15 @@ trait HasCompactWorkflowConfigurationPanels
     public function configureTriggerAction(): Action
     {
         return parent::configureTriggerAction()
+            ->afterFormFilled(fn (Action $action) => $this->workflowInspectorInitialData = $this->mountedActions[$action->getNestingIndex()]['data'] ?? [])
             ->visible(fn (): bool => in_array($this->editingTriggerNode()['type'] ?? '', ['schedule', 'generic-webhook'], true))
             ->modalHeading(fn () => new \Illuminate\Support\HtmlString(view('filament.workflow-builder.workflow-node-navigation', $this->workflowNodeNavigation())->render()))
             ->fillForm(fn () => ($this->editingTriggerNode()['type'] ?? '') === 'schedule'
                 ? \App\Workflows\Triggers\ScheduleTrigger::normalize($this->editingTriggerNode()['config'] ?? [])
                 : ($this->editingTriggerNode()['config'] ?? []))
-            ->form(fn () => ($this->editingTriggerNode()['type'] ?? '') === 'generic-webhook'
+            ->form(fn () => $this->nodeWorkspace(($this->editingTriggerNode()['type'] ?? '') === 'generic-webhook'
                 ? \App\Workflows\Triggers\GenericWebhookTrigger::configSchema()
-                : $this->nodeWorkspace(\App\Workflows\Triggers\ScheduleTrigger::configSchema()))
+                : \App\Workflows\Triggers\ScheduleTrigger::configSchema()))
             ->action(fn (array $data) => $this->saveTriggerNodeConfig($data))
             ->slideOver(false)
             ->extraModalWindowAttributes(['class' => 'workflow-node-settings'])
@@ -102,6 +144,7 @@ trait HasCompactWorkflowConfigurationPanels
     public function configureWorkflowActionAction(): Action
     {
         return parent::configureWorkflowActionAction()
+            ->afterFormFilled(fn (Action $action) => $this->workflowInspectorInitialData = $this->mountedActions[$action->getNestingIndex()]['data'] ?? [])
             ->modalHeading(fn () => new \Illuminate\Support\HtmlString(view('filament.workflow-builder.workflow-node-navigation', $this->workflowNodeNavigation())->render()))
             ->fillForm(function () {
                 $step = $this->getEditingWorkflowAction();
@@ -232,10 +275,13 @@ trait HasCompactWorkflowConfigurationPanels
         $step = $this->getEditingWorkflowAction();
         $referenceType = $step['type'] ?? '';
         $referencePlan = \App\Services\Workflows\WorkflowNodeReferences::plan($referenceType, $this->mountedActions[array_key_last($this->mountedActions)]['data'] ?? $step['config'] ?? []);
-        return [Grid::make(3)->extraAttributes(['class' => 'workflow-node-settings__workspace'])->schema([
-            View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => \App\Services\Workflows\WorkflowExpressionCatalog::forPicker($this->getWorkflowExpressionSources())]),
-            Group::make([View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')), ...$schema])->extraAttributes(['class' => 'workflow-node-settings__parameters']),
-            View::make('filament.workflow-builder.workflow-node-output'),
+        return [Group::make()->extraAttributes(['class' => 'workflow-inspector__workspace'])->schema([
+            Group::make([View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => \App\Services\Workflows\WorkflowExpressionCatalog::forPicker($this->getWorkflowExpressionSources())])])
+                ->extraAttributes(['x-show' => "tab === 'input'", 'class' => 'workflow-inspector__pane', 'role' => 'tabpanel', 'aria-label' => 'Вход']),
+            Group::make([View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')), ...$schema])
+                ->extraAttributes(['x-show' => "tab === 'settings'", 'class' => 'workflow-inspector__pane workflow-node-settings__parameters', 'role' => 'tabpanel', 'aria-label' => 'Настройки']),
+            Group::make([View::make('filament.workflow-builder.workflow-node-output')])
+                ->extraAttributes(['x-show' => "tab === 'output'", 'class' => 'workflow-inspector__pane', 'role' => 'tabpanel', 'aria-label' => 'Выход']),
         ])];
     }
 }

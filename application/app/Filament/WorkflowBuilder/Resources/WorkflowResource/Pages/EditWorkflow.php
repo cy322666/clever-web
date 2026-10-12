@@ -60,6 +60,12 @@ class EditWorkflow extends BaseEditWorkflow
         }
     }
 
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        if (!$this->applyWorkflowInspectorDraft()) return;
+        parent::save($shouldRedirect, $shouldSendSavedNotification);
+    }
+
     protected function getSavedNotificationTitle(): ?string
     {
         return null;

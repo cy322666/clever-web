@@ -41,9 +41,10 @@
         x-bind:aria-busy="workflowNodeIsRunning($wire, @js($actionId))"
         x-on:pointerup.capture="if (connecting && !$event.target.closest('.workflow-node-port')) finishConnection('action:' + @js($actionId), $event)"
         x-on:click.capture="if (connecting && !$event.target.closest('.workflow-node-port')) { $event.stopImmediatePropagation(); completeConnection('action:' + @js($actionId)); }"
-        wire:click="selectWorkflowCanvasNode('{{ $actionId }}')"
+        x-data="workflowInlineNodeName(@js($actionId), @js($actionName))"
+        x-on:click="if ($wire.debugOpen) $wire.selectWorkflowCanvasNode(@js($actionId)); else if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId: $wire.$id, nodeId: 'action:' + @js($actionId), name: nodeName}}))"
         tabindex="0"
-        x-on:keydown.enter.self.prevent="$wire.selectWorkflowCanvasNode(@js($actionId))"
+        x-on:keydown.enter.self.prevent="$el.click()"
         aria-label="Настроить: {{ $actionName }}"
     @endunless
     {{ $attributes->class([
@@ -82,7 +83,11 @@
         <span class="workflow-execution-order" title="{{ $isLoop ? 'Итераций цикла' : 'Сущностей' }}">{{ $executionCount }}</span>
     @endif
     <div class="workflow-node-card__body workflow-node-card__caption">
-        <h4 class="workflow-node-card__title" title="{{ $actionName }}">{{ $actionName }}</h4>
+        @if($readOnly)
+            <h4 class="workflow-node-card__title" title="{{ $actionName }}">{{ $actionName }}</h4>
+        @else
+            @include('filament.workflow-builder.workflow-inline-node-name')
+        @endif
         <p class="workflow-node-card__subtitle" @unless($readOnly) x-text="canvasAction(@js($actionId))?.disabled ? @js($isCondition ? 'Выключено → «Да»' : 'Выключено') : @js($enabledSubtitle)" @endunless>{{ $subtitle }}</p>
     </div>
 
@@ -118,8 +123,8 @@
             <div class="workflow-node-card__menu" id="workflow-node-menu-{{ $actionId }}" x-ref="menu" x-show="menuOpen" x-cloak role="menu" aria-label="Действия с нодой: {{ $actionName }}"
                 x-on:keydown.arrow-down.prevent="moveMenuFocus($event, 1)" x-on:keydown.arrow-up.prevent="moveMenuFocus($event, -1)"
                 x-on:keydown.home.prevent="focusMenuItem(0)" x-on:keydown.end.prevent="focusMenuItem(-1)">
-                <button type="button" role="menuitem" tabindex="-1" x-on:click="closeMenu()"
-                    wire:click.stop="mountAction('renameWorkflowNode', { id: @js($actionId) })">
+                <button type="button" role="menuitem" tabindex="-1"
+                    x-on:click.stop="closeMenu(); startRename()">
                     <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/> Переименовать
                 </button>
                 <button type="button" role="menuitem" tabindex="-1" x-on:click="closeMenu(true)"

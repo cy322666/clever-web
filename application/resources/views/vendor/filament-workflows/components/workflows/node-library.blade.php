@@ -239,6 +239,13 @@
         entity: null,
         query: '',
         replaceTrigger: false,
+        anchor: null,
+        floatingStyle() {
+            if (!this.anchor) return {position: '', left: '', top: '', width: '', maxHeight: ''};
+            const width = Math.min(320, window.innerWidth - 24);
+            const height = Math.min(470, window.innerHeight - 24);
+            return {position: 'fixed', left: `${Math.max(12, Math.min(this.anchor.x, window.innerWidth-width-12))}px`, top: `${Math.max(12, Math.min(this.anchor.y, window.innerHeight-height-12))}px`, width: `${width}px`, maxHeight: `${height}px`};
+        },
         normalize(value) { return String(value ?? '').toLocaleLowerCase('ru-RU').trim(); },
         matches(value) {
             const query = this.normalize(this.query);
@@ -253,6 +260,7 @@
         },
         openFor(detail = {}) {
             this.open = true;
+            this.anchor = detail.anchor || null;
             this.replaceTrigger = Boolean(detail.replace);
             this.resetView(detail.mode || 'action');
             this.$nextTick(() => {
@@ -261,6 +269,8 @@
         },
         closeLibrary() {
             this.open = false;
+            this.anchor = null;
+            window.dispatchEvent(new CustomEvent('workflow-node-library-closed'));
             // Defer editor state changes until a real action. Browsing never needs a request.
             ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
         },
@@ -276,7 +286,10 @@
     }"
     x-on:workflow-node-library-open.window="openFor($event.detail)"
     x-on:workflow-masks-open.window="openFor({ mode: 'variables' })"
-    x-bind:class="{ 'is-collapsed': ! open }"
+    x-on:workflow-node-created.window="open = false; anchor = null"
+    x-on:workflow-node-inserted.window="open = false; anchor = null"
+    x-on:keydown.escape.window="if (open) closeLibrary()"
+    x-bind:class="{ 'is-collapsed': !open, 'is-contextual': Boolean(anchor) }"
     class="workflow-node-library"
 >
     <div class="workflow-node-library__rail">
@@ -330,7 +343,7 @@
         </button>
     </div>
 
-    <div x-cloak x-show="open" class="workflow-node-library__panel">
+    <div x-cloak x-show="open" x-bind:style="floatingStyle()" x-on:click.outside="if (anchor && open) closeLibrary()" class="workflow-node-library__panel">
         <header class="workflow-node-library__header">
             <div>
                 <h2 x-text="mode === 'variables' ? 'Переменные' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'События' : 'Действия'"></h2>

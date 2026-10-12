@@ -87,3 +87,13 @@ test('object key ordering is ignored while array order and value types are prese
     wire.savedWorkflowEditorState = null;
     assert.equal(workbench.hasUnsavedChanges, true);
 });
+
+test('an open inspector tracks field edits without falsely marking an untouched form dirty', () => {
+    const {workbench,wire}=fixture();
+    wire.workflowInspectorInitialData={seconds:5};
+    wire.mountedActions=[{name:'configureWorkflowAction',data:{seconds:5}}];
+    assert.equal(workbench.hasUnsavedChanges,false);
+    wire.mountedActions[0].data.seconds=12;assert.equal(workbench.hasUnsavedChanges,true);
+    wire.mountedActions[0].data.seconds=5;assert.equal(workbench.hasUnsavedChanges,false);
+    wire.mountedActions=[];assert.equal(workbench.hasUnsavedChanges,false);
+});

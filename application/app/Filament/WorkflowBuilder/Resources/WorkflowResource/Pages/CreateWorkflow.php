@@ -32,6 +32,12 @@ class CreateWorkflow extends BaseCreateWorkflow
         return [];
     }
 
+    public function create(bool $another = false): void
+    {
+        if (!$this->applyWorkflowInspectorDraft()) return;
+        parent::create($another);
+    }
+
     public function getTitle(): string
     {
         return 'Новый процесс';
