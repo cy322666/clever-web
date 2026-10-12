@@ -19,8 +19,8 @@ class WorkflowCanvasTest extends TestCase
     {
         Livewire::test(WorkflowCanvasFixture::class)
             ->assertStatus(200)
-            ->assertSee('data-workflow-edge-target="action:task"', false)
-            ->assertSee('data-workflow-edge-target="action:note"', false)
+            ->assertSee('canvasEdges(', false)
+            ->assertSee('x-bind:data-workflow-edge-target="edge.targetId"', false)
             ->assertSee("startConnection('action:' + 'condition', 'yes', \$event)", false)
             ->assertSee('aria-label="Выход Да:', false)
             ->assertSee('aria-label="Выход Нет:', false)
@@ -47,10 +47,9 @@ class WorkflowCanvasTest extends TestCase
             ->assertStatus(200)
             ->assertSee('aria-label="Выход Да:', false)
             ->assertSee('aria-label="Выход Нет:', false)
-            ->assertSee('workflow-edge-add-action:empty-condition-yes-end', false)
-            ->assertSee('workflow-edge-add-action:empty-condition-no-end', false)
-            ->assertSee('Добавить действие в ветку «Да»')
-            ->assertSee('Добавить действие в ветку «Нет»');
+            ->assertSee('canvasEdges(', false)
+            ->assertSee('x-bind:data-workflow-edge-port="edge.sourcePort"', false)
+            ->assertSee('Добавить действие');
     }
 
     public function test_action_hover_tools_have_four_icons_and_two_overflow_actions(): void
@@ -66,8 +65,10 @@ class WorkflowCanvasTest extends TestCase
             $this->assertCount(4, $buttons);
             $this->assertStringContainsString('runWorkflowCanvasNode', $buttons[0]->getAttribute('wire:click.stop'));
             $this->assertStringContainsString('workflowNodeIsRunning($wire)', $buttons[0]->getAttribute('x-bind:disabled'));
-            $this->assertStringContainsString('removeWorkflowAction', $buttons[1]->getAttribute('wire:click.stop'));
-            $this->assertStringContainsString('toggleWorkflowActionDisabled', $buttons[2]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('removeCanvasAction', $buttons[1]->getAttribute('x-on:click.stop'));
+            $this->assertStringContainsString('toggleCanvasAction', $buttons[2]->getAttribute('x-on:click.stop'));
+            $this->assertFalse($buttons[1]->hasAttribute('wire:click.stop'));
+            $this->assertFalse($buttons[2]->hasAttribute('wire:click.stop'));
             $this->assertSame('menu', $buttons[3]->getAttribute('aria-haspopup'));
             $items = $xpath->query('./div[@role="menu"]/button[@role="menuitem"]', $toolbar);
             $this->assertCount(2, $items);
@@ -110,8 +111,8 @@ class WorkflowCanvasTest extends TestCase
             ->assertSet('workflowActions.0.config.has_false_branch', true)
             ->assertSet('workflowActions.0.config.true_actions', [])
             ->assertSet('workflowActions.0.config.false_actions', [])
-            ->assertSee('Добавить действие в ветку «Да»')
-            ->assertSee('Добавить действие в ветку «Нет»');
+            ->assertSee('canvasEdges(', false)
+            ->assertSee('Добавить действие');
         $nodeId = 'action:'.$page->get('workflowActions')[0]['id'];
         $page->call('openAddActionOnConnection', $nodeId, 'no')
             ->assertDispatched('workflow-node-library-open', mode: 'action')

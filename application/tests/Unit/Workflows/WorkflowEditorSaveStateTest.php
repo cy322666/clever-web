@@ -13,6 +13,33 @@ use Tests\TestCase;
 
 class WorkflowEditorSaveStateTest extends TestCase
 {
+    public function test_client_draft_changes_are_saved_without_calling_node_mutation_handlers(): void
+    {
+        self::prepareDatabase();
+        Http::preventStrayRequests();
+        Queue::fake();
+        $this->actingAs(User::findOrFail(2));
+        $flow = Workflow::create(['name'=>'Client draft', 'user_id'=>2, 'is_active'=>false, 'definition'=>[
+            'version'=>2, 'trigger'=>['type'=>'manual', 'config'=>[]],
+            'actions'=>[['id'=>'a','type'=>'workflow_delay','config'=>['seconds'=>1]], ['id'=>'b','type'=>'workflow_delay','config'=>['seconds'=>2]]],
+        ]]);
+        $page = Livewire::test(SaveStateEditor::class, ['record'=>$flow->id]);
+        $actions = [$page->get('workflowActions')[1]];
+        $actions[0]['disabled'] = true;
+        $definition = $page->get('definition');
+        $definition['actions'] = $actions;
+        $definition['connections'] = [['sourceId'=>'trigger','sourcePort'=>'output','targetId'=>'action:b']];
+        $definition['canvas_positions'] = ['trigger'=>['x'=>48,'y'=>48], 'action:b'=>['x'=>500,'y'=>320]];
+        $page->set('workflowActions', $actions)->set('definition', $definition)->call('save')->assertHasNoErrors();
+        $stored = $flow->fresh()->definition;
+        $this->assertSame($actions,$stored['actions']);
+        $this->assertSame($definition['connections'],$stored['connections']);
+        $this->assertSame($definition['canvas_positions'],$stored['canvas_positions']);
+        Livewire::test(SaveStateEditor::class, ['record'=>$flow->id])->assertSet('workflowActions',$actions);
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
     public function test_successful_save_updates_the_baseline_and_persists_the_canvas(): void
     {
         self::prepareDatabase();

@@ -123,7 +123,10 @@ final class WorkflowExecutionGraph
         }
         unset($result);
 
-        return ['nodes' => $nodes, 'edges' => $edges, 'results' => $results, 'historical_fallback' => false];
+        // Layout offsets are relative to the editor's tree/flex bases. The
+        // history canvas must use that same structure, not flatten it into a row.
+        return ['nodes' => $nodes, 'edges' => $edges, 'results' => $results, 'historical_fallback' => false,
+            'definition' => $definition];
     }
 
     private static function span(array $steps): int

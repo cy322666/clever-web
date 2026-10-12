@@ -34,6 +34,19 @@ test('empty layout dictionaries remain clean after PHP roundtrip and canvas refr
     assert.equal(workbench.hasUnsavedChanges, false);
 });
 
+test('absolute layout ignores derived offsets after reload but tracks real node movement', () => {
+    const {workbench,wire,save}=fixture();
+    wire.definition.canvas_positions={'action:node':{x:240,y:96}};
+    assert.equal(workbench.hasUnsavedChanges,false,'Adding coordinate metadata alone is not a user edit');
+    save();
+    wire.definition.canvas_layout={'action:node':{x:-500,y:120}};
+    assert.equal(workbench.hasUnsavedChanges,false,'DOM reflow changes translations, not card coordinates');
+    wire.definition.canvas_positions['action:node'].x=250;
+    assert.equal(workbench.hasUnsavedChanges,true);
+    save();
+    assert.equal(workbench.hasUnsavedChanges,false);
+});
+
 test('actual edits stay dirty until acknowledged; reverting restores clean state', () => {
     for (const change of [
         wire => {wire.data.name = 'Renamed';},

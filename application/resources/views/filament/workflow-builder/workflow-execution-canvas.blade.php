@@ -3,26 +3,24 @@
     @if($graph['historical_fallback'])
         <div class="workflow-execution-note">Исходная версия этого сценария не сохранена. Показан фактический порядок записанных шагов.</div>
     @endif
-    <section class="workflow-node-editor workflow-execution-canvas" x-data="workflowNodeCanvas('clever.workflow.history.{{ $runId }}')"
+    <section class="workflow-node-editor workflow-execution-canvas" x-data="workflowNodeCanvas('clever.workflow.history.{{ $runId }}', @js($graph['definition']['canvas_layout'] ?? []), @js($graph['definition']['canvas_edge_routes'] ?? []), @js($graph['definition']['canvas_positions'] ?? null))"
         x-init="$nextTick(() => { initializeCanvas(); $nextTick(() => fitView()); })"
         x-on:pointermove.window="moveCanvas($event)" x-on:pointerup.window="stopCanvasInteraction($event)" x-on:pointercancel.window="stopCanvasInteraction($event)">
         <div x-ref="viewport" x-bind:style="gridStyle()" class="workflow-node-editor__viewport" x-on:pointerdown="startCanvasInteraction($event)">
             <button type="button" class="workflow-canvas-fit" x-on:pointerdown.stop x-on:click.stop="fitView()" aria-label="Показать весь запуск" title="Показать весь запуск"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
             <div x-ref="stage" x-bind:style="stageStyle()" class="workflow-node-editor__stage">
                 <svg x-ref="edgeLayer" class="workflow-node-edge-layer" aria-hidden="true" wire:ignore></svg>
-                <main id="workflow-canvas" class="workflow-builder workflow-execution-nodes">
-                    @foreach($graph['nodes'] as $node)
-                        <div data-workflow-node-id="{{ $node['id'] }}" class="workflow-execution-node" style="left:{{ $node['x'] }}px;top:{{ $node['y'] }}px">
+                <main id="workflow-canvas" class="workflow-builder workflow-node-flow">
+                    <div class="workflow-node-starts">
+                    @foreach(array_filter($graph['nodes'], fn ($node) => str_starts_with($node['id'], 'trigger')) as $node)
+                        <div data-workflow-node-id="{{ $node['id'] }}" class="workflow-node-shell workflow-node-shell--trigger">
                             <button type="button" x-on:click="selectNode(@js($node['id']))" x-bind:class="{ 'is-selected': selectedNodeId() === @js($node['id']) }" aria-label="Данные ноды: {{ $node['name'] }}">
-                                @if(str_starts_with($node['id'], 'trigger'))
                                     <x-filament-workflows::workflows.trigger-card :type="$node['type']" :config="[]" :metadata="['name' => $node['name'], 'icon' => $node['icon']]" :read-only="true" data-execution-status="{{ $node['status'] }}"/>
-                                @else
-                                    <x-filament-workflows::workflows.action-card :action="$node['action']" :metadata="['name' => $node['name'], 'icon' => $node['icon'], 'category' => '']" :read-only="true" data-execution-status="{{ $node['status'] }}"/>
-                                    @if($node['result'])<span class="workflow-execution-order" title="{{ $node['type'] === 'workflow_loop' ? 'Итераций цикла' : 'Сущностей' }}">{{ $node['item_count'] }}</span>@endif
-                                @endif
                             </button>
                         </div>
                     @endforeach
+                    </div>
+                    <x-filament-workflows::workflows.action-list :actions="$graph['definition']['actions'] ?? []" :read-only="true" :execution-nodes="array_column($graph['nodes'], null, 'id')"/>
                 </main>
                 <div x-ref="edgeControls" hidden>
                     @foreach($graph['edges'] as $edge)

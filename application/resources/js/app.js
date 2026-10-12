@@ -189,8 +189,12 @@ window.workflowWorkbench = () => ({
         // These two fields are dictionaries. PHP serializes an empty dictionary
         // as [], while canvas layout refreshes create {}. They are the same state.
         // Do not coerce node payloads: arrays and objects there mean different things.
+        const absoluteLayout = Boolean(saved.definition?.canvas_positions);
         const editorState = value => ({...value, definition: {...value.definition,
-            canvas_layout: {...value.definition?.canvas_layout},
+            // Absolute card coordinates survive local deletion and later DOM
+            // flattening. Relative translations are derived once this is saved.
+            canvas_layout: absoluteLayout ? undefined : {...value.definition?.canvas_layout},
+            canvas_positions: absoluteLayout ? value.definition?.canvas_positions : undefined,
             canvas_edge_routes: {...value.definition?.canvas_edge_routes},
         }});
         // Ignore object key ordering, but preserve action/branch order and values.
@@ -234,10 +238,11 @@ window.workflowNodeMenu = () => ({
     },
 });
 
-window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null) => ({
+window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null, initialCoordinates = null) => ({
     layoutKey,
     initialLayout,
     initialEdgeRoutes,
+    initialCoordinates,
     positions: {},
     edgeRoutes: {},
     routeDrag: null,
@@ -280,6 +285,101 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pendingInsertion: null,
     initialized: false,
 
+    canvasActions(steps = this.$wire?.workflowActions || []) {
+        return steps.flatMap(step => [step, ...this.canvasActions(step.config?.true_actions || []), ...this.canvasActions(step.config?.false_actions || [])]);
+    },
+
+    canvasAction(id) {
+        return this.canvasActions().find(step => String(step.id) === String(id));
+    },
+
+    toggleCanvasAction(id) {
+        const actions = JSON.parse(JSON.stringify(this.$wire.workflowActions));
+        const action = this.canvasActions(actions).find(step => String(step.id) === String(id));
+        if (!action) return;
+        action.disabled = !action.disabled;
+        this.$wire.$set('workflowActions', actions, false);
+        this.$wire.$set('definition.actions', actions, false);
+    },
+
+    removeCanvasAction(id) {
+        const action = this.canvasAction(id);
+        if (!action) return;
+        const nodeId = 'action:' + id;
+        const controls = this.$refs.stage?.querySelectorAll('[data-workflow-edge-source]') || [];
+        const edges = this.$wire.definition.connections ?? Array.from(controls)
+            .filter(control => control.dataset.workflowEdgeTarget)
+            .map(control => ({sourceId:control.dataset.workflowEdgeSource, sourcePort:control.dataset.workflowEdgePort, targetId:control.dataset.workflowEdgeTarget}));
+        const remaining = edges.filter(edge => edge.sourceId !== nodeId && edge.targetId !== nodeId);
+        // Match server deletion: only an ordinary output can be bridged. Keep
+        // condition children as detached nodes, never execute both arms at once.
+        if (!['condition', 'control-condition'].includes(action.type)) {
+            edges.filter(edge => edge.targetId === nodeId).forEach(incoming => {
+                edges.filter(edge => edge.sourceId === nodeId && edge.sourcePort === 'output').forEach(outgoing => {
+                    const edge = {...incoming, targetId:outgoing.targetId};
+                    if (edge.sourceId !== edge.targetId && !remaining.some(item => this.edgeRouteKey(item) === this.edgeRouteKey(edge))) remaining.push(edge);
+                });
+            });
+        }
+        const actions = this.canvasActions().filter(step => String(step.id) !== String(id)).map(step => {
+            const copy = JSON.parse(JSON.stringify(step));
+            delete copy.config?.true_actions;
+            delete copy.config?.false_actions;
+            return copy;
+        });
+        this.$wire.$set('workflowActions', actions, false);
+        this.$wire.$set('definition.actions', actions, false);
+        this.$wire.$set('definition.connections', remaining, false);
+        delete this.positions[nodeId];
+        this.edgeRoutes = Object.fromEntries(Object.entries(this.edgeRoutes).filter(([key]) => remaining.some(edge => this.edgeRouteKey(edge) === key)));
+        this.selectedNodeIds = this.selectedNodeIds.filter(selected => selected !== nodeId);
+        this.cancelConnection();
+        this.saveNodeLayout();
+        this.$nextTick(() => this.scheduleGraphRefreshAfterPaint());
+    },
+
+    canvasEdges(initialEdges, startIds) {
+        const connections = this.$wire?.definition?.connections;
+        if (!Array.isArray(connections)) return initialEdges.filter(edge => !edge.branch);
+        const nodes = Object.fromEntries(this.canvasActions().map(step => ['action:' + step.id, step]));
+        const returns = new Set();
+        const isLoop = id => nodes[id]?.type === 'workflow_loop';
+        const reach = (pending, edges, stop = null, opaqueLoops = false) => {
+            const seen = new Set();
+            while (pending.length) {
+                const id = pending.pop();
+                if (id === stop || seen.has(id)) continue;
+                seen.add(id);
+                edges.filter(edge => edge.sourceId === id && (!opaqueLoops || !isLoop(id) || edge.sourcePort === 'done')).forEach(edge => pending.push(edge.targetId));
+            }
+            return seen;
+        };
+        Object.keys(nodes).filter(isLoop).forEach(id => {
+            const body = reach(connections.filter(edge => edge.sourceId === id && edge.sourcePort === 'each').map(edge => edge.targetId), connections, id, true);
+            connections.forEach((edge, index) => {
+                if (edge.targetId === id && body.has(edge.sourceId) && (!isLoop(edge.sourceId) || edge.sourcePort === 'done')) returns.add(index);
+            });
+        });
+        const forward = connections.filter((_, index) => !returns.has(index));
+        const edges = connections.map((edge, index) => {
+            let loopReturn = returns.has(index);
+            if (!loopReturn && isLoop(edge.sourceId) && edge.sourcePort === 'done') {
+                const next = reach([edge.targetId], forward.filter(item => item !== edge));
+                loopReturn = next.has(edge.sourceId) || connections.some((item, i) => returns.has(i) && item.targetId === edge.sourceId && next.has(item.sourceId))
+                    || connections.some(item => item.sourceId === edge.sourceId && item.sourcePort === 'each' && item.targetId === edge.targetId);
+            }
+            return {...edge, loopReturn};
+        });
+        const allNodes = {...Object.fromEntries(startIds.map(id => [id, {type:'trigger'}])), ...nodes};
+        Object.entries(allNodes).forEach(([id, node]) => {
+            const ports = node.type === 'workflow_loop' ? ['each','done'] : ['condition','control-condition'].includes(node.type) ? ['yes','no'] : ['output'];
+            ports.forEach(port => {
+                if (!edges.some(edge => edge.sourceId === id && edge.sourcePort === port)) edges.push({sourceId:id,sourcePort:port,targetId:null});
+            });
+        });
+        return edges;
+    },
+
     // Placement uses a hidden 10-unit grid. Dots share the stage's coordinates,
     // but their CSS radius stays constant instead of growing with the node cards.
     gridSpacing: 20,
@@ -317,7 +417,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const actual = this.cardPositions();
         let changed = false;
         Object.entries(desired || {}).forEach(([id, point]) => {
-            if (!actual[id]) return;
+            if (!actual[id] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return;
             const dx = point.x - actual[id].x, dy = point.y - actual[id].y;
             if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
             const offset = this.positions[id] || {x:0,y:0};
@@ -649,6 +749,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.initialized = true;
         this.restoreNodeLayout();
         this.applyNodePositions();
+        this.restoreCardPositions(this.initialCoordinates || this.$wire?.definition?.canvas_positions);
         this.observeCanvas();
         this.releaseBeforeMorphHook = window.Livewire?.hook('morph', ({el}) => {
             if (el === this.$el || el?.contains(this.$el)) this.morphPositions = this.cardPositions();
@@ -716,9 +817,15 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const nodes = Object.fromEntries(Object.entries(this.positions).filter(([nodeId]) => activeNodeIds.has(nodeId)));
         // Defer the network request, not the state update, so an immediate Save
         // includes the final drag position and the dirty indicator updates now.
-        this.$wire?.$set?.('definition.canvas_layout', nodes, false);
         this.edgeRoutes = this.normalizeEdgeRoutes(this.edgeRoutes);
-        this.$wire?.$set?.('definition.canvas_edge_routes', this.edgeRoutes, false);
+        if (this.$wire?.definition) {
+            this.$wire.$set('definition.canvas_layout', nodes, false);
+            this.$wire.$set('definition.canvas_edge_routes', this.edgeRoutes, false);
+            const points = Object.fromEntries(Object.entries(this.cardPositions()).map(([id, point]) => [id, {
+                x:Math.round(point.x * 1000) / 1000, y:Math.round(point.y * 1000) / 1000,
+            }]));
+            this.$wire.$set('definition.canvas_positions', points, false);
+        }
         try {
             window.localStorage.setItem(this.layoutKey, JSON.stringify({version: 1, nodes, edges:this.edgeRoutes}));
         } catch { /* Server saving still works when browser storage is unavailable. */ }
@@ -792,7 +899,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     nodeElements() {
-        return Array.from(this.$refs.stage?.querySelectorAll('[data-workflow-node-id]') || []);
+        const ids = Array.isArray(this.$wire?.workflowActions)
+            ? new Set(this.canvasActions().map(step => 'action:' + step.id)) : null;
+        return Array.from(this.$refs.stage?.querySelectorAll('[data-workflow-node-id]') || [])
+            .filter(node => !ids || !node.dataset.workflowNodeId.startsWith('action:') || ids.has(node.dataset.workflowNodeId));
     },
 
     nodeStyle(nodeId) {

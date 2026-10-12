@@ -47,6 +47,17 @@ class WorkflowTransferTest extends TestCase
         $this->assertFalse($flow->is_active);
         $this->assertArrayNotHasKey('bot_token_encrypted',$flow->definition['actions'][0]['config']);
     }
+    public function test_absolute_coordinates_roundtrip_and_invalid_coordinates_are_rejected(): void
+    {
+        $definition = $this->definition();
+        $definition['canvas_positions'] = ['action:http'=>['x'=>720,'y'=>-160]];
+        $decoded = WorkflowTransfer::decode(WorkflowTransfer::encode('Позиции',$definition));
+        $this->assertEquals($definition['canvas_positions'],$decoded['definition']['canvas_positions']);
+        $file = json_decode(WorkflowTransfer::encode('Позиции',$definition),true);
+        $file['definition']['canvas_positions']['action:http']['x'] = 100001;
+        $this->expectException(\InvalidArgumentException::class);
+        WorkflowTransfer::decode(json_encode($file));
+    }
     public function test_edge_routes_roundtrip_and_saved_workflow_preserves_them(): void
     {
         $definition = $this->definition();

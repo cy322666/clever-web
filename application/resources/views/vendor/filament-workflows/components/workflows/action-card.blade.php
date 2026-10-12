@@ -4,6 +4,7 @@
     'total' => 1,
     'metadata' => [],
     'readOnly' => false,
+    'executionCount' => null,
 ])
 
 @php
@@ -20,6 +21,7 @@
     $entity = $config['target_entity'] ?? $config['entity'] ?? (str_contains($actionType, 'lead') ? 'lead' : '');
     $entityLabel = ['lead' => 'Сделка', 'contact' => 'Контакт', 'company' => 'Компания', 'customer' => 'Покупатель', 'task' => 'Задача'][$entity] ?? null;
     $subtitle = $isCondition ? 'Если / иначе' : ($entityLabel ? 'amoCRM · ' . $entityLabel : ($metadata['category'] ?? 'Действие'));
+    $enabledSubtitle = $subtitle;
     if ($disabled) {
         $subtitle = $isCondition ? 'Выключено → «Да»' : 'Выключено';
     }
@@ -28,7 +30,13 @@
 <div
     data-workflow-node-card
     data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
+    @if($readOnly && $executionCount !== null)
+        x-bind:class="{ 'workflow-node-card--selected': selectedNodeId() === 'action:' + @js($actionId) }"
+    @endif
     @unless($readOnly)
+        x-bind:style="canvasAction(@js($actionId)) ? '' : 'visibility: hidden; pointer-events: none'"
+        x-bind:data-workflow-node-disabled="canvasAction(@js($actionId))?.disabled ? 'true' : 'false'"
+        x-bind:class="{ 'workflow-node-card--disabled': !!canvasAction(@js($actionId))?.disabled }"
         x-bind:data-node-running="workflowNodeIsRunning($wire, @js($actionId))"
         x-bind:aria-busy="workflowNodeIsRunning($wire, @js($actionId))"
         x-on:pointerup.capture="if (connecting && !$event.target.closest('.workflow-node-port')) finishConnection('action:' + @js($actionId), $event)"
@@ -42,7 +50,7 @@
         'workflow-card workflow-node-card workflow-node-card--compact',
         'workflow-action-card' => ! $isCondition,
         'workflow-condition-node workflow-node-card--condition' => $isCondition,
-        'workflow-node-card--disabled' => $disabled,
+        'workflow-node-card--disabled' => $readOnly && $disabled,
     ]) }}
 >
     @if($readOnly)
@@ -70,9 +78,12 @@
     </span>
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
     @include('filament.workflow-builder.workflow-node-status')
+    @if($readOnly && $executionCount !== null)
+        <span class="workflow-execution-order" title="{{ $isLoop ? 'Итераций цикла' : 'Сущностей' }}">{{ $executionCount }}</span>
+    @endif
     <div class="workflow-node-card__body workflow-node-card__caption">
         <h4 class="workflow-node-card__title" title="{{ $actionName }}">{{ $actionName }}</h4>
-        <p class="workflow-node-card__subtitle" title="{{ $subtitle }}">{{ $subtitle }}</p>
+        <p class="workflow-node-card__subtitle" @unless($readOnly) x-text="canvasAction(@js($actionId))?.disabled ? @js($isCondition ? 'Выключено → «Да»' : 'Выключено') : @js($enabledSubtitle)" @endunless>{{ $subtitle }}</p>
     </div>
 
     @unless($readOnly)
@@ -82,22 +93,20 @@
             x-on:click.outside="closeMenu()"
             x-on:focusout="if (!$el.contains($event.relatedTarget)) closeMenu()"
             x-on:workflow-node-menu-open.window="if ($event.detail !== $el) closeMenu()">
-            <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" x-bind:disabled="@js($disabled) || workflowNodeIsRunning($wire)"
+            <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" x-bind:disabled="!!canvasAction(@js($actionId))?.disabled || workflowNodeIsRunning($wire)"
                 @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Запустить ветку цикла с выбранными настройками' : 'Реально выполнить ноду в текущем контексте' }}">
                 <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
             </button>
-            <button type="button" wire:click.stop="removeWorkflowAction('{{ $actionId }}')"
+            <button type="button" x-on:click.stop="removeCanvasAction(@js($actionId))"
                 aria-label="Удалить ноду: {{ $actionName }}" title="Удалить ноду">
                 <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
             </button>
             <button
                 type="button"
-                wire:click.stop="toggleWorkflowActionDisabled('{{ $actionId }}')"
-                wire:loading.attr="disabled"
-                wire:target="toggleWorkflowActionDisabled('{{ $actionId }}')"
-                aria-label="{{ $disabled ? 'Включить' : 'Выключить' }} ноду: {{ $actionName }}"
-                title="{{ $disabled ? 'Включить' : 'Выключить' }} ноду"
-                aria-pressed="{{ $disabled ? 'true' : 'false' }}"
+                x-on:click.stop="toggleCanvasAction(@js($actionId))"
+                x-bind:aria-label="(canvasAction(@js($actionId))?.disabled ? 'Включить' : 'Выключить') + @js(' ноду: '.$actionName)"
+                x-bind:title="(canvasAction(@js($actionId))?.disabled ? 'Включить' : 'Выключить') + ' ноду'"
+                x-bind:aria-pressed="!!canvasAction(@js($actionId))?.disabled"
             >
                 <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/>
             </button>

@@ -3,6 +3,63 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 
+function localDraft(actions, edges) {
+    const {canvas} = fixture();
+    canvas.$wire = {workflowActions:actions, definition:{actions,connections:edges}, $set(path, value, live) {
+        assert.equal(live,false,'Local edits must never issue a request');
+        const keys = path.split('.');
+        let target = this;
+        while (keys.length > 1) target = target[keys.shift()];
+        target[keys[0]] = value;
+    }};
+    return canvas;
+}
+
+test('local toggle updates nested draft configuration and can be reversed without a server call', () => {
+    const actions = [{id:'if',type:'control-condition',config:{true_actions:[{id:'a',type:'http_request',config:{url:'https://example.test'}}]}}];
+    const canvas = localDraft(actions, []);
+    for (const disabled of [true,false,true]) {
+        canvas.toggleCanvasAction('a');
+        assert.equal(canvas.canvasAction('a').disabled,disabled);
+        assert.equal(canvas.$wire.definition.actions[0].config.true_actions[0].disabled,disabled);
+        assert.equal(canvas.canvasAction('a').config.url,'https://example.test');
+        assert.equal(actions[0].config.true_actions[0].disabled,undefined,'Do not mutate an in-flight payload or baseline');
+    }
+});
+
+test('local removal bridges ordinary nodes, preserves branch children and keeps loop return semantics', () => {
+    const edge = (s,p,t) => ({sourceId:s,sourcePort:p,targetId:t});
+    const canvas = localDraft([
+        {id:'loop',type:'workflow_loop'},
+        {id:'if',type:'control-condition',config:{true_actions:[{id:'a',type:'workflow_delay'}],false_actions:[{id:'b',type:'workflow_delay'}]}},
+        {id:'end',type:'workflow_delay'},
+    ],[edge('trigger','output','action:loop'),edge('action:loop','each','action:if'),edge('action:if','yes','action:a'),edge('action:if','no','action:b'),edge('action:a','output','action:end'),edge('action:b','output','action:loop'),edge('action:end','output','action:loop')]);
+    canvas.removeCanvasAction('end');
+    let edges=canvas.canvasEdges([], ['trigger']);
+    assert.equal(edges.find(e=>e.sourceId==='action:a').targetId,'action:loop');
+    assert.equal(edges.find(e=>e.sourceId==='action:a').loopReturn,true);
+    assert.equal(edges.find(e=>e.sourceId==='action:loop'&&e.sourcePort==='each').loopReturn,false);
+    canvas.removeCanvasAction('if');
+    assert.deepEqual(Array.from(canvas.canvasActions().map(a=>a.id)),['loop','a','b']);
+    assert.equal(canvas.$wire.definition.connections.some(e=>e.sourceId==='action:loop'&&e.sourcePort==='each'),false,'Never bridge both condition branches');
+    edges=canvas.canvasEdges([], ['trigger']);
+    assert.equal(edges.find(e=>e.sourceId==='action:a').loopReturn,false,'Detached nodes are not loop returns');
+    assert.equal(edges.find(e=>e.sourceId==='action:loop'&&e.sourcePort==='each').targetId,null);
+});
+
+test('local edge projection recognizes done feedback, multiple starts and empty output ports', () => {
+    const canvas=localDraft([{id:'before',type:'workflow_delay'},{id:'loop',type:'workflow_loop'}],[
+        {sourceId:'trigger:two',sourcePort:'output',targetId:'action:before'},
+        {sourceId:'action:before',sourcePort:'output',targetId:'action:loop'},
+        {sourceId:'action:loop',sourcePort:'done',targetId:'action:before'},
+    ]);
+    const edges=canvas.canvasEdges([],['trigger','trigger:two']);
+    assert.equal(edges.find(e=>e.sourcePort==='done').loopReturn,true);
+    assert.equal(edges.find(e=>e.sourcePort==='each').targetId,null);
+    assert.equal(edges.find(e=>e.sourceId==='trigger').targetId,null);
+    assert.equal(edges.find(e=>e.sourceId==='trigger:two').targetId,'action:before');
+});
+
 test('condition edges are neutral until evaluated and only the selected route is green', () => {
     const {canvas} = fixture();
     const edge = port => ({sourceId:'action:condition',sourcePort:port,targetId:'action:next'});
@@ -164,11 +221,12 @@ test('new branches start from white output handles while existing edges keep hov
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
     assert.match(card, /workflow-node-port--output-\{\{ \$port \}\}.*startConnection\('action:' \+ @js\(\$actionId\), @js\(\$port\), \$event\)/s);
     assert.match(css, /button\.workflow-node-port--output:hover[^{]*\{[^}]*background:\s*#c5cbd5/s);
-    assert.match(edges, /@if\(\$edge\['targetId'\]\)/);
+    assert.match(edges, /x-for="edge in canvasEdges/);
+    assert.match(edges, /x-show="edge.targetId"/);
     assert.match(edges, /heroicon-o-plus/);
     assert.match(edges, /heroicon-o-trash/);
     assert.doesNotMatch(edges, /data-workflow-edge-branch|Добавить ещё одну ветку/);
-    assert.match(edges, /empty\(\$edge\['branch'\]\)/);
+    assert.deepEqual(Array.from(fixture().canvas.canvasEdges([{branch:true}, {sourceId:'a',sourcePort:'yes',targetId:'b'}], [])), [{sourceId:'a',sourcePort:'yes',targetId:'b'}]);
 });
 
 test('connected edge controls reveal together and hide after leaving the edge', () => {
@@ -616,7 +674,7 @@ test('dragging routes is zoom-correct, does not reconnect or move nodes, and per
         const f = fixture();
         const changes = {};
         f.canvas.scale = scale;
-        f.canvas.$wire = {$set:(name,value,defer)=>{changes[name]=structuredClone(value);assert.equal(defer,false);}};
+        f.canvas.$wire = {definition:{},$set:(name,value,defer)=>{changes[name]=structuredClone(value);assert.equal(defer,false);}};
         f.canvas.saveNodeLayout = f.persistLayout;
         f.canvas.positions = {'action:test':{x:14,y:23}};
         const edge = {sourceId:'action:source',sourcePort:'no',targetId:'action:test'};

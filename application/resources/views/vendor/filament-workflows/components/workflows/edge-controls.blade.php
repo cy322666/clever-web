@@ -1,64 +1,33 @@
 @props(['actions' => [], 'connections' => null, 'startIds' => ['trigger']])
 
-@php
-    $edgeControls = \App\Services\Workflows\WorkflowCanvasGraph::edges($actions, $connections, false, $startIds);
-@endphp
+@php($edgeControls = \App\Services\Workflows\WorkflowCanvasGraph::edges($actions, $connections, false, $startIds))
 
 <div x-ref="edgeControls" class="workflow-node-edge-controls">
-    @foreach($edgeControls as $edge)
-        @if(!$edge['targetId'] && empty($edge['branch']))
-            @php($label = match ($edge['sourcePort']) {
-                'yes' => 'Добавить действие в ветку «Да»',
-                'no' => 'Добавить действие в ветку «Нет»',
-                default => 'Добавить действие',
-            })
-            <button
-                type="button"
-                wire:key="workflow-edge-add-{{ $edge['sourceId'] }}-{{ $edge['sourcePort'] }}-end"
-                x-on:pointerdown.stop="startEdgeControlDrag(@js($edge['sourceId']), @js($edge['sourcePort']), null, $event)"
-                x-on:click.stop="openEdgePalette(@js($edge['sourceId']), @js($edge['sourcePort']), null)"
-                data-workflow-edge-source="{{ $edge['sourceId'] }}"
-                data-workflow-edge-port="{{ $edge['sourcePort'] }}"
-                class="workflow-node-edge-add"
-                aria-label="{{ $label }}"
-                title="{{ $label }}"
-            >
+    <template x-for="edge in canvasEdges(@js($edgeControls), @js($startIds))" :key="edgeRouteKey(edge)">
+        <div style="display: contents">
+            <button type="button" class="workflow-node-edge-add"
+                x-on:pointerdown.stop="startEdgeControlDrag(edge.sourceId, edge.sourcePort, edge.targetId, $event)"
+                x-on:click.stop="openEdgePalette(edge.sourceId, edge.sourcePort, edge.targetId)"
+                x-on:contextmenu.prevent.stop="if (edge.targetId) selectedEdge = edge"
+                x-on:pointerenter="if (edge.targetId) showEdgeControls($el)"
+                x-on:pointerleave="if (edge.targetId) hideEdgeControls($el)"
+                x-bind:data-workflow-edge-source="edge.sourceId"
+                x-bind:data-workflow-edge-port="edge.sourcePort"
+                x-bind:data-workflow-edge-target="edge.targetId"
+                x-bind:data-workflow-loop-return="edge.loopReturn ? 'true' : 'false'"
+                x-bind:aria-label="edge.targetId ? 'Добавить промежуточную ноду' : 'Добавить действие'"
+                x-bind:title="edge.targetId ? 'Добавить промежуточную ноду · Перетащите, чтобы изменить связь' : 'Добавить действие'">
                 <x-filament::icon icon="heroicon-o-plus" class="h-3.5 w-3.5"/>
             </button>
-        @endif
-        @if($edge['targetId'])
-            <button
-                type="button"
-                wire:key="workflow-edge-add-{{ $edge['sourceId'] }}-{{ $edge['sourcePort'] }}-{{ $edge['targetId'] }}"
-                x-on:pointerdown.stop="startEdgeControlDrag(@js($edge['sourceId']), @js($edge['sourcePort']), @js($edge['targetId']), $event)"
-                x-on:click.stop="openEdgePalette(@js($edge['sourceId']), @js($edge['sourcePort']), @js($edge['targetId']))"
-                x-on:contextmenu.prevent.stop="selectedEdge = @js(array_intersect_key($edge, array_flip(['sourceId', 'sourcePort', 'targetId'])))"
-                x-on:pointerenter="showEdgeControls($el)"
-                x-on:pointerleave="hideEdgeControls($el)"
-                data-workflow-edge-source="{{ $edge['sourceId'] }}"
-                data-workflow-edge-port="{{ $edge['sourcePort'] }}"
-                data-workflow-edge-target="{{ $edge['targetId'] }}"
-                data-workflow-loop-return="{{ !empty($edge['loopReturn']) ? 'true' : 'false' }}"
-                class="workflow-node-edge-add"
-                aria-label="Добавить промежуточную ноду"
-                title="Добавить промежуточную ноду · Перетащите, чтобы изменить связь"
-            >
-                <x-filament::icon icon="heroicon-o-plus" class="h-3.5 w-3.5"/>
-            </button>
-            <button
-                type="button"
-                wire:key="workflow-edge-delete-{{ $edge['sourceId'] }}-{{ $edge['sourcePort'] }}-{{ $edge['targetId'] }}"
-                data-workflow-edge-delete
-                class="workflow-node-edge-add"
+            <button type="button" class="workflow-node-edge-add" x-show="edge.targetId"
+                x-bind:data-workflow-edge-delete="edge.targetId ? '' : null"
                 x-on:pointerdown.stop
                 x-on:pointerenter="showEdgeControls($el.previousElementSibling)"
                 x-on:pointerleave="hideEdgeControls($el.previousElementSibling)"
-                x-on:click.stop="selectedEdge = @js(array_intersect_key($edge, array_flip(['sourceId', 'sourcePort', 'targetId']))); removeSelectedEdge()"
-                aria-label="Удалить связь"
-                title="Удалить связь"
-            >
+                x-on:click.stop="selectedEdge = edge; removeSelectedEdge()"
+                aria-label="Удалить связь" title="Удалить связь">
                 <x-filament::icon icon="heroicon-o-trash" class="h-3.5 w-3.5"/>
             </button>
-        @endif
-    @endforeach
+        </div>
+    </template>
 </div>

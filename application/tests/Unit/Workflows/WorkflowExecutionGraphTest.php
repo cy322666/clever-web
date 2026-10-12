@@ -39,6 +39,23 @@ class WorkflowExecutionGraphTest extends TestCase
         $this->assertSame('Запрос сделок', $graph['results'][0]['name']);
     }
 
+    public function test_history_keeps_snapshot_layout_and_routes_not_the_current_workflow_layout(): void
+    {
+        $run = WorkflowHistoryFixture::sampleRun();
+        $context = $run->context_data;
+        $context['variables']['_definition_snapshot']['canvas_layout'] = ['action:if'=>['x'=>-300,'y'=>180]];
+        $context['variables']['_definition_snapshot']['canvas_positions'] = ['action:if'=>['x'=>240,'y'=>360]];
+        $context['variables']['_definition_snapshot']['canvas_edge_routes'] = ['action:if|yes|action:yes'=>['kind'=>'curve','x'=>450,'y'=>360]];
+        $run->context_data = $context;
+        $run->workflow->definition = ['actions'=>[], 'canvas_layout'=>['action:if'=>['x'=>9999,'y'=>0]]];
+        $graph = WorkflowExecutionGraph::fromRun($run);
+        $this->assertSame($context['variables']['_definition_snapshot'], $graph['definition']);
+        $view = file_get_contents(resource_path('views/filament/workflow-builder/workflow-execution-canvas.blade.php'));
+        $this->assertStringContainsString(':read-only="true" :execution-nodes=', $view);
+        foreach (['canvas_layout','canvas_positions','canvas_edge_routes'] as $key) $this->assertStringContainsString("['$key']",$view);
+        $this->assertStringNotContainsString('class="workflow-execution-node" style="left:', $view);
+    }
+
     public function test_old_runs_show_the_known_execution_path_without_inventing_a_definition(): void
     {
         $graph = WorkflowExecutionGraph::fromRun(WorkflowHistoryFixture::sampleRun(false));
