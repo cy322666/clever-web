@@ -53,6 +53,39 @@ class WorkflowCanvasTest extends TestCase
             ->assertSee('Добавить действие в ветку «Нет»');
     }
 
+    public function test_action_hover_tools_have_four_icons_and_two_overflow_actions(): void
+    {
+        $html = Livewire::test(WorkflowCanvasFixture::class)->assertStatus(200)->html();
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($document);
+        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and @x-data="workflowNodeMenu()"]');
+        $this->assertCount(3, $toolbars);
+        foreach ($toolbars as $toolbar) {
+            $buttons = $xpath->query('./button', $toolbar);
+            $this->assertCount(4, $buttons);
+            $this->assertStringContainsString('runWorkflowCanvasNode', $buttons[0]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('removeWorkflowAction', $buttons[1]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('toggleWorkflowActionDisabled', $buttons[2]->getAttribute('wire:click.stop'));
+            $this->assertSame('menu', $buttons[3]->getAttribute('aria-haspopup'));
+            $items = $xpath->query('./div[@role="menu"]/button[@role="menuitem"]', $toolbar);
+            $this->assertCount(2, $items);
+            $this->assertSame('Переименовать', trim($items[0]->textContent));
+            $this->assertStringContainsString('renameWorkflowNode', $items[0]->getAttribute('wire:click.stop'));
+            $this->assertSame('Скопировать', trim($items[1]->textContent));
+            $this->assertStringContainsString('duplicateWorkflowActionStep', $items[1]->getAttribute('wire:click.stop'));
+        }
+    }
+
+    public function test_read_only_cards_do_not_render_the_hover_menu(): void
+    {
+        $html = \Illuminate\Support\Facades\Blade::render('<x-filament-workflows::workflows.action-card :action="$action" :read-only="true" />', [
+            'action' => ['id' => 'readonly', 'type' => 'http_request', 'name' => 'Запрос'],
+        ]);
+        $this->assertStringNotContainsString('workflowNodeMenu()', $html);
+        $this->assertStringNotContainsString('role="menu"', $html);
+    }
+
     public function test_it_toggles_a_nested_node_without_changing_its_configuration(): void
     {
         $component = Livewire::test(WorkflowCanvasFixture::class);

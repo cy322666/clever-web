@@ -9,6 +9,91 @@ test('canvas keeps its dotted grid and uses vertical input ports', () => {
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
 });
 
+test('grid follows canvas pan and zoom and uses a half-dot snap step', () => {
+    const {canvas} = fixture();
+    for (const scale of [0.25, 1, 2]) {
+        canvas.scale = scale;
+        canvas.translateX = -123;
+        canvas.translateY = 456;
+        canvas.$refs.stage = {offsetLeft:0,offsetTop:0};
+        assert.equal(canvas.gridStyle(), `background-size:${20*scale}px ${20*scale}px;background-position:${-123-10*scale}px ${456-10*scale}px;`);
+        assert.equal(canvas.snapCoordinate(14), 10);
+        assert.equal(canvas.snapCoordinate(16), 20);
+        assert.equal(canvas.snapCoordinate(-16), -20);
+    }
+    const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    assert.match(markup, /x-bind:style="gridStyle\(\)"/);
+});
+
+test('node overflow menu focuses enabled actions, cycles with arrows and restores focus on close', () => {
+    const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
+    const window = {dispatchEvent() {}};
+    runInNewContext(source.slice(source.indexOf('window.workflowNodeMenu ='),source.indexOf('window.workflowNodeCanvas =')), {
+        window, CustomEvent: class { constructor(type,options) { this.type=type;this.detail=options.detail; } },
+    });
+    const menu = window.workflowNodeMenu();
+    let focused;
+    const items = [false,true,false].map(disabled => ({disabled,focus(){focused=this;}}));
+    const more = {focus(){focused=this;}};
+    menu.$el = {};
+    menu.$refs = {menu:{querySelectorAll:()=>items},more};
+    menu.$nextTick = fn=>fn();
+    menu.toggleMenu();
+    assert.equal(menu.menuOpen,true);
+    assert.equal(focused,items[0]);
+    menu.moveMenuFocus({target:items[0]},1);
+    assert.equal(focused,items[2]);
+    menu.moveMenuFocus({target:items[2]},1);
+    assert.equal(focused,items[0]);
+    menu.moveMenuFocus({target:items[0]},-1);
+    assert.equal(focused,items[2]);
+    menu.toggleMenu();
+    assert.equal(menu.menuOpen,false);
+    assert.equal(focused,more);
+});
+
+test('node drags snap absolute card positions, preserve group spacing and never bypass with Alt', () => {
+    for (const scale of [0.25, 1, 2]) for (const altKey of [false, true]) {
+        const f = fixture();
+        f.canvas.scale = scale;
+        f.canvas.translateX = -573;
+        f.canvas.translateY = 231;
+        f.canvas.positions = {'action:test':{x:13,y:-7},other:{x:97,y:25}};
+        f.canvas.selectedNodeIds = ['action:test','other'];
+        f.canvas.cardPositions = () => ({'action:test':{x:47,y:83},other:{x:131,y:115}});
+        f.canvas.startNodeDrag({...f.event(100,100),altKey}, f.node);
+        f.canvas.moveCanvas({...f.event(100+23.4*scale,100-16.3*scale),altKey});
+        assert.equal(47+f.canvas.positions['action:test'].x-13,70);
+        assert.equal(83+f.canvas.positions['action:test'].y+7,70);
+        assert.equal(f.canvas.positions.other.x-f.canvas.positions['action:test'].x,84);
+        assert.equal(f.canvas.positions.other.y-f.canvas.positions['action:test'].y,32);
+    }
+});
+
+test('curve and loop bend handles snap independently without moving endpoints or other routes', () => {
+    for (const scale of [0.25, 1, 2]) {
+        const f = fixture();
+        f.canvas.scale = scale;
+        const edge = {sourceId:'a',sourcePort:'each',targetId:'b'};
+        const key = f.canvas.edgeRouteKey(edge);
+        f.canvas.edgeRoutes.untouched = {kind:'curve',x:33,y:57};
+        const cases = [
+            ['curve', {kind:'curve',x:133,y:-117}, {x:160,y:-130}],
+            ['exit', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:160,entryX:17,y:-117}],
+            ['entry', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:133,entryX:40,y:-117}],
+            ['lane', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:133,entryX:17,y:-130}],
+        ];
+        for (const [part,route,expected] of cases) {
+            f.canvas.startEdgeRouteDrag(edge,route,f.event(100,100),part);
+            f.canvas.moveCanvas({...f.event(100+23*scale,100-16*scale),altKey:true});
+            f.canvas.stopCanvasInteraction(f.event(100+23*scale,100-16*scale));
+            for (const [name,value] of Object.entries(expected)) assert.equal(f.canvas.edgeRoutes[key][name],value);
+        }
+        assert.deepEqual(f.canvas.edgeRoutes.untouched,{kind:'curve',x:33,y:57});
+        assert.deepEqual(Object.keys(f.canvas.positions),[]);
+    }
+});
+
 test('node and connection lines are thin while edge hit targets remain easy to grab', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     assert.match(css, /\.workflow-node-edge\s*\{[^}]*stroke-width:\s*1\.25;[^}]*vector-effect:\s*non-scaling-stroke;/s);
@@ -124,8 +209,10 @@ test('new detached node is centered in visible viewport at any zoom and pan with
         f.canvas.applyNodeSelection = () => {};
         f.canvas.placeCreatedNode({nodeId:'action:test'});
         assert.deepEqual(Object.keys(desired), ['action:test']);
-        assert.equal(-400 + (desired['action:test'].x+48)*scale, 820);
-        assert.equal(-250 + (desired['action:test'].y+48)*scale, 450);
+        assert.ok(Math.abs(-400 + (desired['action:test'].x+48)*scale - 820) <= 5*scale);
+        assert.ok(Math.abs(-250 + (desired['action:test'].y+48)*scale - 450) <= 5*scale);
+        assert.equal(desired['action:test'].x % 10, 0);
+        assert.equal(desired['action:test'].y % 10, 0);
         assert.deepEqual(Array.from(f.canvas.selectedNodeIds), ['action:test']);
     }
     const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
@@ -157,13 +244,15 @@ test('copied groups are centered at the current pan and zoom while preserving sp
         assert.deepEqual(Object.keys(desired), ['copy-a','copy-b']);
         assert.equal(desired['copy-b'].x-desired['copy-a'].x,200);
         assert.equal(desired['copy-b'].y-desired['copy-a'].y,-300);
-        assert.equal(-1300+(desired['copy-a'].x+148)*scale,700);
-        assert.equal(420+(desired['copy-b'].y+198)*scale,450);
+        assert.ok(Math.abs(-1300+(desired['copy-a'].x+148)*scale-700) <= 5*scale);
+        assert.ok(Math.abs(420+(desired['copy-b'].y+198)*scale-450) <= 5*scale);
+        assert.equal(desired['copy-a'].x % 10, 0);
+        assert.equal(Math.abs(desired['copy-b'].y % 10), 0);
         assert.equal(positions.a.x,10000);
         assert.deepEqual(Array.from(f.canvas.selectedNodeIds), ['copy-a','copy-b']);
         f.canvas.cardPositions = () => positions;
         f.canvas.placeCopiedNodes({map});
-        assert.equal(-1300+(desired['copy-a'].x+148)*scale,700);
+        assert.ok(Math.abs(-1300+(desired['copy-a'].x+148)*scale-700) <= 5*scale);
     }
     const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
     assert.match(markup, /workflow-nodes-copied.window="placeCopiedNodes\(\$event.detail\)"/);
@@ -788,7 +877,7 @@ test('inserting between nodes creates space downstream while preserving unrelate
     f.canvas.$refs.stage={getBoundingClientRect:()=>({left:0,top:0})};
     f.canvas.pendingInsertion={sourceId:'source',targetId:'target',nodes:{source:boxes.source,target:boxes.target,tail:boxes.tail,unrelated:boxes.unrelated},edges:[{source:'target',target:'tail'}]};
     f.canvas.placeInsertedNode({sourceId:'source',targetId:'target',nodeId:'inserted'});
-    assert.equal(boxes.inserted.x+f.canvas.positions.inserted.x,192);
+    assert.equal(boxes.inserted.x+f.canvas.positions.inserted.x,190);
     assert.equal(boxes.target.x+f.canvas.positions.target.x,384);
     assert.equal(boxes.tail.x+f.canvas.positions.tail.x,576);
     assert.equal(f.canvas.positions.unrelated?.x ?? 0,0);

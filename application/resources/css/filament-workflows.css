@@ -5711,12 +5711,13 @@ body:has(.workflow-editor-page) .fi-page-content {
 }
 
 .workflow-node-card--compact:hover > .workflow-node-card__tools,
+.workflow-node-card__tools.is-menu-open,
 .workflow-node-card__tools:has(button:focus-visible) {
     opacity: 1;
     pointer-events: auto;
 }
 
-.workflow-node-card__tools button {
+.workflow-node-card__tools > button {
     display: inline-flex;
     width: 1.5rem;
     height: 1.5rem;
@@ -6310,7 +6311,11 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-node-editor #workflow-canvas .workflow-condition-split { gap: 3rem !important; }
 /* Tools stay square regardless of how many controls a node has. */
 .workflow-node-card__tools { left: auto; right: -2px; gap: 0.25rem; padding-bottom: 0.5rem; }
-.workflow-node-card__tools button { flex: 0 0 1.5rem; width: 1.5rem; min-width: 1.5rem; padding: 0; border-color: #bbc3cf; box-shadow: 0 1px 4px rgb(31 41 55 / 0.09); }
+.workflow-node-card__tools > button { flex: 0 0 1.5rem; width: 1.5rem; min-width: 1.5rem; padding: 0; border-color: #bbc3cf; box-shadow: 0 1px 4px rgb(31 41 55 / 0.09); }
+.workflow-node-card__menu { position: absolute; top: 100%; right: 0; z-index: 10; min-width: 11rem; padding: 0.25rem; border: 1px solid #c5cdd7; border-radius: 0.5rem; background: #fff; color: #303743; box-shadow: 0 4px 16px rgb(31 41 55 / 0.16); }
+.workflow-node-card__menu button { display: flex; width: 100%; align-items: center; gap: 0.5rem; padding: 0.5rem 0.625rem; border: 0; border-radius: 0.25rem; background: transparent; color: inherit; font-size: 0.8125rem; line-height: 1.25rem; text-align: left; white-space: nowrap; cursor: pointer; }
+[data-workflow-node-id]:has(.workflow-node-card__tools.is-menu-open) { z-index: 20; }
+.dark .workflow-node-card__menu { background: #252b34; color: #e5e7eb; border-color: #48515e; }
 .workflow-node-editor #workflow-canvas .workflow-node-card--disabled { border-style: dashed !important; border-color: #b9bfc8 !important; background: #dde1e7 !important; box-shadow: none !important; }
 .workflow-node-editor #workflow-canvas .workflow-node-card--disabled :is(.workflow-node-card__icon, .workflow-node-card__title) { color: #939ba7 !important; }
 

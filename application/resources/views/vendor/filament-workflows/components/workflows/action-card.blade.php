@@ -73,13 +73,19 @@
     </div>
 
     @unless($readOnly)
-        <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop>
+        <div class="workflow-node-card__tools" x-data="workflowNodeMenu()" x-bind:class="{ 'is-menu-open': menuOpen }"
+            x-on:click.stop x-on:pointerdown.stop x-on:keydown.stop
+            x-on:keydown.escape.prevent.stop="closeMenu(true)"
+            x-on:click.outside="closeMenu()"
+            x-on:focusout="if (!$el.contains($event.relatedTarget)) closeMenu()"
+            x-on:workflow-node-menu-open.window="if ($event.detail !== $el) closeMenu()">
             <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" wire:loading.attr="disabled" wire:target="runWorkflowCanvasNode,runEditingWorkflowNode"
                 @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Выполнить ветку для первого элемента' : 'Реально выполнить ноду в текущем контексте' }}">
                 <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
             </button>
-            <button type="button" wire:click.stop="mountAction('renameWorkflowNode', { id: @js($actionId) })" aria-label="Переименовать ноду: {{ $actionName }}" title="Переименовать ноду">
-                <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/>
+            <button type="button" wire:click.stop="removeWorkflowAction('{{ $actionId }}')"
+                aria-label="Удалить ноду: {{ $actionName }}" title="Удалить ноду">
+                <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
             </button>
             <button
                 type="button"
@@ -92,24 +98,23 @@
             >
                 <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/>
             </button>
-            <button
-                type="button"
-                wire:click.stop="duplicateWorkflowActionStep('{{ $actionId }}')"
-                wire:loading.attr="disabled"
-                wire:target="duplicateWorkflowActionStep('{{ $actionId }}')"
-                aria-label="Копировать ноду: {{ $actionName }}"
-                title="Копировать ноду"
-            >
-                <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
+            <button type="button" x-ref="more" x-on:click="toggleMenu()" x-on:keydown.arrow-down.prevent="if (!menuOpen) toggleMenu(); else focusMenuItem(0)"
+                aria-haspopup="menu" x-bind:aria-expanded="menuOpen" aria-controls="workflow-node-menu-{{ $actionId }}"
+                aria-label="Другие действия: {{ $actionName }}" title="Другие действия">
+                <x-filament::icon icon="heroicon-o-ellipsis-horizontal" class="h-4 w-4"/>
             </button>
-            <button
-                type="button"
-                wire:click.stop="removeWorkflowAction('{{ $actionId }}')"
-                aria-label="Удалить ноду: {{ $actionName }}"
-                title="Удалить ноду"
-            >
-                <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
-            </button>
+            <div class="workflow-node-card__menu" id="workflow-node-menu-{{ $actionId }}" x-ref="menu" x-show="menuOpen" x-cloak role="menu" aria-label="Действия с нодой: {{ $actionName }}"
+                x-on:keydown.arrow-down.prevent="moveMenuFocus($event, 1)" x-on:keydown.arrow-up.prevent="moveMenuFocus($event, -1)"
+                x-on:keydown.home.prevent="focusMenuItem(0)" x-on:keydown.end.prevent="focusMenuItem(-1)">
+                <button type="button" role="menuitem" tabindex="-1" x-on:click="closeMenu()"
+                    wire:click.stop="mountAction('renameWorkflowNode', { id: @js($actionId) })">
+                    <x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/> Переименовать
+                </button>
+                <button type="button" role="menuitem" tabindex="-1" x-on:click="closeMenu(true)"
+                    wire:click.stop="duplicateWorkflowActionStep('{{ $actionId }}')" wire:loading.attr="disabled" wire:target="duplicateWorkflowActionStep('{{ $actionId }}')">
+                    <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/> Скопировать
+                </button>
+            </div>
         </div>
     @endunless
 </div>

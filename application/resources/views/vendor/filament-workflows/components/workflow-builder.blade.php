@@ -159,6 +159,7 @@
             >
             <div
                 x-ref="viewport"
+                x-bind:style="gridStyle()"
                 x-on:pointerdown="startCanvasInteraction($event)"
                 x-on:wheel="onCanvasWheel($event)"
                 x-on:click.capture="suppressNodeClick($event)"

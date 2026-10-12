@@ -171,6 +171,28 @@ window.workflowWorkbench = () => ({
     },
 });
 
+window.workflowNodeMenu = () => ({
+    menuOpen: false,
+    toggleMenu() {
+        if (this.menuOpen) return this.closeMenu(true);
+        window.dispatchEvent(new CustomEvent('workflow-node-menu-open', {detail: this.$el}));
+        this.menuOpen = true;
+        this.$nextTick(() => this.focusMenuItem(0));
+    },
+    closeMenu(returnFocus = false) {
+        this.menuOpen = false;
+        if (returnFocus) this.$refs.more.focus();
+    },
+    focusMenuItem(index) {
+        const items = [...this.$refs.menu.querySelectorAll('[role="menuitem"]')].filter(item => !item.disabled);
+        if (items.length) items[(index + items.length) % items.length].focus();
+    },
+    moveMenuFocus(event, direction) {
+        const items = [...this.$refs.menu.querySelectorAll('[role="menuitem"]')].filter(item => !item.disabled);
+        this.focusMenuItem(items.indexOf(event.target) + direction);
+    },
+});
+
 window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null) => ({
     layoutKey,
     initialLayout,
@@ -216,6 +238,21 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     groupDragOrigins: {},
     pendingInsertion: null,
     initialized: false,
+
+    // Visible dots are 20 canvas units apart; placement uses their half-step.
+    gridSpacing: 20,
+    snapCoordinate(value) {
+        const step = this.gridSpacing / 2;
+        return Math.round(value / step) * step;
+    },
+
+    gridStyle() {
+        const size = this.gridSpacing * this.scale;
+        // Radial gradients draw dots at the centre of each background tile.
+        const x = this.translateX + (this.$refs.stage?.offsetLeft || 0) - size / 2;
+        const y = this.translateY + (this.$refs.stage?.offsetTop || 0) - size / 2;
+        return `background-size:${size}px ${size}px;background-position:${x}px ${y}px;`;
+    },
 
     cardPositions() {
         const rect = this.$refs.stage?.getBoundingClientRect();
@@ -301,8 +338,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const left = Math.min(...cards.map(c => c.point.x)), top = Math.min(...cards.map(c => c.point.y));
         const right = Math.max(...cards.map(c => c.point.x+c.box.width/this.scale));
         const bottom = Math.max(...cards.map(c => c.point.y+c.box.height/this.scale));
-        const dx = (viewport.left+viewport.width/2-stage.left)/this.scale - (left+right)/2;
-        const dy = (viewport.top+viewport.height/2-stage.top)/this.scale - (top+bottom)/2;
+        const dx = this.snapCoordinate((viewport.left+viewport.width/2-stage.left)/this.scale - (right-left)/2) - left;
+        const dy = this.snapCoordinate((viewport.top+viewport.height/2-stage.top)/this.scale - (bottom-top)/2) - top;
         this.restoreCardPositions(Object.fromEntries(cards.map(c => [c.id, {x:c.point.x+dx,y:c.point.y+dy}])));
         this.selectedNodeIds = cards.map(c => c.id);
         this.applyNodeSelection();
@@ -349,6 +386,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const shift = target && !before.dropPosition ? Math.max(0, inserted.x+192-target.x) : 0;
             downstream.forEach(id => { if(desired[id]) desired[id] = {...desired[id],x:desired[id].x+shift}; });
             while (!before.dropPosition && Object.values(desired).some(p=>Math.abs(p.x-inserted.x)<144 && Math.abs(p.y-inserted.y)<144)) inserted.y += 180;
+            inserted.x = this.snapCoordinate(inserted.x);
+            inserted.y = this.snapCoordinate(inserted.y);
             desired[detail.nodeId] = inserted;
             this.restoreCardPositions(desired);
             this.scheduleGraphRefreshAfterPaint();
@@ -1037,8 +1076,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.pointerId = event.pointerId;
         this.pointerStartX = event.clientX;
         this.pointerStartY = event.clientY;
-        this.nodeStartX = Number(position.x) || 0;
-        this.nodeStartY = Number(position.y) || 0;
+        // Layout offsets are relative to the DOM, not to the visible grid.
+        const anchor = this.cardPositions()[nodeId] || position;
+        this.nodeStartX = Number(anchor.x) || 0;
+        this.nodeStartY = Number(anchor.y) || 0;
         this.nodeDragMoved = false;
     },
 
@@ -1068,7 +1109,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             if (!drag.moved && Math.hypot(event.clientX-drag.x,event.clientY-drag.y) < 4) return;
             drag.moved = true;
             const route = {...drag.route};
-            const bounded = value => Math.max(-100000, Math.min(100000, Math.round(value*10)/10));
+            const bounded = value => Math.max(-100000, Math.min(100000, this.snapCoordinate(value)));
             if (route.kind === 'curve') { route.x = bounded(route.x+dx); route.y = bounded(route.y+dy); }
             else if (drag.part === 'exit') route.exitX = bounded(route.exitX+dx);
             else if (drag.part === 'entry') route.entryX = bounded(route.entryX+dx);
@@ -1108,8 +1149,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
         if (this.draggingNodeId !== null && event.pointerId === this.pointerId) {
-            const deltaX = (event.clientX - this.pointerStartX) / this.scale;
-            const deltaY = (event.clientY - this.pointerStartY) / this.scale;
+            const deltaX = this.snapCoordinate(this.nodeStartX + (event.clientX - this.pointerStartX) / this.scale) - this.nodeStartX;
+            const deltaY = this.snapCoordinate(this.nodeStartY + (event.clientY - this.pointerStartY) / this.scale) - this.nodeStartY;
 
             if (!this.nodeDragMoved) {
                 if (Math.hypot(event.clientX - this.pointerStartX, event.clientY - this.pointerStartY) < 4) {
