@@ -39,22 +39,38 @@ test('canvas keeps its dotted grid and uses vertical input ports', () => {
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
 });
 
-test('grid pans with nodes without scaling its dots or changing the hidden half-step', () => {
+test('grid uses the same world coordinates as nodes through pan, fractional zoom and fit view', () => {
     const {canvas} = fixture();
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     assert.doesNotMatch(css, /background-position:\s*0\s+0\s*!important/);
     for (const view of ['vendor/filament-workflows/components/workflow-builder', 'filament/workflow-builder/workflow-execution-canvas']) {
         assert.match(readFileSync(new URL(`../../resources/views/${view}.blade.php`, import.meta.url), 'utf8'), /x-bind:style="gridStyle\(\)"/);
     }
-    for (const scale of [0.25, 1, 2]) {
+    for (const scale of [0.01, 0.05, 0.249, 0.25, 0.499, 0.5, 0.6, 0.999, 1, 1.333, 2]) {
         canvas.scale = scale;
         canvas.translateX = -123;
         canvas.translateY = 456;
-        canvas.$refs.stage = {offsetLeft:0,offsetTop:0};
-        assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:17px 16px;');
+        canvas.$refs.stage = {offsetLeft:7,offsetTop:11};
+        canvas.$refs.viewport = {scrollLeft:3,scrollTop:9};
+        const verify = () => {
+            const [pitch, height, x, y] = canvas.gridStyle().match(/-?[\d.]+(?=px)/g).map(Number);
+            assert.equal(pitch, height);
+            assert.ok(pitch >= 12 && pitch <= 40, 'overview must not create dense/subpixel dots');
+            const stride = pitch / scale / canvas.gridSpacing;
+            assert.ok(Math.abs(Math.log2(stride) - Math.round(Math.log2(stride))) < 1e-9, 'visible dots are a subset of the same lattice');
+            const mod = value => ((value % pitch) + pitch) % pitch;
+            for (const world of [-64000, -320, 0, 160, 64000]) {
+                const point = world * stride;
+                for (const [phase, offset] of [[x, canvas.translateX + 4], [y, canvas.translateY + 2]]) {
+                    const distance = mod(point * scale + offset - phase - pitch / 2);
+                    assert.ok(Math.min(distance, pitch - distance) < 1e-7, `dot and node must agree at scale ${scale}`);
+                }
+            }
+        };
+        verify();
         canvas.translateX += 7;
         canvas.translateY -= 9;
-        assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:4px 7px;');
+        verify();
         assert.equal(canvas.snapCoordinate(14), 10);
         assert.equal(canvas.snapCoordinate(16), 20);
         assert.equal(canvas.snapCoordinate(-16), -20);

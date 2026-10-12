@@ -280,7 +280,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pendingInsertion: null,
     initialized: false,
 
-    // Placement uses a hidden 10-unit grid; dots keep their size but pan with the canvas.
+    // Placement uses a hidden 10-unit grid. Dots share the stage's coordinates,
+    // but their CSS radius stays constant instead of growing with the node cards.
     gridSpacing: 20,
     snapCoordinate(value) {
         const step = this.gridSpacing / 2;
@@ -288,8 +289,16 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     gridStyle() {
-        const phase = value => ((value % this.gridSpacing) + this.gridSpacing) % this.gridSpacing;
-        return `background-size:20px 20px;background-position:${phase(this.translateX)}px ${phase(this.translateY)}px;`;
+        const scale = this.scale || 1;
+        // At overview zoom, show a subset of the same world lattice. Never pack
+        // subpixel dots into a moire pattern, and never change the snapping grid.
+        const stride = 2 ** Math.max(0, Math.ceil(Math.log2(12 / (this.gridSpacing * scale))));
+        const pitch = this.gridSpacing * stride * scale;
+        const phase = value => ((value % pitch) + pitch) % pitch;
+        const x = (this.$refs.stage?.offsetLeft || 0) + this.translateX - (this.$refs.viewport?.scrollLeft || 0);
+        const y = (this.$refs.stage?.offsetTop || 0) + this.translateY - (this.$refs.viewport?.scrollTop || 0);
+        // A radial-gradient dot sits at the tile centre, not its top-left corner.
+        return `background-size:${pitch}px ${pitch}px;background-position:${phase(x - pitch / 2)}px ${phase(y - pitch / 2)}px;`;
     },
 
     cardPositions() {
