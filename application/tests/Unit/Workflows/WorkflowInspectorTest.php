@@ -22,6 +22,14 @@ class WorkflowInspectorTest extends TestCase
         ]]);
     }
 
+    public function test_dock_visibility_is_owned_by_the_panel_not_a_mirrored_canvas_flag(): void
+    {
+        $this->editor()
+            ->assertSeeHtml('x-bind:hidden="!opened" hidden')
+            ->assertDontSeeHtml('has-inspector')
+            ->assertDontSeeHtml('inspectorOpen');
+    }
+
     public function test_dock_renders_real_fields_without_a_modal_or_focus_trap(): void
     {
         $page = $this->editor()->call('openWorkflowInspector','action:a')

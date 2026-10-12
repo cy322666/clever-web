@@ -35,6 +35,9 @@ try {
     if (!str_contains($html, 'aria-label="Каталог нод"') || !str_contains($html, 'aria-label="Справочники"') || str_contains($html, 'workflow-node-library__rail')) {
         throw new RuntimeException('Editor must expose one context catalog and a separate references control');
     }
+    if (!str_contains($html, 'x-bind:hidden="!opened" hidden') || str_contains($html, 'has-inspector')) {
+        throw new RuntimeException('Canvas space must follow the actual inspector visibility');
+    }
     $snapshot = json_decode(html_entity_decode($match[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
     request()->headers->set('X-Livewire', 'true');
     $update = function (string $method, array $params = [], array $updates = []) use (&$snapshot): array {

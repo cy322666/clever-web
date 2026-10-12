@@ -76,10 +76,20 @@ test('inline rename validates, retains rejected input and does not open a modal'
     assert.equal(state.nodeName,'Новая нода','Escape must not commit on blur');
 });
 
-test('dock position uses individual style properties so resizing cannot override x-show display:none', () => {
+test('dock positioning cannot override panel visibility', () => {
     const {panel}=fixture();panel.positionInspector();
     assert.equal(typeof panel.position,'object');assert.equal(panel.position.top,'100px');
     assert.equal('display' in panel.position,false);
+});
+
+test('canvas space follows the actual panel visibility, not a second event-driven open flag', () => {
+    const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
+    const canvas=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    const css=readFileSync(new URL('../../resources/css/workflow-inspector.css',import.meta.url),'utf8');
+    assert.match(view,/x-bind:hidden="!opened" hidden/);
+    assert.doesNotMatch(canvas,/inspectorOpen|has-inspector/);
+    assert.match(css,/\.workflow-inspector\[hidden\]\s*\{\s*display: none !important;/);
+    assert.match(css,/\.workflow-editor-page:has\(~ .*\.workflow-inspector:not\(\[hidden\]\)\).*padding-right: 440px/);
 });
 
 test('outside pointer hides immediately and reopens the same incomplete draft without a request', async () => {

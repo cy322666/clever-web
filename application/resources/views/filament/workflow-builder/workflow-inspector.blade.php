@@ -5,7 +5,7 @@
     x-on:pointerdown.window.capture="dismissInspector($event)"
     x-on:form-validation-error.window="if ($event.detail.livewireId === $wire.$id) showValidationErrors()"
     x-on:keydown.escape.stop="if (!$event.defaultPrevented) hideInspector()"
-    x-on:resize.window="positionInspector()" x-show="opened" x-cloak
+    x-on:resize.window="positionInspector()" x-bind:hidden="!opened" hidden
     x-bind:style="position" x-bind:aria-busy="loading" aria-label="Настройки ноды">
     <header class="workflow-inspector__header">
         <strong x-text="title || 'Нода'"></strong>

@@ -365,7 +365,6 @@ window.workflowInlineNodeName = (nodeId, initialName) => ({
 });
 
 window.workflowWorkbench = () => ({
-    inspectorOpen: false,
     get hasUnsavedChanges() {
         const saved = this.$wire?.savedWorkflowEditorState;
         if (!saved) return true;

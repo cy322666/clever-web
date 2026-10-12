@@ -38,8 +38,6 @@
     x-data="workflowWorkbench()"
     x-init="initWorkbench()"
     x-on:resize.window="syncEditorHeight()"
-    x-on:workflow-inspector-state.window="if ($event.detail.componentId === $wire.$id) inspectorOpen = $event.detail.open"
-    x-bind:class="{ 'has-inspector': inspectorOpen }"
     @class([
         'workflow-workbench',
         'workflow-workbench--page' => $pageMode,
