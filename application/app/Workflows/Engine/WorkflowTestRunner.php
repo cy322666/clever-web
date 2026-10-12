@@ -56,15 +56,22 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
 
     protected bool $loopReachedDone = false;
 
-    protected function executeLoopTestGraph(array $definition, WorkflowContext $context, ?string $root = null, bool $preview = false, ?array $inputSources = null): array
+    protected function executeLoopTestGraph(array $definition, WorkflowContext $context, ?string $root = null, bool $preview = false, ?array $inputSources = null, ?callable $beforeStep = null): array
     {
         $results = [];
         $this->loopReachedDone = false;
         $lastId = $root ?? '';
+        $deadline = microtime(true) + 60;
         try {
             $runner = new \App\Services\Workflows\WorkflowLoopRunner($definition);
-            $execute = function (array $step, WorkflowContext $context, string $path, array $iteration) use (&$results, &$lastId): array {
+            $execute = function (array $step, WorkflowContext $context, string $path, array $iteration) use (&$results, &$lastId, $preview, $deadline, $beforeStep): array {
                 $lastId = $step['id'];
+                // Only manual single-iteration previews use this short budget.
+                // Nested done feedback must not turn a preview into 5000 real API calls.
+                if ($preview && (count($results) >= 200 || microtime(true) >= $deadline)) {
+                    throw new \RuntimeException('Пробный запуск остановлен: лимит 60 секунд или 200 шагов. Проверьте условие выхода и обратные связи циклов. Выполненные действия не отменены.');
+                }
+                if ($beforeStep) $beforeStep($step, count($results) + 1, $iteration);
                 $started = microtime(true);
                 try { $result = $this->executeTestStep($step, $context, $path); }
                 catch (\Throwable $error) { $result = ['id' => $step['id'], 'type' => $step['type'], 'status' => 'error', 'error' => $error->getMessage(), 'input' => $step['config'], 'output' => []]; }

@@ -126,6 +126,31 @@ class WorkflowLoopFeedbackTest extends TestCase
         $this->assertSame($calls, array_column($session['results'], 'id'));
     }
 
+    public function test_root_preview_bounds_nested_done_feedback_without_restricting_connections(): void
+    {
+        $definition = $this->definition();
+        $definition['actions'][1]['config']['conditions'][0]['right'] = 100;
+        $this->assertSame([], WorkflowDefinitionValidator::issues($definition));
+        $session = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition);
+        $this->assertSame('failed', $session['status']);
+        $this->assertStringContainsString('200 шагов', $session['error']);
+        $this->assertCount(201, $session['results']);
+        $this->assertNotContains('after', array_column($session['results'], 'id'));
+        Http::assertNothingSent();
+    }
+
+    public function test_cancellation_callback_stops_before_next_action_and_keeps_completed_results(): void
+    {
+        $definition = $this->definition();
+        $session = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition,
+            function ($step, $sequence): void { if ($sequence === 3) throw new \RuntimeException('Остановлено'); });
+        $this->assertSame('failed', $session['status']);
+        $this->assertSame('Остановлено', $session['error']);
+        $this->assertSame(['outer', 'check', 'inner'], array_column($session['results'], 'id'));
+        $this->assertSame('error', $session['results'][2]['status']);
+        Http::assertNothingSent();
+    }
+
     public function test_production_resume_reuses_exact_pass_logs_without_repeating_writes(): void
     {
         \Tests\Support\WorkflowListDatabase::prepare();

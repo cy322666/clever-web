@@ -34,8 +34,15 @@ trait HasWorkflowDebugger
     #[Locked]
     public ?string $nodePreviewSessionId = null;
 
+    #[Locked]
+    public ?string $nodePreviewTaskId = null;
+
+    #[Locked]
+    public array $nodePreviewProgress = [];
+
     public function runWorkflowCanvasNode(string $actionId): void
     {
+        if ($this->workflowPreviewBusy()) return;
         $node = \App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)['action:'.$actionId] ?? null;
         abort_unless($node, 404);
         Cache::lock('workflow-node-run:'.(Auth::id() ?? 'guest').':'.$this->getId(), 120)->get(function () use ($actionId, $node): void {
@@ -59,6 +66,7 @@ trait HasWorkflowDebugger
 
     public function runEditingWorkflowNode(): void
     {
+        if ($this->workflowPreviewBusy()) return;
         try {
             $data = $this->getMountedActionSchema(0)?->getState() ?? [];
             $input = $this->workflowNodeRunInput();
@@ -129,13 +137,66 @@ trait HasWorkflowDebugger
     private function executeWorkflowNodePreview(array $step, array $input): void
     {
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-        // A loop preview executes its body once; ordinary play still executes only one node.
+        // A loop can include slow API calls and nested feedback. Do not hold the UI request open.
+        if (\App\Services\Workflows\WorkflowGraph::loop($step)) {
+            $this->nodePreviewTaskId = app(\App\Services\Workflows\WorkflowNodePreview::class)->start(
+                (int) Auth::id(), $this->getId(), $step, $this->workflowDebugContext(), $input,
+                $record?->exists ? $record->getKey() : null, $this->definition);
+            unset($this->nodeRunResults[$step['id']]);
+            $this->pollWorkflowNodePreview();
+            return;
+        }
         $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), true, $this->definition);
+        $this->applyWorkflowNodePreview($step['id'], $session);
+    }
+
+    private function applyWorkflowNodePreview(string $nodeId, array $session): void
+    {
         foreach ($session['results'] as $result) $this->nodeRunResults[$result['id']] = $result;
-        if ($session['error'] ?? null) $this->nodeRunResults[$step['id']] = ['id' => $step['id'], 'status' => 'error', 'error' => $session['error']];
+        if ($session['error'] ?? null) $this->nodeRunResults[$nodeId] = ['id' => $nodeId, 'status' => 'error', 'error' => $session['error']];
         $this->nodePreviewSessionId ??= (string) Str::uuid();
         Cache::put($this->nodePreviewCacheKey(), $session['context'], now()->addHour());
         $this->publishNodePreviewResults();
+    }
+
+    public function pollWorkflowNodePreview(): void
+    {
+        if (!$this->nodePreviewTaskId) return;
+        $previews = app(\App\Services\Workflows\WorkflowNodePreview::class);
+        $id = $this->nodePreviewTaskId;
+        $state = $previews->status((int) Auth::id(), $id);
+        if ($state && in_array($state['status'], ['queued', 'running'], true)) {
+            $this->nodePreviewProgress = $state;
+            return;
+        }
+        $nodeId = $state['node_id'] ?? $this->nodePreviewProgress['node_id'] ?? '';
+        if ($session = $previews->result((int) Auth::id(), $id)) {
+            $this->applyWorkflowNodePreview($nodeId, $session);
+        }
+        if (!$state || !empty($state['error'])) {
+            $this->nodeRunResults[$nodeId] = ['id' => $nodeId, 'status' => 'error',
+                'error' => $state['error'] ?? 'Данные пробного запуска истекли. Проверьте результат перед повторным запуском.'];
+            $this->publishNodePreviewResults();
+        }
+        $previews->acknowledge((int) Auth::id(), $id);
+        $this->nodePreviewTaskId = null;
+        $this->nodePreviewProgress = [];
+    }
+
+    public function stopWorkflowNodePreview(): void
+    {
+        if (!$this->nodePreviewTaskId) return;
+        app(\App\Services\Workflows\WorkflowNodePreview::class)->cancel((int) Auth::id(), $this->nodePreviewTaskId);
+        $this->pollWorkflowNodePreview();
+    }
+
+    private function workflowPreviewBusy(): bool
+    {
+        $this->nodePreviewTaskId ??= app(\App\Services\Workflows\WorkflowNodePreview::class)->activeId((int) Auth::id(), $this->getId());
+        $this->pollWorkflowNodePreview();
+        if (!$this->nodePreviewTaskId) return false;
+        Notification::make()->warning()->title('Цикл уже выполняется')->body('Дождитесь результата или остановите пробный запуск.')->send();
+        return true;
     }
 
     private function publishNodePreviewResults(): void
@@ -167,6 +228,7 @@ trait HasWorkflowDebugger
 
     public function editWorkflowDebugInput(): void
     {
+        if ($this->workflowPreviewBusy()) return;
         if ($this->debugSessionId) Cache::forget($this->debugCacheKey());
         if ($this->nodePreviewSessionId) Cache::forget($this->nodePreviewCacheKey());
         $this->debugSessionId = $this->nodePreviewSessionId = null;
@@ -188,6 +250,7 @@ trait HasWorkflowDebugger
 
     public function startWorkflowDebug(): bool
     {
+        if ($this->workflowPreviewBusy()) return false;
         try {
             $this->prepareWorkflowDebugInput();
             if ($this->debugReal && ! $this->debugRealConfirmed) {
@@ -216,6 +279,7 @@ trait HasWorkflowDebugger
 
     public function nextWorkflowDebugStep(): bool
     {
+        if ($this->workflowPreviewBusy()) return false;
         if (! $this->debugSessionId) {
             return false;
         }

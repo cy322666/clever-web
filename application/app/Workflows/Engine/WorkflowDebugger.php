@@ -11,7 +11,7 @@ use Throwable;
 /** Executes exactly one queued node per call; branch children are queued only after evaluation. */
 class WorkflowDebugger extends WorkflowTestRunner
 {
-    public function executeNode(array $step, array $contextData, array $input, ?int $workflowId, ?int $userId, bool $real = false, array $definition = []): array
+    public function executeNode(array $step, array $contextData, array $input, ?int $workflowId, ?int $userId, bool $real = false, array $definition = [], ?callable $beforeStep = null): array
     {
         $session = $this->start(['trigger' => ['type' => 'manual'], 'actions' => [$step], 'connections' => [['sourceId' => 'trigger', 'sourcePort' => 'output', 'targetId' => 'action:'.$step['id']]]], array_diff_key($input, ['_workflow_start_node_id' => true]), $workflowId, $userId, $real);
         // Reuse data, not an old run identity or its test source/mode.
@@ -32,7 +32,7 @@ class WorkflowDebugger extends WorkflowTestRunner
             foreach (WorkflowGraph::nodes($graph['actions']) as $entry) {
                 if ($entry['step']['id'] === $step['id']) data_set($graph['actions'], $entry['path'], $step);
             }
-            $session['results'] = $this->executeLoopTestGraph($graph, $context, $step['id'], true);
+            $session['results'] = $this->executeLoopTestGraph($graph, $context, $step['id'], true, null, $beforeStep);
             $session['context'] = $context->toArray();
             $last = end($session['results']);
             $session['error'] = $last['error'] ?? null;
