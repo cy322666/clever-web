@@ -87,7 +87,6 @@ abstract class Leads
             : $amoApi->service->leads()->create();
 
         $lead->name = 'Запись #'.$record->record_id;
-        $lead->sale = $record->cost;
         $lead->status_id = $statusId;
         $lead->pipeline_id = $pipelineId;
 
@@ -191,7 +190,6 @@ abstract class Leads
         ?int $responsibleUserId = null
     ): void
     {
-        $lead->sale = $record->cost;
         $lead->status_id = $statusId;
         $lead->pipeline_id = $pipelineId;
 
