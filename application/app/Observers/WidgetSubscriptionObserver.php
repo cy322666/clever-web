@@ -16,9 +16,18 @@ class WidgetSubscriptionObserver
 
     public function updated(WidgetSubscription $subscription): void
     {
-        if ($this->becameInactive($subscription)) {
-            app(PlatformTechnicalMonitor::class)->subscriptionExpired($subscription);
+        if ($subscription->status === WidgetSubscription::STATUS_EXPIRED) {
+            if ($subscription->wasChanged('status')) {
+                app(PlatformTechnicalMonitor::class)->subscriptionExpired($subscription);
+            }
 
+            return;
+        }
+
+        // Manual widget deactivation has its own notification with the operator.
+        // A block or cancellation is not an expiry, nor a renewal.
+        if ($subscription->blocked_at !== null
+            || !in_array($subscription->status, WidgetSubscription::ACTIVE_STATUSES, true)) {
             return;
         }
 
@@ -30,19 +39,6 @@ class WidgetSubscriptionObserver
                 $beforeEndsAt ? (string)$beforeEndsAt : null,
             );
         }
-    }
-
-    private function becameInactive(WidgetSubscription $subscription): bool
-    {
-        if (!$subscription->wasChanged(['status', 'blocked_at'])) {
-            return false;
-        }
-
-        return in_array($subscription->status, [
-            WidgetSubscription::STATUS_EXPIRED,
-            WidgetSubscription::STATUS_BLOCKED,
-            WidgetSubscription::STATUS_CANCELLED,
-        ], true) || $subscription->blocked_at !== null;
     }
 
     private function looksRenewed(WidgetSubscription $subscription): bool
