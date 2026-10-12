@@ -19,6 +19,15 @@ test('expression coloring marks only placeholders and treats markup as plain tex
     assert.equal(components().workflowExpressionParts('ещё {{не закрыто')[0].variable,false);
 });
 
+test('expression fields use compact typography on the native input before measuring the painted overlay', () => {
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
+    assert.match(css, /\.workflow-expression-painted\s*\{[^}]*font-family:\s*ui-monospace[^}]*font-size:\s*12px !important;[^}]*font-weight:\s*400 !important;/s);
+    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    assert.ok(source.indexOf("field.classList.add('workflow-expression-painted')") < source.indexOf('const style = getComputedStyle(field)'));
+    assert.match(source, /font:style.font,letterSpacing:style.letterSpacing,lineHeight:style.lineHeight/);
+    assert.match(source, /field.classList.remove\('workflow-expression-painted'\)/);
+});
+
 test('boolean option values use numeric keys without an empty false option', () => {
     const off=components().workflowValueField(false); off.init(); assert.equal(off.state,'0');
     const on=components().workflowValueField(true); on.init(); assert.equal(on.state,'1');

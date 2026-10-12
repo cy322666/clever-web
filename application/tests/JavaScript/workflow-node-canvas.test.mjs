@@ -140,6 +140,52 @@ test('an imported layout survives unavailable local storage', () => {
     assert.equal(f.canvas.positions['action:test'].y,80);
 });
 
+test('copied groups are centered at the current pan and zoom while preserving spacing and original positions', () => {
+    for (const scale of [0.2, 1, 2]) {
+        const f = fixture();
+        f.canvas.scale = scale;
+        f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:200,top:100,width:1000,height:700});
+        f.canvas.$refs.stage = {getBoundingClientRect:()=>({left:-1300,top:420})};
+        f.canvas.nodeElements = () => ['copy-a','copy-b','original'].map(id => ({dataset:{workflowNodeId:id},
+            querySelector:()=>({getBoundingClientRect:()=>({width:96*scale,height:96*scale})})}));
+        let desired;
+        f.canvas.restoreCardPositions = value => {desired = value;};
+        f.canvas.applyNodeSelection = () => {};
+        const positions = {a:{x:10000,y:-6000}, b:{x:10200,y:-6300}};
+        const map = {a:'copy-a',b:'copy-b'};
+        f.canvas.centerCopiedNodes(map, positions);
+        assert.deepEqual(Object.keys(desired), ['copy-a','copy-b']);
+        assert.equal(desired['copy-b'].x-desired['copy-a'].x,200);
+        assert.equal(desired['copy-b'].y-desired['copy-a'].y,-300);
+        assert.equal(-1300+(desired['copy-a'].x+148)*scale,700);
+        assert.equal(420+(desired['copy-b'].y+198)*scale,450);
+        assert.equal(positions.a.x,10000);
+        assert.deepEqual(Array.from(f.canvas.selectedNodeIds), ['copy-a','copy-b']);
+        f.canvas.cardPositions = () => positions;
+        f.canvas.placeCopiedNodes({map});
+        assert.equal(-1300+(desired['copy-a'].x+148)*scale,700);
+    }
+    const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    assert.match(markup, /workflow-nodes-copied.window="placeCopiedNodes\(\$event.detail\)"/);
+});
+
+test('keyboard paste uses the same centered group placement and still leaves text fields alone', async () => {
+    const f = fixture();
+    f.canvas.$el = {isConnected:true,getClientRects:()=>[{}]};
+    f.canvas.$nextTick = async () => {};
+    f.canvas.applyNodePositions = () => {};
+    const positions = {source:{x:9000,y:-5000}}, map = {source:'copy'};
+    f.canvas.clipboardPositions = positions;
+    let centered = 0;
+    f.canvas.centerCopiedNodes = (received,points) => { assert.equal(received,map); assert.equal(points,positions); centered++; };
+    f.canvas.$wire = {pasteWorkflowNodes:async()=>map};
+    await f.canvas.clipboardShortcut({ctrlKey:true,key:'v',target:{closest:()=>true},preventDefault(){}});
+    assert.equal(centered,0);
+    for (let n=0;n<2;n++) await f.canvas.clipboardShortcut({metaKey:true,key:'v',target:{closest:()=>false},preventDefault(){}});
+    assert.equal(centered,2);
+    assert.equal(f.canvas.pasting,false);
+});
+
 test('dragging a connected ordinary output starts a second branch without replacing the first', () => {
     const f = fixture();
     f.canvas.$refs.edgeControls = {querySelectorAll: () => []};

@@ -15,22 +15,49 @@ final class WorkflowExpressionCatalog
 
     public static function referenceNames(array $actions, array $definition = []): array
     {
+        $names = [];
+        foreach (self::labels($actions, $definition) as $id => $label) {
+            $names[$id] = self::uniqueName($label, array_values($names));
+        }
+        return $names;
+    }
+
+    public static function uniqueName(string $name, array $used): string
+    {
+        $base = trim($name) ?: 'Нода';
+        $name = $base;
+        for ($n = 2; in_array($name, $used, true); $n++) $name = $base.' ('.$n.')';
+        return $name;
+    }
+
+    /** Persist existing reference aliases as labels, without changing what expressions resolve to. */
+    public static function normalizeNames(array $definition): array
+    {
+        $actions = $definition['actions'] ?? [];
+        $names = self::referenceNames($actions, $definition);
+        $labels = self::labels($actions, $definition);
+        $nodes = WorkflowGraph::nodes($actions);
+        foreach ($names as $id => $name) {
+            if ($name === $labels[$id]) continue;
+            if ($id === 'trigger') $definition['trigger']['name'] = $name;
+            elseif (isset($nodes['action:'.$id])) data_set($definition, 'actions.'.$nodes['action:'.$id]['path'].'.name', $name);
+            else foreach ($definition['additional_triggers'] ?? [] as $index => $start) {
+                if ($start['id'] === $id) $definition['additional_triggers'][$index]['name'] = $name;
+            }
+        }
+        return $definition;
+    }
+
+    private static function labels(array $actions, array $definition): array
+    {
         $metadata = collect(app(ActionRegistry::class)->getAllWithMetadata())->keyBy('type');
         $triggers = collect(app(\Leek\FilamentWorkflows\Triggers\TriggerRegistry::class)->getAllWithMetadata())->keyBy('type');
         $names = [];
-        $used = [];
-        $add = function (string $id, string $name) use (&$names, &$used): void {
-            $base = trim($name) ?: 'Нода';
-            $name = $base;
-            for ($n = 2; isset($used[$name]); $n++) $name = $base.' ('.$n.')';
-            $used[$name] = true;
-            $names[$id] = $name;
-        };
         foreach (WorkflowStartNodes::all($definition) ?: ['trigger' => []] as $id => $start) {
-            $add($id, $start['name'] ?? $triggers[$start['type'] ?? '']['name'] ?? 'Данные запуска');
+            $names[$id] = $start['name'] ?? $triggers[$start['type'] ?? '']['name'] ?? 'Данные запуска';
         }
         foreach (self::flatten($actions) as $id => $action) {
-            $add($id, $action['name'] ?? $metadata[$action['type']]['name'] ?? 'Нода');
+            $names[$id] = $action['name'] ?? $metadata[$action['type']]['name'] ?? 'Нода';
         }
 
         return $names;

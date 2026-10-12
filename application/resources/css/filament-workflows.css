@@ -7038,7 +7038,7 @@ svg.workflow-control-icon { color: #248548 !important; }
 }
 .workflow-expression-paint { position: absolute; pointer-events: none; overflow: hidden; box-sizing: border-box; z-index: 2; color: #364152; }
 .workflow-expression-token, .workflow-value-suggestions code { color: #c95718; }
-.workflow-expression-painted { color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: #364152; }
+.workflow-expression-painted { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; font-size: 12px !important; font-weight: 400 !important; color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: #364152; }
 .dark .workflow-expression-paint { color: #d7dce5; }
 .dark .workflow-expression-token, .dark .workflow-value-suggestions code { color: #ffa15c; }
 .dark .workflow-expression-painted { caret-color: #d7dce5; }

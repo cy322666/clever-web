@@ -19,7 +19,7 @@ trait HasWorkflowConnections
         foreach (array_diff_key(WorkflowGraph::nodes($this->workflowActions), $before) as $node) {
             data_set($this->workflowActions, $node['path'].'.config.operation', $operation);
             data_set($this->workflowActions, $node['path'].'.config.body_mode', \App\Services\Workflows\WorkflowEntityQuery::supports($operation) ? 'builder' : 'fields');
-            data_set($this->workflowActions, $node['path'].'.name', $item['node_name'] ?? (($item['entity_group'] ?? $item['group']).' · '.$item['name']));
+            data_set($this->workflowActions, $node['path'].'.name', $this->availableWorkflowNodeName($item['node_name'] ?? (($item['entity_group'] ?? $item['group']).' · '.$item['name']), $node['step']['id']));
         }
         $this->syncDefinition();
     }
@@ -32,6 +32,7 @@ trait HasWorkflowConnections
         $this->definition = array_merge($this->definition, [
             'version' => 2, 'trigger' => $this->trigger, 'actions' => $this->workflowActions,
         ]);
+        $this->loadFromDefinition();
     }
 
     private function enableExplicitConnections(): void

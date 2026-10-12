@@ -152,6 +152,7 @@
                 x-on:submit.window.capture="if ($event.target.contains($el)) saveNodeLayout()"
                 x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
                 x-on:workflow-node-created.window="placeCreatedNode($event.detail)"
+                x-on:workflow-nodes-copied.window="placeCopiedNodes($event.detail)"
                 x-on:workflow-connections-updated.window="scheduleGraphRefresh()"
                 x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
                 class="workflow-node-editor"

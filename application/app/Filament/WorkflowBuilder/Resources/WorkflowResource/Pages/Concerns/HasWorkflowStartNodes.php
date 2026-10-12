@@ -42,6 +42,9 @@ trait HasWorkflowStartNodes
     protected function storeTriggerNode(array $start): void
     {
         $id = $this->replacingTriggerNodeId;
+        $label = $start['name'] ?? app(\Leek\FilamentWorkflows\Triggers\TriggerRegistry::class)->get($start['type'])::name();
+        $name = $this->availableWorkflowNodeName($label, !$this->trigger ? 'trigger' : $id);
+        if ($name !== $label || isset($start['name'])) $start['name'] = $name;
         if (!$this->trigger || $id === 'trigger') {
             $this->trigger = $start;
             $id = 'trigger';

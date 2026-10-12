@@ -34,6 +34,8 @@ if (typeof document.querySelectorAll === 'function') {
                 field.parentElement.append(state.layer);
             }
             state.layer.hidden = false;
+            // The native caret and painted text must use identical compact typography.
+            if (!field.classList.contains('workflow-expression-painted')) field.classList.add('workflow-expression-painted');
             const style = getComputedStyle(field);
             Object.assign(state.layer.style, {left:field.offsetLeft+'px',top:field.offsetTop+'px',width:(field.clientWidth + parseFloat(style.borderLeftWidth || 0) + parseFloat(style.borderRightWidth || 0))+'px',height:(field.clientHeight + parseFloat(style.borderTopWidth || 0) + parseFloat(style.borderBottomWidth || 0))+'px',font:style.font,letterSpacing:style.letterSpacing,lineHeight:style.lineHeight,border:style.borderWidth+' solid transparent',padding:style.padding});
             state.text.style.whiteSpace = field.tagName === 'TEXTAREA' ? 'pre-wrap' : 'pre';
@@ -43,7 +45,6 @@ if (typeof document.querySelectorAll === 'function') {
                 state.text.append(document.createTextNode('\u200b'));
                 state.value = field.value;
             }
-            if (!field.classList.contains('workflow-expression-painted')) field.classList.add('workflow-expression-painted');
             state.layer.scrollTop = field.scrollTop; state.layer.scrollLeft = field.scrollLeft;
         });
     };
@@ -201,7 +202,6 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     morphPositions: null,
     clipboardPositions: null,
     clipboardCopy: null,
-    pasteCount: 0,
     pasting: false,
     executionState: null,
     connecting: null,
@@ -259,7 +259,6 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             this.clipboardCopy = this.$wire.copyWorkflowNodes(ids).then(copied => {
                 if (copied) {
                     this.clipboardPositions = Object.fromEntries(ids.filter(id => points[id]).map(id => [id, points[id]]));
-                    this.pasteCount = 0;
                 }
             });
             await this.clipboardCopy;
@@ -273,17 +272,41 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 if (!Object.keys(map || {}).length) return;
                 await this.$nextTick();
                 await new Promise(resolve => window.requestAnimationFrame(resolve));
-                const shift = 80 * ++this.pasteCount;
-                const desired = Object.fromEntries(Object.entries(map).filter(([id]) => this.clipboardPositions[id]).map(([oldId, newId]) => [newId, {
-                    x:this.clipboardPositions[oldId].x+shift, y:this.clipboardPositions[oldId].y+shift,
-                }]));
                 this.applyNodePositions();
-                this.restoreCardPositions(desired);
-                this.selectedNodeIds = Object.values(map);
-                this.applyNodeSelection();
-                this.scheduleGraphRefreshAfterPaint();
+                this.centerCopiedNodes(map, this.clipboardPositions);
             } finally { this.pasting = false; }
         }
+    },
+
+    placeCopiedNodes(detail) {
+        this.$nextTick(() => window.requestAnimationFrame(() => {
+            this.centerCopiedNodes(detail.map, this.cardPositions());
+        }));
+    },
+
+    centerCopiedNodes(map, sourcePositions) {
+        const points = Object.fromEntries(Object.entries(map || {}).filter(([id]) => sourcePositions[id])
+            .map(([oldId, newId]) => [newId, sourcePositions[oldId]]));
+        this.centerNodeGroup(points);
+    },
+
+    centerNodeGroup(points) {
+        const viewport = this.$refs.viewport?.getBoundingClientRect();
+        const stage = this.$refs.stage?.getBoundingClientRect();
+        const cards = this.nodeElements().filter(node => points[node.dataset.workflowNodeId]).map(node => ({
+            id:node.dataset.workflowNodeId, point:points[node.dataset.workflowNodeId],
+            box:node.querySelector('[data-workflow-node-card]')?.getBoundingClientRect(),
+        })).filter(card => card.box);
+        if (!viewport || !stage || !cards.length) return;
+        const left = Math.min(...cards.map(c => c.point.x)), top = Math.min(...cards.map(c => c.point.y));
+        const right = Math.max(...cards.map(c => c.point.x+c.box.width/this.scale));
+        const bottom = Math.max(...cards.map(c => c.point.y+c.box.height/this.scale));
+        const dx = (viewport.left+viewport.width/2-stage.left)/this.scale - (left+right)/2;
+        const dy = (viewport.top+viewport.height/2-stage.top)/this.scale - (top+bottom)/2;
+        this.restoreCardPositions(Object.fromEntries(cards.map(c => [c.id, {x:c.point.x+dx,y:c.point.y+dy}])));
+        this.selectedNodeIds = cards.map(c => c.id);
+        this.applyNodeSelection();
+        this.scheduleGraphRefreshAfterPaint();
     },
 
     captureInsertion(sourceId, targetId, dropPosition = null) {
@@ -335,18 +358,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     placeCreatedNode(detail) {
         this.pendingInsertion = null;
         this.$nextTick(() => window.requestAnimationFrame(() => {
-            const viewport = this.$refs.viewport?.getBoundingClientRect();
-            const stage = this.$refs.stage?.getBoundingClientRect();
-            const node = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId);
-            const card = node?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
-            if (!viewport || !stage || !card) return;
-            this.restoreCardPositions({[detail.nodeId]: {
-                x: (viewport.left + viewport.width / 2 - stage.left - card.width / 2) / this.scale,
-                y: (viewport.top + viewport.height / 2 - stage.top - card.height / 2) / this.scale,
-            }});
-            this.selectedNodeIds = [detail.nodeId];
-            this.applyNodeSelection();
-            this.scheduleGraphRefreshAfterPaint();
+            this.centerNodeGroup({[detail.nodeId]:{x:0,y:0}});
         }));
     },
 

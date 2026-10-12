@@ -169,24 +169,18 @@ trait HasWorkflowPageActions
     public function duplicateWorkflowActionStep(string $actionId): void
     {
         $path = $this->findActionPathById($actionId);
-
-        if ($path === null) {
-            return;
+        if ($path === null) return;
+        $source = data_get($this->workflowActions, $path);
+        $ids = array_keys(\App\Services\Workflows\WorkflowGraph::nodes([$source]));
+        $clipboard = $this->workflowClipboard;
+        try {
+            if (!$this->copyWorkflowNodes($ids)) return;
+            $map = $this->pasteWorkflowNodes();
+        } finally {
+            $this->workflowClipboard = $clipboard;
         }
-
-        $parts = explode('.', $path);
-        $index = (int)array_pop($parts);
-        $parentPath = implode('.', $parts);
-        $actions = $this->getArrayAtPath($parentPath);
-        $source = $actions[$index] ?? null;
-
-        if (!is_array($source)) {
-            return;
-        }
-
-        array_splice($actions, $index + 1, 0, [$this->cloneWorkflowActionTree($source)]);
-        $this->setArrayAtPath($parentPath, $actions);
-        $this->syncDefinition();
+        if (!$map) return;
+        $this->dispatch('workflow-nodes-copied', map: $map);
 
         Notification::make()
             ->success()
@@ -218,29 +212,6 @@ trait HasWorkflowPageActions
 
         $this->setArrayAtPath($path, $actions);
         $this->syncDefinition();
-    }
-
-    /**
-     * @param array<string, mixed> $action
-     * @return array<string, mixed>
-     */
-    private function cloneWorkflowActionTree(array $action): array
-    {
-        $action['id'] = 'step_' . Str::lower(Str::ulid()->toBase32());
-        unset($action['name']);
-
-        foreach (['true_actions', 'false_actions'] as $branchKey) {
-            if (!isset($action['config'][$branchKey]) || !is_array($action['config'][$branchKey])) {
-                continue;
-            }
-
-            $action['config'][$branchKey] = array_map(
-                fn(array $branchAction): array => $this->cloneWorkflowActionTree($branchAction),
-                $action['config'][$branchKey],
-            );
-        }
-
-        return $action;
     }
 
     protected function backToWorkflowListAction(): Action
@@ -844,6 +815,7 @@ trait HasWorkflowPageActions
         $actionId = 'step_' . Str::lower(Str::ulid()->toBase32());
         $newAction = [
             'id' => $actionId,
+            'name' => $this->availableWorkflowNodeName($this->getWorkflowActionMetadata($type, $config)['name'] ?? 'Нода'),
             'type' => $type,
             'componentType' => str_starts_with($type, 'control-') ? $type : 'task',
             'config' => $config,
