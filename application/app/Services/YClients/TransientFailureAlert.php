@@ -18,7 +18,7 @@ final class TransientFailureAlert
 
     public static function isTransient(string $error): bool
     {
-        return preg_match('/Invalid API response \(non JSON\), code: 0(?=\s|$)/', $error) === 1
+        return AmoTransportRetry::isTransportMessage($error)
             || str_contains($error, 'Illuminate\\Http\\Client\\ConnectionException');
     }
 

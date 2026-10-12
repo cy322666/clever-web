@@ -3,11 +3,38 @@
 namespace Tests\Unit\YClients;
 
 use App\Services\YClients\Contacts;
+use Exception;
+use Illuminate\Container\Container;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Sleep;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use ReflectionClass;
+use Ufee\Amo\Oauthapi;
 
 class ContactsTest extends TestCase
 {
+    private mixed $previousApplication;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->previousApplication = Facade::getFacadeApplication();
+        $app = new Container();
+        $app->instance('log', new NullLogger());
+        Facade::clearResolvedInstances();
+        Facade::setFacadeApplication($app);
+        Sleep::fake();
+    }
+
+    protected function tearDown(): void
+    {
+        Sleep::fake(false);
+        Facade::clearResolvedInstances();
+        Facade::setFacadeApplication($this->previousApplication);
+        parent::tearDown();
+    }
+
     public function test_phone_search_uses_last_ten_digits(): void
     {
         $this->assertSame('9261234567', Contacts::clearPhone('+7 (926) 123-45-67'));
@@ -63,5 +90,33 @@ class ContactsTest extends TestCase
 
         $this->assertCount(1, $result);
         $this->assertSame($contact, $result[0]);
+    }
+
+    public function test_failed_phone_lookup_is_not_treated_as_missing_contact(): void
+    {
+        $contacts = new class {
+            public int $calls = 0;
+
+            public function searchByPhone(string $phone): never
+            {
+                $this->calls++;
+
+                throw new Exception('Invalid API response (non JSON), code: 502');
+            }
+        };
+        $service = $this->createMock(Oauthapi::class);
+        $service->method('__call')->with('contacts', [])->willReturn($contacts);
+        $amoApi = $this->createMock(\App\Services\amoCRM\Client::class);
+        $amoApi->service = $service;
+
+        try {
+            Contacts::search(['Телефон' => '+7 (926) 123-45-67'], $amoApi);
+            $this->fail('A failed lookup must stop contact creation.');
+        } catch (Exception $exception) {
+            $this->assertSame('Invalid API response (non JSON), code: 502', $exception->getMessage());
+        }
+
+        $this->assertSame(3, $contacts->calls);
+        Sleep::assertSequence([Sleep::for(5)->seconds(), Sleep::for(15)->seconds()]);
     }
 }

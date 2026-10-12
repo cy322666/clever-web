@@ -97,6 +97,36 @@ class AmoTransportRetryTest extends TestCase
         Sleep::assertSequence([Sleep::for(5)->seconds()]);
     }
 
+    #[DataProvider('serverErrors')]
+    public function test_server_errors_are_retried(string $message): void
+    {
+        $attempts = 0;
+
+        $result = AmoTransportRetry::run(function () use (&$attempts, $message) {
+            $attempts++;
+
+            if ($attempts === 1) {
+                throw new Exception($message);
+            }
+
+            return 'updated';
+        });
+
+        $this->assertSame('updated', $result);
+        $this->assertSame(2, $attempts);
+        Sleep::assertSequence([Sleep::for(5)->seconds()]);
+    }
+
+    public static function serverErrors(): array
+    {
+        return [
+            ['Invalid API response (non JSON), code: 500'],
+            ['Invalid API response (non JSON), code: 502'],
+            ['Invalid API response (non JSON), code: 503'],
+            ['Invalid API response (non JSON), code: 504'],
+        ];
+    }
+
     public function test_exhausted_transport_error_is_not_hidden(): void
     {
         $exception = $this->transportError();

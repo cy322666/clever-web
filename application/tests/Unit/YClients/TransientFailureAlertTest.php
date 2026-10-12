@@ -254,6 +254,25 @@ class TransientFailureAlertTest extends TestCase
         $this->assertSame(180, $this->alert()->delay);
     }
 
+    #[DataProvider('serverErrors')]
+    public function test_server_errors_are_deferred(string $error): void
+    {
+        $record = $this->record();
+        $record->update(['error_message' => $error]);
+        $this->notifier->modelFailed($record);
+        $this->assertSame(180, $this->alert()->delay);
+    }
+
+    public static function serverErrors(): array
+    {
+        return [
+            ['Invalid API response (non JSON), code: 500'],
+            ['Invalid API response (non JSON), code: 502'],
+            ['Invalid API response (non JSON), code: 503'],
+            ['Invalid API response (non JSON), code: 504'],
+        ];
+    }
+
     public function test_direct_fallback_cannot_send_before_window(): void
     {
         $this->notifier->modelFailed($this->record());

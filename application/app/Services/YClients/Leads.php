@@ -22,9 +22,21 @@ abstract class Leads
 
     public static function searchAll(Contact $contact, $client, int|array|null $pipelines = null): ?Collection
     {
-        return $contact->leads->filter(function($lead) use ($client, $pipelines) {
-            return self::isLeadAllowedForSync($lead, $pipelines);
-        });
+        return AmoTransportRetry::run(function (int $attempt) use ($contact, $pipelines): ?Collection {
+            $currentContact = $contact;
+
+            if ($attempt > 1) {
+                $currentContact = $contact->service->find($contact->id);
+
+                if (!$currentContact instanceof Contact || (int)$currentContact->id !== (int)$contact->id) {
+                    throw new \RuntimeException('Existing amoCRM contact not found while retrying lead search.');
+                }
+            }
+
+            return $currentContact->leads->filter(function ($lead) use ($pipelines) {
+                return self::isLeadAllowedForSync($lead, $pipelines);
+            });
+        }, ['operation' => 'lead_search', 'contact_id' => $contact->id]);
     }
 
     public static function isLeadAllowedForSync(object $lead, int|array|null $pipelines = null): bool
@@ -210,6 +222,9 @@ abstract class Leads
 
     public static function get($client, $id) : ?Lead
     {
-        return $client->service->leads()->find($id);
+        return AmoTransportRetry::run(
+            fn () => $client->service->leads()->find($id),
+            ['operation' => 'lead_get', 'lead_id' => $id],
+        );
     }
 }

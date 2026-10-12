@@ -4,6 +4,7 @@ namespace App\Services\YClients;
 
 use App\Models\Integrations\YClients\Client;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 use Ufee\Amo\Models\Contact as ContactModel;
 
@@ -17,10 +18,9 @@ abstract class Contacts
         $contact = static::resolveExistingContact($client, $amoApi);
 
         if (!$contact) {
-            $contact = static::create($amoApi, $responsibleUserId);
-            $contact = static::update($contact, $client);
+            $contact = static::create($amoApi, $client, $responsibleUserId);
         } else {
-            $contact = static::update($contact, $client);
+            $contact = static::update($contact, $client, $amoApi);
         }
 
         $client->contact_id = $contact->id;
@@ -38,14 +38,17 @@ abstract class Contacts
         $email = self::normalizeEmail($arrayFields['Почта'] ?? null);
         $phoneContacts = [];
         $emailContacts = [];
+        $searchErrors = [];
 
         if ($phone !== null) {
             try {
-                $contacts = $amoApi->service
-                    ->contacts()
-                    ->searchByPhone($phone);
+                $contacts = AmoTransportRetry::run(
+                    fn () => $amoApi->service->contacts()->searchByPhone($phone),
+                    ['operation' => 'contact_phone_search', 'normalized_phone' => $phone],
+                );
                 $phoneContacts = self::contactsFromSearchResult($contacts);
             } catch (Throwable $e) {
+                $searchErrors[] = $e;
                 Log::warning('YClients amoCRM contact phone search failed.', [
                     'phone' => $arrayFields['Телефон'] ?? null,
                     'normalized_phone' => $phone,
@@ -56,11 +59,13 @@ abstract class Contacts
 
         if ($email !== null) {
             try {
-                $contacts = $amoApi->service
-                    ->contacts()
-                    ->searchByEmail($email);
+                $contacts = AmoTransportRetry::run(
+                    fn () => $amoApi->service->contacts()->searchByEmail($email),
+                    ['operation' => 'contact_email_search', 'normalized_email' => $email],
+                );
                 $emailContacts = self::contactsFromSearchResult($contacts);
             } catch (Throwable $e) {
+                $searchErrors[] = $e;
                 Log::warning('YClients amoCRM contact email search failed.', [
                     'email' => $arrayFields['Почта'] ?? null,
                     'normalized_email' => $email,
@@ -79,6 +84,10 @@ abstract class Contacts
             if ($phone !== null && in_array($phone, self::contactPhoneKeys($contact), true)) {
                 return $contact;
             }
+        }
+
+        if ($phoneContacts === [] && $emailContacts === [] && $searchErrors !== []) {
+            throw $searchErrors[0];
         }
 
         return $phoneContacts[0] ?? $emailContacts[0] ?? null;
@@ -136,7 +145,54 @@ abstract class Contacts
         return $result;
     }
 
-    public static function update($contact, Client $client)
+    public static function update(
+        ContactModel $contact,
+        Client $client,
+        ?\App\Services\amoCRM\Client $amoApi = null,
+    ): ContactModel
+    {
+        return AmoTransportRetry::run(function (int $attempt) use ($contact, $client, $amoApi): ContactModel {
+            $currentContact = $contact;
+
+            if ($attempt > 1 && $amoApi !== null) {
+                $currentContact = static::resolveExistingContact($client, $amoApi);
+
+                if (!$currentContact) {
+                    throw new RuntimeException('Existing amoCRM contact not found while retrying YClients update.');
+                }
+            }
+
+            static::fill($currentContact, $client);
+            $currentContact->save();
+
+            return $currentContact;
+        }, [
+            'operation' => 'contact_update',
+            'client_id' => $client->client_id,
+            'contact_id' => $contact->id,
+        ]);
+    }
+
+    public static function create(
+        \App\Services\amoCRM\Client $amoApi,
+        Client $client,
+        ?int $responsibleUserId = null,
+    ): ContactModel
+    {
+        $contact = $amoApi->service->contacts()->create();
+        $contact->name = 'Клиент YClients';
+
+        if ($responsibleUserId) {
+            $contact->responsible_user_id = $responsibleUserId;
+        }
+
+        static::fill($contact, $client);
+        $contact->save();
+
+        return $contact;
+    }
+
+    private static function fill(ContactModel $contact, Client $client): void
     {
         if (filled($client->name)) {
             $contact->name = $client->name;
@@ -149,29 +205,14 @@ abstract class Contacts
         if (filled($client->phone)) {
             $contact->cf('Телефон')->setValue(self::clearPhone($client->phone, true));
         }
-
-        $contact->save();
-
-        return $contact;
-    }
-
-    public static function create(\App\Services\amoCRM\Client $amoApi, ?int $responsibleUserId = null)
-    {
-        $contact = $amoApi->service->contacts()->create();
-        $contact->name = 'Клиент YClients';
-
-        if ($responsibleUserId) {
-            $contact->responsible_user_id = $responsibleUserId;
-        }
-
-        $contact->save();
-
-        return $contact;
     }
 
     public static function get($client, $id)
     {
-        return $client->service->contacts()->find($id);
+        return AmoTransportRetry::run(
+            fn () => $client->service->contacts()->find($id),
+            ['operation' => 'contact_get', 'contact_id' => $id],
+        );
     }
 
     public static function buildLink($amoApi, int $contactId) : string
