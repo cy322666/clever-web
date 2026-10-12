@@ -29,6 +29,8 @@
     data-workflow-node-card
     data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
     @unless($readOnly)
+        x-bind:data-node-running="workflowNodeIsRunning($wire, @js($actionId))"
+        x-bind:aria-busy="workflowNodeIsRunning($wire, @js($actionId))"
         x-on:pointerup.capture="if (connecting && !$event.target.closest('.workflow-node-port')) finishConnection('action:' + @js($actionId), $event)"
         x-on:click.capture="if (connecting && !$event.target.closest('.workflow-node-port')) { $event.stopImmediatePropagation(); completeConnection('action:' + @js($actionId)); }"
         wire:click="selectWorkflowCanvasNode('{{ $actionId }}')"
@@ -80,7 +82,7 @@
             x-on:click.outside="closeMenu()"
             x-on:focusout="if (!$el.contains($event.relatedTarget)) closeMenu()"
             x-on:workflow-node-menu-open.window="if ($event.detail !== $el) closeMenu()">
-            <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" wire:loading.attr="disabled" wire:target="runWorkflowCanvasNode,runEditingWorkflowNode"
+            <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" x-bind:disabled="@js($disabled) || workflowNodeIsRunning($wire)"
                 @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Запустить ветку цикла с выбранными настройками' : 'Реально выполнить ноду в текущем контексте' }}">
                 <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
             </button>

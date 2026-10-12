@@ -74,7 +74,9 @@ class WorkflowNodePreviewTest extends TestCase
             if ($button === 'modal') $page->call('openWorkflowActionEditor', 'loop')->call('runEditingWorkflowNode');
             else $page->call('runWorkflowCanvasNode', 'loop');
             $page->assertHasNoErrors()->assertSet('nodePreviewProgress.status', 'queued');
+            $page->assertSet('nodePreviewProgress.node_id', 'loop');
             $this->assertStringContainsString('Ожидание обработчика', json_encode($page->effects, JSON_UNESCAPED_UNICODE));
+            $this->assertStringContainsString('workflow-run-spinner', json_encode($page->effects));
             $this->assertStringContainsString('wire:poll.2s=', $page->html());
             $this->assertArrayNotHasKey('assign', $page->get('nodeRunResults'));
             $id = $page->get('nodePreviewTaskId');

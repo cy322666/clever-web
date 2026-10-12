@@ -1,3 +1,35 @@
+// Track the request from the click, not from the server response. The modal and
+// canvas share this component-scoped state, including validation/network failures.
+window.initializeWorkflowNodeLoading = () => {
+    if (!window.Livewire?.interceptAction || !window.Alpine || window.Alpine.store('workflowNodeRuns')) return;
+    window.Alpine.store('workflowNodeRuns', {pending: {}});
+    window.Livewire.interceptAction(({action, onFinish}) => {
+        const nodeId = action.name === 'runWorkflowCanvasNode' ? action.params[0]
+            : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger') : null;
+        if (!nodeId) return;
+        const pending = window.Alpine.store('workflowNodeRuns').pending;
+        const componentId = action.component.id;
+        pending[componentId] ??= {};
+        pending[componentId][nodeId] = (pending[componentId][nodeId] || 0) + 1;
+        let finished = false;
+        onFinish(() => {
+            if (finished) return;
+            finished = true;
+            if (--pending[componentId][nodeId] <= 0) delete pending[componentId][nodeId];
+            if (!Object.keys(pending[componentId]).length) delete pending[componentId];
+        });
+    });
+};
+window.workflowNodeIsRunning = (wire, nodeId = null) => {
+    const pending = window.Alpine?.store('workflowNodeRuns')?.pending[wire.$id] || {};
+    const requested = nodeId === null ? Object.keys(pending).length > 0 : (pending[nodeId] || 0) > 0;
+    // Queuing a loop ends the HTTP request, not the execution. Polling owns its end.
+    const queued = Boolean(wire.nodePreviewTaskId) && (nodeId === null || wire.nodePreviewProgress?.node_id === nodeId);
+    return requested || queued;
+};
+document.addEventListener('livewire:init', window.initializeWorkflowNodeLoading);
+window.initializeWorkflowNodeLoading();
+
 window.workflowExpressionParts = (value) => String(value ?? '').split(/(\{\{[\s\S]*?\}\})/g).filter(Boolean).map(text => ({text, variable: text.startsWith('{{') && text.endsWith('}}')}));
 
 // Keep native inputs (caret, selection, Livewire bindings) and paint only their text.

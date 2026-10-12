@@ -65,6 +65,7 @@ class WorkflowCanvasTest extends TestCase
             $buttons = $xpath->query('./button', $toolbar);
             $this->assertCount(4, $buttons);
             $this->assertStringContainsString('runWorkflowCanvasNode', $buttons[0]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('workflowNodeIsRunning($wire)', $buttons[0]->getAttribute('x-bind:disabled'));
             $this->assertStringContainsString('removeWorkflowAction', $buttons[1]->getAttribute('wire:click.stop'));
             $this->assertStringContainsString('toggleWorkflowActionDisabled', $buttons[2]->getAttribute('wire:click.stop'));
             $this->assertSame('menu', $buttons[3]->getAttribute('aria-haspopup'));

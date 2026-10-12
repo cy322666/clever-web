@@ -1,6 +1,9 @@
 @php($result = $getLivewire()->editingNodeResult())
 @php($isCondition = \App\Services\Workflows\WorkflowOutputView::isCondition($result['output'] ?? null))
-<section class="workflow-node-output" aria-label="Результат ноды" wire:key="workflow-node-output-{{ hash('sha256', serialize($result)) }}">
+<section class="workflow-node-output" aria-label="Результат ноды" x-bind:aria-busy="workflowNodeIsRunning($wire, $wire.editingActionId)" wire:key="workflow-node-output-{{ hash('sha256', serialize($result)) }}">
+    <div class="workflow-node-output__loading" role="status" aria-live="polite" x-show="workflowNodeIsRunning($wire, $wire.editingActionId) && !$wire.nodePreviewTaskId" x-cloak>
+        <span class="workflow-run-spinner" aria-hidden="true"></span> Выполняется…
+    </div>
     @unless($isCondition)
         <header>Результат <small>{{ $result['duration_ms'] ?? '' }}{{ isset($result['duration_ms']) ? ' мс' : '' }}</small></header>
     @endunless
