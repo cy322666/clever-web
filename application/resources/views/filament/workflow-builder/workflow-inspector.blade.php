@@ -1,14 +1,15 @@
 <aside class="workflow-inspector workflow-node-settings" x-data="workflowInspector()"
     x-on:workflow-inspector-open.window="if ($event.detail.componentId === $wire.$id) openInspector($event.detail)"
-    x-on:workflow-inspector-close.window="if ($event.detail.componentId === $wire.$id) closeInspector()"
+    x-on:workflow-inspector-close.window="if ($event.detail.componentId === $wire.$id) hideInspector()"
     x-on:sync-action-modals.window="if (!processing && $event.detail.id === $wire.$id && $event.detail.newActionNestingIndex === null) { opened = false; currentId = null; announce() }"
-    x-on:form-validation-error.window="if ($event.detail.livewireId === $wire.$id) tab = 'settings'"
-    x-on:keydown.escape.stop="if (!$event.defaultPrevented) closeInspector()"
+    x-on:pointerdown.window.capture="dismissInspector($event)"
+    x-on:form-validation-error.window="if ($event.detail.livewireId === $wire.$id) showValidationErrors()"
+    x-on:keydown.escape.stop="if (!$event.defaultPrevented) hideInspector()"
     x-on:resize.window="positionInspector()" x-show="opened" x-cloak
     x-bind:style="position" x-bind:aria-busy="loading" aria-label="Настройки ноды">
     <header class="workflow-inspector__header">
         <strong x-text="title || 'Нода'"></strong>
-        <button type="button" x-on:click="closeInspector()" aria-label="Закрыть настройки" title="Применить и закрыть"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
+        <button type="button" x-on:click="hideInspector()" aria-label="Закрыть настройки" title="Закрыть настройки"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
     </header>
     <nav class="workflow-inspector__tabs" role="tablist" aria-label="Данные ноды">
         @foreach(['settings' => 'Настройки', 'input' => 'Вход', 'output' => 'Выход'] as $tab => $label)

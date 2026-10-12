@@ -32,6 +32,9 @@ try {
         ['id' => 'probe-b', 'name' => 'Probe B', 'type' => 'workflow_delay', 'config' => ['seconds' => 8]],
     ]]);
     if (!preg_match('/wire:snapshot="([^"]+)"/', $html, $match)) throw new RuntimeException('Missing editor snapshot');
+    if (!str_contains($html, 'aria-label="Каталог нод"') || !str_contains($html, 'aria-label="Справочники"') || str_contains($html, 'workflow-node-library__rail')) {
+        throw new RuntimeException('Editor must expose one context catalog and a separate references control');
+    }
     $snapshot = json_decode(html_entity_decode($match[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
     request()->headers->set('X-Livewire', 'true');
     $update = function (string $method, array $params = [], array $updates = []) use (&$snapshot): array {

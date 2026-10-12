@@ -140,6 +140,58 @@ test('autocomplete ignores plain text and closed tokens, and limits suggestions'
     assert.equal(field.suggestions.length,0);
 });
 
+test('node completion works with partial names and either quote style', () => {
+    const field=components().workflowValueField('');
+    field.sources=[{id:'a',name:'Контакт',fields:[]},{id:'b',name:'Сделка',fields:[]}];
+    for (const [value,count] of [['{{ $(',2],['{{ $("Кон',1],["{{ $('Кон",1]]) {
+        field.suggest({target:{value,selectionStart:value.length,hasAttribute:()=>true}});
+        assert.equal(field.suggestions.length,count);
+        assert.equal(field.suggestions[0].expression,'{{ $("Контакт") }}');
+    }
+});
+
+test('cf argument completion filters ID prefixes and preserves source, suffix and surrounding text', () => {
+    const field=components().workflowValueField('');
+    field.customFields=[{id:'12345',label:'ID школы',entity:'contacts'},{id:'12399',label:'Заказ',entity:'leads'},{id:'9123',label:'Другое',entity:'contacts'}];
+    const value='До {{ $("Контакт").cf(123).first() }} после';
+    const input={value,selectionStart:value.indexOf('123')+3,hasAttribute:()=>true};
+    field.suggest({target:input});
+    assert.deepEqual(Array.from(field.suggestions,item=>item.expression),['{{ $("Контакт").cf(12345) }}','{{ $("Контакт").cf(12399) }}']);
+    field.$refs={value:input};field.$nextTick=()=>{};
+    field.chooseSuggestion(field.suggestions[0]);
+    assert.equal(field.state,'До {{ $("Контакт").cf(12345).first() }} после');
+    for (const value of ['{{ contact.cf(', '{{ contact.cf(123']) {
+        field.suggest({target:{value,selectionStart:value.length,hasAttribute:()=>true}});
+        assert.equal(field.suggestions.length,value.endsWith('123')?1:2);
+        assert.equal(field.suggestions[0].expression,'{{ contact.cf(12345) }}');
+    }
+});
+
+test('function completion offers examples and puts the caret inside cf parentheses', () => {
+    const field=components().workflowValueField('');
+    const value='{{ $("Контакт").c';
+    field.suggest({target:{value,selectionStart:value.length,hasAttribute:()=>true}});
+    assert.equal(field.suggestions.length,1);
+    assert.equal(field.suggestions[0].expression,'{{ $("Контакт").cf() }}');
+    assert.equal(field.suggestions[0].caret,'{{ $("Контакт").cf('.length);
+    assert.match(field.suggestions[0].label,/123/);
+});
+
+test('picker recognizes fields in the inspector, ignores other editors and transmits local field metadata', () => {
+    const window={addEventListener(){}};
+    runInNewContext(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8'),{window,document:{addEventListener(){}},CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}}});
+    const customFields=[{id:'123',label:'Тест',entity:'contacts'}];
+    const picker=window.workflowExpressionPicker([],customFields);
+    let received;
+    const input={value:'',matches:()=>true,hasAttribute:()=>true,closest:selector=>selector==='.workflow-value-field'?{dispatchEvent:event=>received=event}:null,getAttribute:()=>''};
+    picker.$el={closest:selector=>{assert.equal(selector,'.workflow-inspector, .fi-modal-window');return {contains:element=>element===input};}};
+    picker.rememberField({target:input});
+    assert.equal(received.detail.customFields,customFields);
+    received=null;
+    picker.rememberField({target:{...input}});
+    assert.equal(received,null);
+});
+
 test('input panel selects the latest available step and bounds the visible fields', () => {
     const picker = components().workflowExpressionPicker([
         {id: 'trigger', available: true, fields: []},

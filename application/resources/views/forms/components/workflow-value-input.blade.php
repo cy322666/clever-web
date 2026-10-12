@@ -11,8 +11,10 @@
     <div class="workflow-value-field" wire:key="value-{{ md5($path.json_encode($options)) }}"
         x-data="workflowValueField($wire.{{ $applyStateBindingModifiers('$entangle(\'' . $path . '\')') }})"
         x-on:workflow-expression-field="mode = 'expression'; $nextTick(() => $refs.value.focus())"
-        x-on:workflow-expression-suggestions="sources = $event.detail.sources"
+        x-on:workflow-expression-suggestions="sources = $event.detail.sources; customFields = $event.detail.customFields || []; suggest({target: $refs.value})"
         x-on:input="suggest($event)" x-on:keydown="suggestionKey($event)"
+        x-on:click="if ($event.target === $refs.value) suggest($event)"
+        x-on:keyup="if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes($event.key)) suggest($event)"
         x-on:click.outside="suggestions = []">
         <div class="workflow-value-field__header">
         <label :for="mode === 'value' && @js($hasOptions) ? @js($getId()) : @js($getId().'-value')">{{ $getLabel() }}@if($isRequired())<span aria-hidden="true"> *</span>@endif</label>

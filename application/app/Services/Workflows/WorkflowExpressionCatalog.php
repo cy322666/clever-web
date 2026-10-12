@@ -6,6 +6,18 @@ use Leek\FilamentWorkflows\Actions\ActionRegistry;
 
 final class WorkflowExpressionCatalog
 {
+    /** Local, tenant-scoped metadata only. Typing never calls amoCRM. */
+    public static function customFieldSuggestions(): array
+    {
+        if (!\Illuminate\Support\Facades\Auth::id()) return [];
+
+        return \App\Models\amoCRM\Field::getAllFields()
+            ->whereIn('entity_type', ['leads', 'contacts', 'companies', 'customers'])
+            ->orderBy('field_id')->get(['field_id', 'name', 'entity_type'])
+            ->map(fn ($field) => ['id' => (string) $field->field_id, 'label' => $field->name, 'entity' => $field->entity_type])
+            ->all();
+    }
+
     public static function nodeNames(array $actions, array $definition = []): array
     {
         $names = [];

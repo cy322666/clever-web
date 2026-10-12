@@ -4,11 +4,18 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const source = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/node-library.blade.php', import.meta.url), 'utf8');
+function fixture() {
+    const window={innerWidth:1440,innerHeight:900,addEventListener(){},dispatchEvent(){}};
+    runInNewContext(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8'), {window,document:{addEventListener(){}},CustomEvent:class{}});
+    const state=window.workflowNodeLibrary(), changes=[];
+    state.$nextTick=fn=>fn();state.$refs={};state.$wire={$set:(...args)=>changes.push(args)};
+    return {state,changes};
+}
 test('catalog browsing is entirely client side and insertion state is reset only on close', () => {
-    const rail = source.split('<div class="workflow-node-library__rail">')[1].split('<div class="workflow-node-library__panel"')[0];
-    assert.doesNotMatch(rail, /wire:click="(?:switchActionPalette|beginTriggerAdd|cancelActionInsertion)/);
-    const changes = [], state = runInNewContext('('+source.split('x-data="')[1].split('"\n    x-on:')[0].replace(/mode: @js\([^\n]+\),/, "mode: 'action',")+')', {window:{innerWidth:1440,innerHeight:900,dispatchEvent(){}}, CustomEvent: class {}});
-    state.$nextTick = fn => fn(); state.$refs = {}; state.$wire = {$set: (...args)=>changes.push(args)};
+    assert.doesNotMatch(source,/workflow-node-library__rail/);
+    assert.doesNotMatch(source,/wire:click="(?:switchActionPalette|beginTriggerAdd|cancelActionInsertion)/);
+    const {state,changes}=fixture();
+    state.openFor();assert.equal(state.mode,'all');
     for (const mode of ['trigger', 'action', 'query', 'service', 'variables']) { state.openFor({mode}); assert.equal(state.mode, mode); assert.equal(state.open,true); }
     assert.deepEqual(changes, []);
     state.openFor({mode:'trigger', replace:true}); assert.equal(state.replaceTrigger,true);
@@ -17,9 +24,43 @@ test('catalog browsing is entirely client side and insertion state is reset only
     assert.equal(state.floatingStyle().left,'1108px');assert.equal(state.floatingStyle().top,'418px');
     assert.equal('display' in state.floatingStyle(),false);
     state.closeLibrary(); assert.equal(state.open,false);
-    assert.equal(state.floatingStyle().position,'');
+    assert.equal(state.floatingStyle().position,'fixed');
     assert.deepEqual(changes, ['insertConnection','insertActionPath','insertActionIndex','targetPath'].map(key=>[key,null,false]));
     assert.match(source, /selectTriggerType\(@js\(\$trigger\['type'\]\), !replaceTrigger\)/);
+});
+
+test('every category is available from the unified root, with nested back navigation', () => {
+    const {state,changes}=fixture();state.openFor({anchor:{x:300,y:200}});
+    for(const category of ['trigger','action','query','service']) {
+        assert.ok(source.includes(`'${category}' => [`));
+        state.resetView(category);state.view='subgroup';state.query='test';state.goBack();
+        assert.equal(state.mode,category);assert.equal(state.view,'root');assert.equal(state.query,'');
+        state.goBack();assert.equal(state.mode,'all');
+    }
+    state.resetView('action');state.view='variants';state.entity='lead';state.goBack();
+    assert.equal(state.view,'amocrm');assert.equal(state.entity,null);
+    state.goBack();assert.equal(state.view,'root');state.goBack();assert.equal(state.mode,'all');
+    assert.deepEqual(changes,[]);assert.equal(state.anchor.x,300);
+    assert.doesNotMatch(source, /'variables' => \[/, 'References are separate from the node menu');
+    assert.match(source, /workflow-masks-open.window/);
+});
+
+test('global search covers actions, queries, services and triggers without losing insertion state', () => {
+    const {state,changes}=fixture();state.openFor();state.query='получить КОНТАКТ';
+    assert.equal(state.matches('amoCRM Контакты получить контакт'),true);
+    assert.equal(state.matches('Создать контакт'),false);
+    assert.match(source,/mode === 'query' \|\| \(mode === 'all' && query !== ''\)/);
+    assert.match(source,/mode === 'service' \|\| \(mode === 'all' && query !== ''\)/);
+    for(const category of ['trigger','action']) assert.ok(source.includes(`(mode === '${category}' || mode === 'all')`));
+    assert.deepEqual(changes,[]);
+});
+
+test('floating catalog stays within narrow viewports and replacement stays in triggers', () => {
+    const {state}=fixture();state.openFor({mode:'trigger',replace:true,anchor:{x:1400,y:880}});
+    state.goBack();assert.equal(state.mode,'trigger');assert.equal(state.replaceTrigger,true);
+    state.viewport={width:375,height:400};
+    assert.equal(state.floatingStyle().left,'43px');assert.equal(state.floatingStyle().top,'12px');
+    assert.equal('display' in state.floatingStyle(),false);
 });
 
 test('saved button has an explicit dark palette and branch ports use whole snap steps', () => {

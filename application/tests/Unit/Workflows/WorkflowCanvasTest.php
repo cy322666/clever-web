@@ -131,7 +131,9 @@ class WorkflowCanvasTest extends TestCase
             ->assertSee('workflow-node-library__variables', false)
             ->assertDontSee('Назад к процессам')
             ->assertDontSee('История запусков')
-            ->assertSee('aria-label="Переменные"', false)
+            ->assertSee('aria-label="Справочники"', false)
+            ->assertSee('aria-label="Каталог нод"', false)
+            ->assertDontSee('workflow-node-library__rail', false)
             ->assertDontSee('Связаться с клиентом');
 
         $this->assertFalse($component->instance()->configureWorkflowActionAction()->isModalSlideOver());

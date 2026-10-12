@@ -38,6 +38,7 @@
         x-bind:data-workflow-node-disabled="canvasAction(@js($actionId))?.disabled ? 'true' : 'false'"
         x-bind:class="{ 'workflow-node-card--disabled': !!canvasAction(@js($actionId))?.disabled }"
         x-bind:data-node-running="workflowNodeIsRunning($wire, @js($actionId))"
+        x-bind:data-connection-target="connectionTargetId === 'action:' + @js($actionId)"
         x-bind:aria-busy="workflowNodeIsRunning($wire, @js($actionId))"
         x-on:pointerup.capture="if (connecting && !$event.target.closest('.workflow-node-port')) finishConnection('action:' + @js($actionId), $event)"
         x-on:click.capture="if (connecting && !$event.target.closest('.workflow-node-port')) { $event.stopImmediatePropagation(); completeConnection('action:' + @js($actionId)); }"

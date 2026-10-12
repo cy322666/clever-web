@@ -1,4 +1,5 @@
-<div class="workflow-expression-picker" wire:key="workflow-expression-sources-{{ md5(json_encode($sources)) }}" x-data="workflowExpressionPicker(@js($sources))"
+@php($customFieldSuggestions = \App\Services\Workflows\WorkflowExpressionCatalog::customFieldSuggestions())
+<div class="workflow-expression-picker" wire:key="workflow-expression-sources-{{ md5(json_encode([$sources, $customFieldSuggestions])) }}" x-data="workflowExpressionPicker(@js($sources), @js($customFieldSuggestions))"
     x-on:focusin.window="rememberField($event)" x-on:input.window="updatePreview($event)">
     <div class="workflow-expression-picker__row">
     <select class="workflow-expression-picker__select" style="flex: 1 1 auto; width: 0" x-model="selectedId" x-on:change="limit = 30; expanded = []; collapsedJson = []; preview = null" aria-label="Шаг с данными">

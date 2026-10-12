@@ -11,7 +11,7 @@ function fixture() {
     });
     const panel = window.workflowInspector();
     panel.$wire = {$id:'flow',mountedActions:[]};
-    panel.$el = {querySelector:()=>null};
+    panel.$el = {querySelector:()=>null, contains:()=>false};
     panel.$nextTick = fn => fn();
     return {window, panel, events};
 }
@@ -80,4 +80,64 @@ test('dock position uses individual style properties so resizing cannot override
     const {panel}=fixture();panel.positionInspector();
     assert.equal(typeof panel.position,'object');assert.equal(panel.position.top,'100px');
     assert.equal('display' in panel.position,false);
+});
+
+test('outside pointer hides immediately and reopens the same incomplete draft without a request', async () => {
+    const {panel,events}=fixture();
+    panel.opened=true;panel.currentId='action:first';
+    const draft={name:'configureWorkflowAction',data:{seconds:''}};
+    panel.$wire.mountedActions=[draft];
+    panel.$wire.openWorkflowInspector=()=>assert.fail('A mounted draft must not reload');
+    panel.$wire.callMountedAction=()=>assert.fail('Dismissing must not validate or discard');
+    panel.dismissInspector({target:{}});
+    assert.equal(panel.opened,false);assert.equal(panel.loading,false);
+    assert.equal(events.at(-1).detail.open,false);
+    panel.inspectorMounted({dataset:{inspectorNode:'action:first',inspectorTitle:'Первый'}});
+    assert.equal(panel.opened,false,'An unrelated morph cannot reopen a dismissed dock');
+    await panel.openInspector({nodeId:'action:first',name:'Первый'});
+    assert.equal(panel.opened,true);assert.equal(panel.loading,false);
+    assert.equal(panel.$wire.mountedActions[0],draft);assert.equal(draft.data.seconds,'');
+});
+
+test('inside controls and teleported dropdowns do not dismiss the inspector', () => {
+    const {panel}=fixture();panel.opened=true;
+    panel.$el.contains=()=>true;
+    panel.dismissInspector({target:{}});assert.equal(panel.opened,true);
+    panel.$el.contains=()=>false;
+    panel.dismissInspector({target:{closest:()=>({})}});assert.equal(panel.opened,true);
+});
+
+test('close button and Escape hide without a roundtrip; explicit Apply retains validation', () => {
+    const {panel}=fixture();panel.opened=true;panel.currentId='action:a';panel.$wire.mountedActions=[{name:'configureWorkflowAction'}];
+    panel.$wire.callMountedAction=()=>assert.fail('Close must be immediate');
+    panel.hideInspector();assert.equal(panel.opened,false);assert.equal(panel.currentId,'action:a');
+    const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
+    assert.match(view,/x-on:click="hideInspector\(\)" aria-label="Закрыть настройки"/);
+    assert.match(view,/keydown.escape.stop="if \(!\$event.defaultPrevented\) hideInspector\(\)"/);
+});
+
+test('outside click during loading leaves the completed draft hidden and reusable', async () => {
+    const {panel}=fixture();let release;
+    panel.$wire.openWorkflowInspector=async()=>{await new Promise(r=>release=r);panel.$wire.editingActionId='first';panel.$wire.mountedActions=[{name:'configureWorkflowAction'}];};
+    const pending=panel.openInspector({nodeId:'action:first',name:'Первый'});
+    panel.dismissInspector({target:{}});
+    assert.equal(panel.opened,false);
+    release();await pending;
+    assert.equal(panel.opened,false);assert.equal(panel.currentId,'action:first');
+    panel.$wire.openWorkflowInspector=()=>assert.fail('Already loaded');
+    await panel.openInspector({nodeId:'action:first',name:'Первый'});
+    assert.equal(panel.opened,true);
+});
+
+test('validation on main Save reveals a hidden draft, but unrelated modal errors do not', () => {
+    const {panel}=fixture();panel.dismissed=true;
+    panel.showValidationErrors();assert.equal(panel.opened,false);
+    panel.$wire.mountedActions=[{name:'configureWorkflowAction',data:{seconds:''}}];
+    panel.showValidationErrors();assert.equal(panel.opened,true);assert.equal(panel.dismissed,false);assert.equal(panel.tab,'settings');
+});
+
+test('server-mounted settings for a new trigger open after another draft was dismissed', () => {
+    const {panel}=fixture();panel.dismissed=true;panel.currentId='action:first';
+    panel.inspectorMounted({dataset:{inspectorNode:'trigger:new',inspectorTitle:'По расписанию'}});
+    assert.equal(panel.opened,true);assert.equal(panel.dismissed,false);
 });

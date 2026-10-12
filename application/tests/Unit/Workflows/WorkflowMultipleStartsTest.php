@@ -71,7 +71,7 @@ class WorkflowMultipleStartsTest extends TestCase
         $components = (fn () => $this->getMountedActionSchema(0))->call($page->instance())->getComponents();
         $this->assertCount(1, $components);
         $this->assertInstanceOf(\Filament\Schemas\Components\Group::class, $components[0]);
-        $this->assertCount(3, $components[0]->getChildSchema()->getComponents(), 'Triggers share the settings, input and output inspector tabs.');
+        $this->assertCount(4, $components[0]->getChildSchema()->getComponents(), 'Run control remains outside the three inspector tabs.');
         $page->call('callMountedAction')->assertHasNoErrors();
         $this->assertSame('generic-webhook', $page->get('definition')['additional_triggers'][0]['type']);
         $page->call('editTriggerNode', 'trigger')->assertSet('mountedActions', []);

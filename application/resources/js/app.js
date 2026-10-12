@@ -181,7 +181,7 @@ window.workflowSortableList = (path) => ({
 // only the selected node's real Filament form is fetched by its partial renderer.
 window.workflowInspector = () => ({
     opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
-    desired: undefined, processing: false, currentId: null, opener: null,
+    desired: undefined, processing: false, currentId: null, opener: null, dismissed: false,
     positionInspector() {
         const canvas = document.querySelector('.workflow-workbench__main') || document.querySelector('.workflow-node-editor');
         const top = canvas?.getBoundingClientRect().top ?? 100;
@@ -191,8 +191,10 @@ window.workflowInspector = () => ({
         window.dispatchEvent(new CustomEvent('workflow-inspector-state', {detail: {componentId: this.$wire.$id, open: this.opened}}));
     },
     inspectorMounted(element) {
+        const changed = this.currentId !== element.dataset.inspectorNode;
         this.currentId = element.dataset.inspectorNode;
-        if (!this.processing) {
+        if (!this.processing && (!this.dismissed || changed)) {
+            this.dismissed = false;
             this.title = element.dataset.inspectorTitle;
             this.opened = true;
             this.positionInspector();
@@ -207,13 +209,37 @@ window.workflowInspector = () => ({
     openInspector(detail) {
         if (detail.nodeId === this.currentId && this.opened && !this.processing) return;
         this.opener = document.activeElement;
+        this.dismissed = false;
         this.opened = true;
         this.title = detail.name;
         this.error = '';
-        this.desired = detail;
         this.positionInspector();
         this.announce();
+        // Outside clicks only hide the dock. Reuse its mounted draft, even if
+        // incomplete, without validation, a request or a flash of loading.
+        if (detail.nodeId === this.currentId && !this.processing && this.$wire.mountedActions?.length) return;
+        this.desired = detail;
         return this.flushInspector();
+    },
+    dismissInspector(event) {
+        if (!this.opened || this.$el.contains(event.target)) return;
+        // Filament widgets may teleport their options or a nested dialog.
+        if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box')) return;
+        this.hideInspector();
+    },
+    hideInspector() {
+        this.opened = false;
+        this.dismissed = true;
+        this.desired = undefined;
+        this.announce();
+    },
+    showValidationErrors() {
+        if (!['configureWorkflowAction', 'configureTrigger'].includes(this.$wire.mountedActions?.[0]?.name)) return;
+        this.tab = 'settings';
+        this.dismissed = false;
+        this.opened = true;
+        this.positionInspector();
+        this.announce();
     },
     closeInspector(save = true) {
         this.desired = {close: true, save};
@@ -259,6 +285,53 @@ window.workflowInspector = () => ({
             });
             this.announce();
         }
+    },
+});
+
+window.workflowNodeLibrary = () => ({
+    open: false, mode: 'all', view: 'root', entity: null, query: '', replaceTrigger: false, anchor: null,
+    viewport: {width: window.innerWidth, height: window.innerHeight},
+    floatingStyle() {
+        const width = Math.min(320, this.viewport.width - 24);
+        const height = Math.min(470, this.viewport.height - 24);
+        const anchor = this.anchor || {x: (this.viewport.width - width) / 2, y: Math.max(100, (this.viewport.height - height) / 2)};
+        return {position: 'fixed', left: `${Math.max(12, Math.min(anchor.x, this.viewport.width-width-12))}px`, top: `${Math.max(12, Math.min(anchor.y, this.viewport.height-height-12))}px`, width: `${width}px`, maxHeight: `${height}px`};
+    },
+    normalize(value) { return String(value ?? '').toLocaleLowerCase('ru-RU').trim(); },
+    matches(value) {
+        const query = this.normalize(this.query);
+        const source = this.normalize(value);
+        return query === '' || query.split(/\s+/).every(token => source.includes(token));
+    },
+    resetView(nextMode = this.mode) {
+        this.mode = nextMode;
+        this.view = 'root';
+        this.entity = null;
+        this.query = '';
+    },
+    openFor(detail = {}) {
+        this.open = true;
+        this.anchor = detail.anchor || null;
+        this.replaceTrigger = Boolean(detail.replace);
+        this.resetView(detail.mode || 'all');
+        this.$nextTick(() => { if (this.mode !== 'variables') this.$refs.search?.focus(); });
+    },
+    closeLibrary() {
+        this.open = false;
+        this.anchor = null;
+        window.dispatchEvent(new CustomEvent('workflow-node-library-closed'));
+        // Keep the insertion context while browsing categories and searching.
+        ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
+    },
+    goBack() {
+        this.query = '';
+        if (this.mode === 'action' && this.view === 'variants') {
+            this.view = 'amocrm';
+            this.entity = null;
+        } else if (this.view !== 'root') {
+            this.view = 'root';
+            this.entity = null;
+        } else if (!this.replaceTrigger) this.resetView('all');
     },
 });
 
@@ -391,6 +464,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pasting: false,
     executionState: null,
     connecting: null,
+    connectionTargetId: null,
+    pendingConnections: [],
+    nextConnectionId: 0,
+    connectionError: '',
     connectionCursor: null,
     connectionDragOrigin: null,
     selectedEdge: null,
@@ -458,8 +535,13 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     canvasEdges(initialEdges, startIds) {
-        const connections = this.$wire?.definition?.connections;
-        if (!Array.isArray(connections)) return initialEdges.filter(edge => !edge.branch);
+        let connections = this.$wire?.definition?.connections;
+        if (!Array.isArray(connections) && !this.pendingConnections.length) return initialEdges.filter(edge => !edge.branch);
+        connections = Array.isArray(connections) ? [...connections] : initialEdges.filter(edge => edge.targetId && !edge.branch);
+        for (const pending of this.pendingConnections) {
+            connections = connections.filter(edge => !(edge.sourceId === pending.sourceId && edge.sourcePort === pending.sourcePort && [pending.targetId, pending.replaceTarget].includes(edge.targetId)));
+            connections.push({sourceId:pending.sourceId, sourcePort:pending.sourcePort, targetId:pending.targetId});
+        }
         const nodes = Object.fromEntries(this.canvasActions().map(step => ['action:' + step.id, step]));
         const returns = new Set();
         const isLoop = id => nodes[id]?.type === 'workflow_loop';
@@ -499,8 +581,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return edges;
     },
 
-    // Placement uses a hidden 10-unit grid. Dots share the stage's coordinates,
-    // but their CSS radius stays constant instead of growing with the node cards.
+    // Placement uses a hidden 10-unit grid, independent of the static backdrop.
     gridSpacing: 20,
     snapCoordinate(value) {
         const step = this.gridSpacing / 2;
@@ -508,16 +589,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     gridStyle() {
-        const scale = this.scale || 1;
-        // At overview zoom, show a subset of the same world lattice. Never pack
-        // subpixel dots into a moire pattern, and never change the snapping grid.
-        const stride = 2 ** Math.max(0, Math.ceil(Math.log2(12 / (this.gridSpacing * scale))));
-        const pitch = this.gridSpacing * stride * scale;
-        const phase = value => ((value % pitch) + pitch) % pitch;
-        const x = (this.$refs.stage?.offsetLeft || 0) + this.translateX - (this.$refs.viewport?.scrollLeft || 0);
-        const y = (this.$refs.stage?.offsetTop || 0) + this.translateY - (this.$refs.viewport?.scrollTop || 0);
-        // A radial-gradient dot sits at the tile centre, not its top-left corner.
-        return `background-size:${pitch}px ${pitch}px;background-position:${phase(x - pitch / 2)}px ${phase(y - pitch / 2)}px;`;
+        return 'background-size:20px 20px;background-position:0px 0px;';
     },
 
     cardPositions() {
@@ -689,7 +761,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         // round-trip or morph the canvas. The insertion request validates it.
         this.$wire.$set('insertConnection', connection, false);
         ['insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
-        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action', anchor}}));
+        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'all', anchor}}));
     },
 
     selectionStyle() {
@@ -770,6 +842,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         event.preventDefault();
         if (event.pointerId !== undefined) this.$refs.viewport?.setPointerCapture?.(event.pointerId);
         this.connecting = {sourceId, sourcePort, replaceTarget: null};
+        this.connectionError = '';
+        this.connectionTargetId = null;
         this.connectionDragOrigin = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
         this.selectedEdge = null;
         this.connectionCursor = Number.isFinite(event.clientX) ? {x: event.clientX, y: event.clientY} : null;
@@ -785,12 +859,20 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
     async completeConnection(targetId) {
         if (!this.connecting) return;
-        const connection = this.connecting;
+        const connection = {...this.connecting, targetId, pendingId: ++this.nextConnectionId};
         this.cancelConnection();
-        await this.$wire.connectWorkflowNodes(connection.sourceId, connection.sourcePort, targetId, connection.replaceTarget);
-        this.scheduleGraphRefreshAfterPaint();
+        this.pendingConnections.push(connection);
+        this.$nextTick(() => this.scheduleGraphRefreshAfterPaint());
+        try {
+            await this.$wire.connectWorkflowNodes(connection.sourceId, connection.sourcePort, targetId, connection.replaceTarget);
+        } catch {
+            this.connectionError = 'Не удалось сохранить связь. Повторите соединение.';
+        } finally {
+            this.pendingConnections = this.pendingConnections.filter(pending => pending.pendingId !== connection.pendingId);
+            this.$nextTick(() => this.scheduleGraphRefreshAfterPaint());
+        }
     },
-    cancelConnection() { this.cancelEdgeRouteDrag(); this.connecting = null; this.pendingEdgeDrag = null; this.connectionCursor = null; this.connectionDragOrigin = null; this.selectedEdge = null; this.scheduleGraphRefresh(); },
+    cancelConnection() { this.cancelEdgeRouteDrag(); this.connecting = null; this.connectionTargetId = null; this.connectionError = ''; this.pendingEdgeDrag = null; this.connectionCursor = null; this.connectionDragOrigin = null; this.selectedEdge = null; this.scheduleGraphRefresh(); },
     reconnectSelectedEdge(event = {}) { if (this.selectedEdge) this.beginEdgeReconnect(this.selectedEdge, event); },
     beginEdgeReconnect(edge, event = {}) {
         event.preventDefault?.();
@@ -1447,7 +1529,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             this.connectionDragOrigin = {x: pending.x, y: pending.y};
         }
         if (this.connecting) {
-            this.connectionCursor = {x: event.clientX, y: event.clientY};
+            this.connectionTargetId = this.connectionTargetAt(event);
+            const box = this.connectionTargetId ? this.nodeElements().find(node => node.dataset.workflowNodeId === this.connectionTargetId)?.querySelector('.workflow-node-port--input')?.getBoundingClientRect?.() : null;
+            this.connectionCursor = box ? {x:box.left+box.width/2, y:box.top+box.height/2} : {x:event.clientX, y:event.clientY};
             this.scheduleGraphRefresh();
             return;
         }
@@ -2033,9 +2117,9 @@ window.workflowJsonViewer = (initialValue) => ({
     },
 });
 
-window.workflowExpressionPicker = (sources) => ({
+window.workflowExpressionPicker = (sources, customFields = []) => ({
     // Source data is immutable for this keyed panel; only selection/folding needs reactivity.
-    sources: Object.freeze(sources), selectedId: sources.findLast(source => source.available)?.id ?? sources.at(-1)?.id ?? '', limit: 30,
+    sources: Object.freeze(sources), customFields: Object.freeze(customFields), selectedId: sources.findLast(source => source.available)?.id ?? sources.at(-1)?.id ?? '', limit: 30,
     field: null, fieldLabel: '', preview: null, expanded: [], collapsedJson: [],
     get selectedSource() { return this.sources.find(source => source.id === this.selectedId); },
     get jsonRows() {
@@ -2089,11 +2173,12 @@ window.workflowExpressionPicker = (sources) => ({
     },
     rememberField(event) {
         const field = event.target;
-        if (!field?.matches?.('input:not([type=hidden]):not([type=search]):not([type=checkbox]):not([type=radio]):not([type=number]), textarea') || field.closest('.workflow-expression-picker') || field.readOnly || field.disabled || !this.$el.closest('.fi-modal-window')?.contains(field)) return;
+        const scope = this.$el.closest('.workflow-inspector, .fi-modal-window');
+        if (!field?.matches?.('input:not([type=hidden]):not([type=search]):not([type=checkbox]):not([type=radio]):not([type=number]), textarea') || field.closest('.workflow-expression-picker') || field.readOnly || field.disabled || !scope?.contains(field)) return;
         // Select dropdowns contain text search inputs, but those are not configuration values.
         if (!field.hasAttribute('data-workflow-value-input') && !Array.from(field.attributes).some((attribute) => attribute.name.startsWith('wire:model'))) return;
         this.field = field;
-        field.closest('.workflow-value-field')?.dispatchEvent(new CustomEvent('workflow-expression-suggestions', {detail: {sources: this.sources}}));
+        field.closest('.workflow-value-field')?.dispatchEvent(new CustomEvent('workflow-expression-suggestions', {detail: {sources: this.sources, customFields: this.customFields}}));
         this.fieldLabel = field.closest('.fi-fo-field')?.querySelector('label')?.textContent?.trim() || field.getAttribute('aria-label') || 'выбранное поле';
         this.refreshPreview();
     },
@@ -2130,7 +2215,7 @@ window.workflowExpressionPicker = (sources) => ({
 });
 
 window.workflowValueField = (state) => ({
-    state, mode: 'value', sources: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
+    state, mode: 'value', sources: [], customFields: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
     init() { if (typeof this.state === 'boolean') this.state = this.state ? '1' : '0'; this.mode = typeof this.state === 'string' && this.state.includes('{{') ? 'expression' : 'value'; },
     suggest(event) {
         const field = event.target;
@@ -2145,25 +2230,64 @@ window.workflowValueField = (state) => ({
         const close = text.indexOf('}}', cursor);
         const nextOpen = text.indexOf('{{', cursor);
         this.tokenEnd = close >= 0 && (nextOpen < 0 || close < nextOpen) ? close + 2 : cursor;
-        const query = before.slice(start + 2).trim().toLocaleLowerCase();
+        const expression = before.slice(start + 2).trim();
+        const query = expression.toLocaleLowerCase();
+        const wrap = value => '{{ ' + value + ' }}';
+        const root = expression.match(/^\$\(\s*(["']?)([^"']*)$/u);
+        const customField = expression.match(/^(.*\.cf)\(\s*(\d*)$/u);
+        const member = expression.match(/^(.*)\.([A-Za-z]*)$/u);
+        let candidates;
+        if (root) {
+            // Complete the node first, instead of flooding the list with its children.
+            candidates = this.sources.filter(source => source.id !== '$vars' && source.name.toLocaleLowerCase().startsWith(root[2].toLocaleLowerCase()))
+                .map(source => ({source: source.name, label: 'Результат ноды', expression: wrap('$(' + JSON.stringify(source.name) + ')')}));
+        } else if (customField) {
+            const aliases = {lead: 'leads', contact: 'contacts', company: 'companies', customer: 'customers'};
+            const entity = aliases[customField[1].slice(0, -3)];
+            const labels = {leads: 'Сделка', contacts: 'Контакт', companies: 'Компания', customers: 'Покупатель'};
+            // Replace the argument only: keep the selected source and any following property.
+            this.tokenStart = cursor - customField[2].length;
+            const tail = text.slice(cursor).match(/^\d*\s*\)?/u)?.[0] ?? '';
+            this.tokenEnd = cursor + tail.length;
+            const closing = close >= 0 && (nextOpen < 0 || close < nextOpen) ? '' : ' }}';
+            candidates = this.customFields.filter(field => (!entity || entity === field.entity) && String(field.id).startsWith(customField[2]))
+                .map(field => ({source: labels[field.entity] || 'Поле', label: field.label + ' · ID ' + field.id,
+                    expression: wrap(customField[1] + '(' + field.id + ')'), replacement: field.id + ')' + closing}));
+        } else {
+            const normalized = value => value.replace(/\$\('([^']*)'\)/gu, (_, name) => '$(' + JSON.stringify(name) + ')').toLocaleLowerCase();
+            const search = normalized(query);
+            candidates = this.sources.flatMap(source => (source.fields || []).map(item => ({...item, source: source.name})))
+                .filter(item => [item.expression, item.label, item.path, item.source].some(value => normalized(String(value ?? '')).includes(search)));
+            if (member && /^(\$\(|\$json\b|lead\b|contact\b|company\b|customer\b)/u.test(member[1])) {
+                const functions = [
+                    {name: 'cf', suffix: 'cf()', label: 'Поле по ID: cf(123)', argument: true},
+                    {name: 'first', suffix: 'first()', label: 'Первый элемент'},
+                    {name: 'last', suffix: 'last()', label: 'Последний элемент'},
+                ].filter(item => item.name.startsWith(member[2]));
+                candidates = [...functions.map(item => ({source: 'Функция', label: item.label,
+                    expression: wrap(member[1] + '.' + item.suffix),
+                    caret: item.argument ? ('{{ ' + member[1] + '.cf(').length : undefined})), ...candidates];
+            }
+        }
         const seen = new Set();
-        this.suggestions = this.sources.flatMap(source => (source.fields || []).map(item => ({...item, source: source.name})))
+        this.suggestions = candidates
             .filter(item => item.expression && !seen.has(item.expression) && seen.add(item.expression))
-            .filter(item => [item.expression, item.label, item.path, item.source].join(' ').toLocaleLowerCase().includes(query))
             .slice(0, 8);
         this.suggestionIndex = 0;
     },
     chooseSuggestion(item) {
         const field = this.$refs.value;
-        const value = field.value.slice(0, this.tokenStart) + item.expression + field.value.slice(this.tokenEnd);
+        const replacement = item.replacement ?? item.expression;
+        const cursor = this.tokenStart + (item.caret ?? (item.replacement === undefined ? replacement.length - 3 : replacement.length));
+        const value = field.value.slice(0, this.tokenStart) + replacement + field.value.slice(this.tokenEnd);
         this.state = value;
         this.mode = 'expression';
         this.suggestions = [];
         this.$nextTick(() => {
             field.focus();
-            const cursor = this.tokenStart + item.expression.length;
             field.setSelectionRange(cursor, cursor);
             field.dispatchEvent(new Event('change', {bubbles: true}));
+            if (item.caret !== undefined) this.suggest({target: field});
         });
     },
     suggestionKey(event) {
@@ -2173,7 +2297,7 @@ window.workflowValueField = (state) => ({
             event.preventDefault();
             this.suggestionIndex = (this.suggestionIndex + (event.key === 'ArrowDown' ? 1 : -1) + this.suggestions.length) % this.suggestions.length;
         }
-        if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); this.chooseSuggestion(this.suggestions[this.suggestionIndex]); }
+        if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); this.chooseSuggestion(this.suggestions[this.suggestionIndex]); }
     },
 });
 

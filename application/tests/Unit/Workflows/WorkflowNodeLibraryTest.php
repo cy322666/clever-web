@@ -46,10 +46,22 @@ class WorkflowNodeLibraryTest extends TestCase
         }
         $this->assertStringContainsString('<strong>Примечания</strong>', $html);
         $this->assertStringContainsString('<strong>Теги</strong>', $html);
-        $this->assertStringContainsString('<small>Контакты</small>', $html);
+        $this->assertStringContainsString('<strong>Контакты</strong>', $html);
         $this->assertStringNotContainsString(' · GET', $html);
         $this->assertStringNotContainsString('GET-запрос', $html);
-        $this->assertStringContainsString('<strong>Запрос amoCRM</strong>', $html);
+        $this->assertStringContainsString('<strong>Запросы</strong>', $html);
+    }
+
+    public function test_context_catalog_contains_every_category_without_a_second_sidebar(): void
+    {
+        $html = $this->renderNodeLibrary([], false);
+        $this->assertStringContainsString('aria-label="Каталог нод"', $html);
+        $this->assertStringNotContainsString('workflow-node-library__rail', $html);
+        foreach (['Триггеры', 'Действия', 'Запросы', 'Сервисы'] as $category) {
+            $this->assertStringContainsString('<strong>'.$category.'</strong>', $html);
+        }
+        $this->assertStringContainsString('goBack()', $html);
+        $this->assertStringContainsString('workflow-masks-open', $html);
     }
 
     public function test_it_renders_actions_from_all_entity_groups_and_in_search(): void

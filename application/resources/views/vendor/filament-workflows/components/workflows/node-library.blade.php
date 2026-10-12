@@ -232,121 +232,23 @@
 @endphp
 
 <aside
-    x-data="{
-        open: false,
-        mode: @js($hasTrigger ? 'action' : 'trigger'),
-        view: 'root',
-        entity: null,
-        query: '',
-        replaceTrigger: false,
-        anchor: null,
-        floatingStyle() {
-            if (!this.anchor) return {position: '', left: '', top: '', width: '', maxHeight: ''};
-            const width = Math.min(320, window.innerWidth - 24);
-            const height = Math.min(470, window.innerHeight - 24);
-            return {position: 'fixed', left: `${Math.max(12, Math.min(this.anchor.x, window.innerWidth-width-12))}px`, top: `${Math.max(12, Math.min(this.anchor.y, window.innerHeight-height-12))}px`, width: `${width}px`, maxHeight: `${height}px`};
-        },
-        normalize(value) { return String(value ?? '').toLocaleLowerCase('ru-RU').trim(); },
-        matches(value) {
-            const query = this.normalize(this.query);
-            const source = this.normalize(value);
-            return query === '' || query.split(/\s+/).every((token) => source.includes(token));
-        },
-        resetView(nextMode = this.mode) {
-            this.mode = nextMode;
-            this.view = 'root';
-            this.entity = null;
-            this.query = '';
-        },
-        openFor(detail = {}) {
-            this.open = true;
-            this.anchor = detail.anchor || null;
-            this.replaceTrigger = Boolean(detail.replace);
-            this.resetView(detail.mode || 'action');
-            this.$nextTick(() => {
-                if (this.mode !== 'variables') this.$refs.search?.focus();
-            });
-        },
-        closeLibrary() {
-            this.open = false;
-            this.anchor = null;
-            window.dispatchEvent(new CustomEvent('workflow-node-library-closed'));
-            // Defer editor state changes until a real action. Browsing never needs a request.
-            ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
-        },
-        goBack() {
-            if (this.mode === 'action' && this.view === 'variants') {
-                this.view = 'amocrm';
-                this.entity = null;
-                return;
-            }
-            this.view = 'root';
-            this.entity = null;
-        },
-    }"
+    x-data="workflowNodeLibrary()"
     x-on:workflow-node-library-open.window="openFor($event.detail)"
-    x-on:workflow-masks-open.window="openFor({ mode: 'variables' })"
+    x-on:workflow-masks-open.window="openFor({ mode: 'variables', anchor: $event.detail?.anchor })"
     x-on:workflow-node-created.window="open = false; anchor = null"
     x-on:workflow-node-inserted.window="open = false; anchor = null"
     x-on:keydown.escape.window="if (open) closeLibrary()"
-    x-bind:class="{ 'is-collapsed': !open, 'is-contextual': Boolean(anchor) }"
-    class="workflow-node-library"
+    x-on:pointerdown.window.capture="if (open && !$refs.panel.contains($event.target)) closeLibrary()"
+    x-on:resize.window="viewport = { width: window.innerWidth, height: window.innerHeight }"
+    class="workflow-node-library workflow-node-library--floating is-contextual"
 >
-    <div class="workflow-node-library__rail">
-        <a
-            href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index') }}"
-            class="workflow-node-library__rail-button"
-            aria-label="Сценарии"
-            title="Сценарии"
-        >
-            <x-filament::icon icon="heroicon-o-squares-2x2" class="h-5 w-5"/>
-        </a>
-
-        <span class="workflow-node-library__rail-separator" aria-hidden="true"></span>
-
-        <button
-            type="button"
-            x-on:click="openFor({ mode: 'trigger' })"
-            x-bind:class="{ 'is-active': mode === 'trigger' }"
-            class="workflow-node-library__rail-button"
-            aria-label="Триггеры"
-            title="Триггеры"
-        >
-            <x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/>
-        </button>
-
-        <button
-            type="button"
-            x-on:click="openFor({ mode: 'action' })"
-            x-bind:class="{ 'is-active': mode === 'action' }"
-            class="workflow-node-library__rail-button"
-            aria-label="Действия"
-            title="Действия"
-        >
-            <x-filament::icon icon="heroicon-o-cube" class="h-5 w-5"/>
-        </button>
-
-        <button type="button" x-on:click="openFor({ mode: 'query' })" x-bind:class="{ 'is-active': mode === 'query' }" class="workflow-node-library__rail-button" aria-label="Запросы" title="Запросы">
-            <x-filament::icon icon="heroicon-o-circle-stack" class="h-5 w-5"/>
-        </button>
-
-        <button type="button" x-on:click="openFor({ mode: 'service' })" x-bind:class="{ 'is-active': mode === 'service' }" class="workflow-node-library__rail-button" aria-label="Сервисы" title="Сервисы"><x-filament::icon icon="heroicon-o-globe-alt" class="h-5 w-5"/></button>
-        <button
-            type="button"
-            x-on:click="openFor({ mode: 'variables' })"
-            x-bind:class="{ 'is-active': mode === 'variables' }"
-            class="workflow-node-library__rail-button"
-            aria-label="Переменные"
-            title="Переменные"
-        >
-            <x-filament::icon icon="heroicon-o-variable" class="h-5 w-5"/>
-        </button>
-    </div>
-
-    <div x-cloak x-show="open" x-bind:style="floatingStyle()" x-on:click.outside="if (anchor && open) closeLibrary()" class="workflow-node-library__panel">
+    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()" class="workflow-node-library__panel" role="dialog" aria-label="Каталог нод">
         <header class="workflow-node-library__header">
+            <button x-cloak x-show="mode !== 'all' && mode !== 'variables' && (!replaceTrigger || view !== 'root')" type="button" x-on:click="goBack()" class="workflow-node-library__close" aria-label="Назад в каталоге" title="Назад">
+                <x-filament::icon icon="heroicon-o-arrow-left" class="h-4 w-4"/>
+            </button>
             <div>
-                <h2 x-text="mode === 'variables' ? 'Переменные' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'События' : 'Действия'"></h2>
+                <h2 x-text="mode === 'all' ? 'Добавить ноду' : mode === 'variables' ? 'Справочники' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'Триггеры' : 'Действия'"></h2>
             </div>
 
             <button
@@ -366,10 +268,10 @@
                 type="button"
                 x-on:click="closeLibrary()"
                 class="workflow-node-library__close"
-                aria-label="Свернуть каталог"
-                title="Свернуть"
+                aria-label="Закрыть каталог"
+                title="Закрыть"
             >
-                <x-filament::icon icon="heroicon-o-chevron-left" class="h-4 w-4"/>
+                <x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/>
             </button>
         </header>
 
@@ -397,7 +299,16 @@
         </div>
 
         <div class="workflow-node-library__body">
-            <div x-cloak x-show="mode === 'service'" class="workflow-node-library__list">
+            <div x-show="mode === 'all' && query === ''" class="workflow-node-library__list">
+                @foreach(['trigger' => ['Триггеры', 'heroicon-o-bolt'], 'action' => ['Действия', 'heroicon-o-cube'], 'query' => ['Запросы', 'heroicon-o-circle-stack'], 'service' => ['Сервисы', 'heroicon-o-globe-alt']] as $category => [$label, $icon])
+                    <button type="button" x-on:click="resetView(@js($category))" class="workflow-node-library__group">
+                        <span class="workflow-node-library__group-icon"><x-filament::icon :icon="$icon" class="h-5 w-5"/></span>
+                        <span><strong>{{ $label }}</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
+                    </button>
+                @endforeach
+            </div>
+            <div x-cloak x-show="mode === 'service' || (mode === 'all' && query !== '')" class="workflow-node-library__list">
+                <div x-show="mode === 'all'" class="workflow-node-library__section-title">Сервисы</div>
                 <button type="button" x-show="view === 'root' && query === ''" x-on:click="view = 'telegram'" class="workflow-node-library__group">
                     <span class="workflow-node-library__group-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
                     <span><strong>Телеграм</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
@@ -407,14 +318,14 @@
                     <span><strong>Отправить сообщение</strong></span>
                 </button>
             </div>
-            <div x-cloak x-show="mode === 'query'" class="workflow-node-library__list">
+            <div x-cloak x-show="mode === 'query' || (mode === 'all' && query !== '')" class="workflow-node-library__list">
+                <div x-show="mode === 'all'" class="workflow-node-library__section-title">Запросы</div>
                 @foreach(\App\Services\Workflows\WorkflowAmoReadCatalog::options() as $group => $options)
                     <button type="button" x-show="query === '' && view === 'root'" x-on:click="view = @js($group)" class="workflow-node-library__group">
                         <span class="workflow-node-library__group-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::entity($group)" :amo="true" class="h-5 w-5"/></span>
                         <span><strong>{{ $group }}</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
                     </button>
                 @endforeach
-                <div x-show="query === '' && view !== 'root'" class="workflow-node-library__breadcrumb"><button type="button" x-on:click="view = 'root'">← Запросы</button></div>
                 @foreach($queryActions as $queryAction)
                     @php($queryActionGroup = $queryActionGroups[$queryAction['type']] ?? 'Другое')
                     <button type="button" x-show="(query !== '' || view === @js($queryActionGroup)) && matches(@js('amoCRM '.$queryActionGroup.' запрос '.$queryAction['name']))" wire:click="selectActionType(@js($queryAction['type']))" class="workflow-node-library__item">
@@ -435,8 +346,8 @@
                     'systemIdGroups' => $systemIdGroups,
                 ])
             </div>
-            <div x-cloak x-show="query !== '' && mode === 'trigger'" class="workflow-node-library__list">
-                <div class="workflow-node-library__section-title">Результаты</div>
+            <div x-cloak x-show="query !== '' && (mode === 'trigger' || mode === 'all')" class="workflow-node-library__list">
+                <div class="workflow-node-library__section-title">Триггеры</div>
                 @foreach($triggerGroups as $group)
                     @foreach($group['items'] as $trigger)
                         <button
@@ -457,8 +368,8 @@
                 @endforeach
             </div>
 
-            <div x-cloak x-show="query !== '' && mode === 'action'" class="workflow-node-library__list">
-                <div class="workflow-node-library__section-title">Результаты</div>
+            <div x-cloak x-show="query !== '' && (mode === 'action' || mode === 'all')" class="workflow-node-library__list">
+                <div class="workflow-node-library__section-title">Действия</div>
                 @foreach($allActions as $action)
                     <button
                         x-show="matches(@js($action['search_text']))"
@@ -478,13 +389,6 @@
             </div>
 
             <div x-cloak x-show="query === '' && mode === 'trigger'">
-                <div x-show="view !== 'root'" class="workflow-node-library__breadcrumb">
-                    <button type="button" x-on:click="goBack()">
-                        <x-filament::icon icon="heroicon-o-arrow-left" class="h-4 w-4"/>
-                        Назад
-                    </button>
-                </div>
-
                 <div x-show="view === 'root'" class="workflow-node-library__list">
                     @foreach($triggerGroups as $groupKey => $group)
                         <button
@@ -526,14 +430,6 @@
             </div>
 
             <div x-cloak x-show="query === '' && mode === 'action'">
-                <div x-show="view !== 'root'" class="workflow-node-library__breadcrumb">
-                    <button type="button" x-on:click="goBack()">
-                        <x-filament::icon icon="heroicon-o-arrow-left" class="h-4 w-4"/>
-                        Назад
-                    </button>
-                    <span x-show="view === 'variants'">amoCRM</span>
-                </div>
-
                 <div x-show="view === 'root'" class="workflow-node-library__list">
                     @if($logicActions !== [])
                         <button type="button" x-on:click="view = 'logic'" class="workflow-node-library__group">

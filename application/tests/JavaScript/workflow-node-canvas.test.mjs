@@ -90,13 +90,21 @@ test('condition edges are neutral until evaluated and only the selected route is
     assert.match(source,/const completed = !preview && this\.edgeCompleted/);
 });
 
-test('canvas keeps its dotted grid and uses vertical input ports', () => {
+test('canvas keeps its dotted grid and uses round input ports like the prototype', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     assert.equal((css.match(/radial-gradient\(circle/g) ?? []).length,7);
-    assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
+    assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*9px;[^}]*height:\s*9px;[^}]*border-radius:\s*50%;/s);
 });
 
-test('grid uses the same world coordinates as nodes through pan, fractional zoom and fit view', () => {
+test('interaction effects preserve node geometry and respect reduced motion', () => {
+    const css = readFileSync(new URL('../../resources/css/workflow-inspector.css',import.meta.url),'utf8');
+    assert.match(css,/\[data-node-running="true"\]::after\s*\{[^}]*pointer-events:\s*none;[^}]*animation:\s*workflow-node-pulse/s);
+    assert.match(css,/@keyframes workflow-node-pulse/);
+    assert.match(css,/@media \(prefers-reduced-motion: reduce\)[\s\S]*\[data-workflow-node-card\]::after[^}]*animation: none !important/);
+    assert.doesNotMatch(css,/\[data-workflow-node-card\]:hover\s*\{[^}]*(?:transform|translate|scale):/);
+});
+
+test('backdrop is static at every zoom and pan while placement still snaps to half steps', () => {
     const {canvas} = fixture();
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     assert.doesNotMatch(css, /background-position:\s*0\s+0\s*!important/);
@@ -109,21 +117,7 @@ test('grid uses the same world coordinates as nodes through pan, fractional zoom
         canvas.translateY = 456;
         canvas.$refs.stage = {offsetLeft:7,offsetTop:11};
         canvas.$refs.viewport = {scrollLeft:3,scrollTop:9};
-        const verify = () => {
-            const [pitch, height, x, y] = canvas.gridStyle().match(/-?[\d.]+(?=px)/g).map(Number);
-            assert.equal(pitch, height);
-            assert.ok(pitch >= 12 && pitch <= 40, 'overview must not create dense/subpixel dots');
-            const stride = pitch / scale / canvas.gridSpacing;
-            assert.ok(Math.abs(Math.log2(stride) - Math.round(Math.log2(stride))) < 1e-9, 'visible dots are a subset of the same lattice');
-            const mod = value => ((value % pitch) + pitch) % pitch;
-            for (const world of [-64000, -320, 0, 160, 64000]) {
-                const point = world * stride;
-                for (const [phase, offset] of [[x, canvas.translateX + 4], [y, canvas.translateY + 2]]) {
-                    const distance = mod(point * scale + offset - phase - pitch / 2);
-                    assert.ok(Math.min(distance, pitch - distance) < 1e-7, `dot and node must agree at scale ${scale}`);
-                }
-            }
-        };
+        const verify = () => assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:0px 0px;');
         verify();
         canvas.translateX += 7;
         canvas.translateY -= 9;
@@ -220,7 +214,7 @@ test('new branches start from white output handles while existing edges keep hov
     const edges = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
     assert.match(card, /workflow-node-port--output-\{\{ \$port \}\}.*startConnection\('action:' \+ @js\(\$actionId\), @js\(\$port\), \$event\)/s);
-    assert.match(css, /button\.workflow-node-port--output:hover[^{]*\{[^}]*background:\s*#c5cbd5/s);
+    assert.match(css, /button\.workflow-node-port--output:hover::before[^{]*\{[^}]*background:\s*#2fa7d2/s);
     assert.match(edges, /x-for="edge in canvasEdges/);
     assert.match(edges, /class="workflow-node-edge-controls" wire:ignore wire:key="workflow-edge-controls-/);
     assert.match(edges, /x-show="edge.targetId"/);
@@ -228,6 +222,46 @@ test('new branches start from white output handles while existing edges keep hov
     assert.match(edges, /heroicon-o-trash/);
     assert.doesNotMatch(edges, /data-workflow-edge-branch|Добавить ещё одну ветку/);
     assert.deepEqual(Array.from(fixture().canvas.canvasEdges([{branch:true}, {sourceId:'a',sourcePort:'yes',targetId:'b'}], [])), [{sourceId:'a',sourcePort:'yes',targetId:'b'}]);
+});
+
+test('new connection appears immediately but only the server can accept it into the draft', async () => {
+    const {canvas}=fixture();let release;
+    canvas.canvasActions=()=>[{id:'a',type:'workflow_delay'},{id:'b',type:'workflow_delay'}];
+    canvas.$wire={definition:{connections:[]}, connectWorkflowNodes:async()=>new Promise(r=>release=r)};
+    canvas.connecting={sourceId:'action:a',sourcePort:'output',replaceTarget:null};
+    const pending=canvas.completeConnection('action:b');
+    assert.equal(canvas.canvasEdges([],[]).some(edge=>edge.targetId==='action:b'),true);
+    assert.deepEqual(canvas.$wire.definition.connections,[],'Preview must not become a saved connection before validation');
+    // A server-side rejection leaves the actual draft untouched.
+    release();await pending;
+    assert.equal(canvas.pendingConnections.length,0);
+    assert.equal(canvas.canvasEdges([],[]).some(edge=>edge.targetId==='action:b'),false);
+    canvas.connecting={sourceId:'action:a',sourcePort:'output',replaceTarget:null};
+    canvas.$wire.connectWorkflowNodes=async()=>{canvas.$wire.definition.connections=[{sourceId:'action:a',sourcePort:'output',targetId:'action:b'}];};
+    await canvas.completeConnection('action:b');
+    assert.equal(canvas.canvasEdges([],[]).some(edge=>edge.targetId==='action:b'),true);
+});
+
+test('failed reconnect restores the original edge and shows a retry message', async () => {
+    const {canvas}=fixture();
+    canvas.canvasActions=()=>[{id:'a',type:'workflow_delay'},{id:'b',type:'workflow_delay'},{id:'c',type:'workflow_delay'}];
+    const original={sourceId:'action:a',sourcePort:'output',targetId:'action:b'};
+    canvas.$wire={definition:{connections:[original]},connectWorkflowNodes:async()=>{throw new Error('offline');}};
+    canvas.connecting={sourceId:'action:a',sourcePort:'output',replaceTarget:'action:b'};
+    await canvas.completeConnection('action:c');
+    assert.equal(canvas.pendingConnections.length,0);assert.match(canvas.connectionError,/Повторите/);
+    assert.equal(canvas.canvasEdges([],[]).some(edge=>edge.targetId==='action:b'),true);
+    assert.equal(canvas.canvasEdges([],[]).some(edge=>edge.targetId==='action:c'),false);
+});
+
+test('connection preview snaps to the input and clears target highlighting on cancellation', () => {
+    const {canvas}=fixture();canvas.connecting={sourceId:'action:a',sourcePort:'output'};
+    canvas.connectionTargetAt=()=> 'action:b';
+    canvas.nodeElements=()=>[{dataset:{workflowNodeId:'action:b'},querySelector:()=>({getBoundingClientRect:()=>({left:100,top:200,width:14,height:20})})}];
+    canvas.moveCanvas({clientX:116,clientY:222});
+    assert.equal(canvas.connectionTargetId,'action:b');
+    assert.equal(canvas.connectionCursor.x,107);assert.equal(canvas.connectionCursor.y,210);
+    canvas.cancelConnection();assert.equal(canvas.connectionTargetId,null);
 });
 
 test('connected edge controls reveal together and hide after leaving the edge', () => {
@@ -419,7 +453,7 @@ test('captured plus taps open once and movement does not animate behind the edge
     assert.equal(calls,1);
     assert.equal(f.events().length, 1);
     assert.equal(f.events()[0].type, 'workflow-node-library-open');
-    assert.equal(f.events()[0].detail.mode, 'action');
+    assert.equal(f.events()[0].detail.mode, 'all');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     const rule = css.match(/\.workflow-sortable-item\s*\{([^}]+)\}/)[1];
     assert.doesNotMatch(rule,/transition:[^;]*transform/);

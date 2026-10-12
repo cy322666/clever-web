@@ -52,6 +52,7 @@
         <div class="workflow-workbench__toolbar">
             <div class="workflow-workbench__toolbar-layout">
                 <div class="workflow-workbench__identity">
+                    <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index') }}" class="workflow-workbench__quick-action" aria-label="Сценарии" title="К списку сценариев"><x-filament::icon icon="heroicon-o-arrow-left" class="h-5 w-5"/></a>
                     <div class="workflow-identity-inline" x-data="{ editing: false }">
                         <h1 class="workflow-workbench__identity-title" x-show="!editing"><button type="button" title="Переименовать поток" x-on:click="editing=true; $nextTick(() => { $refs.name.focus(); $refs.name.select(); })">{{ $workflowTitle }}</button></h1>
                         <input x-ref="name" x-show="editing" x-cloak value="{{ $workflowTitle }}" maxlength="255" aria-label="Название потока"
@@ -82,6 +83,7 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
+                    <button type="button" class="workflow-workbench__quick-action" x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
                     @if($workflowRecord && !$isReplay && method_exists($this, 'runWorkflowManually'))
                         @include('filament.workflow-builder.workflow-manual-run')
                     @endif
@@ -195,10 +197,11 @@
                     <textarea x-show="open" x-cloak x-model="note" x-on:change="$wire.updateWorkflowDescription(note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
+                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
-                <div class="workflow-connection-hint" x-show="connecting" x-cloak x-on:pointerdown.stop>
-                    <span>Выберите другую ноду</span><button type="button" x-show="selectedEdge" x-on:click="removeSelectedEdge()">Удалить связь</button><button type="button" x-on:click="cancelConnection()">Отмена</button>
+                <div class="workflow-connection-hint" x-show="connecting || connectionError" x-cloak x-on:pointerdown.stop>
+                    <span x-text="connectionError || 'Выберите другую ноду'"></span><button type="button" x-show="selectedEdge" x-on:click="removeSelectedEdge()">Удалить связь</button><button type="button" x-on:click="cancelConnection()">Закрыть</button>
                 </div>
                 <div class="workflow-connection-menu" x-show="selectedEdge && !connecting" x-cloak x-on:pointerdown.stop>
                     <span>Перетащите линию или точки</span>

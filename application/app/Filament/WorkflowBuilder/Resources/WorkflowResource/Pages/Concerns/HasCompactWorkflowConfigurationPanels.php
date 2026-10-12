@@ -276,9 +276,10 @@ trait HasCompactWorkflowConfigurationPanels
         $referenceType = $step['type'] ?? '';
         $referencePlan = \App\Services\Workflows\WorkflowNodeReferences::plan($referenceType, $this->mountedActions[array_key_last($this->mountedActions)]['data'] ?? $step['config'] ?? []);
         return [Group::make()->extraAttributes(['class' => 'workflow-inspector__workspace'])->schema([
+            View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')),
             Group::make([View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => \App\Services\Workflows\WorkflowExpressionCatalog::forPicker($this->getWorkflowExpressionSources())])])
                 ->extraAttributes(['x-show' => "tab === 'input'", 'class' => 'workflow-inspector__pane', 'role' => 'tabpanel', 'aria-label' => 'Вход']),
-            Group::make([View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')), ...$schema])
+            Group::make($schema)
                 ->extraAttributes(['x-show' => "tab === 'settings'", 'class' => 'workflow-inspector__pane workflow-node-settings__parameters', 'role' => 'tabpanel', 'aria-label' => 'Настройки']),
             Group::make([View::make('filament.workflow-builder.workflow-node-output')])
                 ->extraAttributes(['x-show' => "tab === 'output'", 'class' => 'workflow-inspector__pane', 'role' => 'tabpanel', 'aria-label' => 'Выход']),

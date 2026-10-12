@@ -1,0 +1,67 @@
+/* One scale for every node form; no transform/zoom on editable controls. */
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters {
+    font-size: 12px;
+    line-height: 18px;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters :is(.fi-input-wrp, .fi-select-input) {
+    min-height: 34px;
+    border-radius: 6px !important;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters :is(input.fi-input, select.fi-input, .fi-select-input-btn, .fi-select-input-placeholder) {
+    height: 32px;
+    min-height: 32px;
+    font-size: 12px;
+    line-height: 18px;
+    padding: 6px 10px !important;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-select-input {
+    padding-block: 0;
+    font-size: 12px;
+    line-height: 18px;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters select.fi-input { padding-right: 30px !important; }
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters textarea.fi-input {
+    font-size: 12px;
+    line-height: 18px;
+    padding: 7px 10px !important;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters :is(.fi-fo-field-label-content, .fi-section-header-heading, .workflow-value-field__header label) {
+    font-size: 12px;
+    line-height: 18px;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters :is(.fi-fo-field-wrp-helper-text, .fi-fo-field-wrp-hint, .fi-section-header-description) {
+    font-size: 11px;
+    line-height: 16px;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-btn {
+    min-height: 28px;
+    padding: 4px 9px !important;
+    font-size: 12px;
+    line-height: 18px;
+    border-radius: 6px !important;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters :is(.fi-btn, .fi-select-input) svg {
+    width: 14px;
+    height: 14px;
+}
+.workflow-inspector.workflow-node-settings .workflow-value-field__header { margin-bottom: 4px; }
+.workflow-inspector.workflow-node-settings .workflow-value-field__modes button {
+    font-size: 10px;
+    line-height: 16px;
+    padding: 2px 5px;
+}
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-sc { row-gap: 10px !important; }
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-fo-repeater-item-content { padding-bottom: 8px !important; }
+.workflow-inspector.workflow-node-settings .workflow-value-suggestions { max-height: 220px; }
+.workflow-inspector.workflow-node-settings .workflow-value-suggestions button { padding: 6px 8px; font-size: 11px; line-height: 16px; }
+.workflow-inspector.workflow-node-settings .workflow-value-suggestions code { font-size: 11px; overflow-wrap: anywhere; }
+.dark .workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-select-input {
+    background: var(--workflow-dark-input) !important;
+    border-color: var(--workflow-dark-outline) !important;
+    color: var(--workflow-dark-text);
+}
+.dark .workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-btn:not(.fi-color-primary):not(.fi-color-danger) {
+    background: var(--workflow-dark-surface) !important;
+    border-color: var(--workflow-dark-line) !important;
+    color: var(--workflow-dark-text);
+}
