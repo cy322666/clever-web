@@ -154,21 +154,28 @@ test('edge trash disconnects exactly the selected connection without deleting no
     assert.equal(f.canvas.selectedEdge, null);
 });
 
-test('edge trash follows the plus and repeated positions do not mutate styles', () => {
+test('edge controls are centred on the path at every zoom without repeated style mutations', () => {
     const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
     const code = source.slice(source.indexOf('        const positionControl ='), source.indexOf('        const sourceSelector ='));
-    const positionedControls = new Set();
-    const position = runInNewContext(code + '\npositionControl;', {positionedControls});
-    let writes = 0;
-    const style = () => new Proxy({}, {set(target,key,value) {writes++; target[key]=value; return true;}});
-    const remove = {hasAttribute:()=>true,style:style()};
-    const plus = {style:style(),nextElementSibling:remove};
-    position(plus,100,50);
-    assert.equal(remove.style.left,'128px');
-    assert.equal(remove.style.top,'50px');
-    const before = writes;
-    position(plus,100,50);
-    assert.equal(writes,before);
+    for (const scale of [0.25, 1, 2]) {
+        const positionedControls = new Set();
+        const position = runInNewContext(code + '\npositionControl;', {positionedControls, scale});
+        let writes = 0;
+        const style = () => new Proxy({}, {set(target,key,value) {writes++; target[key]=value; return true;}});
+        const remove = {hasAttribute:()=>true,style:style()};
+        const plus = {style:style(),nextElementSibling:remove,getBoundingClientRect:()=>({width:16*scale})};
+        position(plus,100,50);
+        assert.equal(plus.style.left,'90px');
+        assert.equal(remove.style.left,'110px');
+        assert.equal(remove.style.top,'50px');
+        const before = writes;
+        position(plus,100,50);
+        assert.equal(writes,before);
+        const empty = {style:style()};
+        position(empty,100,50);
+        assert.equal(empty.style.left,'100px');
+    }
+    assert.match(source,/positionControl\(button,route\.x,route\.y\)/);
 });
 
 test('another-branch plus is positioned by the card without inventing an edge', () => {

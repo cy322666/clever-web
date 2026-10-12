@@ -152,10 +152,17 @@ window.workflowWorkbench = () => ({
             group_name: this.$wire.data?.group_name ?? null,
             definition: {...this.$wire.definition, trigger: this.$wire.trigger, actions: this.$wire.workflowActions},
         };
+        // These two fields are dictionaries. PHP serializes an empty dictionary
+        // as [], while canvas layout refreshes create {}. They are the same state.
+        // Do not coerce node payloads: arrays and objects there mean different things.
+        const editorState = value => ({...value, definition: {...value.definition,
+            canvas_layout: {...value.definition?.canvas_layout},
+            canvas_edge_routes: {...value.definition?.canvas_edge_routes},
+        }});
         // Ignore object key ordering, but preserve action/branch order and values.
         const stable = value => Array.isArray(value) ? value.map(stable)
             : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
-        return JSON.stringify(stable(state)) !== JSON.stringify(stable(saved));
+        return JSON.stringify(stable(editorState(state))) !== JSON.stringify(stable(editorState(saved)));
     },
 
     initWorkbench() {
@@ -1368,14 +1375,18 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const positionControl = (button, x, y) => {
             if (!button) return;
 
+            const remove = button.nextElementSibling;
+            const paired = remove?.hasAttribute('data-workflow-edge-delete');
+            // Centre the whole pair on the actual path, in canvas coordinates.
+            const halfGap = paired ? ((button.getBoundingClientRect?.().width / scale || 16) + 4) / 2 : 0;
+            const addX = x - halfGap;
             // Compare numeric coordinates: browsers normalize CSS decimal precision.
-            if (Math.abs(parseFloat(button.style.left) - x) > 0.01 || !button.style.left) button.style.left = `${x}px`;
+            if (Math.abs(parseFloat(button.style.left) - addX) > 0.01 || !button.style.left) button.style.left = `${addX}px`;
             if (Math.abs(parseFloat(button.style.top) - y) > 0.01 || !button.style.top) button.style.top = `${y}px`;
             if (button.style.visibility !== 'visible') button.style.visibility = 'visible';
             positionedControls.add(button);
-            const remove = button.nextElementSibling;
-            if (remove?.hasAttribute('data-workflow-edge-delete')) {
-                if (Math.abs(parseFloat(remove.style.left) - (x + 28)) > 0.01 || !remove.style.left) remove.style.left = `${x + 28}px`;
+            if (paired) {
+                if (Math.abs(parseFloat(remove.style.left) - (x + halfGap)) > 0.01 || !remove.style.left) remove.style.left = `${x + halfGap}px`;
                 if (Math.abs(parseFloat(remove.style.top) - y) > 0.01 || !remove.style.top) remove.style.top = `${y}px`;
                 if (remove.style.visibility !== 'visible') remove.style.visibility = 'visible';
             }
@@ -1437,7 +1448,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 this.edgeRoutes[this.edgeRouteKey(edge)],sourceVector,targetVector,loopReturn ? returnLane++ : 0);
             paths.push({d:route.d,port:sourcePort,active:button.dataset.workflowEdgeActive,loopReturn,
                 edge,control:button,route:route.route,handles:route.handles});
-            positionControl(button,route.x+28,route.y);
+            positionControl(button,route.x,route.y);
             maxX = Math.max(maxX,route.right);
             maxY = Math.max(maxY,route.bottom+24);
         });
