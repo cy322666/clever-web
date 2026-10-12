@@ -62,7 +62,7 @@ final class WorkflowOutputView
         if (!is_array($output)) return $output;
         if (($output['_workflow_loop'] ?? false) === true) return array_key_exists('item', $output) ? $output['item'] : ($output['items'] ?? []);
         if (self::isCondition($output)) return $output['passed'];
-        if (self::isSingleContactCreation($output)) return self::createdContact($output);
+        if (self::isSingleEntityCreation($output)) return self::createdEntity($output);
         // Read results can contain all pages, while the HTTP journal is truncated.
         // Never replace the canonical collection with the last HTTP response.
         if (array_key_exists('data', $output) && isset($output['items']) && array_key_exists('has_more', $output)) {
@@ -84,36 +84,37 @@ final class WorkflowOutputView
     {
         $value = self::value($output);
         // Saved short expressions may still address the old singleton response array.
-        if (self::isSingleContactCreation($output) && ($path === '0' || str_starts_with($path, '0.'))) {
+        if (self::isSingleEntityCreation($output) && ($path === '0' || str_starts_with($path, '0.'))) {
             $path = $path === '0' ? '' : substr($path, 2);
         }
         return WorkflowValuePath::get($value, $path);
     }
 
-    private static function isSingleContactCreation(mixed $output): bool
+    private static function isSingleEntityCreation(mixed $output): bool
     {
-        return is_array($output) && ($output['entity_type'] ?? null) === 'contact'
+        return is_array($output) && in_array($output['entity_type'] ?? null, ['contact', 'lead'], true)
             && in_array($output['action'] ?? null, ['created', 'found_existing'], true)
             && is_numeric($output['entity_id'] ?? null) && (int) $output['entity_id'] > 0;
     }
 
-    private static function createdContact(array $output): array
+    private static function createdEntity(array $output): array
     {
         $id = (int) $output['entity_id'];
-        $contact = ['id' => $id];
-        // Select the returned contact by ID, not the last response (which may be a link request).
+        $type = $output['entity_type'];
+        $entity = ['id' => $id];
+        // Select the created entity by ID, not the last response (which may be a link request).
         foreach ((array) ($output['amo_exchange'] ?? []) as $exchange) {
             $body = $exchange['response']['body'] ?? null;
             if (!is_array($body)) continue;
-            foreach ((array) ($body['_embedded']['contacts'] ?? []) as $candidate) {
-                if (is_array($candidate) && (string) ($candidate['id'] ?? '') === (string) $id) $contact = $candidate;
+            foreach ((array) ($body['_embedded'][$type.'s'] ?? []) as $candidate) {
+                if (is_array($candidate) && (string) ($candidate['id'] ?? '') === (string) $id) $entity = $candidate;
             }
         }
-        if (is_array($output['contact'] ?? null) && (string) ($output['contact']['id'] ?? '') === (string) $id) {
-            $contact = $output['contact'];
+        if (is_array($output[$type] ?? null) && (string) ($output[$type]['id'] ?? '') === (string) $id) {
+            $entity = $output[$type];
         }
-        unset($contact['request_id']);
-        return self::entity($contact);
+        unset($entity['request_id']);
+        return self::entity($entity);
     }
 
     public static function entity(mixed $body): mixed
