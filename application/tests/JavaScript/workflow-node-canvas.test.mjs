@@ -9,6 +9,16 @@ test('canvas keeps its dotted grid and uses vertical input ports', () => {
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
 });
 
+test('node and connection lines are thin while edge hit targets remain easy to grab', () => {
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
+    assert.match(css, /\.workflow-node-edge\s*\{[^}]*stroke-width:\s*1\.25;[^}]*vector-effect:\s*non-scaling-stroke;/s);
+    assert.match(css, /border:\s*1px solid #9da6b3 !important;/);
+    assert.doesNotMatch(css, /border:\s*2px solid #9da6b3/);
+    assert.match(css, /\.workflow-node-card--selected\s*\{\s*outline:\s*1px solid #339dc7/);
+    assert.match(css, /\.workflow-node-edge\.is-selected\s*\{\s*stroke-width:\s*2;/);
+    assert.match(css, /\.workflow-node-edge-hit\s*\{[^}]*stroke-width:\s*16;[^}]*pointer-events:\s*stroke;/s);
+});
+
 test('new branches start from white output handles while existing edges keep hover controls', () => {
     const card = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/action-card.blade.php', import.meta.url), 'utf8');
     const edges = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php', import.meta.url), 'utf8');

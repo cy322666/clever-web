@@ -779,7 +779,7 @@ body.fi-body {
     fill: none;
     stroke: rgb(120 113 108 / 0.72);
     stroke-linecap: round;
-    stroke-width: 2;
+    stroke-width: 1.25;
     vector-effect: non-scaling-stroke;
 }
 
@@ -5836,7 +5836,7 @@ body:has(.workflow-editor-page) .fi-page-content {
 }
 
 .workflow-selection-box { position: absolute; z-index: 30; pointer-events: none; border: 1px solid #339dc7; background: rgb(51 157 199 / .12); border-radius: 3px; }
-.workflow-node-editor #workflow-canvas .workflow-node-card--selected { outline: 2px solid #339dc7; outline-offset: 4px; }
+.workflow-node-editor #workflow-canvas .workflow-node-card--selected { outline: 1px solid #339dc7; outline-offset: 4px; }
 
 /* Compact workflow overview: folders, search and rows, without dashboard cards. */
 body:has(.workflow-list-page) .fi-main {
@@ -6272,7 +6272,7 @@ body:has(.workflow-list-page) .fi-main {
     justify-content: center !important;
     padding: 0 !important;
     overflow: visible !important;
-    border: 2px solid #9da6b3 !important;
+    border: 1px solid #9da6b3 !important;
     border-radius: 1rem !important;
     background: #fff !important;
     box-shadow: 0 3px 7px rgb(31 41 55 / 0.12), 0 1px 2px rgb(31 41 55 / 0.08) !important;
@@ -6446,7 +6446,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-execution-canvas #workflow-canvas.workflow-execution-nodes { display: block !important; position: relative; width: 1px !important; min-width: 1px !important; margin: 0 !important; padding: 0 !important; }
 .workflow-execution-node { position: absolute; width: 6rem; height: 6rem; z-index: 2; }
 .workflow-execution-node > button { display: block; position: relative; width: 6rem; height: 6rem; border: 0; padding: 0; background: transparent; }
-.workflow-execution-node > button.is-selected .workflow-node-card { outline: 3px solid rgb(77 89 105 / 0.22); outline-offset: 3px; }
+.workflow-execution-node > button.is-selected .workflow-node-card { outline: 1.5px solid rgb(77 89 105 / 0.22); outline-offset: 3px; }
 .workflow-execution-canvas .workflow-node-edge[data-workflow-edge-active="false"] { opacity: 0.22; stroke-dasharray: 4 4; }
 .workflow-execution-inspector { flex: 0 1 38%; min-height: 8rem; overflow: auto; border-top: 1px solid #c9cfd8; background: #fff; }
 .workflow-execution-note { padding: 0.375rem 0.875rem; border-bottom: 1px solid #e1e5eb; color: #7d8794; font-size: 0.6875rem; }
@@ -6788,7 +6788,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-edge-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
 .workflow-node-editor #workflow-canvas { pointer-events: none; }
 .workflow-node-editor #workflow-canvas [data-workflow-node-card] { pointer-events: auto; }
-.workflow-node-edge.is-selected { stroke-width: 4; filter: drop-shadow(0 0 3px rgb(115 126 141 / 0.3)); }
+.workflow-node-edge.is-selected { stroke-width: 2; filter: drop-shadow(0 0 3px rgb(115 126 141 / 0.3)); }
 .workflow-node-edge--preview { stroke-dasharray: 5 4; }
 .workflow-node-edge.workflow-node-edge--completed { stroke: #4d9c70 !important; }
 .workflow-connection-menu, .workflow-connection-hint { position: absolute; z-index: 35; top: 1rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; border: 1px solid #c5cdd7; border-radius: 0.5rem; background: #fff; color: #465262; box-shadow: 0 3px 12px rgb(31 41 55 / 0.1); font-size: 0.8125rem; white-space: nowrap; }
