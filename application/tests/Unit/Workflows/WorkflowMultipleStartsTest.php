@@ -39,6 +39,17 @@ class WorkflowMultipleStartsTest extends TestCase
         $this->assertSame(['action:note'], WorkflowGraph::targets($page->get('definition')['connections'], 'trigger'));
     }
 
+    public function test_client_side_trigger_palette_distinguishes_add_from_pending_replace(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class)->set('definition.trigger', ['type'=>'manual', 'config'=>[]]);
+        $page->call('beginTriggerReplace', 'trigger')->assertDispatched('workflow-node-library-open', mode:'trigger', replace:true);
+        $page->call('selectTriggerType', 'manual', true);
+        $this->assertCount(1, $page->get('definition')['additional_triggers']);
+        $page->call('beginTriggerReplace', 'trigger')->call('selectTriggerType', 'schedule', false);
+        $this->assertSame('schedule', $page->get('trigger')['type']);
+        $this->assertCount(1, $page->get('definition')['additional_triggers']);
+    }
+
     public function test_debug_starts_only_the_selected_chain(): void
     {
         $step = fn ($id) => ['id' => $id, 'type' => 'control-condition', 'config' => ['conditions' => [['left' => 1, 'operator' => 'equals', 'right' => 1]]]];

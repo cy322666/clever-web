@@ -23,7 +23,7 @@ trait HasWorkflowStartNodes
     {
         if (!isset(WorkflowStartNodes::all($this->definition)[$id])) return;
         $this->replacingTriggerNodeId = $id;
-        $this->dispatch('workflow-node-library-open', mode: 'trigger');
+        $this->dispatch('workflow-node-library-open', mode: 'trigger', replace: true);
     }
 
     public function editTriggerNode(string $id): void

@@ -238,6 +238,7 @@
         view: 'root',
         entity: null,
         query: '',
+        replaceTrigger: false,
         normalize(value) { return String(value ?? '').toLocaleLowerCase('ru-RU').trim(); },
         matches(value) {
             const query = this.normalize(this.query);
@@ -252,10 +253,16 @@
         },
         openFor(detail = {}) {
             this.open = true;
+            this.replaceTrigger = Boolean(detail.replace);
             this.resetView(detail.mode || 'action');
             this.$nextTick(() => {
                 if (this.mode !== 'variables') this.$refs.search?.focus();
             });
+        },
+        closeLibrary() {
+            this.open = false;
+            // Defer editor state changes until a real action. Browsing never needs a request.
+            ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
         },
         goBack() {
             if (this.mode === 'action' && this.view === 'variants') {
@@ -286,7 +293,7 @@
 
         <button
             type="button"
-            wire:click="beginTriggerAdd"
+            x-on:click="openFor({ mode: 'trigger' })"
             x-bind:class="{ 'is-active': mode === 'trigger' }"
             class="workflow-node-library__rail-button"
             aria-label="Триггеры"
@@ -297,7 +304,7 @@
 
         <button
             type="button"
-            wire:click="switchActionPalette('action')"
+            x-on:click="openFor({ mode: 'action' })"
             x-bind:class="{ 'is-active': mode === 'action' }"
             class="workflow-node-library__rail-button"
             aria-label="Действия"
@@ -306,11 +313,11 @@
             <x-filament::icon icon="heroicon-o-cube" class="h-5 w-5"/>
         </button>
 
-        <button type="button" wire:click="switchActionPalette('query')" x-bind:class="{ 'is-active': mode === 'query' }" class="workflow-node-library__rail-button" aria-label="Запросы" title="Запросы">
+        <button type="button" x-on:click="openFor({ mode: 'query' })" x-bind:class="{ 'is-active': mode === 'query' }" class="workflow-node-library__rail-button" aria-label="Запросы" title="Запросы">
             <x-filament::icon icon="heroicon-o-circle-stack" class="h-5 w-5"/>
         </button>
 
-        <button type="button" wire:click="switchActionPalette('service')" x-bind:class="{ 'is-active': mode === 'service' }" class="workflow-node-library__rail-button" aria-label="Сервисы" title="Сервисы"><x-filament::icon icon="heroicon-o-globe-alt" class="h-5 w-5"/></button>
+        <button type="button" x-on:click="openFor({ mode: 'service' })" x-bind:class="{ 'is-active': mode === 'service' }" class="workflow-node-library__rail-button" aria-label="Сервисы" title="Сервисы"><x-filament::icon icon="heroicon-o-globe-alt" class="h-5 w-5"/></button>
         <button
             type="button"
             x-on:click="openFor({ mode: 'variables' })"
@@ -344,8 +351,7 @@
 
             <button
                 type="button"
-                x-on:click="open = false"
-                wire:click="cancelActionInsertion"
+                x-on:click="closeLibrary()"
                 class="workflow-node-library__close"
                 aria-label="Свернуть каталог"
                 title="Свернуть"
@@ -423,7 +429,7 @@
                         <button
                             x-show="matches(@js($trigger['search_text']))"
                             type="button"
-                            wire:click="selectTriggerType(@js($trigger['type']))"
+                            x-on:click="$wire.selectTriggerType(@js($trigger['type']), !replaceTrigger)"
                             wire:loading.attr="disabled"
                             class="workflow-node-library__item"
                         >
@@ -490,7 +496,7 @@
                         @foreach($group['items'] as $trigger)
                             <button
                                 type="button"
-                                wire:click="selectTriggerType(@js($trigger['type']))"
+                                x-on:click="$wire.selectTriggerType(@js($trigger['type']), !replaceTrigger)"
                                 wire:loading.attr="disabled"
                                 class="workflow-node-library__item"
                             >

@@ -80,6 +80,9 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
+                    @if($workflowRecord && !$isReplay && method_exists($this, 'runWorkflowManually'))
+                        @include('filament.workflow-builder.workflow-manual-run')
+                    @endif
                     @if(($this->nodePreviewTaskId ?? null) && empty($this->mountedActions))
                         @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])
                     @endif

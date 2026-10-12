@@ -15,7 +15,7 @@ function fixture() {
     assert.equal(interceptors.length, 1, 'navigation must not register a second handler');
     const wire = {$id: 'editor-1', editingActionId: 'contact', nodePreviewTaskId: null, nodePreviewProgress: {}};
     return {
-        wire, stores, running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
+        wire, stores, manualRunning: () => window.workflowManualIsRunning(wire), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
         start(name, params = [], editor = wire) {
             let finish;
             interceptors[0]({action: {name, params, component: {id: editor.$id, reactive: editor}}, onFinish(callback) { finish = callback; }});
@@ -52,6 +52,29 @@ test('overlapping requests keep the indicator until both finish; unrelated actio
     assert.equal(f.running('contact'), true);
     second();
     assert.equal(f.running(), false);
+});
+
+test('manual flow has immediate feedback, stays busy while queued and never marks every node running', () => {
+    const f = fixture();
+    const finish = f.start('runWorkflowManually');
+    assert.equal(f.manualRunning(), true);
+    assert.equal(f.running(), true);
+    assert.equal(f.running('contact'), false);
+    f.wire.manualRunStatus = 'pending';
+    finish();
+    for (const state of ['pending', 'running']) {
+        f.wire.manualRunStatus = state;
+        assert.equal(f.manualRunning(), true);
+        assert.equal(f.running(), true);
+    }
+    for (const state of ['completed', 'failed', 'cancelled', 'paused', null]) {
+        f.wire.manualRunStatus = state;
+        assert.equal(f.manualRunning(), false);
+        assert.equal(f.running(), false);
+    }
+    const failed = f.start('runWorkflowManually');
+    failed();
+    assert.equal(f.manualRunning(), false);
 });
 
 test('loop spinner survives the queued response and polls, then clears on completion or cancellation', () => {

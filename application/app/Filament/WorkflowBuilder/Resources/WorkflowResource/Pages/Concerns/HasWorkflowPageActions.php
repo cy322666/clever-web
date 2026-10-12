@@ -60,8 +60,9 @@ trait HasWorkflowPageActions
         $this->cacheAction($this->workflowHistoryAction());
     }
 
-    public function selectTriggerType(string $type): void
+    public function selectTriggerType(string $type, bool $add = false): void
     {
+        if ($add) $this->replacingTriggerNodeId = null;
         $registry = app(TriggerRegistry::class);
 
         if (!$registry->has($type) || in_array($type, ['date-condition', 'workflow-completed'], true)) {

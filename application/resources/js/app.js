@@ -5,7 +5,8 @@ window.initializeWorkflowNodeLoading = () => {
     window.Alpine.store('workflowNodeRuns', {pending: {}});
     window.Livewire.interceptAction(({action, onFinish}) => {
         const nodeId = action.name === 'runWorkflowCanvasNode' ? action.params[0]
-            : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger') : null;
+            : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger')
+            : action.name === 'runWorkflowManually' ? '__workflow' : null;
         if (!nodeId) return;
         const pending = window.Alpine.store('workflowNodeRuns').pending;
         const componentId = action.component.id;
@@ -25,8 +26,9 @@ window.workflowNodeIsRunning = (wire, nodeId = null) => {
     const requested = nodeId === null ? Object.keys(pending).length > 0 : (pending[nodeId] || 0) > 0;
     // Queuing a loop ends the HTTP request, not the execution. Polling owns its end.
     const queued = Boolean(wire.nodePreviewTaskId) && (nodeId === null || wire.nodePreviewProgress?.node_id === nodeId);
-    return requested || queued;
+    return requested || queued || (nodeId === null && ['pending', 'running'].includes(wire.manualRunStatus));
 };
+window.workflowManualIsRunning = wire => window.workflowNodeIsRunning(wire, '__workflow') || ['pending', 'running'].includes(wire.manualRunStatus);
 document.addEventListener('livewire:init', window.initializeWorkflowNodeLoading);
 window.initializeWorkflowNodeLoading();
 
