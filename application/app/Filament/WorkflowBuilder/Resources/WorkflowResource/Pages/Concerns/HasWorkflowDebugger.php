@@ -221,7 +221,6 @@ trait HasWorkflowDebugger
     {
         $this->debugOpen = true;
         $this->unmountAction();
-        $this->initializeWorkflowDebugInput();
     }
 
     public function closeWorkflowDebugger(): void
@@ -237,7 +236,7 @@ trait HasWorkflowDebugger
         $this->debugSessionId = $this->nodePreviewSessionId = null;
         $this->nodeRunResults = $this->debugState = [];
         $this->debugReal = $this->debugRealConfirmed = false;
-        $this->resetValidation('debugInputBuilder');
+        $this->resetValidation('debugInput');
         $this->dispatch('workflow-debug-updated', state: ['results' => []]);
     }
 

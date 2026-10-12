@@ -8,7 +8,6 @@ use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowAmoCrmLoopGuard;
 use App\Services\Workflows\WorkflowAmoCrmWebhookPayloadNormalizer;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
-use App\Services\Workflows\WorkflowDebugInput;
 use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
@@ -116,16 +115,16 @@ class WorkflowAmoWebhookEventsTest extends TestCase
         Bus::assertDispatchedTimes(ExecuteWorkflowJob::class, 3);
     }
 
-    public function test_debug_input_supports_message_uuids_and_unsorted_uids(): void
+    public function test_event_context_preserves_message_uuids_and_unsorted_uids(): void
     {
         foreach (['message', 'outgoing_message'] as $entity) {
-            $rows = WorkflowDebugInput::defaults($entity, ['id'=>'message-uuid', 'text'=>'Привет']);
-            $this->assertSame('text', $rows[0]['type']);
-            $input = WorkflowDebugInput::build($entity, 'add_'.$entity, $rows);
+            $class = collect(AmoCrmWebhookTriggerCatalog::classes())->first(fn ($class) => $class::defaultConfig()['event'] === 'add_'.$entity);
+            $input = (new $class)->getContextData($class::defaultConfig(), [$entity => ['add' => [['id'=>'message-uuid', 'text'=>'Привет']]]]);
             $this->assertSame('message-uuid', $input['item']['id']);
             $this->assertSame('Привет', $input[$entity]['text']);
         }
-        $input = WorkflowDebugInput::build('unsorted', 'delete_unsorted', [['key'=>'uid', 'type'=>'text', 'value'=>'opaque-uid'], ['key'=>'action', 'type'=>'text', 'value'=>'accept']]);
+        $class = collect(AmoCrmWebhookTriggerCatalog::classes())->first(fn ($class) => $class::defaultConfig()['event'] === 'delete_unsorted');
+        $input = (new $class)->getContextData($class::defaultConfig(), ['unsorted' => ['delete' => [['uid'=>'opaque-uid', 'action'=>'accept']]]]);
         $this->assertSame(['uid'=>'opaque-uid','action'=>'accept'], $input['item']);
     }
 

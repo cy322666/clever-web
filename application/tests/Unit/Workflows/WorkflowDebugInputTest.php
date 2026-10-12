@@ -2,11 +2,7 @@
 
 namespace Tests\Unit\Workflows;
 
-use App\Models\Core\Account;
-use App\Services\Workflows\WorkflowDebugInput;
-use App\Services\amoCRM\Client;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\Support\WorkflowCanvasDatabase;
 use Tests\Support\WorkflowDebugFixture;
@@ -16,63 +12,51 @@ class WorkflowDebugInputTest extends TestCase
 {
     protected function setUp(): void { parent::setUp(); WorkflowCanvasDatabase::prepare(); config(['cache.default' => 'array']); Http::preventStrayRequests(); }
 
-    public function test_status_events_expose_the_same_entity_and_action_aliases_as_real_webhooks(): void
+    public function test_debugger_opens_with_json_and_no_event_builder(): void
     {
-        $input = WorkflowDebugInput::build('lead', 'status_lead', [
-            ['key' => 'id', 'type' => 'number', 'value' => '42'],
-            ['key' => 'status_id', 'type' => 'number', 'value' => '20'],
-            ['key' => '__custom', 'path' => 'custom_fields_values.0.field_id', 'type' => 'number', 'value' => '99'],
-        ]);
-        $this->assertSame($input['lead'], $input['status']);
-        $this->assertSame($input['lead'], $input['payload']['leads']['status'][0]);
-        $this->assertSame(99, $input['item']['custom_fields_values'][0]['field_id']);
-        $this->assertSame('20', (new \App\Workflows\Context\WorkflowContext($input))->resolve('{{status.status_id}}'));
-        $company = WorkflowDebugInput::build('company', 'add_company', [['key' => 'id', 'type' => 'number', 'value' => '7']]);
-        $this->assertSame('company', $company['payload']['contacts']['add'][0]['type']);
-        $this->assertArrayHasKey('delete_task', WorkflowDebugInput::events('task'));
+        $page = Livewire::test(WorkflowDebugFixture::class)->call('openWorkflowDebugger')
+            ->assertSet('debugInputMode', 'json')->assertSet('debugInput', '{}')
+            ->assertSee('JSON вручную')->assertSee('Прошлый запуск')
+            ->assertDontSee('Конструктор события')->assertDontSee('Собрать пример')
+            ->assertDontSee('Загрузить из amoCRM')->assertDontSee('workflow-debug-input__field', false);
+        foreach (['debugEntity', 'debugEvent', 'debugEntityId', 'debugFields', 'debugBuilderInitialized', 'debugLoadedEntity', 'debugLoadedAccount'] as $property) {
+            $this->assertFalse(property_exists($page->instance(), $property));
+        }
+        foreach (['initializeWorkflowDebugInput', 'updatedDebugEntity', 'addDebugInputField', 'removeDebugInputField', 'loadDebugEntity', 'resetLoadedDebugEntity'] as $method) {
+            $this->assertFalse(method_exists($page->instance(), $method));
+        }
+        $this->assertFileDoesNotExist(app_path('Services/Workflows/WorkflowDebugInput.php'));
+        $page->call('startWorkflowDebug')->assertHasNoErrors()->assertSet('debugState.real', false);
         Http::assertNothingSent();
     }
 
-    public function test_arbitrary_webhook_fields_and_boolean_false_are_preserved(): void
+    public function test_json_is_preserved_when_opening_and_preparing_the_debugger(): void
     {
-        $input = WorkflowDebugInput::build('payload', 'webhook', [['key' => 'id', 'type' => 'text', 'value' => 'order-42'], ['key' => '__custom', 'path' => 'paid', 'type' => 'boolean', 'value' => 'false']]);
-        $this->assertSame(['id' => 'order-42', 'paid' => false], $input['body']);
-        $this->assertSame($input['body'], $input['payload']);
+        $input = ['lead' => ['id' => 42], 'paid' => false, 'amount' => 0, 'nullable' => null, 'items' => [['id' => 'message-uuid']]];
+        $json = json_encode($input, JSON_THROW_ON_ERROR);
+        $page = Livewire::test(WorkflowDebugFixture::class)->set('debugInput', $json)
+            ->call('openWorkflowDebugger')->call('previewDebugInput')->assertHasNoErrors()
+            ->assertSet('debugInputMode', 'json')->assertSet('debugInput', $json)
+            ->call('closeWorkflowDebugger')->call('openWorkflowDebugger')->assertSet('debugInput', $json)
+            ->call('startWorkflowDebug')->assertHasNoErrors()->assertSet('debugState.real', false);
+        $session = \Illuminate\Support\Facades\Cache::get('workflow-debug:guest:'.$page->get('debugSessionId'));
+        $this->assertSame($input + ['_workflow_start_node_id' => 'trigger'], $session['context']['trigger_data']);
+        Http::assertNothingSent();
     }
 
-    public function test_incompatible_events_and_overlapping_paths_are_rejected(): void
+    public function test_removed_builder_mode_is_rejected_and_switching_back_clears_the_error(): void
     {
-        foreach ([['contact', 'status_lead', []], ['lead', 'manual', [['key' => '__custom', 'path' => '__proto__.value', 'value' => 'x']]], ['lead', 'manual', [['key' => 'name', 'value' => 'x'], ['key' => 'name', 'value' => 'y']]]] as $case) {
-            try { WorkflowDebugInput::build(...$case); $this->fail('Invalid input was accepted.'); }
-            catch (ValidationException $error) { $this->assertArrayHasKey('debugInputBuilder', $error->errors()); }
-        }
+        Livewire::test(WorkflowDebugFixture::class)
+            ->set('debugInputMode', 'builder')->call('previewDebugInput')->assertHasErrors('debugInput')
+            ->set('debugInputMode', 'json')->assertHasNoErrors()->call('previewDebugInput')->assertHasNoErrors();
+        Http::assertNothingSent();
     }
 
-    public function test_loading_an_entity_is_a_single_read_scoped_to_the_owner(): void
+    public function test_real_run_still_requires_explicit_confirmation(): void
     {
-        $client = $this->createMock(Client::class);
-        $client->expects($this->once())->method('requestV4')->with('GET', '/api/v4/contacts/42')->willReturn(['id' => 42, 'name' => 'Пример']);
-        $loader = new class($client) extends WorkflowDebugInput {
-            public function __construct(private Client $testClient) {}
-            protected function client(Account $account): Client { return $this->testClient; }
-        };
-        $account = (new Account)->forceFill(['user_id' => 1, 'active' => true, 'refresh_token' => 'test']);
-        $this->assertSame(42, $loader->load($account, 1, 'contact', '42')['id']);
-        $this->expectException(ValidationException::class);
-        $loader->load($account, 2, 'contact', '42');
-    }
-
-    public function test_the_constructor_prepares_data_and_keeps_real_actions_disabled(): void
-    {
-        $page = Livewire::test(WorkflowDebugFixture::class)->call('openWorkflowDebugger')
-            ->assertSet('debugInputMode', 'builder')->assertSee('Конструктор события')
-            ->set('debugEntity', 'contact')->set('debugEvent', 'update_contact')->set('debugEntityId', '123')
-            ->call('previewDebugInput')->assertHasNoErrors();
-        $input = json_decode($page->get('debugInput'), true);
-        $this->assertSame(123, $input['contact']['id']);
-        $this->assertSame('update_contact', $input['event']);
-        $page->call('startWorkflowDebug')->assertHasNoErrors()->assertSet('debugState.real', false);
-        $page->set('debugInputMode', 'history')->set('debugRunId', 999)->call('previewDebugInput')->assertHasErrors('debugInputBuilder');
+        Livewire::test(WorkflowDebugFixture::class)->call('openWorkflowDebugger')
+            ->set('debugReal', true)->call('startWorkflowDebug')
+            ->assertSet('debugSessionId', null)->assertSet('debugState', []);
         Http::assertNothingSent();
     }
 
@@ -93,7 +77,7 @@ class WorkflowDebugInputTest extends TestCase
             ->call('previewDebugInput')->assertHasNoErrors();
         $this->assertSame(['lead' => ['id' => 77]], json_decode($page->get('debugInput'), true));
         $this->assertSame([1], array_keys($page->instance()->recentDebugRuns()));
-        foreach ([2, 3] as $id) $page->set('debugRunId', $id)->call('previewDebugInput')->assertHasErrors('debugInputBuilder');
+        foreach ([2, 3] as $id) $page->set('debugRunId', $id)->call('previewDebugInput')->assertHasErrors('debugInput');
         $page->set('debugRunId', 1)->call('startWorkflowDebug')->assertHasNoErrors()->assertSet('debugState.real', false)
             ->call('editWorkflowDebugInput')->assertSet('debugSessionId', null)->assertSet('debugState', [])->assertSet('debugInputMode', 'history');
         Http::assertNothingSent();

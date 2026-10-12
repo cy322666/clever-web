@@ -54,7 +54,6 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertStringContainsString('x-model="type"', $html);
         $this->assertStringNotContainsString('x-text="item.value"', $html);
         $this->assertStringContainsString('x-text="item.label"', $html);
-        $this->assertStringContainsString("x-text=\"'ID ' + item.id\"", $html);
         $this->assertStringContainsString('x-on:click="showDetails(item)"', $html);
         $this->assertStringContainsString('x-on:click="copy(active.id)"', $html);
         $this->assertStringContainsString('x-on:click="copy(active.value)"', $html);
@@ -85,8 +84,8 @@ class WorkflowReferencePanelTest extends TestCase
         }
         $this->assertStringContainsString('ID 42', $html); // Part of the actual name is not removed.
         $this->assertStringContainsString('Email', $html);
-        $this->assertStringContainsString('<code x-text="active?.id"></code>', $html);
-        $this->assertStringContainsString('<code x-text="active?.value"></code>', $html);
+        $this->assertStringContainsString('aria-label="Копировать ID" x-on:click="copy(active.id)"', $html);
+        $this->assertStringContainsString('aria-label="Копировать переменную" x-on:click="copy(active.value)"', $html);
         $this->assertStringNotContainsString('workflow-variable-browser__pages', $html);
     }
 }
