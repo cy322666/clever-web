@@ -20,7 +20,8 @@ test('node output grows through the full pane without shrinking its heading', ()
     assert.equal(pane['flex-direction'], 'column');
     assert.equal(pane.height, '100%');
     assert.equal(pane['min-height'], '0');
-    assert.equal(declarations('.workflow-node-output > :not(.workflow-json-tree)').flex, '0 0 auto');
+    assert.equal(declarations('.workflow-node-output > :not(.workflow-json-tree):not(.workflow-condition-comparisons)').flex, '0 0 auto');
+    assert.equal(declarations('.workflow-node-output .workflow-condition-comparisons').overflow, 'auto');
 
     const tree = declarations('.workflow-node-output .workflow-json-tree');
     assert.equal(tree.display, 'flex');

@@ -30,6 +30,7 @@ class WorkflowEditorSaveStateTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
         $saved = $page->get('savedWorkflowEditorState');
+        $this->assertArrayNotHasKey('html', $page->effects, 'Saving must acknowledge state without rebuilding the canvas.');
         $this->assertNotSame($initial, $saved);
         $this->assertSame($saved, $page->instance()->workflowEditorState());
         $this->assertSame(['action:delay'=>['x'=>120, 'y'=>80]], $flow->fresh()->definition['canvas_layout']);
@@ -39,6 +40,7 @@ class WorkflowEditorSaveStateTest extends TestCase
             ->call('save')
             ->assertHasErrors('name')
             ->assertSet('savedWorkflowEditorState', $saved);
+        $this->assertArrayHasKey('html', $page->effects, 'Validation failures must still render their errors.');
         $this->assertSame(120, $flow->fresh()->definition['canvas_layout']['action:delay']['x']);
         Http::assertNothingSent();
         Queue::assertNothingPushed();

@@ -96,7 +96,7 @@ class WorkflowLoopFeedbackTest extends TestCase
         $definition['actions'][1]['config']['conditions'][0]['right'] = 100;
         $debugger = app(WorkflowDebugger::class);
         $preview = $debugger->executeNode($definition['actions'][2], [], [], null, null, false, $definition);
-        $this->assertSame(['inner', 'body'], array_column($preview['results'], 'id'));
+        $this->assertSame(['inner', 'body', 'body'], array_column($preview['results'], 'id'));
         $calls = 0;
         try {
             (new WorkflowLoopRunner($definition))->run(new WorkflowContext, function ($step, $context) use (&$calls) {
@@ -135,6 +135,8 @@ class WorkflowLoopFeedbackTest extends TestCase
         $this->assertSame('failed', $session['status']);
         $this->assertStringContainsString('200 шагов', $session['error']);
         $this->assertCount(201, $session['results']);
+        $annotated = \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']);
+        $this->assertGreaterThan(0, $annotated[0]['display_count']);
         $this->assertNotContains('after', array_column($session['results'], 'id'));
         Http::assertNothingSent();
     }

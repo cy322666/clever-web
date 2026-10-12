@@ -87,12 +87,11 @@ final class WorkflowLoopRunner
         $this->sequence(array_keys($this->nodes), WorkflowGraph::targets($this->edges, $start), $context, $execute, [], $start);
     }
 
-    /** Preview is deliberately bounded to one item and never runs the done branch. */
+    /** Manual runs respect the selected item mode, but never run the done branch. */
     public function runNode(string $id, WorkflowContext $context, callable $execute, bool $preview = false, ?array $inputSources = null): bool
     {
         $entry = $this->nodes[$id] ?? throw new InvalidArgumentException('Нода цикла не найдена.');
         if (!WorkflowGraph::loop($entry['step'])) throw new InvalidArgumentException('Выберите ноду цикла.');
-        if ($preview) $entry['step']['config']['mode'] = 'once';
         if ($preview) {
             foreach ($this->bodies[$id] as $bodyId) {
                 $step = $this->nodes[$bodyId]['step'];

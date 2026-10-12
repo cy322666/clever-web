@@ -72,7 +72,8 @@ trait HasWorkflowDebugger
             $input = $this->workflowNodeRunInput();
             if (($this->mountedActions[0]['name'] ?? '') === 'configureTrigger') {
                 $this->saveTriggerNodeConfig($data);
-                $this->nodeRunResults[$this->editingTriggerNodeId] = ['status' => 'success', 'output' => $input + ['_workflow_start_node_id' => $this->editingTriggerNodeId]];
+                $this->nodeRunResults[$this->editingTriggerNodeId] = ['id' => $this->editingTriggerNodeId, 'status' => 'success', 'display_count' => 1, 'output' => $input + ['_workflow_start_node_id' => $this->editingTriggerNodeId]];
+                $this->publishNodePreviewResults();
                 return;
             }
             $id = $this->editingActionId;
@@ -84,7 +85,9 @@ trait HasWorkflowDebugger
         } catch (\Illuminate\Validation\ValidationException $exception) {
             throw $exception;
         } catch (Throwable $exception) {
-            $this->nodeRunResults[$this->editingActionId ?? $this->editingTriggerNodeId] = ['status' => 'error', 'error' => $exception->getMessage()];
+            $id = $this->editingActionId ?? $this->editingTriggerNodeId;
+            $this->nodeRunResults[$id] = ['id' => $id, 'status' => 'error', 'display_count' => 0, 'error' => $exception->getMessage()];
+            $this->publishNodePreviewResults();
         }
     }
 
@@ -152,8 +155,8 @@ trait HasWorkflowDebugger
 
     private function applyWorkflowNodePreview(string $nodeId, array $session): void
     {
-        foreach ($session['results'] as $result) $this->nodeRunResults[$result['id']] = $result;
-        if ($session['error'] ?? null) $this->nodeRunResults[$nodeId] = ['id' => $nodeId, 'status' => 'error', 'error' => $session['error']];
+        foreach (\App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']) as $result) $this->nodeRunResults[$result['id']] = $result;
+        if ($session['error'] ?? null) $this->nodeRunResults[$nodeId] = array_replace($this->nodeRunResults[$nodeId] ?? [], ['id' => $nodeId, 'status' => 'error', 'error' => $session['error']]);
         $this->nodePreviewSessionId ??= (string) Str::uuid();
         Cache::put($this->nodePreviewCacheKey(), $session['context'], now()->addHour());
         $this->publishNodePreviewResults();
@@ -174,8 +177,8 @@ trait HasWorkflowDebugger
             $this->applyWorkflowNodePreview($nodeId, $session);
         }
         if (!$state || !empty($state['error'])) {
-            $this->nodeRunResults[$nodeId] = ['id' => $nodeId, 'status' => 'error',
-                'error' => $state['error'] ?? 'Данные пробного запуска истекли. Проверьте результат перед повторным запуском.'];
+            $this->nodeRunResults[$nodeId] = array_replace($this->nodeRunResults[$nodeId] ?? [], ['id' => $nodeId, 'status' => 'error',
+                'error' => $state['error'] ?? 'Данные пробного запуска истекли. Проверьте результат перед повторным запуском.']);
             $this->publishNodePreviewResults();
         }
         $previews->acknowledge((int) Auth::id(), $id);
@@ -335,7 +338,7 @@ trait HasWorkflowDebugger
     private function publishDebugState(array $session): void
     {
         $this->debugState = [
-            'status' => $session['status'], 'real' => $session['real'], 'results' => $session['results'],
+            'status' => $session['status'], 'real' => $session['real'], 'results' => \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']),
             'next_id' => $session['pending'][0]['step']['id'] ?? null,
             'error' => $session['error'],
         ];

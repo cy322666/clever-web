@@ -8,6 +8,21 @@
         @if(!empty($result['error']))<p role="alert" class="workflow-node-output__error">{{ $result['error'] }}</p>@endif
         @if(\App\Services\Workflows\WorkflowOutputView::isCondition($result['output'] ?? null))
             <p>{{ $result['output']['passed'] ? 'Условие выполнено. Ветка «Да».' : 'Условие не выполнено. Ветка «Нет».' }}</p>
+            @php($explanation = \App\Services\Workflows\WorkflowExecutionExplanation::forResult($result))
+            <div class="workflow-condition-comparisons" aria-label="Что сравнивалось">
+                @forelse($explanation['details'] as $detail)
+                    <section class="workflow-condition-comparison">
+                        <strong>{{ $detail['passed'] ? '✓ Условие выполнено' : '× Условие не выполнено' }}</strong>
+                        <dl>
+                            <dt>Значение 1 <small>{{ $detail['actual_type'] }}</small></dt><dd>{{ $detail['actual'] }}</dd>
+                            <dt>Проверка</dt><dd>{{ $detail['operator'] }}</dd>
+                            @unless($detail['unary'])<dt>Значение 2 <small>{{ $detail['expected_type'] }}</small></dt><dd>{{ $detail['expected'] }}</dd>@endunless
+                        </dl>
+                    </section>
+                @empty
+                    <p>Значения сравнения не записаны в этом запуске.</p>
+                @endforelse
+            </div>
         @else
             @include('filament.workflow-builder.workflow-json-tree', ['value' => \App\Services\Workflows\WorkflowOutputView::value($result['output'] ?? [])])
         @endif

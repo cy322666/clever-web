@@ -6358,13 +6358,26 @@ body:has(.workflow-list-page) .fi-main {
 /* Shared, compact execution workspace: canvas above, selected node data below. */
 .workflow-canvas-fit { position: absolute; right: 1rem; bottom: 1rem; z-index: 30; display: inline-flex; width: 2.125rem; height: 2.125rem; align-items: center; justify-content: center; border: 1px solid #c5cbd4; border-radius: 0.375rem; background: #fff; color: #626b78; box-shadow: 0 2px 6px rgb(31 41 55 / 0.1); }
 .workflow-canvas-fit:hover { border-color: #7c8796; color: #303743; }
-.workflow-node-editor #workflow-canvas [data-execution-status="completed"] { border-color: #4d9c70 !important; }
+.workflow-node-editor #workflow-canvas :is([data-execution-status="completed"], [data-execution-status="success"]) { border-color: #269b51 !important; }
 .workflow-node-editor #workflow-canvas :is([data-execution-status="error"], [data-execution-status="failed"], [data-execution-status="validation_error"]) { border-color: #cb6161 !important; }
 .workflow-node-editor #workflow-canvas [data-execution-status="next"] { border-color: #4d5969 !important; box-shadow: 0 0 0 4px rgb(77 89 105 / 0.12) !important; }
 .workflow-node-editor #workflow-canvas [data-execution-status="simulated"] { border-color: #7e8c9e !important; border-style: dashed !important; }
 .workflow-node-editor #workflow-canvas [data-execution-status="skipped"] { opacity: 0.55; }
 .workflow-node-result, .workflow-execution-order { position: absolute; right: -0.5rem; top: -0.5rem; display: grid; width: 1.375rem; height: 1.375rem; place-items: center; border: 1px solid #939daa; border-radius: 50%; background: #fff; color: #465262; font-size: 0.6875rem; font-weight: 700; }
 .workflow-node-result[hidden] { display: none; }
+.workflow-node-output .workflow-condition-comparisons { flex: 1 1 0; min-height: 0; overflow: auto; font-size: 12px; }
+.workflow-condition-comparison { padding: 12px 0; border-bottom: 1px solid #e1e5eb; overflow-wrap: anywhere; }
+.workflow-condition-comparison dl { display: grid; gap: 4px; margin-top: 10px; }
+.workflow-condition-comparison dt { color: #687385; font-size: 11px; }
+.workflow-condition-comparison dt small { margin-left: 6px; color: inherit; }
+.workflow-condition-comparison dd { margin: 0 0 8px; white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; }
+.dark .workflow-condition-comparison { border-color: #414955; }
+.dark .workflow-condition-comparison dt { color: #aab5c4; }
+.workflow-node-status { display: none; position: absolute; bottom: 8px; right: 8px; width: 17px; height: 17px; pointer-events: none; }
+.workflow-node-status svg { width: 100%; height: 100%; stroke-width: 2.5; }
+[data-workflow-node-card]:is([data-execution-status="completed"], [data-execution-status="success"]) > .workflow-node-status--success { display: block; color: #269b51; }
+[data-workflow-node-card]:is([data-execution-status="error"], [data-execution-status="failed"], [data-execution-status="validation_error"]) > .workflow-node-status--error { display: block; color: #cb6161; }
+.workflow-node-result, .workflow-execution-order { width: auto; min-width: 1.375rem; padding-inline: 3px; }
 .workflow-debugger { flex: 0 0 auto; max-height: min(48vh, 26rem); overflow: auto; border-top: 1px solid #c9cfd8; background: #fff; color: #303743; }
 .workflow-debugger__bar, .workflow-debugger__stepbar { display: flex; min-height: 2.75rem; align-items: center; gap: 0.625rem; padding: 0.5rem 0.875rem; border-bottom: 1px solid #e1e5eb; font-size: 0.75rem; }
 .workflow-debugger__bar > span, .workflow-debugger__stepbar > span { color: #737d8b; font-size: 0.6875rem; }
@@ -6834,13 +6847,11 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-settings__workspace .workflow-expression-picker details { border: 0; border-bottom: 1px solid #e2e5e9; border-radius: 0; background: transparent; }
 .workflow-expression-picker__hint { font-size: 11px; line-height: 1.5; }
 .workflow-node-output { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 20px; background: #fafbfc; color: #465262; }
-.workflow-preview-progress { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid #e2e5e9; border-radius: 12px; background: #fff; color: #465262; }
-.workflow-preview-progress small { font-size: 12px; line-height: 1.5; }
+.workflow-preview-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #465262; font-size: 12px; }
 .workflow-preview-progress__stop { min-height: 32px; padding: 4px 12px; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; font-size: 13px; cursor: pointer; }
 .workflow-preview-progress__stop:disabled { opacity: 0.5; cursor: default; }
-.workflow-preview-progress-float { position: absolute; top: 85px; right: 20px; z-index: 50; width: min(340px, 90%); box-shadow: 0 4px 18px rgb(0 0 0 / 0.08); }
 .dark .workflow-preview-progress { background: var(--workflow-dark-panel); border-color: var(--workflow-dark-line); color: var(--workflow-dark-text); }
-.workflow-node-output > :not(.workflow-json-tree) { flex: 0 0 auto; }
+.workflow-node-output > :not(.workflow-json-tree):not(.workflow-condition-comparisons) { flex: 0 0 auto; }
 .workflow-node-output header { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; }
 .workflow-node-output header small { font-size: 11px; font-weight: 400; }
 .workflow-node-output pre { margin-top: 16px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, monospace; }
@@ -6885,7 +6896,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-settings__parameters .fi-fo-repeater-item-content { padding: 12px 0 !important; }
 .workflow-node-settings__parameters .fi-fo-repeater-item-header { padding: 4px 0 !important; }
 .workflow-condition-rules .fi-fo-repeater-item-content { padding-top: 0 !important; }
-.workflow-node-editor__viewport { background-size: 16px 16px !important; }
+.workflow-node-editor__viewport { background-size: 20px 20px !important; background-position: 0 0 !important; }
 .workflow-node-library__header { min-height: 52px; padding: 10px 16px; }
 .workflow-node-library__header h2 { font-size: 15px; font-weight: 600; }
 .workflow-node-library__body { padding: 4px 12px 20px; }

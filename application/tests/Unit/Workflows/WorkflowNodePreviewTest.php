@@ -65,7 +65,7 @@ class WorkflowNodePreviewTest extends TestCase
         return $this->previews->start(7, $editor, $definition['actions'][0], [], [], null, $definition);
     }
 
-    public function test_canvas_and_modal_enqueue_once_return_immediately_and_poll_the_first_item_result(): void
+    public function test_canvas_and_modal_enqueue_once_return_immediately_and_poll_all_selected_items(): void
     {
         foreach (['canvas', 'modal'] as $button) {
             Queue::fake();
@@ -88,11 +88,13 @@ class WorkflowNodePreviewTest extends TestCase
             $job->handle($this->previews);
             $state = $this->previews->status(7, $id);
             $this->assertSame('completed', $state['status'], $state['error'] ?? '');
-            $this->assertSame(2, $state['sequence']);
+            $this->assertSame(3, $state['sequence']);
             $this->assertSame('Запомнить ID', $state['current_node']);
             $page->call('pollWorkflowNodePreview')->assertSet('nodePreviewTaskId', null)
                 ->assertDispatched('workflow-debug-updated');
-            $this->assertSame(['id' => 1], \App\Services\Workflows\WorkflowOutputView::value($page->get('nodeRunResults')['loop']['output']));
+            $this->assertSame(['id' => 2], \App\Services\Workflows\WorkflowOutputView::value($page->get('nodeRunResults')['loop']['output']));
+            $this->assertSame(2, $page->get('nodeRunResults')['loop']['display_count']);
+            $this->assertSame(2, $page->get('nodeRunResults')['assign']['display_count']);
             $this->assertArrayHasKey('assign', $page->get('nodeRunResults'));
             $job->handle($this->previews);
             $this->assertSame($state, $this->previews->status(7, $id));

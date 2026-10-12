@@ -9,14 +9,14 @@ test('canvas keeps its dotted grid and uses vertical input ports', () => {
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
 });
 
-test('grid follows canvas pan and zoom and uses a half-dot snap step', () => {
+test('grid stays in screen space while placement uses a hidden half-step', () => {
     const {canvas} = fixture();
     for (const scale of [0.25, 1, 2]) {
         canvas.scale = scale;
         canvas.translateX = -123;
         canvas.translateY = 456;
         canvas.$refs.stage = {offsetLeft:0,offsetTop:0};
-        assert.equal(canvas.gridStyle(), `background-size:${20*scale}px ${20*scale}px;background-position:${-123-10*scale}px ${456-10*scale}px;`);
+        assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:0 0;');
         assert.equal(canvas.snapCoordinate(14), 10);
         assert.equal(canvas.snapCoordinate(16), 20);
         assert.equal(canvas.snapCoordinate(-16), -20);
@@ -1046,10 +1046,19 @@ test('execution badges do not trigger repeated text mutations during canvas refr
     const badge = {hidden: true, get textContent() { return text; }, set textContent(value) { writes++; text = value; }};
     const card = {dataset: {}, querySelector: () => badge};
     f.canvas.nodeElements = () => [{dataset: {workflowNodeId: 'action:test'}, querySelector: () => card}];
-    f.canvas.setExecutionState({results: [{id: 'test', status: 'completed', sequence: 1}]});
+    f.canvas.setExecutionState({results: [{id: 'test', status: 'completed', sequence: 99, display_count: 1}]});
     f.canvas.applyExecutionState();
     f.canvas.applyExecutionState();
     assert.equal(writes, 1);
     assert.equal(card.dataset.executionStatus, 'completed');
     assert.equal(badge.hidden, false);
+    assert.equal(text, '1');
+    f.canvas.setExecutionState({results: [{id: 'test', status: 'completed', sequence: 99, display_count: 3, count_kind: 'iterations'}]});
+    assert.equal(text, '3');
+    assert.equal(badge.title, 'Итераций цикла');
+    f.canvas.setExecutionState({results: [{id: 'test', status: 'failed', display_count: 0}]});
+    assert.equal(card.dataset.executionStatus, 'failed');
+    assert.equal(text, '0');
+    f.canvas.setExecutionState({results: []});
+    assert.equal(badge.hidden, true);
 });

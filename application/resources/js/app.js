@@ -246,7 +246,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pendingInsertion: null,
     initialized: false,
 
-    // Visible dots are 20 canvas units apart; placement uses their half-step.
+    // Placement uses a hidden 10-unit grid; visible dots stay in screen space.
     gridSpacing: 20,
     snapCoordinate(value) {
         const step = this.gridSpacing / 2;
@@ -254,11 +254,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     gridStyle() {
-        const size = this.gridSpacing * this.scale;
-        // Radial gradients draw dots at the centre of each background tile.
-        const x = this.translateX + (this.$refs.stage?.offsetLeft || 0) - size / 2;
-        const y = this.translateY + (this.$refs.stage?.offsetTop || 0) - size / 2;
-        return `background-size:${size}px ${size}px;background-position:${x}px ${y}px;`;
+        return 'background-size:20px 20px;background-position:0 0;';
     },
 
     cardPositions() {
@@ -803,7 +799,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
     applyExecutionState() {
         if (!this.executionState) return;
-        const results = new Map((this.executionState.results || []).map((r) => ['action:' + r.id, r]));
+        const results = new Map((this.executionState.results || []).map((r) => [r.id.startsWith('trigger') ? r.id : 'action:' + r.id, r]));
         this.nodeElements().forEach((node) => {
             const card = node.querySelector('[data-workflow-node-card]');
             if (!card) return;
@@ -812,8 +808,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const badge = card.querySelector('[data-workflow-node-result]');
             if (badge) {
                 badge.hidden = !result;
-                const sequence = String(result?.sequence || '');
-                if (badge.textContent !== sequence) badge.textContent = sequence;
+                const count = String(result?.display_count ?? (['completed', 'success'].includes(result?.status) ? 1 : 0));
+                if (badge.textContent !== count) badge.textContent = count;
+                const title = result?.count_kind === 'iterations' ? 'Итераций цикла' : 'Сущностей';
+                if (badge.title !== title) badge.title = title;
             }
         });
     },

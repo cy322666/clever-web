@@ -59,10 +59,11 @@ final class WorkflowExecutionGraph
 
     public static function build(array $definition, array $results = [], string $startId = 'trigger'): array
     {
+        $results = WorkflowExecutionStats::annotate($results);
         $metadata = collect(app(ActionRegistry::class)->getAllWithMetadata())->keyBy('type')->all();
         $resultsById = collect($results)->keyBy('id')->all();
         $attemptCounts = collect($results)->countBy('id')->all();
-        $itemCounts = collect($resultsById)->map(fn ($result) => self::itemCount($result))->all();
+        $itemCounts = collect($resultsById)->map(fn ($result) => $result['display_count'])->all();
         $actions = $definition['actions'] ?? [];
         $nodes = [];
         foreach (WorkflowStartNodes::all($definition) ?: ['trigger' => ['type' => 'manual']] as $id => $trigger) {
@@ -122,15 +123,6 @@ final class WorkflowExecutionGraph
         unset($result);
 
         return ['nodes' => $nodes, 'edges' => $edges, 'results' => $results, 'historical_fallback' => false];
-    }
-
-    private static function itemCount(array $result): int
-    {
-        if (($result['status'] ?? '') !== 'completed') return 0;
-        $output = $result['output'] ?? [];
-        if (is_array($output['items'] ?? null)) return count($output['items']);
-        if (is_array($output) && array_is_list($output)) return count($output);
-        return 1;
     }
 
     private static function span(array $steps): int

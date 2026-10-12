@@ -41,13 +41,6 @@
     {{-- Keep the poll directive mounted: Filament may update only the node modal.
          The expression sends no request while there is no active preview. --}}
     <span wire:poll.2s="$wire.nodePreviewTaskId && $wire.pollWorkflowNodePreview()" aria-hidden="true"></span>
-    @if($this->nodePreviewTaskId ?? null)
-        @if(empty($this->mountedActions))
-            <aside class="workflow-preview-progress-float">
-                @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])
-            </aside>
-        @endif
-    @endif
     <div class="workflow-workbench__shell">
         <div class="workflow-workbench__toolbar">
             <div class="workflow-workbench__toolbar-layout">
@@ -82,6 +75,9 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
+                    @if(($this->nodePreviewTaskId ?? null) && empty($this->mountedActions))
+                        @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])
+                    @endif
                     @if($workflowRecord && !$isReplay)
                         <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-workbench__quick-action workflow-workbench__quick-action--labeled" aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" title="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Сохранить и включить поток' }}">
                             <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/><span>{{ $workflowRecord->is_active ? 'Выключить' : 'Включить' }}</span>

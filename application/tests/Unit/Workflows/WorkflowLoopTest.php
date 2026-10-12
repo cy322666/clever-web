@@ -174,6 +174,20 @@ class WorkflowLoopTest extends TestCase
         $this->assertCount(5, $session['results']);
     }
 
+    public function test_manual_loop_run_respects_all_once_and_empty_input_without_running_done(): void
+    {
+        foreach ([['all', [1, 2, 3], 3], ['once', [1, 2, 3], 1], ['all', [], 0]] as [$mode, $ids, $count]) {
+            $def = $this->definition(array_map(fn ($id) => compact('id'), $ids), $mode);
+            $def['connections'][] = $this->edge('body', 'loop');
+            $session = $this->debugger()->executeNode($def['actions'][0], [], [], null, null, false, $def);
+            $this->assertSame('completed', $session['status'], $session['error'] ?? '');
+            $this->assertCount(1 + $count, $session['results']);
+            $this->assertNotContains('after', array_column($session['results'], 'id'));
+            $counts = \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']);
+            $this->assertSame($count, $counts[0]['display_count']);
+        }
+    }
+
     public function test_safe_preview_never_sends_http_and_body_failure_stops_remaining_items_and_done(): void
     {
         $def = $this->definition();
@@ -272,7 +286,8 @@ class WorkflowLoopTest extends TestCase
         $page->call('openWorkflowActionEditor', $node['id']);
         $schema = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance());
         view()->share('errors', new \Illuminate\Support\ViewErrorBag);
-        $this->assertTrue(str_contains($schema->toHtml(), 'Выполнить 1 раз'));
+        $this->assertStringContainsString('Запустить', $schema->toHtml());
+        $this->assertStringNotContainsString('Выполнить 1 раз', $schema->toHtml());
         $page->set('mountedActions.0.data.items', '[{"id":17},{"id":18}]')->set('mountedActions.0.data.mode', 'once')
             ->call('callMountedAction')->assertHasNoErrors();
         $this->assertSame('once', $page->get('workflowActions')[0]['config']['mode']);
@@ -365,7 +380,7 @@ class WorkflowLoopTest extends TestCase
         $session = $runner->advance($runner->start($def, [], null, null));
         $this->assertSame('after', $session['pending'][0]['step']['id']);
         $preview = $runner->executeNode($def['actions'][0], [], [], null, null, false, $def);
-        $this->assertSame(['loop', 'body'], array_column($preview['results'], 'id'));
+        $this->assertSame(['loop', 'body', 'body', 'body'], array_column($preview['results'], 'id'));
         $this->assertSame(1, $preview['results'][1]['output']['id']);
     }
 

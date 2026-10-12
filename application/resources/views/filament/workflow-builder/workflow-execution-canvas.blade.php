@@ -15,10 +15,10 @@
                         <div data-workflow-node-id="{{ $node['id'] }}" class="workflow-execution-node" style="left:{{ $node['x'] }}px;top:{{ $node['y'] }}px">
                             <button type="button" x-on:click="selectNode(@js($node['id']))" x-bind:class="{ 'is-selected': selectedNodeId() === @js($node['id']) }" aria-label="Данные ноды: {{ $node['name'] }}">
                                 @if(str_starts_with($node['id'], 'trigger'))
-                                    <x-filament-workflows::workflows.trigger-card :type="$node['type']" :config="[]" :metadata="['name' => $node['name'], 'icon' => $node['icon']]" :read-only="true"/>
+                                    <x-filament-workflows::workflows.trigger-card :type="$node['type']" :config="[]" :metadata="['name' => $node['name'], 'icon' => $node['icon']]" :read-only="true" data-execution-status="{{ $node['status'] }}"/>
                                 @else
                                     <x-filament-workflows::workflows.action-card :action="$node['action']" :metadata="['name' => $node['name'], 'icon' => $node['icon'], 'category' => '']" :read-only="true" data-execution-status="{{ $node['status'] }}"/>
-                                    @if($node['result'])<span class="workflow-execution-order" title="{{ ($node['execution_count'] ?? 1) > 1 ? 'Повторных выполнений ноды; нажмите для просмотра каждого' : 'Сущностей на выходе' }}">{{ ($node['execution_count'] ?? 1) > 1 ? '×'.$node['execution_count'] : $node['item_count'] }}</span>@endif
+                                    @if($node['result'])<span class="workflow-execution-order" title="{{ $node['type'] === 'workflow_loop' ? 'Итераций цикла' : 'Сущностей' }}">{{ $node['item_count'] }}</span>@endif
                                 @endif
                             </button>
                         </div>

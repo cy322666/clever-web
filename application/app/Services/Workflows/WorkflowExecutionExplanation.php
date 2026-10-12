@@ -34,6 +34,8 @@ final class WorkflowExecutionExplanation
                 'label' => self::field($conditions[$index]['left'] ?? $row['left'] ?? 'Значение'),
                 'actual' => array_key_exists('left_value', $row) ? self::value($row['left_value']) : 'не записано',
                 'expected' => array_key_exists('right_value', $row) ? self::value($row['right_value']) : 'не записано',
+                'actual_type' => array_key_exists('left_value', $row) ? self::valueType($row['left_value']) : '',
+                'expected_type' => array_key_exists('right_value', $row) ? self::valueType($row['right_value']) : '',
                 'operator' => self::operator($operator),
                 'unary' => in_array($operator, ['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false'], true),
                 'passed' => filter_var($row['passed'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -74,5 +76,17 @@ final class WorkflowExecutionExplanation
         if ($value === '') return 'пустая строка';
         if (is_bool($value)) return $value ? 'да' : 'нет';
         return mb_strimwidth(is_scalar($value) ? (string) $value : (json_encode($value, JSON_UNESCAPED_UNICODE) ?: 'не записано'), 0, 500, '…');
+    }
+
+    private static function valueType(mixed $value): string
+    {
+        return match (true) {
+            $value === null => 'null',
+            is_string($value) => 'строка',
+            is_int($value), is_float($value) => 'число',
+            is_bool($value) => 'логическое',
+            is_array($value) && array_is_list($value) => 'список',
+            default => 'объект',
+        };
     }
 }

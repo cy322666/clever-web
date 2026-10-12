@@ -67,6 +67,7 @@
         <x-workflow-icon :icon="$icon" :type="$actionType" :amo="str_starts_with($actionType, 'amocrm_')" class="h-6 w-6"/>
     </span>
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
+    @include('filament.workflow-builder.workflow-node-status')
     <div class="workflow-node-card__body workflow-node-card__caption">
         <h4 class="workflow-node-card__title" title="{{ $actionName }}">{{ $actionName }}</h4>
         <p class="workflow-node-card__subtitle" title="{{ $subtitle }}">{{ $subtitle }}</p>
@@ -80,7 +81,7 @@
             x-on:focusout="if (!$el.contains($event.relatedTarget)) closeMenu()"
             x-on:workflow-node-menu-open.window="if ($event.detail !== $el) closeMenu()">
             <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" wire:loading.attr="disabled" wire:target="runWorkflowCanvasNode,runEditingWorkflowNode"
-                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Выполнить ветку для первого элемента' : 'Реально выполнить ноду в текущем контексте' }}">
+                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Запустить ветку цикла с выбранными настройками' : 'Реально выполнить ноду в текущем контексте' }}">
                 <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
             </button>
             <button type="button" wire:click.stop="removeWorkflowAction('{{ $actionId }}')"

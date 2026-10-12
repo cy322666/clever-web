@@ -9,6 +9,7 @@ class WorkflowNodeOutputTest extends TestCase
     private function renderResult(array $result): string
     {
         $page = new class($result) {
+            public ?string $nodePreviewTaskId = null;
             public function __construct(private array $result) {}
 
             public function editingNodeResult(): array
@@ -66,5 +67,29 @@ class WorkflowNodeOutputTest extends TestCase
             $this->viewerKey($this->renderResult($result)),
             $this->viewerKey($this->renderResult($result + ['error' => 'Connection timed out'])),
         );
+    }
+
+    public function test_condition_shows_recorded_operands_types_operator_and_result_safely(): void
+    {
+        $html = $this->renderResult(['type' => 'control-condition', 'status' => 'completed', 'output' => [
+            'passed' => false, 'branch' => 'false', 'condition_results' => [
+                ['left_value' => 17, 'operator' => 'strict_equals', 'right_value' => '17', 'passed' => false],
+                ['left_value' => '<script>alert(1)</script>', 'operator' => 'equals', 'right_value' => null, 'passed' => false],
+                ['left_value' => false, 'operator' => 'equals', 'right_value' => 0, 'passed' => false],
+            ],
+        ]]);
+        foreach (['Значение 1', 'Значение 2', '17', 'строка', 'число', 'строго равно', 'null', 'логическое', 'не задано', 'Условие не выполнено', '&lt;script&gt;'] as $text) $this->assertStringContainsString($text, $html);
+        $this->assertStringNotContainsString('<script>alert(1)', $html);
+    }
+
+    public function test_unary_condition_does_not_invent_a_second_operand(): void
+    {
+        $html = $this->renderResult(['type' => 'control-condition', 'status' => 'completed', 'output' => [
+            'passed' => true, 'branch' => 'true', 'condition_results' => [
+                ['left_value' => '', 'operator' => 'is_empty', 'passed' => true],
+            ],
+        ]]);
+        $this->assertStringContainsString('пустая строка', $html);
+        $this->assertStringNotContainsString('Значение 2', $html);
     }
 }

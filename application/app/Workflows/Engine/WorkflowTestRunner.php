@@ -61,12 +61,16 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         $results = [];
         $this->loopReachedDone = false;
         $lastId = $root ?? '';
+        $lastStep = [];
+        $lastIteration = [];
         $deadline = microtime(true) + 60;
         try {
             $runner = new \App\Services\Workflows\WorkflowLoopRunner($definition);
-            $execute = function (array $step, WorkflowContext $context, string $path, array $iteration) use (&$results, &$lastId, $preview, $deadline, $beforeStep): array {
+            $execute = function (array $step, WorkflowContext $context, string $path, array $iteration) use (&$results, &$lastId, &$lastStep, &$lastIteration, $preview, $deadline, $beforeStep): array {
                 $lastId = $step['id'];
-                // Only manual single-iteration previews use this short budget.
+                $lastStep = $step;
+                $lastIteration = $iteration;
+                // Only manual node runs use this short budget, in both item modes.
                 // Nested done feedback must not turn a preview into 5000 real API calls.
                 if ($preview && (count($results) >= 200 || microtime(true) >= $deadline)) {
                     throw new \RuntimeException('Пробный запуск остановлен: лимит 60 секунд или 200 шагов. Проверьте условие выхода и обратные связи циклов. Выполненные действия не отменены.');
@@ -92,7 +96,8 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             if ($preview && isset($results[0])) $results[0]['output'] = $context->getStepOutput($root);
         } catch (\Throwable $error) {
             if (!in_array($results[array_key_last($results)]['status'] ?? '', ['error', 'validation_error', 'failed'], true)) {
-                $results[] = ['id' => $lastId, 'type' => 'workflow_loop', 'status' => 'error', 'error' => $error->getMessage(), 'output' => []];
+                $results[] = ['id' => $lastId, 'type' => $lastStep['type'] ?? 'workflow_loop', 'iteration' => $lastIteration,
+                    'status' => 'error', 'error' => $error->getMessage(), 'output' => []];
             }
         }
         return $results;

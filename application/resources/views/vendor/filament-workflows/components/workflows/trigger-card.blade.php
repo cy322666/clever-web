@@ -45,6 +45,8 @@
     <span class="workflow-node-card__icon">
         <x-workflow-icon :icon="$icon" :amo="str_starts_with($type, 'amocrm-') || $type === 'amo-button'" class="h-6 w-6"/>
     </span>
+    <span class="workflow-node-result" data-workflow-node-result hidden></span>
+    @include('filament.workflow-builder.workflow-node-status')
     <div class="workflow-node-card__body workflow-node-card__caption">
         <h4 class="workflow-node-card__title" title="{{ $name }}">{{ $name }}</h4>
         <p class="workflow-node-card__subtitle">{{ $subtitle }}</p>

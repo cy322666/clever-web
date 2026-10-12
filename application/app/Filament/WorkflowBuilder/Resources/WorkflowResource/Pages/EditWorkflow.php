@@ -67,6 +67,10 @@ class EditWorkflow extends BaseEditWorkflow
     protected function afterSave(): void
     {
         $this->savedWorkflowEditorState = $this->workflowEditorState();
+        // Saving acknowledges the current graph; it does not change its markup.
+        // A redundant morph rebases flex/tree offsets and dirties the saved layout.
+        // Activation still renders its changed toolbar state, as do validation errors.
+        if ($this->requestedActivation === null) $this->skipRender();
     }
 
     public function getTitle(): string
