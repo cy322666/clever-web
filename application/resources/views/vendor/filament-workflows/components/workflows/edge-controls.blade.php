@@ -2,7 +2,8 @@
 
 @php($edgeControls = \App\Services\Workflows\WorkflowCanvasGraph::edges($actions, $connections, false, $startIds))
 
-<div x-ref="edgeControls" class="workflow-node-edge-controls">
+{{-- Alpine owns the repeated controls. Do not morph its generated x-for children. --}}
+<div x-ref="edgeControls" class="workflow-node-edge-controls" wire:ignore wire:key="workflow-edge-controls-{{ md5(json_encode($edgeControls)) }}">
     <template x-for="edge in canvasEdges(@js($edgeControls), @js($startIds))" :key="edgeRouteKey(edge)">
         <div style="display: contents">
             <button type="button" class="workflow-node-edge-add"

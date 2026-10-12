@@ -222,6 +222,7 @@ test('new branches start from white output handles while existing edges keep hov
     assert.match(card, /workflow-node-port--output-\{\{ \$port \}\}.*startConnection\('action:' \+ @js\(\$actionId\), @js\(\$port\), \$event\)/s);
     assert.match(css, /button\.workflow-node-port--output:hover[^{]*\{[^}]*background:\s*#c5cbd5/s);
     assert.match(edges, /x-for="edge in canvasEdges/);
+    assert.match(edges, /class="workflow-node-edge-controls" wire:ignore wire:key="workflow-edge-controls-/);
     assert.match(edges, /x-show="edge.targetId"/);
     assert.match(edges, /heroicon-o-plus/);
     assert.match(edges, /heroicon-o-trash/);
