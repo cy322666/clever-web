@@ -33,6 +33,17 @@ test('boolean option values use numeric keys without an empty false option', () 
     const on=components().workflowValueField(true); on.init(); assert.equal(on.state,'1');
 });
 
+test('picker uses immutable compact sources and previews containers without duplicated values', () => {
+    const picker = components().workflowExpressionPicker([{id:'source', available:true, fields:[
+        {key:'.items', type:'array', count:1000, value:null, available:true, expression:'{{ source.items }}'},
+        {key:'.id', type:'int', value:17, available:true, expression:'{{ source.id }}'},
+    ]}]);
+    assert.equal(Object.isFrozen(picker.sources),true);
+    picker.field = {value:'{{ source.items }} / {{ source.id }}'};
+    picker.refreshPreview();
+    assert.equal(picker.preview,'[1000] / 17');
+});
+
 test('history shows captured HTTP exchanges and preserves the selected step on refresh', () => {
     const exchange = {request:{method:'POST',body:[{text:'Привет'}]},response:{code:200,body:{id:42}}};
     const a = {id:'a',type:'amocrm_add_note',output:{amo_exchange:[exchange]}};

@@ -3,6 +3,36 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 
+test('condition edges are neutral until evaluated and only the selected route is green', () => {
+    const {canvas} = fixture();
+    const edge = port => ({sourceId:'action:condition',sourcePort:port,targetId:'action:next'});
+    for (const port of ['yes','no']) assert.equal(canvas.edgeCompleted(edge(port)),false);
+    for (const passed of [true,false]) {
+        canvas.executionState = {results:[{id:'condition',status:'completed',output:{passed}}]};
+        assert.equal(canvas.edgeCompleted(edge('yes')),passed);
+        assert.equal(canvas.edgeCompleted(edge('no')),!passed);
+        // A branch decision is available before its target has completed.
+        canvas.executionState.results.push({id:'next',status:'running'});
+        assert.equal(canvas.edgeCompleted(edge(passed ? 'yes' : 'no')),true);
+    }
+    for (const status of ['running','error','failed']) {
+        canvas.executionState = {results:[{id:'condition',status,output:{passed:true}},{id:'next',status:'completed'}]};
+        for (const port of ['yes','no']) assert.equal(canvas.edgeCompleted(edge(port)),false);
+    }
+    canvas.executionState = {results:[{id:'condition',status:'completed',output:{}}]};
+    for (const port of ['yes','no']) assert.equal(canvas.edgeCompleted(edge(port)),false);
+    canvas.executionState = {results:[{id:'condition',status:'skipped'}]};
+    assert.equal(canvas.edgeCompleted(edge('yes')),true);
+    assert.equal(canvas.edgeCompleted(edge('no')),false);
+    assert.equal(canvas.edgeCompleted(edge('no'),'true'),true);
+    assert.equal(canvas.edgeCompleted(edge('yes'),'false'),false);
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
+    const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
+    assert.doesNotMatch(css,/workflow-node-edge--(?:yes|no)/);
+    assert.match(source,/const marker = completed \? 'completed' : 'default'/);
+    assert.match(source,/const completed = !preview && this\.edgeCompleted/);
+});
+
 test('canvas keeps its dotted grid and uses vertical input ports', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     assert.equal((css.match(/radial-gradient\(circle/g) ?? []).length,7);

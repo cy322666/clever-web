@@ -80,16 +80,28 @@ class WorkflowNodeOutputTest extends TestCase
         ]]);
         foreach (['Значение 1', 'Значение 2', '17', 'строка', 'число', 'строго равно', 'null', 'логическое', 'не задано', 'Условие не выполнено', '&lt;script&gt;'] as $text) $this->assertStringContainsString($text, $html);
         $this->assertStringNotContainsString('<script>alert(1)', $html);
+        $this->assertStringNotContainsString('<header>', $html);
+        $this->assertStringNotContainsString('Ветка «Нет»', $html);
     }
 
     public function test_unary_condition_does_not_invent_a_second_operand(): void
     {
-        $html = $this->renderResult(['type' => 'control-condition', 'status' => 'completed', 'output' => [
+        $html = $this->renderResult(['type' => 'control-condition', 'status' => 'completed', 'duration_ms' => 2, 'output' => [
             'passed' => true, 'branch' => 'true', 'condition_results' => [
                 ['left_value' => '', 'operator' => 'is_empty', 'passed' => true],
             ],
         ]]);
         $this->assertStringContainsString('пустая строка', $html);
         $this->assertStringNotContainsString('Значение 2', $html);
+        $this->assertStringNotContainsString('Ветка «Да»', $html);
+        $this->assertStringContainsString('2 мс', $html);
+        $this->assertSame(1, substr_count($html, 'Условие выполнено'));
+    }
+
+    public function test_regular_node_keeps_its_result_heading(): void
+    {
+        $html = $this->renderResult(['output' => ['id' => 42], 'duration_ms' => 17]);
+        $this->assertStringContainsString('<header>Результат', $html);
+        $this->assertStringContainsString('17 мс', $html);
     }
 }

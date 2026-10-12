@@ -1,15 +1,18 @@
 @php($result = $getLivewire()->editingNodeResult())
+@php($isCondition = \App\Services\Workflows\WorkflowOutputView::isCondition($result['output'] ?? null))
 <section class="workflow-node-output" aria-label="Результат ноды" wire:key="workflow-node-output-{{ hash('sha256', serialize($result)) }}">
-    <header>Результат <small>{{ $result['duration_ms'] ?? '' }}{{ isset($result['duration_ms']) ? ' мс' : '' }}</small></header>
+    @unless($isCondition)
+        <header>Результат <small>{{ $result['duration_ms'] ?? '' }}{{ isset($result['duration_ms']) ? ' мс' : '' }}</small></header>
+    @endunless
     @if($getLivewire()->nodePreviewTaskId)
         @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $getLivewire()->nodePreviewProgress])
     @elseif($result)
         @if($result['historical'] ?? false)<p>Данные сохранённого запуска. После правок результат не пересчитывается.</p>@endif
         @if(!empty($result['error']))<p role="alert" class="workflow-node-output__error">{{ $result['error'] }}</p>@endif
-        @if(\App\Services\Workflows\WorkflowOutputView::isCondition($result['output'] ?? null))
-            <p>{{ $result['output']['passed'] ? 'Условие выполнено. Ветка «Да».' : 'Условие не выполнено. Ветка «Нет».' }}</p>
+        @if($isCondition)
             @php($explanation = \App\Services\Workflows\WorkflowExecutionExplanation::forResult($result))
             <div class="workflow-condition-comparisons" aria-label="Что сравнивалось">
+                @isset($result['duration_ms'])<small class="workflow-condition-duration">{{ $result['duration_ms'] }} мс</small>@endisset
                 @forelse($explanation['details'] as $detail)
                     <section class="workflow-condition-comparison">
                         <strong>{{ $detail['passed'] ? '✓ Условие выполнено' : '× Условие не выполнено' }}</strong>

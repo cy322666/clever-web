@@ -48,6 +48,27 @@ class WorkflowExecutionGraphTest extends TestCase
         $this->assertSame('yes', $graph['edges'][2]['sourcePort']);
     }
 
+    public function test_condition_highlights_its_decision_before_the_target_starts(): void
+    {
+        $definition = ['trigger'=>['type'=>'manual'], 'actions'=>[
+            ['id'=>'if','type'=>'control-condition','config'=>[
+                'true_actions'=>[['id'=>'yes','type'=>'workflow_delay']],
+                'false_actions'=>[['id'=>'no','type'=>'workflow_delay']],
+            ]],
+        ]];
+        foreach ([true, false] as $passed) {
+            $result = ['id'=>'if','type'=>'control-condition','status'=>'completed','output'=>['passed'=>$passed]];
+            $branches = collect(WorkflowExecutionGraph::build($definition, [$result])['edges'])->where('sourceId','action:if')->keyBy('sourcePort');
+            $this->assertSame($passed, $branches['yes']['active']);
+            $this->assertSame(!$passed, $branches['no']['active']);
+        }
+        foreach (['running', 'failed', 'error', 'completed'] as $status) {
+            $result = ['id'=>'if','type'=>'control-condition','status'=>$status,'output'=>[]];
+            $branches = collect(WorkflowExecutionGraph::build($definition, [$result])['edges'])->where('sourceId','action:if');
+            $this->assertFalse($branches->contains('active', true));
+        }
+    }
+
     public function test_badges_count_output_entities_instead_of_step_order(): void
     {
         $run = WorkflowHistoryFixture::sampleRun();

@@ -783,14 +783,6 @@ body.fi-body {
     vector-effect: non-scaling-stroke;
 }
 
-.workflow-node-edge--yes {
-    stroke: rgb(34 197 94 / 0.82);
-}
-
-.workflow-node-edge--no {
-    stroke: rgb(239 68 68 / 0.78);
-}
-
 .workflow-node-flow {
     position: relative;
     display: flex;
@@ -1307,14 +1299,6 @@ body.fi-body {
 
 .dark .workflow-node-edge {
     stroke: rgb(168 162 158 / 0.68);
-}
-
-.dark .workflow-node-edge--yes {
-    stroke: rgb(74 222 128 / 0.76);
-}
-
-.dark .workflow-node-edge--no {
-    stroke: rgb(248 113 113 / 0.76);
 }
 
 .dark .workflow-order-handle {
@@ -6367,12 +6351,17 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-node-result[hidden] { display: none; }
 .workflow-node-output .workflow-condition-comparisons { flex: 1 1 0; min-height: 0; overflow: auto; font-size: 12px; }
 .workflow-condition-comparison { padding: 12px 0; border-bottom: 1px solid #e1e5eb; overflow-wrap: anywhere; }
+.workflow-condition-duration { float: right; margin-top: 12px; color: #687385; font-size: 11px; }
+/* Node settings should appear immediately after their form arrives, without a second fade delay. */
+.fi-modal-window.workflow-node-settings,
+.fi-modal:has(.workflow-node-settings) > .fi-modal-close-overlay { transition-duration: 0s !important; animation: none !important; }
 .workflow-condition-comparison dl { display: grid; gap: 4px; margin-top: 10px; }
 .workflow-condition-comparison dt { color: #687385; font-size: 11px; }
 .workflow-condition-comparison dt small { margin-left: 6px; color: inherit; }
 .workflow-condition-comparison dd { margin: 0 0 8px; white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; }
 .dark .workflow-condition-comparison { border-color: #414955; }
 .dark .workflow-condition-comparison dt { color: #aab5c4; }
+.dark .workflow-condition-duration { color: #aab5c4; }
 .workflow-node-status { display: none; position: absolute; bottom: 8px; right: 8px; width: 17px; height: 17px; pointer-events: none; }
 .workflow-node-status svg { width: 100%; height: 100%; stroke-width: 2.5; }
 [data-workflow-node-card]:is([data-execution-status="completed"], [data-execution-status="success"]) > .workflow-node-status--success { display: block; color: #269b51; }
@@ -6647,7 +6636,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .dark .workflow-node-editor #workflow-canvas .workflow-node-card--disabled :is(.workflow-node-card__icon, .workflow-node-card__title) { color: var(--workflow-dark-dim) !important; }
 .dark .workflow-node-editor #workflow-canvas .workflow-node-port { border-color: var(--workflow-dark-surface); box-shadow: 0 0 0 1px #8a909e; }
 .dark .workflow-node-port__label { color: var(--workflow-dark-muted); }
-.dark .workflow-node-edge:not(.workflow-node-edge--yes):not(.workflow-node-edge--no) { stroke: #999fad; }
+.dark .workflow-node-edge { stroke: #999fad; }
 .dark :is(.workflow-node-card__tools button, .workflow-node-edge-add, .workflow-canvas-fit, .workflow-node-result, .workflow-execution-order) {
     background: var(--workflow-dark-surface) !important;
     border-color: var(--workflow-dark-outline) !important;

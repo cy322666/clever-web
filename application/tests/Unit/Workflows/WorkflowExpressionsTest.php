@@ -93,6 +93,24 @@ class WorkflowExpressionsTest extends TestCase
         $this->assertSame('Тест', $fields[3]['value']);
     }
 
+    public function test_picker_does_not_ship_copies_of_full_arrays_but_expressions_still_resolve_them(): void
+    {
+        $items = array_map(fn ($id) => ['id'=>$id, 'text'=>str_repeat('x', 100)], range(1, 1000));
+        $input = ['items'=>$items, 'token'=>'not-for-the-picker'];
+        $sources = WorkflowExpressionCatalog::sources([], null, ['trigger_data'=>$input]);
+        $picker = WorkflowExpressionCatalog::forPicker($sources);
+        $this->assertLessThan(strlen(json_encode($sources)) / 3, strlen(json_encode($picker)));
+        $this->assertSame($input, $sources[0]['fields'][0]['value']);
+        $this->assertNull($picker[0]['fields'][0]['value']);
+        $this->assertSame(1000, $picker[0]['fields'][1]['count']);
+        $this->assertTrue($picker[0]['truncated']);
+        $this->assertSame(array_column($sources[0]['fields'],'expression'), array_column($picker[0]['fields'],'expression'));
+        $this->assertStringNotContainsString('not-for-the-picker', json_encode($picker));
+        $context = (new WorkflowContext($input))->setVariable('_node_names', WorkflowExpressionCatalog::nodeNames([]));
+        $this->assertSame($items, $context->resolve($picker[0]['fields'][1]['expression']));
+        $this->assertSame(1, $picker[0]['fields'][3]['value']);
+    }
+
     public function test_named_trigger_and_duplicate_actions_resolve_the_exact_nested_output(): void
     {
         $definition = ['trigger'=>['type'=>'generic-webhook','name'=>'Входящий хук'], 'actions'=>[

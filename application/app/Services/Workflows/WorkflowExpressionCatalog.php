@@ -137,6 +137,20 @@ final class WorkflowExpressionCatalog
         return preg_replace_callback('/\{\{(.*?)\}\}/su', fn ($match) => '{{'.strtr($match[1], $replacements).'}}', $value);
     }
 
+    /** The picker renders the bounded field tree, not a full copy at every parent path. */
+    public static function forPicker(array $sources): array
+    {
+        foreach ($sources as &$source) {
+            foreach ($source['fields'] as &$field) {
+                if (is_array($field['value'])) $field['value'] = null;
+            }
+            unset($field);
+        }
+        unset($source);
+
+        return $sources;
+    }
+
     private static function source(string $id, string $name, mixed $output, bool $available, string $rootPath = ''): array
     {
         $fields = [];

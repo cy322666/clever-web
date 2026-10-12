@@ -233,7 +233,7 @@ trait HasCompactWorkflowConfigurationPanels
         $referenceType = $step['type'] ?? '';
         $referencePlan = \App\Services\Workflows\WorkflowNodeReferences::plan($referenceType, $this->mountedActions[array_key_last($this->mountedActions)]['data'] ?? $step['config'] ?? []);
         return [Grid::make(3)->extraAttributes(['class' => 'workflow-node-settings__workspace'])->schema([
-            View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => $this->getWorkflowExpressionSources()]),
+            View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => \App\Services\Workflows\WorkflowExpressionCatalog::forPicker($this->getWorkflowExpressionSources())]),
             Group::make([View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')), ...$schema])->extraAttributes(['class' => 'workflow-node-settings__parameters']),
             View::make('filament.workflow-builder.workflow-node-output'),
         ])];

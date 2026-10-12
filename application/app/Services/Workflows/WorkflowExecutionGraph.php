@@ -101,8 +101,9 @@ final class WorkflowExecutionGraph
             $target = $resultsById[substr($edge['targetId'], 7)] ?? null;
             $edge['active'] = $target && ($edge['sourceId'] === $startId || $source);
             if ($source && in_array($edge['sourcePort'], ['yes', 'no'], true)) {
-                $passed = ($source['status'] === 'skipped') || (bool) ($source['output']['passed'] ?? $source['condition_result'] ?? false);
-                $edge['active'] = $edge['active'] && $edge['sourcePort'] === ($passed ? 'yes' : 'no');
+                $passed = $source['status'] === 'skipped' ? true : ($source['output']['passed'] ?? $source['condition_result'] ?? null);
+                $decided = in_array($source['status'], ['completed', 'success', 'skipped'], true) && $passed !== null;
+                $edge['active'] = $decided && $edge['sourcePort'] === (in_array($passed, [true, 1, '1', 'true'], true) ? 'yes' : 'no');
             }
         }
         unset($edge);

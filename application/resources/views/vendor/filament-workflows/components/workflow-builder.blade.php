@@ -3,6 +3,11 @@
     'pageMode' => false,
 ])
 
+@once
+    {{-- Fetch the form widget with the editor, not after a node is opened. --}}
+    <link rel="modulepreload" href="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('select', 'filament/forms') }}" />
+@endonce
+
 @php
     $maskGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::groupedConditionPickerOptions(false);
     $systemIdGroups = \App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog::systemIdGroups();

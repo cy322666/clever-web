@@ -783,17 +783,19 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const results = new Map((this.executionState?.results || []).map(result => ['action:' + result.id, result]));
         const target = results.get(edge.targetId), source = results.get(edge.sourceId);
         const completed = result => ['completed', 'success'].includes(result?.status);
+        if (edge.sourcePort === 'yes' || edge.sourcePort === 'no') {
+            if (!completed(source) && source?.status !== 'skipped') return false;
+            const passed = source.status === 'skipped' ? true : source.output?.passed ?? source.condition_result;
+            if (passed === undefined || passed === null) return false;
+            // The condition has already selected its route, even if the next node is still running.
+            return edge.sourcePort === ([true, 1, '1', 'true'].includes(passed) ? 'yes' : 'no');
+        }
         if (!completed(target)) return false;
         if (edge.sourceId.startsWith('trigger')) {
             const starts = this.nodeElements().filter(node => node.dataset.workflowNodeId.startsWith('trigger'));
             return edge.sourceId === (target.input?._workflow_start_node_id || this.executionState?.start_node_id || (starts.length === 1 ? starts[0].dataset.workflowNodeId : null));
         }
         if (!completed(source)) return false;
-        if (edge.sourcePort === 'yes' || edge.sourcePort === 'no') {
-            const passed = source.output?.passed ?? source.condition_result;
-            if (passed === undefined) return false;
-            return edge.sourcePort === (passed === true || passed === 1 || passed === 'true' ? 'yes' : 'no');
-        }
         return true;
     },
 
@@ -1510,8 +1512,6 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const definitions = document.createElementNS(namespace, 'defs');
         const markerColors = {
             default: '#78716c',
-            yes: '#22c55e',
-            no: '#ef4444',
             completed: '#4d9c70',
         };
 
@@ -1534,12 +1534,11 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
         const edgePaths = paths.flatMap(({d, port, active, edge, preview, control, loopReturn, route, handles}) => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const modifier = port === 'yes' || port === 'no' ? ` workflow-node-edge--${port}` : '';
             const completed = !preview && this.edgeCompleted(edge, active);
-            const marker = completed ? 'completed' : port === 'yes' || port === 'no' ? port : 'default';
+            const marker = completed ? 'completed' : 'default';
 
             path.setAttribute('d', d);
-            path.setAttribute('class', `workflow-node-edge${modifier}${completed ? ' workflow-node-edge--completed' : ''}`);
+            path.setAttribute('class', `workflow-node-edge${completed ? ' workflow-node-edge--completed' : ''}`);
             path.setAttribute('marker-end', `url(#workflow-edge-arrow-${marker})`);
             if (loopReturn) path.setAttribute('data-workflow-loop-return', 'true');
             path.dataset.workflowEdgePort = port;
@@ -1739,7 +1738,8 @@ window.workflowJsonViewer = (initialValue) => ({
 });
 
 window.workflowExpressionPicker = (sources) => ({
-    sources, selectedId: sources.findLast(source => source.available)?.id ?? sources.at(-1)?.id ?? '', limit: 30,
+    // Source data is immutable for this keyed panel; only selection/folding needs reactivity.
+    sources: Object.freeze(sources), selectedId: sources.findLast(source => source.available)?.id ?? sources.at(-1)?.id ?? '', limit: 30,
     field: null, fieldLabel: '', preview: null, expanded: [], collapsedJson: [],
     get selectedSource() { return this.sources.find(source => source.id === this.selectedId); },
     get jsonRows() {
@@ -1828,7 +1828,7 @@ window.workflowExpressionPicker = (sources) => ({
         const fields = this.sources.flatMap((source) => source.fields);
         this.preview = this.field.value.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (full, expression) => {
             const item = fields.find((item) => item.expression.replace(/^\{\{\s*|\s*\}\}$/g, '') === expression.trim());
-            return item?.available ? this.valueText(item.value) : '⟨нет данных этого шага⟩';
+            return item?.available ? this.fieldSummary(item) : '⟨нет данных этого шага⟩';
         });
     },
 });
