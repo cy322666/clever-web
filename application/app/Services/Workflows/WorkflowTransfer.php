@@ -12,6 +12,9 @@ final class WorkflowTransfer
 {
     public static function encode(string $name, array $definition, array $layout = []): string
     {
+        if (array_key_exists('canvas_edge_routes', $definition)) {
+            $definition['canvas_edge_routes'] = self::edgeRoutes($definition['canvas_edge_routes']);
+        }
         return json_encode(['format'=>'clever-flows','version'=>1,'name'=>$name,
             'definition'=>self::clean($definition), 'layout'=>self::layout($layout),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -27,7 +30,10 @@ final class WorkflowTransfer
         Validator::make($file, ['name'=>'required|string|max:255','definition'=>'required|array','definition.actions'=>'present|array',
             'definition.tags'=>'sometimes|array|max:20','definition.tags.*'=>'string|max:50','definition.description'=>'sometimes|nullable|string|max:10000',
         ])->validate();
-        $definition = array_intersect_key($file['definition'], array_flip(['version','trigger','actions','additional_triggers','connections','description','tags']));
+        $definition = array_intersect_key($file['definition'], array_flip(['version','trigger','actions','additional_triggers','connections','description','tags','canvas_edge_routes']));
+        if (array_key_exists('canvas_edge_routes', $definition)) {
+            $definition['canvas_edge_routes'] = self::edgeRoutes($definition['canvas_edge_routes']);
+        }
         foreach (WorkflowStartNodes::all($definition) as $start) {
             if (!is_array($start) || !is_string($start['type'] ?? null) || !app(TriggerRegistry::class)->has($start['type']) || !is_array($start['config'] ?? [])) {
                 throw new \InvalidArgumentException('Неизвестный или некорректный запуск.');
@@ -78,5 +84,38 @@ final class WorkflowTransfer
             if (is_array($value)) $data[$key] = self::clean($value);
         }
         return $data;
+    }
+
+    private static function edgeRoutes(mixed $routes): array
+    {
+        if (!is_array($routes) || count($routes) > 2000) {
+            throw new \InvalidArgumentException('Некорректные маршруты связей.');
+        }
+        $result = [];
+        foreach ($routes as $key => $route) {
+            $edge = json_decode((string) $key, true);
+            if (!is_array($edge) || array_keys($edge) !== [0, 1, 2]
+                || !is_string($edge[0]) || !is_string($edge[1]) || !is_string($edge[2])
+                || !preg_match('/^(trigger(?::[a-zA-Z0-9_-]+)?|action:[a-zA-Z0-9_-]+)$/D', $edge[0])
+                || !in_array($edge[1], ['output', 'yes', 'no', 'each', 'done'], true)
+                || !preg_match('/^action:[a-zA-Z0-9_-]+$/D', $edge[2]) || !is_array($route)) {
+                throw new \InvalidArgumentException('Некорректная связь в маршруте.');
+            }
+            $fields = match ($route['kind'] ?? null) {
+                'loop' => ['exitX', 'entryX', 'y'],
+                'curve' => ['x', 'y'],
+                default => throw new \InvalidArgumentException('Некорректная форма связи.'),
+            };
+            $point = ['kind' => $route['kind']];
+            foreach ($fields as $field) {
+                $value = $route[$field] ?? null;
+                if (!is_numeric($value) || !is_finite((float) $value) || abs((float) $value) > 100000) {
+                    throw new \InvalidArgumentException('Некорректные координаты связи.');
+                }
+                $point[$field] = (float) $value;
+            }
+            $result[json_encode($edge, JSON_THROW_ON_ERROR)] = $point;
+        }
+        return $result;
     }
 }

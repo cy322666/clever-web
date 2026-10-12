@@ -5831,7 +5831,7 @@ body:has(.workflow-editor-page) .fi-page-content {
 .workflow-node-edge-controls {
     position: absolute;
     inset: 0;
-    z-index: 6;
+    z-index: 1;
     pointer-events: none;
 }
 
@@ -6785,7 +6785,10 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .dark .workflow-expression-picker__hint { color: var(--workflow-dark-muted); }
 .workflow-node-editor #workflow-canvas .workflow-node-card__caption { pointer-events: none; }
 .workflow-node-editor #workflow-canvas button.workflow-node-port { display: block; min-width: 0 !important; min-height: 0 !important; width: 0.625rem !important; height: 0.625rem !important; padding: 0 !important; border-radius: 50% !important; cursor: crosshair; }
-.workflow-node-edge-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.workflow-node-edge-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: grab; }
+.workflow-edge-route-handle { fill: #fff; stroke: #339dc7; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: all; cursor: move; }
+.workflow-edge-route-handle[data-route-part="lane"] { cursor: ns-resize; }
+.workflow-edge-route-handle:is([data-route-part="exit"], [data-route-part="entry"]) { cursor: ew-resize; }
 .workflow-node-editor #workflow-canvas { pointer-events: none; }
 .workflow-node-editor #workflow-canvas [data-workflow-node-card] { pointer-events: auto; }
 .workflow-node-edge.is-selected { stroke-width: 2; filter: drop-shadow(0 0 3px rgb(115 126 141 / 0.3)); }

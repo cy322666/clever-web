@@ -47,6 +47,32 @@ class WorkflowTransferTest extends TestCase
         $this->assertFalse($flow->is_active);
         $this->assertArrayNotHasKey('bot_token_encrypted',$flow->definition['actions'][0]['config']);
     }
+    public function test_edge_routes_roundtrip_and_saved_workflow_preserves_them(): void
+    {
+        $definition = $this->definition();
+        $key = '["trigger","output","action:http"]';
+        foreach ([['kind'=>'curve','x'=>420,'y'=>-80], ['kind'=>'loop','exitX'=>740,'entryX'=>-24,'y'=>310]] as $route) {
+            $definition['canvas_edge_routes'] = [$key => $route];
+            $flow = WorkflowTransfer::import(WorkflowTransfer::encode('Маршрут', $definition));
+            $this->assertEquals([$key => $route], $flow->fresh()->definition['canvas_edge_routes']);
+            $this->assertSame($definition['connections'], $flow->definition['connections']);
+        }
+    }
+    public function test_invalid_edge_routes_are_rejected_without_creating_workflows(): void
+    {
+        $file = json_decode(WorkflowTransfer::encode('Маршрут', $this->definition()), true);
+        foreach ([
+            ['bad' => ['kind'=>'curve','x'=>1,'y'=>2]],
+            ['["trigger","output","action:http"]' => ['kind'=>'curve','x'=>100001,'y'=>2]],
+            ['["trigger","output","action:http"]' => ['kind'=>'loop','y'=>2]],
+            ['["trigger","output","action:http"]' => ['kind'=>'unknown','x'=>1,'y'=>2]],
+        ] as $routes) {
+            $file['definition']['canvas_edge_routes'] = $routes;
+            try { WorkflowTransfer::import(json_encode($file)); $this->fail('Invalid route accepted'); }
+            catch (\InvalidArgumentException $error) { $this->assertNotEmpty($error->getMessage()); }
+        }
+        $this->assertSame(0, Workflow::count());
+    }
     public function test_invalid_graph_unknown_nodes_and_format_are_rejected_without_writes(): void
     {
         $file = json_decode(WorkflowTransfer::encode('Импорт',$this->definition()),true);

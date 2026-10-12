@@ -140,7 +140,7 @@
                  runs destroy() and disconnects layout observers on the live canvas. --}}
             <section
                 wire:key="workflow-canvas-{{ $workflowLayoutKey }}"
-                x-data="workflowNodeCanvas(@js($workflowLayoutKey), $wire.definition.canvas_layout ?? null)"
+                x-data="workflowNodeCanvas(@js($workflowLayoutKey), $wire.definition.canvas_layout ?? null, $wire.definition.canvas_edge_routes ?? null)"
                 x-init="$nextTick(() => { initializeCanvas(); setExecutionState($wire.debugState); })"
                 x-on:pointermove.window="moveCanvas($event)"
                 x-on:pointerup.window="stopCanvasInteraction($event)"
@@ -180,9 +180,11 @@
                     <span>Выберите другую ноду</span><button type="button" x-show="selectedEdge" x-on:click="removeSelectedEdge()">Удалить связь</button><button type="button" x-on:click="cancelConnection()">Отмена</button>
                 </div>
                 <div class="workflow-connection-menu" x-show="selectedEdge && !connecting" x-cloak x-on:pointerdown.stop>
+                    <span>Перетащите линию или точки</span>
+                    <button type="button" x-on:click="resetSelectedEdgeRoute()">Сбросить изгиб</button>
                     <button type="button" x-on:click="reconnectSelectedEdge()">Переподключить</button>
                     <button type="button" x-on:click="removeSelectedEdge()">Удалить связь</button>
-                    <button type="button" x-on:click="selectedEdge = null" aria-label="Закрыть меню связи">×</button>
+                    <button type="button" x-on:click="cancelConnection()" aria-label="Закрыть меню связи">×</button>
                 </div>
                 <div
                     x-ref="stage"
