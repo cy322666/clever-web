@@ -39,14 +39,22 @@ test('canvas keeps its dotted grid and uses vertical input ports', () => {
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*3px;[^}]*height:\s*14px;/s);
 });
 
-test('grid stays in screen space while placement uses a hidden half-step', () => {
+test('grid pans with nodes without scaling its dots or changing the hidden half-step', () => {
     const {canvas} = fixture();
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
+    assert.doesNotMatch(css, /background-position:\s*0\s+0\s*!important/);
+    for (const view of ['vendor/filament-workflows/components/workflow-builder', 'filament/workflow-builder/workflow-execution-canvas']) {
+        assert.match(readFileSync(new URL(`../../resources/views/${view}.blade.php`, import.meta.url), 'utf8'), /x-bind:style="gridStyle\(\)"/);
+    }
     for (const scale of [0.25, 1, 2]) {
         canvas.scale = scale;
         canvas.translateX = -123;
         canvas.translateY = 456;
         canvas.$refs.stage = {offsetLeft:0,offsetTop:0};
-        assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:0 0;');
+        assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:17px 16px;');
+        canvas.translateX += 7;
+        canvas.translateY -= 9;
+        assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:4px 7px;');
         assert.equal(canvas.snapCoordinate(14), 10);
         assert.equal(canvas.snapCoordinate(16), 20);
         assert.equal(canvas.snapCoordinate(-16), -20);

@@ -6885,7 +6885,6 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-settings__parameters .fi-fo-repeater-item-content { padding: 12px 0 !important; }
 .workflow-node-settings__parameters .fi-fo-repeater-item-header { padding: 4px 0 !important; }
 .workflow-condition-rules .fi-fo-repeater-item-content { padding-top: 0 !important; }
-.workflow-node-editor__viewport { background-size: 20px 20px !important; background-position: 0 0 !important; }
 .workflow-node-library__header { min-height: 52px; padding: 10px 16px; }
 .workflow-node-library__header h2 { font-size: 15px; font-weight: 600; }
 .workflow-node-library__body { padding: 4px 12px 20px; }

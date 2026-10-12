@@ -246,7 +246,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pendingInsertion: null,
     initialized: false,
 
-    // Placement uses a hidden 10-unit grid; visible dots stay in screen space.
+    // Placement uses a hidden 10-unit grid; dots keep their size but pan with the canvas.
     gridSpacing: 20,
     snapCoordinate(value) {
         const step = this.gridSpacing / 2;
@@ -254,7 +254,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     gridStyle() {
-        return 'background-size:20px 20px;background-position:0 0;';
+        const phase = value => ((value % this.gridSpacing) + this.gridSpacing) % this.gridSpacing;
+        return `background-size:20px 20px;background-position:${phase(this.translateX)}px ${phase(this.translateY)}px;`;
     },
 
     cardPositions() {

@@ -117,6 +117,32 @@ class WorkflowContactOutputAndFieldTypesTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_nested_http_user_id_is_resolved_and_sent_as_text_to_contact_field(): void
+    {
+        $this->field(1031703, 'text');
+        Http::fake(['https://field-types.test/*' => Http::response(['id' => 48487851])]);
+        $context = (new WorkflowContext)
+            ->setStepOutput('get_user', ['status' => 200, 'success' => true, 'body' => [
+                'status' => true, 'result' => ['user_id' => 17], 'error' => null,
+            ]])
+            ->setVariable('_node_names', ['Получить пользователя School-master' => ['get_user']]);
+
+        $this->assertNull($context->resolve('{{ $("Получить пользователя School-master").user_id }}'));
+        $config = $context->resolve([
+            'entity_source' => 'manual', 'target_entity' => 'contact', 'target_entity_id' => 48487851,
+            'fields' => [['field' => 1031703, 'value' => '{{ $("Получить пользователя School-master").result.user_id }}']],
+        ]);
+        $this->assertSame(17, $config['fields'][0]['value']);
+        $method = new \ReflectionMethod(WorkflowAmoCrmActionExecutor::class, 'updateFields');
+        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
+        $result = $method->invoke($this->executor(), $client, $this->account(), $config, $context);
+
+        $this->assertTrue($result['success']);
+        Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+            && $request['custom_fields_values'][0]['values'][0]['value'] === '17');
+        Http::assertSentCount(1);
+    }
+
     public function test_created_contact_is_an_object_and_link_response_cannot_replace_it(): void
     {
         $output = ['action' => 'created', 'entity_type' => 'contact', 'entity_id' => 48487851, 'amo_exchange' => [
