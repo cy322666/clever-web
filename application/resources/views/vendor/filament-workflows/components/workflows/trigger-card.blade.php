@@ -28,6 +28,7 @@
 <div
     data-workflow-node-card
     data-node-family="{{ $appearance['family'] }}"
+    data-node-tone="{{ $appearance['tone'] }}"
     @if(! $readOnly)
         x-data="workflowInlineNodeName(@js($nodeId), @js($name))"
         @if($hasSettings)

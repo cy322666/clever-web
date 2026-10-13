@@ -7,6 +7,13 @@ final class WorkflowNodeAppearance
 {
     public static function action(string $type, array $config = [], string $fallback = ''): array
     {
+        $appearance = self::actionIcon($type, $config, $fallback);
+
+        return $appearance + ['tone' => self::actionTone($type, $appearance['modifier'])];
+    }
+
+    private static function actionIcon(string $type, array $config, string $fallback): array
+    {
         $controls = [
             'condition' => 'arrows-split', 'control-condition' => 'arrows-split',
             'workflow_loop' => 'arrows-clockwise', 'workflow_filter_list' => 'funnel',
@@ -53,9 +60,43 @@ final class WorkflowNodeAppearance
             'generic-webhook' => 'webhooks-logo', 'workflow-completed' => 'check-circle',
             'amo-button' => 'cursor-click', 'amo-bulk' => 'stack',
         ];
-        if (isset($system[$type])) return self::look('trigger', $system[$type]);
-        $icon = WorkflowAmoIcons::trigger($type, $fallback);
-        return self::look('trigger', self::entityGlyph($icon), 'lightning');
+        $appearance = isset($system[$type])
+            ? self::look('trigger', $system[$type])
+            : self::look('trigger', self::entityGlyph(WorkflowAmoIcons::trigger($type, $fallback)), 'lightning');
+
+        return $appearance + ['tone' => match ($type) {
+            'manual', 'amo-button', 'amo-bulk' => 'manual',
+            'schedule', 'date-condition' => 'schedule',
+            'generic-webhook' => 'webhook',
+            default => 'event',
+        }];
+    }
+
+    /** Color describes the operation, not the provider or a run's status. */
+    private static function actionTone(string $type, ?string $modifier): string
+    {
+        return match ($type) {
+            'condition', 'control-condition' => 'condition',
+            'workflow_loop' => 'loop',
+            'workflow_filter_list' => 'filter',
+            'workflow_delay' => 'delay',
+            'workflow_set_variable', 'amocrm_set_global_variable' => 'variable',
+            'workflow_javascript' => 'javascript',
+            'http_request', 'workflow_http_request' => 'http',
+            'telegram_send_message' => 'telegram',
+            'amocrm_start_salesbot', 'amocrm_stop_salesbot', 'amocrm_distribution_queue' => 'automation',
+            'amocrm_manage_subscription' => 'subscription',
+            'amocrm_cancel_delayed_action' => 'remove',
+            default => match ($modifier) {
+                'magnifying-glass' => 'query',
+                'plus' => 'create',
+                'pencil-simple', 'arrow-right' => 'update',
+                'copy' => 'copy',
+                'link' => 'link',
+                'link-break', 'minus' => 'remove',
+                default => 'neutral',
+            },
+        };
     }
 
     private static function entityGlyph(string $icon): string

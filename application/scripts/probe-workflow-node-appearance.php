@@ -26,7 +26,7 @@ foreach ([
 $html = Illuminate\Support\Facades\Blade::render('<x-filament-workflows::workflows.action-card :action="$action" :read-only="true"/>', [
     'action' => ['id'=>'probe','type'=>'amocrm_create_contact','config'=>[]],
 ]);
-if (!str_contains($html, 'data-node-family="crm"') || !str_contains($html, 'data-node-artwork="contact-create"')) {
+if (!str_contains($html, 'data-node-family="crm"') || !str_contains($html, 'data-node-tone="create"') || !str_contains($html, 'data-node-artwork="contact-create"')) {
     throw new RuntimeException('Node card appearance is missing');
 }
 echo "WORKFLOW_NODE_APPEARANCE_OK icons={$count} external_requests=0 workflow_writes=0\n";

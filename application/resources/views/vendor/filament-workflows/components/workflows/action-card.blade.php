@@ -31,6 +31,7 @@
 <div
     data-workflow-node-card
     data-node-family="{{ $appearance['family'] }}"
+    data-node-tone="{{ $appearance['tone'] }}"
     data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
     @if($readOnly && $executionCount !== null)
         x-bind:class="{ 'workflow-node-card--selected': selectedNodeId() === 'action:' + @js($actionId) }"

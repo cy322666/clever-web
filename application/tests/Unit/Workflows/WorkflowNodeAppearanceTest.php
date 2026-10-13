@@ -38,7 +38,8 @@ class WorkflowNodeAppearanceTest extends TestCase
     {
         foreach (['contact' => 'user', 'lead' => 'briefcase', 'company' => 'buildings'] as $entity => $glyph) {
             foreach (['amocrm_find_entity' => 'magnifying-glass', 'amocrm_create_'.$entity => 'plus', 'amocrm_update_'.$entity.'_fields' => 'pencil-simple'] as $type => $modifier) {
-                $this->assertSame(['family'=>'crm', 'glyph'=>$glyph, 'modifier'=>$modifier], WorkflowNodeAppearance::action($type, ['target_entity'=>$entity]));
+                $tone = ['magnifying-glass'=>'query', 'plus'=>'create', 'pencil-simple'=>'update'][$modifier];
+                $this->assertSame(['family'=>'crm', 'glyph'=>$glyph, 'modifier'=>$modifier, 'tone'=>$tone], WorkflowNodeAppearance::action($type, ['target_entity'=>$entity]));
             }
         }
         $this->assertSame('note', WorkflowNodeAppearance::action('amocrm_add_note', ['target_entity'=>'lead'])['glyph']);
@@ -52,7 +53,8 @@ class WorkflowNodeAppearanceTest extends TestCase
             $this->assertSame($family, WorkflowNodeAppearance::action($type)['family']);
         }
         foreach (['manual'=>'play', 'schedule'=>'clock', 'generic-webhook'=>'webhooks-logo'] as $type=>$glyph) {
-            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null], WorkflowNodeAppearance::trigger($type));
+            $tone = ['manual'=>'manual', 'schedule'=>'schedule', 'generic-webhook'=>'webhook'][$type];
+            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null,'tone'=>$tone], WorkflowNodeAppearance::trigger($type));
         }
     }
 
@@ -67,6 +69,7 @@ class WorkflowNodeAppearanceTest extends TestCase
         }
         $this->assertGreaterThan(30, count($appearances));
         foreach ($appearances as $appearance) {
+            $this->assertStringContainsString('[data-node-tone="'.$appearance['tone'].'"]', file_get_contents(resource_path('css/filament-workflows.css')));
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
             $this->assertTrue(str_contains($html, '<svg') || str_contains($html, 'data-node-artwork=') || str_contains($html, 'data-node-language="javascript"'));
             $this->assertStringContainsString('aria-hidden="true"', $html);
@@ -75,6 +78,30 @@ class WorkflowNodeAppearanceTest extends TestCase
                 $this->assertStringContainsString('workflow-node-glyph__'.($appearance['modifier'] ? 'action' : 'main'), $html);
             }
         }
+    }
+
+    public function test_operation_colors_distinguish_similar_nodes_and_are_shared_by_editor_and_history(): void
+    {
+        $types = ['amocrm_find_entity'=>'query', 'amocrm_create_contact'=>'create', 'amocrm_update_contact_fields'=>'update',
+            'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_filter_list'=>'filter', 'workflow_delay'=>'delay',
+            'workflow_set_variable'=>'variable', 'workflow_javascript'=>'javascript', 'http_request'=>'http', 'telegram_send_message'=>'telegram'];
+        $css = file_get_contents(resource_path('css/filament-workflows.css'));
+        $colors = [];
+        foreach ($types as $type => $tone) {
+            $this->assertSame($tone, WorkflowNodeAppearance::action($type)['tone']);
+            preg_match('/\[data-node-tone="'.$tone.'"\] \{ --workflow-node-fill: (#[a-f0-9]+); \}/', $css, $matches);
+            $this->assertNotEmpty($matches, $type);
+            $colors[] = $matches[1];
+            foreach ([false, true] as $readOnly) {
+                $html = Blade::render('<x-filament-workflows::workflows.action-card :action="$action" :read-only="$readOnly"/>', [
+                    'action'=>['id'=>'probe', 'type'=>$type, 'name'=>'Одно название', 'disabled'=>true], 'readOnly'=>$readOnly,
+                ]);
+                $this->assertStringContainsString('data-node-tone="'.$tone.'"', $html);
+            }
+        }
+        $this->assertCount(count($types), array_unique($colors));
+        $this->assertStringContainsString('background-blend-mode: luminosity;', $css);
+        $this->assertStringContainsString('.workflow-node-card--disabled .workflow-node-artwork { filter: grayscale(1);', $css);
     }
 
     public function test_readonly_cards_share_the_appearance_without_changing_ports(): void
