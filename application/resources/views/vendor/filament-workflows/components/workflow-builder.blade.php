@@ -170,7 +170,7 @@
                 x-on:pointercancel.window="stopCanvasInteraction($event)"
                 x-on:workflow-layout-reset.window="resetNodeLayout()"
                 x-on:workflow-debug-updated.window="setExecutionState($event.detail.state)"
-                x-on:keydown.escape.window="cancelConnection(); clearNodeSelection()"
+                x-on:keydown.escape.window="stopAreaDrag(true); cancelConnection(); clearNodeSelection()"
                 x-on:keydown.window="clipboardShortcut($event)"
                 x-on:submit.window.capture="if ($event.target.contains($el)) saveNodeLayout()"
                 x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
@@ -203,6 +203,7 @@
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
+                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="addCanvasArea()" x-bind:disabled="canvasAreas().length >= 100" aria-label="Создать область этапа" title="Создать область этапа"><x-filament::icon icon="heroicon-o-rectangle-group" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
                 <div class="workflow-connection-hint" x-show="connecting || connectionError" x-cloak x-on:pointerdown.stop>
@@ -221,6 +222,7 @@
                     x-bind:style="stageStyle()"
                     class="workflow-node-editor__stage"
                 >
+                    @include('filament.workflow-builder.workflow-canvas-areas')
                     <svg
                         x-ref="edgeLayer"
                         class="workflow-node-edge-layer"

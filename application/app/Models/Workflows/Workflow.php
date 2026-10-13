@@ -20,6 +20,15 @@ class Workflow extends BaseWorkflow
         parent::booted();
 
         static::saving(static function (Workflow $workflow): void {
+            if (array_key_exists('canvas_areas', $workflow->definition ?? [])) {
+                try {
+                    $definition = $workflow->definition;
+                    $definition['canvas_areas'] = \App\Services\Workflows\WorkflowCanvasAreas::normalize($definition['canvas_areas']);
+                    $workflow->definition = $definition;
+                } catch (\InvalidArgumentException $error) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['definition.canvas_areas' => $error->getMessage()]);
+                }
+            }
             if ($workflow->is_active && (! $workflow->exists || $workflow->isDirty(['definition', 'is_active']))) {
                 $issues = \App\Services\Workflows\WorkflowDefinitionValidator::issues($workflow->definition ?? []);
                 if ($issues !== []) {

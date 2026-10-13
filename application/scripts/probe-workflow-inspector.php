@@ -43,6 +43,15 @@ try {
     if (!str_contains($html, 'class="workflow-canvas-grid"') || !str_contains($html, 'x-bind:pattern-transform.camel="gridTransform()"') || str_contains($html, 'gridStyle()')) {
         throw new RuntimeException('Canvas must use the vector grid with the same pan and zoom as the nodes');
     }
+    if (!str_contains($html, 'aria-label="Создать область этапа"') || !str_contains($html, 'x-for="area in canvasAreas()"')) {
+        throw new RuntimeException('Manual canvas areas or their creation control are missing');
+    }
+    $areas = App\Services\Workflows\WorkflowCanvasAreas::normalize([
+        ['id' => 'probe_area', 'title' => 'Контакт', 'x' => -40, 'y' => 24, 'width' => 640, 'height' => 360],
+    ]);
+    $areaDefinition = ['trigger' => ['type' => 'manual', 'config' => []], 'actions' => [], 'canvas_areas' => $areas];
+    $areaRoundtrip = App\Services\Workflows\WorkflowTransfer::decode(App\Services\Workflows\WorkflowTransfer::encode('Probe', $areaDefinition));
+    if ($areaRoundtrip['definition']['canvas_areas'] !== $areas) throw new RuntimeException('Canvas areas failed export/import');
     $snapshot = json_decode(html_entity_decode($match[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
     request()->headers->set('X-Livewire', 'true');
     $update = function (string $method, array $params = [], array $updates = []) use (&$snapshot): array {

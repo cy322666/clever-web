@@ -803,6 +803,44 @@ body.fi-body {
     pointer-events: none;
 }
 
+/* Permanent annotations share world coordinates with the graph. Their body is
+   click-through: only the heading and resize grip intercept canvas gestures. */
+.workflow-canvas-areas { position: absolute; inset: 0; pointer-events: none; }
+.workflow-canvas-area {
+    position: absolute; box-sizing: border-box; border: 1px solid #cbd3df;
+    border-radius: 12px; background: rgb(224 231 240 / .32); color: #536174;
+    pointer-events: none;
+}
+.workflow-canvas-area__header {
+    display: flex; align-items: center; gap: 6px; height: 38px; padding: 4px 8px;
+    border-bottom: 1px solid rgb(148 163 184 / .18); border-radius: 11px 11px 0 0;
+    background: #edf1f6; pointer-events: auto; cursor: grab; touch-action: none;
+}
+.workflow-canvas-area__header input {
+    flex: 1; min-width: 0; padding: 2px 5px; height: 28px; border: 1px solid transparent;
+    border-radius: 4px; background: transparent; color: inherit; font-size: 13px;
+    font-weight: 600; line-height: 20px; box-shadow: none;
+}
+.workflow-canvas-area__header input:focus { border-color: #399cc4; outline: none; box-shadow: none; }
+.workflow-canvas-area__header > span { font-size: 13px; font-weight: 600; padding-left: 6px; }
+.workflow-canvas-area__header button {
+    display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px;
+    padding: 4px; border: 0; border-radius: 4px; color: inherit; background: transparent;
+}
+.workflow-canvas-area__header button svg { width: 16px; height: 16px; }
+.workflow-canvas-area__move { cursor: grab; }
+.workflow-canvas-area__header button:hover { background: rgb(148 163 184 / .2); }
+.workflow-canvas-area__header .workflow-canvas-area__delete:hover { color: #e04f5f; }
+.workflow-canvas-area__resize {
+    position: absolute; right: 0; bottom: 0; width: 24px; height: 24px; padding: 3px;
+    border: 0; border-radius: 0 0 11px; background: #edf1f6; color: #8793a5;
+    pointer-events: auto; cursor: nwse-resize; touch-action: none;
+}
+.workflow-canvas-area__resize svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.workflow-canvas-area button:focus-visible { outline: 2px solid #399cc4; outline-offset: 2px; }
+.dark .workflow-canvas-area { border-color: #505560; background: rgb(61 65 74 / .25); color: #c3cad6; }
+.dark .workflow-canvas-area__header, .dark .workflow-canvas-area__resize { background: #30343c; }
+
 .workflow-node-edge {
     fill: none;
     stroke: rgb(120 113 108 / 0.72);

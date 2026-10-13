@@ -3,13 +3,14 @@
     @if($graph['historical_fallback'])
         <div class="workflow-execution-note">Исходная версия этого сценария не сохранена. Показан фактический порядок записанных шагов.</div>
     @endif
-    <section class="workflow-node-editor workflow-execution-canvas" x-data="workflowNodeCanvas('clever.workflow.history.{{ $runId }}', @js($graph['definition']['canvas_layout'] ?? []), @js($graph['definition']['canvas_edge_routes'] ?? []), @js($graph['definition']['canvas_positions'] ?? null))"
+    <section class="workflow-node-editor workflow-execution-canvas" x-data="workflowNodeCanvas('clever.workflow.history.{{ $runId }}', @js($graph['definition']['canvas_layout'] ?? []), @js($graph['definition']['canvas_edge_routes'] ?? []), @js($graph['definition']['canvas_positions'] ?? null), @js($graph['definition']['canvas_areas'] ?? []))"
         x-init="$nextTick(() => { initializeCanvas(); $nextTick(() => fitView()); })"
         x-on:pointermove.window="moveCanvas($event)" x-on:pointerup.window="stopCanvasInteraction($event)" x-on:pointercancel.window="stopCanvasInteraction($event)">
         <div x-ref="viewport" class="workflow-node-editor__viewport" x-on:pointerdown="startCanvasInteraction($event)">
             @include('filament.workflow-builder.workflow-canvas-grid')
             <button type="button" class="workflow-canvas-fit" x-on:pointerdown.stop x-on:click.stop="fitView()" aria-label="Показать весь запуск" title="Показать весь запуск"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
             <div x-ref="stage" x-bind:style="stageStyle()" class="workflow-node-editor__stage">
+                @include('filament.workflow-builder.workflow-canvas-areas', ['readOnlyAreas' => true])
                 <svg x-ref="edgeLayer" class="workflow-node-edge-layer" aria-hidden="true" wire:ignore></svg>
                 <main id="workflow-canvas" class="workflow-builder workflow-node-flow">
                     <div class="workflow-node-starts">

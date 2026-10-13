@@ -461,11 +461,13 @@ window.workflowNodeMenu = () => ({
     },
 });
 
-window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null, initialCoordinates = null) => ({
+window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null, initialCoordinates = null, initialAreas = null) => ({
     layoutKey,
     initialLayout,
     initialEdgeRoutes,
     initialCoordinates,
+    initialAreas,
+    areaDrag: null,
     positions: {},
     edgeRoutes: {},
     routeDrag: null,
@@ -512,6 +514,97 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     pendingInsertion: null,
     pendingDropPosition: null,
     initialized: false,
+
+    // Areas are canvas annotations, never nodes or execution graph members.
+    canvasAreas() {
+        const areas = this.initialAreas ?? this.$wire?.definition?.canvas_areas ?? [];
+        if (!Array.isArray(areas)) return [];
+        const ids = new Set();
+        return areas.slice(0, 100).filter(area => {
+            if (!area || typeof area.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(area.id) || ids.has(area.id)
+                || typeof area.title !== 'string' || !['x','y','width','height'].every(key => Number.isFinite(area[key]))
+                || Math.abs(area.x) > 100000 || Math.abs(area.y) > 100000
+                || area.width < 240 || area.height < 160 || area.width > 20000 || area.height > 20000) return false;
+            ids.add(area.id);
+            return true;
+        }).map(area => ({id:area.id, title:area.title.slice(0, 120), x:area.x, y:area.y, width:area.width, height:area.height}));
+    },
+
+    setCanvasAreas(areas) {
+        if (this.initialAreas !== null || !this.$wire?.definition) return;
+        // Update the local Livewire draft immediately, send only on normal Save.
+        this.$wire.$set('definition.canvas_areas', areas, false);
+    },
+
+    addCanvasArea() {
+        const areas = this.canvasAreas();
+        const stage = this.$refs.stage?.getBoundingClientRect();
+        const viewport = this.$refs.viewport?.getBoundingClientRect();
+        if (!stage || !viewport || areas.length >= 100) return;
+        const bounded = value => Math.max(-100000, Math.min(100000, this.snapCoordinate(value)));
+        const id = 'area_' + (window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2));
+        this.setCanvasAreas([...areas, {id, title:'Новый этап',
+            x:bounded((viewport.left + viewport.width / 2 - stage.left) / this.scale - 320),
+            y:bounded((viewport.top + viewport.height / 2 - stage.top) / this.scale - 180), width:640, height:360}]);
+        this.$nextTick(() => {
+            const input = this.$refs.stage.querySelector(`[data-workflow-area-id="${id}"] input`);
+            input?.focus({preventScroll:true});
+            input?.select();
+        });
+    },
+
+    renameCanvasArea(id, title, finish = true) {
+        const value = finish ? title.trim().slice(0, 120) || 'Новый этап' : title.slice(0, 120);
+        this.setCanvasAreas(this.canvasAreas().map(area => area.id === id ? {...area, title:value} : area));
+    },
+
+    removeCanvasArea(id) {
+        this.setCanvasAreas(this.canvasAreas().filter(area => area.id !== id));
+    },
+
+    areaStyle(area) {
+        return `left:${area.x}px;top:${area.y}px;width:${area.width}px;height:${area.height}px`;
+    },
+
+    startAreaDrag(id, event, resize = false) {
+        if (this.initialAreas !== null || event.button !== 0 || this.connecting || this.routeDrag) return;
+        const area = this.canvasAreas().find(item => item.id === id);
+        if (!area) return;
+        event.preventDefault();
+        this.areaDrag = {id, resize, original:{...area}, x:event.clientX, y:event.clientY, pointerId:event.pointerId};
+        this.$refs.viewport?.setPointerCapture?.(event.pointerId);
+    },
+
+    moveAreaDrag(event) {
+        const drag = this.areaDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const dx = (event.clientX - drag.x) / this.scale, dy = (event.clientY - drag.y) / this.scale;
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, this.snapCoordinate(value)));
+        const geometry = drag.resize
+            ? {width:clamp(drag.original.width + dx, 240, 20000), height:clamp(drag.original.height + dy, 160, 20000)}
+            : {x:clamp(drag.original.x + dx, -100000, 100000), y:clamp(drag.original.y + dy, -100000, 100000)};
+        this.setCanvasAreas(this.canvasAreas().map(area => area.id === drag.id ? {...area, ...geometry} : area));
+    },
+
+    stopAreaDrag(cancel = false) {
+        const drag = this.areaDrag;
+        if (!drag) return;
+        if (cancel) this.setCanvasAreas(this.canvasAreas().map(area => area.id === drag.id ? {...area,
+            x:drag.original.x, y:drag.original.y, width:drag.original.width, height:drag.original.height} : area));
+        this.areaDrag = null;
+        this.$refs.viewport?.releasePointerCapture?.(drag.pointerId);
+    },
+
+    areaKeyboard(id, event, resize = false) {
+        const directions = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+        if (!directions[event.key] || this.initialAreas !== null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const [dx,dy] = directions[event.key].map(value => value * (event.shiftKey ? 80 : 8));
+        this.setCanvasAreas(this.canvasAreas().map(area => area.id !== id ? area : {...area, ...(resize
+            ? {width:Math.max(240, Math.min(20000, area.width + dx)), height:Math.max(160, Math.min(20000, area.height + dy))}
+            : {x:Math.max(-100000, Math.min(100000, area.x + dx)), y:Math.max(-100000, Math.min(100000, area.y + dy))})}));
+    },
 
     canvasActions(steps = this.$wire?.workflowActions || []) {
         return steps.flatMap(step => [step, ...this.canvasActions(step.config?.true_actions || []), ...this.canvasActions(step.config?.false_actions || [])]);
@@ -1268,7 +1361,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.mutationObserver?.disconnect();
         this.mutationObserver = new MutationObserver((mutations) => {
             const edgeLayer = stage.querySelector('.workflow-node-edge-layer');
-            const canvasChanged = mutations.some((mutation) => !edgeLayer?.contains(mutation.target));
+            const areaLayer = stage.querySelector('.workflow-canvas-areas');
+            // Moving annotations cannot change ports or routes. Avoid rebuilding
+            // every edge on every area drag frame or title keystroke.
+            const canvasChanged = mutations.some((mutation) => !edgeLayer?.contains(mutation.target) && !areaLayer?.contains(mutation.target));
 
             if (!canvasChanged) {
                 return;
@@ -1341,7 +1437,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     onCanvasWheel(event) {
         if (event.target.closest('input, textarea, select, [contenteditable="true"], .workflow-canvas-note')) return;
         event.preventDefault();
-        if (this.draggingNodeId !== null || this.selectionOrigin || this.pendingEdgeDrag || this.routeDrag) return;
+        if (this.draggingNodeId !== null || this.selectionOrigin || this.pendingEdgeDrag || this.routeDrag || this.areaDrag) return;
         const viewport = this.$refs.viewport;
         const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
         const dx = event.deltaX * unit;
@@ -1369,6 +1465,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         ].filter(Boolean).map((el) => el.getBoundingClientRect()));
         const edgeLayer = stage.querySelector?.('.workflow-node-edge-layer') || this.$refs.edgeLayer;
         boxes.push(...Array.from(edgeLayer?.querySelectorAll?.('[data-workflow-loop-return]') || []).map(el => el.getBoundingClientRect()));
+        boxes.push(...this.canvasAreas().map(area => ({left:stageRect.left + area.x * currentScale,
+            top:stageRect.top + area.y * currentScale, right:stageRect.left + (area.x + area.width) * currentScale,
+            bottom:stageRect.top + (area.y + area.height) * currentScale})));
         if (!boxes.length) return;
         const left = (Math.min(...boxes.map((r) => r.left)) - stageRect.left) / currentScale;
         const top = (Math.min(...boxes.map((r) => r.top)) - stageRect.top) / currentScale;
@@ -1533,6 +1632,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     moveCanvas(event) {
+        if (this.areaDrag) return this.moveAreaDrag(event);
         if (this.routeDrag && this.routeDrag.pointerId === event.pointerId) {
             const drag = this.routeDrag;
             const dx = (event.clientX-drag.x)/this.scale, dy = (event.clientY-drag.y)/this.scale;
@@ -1611,6 +1711,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     stopCanvasInteraction(event) {
+        if (this.areaDrag?.pointerId === event.pointerId) return this.stopAreaDrag(event.type === 'pointercancel');
         if (this.routeDrag?.pointerId === event.pointerId) {
             if (event.type === 'pointercancel') this.cancelEdgeRouteDrag();
             else {

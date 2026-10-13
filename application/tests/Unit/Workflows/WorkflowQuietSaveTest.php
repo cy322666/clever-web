@@ -49,10 +49,17 @@ class WorkflowQuietSaveTest extends TestCase
         ]);
         Livewire::test(EditWorkflow::class, ['record' => $record->id])
             ->set('definition.description', 'После сохранения')
+            ->set('definition.canvas_areas', [['id' => 'contact', 'title' => 'Контакт', 'x' => -40, 'y' => 24, 'width' => 640, 'height' => 360]])
             ->call('save')
             ->assertHasNoErrors()
             ->assertNoRedirect();
         $this->assertSame('После сохранения', $record->fresh()->definition['description']);
+        $this->assertSame('Контакт', $record->fresh()->definition['canvas_areas'][0]['title']);
+        Livewire::test(EditWorkflow::class, ['record' => $record->id])
+            ->assertSet('definition.canvas_areas.0.title', 'Контакт')
+            ->set('definition.canvas_areas', [])
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame([], $record->fresh()->definition['canvas_areas']);
     }
 
     public function test_node_save_keeps_data_and_warnings_without_a_saved_toast(): void

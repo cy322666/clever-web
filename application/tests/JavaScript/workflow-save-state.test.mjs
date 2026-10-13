@@ -56,6 +56,7 @@ test('actual edits stay dirty until acknowledged; reverting restores clean state
         wire => {wire.trigger.type = 'schedule';},
         wire => {wire.definition.canvas_layout = {'action:node': {x: 10, y: 20}};},
         wire => {wire.definition.canvas_edge_routes = {edge: {kind: 'curve', x: 100, y: 200}};},
+        wire => {wire.definition.canvas_areas = [{id:'area_contact',title:'Контакт',x:0,y:0,width:640,height:360}];},
         wire => {wire.workflowActions.push({id: 'second', type: 'workflow_delay'});},
     ]) {
         const {workbench, wire, save} = fixture();
@@ -71,6 +72,18 @@ test('actual edits stay dirty until acknowledged; reverting restores clean state
     wire.data.name = 'Other';
     wire.data.name = 'Flow';
     assert.equal(workbench.hasUnsavedChanges, false);
+});
+
+test('renaming, resizing and deleting areas marks the draft dirty until saved', () => {
+    for (const edit of [areas => {areas[0].title = 'Сделка';}, areas => {areas[0].width = 800;}, areas => {areas.splice(0, 1);}]) {
+        const {workbench, wire, save} = fixture();
+        wire.definition.canvas_areas = [{id:'area_contact',title:'Контакт',x:0,y:0,width:640,height:360}];
+        save();
+        edit(wire.definition.canvas_areas);
+        assert.equal(workbench.hasUnsavedChanges, true);
+        save();
+        assert.equal(workbench.hasUnsavedChanges, false);
+    }
 });
 
 test('object key ordering is ignored while array order and value types are preserved', () => {

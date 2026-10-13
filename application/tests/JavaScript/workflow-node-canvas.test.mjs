@@ -15,6 +15,77 @@ function localDraft(actions, edges) {
     return canvas;
 }
 
+test('manual areas create at the visible center, edit locally and never mutate the graph', () => {
+    const canvas = localDraft([{id:'node',type:'workflow_delay'}], []);
+    canvas.scale = 0.5;
+    canvas.positions = {'action:node':{x:8,y:16}};
+    canvas.edgeRoutes = {untouched:true};
+    canvas.$refs.viewport.getBoundingClientRect = () => ({left:20,top:40,width:800,height:600});
+    canvas.$refs.stage = {getBoundingClientRect:() => ({left:-100,top:-80}), querySelector:() => null};
+    canvas.addCanvasArea();
+    const area = canvas.canvasAreas()[0];
+    assert.equal(area.x + area.width / 2, 1040);
+    assert.equal(area.y + area.height / 2, 840);
+    canvas.renameCanvasArea(area.id, '  Контакт  ');
+    assert.equal(canvas.canvasAreas()[0].title, 'Контакт');
+    const reloaded = localDraft([], []);
+    reloaded.$wire.definition = JSON.parse(JSON.stringify(canvas.$wire.definition));
+    assert.deepEqual(JSON.parse(JSON.stringify(reloaded.canvasAreas())), JSON.parse(JSON.stringify(canvas.canvasAreas())));
+    canvas.removeCanvasArea(area.id);
+    assert.equal(canvas.canvasAreas().length, 0);
+    assert.deepEqual(canvas.$wire.workflowActions, [{id:'node',type:'workflow_delay'}]);
+    assert.deepEqual(canvas.positions, {'action:node':{x:8,y:16}});
+    assert.deepEqual(canvas.edgeRoutes, {untouched:true});
+});
+
+test('area drag and resize follow world zoom, pointer cancellation restores geometry', () => {
+    const canvas = localDraft([], []);
+    const original = {id:'stage_1',title:'Контакт',x:0,y:0,width:640,height:360};
+    canvas.setCanvasAreas([original]);
+    canvas.scale = 0.5;
+    const event = {button:0,pointerId:1,clientX:100,clientY:100,preventDefault(){}};
+    canvas.startAreaDrag(original.id, event);
+    canvas.moveCanvas({...event,clientX:120,clientY:140});
+    assert.equal(canvas.canvasAreas()[0].x, 40);
+    assert.equal(canvas.canvasAreas()[0].y, 80);
+    canvas.stopCanvasInteraction({...event,type:'pointercancel'});
+    assert.deepEqual(JSON.parse(JSON.stringify(canvas.canvasAreas()[0])), original);
+    canvas.startAreaDrag(original.id, event, true);
+    canvas.moveCanvas({...event,clientX:140,clientY:120});
+    canvas.stopCanvasInteraction(event);
+    assert.equal(canvas.canvasAreas()[0].width, 720);
+    assert.equal(canvas.canvasAreas()[0].height, 400);
+    canvas.startAreaDrag(original.id, event, true);
+    canvas.moveCanvas({...event,clientX:-10000,clientY:-10000});
+    canvas.stopCanvasInteraction(event);
+    assert.equal(canvas.canvasAreas()[0].width, 240);
+    assert.equal(canvas.canvasAreas()[0].height, 160);
+});
+
+test('areas support keyboard geometry and malformed data cannot reach inline styles', () => {
+    const canvas = localDraft([], []);
+    const area = {id:'stage_1',title:'Этап',x:0,y:0,width:640,height:360};
+    canvas.setCanvasAreas([area,area,{...area,id:'bad',x:'0;display:none'},{...area,id:'tiny',width:1}]);
+    assert.equal(canvas.canvasAreas().length, 1);
+    canvas.areaKeyboard(area.id, {key:'ArrowRight',shiftKey:true,preventDefault(){},stopPropagation(){}});
+    assert.equal(canvas.canvasAreas()[0].x, 80);
+    canvas.areaKeyboard(area.id, {key:'ArrowDown',preventDefault(){},stopPropagation(){}}, true);
+    assert.equal(canvas.canvasAreas()[0].height, 368);
+    canvas.initialAreas = [area];
+    canvas.removeCanvasArea(area.id);
+    assert.deepEqual(JSON.parse(JSON.stringify(canvas.canvasAreas()[0])), area, 'History areas are read-only snapshots');
+});
+
+test('areas always render behind graph, use text inputs and have a separate create button', () => {
+    const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
+    const area = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-canvas-areas.blade.php', import.meta.url), 'utf8');
+    assert.ok(view.includes('aria-label="Создать область этапа"'));
+    assert.ok(view.indexOf("@include('filament.workflow-builder.workflow-canvas-areas')") < view.indexOf('x-ref="edgeLayer"'));
+    assert.ok(area.includes('x-for="area in canvasAreas()"'));
+    assert.ok(!area.includes('x-show=') && !area.includes('x-html='));
+    assert.ok(area.includes('x-on:pointerdown.stop'));
+});
+
 test('local toggle updates nested draft configuration and can be reversed without a server call', () => {
     const actions = [{id:'if',type:'control-condition',config:{true_actions:[{id:'a',type:'http_request',config:{url:'https://example.test'}}]}}];
     const canvas = localDraft(actions, []);
