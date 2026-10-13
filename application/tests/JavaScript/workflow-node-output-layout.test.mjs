@@ -4,10 +4,11 @@ import test from 'node:test';
 import postcss from 'postcss';
 
 const css = postcss.parse(readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8'));
+const inspectorCss = postcss.parse(readFileSync(new URL('../../resources/css/workflow-inspector.css', import.meta.url), 'utf8'));
 
-function declarations(selector) {
+function declarations(selector, source = css) {
     const result = {};
-    css.walkRules(rule => {
+    source.walkRules(rule => {
         if (!rule.selectors.includes(selector)) return;
         rule.walkDecls(declaration => { result[declaration.prop] = declaration.value; });
     });
@@ -29,6 +30,13 @@ test('node output grows through the full pane without shrinking its heading', ()
     assert.equal(tree.flex, '1 1 0');
     assert.equal(tree['min-height'], '0');
     assert.equal(declarations('.workflow-node-output .workflow-json-tree__header').flex, '0 0 auto');
+});
+
+test('inspector result sizes JSON from its content inside the scrolling form', () => {
+    assert.equal(declarations('.workflow-inspector__fields', inspectorCss).overflow, 'auto');
+    assert.equal(declarations('.workflow-inspector .workflow-node-output', inspectorCss).height, 'auto');
+    assert.equal(declarations('.workflow-inspector .workflow-node-output .workflow-json-tree', inspectorCss)['flex-basis'], 'auto');
+    assert.equal(declarations('.workflow-inspector .workflow-node-output .workflow-json-tree__viewport', inspectorCss).flex, '0 0 auto');
 });
 
 test('only the node result replaces the shared height cap with remaining space', () => {

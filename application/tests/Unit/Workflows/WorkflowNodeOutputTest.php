@@ -104,4 +104,12 @@ class WorkflowNodeOutputTest extends TestCase
         $this->assertStringContainsString('<header>Результат', $html);
         $this->assertStringContainsString('17 мс', $html);
     }
+
+    public function test_json_rows_do_not_render_template_indentation_as_preformatted_text(): void
+    {
+        $html = $this->renderResult(['output' => ['status' => 200, 'success' => true, 'body' => ['id' => 42]]]);
+        $this->assertSame(1, preg_match('/<button\b[^>]*class="workflow-input-json__value"[^>]*>(.*?)<\/button>/s', $html, $matches));
+        $this->assertSame(trim($matches[1]), $matches[1]);
+        $this->assertStringNotContainsString("\n", $matches[1]);
+    }
 }

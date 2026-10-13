@@ -35,6 +35,8 @@
 .workflow-inspector .workflow-expression-picker__content { padding: 0; background: transparent; }
 .workflow-inspector .workflow-node-output { height: auto; padding: 0; background: transparent; }
 .workflow-inspector .workflow-node-output .workflow-json-tree { flex-basis: auto; overflow: visible; }
+/* The inspector scrolls the form; a zero flex basis collapses JSON in this auto-height pane. */
+.workflow-inspector .workflow-node-output .workflow-json-tree__viewport { flex: 0 0 auto; }
 .workflow-inspector .workflow-node-output__empty { margin: 60px auto; }
 .workflow-inspector .workflow-node-run { position: absolute; right: 18px; top: 59px; z-index: 1; margin: 0; padding: 0; gap: 4px; }
 .workflow-inspector .workflow-node-run__button { height: 28px; padding: 4px 8px; font-size: 11px; }
