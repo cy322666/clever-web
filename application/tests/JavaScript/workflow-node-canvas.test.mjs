@@ -86,6 +86,20 @@ test('areas always render behind graph, use text inputs and have a separate crea
     assert.ok(area.includes('x-on:pointerdown.stop'));
 });
 
+test('stage areas match the selected solid panel with an unnumbered title and contextual controls', () => {
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
+    const view = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-canvas-areas.blade.php', import.meta.url), 'utf8');
+    const styles = css.slice(css.indexOf('.workflow-canvas-areas {'), css.indexOf('.workflow-node-edge {'));
+    assert.match(styles, /background: #f1f4f8/);
+    assert.match(styles, /\.dark \.workflow-canvas-area \{[^}]*background: #2b2e35/);
+    assert.match(styles, /\.workflow-canvas-area__header \{[^}]*border: 0;[^}]*background: transparent/);
+    assert.match(styles, /\.workflow-canvas-area__header input \{[^}]*font-size: 16px/);
+    assert.match(styles, /\.workflow-canvas-area__header button \{[^}]*opacity: 0/);
+    assert.match(styles, /:focus-within[^}]*opacity: 1/);
+    assert.ok(view.indexOf('<input') < view.indexOf('class="workflow-canvas-area__move"'));
+    assert.ok(view.includes(':value="area.title"') && !view.includes('index + 1'));
+});
+
 test('local toggle updates nested draft configuration and can be reversed without a server call', () => {
     const actions = [{id:'if',type:'control-condition',config:{true_actions:[{id:'a',type:'http_request',config:{url:'https://example.test'}}]}}];
     const canvas = localDraft(actions, []);

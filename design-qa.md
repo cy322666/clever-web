@@ -175,3 +175,21 @@ Automated checks: 100 focused JS tests; 41 focused PHP tests / 850 assertions; p
 Implementation checklist: approved artwork restored; themes/statuses checked; compact code editor and formatter verified; no remaining P0/P1/P2 findings.
 
 final result: passed
+
+## 2026-10-13 stage area appearance
+
+Source visual truth: user screenshot `NSIRD_screencaptureui_lwoFYc/Снимок экрана — 2026-10-13 в 20.52.18.png` (1026 x 456). Scope is the area container only, with the numeric prefix explicitly excluded. Node artwork, captions, arrows and stored area geometry are unchanged.
+
+Evidence: `backups/canvas-controls-20261012/stage-style-dark.png`, `stage-style-dark-detail.png` and `stage-style-light.png`. The actual Laravel/Livewire editor ran at `http://127.0.0.1:8098/editor`, in an isolated fixture with external requests blocked. Full screenshots are 1280 x 720 at CSS viewport 1280 x 720, density 1; the focused dark crop is 510 x 395. Source and focused implementation were opened together in one comparison input. Source nodes measure approximately 156px, implementation nodes 96px; typography and radii were compared in node-relative units (ratio 1.625), not mistaken for pixel-identical scale. Fixture node content and manually chosen area dimensions intentionally differ from the user's live flow.
+
+Fidelity checks: 16px semibold title and 24px line height match the reference's title hierarchy at normal canvas scale; 26px heading inset and 16px corner radius preserve the spacing rhythm. Opaque dark `#2b2e35`, border `#454851`, and a matching light-theme surface hide the grid inside the area. The separate heading strip and divider are removed. No imagery was replaced or generated. Copy is only the editable title, without numbering; controls appear on hover or keyboard focus rather than permanently beside the title.
+
+Comparison history: the original implementation had a translucent grid-filled body, a separate header strip, small text and permanent controls. These reported differences were fixed before the combined comparison. No remaining actionable P0/P1/P2 differences were found in the scoped comparison. The complete canvas was also reviewed in both themes; the focused crop supplies readable title, border and surface evidence.
+
+Interactions verified: create, rename, keyboard move/resize, pointer move, save response and deletion of the area while all six fixture nodes remain. Keyboard focus exposes accessible controls; idle view hides them. Browser console has no warnings/errors. Production CRM execution was not part of these checks.
+
+Automated checks: 85 focused JavaScript tests passed; production build and whitespace validation passed. This is targeted verification, not a claim that full application CI is green.
+
+Implementation checklist: opaque surface; no header strip; unnumbered editable title; contextual controls; light/dark appearance and existing editing lifecycle checked.
+
+final result: passed
