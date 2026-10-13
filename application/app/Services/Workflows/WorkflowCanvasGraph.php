@@ -10,10 +10,12 @@ final class WorkflowCanvasGraph
         if ($connections !== null) {
             $nodes = WorkflowGraph::nodes($actions);
             $definition = ['actions' => $actions, 'connections' => $connections];
-            $returns = WorkflowGraph::loopReturns($definition) + WorkflowGraph::loopFeedback($definition);
+            $returns = WorkflowGraph::loopReturns($definition);
+            $feedback = WorkflowGraph::loopFeedback($definition);
             $edges = [];
             foreach ($connections as $index => $edge) {
-                $edges[] = $edge + ['path' => '', 'index' => 0, 'loopReturn' => isset($returns[$index])];
+                // Done feedback affects graph ordering, not the shape of a link.
+                $edges[] = $edge + ['path' => '', 'index' => 0, 'loopReturn' => isset($returns[$index]), 'loopFeedback' => isset($feedback[$index])];
             }
             foreach (array_fill_keys($startIds, ['step' => ['type' => 'trigger']]) + $nodes as $id => $node) {
                 $condition = WorkflowGraph::condition($node['step']);

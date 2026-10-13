@@ -595,13 +595,14 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         });
         const forward = connections.filter((_, index) => !returns.has(index));
         const edges = connections.map((edge, index) => {
-            let loopReturn = returns.has(index);
+            const loopReturn = returns.has(index);
+            let loopFeedback = false;
             if (!loopReturn && isLoop(edge.sourceId) && edge.sourcePort === 'done') {
                 const next = reach([edge.targetId], forward.filter(item => item !== edge));
-                loopReturn = next.has(edge.sourceId) || connections.some((item, i) => returns.has(i) && item.targetId === edge.sourceId && next.has(item.sourceId))
+                loopFeedback = next.has(edge.sourceId) || connections.some((item, i) => returns.has(i) && item.targetId === edge.sourceId && next.has(item.sourceId))
                     || connections.some(item => item.sourceId === edge.sourceId && item.sourcePort === 'each' && item.targetId === edge.targetId);
             }
-            return {...edge, loopReturn};
+            return {...edge, loopReturn, loopFeedback};
         });
         const allNodes = {...Object.fromEntries(startIds.map(id => [id, {type:'trigger'}])), ...nodes};
         Object.entries(allNodes).forEach(([id, node]) => {
@@ -731,9 +732,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         if (!stage) return;
         const nodes = this.cardPositions();
         const controls = Array.from(stage.querySelectorAll('[data-workflow-edge-target]'));
-        const loopReturn = controls.some(e => e.dataset.workflowEdgeSource === sourceId && e.dataset.workflowEdgeTarget === targetId && e.dataset.workflowLoopReturn === 'true');
-        const edges = controls.filter(e => e.dataset.workflowLoopReturn !== 'true').map(e => ({source:e.dataset.workflowEdgeSource,target:e.dataset.workflowEdgeTarget}));
-        this.pendingInsertion = {sourceId,targetId,nodes,edges,dropPosition,loopReturn};
+        const backward = e => e.dataset.workflowLoopReturn === 'true' || e.dataset.workflowLoopFeedback === 'true';
+        const feedback = controls.some(e => e.dataset.workflowEdgeSource === sourceId && e.dataset.workflowEdgeTarget === targetId && backward(e));
+        const edges = controls.filter(e => !backward(e)).map(e => ({source:e.dataset.workflowEdgeSource,target:e.dataset.workflowEdgeTarget}));
+        this.pendingInsertion = {sourceId,targetId,nodes,edges,dropPosition,feedback};
     },
 
     placeInsertedNode(detail) {
@@ -744,7 +746,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             const source = before.nodes[detail.sourceId];
             if (!source) return;
             const desired = {...before.nodes};
-            const inserted = before.loopReturn
+            const inserted = before.feedback
                 ? {x:(source.x + (before.nodes[detail.targetId]?.x ?? source.x)) / 2,y:Math.max(...Object.values(desired).map(p=>p.y))+180}
                 : {x:source.x+192,y:before.nodes[detail.targetId]?.y ?? source.y+(['yes', 'done'].includes(detail.sourcePort) ? -180 : ['no', 'each'].includes(detail.sourcePort) ? 180 : 0)};
             if (before.dropPosition) {
@@ -754,7 +756,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 inserted.y = before.dropPosition.y - (box?.height ?? 96 * this.scale) / this.scale / 2;
             }
             const downstream = new Set();
-            const queue = detail.targetId && !before.loopReturn ? [detail.targetId] : [];
+            const queue = detail.targetId && !before.feedback ? [detail.targetId] : [];
             while (queue.length) {
                 const id = queue.shift();
                 if (downstream.has(id) || id === detail.sourceId) continue;
@@ -1103,6 +1105,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const edges = Array.from(controls?.querySelectorAll('[data-workflow-edge-target]') || []).map(el => ({
             source: el.dataset.workflowEdgeSource, target: el.dataset.workflowEdgeTarget, port: el.dataset.workflowEdgePort,
             loopReturn: el.dataset.workflowLoopReturn === 'true',
+            loopFeedback: el.dataset.workflowLoopFeedback === 'true',
         }));
         const desired = this.graphLayout(this.nodeElements().map(node => node.dataset.workflowNodeId), edges);
         if (!desired) return; // Never destroy a saved layout for an invalid cyclic graph.
@@ -1117,7 +1120,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const nodes = new Map(ids.map(id => [id, {id, incoming: [], outgoing: [], rank: 0, children: []}]));
         const seen = new Set();
         edges.forEach(edge => {
-            if (edge.loopReturn) return;
+            if (edge.loopReturn || edge.loopFeedback) return;
             const key = JSON.stringify([edge.source, edge.target]);
             if (!nodes.has(edge.source) || !nodes.has(edge.target) || seen.has(key)) return;
             seen.add(key);
@@ -1280,7 +1283,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.mutationObserver.observe(stage, {
             childList: true, subtree: true, attributes: true,
             attributeFilter: ['style', 'class', 'data-workflow-node-id', 'data-workflow-detached',
-                'data-workflow-edge-source', 'data-workflow-edge-port', 'data-workflow-edge-target', 'data-workflow-loop-return'],
+                'data-workflow-edge-source', 'data-workflow-edge-port', 'data-workflow-edge-target', 'data-workflow-loop-return', 'data-workflow-loop-feedback'],
         });
 
         this.resizeObserver?.disconnect();
@@ -1759,6 +1762,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 handles:[{part:'exit',x:route.exitX,y:(start.y+route.y)/2},
                     {part:'lane',x,y:route.y},{part:'entry',x:route.entryX,y:(end.y+route.y)/2}]};
         }
+        // Older versions also saved angular routes for Done continuations.
+        // Keep the pinned midpoint, but render those links as ordinary curves.
+        if (saved?.kind === 'loop') saved = {kind:'curve',x:(saved.exitX+saved.entryX)/2,y:saved.y};
         const length = (a,b) => Math.min(240,Math.max(48,Math.hypot(b.x-a.x,b.y-a.y)*.38));
         if (saved?.kind === 'curve' || end.x <= start.x) {
             const route = saved?.kind === 'curve' ? {...saved}

@@ -446,7 +446,9 @@ class WorkflowLoopTest extends TestCase
             ->call('connectWorkflowNodes', 'action:body', 'output', 'action:loop');
         $this->assertCount(4, $page->get('definition')['connections']);
         $this->assertTrue($page->get('workflowActions')[0]['config']['require_return']);
-        $page->assertSeeHtml('data-workflow-loop-return="true"');
+        $page->assertSeeHtml('x-bind:data-workflow-loop-return="edge.loopReturn ? \'true\' : \'false\'"');
+        $edges = WorkflowCanvasGraph::edges($page->get('workflowActions'), $page->get('definition')['connections']);
+        $this->assertCount(1, array_filter($edges, fn ($edge) => $edge['loopReturn'] ?? false));
         $page->call('disconnectWorkflowNodes', 'action:body', 'output', 'action:loop');
         $this->assertTrue($page->get('workflowActions')[0]['config']['require_return']);
         $this->assertSame(['loop', 'body'], array_column($this->execute($page->get('definition')), 'id'));

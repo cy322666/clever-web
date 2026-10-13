@@ -54,10 +54,33 @@ test('local edge projection recognizes done feedback, multiple starts and empty 
         {sourceId:'action:loop',sourcePort:'done',targetId:'action:before'},
     ]);
     const edges=canvas.canvasEdges([],['trigger','trigger:two']);
-    assert.equal(edges.find(e=>e.sourcePort==='done').loopReturn,true);
+    assert.equal(edges.find(e=>e.sourcePort==='done').loopReturn,false);
+    assert.equal(edges.find(e=>e.sourcePort==='done').loopFeedback,true);
+    const layout = canvas.graphLayout(['trigger','trigger:two','action:before','action:loop'],edges.filter(e=>e.targetId).map(e=>({
+        source:e.sourceId,target:e.targetId,port:e.sourcePort,loopReturn:e.loopReturn,loopFeedback:e.loopFeedback,
+    })));
+    assert.ok(layout,'Smooth feedback must still be excluded from acyclic layout ordering');
+    assert.ok(layout['action:loop'].x > layout['action:before'].x);
     assert.equal(edges.find(e=>e.sourcePort==='each').targetId,null);
     assert.equal(edges.find(e=>e.sourceId==='trigger').targetId,null);
     assert.equal(edges.find(e=>e.sourceId==='trigger:two').targetId,'action:before');
+});
+
+test('done continuation through a shared body is smooth while actual nested returns stay angular', () => {
+    const edge = (source,port,target) => ({sourceId:'action:'+source,sourcePort:port,targetId:'action:'+target});
+    const actions = [{id:'outer',type:'workflow_loop'},{id:'inner',type:'workflow_loop'},
+        {id:'body',type:'workflow_delay'},{id:'telegram',type:'telegram_send_message'}];
+    const connections = [edge('outer','each','inner'),edge('inner','each','body'),edge('body','output','inner'),
+        edge('inner','done','outer'),edge('outer','done','telegram'),edge('telegram','output','inner')];
+    const canvas = localDraft(actions,connections);
+    const projected = canvas.canvasEdges([],['trigger']).slice(0,connections.length);
+    assert.deepEqual(Array.from(projected,e=>e.loopReturn),[false,false,true,true,false,false]);
+    assert.deepEqual(Array.from(projected,e=>e.loopFeedback),[false,false,false,false,true,false]);
+    for (const e of projected) {
+        const route = canvas.connectionRoute({x:100,y:300},{x:350,y:80},e.loopReturn);
+        assert.equal(route.d.includes(' Q '),e.loopReturn);
+        assert.equal(route.d.includes(' C '),!e.loopReturn);
+    }
 });
 
 test('condition edges are neutral until evaluated and only the selected route is green', () => {
@@ -743,13 +766,53 @@ test('connection routing uses canvas coordinates at different zoom levels', () =
 test('return insertion keeps the loop and existing body in place', () => {
     const f = fixture();
     const positions = {loop:{x:48,y:100},body:{x:500,y:100}};
-    f.canvas.pendingInsertion = {sourceId:'body',targetId:'loop',nodes:positions,edges:[],dropPosition:null,loopReturn:true};
+    f.canvas.pendingInsertion = {sourceId:'body',targetId:'loop',nodes:positions,edges:[],dropPosition:null,feedback:true};
     let result;
     f.canvas.restoreCardPositions = desired => {result=desired;};
     f.canvas.placeInsertedNode({sourceId:'body',targetId:'loop',sourcePort:'output',nodeId:'new'});
     assert.deepEqual(result.loop,positions.loop);
     assert.deepEqual(result.body,positions.body);
     assert.ok(result.new.y > result.body.y);
+});
+
+test('inserting into smooth done feedback does not shift the earlier node or loop', () => {
+    const f = fixture();
+    const positions = {check:{x:48,y:100},loop:{x:500,y:100}};
+    const controls = [
+        {dataset:{workflowEdgeSource:'check',workflowEdgeTarget:'loop',workflowLoopReturn:'false',workflowLoopFeedback:'false'}},
+        {dataset:{workflowEdgeSource:'loop',workflowEdgeTarget:'check',workflowLoopReturn:'false',workflowLoopFeedback:'true'}},
+    ];
+    f.canvas.cardPositions = () => positions;
+    f.canvas.$refs.stage = {querySelectorAll:()=>controls};
+    f.canvas.captureInsertion('loop','check');
+    assert.equal(f.canvas.pendingInsertion.feedback,true);
+    assert.equal(f.canvas.pendingInsertion.edges.length,1);
+    let result;
+    f.canvas.restoreCardPositions = desired => {result=desired;};
+    f.canvas.placeInsertedNode({sourceId:'loop',targetId:'check',sourcePort:'done',nodeId:'new'});
+    assert.deepEqual(result.check,positions.check);
+    assert.deepEqual(result.loop,positions.loop);
+    assert.ok(result.new.y > result.loop.y);
+});
+
+test('legacy pinned angular done routes become smooth without losing the chosen waypoint', () => {
+    const saved = {kind:'loop',exitX:250,entryX:500,y:550};
+    const boxes = [{id:'loop',x:100,y:350},{id:'telegram',x:550,y:80}];
+    const edge = {source:'loop',target:'telegram',port:'done'};
+    let expected;
+    for (const scale of [.25,1,2]) {
+        const f = routingFixture(boxes,[edge],scale);
+        f.canvas.edgeRoutes[JSON.stringify(['loop','done','telegram'])] = saved;
+        const [path] = f.draw();
+        assert.match(path,/ C /);
+        assert.doesNotMatch(path,/ Q | L /);
+        assert.match(path,/, 375 550 C /);
+        const normalized = path.replace(/-?\d+(?:\.\d+)?/g,value=>Number(value).toFixed(6));
+        if (expected) assert.equal(normalized,expected);
+        expected = normalized;
+        assert.equal(f.controls[0].style.top,'550px');
+        assert.deepEqual(saved,{kind:'loop',exitX:250,entryX:500,y:550},'Rendering must not mutate saved workflow data');
+    }
 });
 
 test('pinned loop routes can run behind any node and survive endpoint movement and zoom', () => {
@@ -1031,6 +1094,7 @@ test('attribute-only Livewire resets restore node positions and schedule edge co
     assert.equal(f.observedOptions().attributes, true);
     assert.ok(f.observedOptions().attributeFilter.includes('style'));
     assert.ok(f.observedOptions().attributeFilter.includes('data-workflow-loop-return'));
+    assert.ok(f.observedOptions().attributeFilter.includes('data-workflow-loop-feedback'));
     f.mutate([{type:'attributes',attributeName:'style',target:f.node}]);
     assert.equal(f.node.style.transform, 'translate3d(40px, 180px, 0px)');
     assert.equal(refreshes, 1);

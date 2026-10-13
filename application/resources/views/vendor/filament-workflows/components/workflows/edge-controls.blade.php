@@ -16,6 +16,7 @@
                 x-bind:data-workflow-edge-port="edge.sourcePort"
                 x-bind:data-workflow-edge-target="edge.targetId"
                 x-bind:data-workflow-loop-return="edge.loopReturn ? 'true' : 'false'"
+                x-bind:data-workflow-loop-feedback="edge.loopFeedback ? 'true' : 'false'"
                 x-bind:aria-label="edge.targetId ? 'Добавить промежуточную ноду' : 'Добавить действие'"
                 x-bind:title="edge.targetId ? 'Добавить промежуточную ноду · Перетащите, чтобы изменить связь' : 'Добавить действие'">
                 <x-filament::icon icon="heroicon-o-plus" class="h-3.5 w-3.5"/>

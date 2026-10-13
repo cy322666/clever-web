@@ -41,6 +41,27 @@ class WorkflowCanvasGraphTest extends TestCase
         $this->assertSame(['action:yes-step', 'action:no-step'], array_column($tails, 'sourceId'));
     }
 
+    public function test_only_actual_loop_returns_are_angular_even_when_done_shares_the_body(): void
+    {
+        $actions = [
+            ['id' => 'outer', 'type' => 'workflow_loop'],
+            ['id' => 'inner', 'type' => 'workflow_loop'],
+            ['id' => 'body', 'type' => 'workflow_delay'],
+            ['id' => 'telegram', 'type' => 'telegram_send_message'],
+        ];
+        $edge = fn ($source, $port, $target) => ['sourceId' => 'action:'.$source, 'sourcePort' => $port, 'targetId' => 'action:'.$target];
+        $connections = [
+            $edge('outer', 'each', 'inner'), $edge('inner', 'each', 'body'),
+            $edge('body', 'output', 'inner'), $edge('inner', 'done', 'outer'),
+            $edge('outer', 'done', 'telegram'), $edge('telegram', 'output', 'inner'),
+        ];
+        foreach ([false, true] as $execution) {
+            $edges = array_slice(WorkflowCanvasGraph::edges($actions, $connections, $execution), 0, count($connections));
+            $this->assertSame([false, false, true, true, false, false], array_column($edges, 'loopReturn'));
+            $this->assertSame([false, false, false, false, true, false], array_column($edges, 'loopFeedback'));
+        }
+    }
+
     private function condition(): array
     {
         return ['id' => 'if', 'type' => 'control-condition', 'config' => [

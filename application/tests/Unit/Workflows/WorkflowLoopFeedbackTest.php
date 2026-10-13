@@ -87,7 +87,8 @@ class WorkflowLoopFeedbackTest extends TestCase
         }
         $edges = WorkflowCanvasGraph::edges($this->definition()['actions'], $this->definition()['connections']);
         $feedback = array_values(array_filter($edges, fn ($e) => $e['sourceId'] === 'action:inner' && $e['sourcePort'] === 'done'));
-        $this->assertTrue($feedback[0]['loopReturn']);
+        $this->assertFalse($feedback[0]['loopReturn']);
+        $this->assertTrue($feedback[0]['loopFeedback']);
     }
 
     public function test_infinite_done_feedback_is_bounded_and_preview_never_follows_done(): void
