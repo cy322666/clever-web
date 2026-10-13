@@ -82,11 +82,20 @@ if (typeof document.querySelectorAll === 'function') {
             state.layer.scrollTop = field.scrollTop; state.layer.scrollLeft = field.scrollLeft;
         });
     };
-    function schedule() { if (!queued) { queued = true; requestAnimationFrame(refresh); } }
+    // Alpine fills forms while hidden, then reveals them with hidden/x-show.
+    // Flush after its DOM updates, before the browser paints the visible form.
+    function schedule() { if (!queued) { queued = true; queueMicrotask(refresh); } }
     ['input','change','focusin','click','drop','livewire:navigated','alpine:initialized','DOMContentLoaded'].forEach(event => document.addEventListener(event, schedule));
     new MutationObserver(records => {
-        if (records.some(record => !record.target.closest?.('.workflow-expression-paint') && (record.type === 'childList' || record.attributeName === 'value' || record.target === document.documentElement || record.target.matches?.('input,textarea')))) schedule();
-    }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['value','class']});
+        if (records.some(record => {
+            const target = record.target;
+            // Our overlay updates and unrelated canvas movement must not cause
+            // another paint pass. Ancestors matter when a whole tab is revealed.
+            if (target.closest?.('.workflow-expression-paint')) return false;
+            return target.closest?.('.workflow-node-settings') || target.querySelector?.('.workflow-node-settings')
+                || Array.from(record.removedNodes || []).some(node => node.matches?.('.workflow-node-settings') || node.querySelector?.('.workflow-node-settings'));
+        })) schedule();
+    }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['value','class','style','hidden','type']});
     schedule();
 }
 
