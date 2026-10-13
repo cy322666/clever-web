@@ -272,13 +272,13 @@ test('curve and loop bend handles snap independently without moving endpoints or
     }
 });
 
-test('node and connection lines are thin while edge hit targets remain easy to grab', () => {
+test('connections are heavier without changing node borders or edge hit targets', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
-    assert.match(css, /\.workflow-node-edge\s*\{[^}]*stroke-width:\s*1\.25;[^}]*vector-effect:\s*non-scaling-stroke;/s);
+    assert.match(css, /\.workflow-node-edge\s*\{[^}]*stroke-width:\s*2\.5;[^}]*vector-effect:\s*non-scaling-stroke;/s);
     assert.match(css, /border:\s*1px solid #9da6b3 !important;/);
     assert.doesNotMatch(css, /border:\s*2px solid #9da6b3/);
     assert.match(css, /\.workflow-node-card--selected\s*\{\s*outline:\s*1px solid #339dc7/);
-    assert.match(css, /\.workflow-node-edge\.is-selected\s*\{\s*stroke-width:\s*2;/);
+    assert.match(css, /\.workflow-node-edge\.is-selected\s*\{\s*stroke-width:\s*3\.5;/);
     assert.match(css, /\.workflow-node-edge-hit\s*\{[^}]*stroke-width:\s*16;[^}]*pointer-events:\s*stroke;/s);
 });
 
