@@ -885,7 +885,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     openCanvasPalette(event) {
-        if (event.target.closest('button, input, textarea, select, a, [data-workflow-node-card], .workflow-connection-menu, .workflow-node-edge')) return;
+        if (event.target.closest('button, input, textarea, select, a, [data-workflow-node-card], .workflow-node-edge')) return;
         const stage = this.$refs.stage?.getBoundingClientRect();
         if (!stage) return;
         event.preventDefault();
@@ -938,7 +938,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         if (!viewport || !stage || event.clientX < viewport.left || event.clientX > viewport.right
             || event.clientY < viewport.top || event.clientY > viewport.bottom) return false;
         const hit = document.elementFromPoint?.(event.clientX, event.clientY);
-        if (hit?.closest('button, input, select, textarea, a, [data-workflow-node-card], .workflow-connection-menu')) return false;
+        if (hit?.closest('button, input, select, textarea, a, [data-workflow-node-card]')) return false;
         const connection = this.connecting;
         // Releasing a new branch does not replace any existing outgoing edges.
         // When reconnecting an existing edge, insertion keeps its old target.
@@ -1010,7 +1010,6 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         }
     },
     cancelConnection() { this.cancelEdgeRouteDrag(); this.connecting = null; this.connectionTargetId = null; this.connectionError = ''; this.pendingEdgeDrag = null; this.connectionCursor = null; this.connectionDragOrigin = null; this.selectedEdge = null; this.scheduleGraphRefresh(); },
-    reconnectSelectedEdge(event = {}) { if (this.selectedEdge) this.beginEdgeReconnect(this.selectedEdge, event); },
     beginEdgeReconnect(edge, event = {}) {
         event.preventDefault?.();
         if (event.pointerId !== undefined) this.$refs.viewport?.setPointerCapture?.(event.pointerId);
@@ -1078,12 +1077,6 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         else delete this.edgeRoutes[drag.key];
         this.routeDrag = null;
         this.$refs.viewport?.releasePointerCapture?.(drag.pointerId);
-        this.scheduleGraphRefresh();
-    },
-    resetSelectedEdgeRoute() {
-        if (!this.selectedEdge) return;
-        delete this.edgeRoutes[this.edgeRouteKey(this.selectedEdge)];
-        this.saveNodeLayout();
         this.scheduleGraphRefresh();
     },
     edgeControlButtons(add) {

@@ -971,7 +971,17 @@ test('loop side handles can be fixed independently and curve handles move freely
     assert.doesNotMatch(curve.d,/[LQ]/);
 });
 
-test('clicking an edge selects it, cancellation restores the old route, and reset is saved', () => {
+test('edge selection has no floating menu while direct manipulation remains available', () => {
+    const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    assert.doesNotMatch(view + css + source, /workflow-connection-menu|Перетащите линию или точки|Сбросить изгиб|resetSelectedEdgeRoute|reconnectSelectedEdge/);
+    assert.match(view, /x-show="connecting \|\| connectionError"/);
+    assert.match(source, /this\.startEdgeRouteDrag\(edge, route, event\)/);
+    assert.match(source, /this\.beginEdgeReconnect\(/);
+});
+
+test('clicking an edge selects it and cancellation restores the old route', () => {
     const f = routingFixture([{id:'action:source',x:100,y:100},{id:'action:test',x:700,y:100}],
         [{source:'action:source',target:'action:test'}]);
     f.draw();
@@ -991,9 +1001,6 @@ test('clicking an edge selects it, cancellation restores the old route, and rese
     f.canvas.stopCanvasInteraction({...f.event(200,300),type:'pointercancel'});
     assert.equal(f.canvas.edgeRoutes[key].y,250);
     assert.equal(f.saves(),0);
-    f.canvas.resetSelectedEdgeRoute();
-    assert.equal(f.canvas.edgeRoutes[key],undefined);
-    assert.equal(f.saves(),1);
 });
 
 test('saved routes reject malformed coordinates and browser storage cannot override a saved route', () => {

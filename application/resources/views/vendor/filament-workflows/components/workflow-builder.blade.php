@@ -209,13 +209,6 @@
                 <div class="workflow-connection-hint" x-show="connecting || connectionError" x-cloak x-on:pointerdown.stop>
                     <span x-text="connectionError || 'Выберите другую ноду'"></span><button type="button" x-show="selectedEdge" x-on:click="removeSelectedEdge()">Удалить связь</button><button type="button" x-on:click="cancelConnection()">Закрыть</button>
                 </div>
-                <div class="workflow-connection-menu" x-show="selectedEdge && !connecting" x-cloak x-on:pointerdown.stop>
-                    <span>Перетащите линию или точки</span>
-                    <button type="button" x-on:click="resetSelectedEdgeRoute()">Сбросить изгиб</button>
-                    <button type="button" x-on:click="reconnectSelectedEdge()">Переподключить</button>
-                    <button type="button" x-on:click="removeSelectedEdge()">Удалить связь</button>
-                    <button type="button" x-on:click="cancelConnection()" aria-label="Закрыть меню связи">×</button>
-                </div>
                 <div
                     x-ref="stage"
                     wire:ignore.self

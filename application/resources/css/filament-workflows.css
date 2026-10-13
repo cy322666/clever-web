@@ -6881,10 +6881,10 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-edge.is-selected { stroke-width: 3.5; filter: drop-shadow(0 0 3px rgb(115 126 141 / 0.3)); }
 .workflow-node-edge--preview { stroke-dasharray: 5 4; }
 .workflow-node-edge.workflow-node-edge--completed { stroke: #4d9c70 !important; }
-.workflow-connection-menu, .workflow-connection-hint { position: absolute; z-index: 35; top: 1rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; border: 1px solid #c5cdd7; border-radius: 0.5rem; background: #fff; color: #465262; box-shadow: 0 3px 12px rgb(31 41 55 / 0.1); font-size: 0.8125rem; white-space: nowrap; }
-.workflow-connection-menu button:hover, .workflow-connection-hint button:hover { color: #111827; }
-.dark :is(.workflow-connection-menu, .workflow-connection-hint) { background: var(--workflow-dark-surface); border-color: var(--workflow-dark-line); color: var(--workflow-dark-text); }
-.dark :is(.workflow-connection-menu, .workflow-connection-hint) button:hover { color: #fff; }
+.workflow-connection-hint { position: absolute; z-index: 35; top: 1rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; border: 1px solid #c5cdd7; border-radius: 0.5rem; background: #fff; color: #465262; box-shadow: 0 3px 12px rgb(31 41 55 / 0.1); font-size: 0.8125rem; white-space: nowrap; }
+.workflow-connection-hint button:hover { color: #111827; }
+.dark .workflow-connection-hint { background: var(--workflow-dark-surface); border-color: var(--workflow-dark-line); color: var(--workflow-dark-text); }
+.dark .workflow-connection-hint button:hover { color: #fff; }
 @media (max-width: 767px) {
     .workflow-node-settings__parameters { padding: 1rem 0 0; }
     .workflow-node-settings__workspace .workflow-expression-picker { border-right: 0; border-bottom: 1px solid #d7dce3; padding: 0 0 1rem; }
