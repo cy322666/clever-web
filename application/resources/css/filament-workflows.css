@@ -7161,7 +7161,7 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-card[data-node-tone="create"] { --workflow-node-fill: #2878df; }
 .workflow-node-card[data-node-tone="update"] { --workflow-node-fill: #2878df; }
 .workflow-node-card[data-node-tone="copy"] { --workflow-node-fill: #3f9787; }
-.workflow-node-card[data-node-tone="link"] { --workflow-node-fill: #6874c9; }
+.workflow-node-card[data-node-tone="link"] { --workflow-node-fill: #2878df; }
 .workflow-node-card[data-node-tone="remove"] { --workflow-node-fill: #ce586e; }
 .workflow-node-card[data-node-tone="condition"] { --workflow-node-fill: #9450d5; }
 .workflow-node-card[data-node-tone="loop"] { --workflow-node-fill: #5366d9; }

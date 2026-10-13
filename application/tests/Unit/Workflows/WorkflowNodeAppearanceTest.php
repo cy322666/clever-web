@@ -96,7 +96,7 @@ class WorkflowNodeAppearanceTest extends TestCase
 
     public function test_entity_operations_share_blue_while_other_types_keep_their_colors_in_editor_and_history(): void
     {
-        $types = ['amocrm_find_entity'=>'query', 'amocrm_create_contact'=>'create', 'amocrm_update_contact_fields'=>'update',
+        $types = ['amocrm_find_entity'=>'query', 'amocrm_create_contact'=>'create', 'amocrm_update_contact_fields'=>'update', 'amocrm_link_entity'=>'link',
             'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_filter_list'=>'filter', 'workflow_delay'=>'delay',
             'workflow_set_variable'=>'variable', 'workflow_javascript'=>'javascript', 'http_request'=>'http', 'telegram_send_message'=>'telegram'];
         $css = file_get_contents(resource_path('css/filament-workflows.css'));
@@ -116,7 +116,8 @@ class WorkflowNodeAppearanceTest extends TestCase
         $this->assertSame('#2878df', $colors['query']);
         $this->assertSame($colors['query'], $colors['create']);
         $this->assertSame($colors['query'], $colors['update']);
-        $this->assertCount(count($types) - 2, array_unique($colors));
+        $this->assertSame($colors['query'], $colors['link']);
+        $this->assertCount(count($types) - 3, array_unique($colors));
         $this->assertStringContainsString('background-blend-mode: luminosity;', $css);
         $this->assertStringContainsString('.workflow-node-card--disabled .workflow-node-artwork { filter: grayscale(1);', $css);
     }
