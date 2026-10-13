@@ -21,12 +21,12 @@ class WorkflowSetVariableAction
 
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
-        return [Repeater::make('assignments')->label('Переменные')->addActionLabel('Добавить переменную')
+        return [Repeater::make('assignments')->label('')->hiddenLabel()->addActionLabel('Добавить переменную')
             ->minItems(1)->maxItems(50)->defaultItems(1)->schema([
                 TextInput::make('name')->label('Имя')->placeholder('contact_id')->required()->maxLength(64)
                     ->regex('/^[A-Za-z][A-Za-z0-9_]{0,63}$/D'),
                 WorkflowValueInput::make('value')->label('Значение')->placeholder('{{ $("Найти контакт").first().id }}'),
-            ])->helperText('В каждой ветке задайте одно имя, например contact_id. Далее используйте {{ $vars.contact_id }}. Изменения внутри цикла не переходят в следующую итерацию или в другой запуск.')];
+            ])];
     }
 
     public static function validateAssignments(mixed $rows): array

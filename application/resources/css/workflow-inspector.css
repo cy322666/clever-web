@@ -75,6 +75,15 @@
 .workflow-workbench .workflow-workbench__main > .workflow-node-editor { padding-left: 0; border-left: 0; }
 .workflow-node-library--floating .workflow-node-library__panel { z-index: 45; flex-basis: auto; }
 .workflow-node-library--floating .workflow-node-library__header > div { flex: 1; }
+.workflow-headers-field__rows { display: grid; gap: 12px; }
+.workflow-headers-field__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 24px; align-items: end; gap: 8px; }
+.workflow-headers-field__row label { display: grid; gap: 5px; min-width: 0; font-size: 12px; font-weight: 400; }
+.workflow-headers-field__remove { display: grid; place-items: center; height: 36px; color: #e45959; }
+.workflow-headers-field__add { justify-self: start; padding: 6px 10px; border: 1px solid #d4dae2; border-radius: 6px; font-size: 12px; }
+.dark .workflow-headers-field__add { border-color: var(--workflow-dark-outline); }
+.workflow-json-tree__caret { display: inline-block; width: 14px; color: #8290a3; }
+.workflow-input-json__value.is-copied { background: rgb(47 159 103 / .16); outline: 1px solid rgb(47 159 103 / .45); }
+.workflow-json-tree .workflow-input-json__value:focus-visible { outline: 2px solid #a7bfcc; outline-offset: 1px; }
 .workflow-node-library.is-contextual .workflow-node-library__panel { border: 1px solid #d4dae2; border-radius: 10px; box-shadow: 0 12px 36px #2028331c; }
 .workflow-node-library.is-contextual .workflow-node-library__header { min-height: 48px; }
 .workflow-node-library.is-contextual .workflow-node-library__body { overflow-y: auto; }

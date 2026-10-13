@@ -19,7 +19,7 @@
         <div class="workflow-value-field__header">
         <label :for="mode === 'value' && @js($hasOptions) ? @js($getId()) : @js($getId().'-value')">{{ $getLabel() }}@if($isRequired())<span aria-hidden="true"> *</span>@endif</label>
         <div class="workflow-value-field__modes" role="group" aria-label="Способ задания значения">
-            <button type="button" :aria-pressed="mode === 'value'" x-on:click="mode = 'value'; if (String(state ?? '').includes('{' + '{')) state = ''">Значение</button>
+            <button type="button" :aria-pressed="mode === 'value'" x-on:click="mode = 'value'; if (String(state ?? '').includes('{' + '{')) state = ''">Вручную</button>
             <button type="button" :aria-pressed="mode === 'expression'" x-on:click="mode = 'expression'; $nextTick(() => $refs.value.focus())">Переменная</button>
         </div>
         </div>

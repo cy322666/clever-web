@@ -169,9 +169,10 @@ class WorkflowActionFieldsTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('workflow-json-tree', $html);
-        $this->assertStringContainsString('Свернуть всё', $html);
-        $this->assertStringContainsString('Развернуть всё', $html);
+        $this->assertStringNotContainsString('Свернуть всё', $html);
+        $this->assertStringNotContainsString('Развернуть всё', $html);
         $this->assertStringContainsString('toggle(row.path)', $html);
+        $this->assertStringContainsString('copyValue(row.value, row.id)', $html);
     }
 
     public function test_status_form_keeps_pipeline_and_status_expressions_as_strings(): void

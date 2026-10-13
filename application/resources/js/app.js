@@ -580,7 +580,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return edges;
     },
 
-    // Placement uses a hidden 10-unit grid, independent of the static backdrop.
+    // Both placement and the backdrop use canvas coordinates, not screen pixels.
     gridSpacing: 20,
     snapCoordinate(value) {
         const step = this.gridSpacing / 2;
@@ -588,7 +588,16 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     gridStyle() {
-        return 'background-size:20px 20px;background-position:0px 0px;';
+        const scale = this.scale || 1;
+        const pitch = this.gridSpacing * scale;
+        const phase = value => ((value % pitch) + pitch) % pitch;
+        const x = (this.$refs.stage?.offsetLeft || 0) + this.translateX;
+        const y = (this.$refs.stage?.offsetTop || 0) + this.translateY;
+        // Gradients place the dot at the tile centre. Align it with world (0, 0)
+        // using the same pan/zoom as stageStyle(), without changing grid density.
+        // Native scrolling is handled by background-attachment: local in CSS.
+        const opacity = Math.min(1, (scale / 0.35) ** 2);
+        return `--workflow-grid-scale:${scale};--workflow-grid-opacity:${opacity};background-size:${pitch}px ${pitch}px;background-position:${phase(x - pitch / 2)}px ${phase(y - pitch / 2)}px;`;
     },
 
     cardPositions() {
@@ -2031,7 +2040,27 @@ window.workflowExecutionViewer = (graph) => ({
     statusLabel(value) { return {completed:'Выполнено', skipped:'Пропущено', failed:'Ошибка', error:'Ошибка', running:'Выполняется'}[value] || value; },
 });
 
+window.workflowValueClipboard = () => ({
+    copiedRow: null,
+    copyError: '',
+    copyTimer: null,
+    async copyValue(value, id) {
+        this.copyError = '';
+        this.copiedRow = null;
+        try {
+            // Copy the value, not the expression, JSON key, quotes or comma.
+            await navigator.clipboard.writeText(typeof value === 'string' ? value : (JSON.stringify(value) ?? 'null'));
+            this.copiedRow = id;
+            window.clearTimeout(this.copyTimer);
+            this.copyTimer = window.setTimeout(() => { this.copiedRow = null; }, 1500);
+        } catch {
+            this.copyError = 'Не удалось скопировать. Выделите значение и нажмите Ctrl+C.';
+        }
+    },
+});
+
 window.workflowJsonViewer = (initialValue) => ({
+    ...window.workflowValueClipboard(),
     value: initialValue,
     signature: null,
     collapsed: [],
@@ -2072,12 +2101,6 @@ window.workflowJsonViewer = (initialValue) => ({
     collapseNested() {
         this.collapsed = this.branchPaths().filter((branch) => branch.depth >= 1).map((branch) => branch.path);
     },
-    collapseAll() {
-        this.collapsed = this.branchPaths().map((branch) => branch.path);
-    },
-    expandAll() {
-        this.collapsed = [];
-    },
     toggle(path) {
         this.collapsed = this.collapsed.includes(path)
             ? this.collapsed.filter((item) => item !== path)
@@ -2096,19 +2119,19 @@ window.workflowJsonViewer = (initialValue) => ({
             const key = depth === 0 || parentArray ? '' : JSON.stringify(label) + ': ';
 
             if (!container) {
-                rows.push({id: path, path, depth, label: key, type: this.type(value), branch: false, collapsed: false, text: (JSON.stringify(value) ?? 'null') + comma});
+                rows.push({id: path, path, depth, label: key, type: this.type(value), value, branch: false, collapsed: false, text: (JSON.stringify(value) ?? 'null') + comma});
                 return;
             }
 
             rows.push({
                 id: path + ':open', path, depth, label: key, type: 'punctuation',
-                branch: entries.length > 0, collapsed,
+                branch: entries.length > 0, collapsed, value,
                 text: open + (collapsed ? ' … ' + close + comma : entries.length ? '' : close + comma),
             });
 
             if (!collapsed && entries.length) {
                 entries.forEach(([childKey, child], index) => visit(child, path + '.' + childKey, depth + 1, childKey, index < entries.length - 1 ? ',' : '', isArray));
-                rows.push({id: path + ':close', path, depth, label: '', type: 'punctuation', branch: false, collapsed: false, text: close + comma});
+                rows.push({id: path + ':close', path, depth, label: '', type: 'punctuation', branch: false, collapsed: false, closing: true, text: close + comma});
             }
         };
         visit(this.value);
@@ -2117,6 +2140,7 @@ window.workflowJsonViewer = (initialValue) => ({
 });
 
 window.workflowExpressionPicker = (sources, customFields = []) => ({
+    ...window.workflowValueClipboard(),
     // Source data is immutable for this keyed panel; only selection/folding needs reactivity.
     sources: Object.freeze(sources), customFields: Object.freeze(customFields), selectedId: sources.findLast(source => source.available)?.id ?? sources.at(-1)?.id ?? '', limit: 30,
     field: null, fieldLabel: '', preview: null, expanded: [], collapsedJson: [],
@@ -2138,6 +2162,8 @@ window.workflowExpressionPicker = (sources, customFields = []) => ({
             const label = depth && parentType !== 'array' ? JSON.stringify(item.label) + ': ' : '';
             const value = container || !item.available ? 'null' : JSON.stringify(item.value) ?? 'null';
             rows.push({id: item.key + ':value', item, depth, label, type: container ? 'punctuation' : item.type,
+                value: container ? (item.type === 'array' ? [] : {}) : item.value,
+                copyable: item.available && (!container || item.count === 0),
                 branch: container && nested.length > 0, collapsed,
                 text: container ? open + (collapsed ? ' … ' + close + comma : nested.length ? '' : close + comma) : value + comma});
             if (container && nested.length && !collapsed) {
@@ -2211,6 +2237,57 @@ window.workflowExpressionPicker = (sources, customFields = []) => ({
             return item?.available ? this.fieldSummary(item) : '⟨нет данных этого шага⟩';
         });
     },
+});
+
+window.workflowHeadersField = (state) => ({
+    state, rows: [], raw: '', mode: 'fields', error: '', signature: '', nextId: 0,
+    parseRows(value) {
+        try {
+            const parsed = typeof value === 'string' ? JSON.parse(value || '{}') : (value ?? {});
+            if (Array.isArray(parsed)) {
+                if (!parsed.every(row => row && typeof row === 'object' && Object.hasOwn(row, 'name') && Object.hasOwn(row, 'value'))) return null;
+                return parsed.map(row => ({name: row.name, value: row.value}));
+            }
+            return parsed && typeof parsed === 'object' ? Object.entries(parsed).map(([name, value]) => ({name, value})) : null;
+        } catch { return null; }
+    },
+    init() {
+        this.loadState();
+        this.$watch('state', () => { if (JSON.stringify(this.state) !== this.signature) this.loadState(); });
+    },
+    loadState() {
+        this.signature = JSON.stringify(this.state);
+        const rows = this.parseRows(this.state);
+        this.rows = (rows ?? []).map(row => ({...row, id: ++this.nextId}));
+        this.mode = rows === null || rows.some(row => row.value !== null && typeof row.value === 'object') ? 'json' : 'fields';
+        this.raw = this.jsonText();
+    },
+    jsonText() {
+        if (typeof this.state === 'string') return this.state;
+        const rows = this.parseRows(this.state);
+        // Never lose invalid or duplicate rows when changing the presentation.
+        const object = rows && rows.every(row => typeof row.name === 'string') && new Set(rows.map(row => row.name)).size === rows.length;
+        return JSON.stringify(object ? Object.fromEntries(rows.map(row => [row.name, row.value])) : this.state, null, 2);
+    },
+    setMode(mode) {
+        this.error = '';
+        if (mode === 'fields') {
+            const rows = this.parseRows(this.state);
+            if (rows === null || rows.some(row => row.value !== null && typeof row.value === 'object')) {
+                this.error = 'Для целой переменной или сложного значения используйте JSON.';
+                return;
+            }
+            this.rows = rows.map(row => ({...row, id: ++this.nextId}));
+        } else this.raw = this.jsonText();
+        this.mode = mode;
+    },
+    syncRows() {
+        this.state = this.rows.map(({name, value}) => ({name, value}));
+        this.signature = JSON.stringify(this.state);
+    },
+    syncJson() { this.state = this.raw; this.signature = JSON.stringify(this.state); },
+    addRow() { this.rows.push({id: ++this.nextId, name: '', value: ''}); this.syncRows(); },
+    removeRow(id) { this.rows = this.rows.filter(row => row.id !== id); this.syncRows(); },
 });
 
 window.workflowValueField = (state) => ({

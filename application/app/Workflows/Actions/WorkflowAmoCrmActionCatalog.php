@@ -15,7 +15,6 @@ use App\Services\Workflows\WorkflowEntityQuery;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -28,7 +27,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Leek\FilamentWorkflows\Concerns\WorkflowAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
@@ -406,8 +404,6 @@ abstract class WorkflowAmoCrmAction
             Hidden::make('__context_entity')->dehydrated(false),
             Hidden::make('__context_entity_id')->dehydrated(false),
 
-            static::entityContextSummary($defaultEntity),
-
             static::entitySourceToggle(),
 
             static::entitySelect($entities)
@@ -438,7 +434,6 @@ abstract class WorkflowAmoCrmAction
             Hidden::make('target_entity_locked')->default(true),
             Hidden::make('__context_entity')->default($entity)->dehydrated(false),
             Hidden::make('__context_entity_id')->dehydrated(false),
-            static::entityContextSummary($entity),
             static::entitySourceToggle(),
             static::targetEntityIdInput($entity)
                 ->required(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual')
@@ -450,6 +445,7 @@ abstract class WorkflowAmoCrmAction
     {
         return ToggleButtons::make('entity_source')
             ->label('Как выбрать сущность')
+            ->hiddenLabel()
             ->options([
                 'context' => 'Из контекста',
                 'manual' => 'Указать вручную',
@@ -457,31 +453,6 @@ abstract class WorkflowAmoCrmAction
             ->default('context')
             ->inline()
             ->live();
-    }
-
-    protected static function entityContextSummary(string $defaultEntity = 'lead'): Placeholder
-    {
-        return Placeholder::make('__entity_context_summary')
-            ->hiddenLabel()
-            ->content(function (Get $get) use ($defaultEntity): HtmlString {
-                $source = ($get('entity_source') ?? 'context') === 'manual' ? 'manual' : 'context';
-                $entity = (string)($source === 'context'
-                    ? ($get('__context_entity') ?: $get('target_entity') ?: $defaultEntity)
-                    : ($get('target_entity') ?: $defaultEntity));
-                $id = $source === 'context' ? $get('__context_entity_id') : $get('target_entity_id');
-                $type = static::entityLabel($entity);
-                $idText = filled($id) ? '#' . e((string)$id) : ($source === 'context' ? 'ID появится из входа ноды' : 'ID не указан');
-                $badge = $source === 'context' ? 'Автоматически' : 'Вручную';
-
-                return new HtmlString(
-                    '<div class="workflow-entity-context">'
-                    . '<span class="workflow-entity-context__badge">' . $badge . '</span>'
-                    . '<strong>' . e($type) . '</strong>'
-                    . '<span>' . $idText . '</span>'
-                    . ($source === 'context' ? '<small>Контекст запуска или результат предыдущей ноды</small>' : '')
-                    . '</div>'
-                );
-            });
     }
 
     protected static function targetEntityIdInput(string $entity = 'lead', ?string $label = null): WorkflowValueInput
@@ -722,7 +693,7 @@ abstract class WorkflowAmoCrmAction
 
     protected static function createLeadSection(): Section
     {
-        return Section::make('Основное')
+        return Section::make()
             ->compact()
             ->columns(1)
             ->schema([
@@ -759,33 +730,29 @@ abstract class WorkflowAmoCrmAction
             ]);
     }
 
-    protected static function createLinkedEntitySection(string $label, string $entity, array $linkEntities): Section
+    protected static function createLinkedEntitySection(string $entity, array $linkEntities): Section
     {
-        return Section::make($label)
+        return Section::make()
             ->compact()
             ->schema([
-                Grid::make(2)->schema([
-                    VariableTextInput::make('name')
+                Grid::make(1)->schema([
+                    WorkflowValueInput::make('name')
                         ->label('Название')
                         ->placeholder($entity === 'contact' ? 'Имя контакта' : 'Название')
                         ->required(),
 
-                    Select::make('responsible_user_id')
+                    WorkflowValueInput::make('responsible_user_id')
                         ->label('Ответственный')
                         ->options(fn(): array => static::amoResponsibleOptions())
-                        ->searchable()
-                        ->preload()
-                        ->native(false)
                         ->placeholder('Выберите ответственного'),
 
-                    VariableTextInput::make('tags')
+                    WorkflowValueInput::make('tags')
                         ->label('Теги')
                         ->placeholder('Новый, VIP, {{tag}}')
                         ->columnSpanFull(),
                 ]),
 
-                Section::make('Связать с сущностью')
-                    ->description('Новая сущность будет сразу прикреплена к выбранной сущности amoCRM.')
+                Section::make()
                     ->compact()
                     ->columns(2)
                     ->schema(static::targetEntityFields($linkEntities))
@@ -906,7 +873,7 @@ class AmoCrmCreateLeadAction extends WorkflowAmoCrmAction
     {
         return [
             static::createLeadSection(),
-            static::fieldMappingsSection('Дополнительные поля сделки', 'lead'),
+            static::fieldMappingsSection('Поля сделки', 'lead'),
             static::delaySection(),
         ];
     }
@@ -942,8 +909,8 @@ class AmoCrmCreateContactAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            static::createLinkedEntitySection('Основное', 'contact', ['lead', 'company']),
-            static::fieldMappingsSection('Дополнительные поля контакта', 'contact'),
+            static::createLinkedEntitySection('contact', ['lead', 'company']),
+            static::fieldMappingsSection('Поля контакта', 'contact'),
             static::delaySection(),
         ];
     }
@@ -979,8 +946,8 @@ class AmoCrmCreateCompanyAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            static::createLinkedEntitySection('Основное', 'company', ['lead', 'contact']),
-            static::fieldMappingsSection('Дополнительные поля компании', 'company'),
+            static::createLinkedEntitySection('company', ['lead', 'contact']),
+            static::fieldMappingsSection('Поля компании', 'company'),
             static::delaySection(),
         ];
     }
@@ -1059,7 +1026,7 @@ class AmoCrmUpdateFieldsAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            Section::make('Сущность')->schema(
+            Section::make()->schema(
                 static::targetEntityFields(['lead', 'contact', 'company', 'customer'],
                     fn(Set $set): mixed => $set('fields', []))
             ),
@@ -1104,7 +1071,7 @@ abstract class AmoCrmUpdateEntityFieldsAction extends WorkflowAmoCrmAction
         $entity = static::entity();
 
         return [
-            Section::make('Сущность')->schema(static::fixedTargetEntityFields($entity)),
+            Section::make()->schema(static::fixedTargetEntityFields($entity)),
             static::bodyMode(),
             ...static::standardUpdateFields($entity),
             static::fieldMappingsSection('Дополнительные поля', $entity)->visible(fn(Get $get): bool => $get('body_mode') !== 'json'),
@@ -1950,7 +1917,7 @@ class AmoCrmContactLeadsAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            Select::make('source')->label('Контакт')->options(['lead'=>'Основной контакт сделки','contact'=>'Указать ID контакта'])->default('lead')->live()->required(),
+            ToggleButtons::make('source')->label('Контакт')->options(['contact'=>'Вручную','lead'=>'Контакт сделки'])->inline()->grouped()->default('lead')->live()->required(),
             WorkflowValueInput::make('lead_id')->label('ID исходной сделки')->default(null)->placeholder('ID или переменная')->visible(fn (Get $get) => $get('source') !== 'contact')->required(),
             WorkflowValueInput::make('contact_id')->label('ID контакта')->visible(fn (Get $get) => $get('source') === 'contact')->required(),
             WorkflowValueInput::make('exclude_lead_id')->label('Исключить сделку · ID')->placeholder('Например, {{lead.id}}'),

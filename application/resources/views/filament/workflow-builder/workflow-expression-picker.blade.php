@@ -11,8 +11,11 @@
         <div class="workflow-input-json" aria-label="JSON данных шага">
             <template x-for="row in jsonRows" :key="row.id">
                 <div class="workflow-input-json__line" :style="'padding-left:' + row.depth * 14 + 'px'">
-                    <button type="button" class="workflow-input-json__fold" x-show="row.branch" x-on:mousedown.prevent x-on:click="toggleJson(row.item)" :aria-expanded="!row.collapsed" :aria-label="row.collapsed ? 'Развернуть' : 'Свернуть'" x-text="row.collapsed ? '›' : '⌄'"></button>
-                    <button type="button" class="workflow-input-json__value" x-show="row.item" x-on:mousedown.prevent x-on:click="insert(row.item)" :title="row.item ? 'Подставить: ' + row.item.expression : ''" draggable="true" x-on:dragstart="if(row.item) $event.dataTransfer.setData('application/workflow-expression', JSON.stringify(row.item))"><span class="workflow-input-json__key" x-text="row.label"></span><span :class="'workflow-input-json__' + row.type" x-text="row.text"></span></button>
+                    <button type="button" class="workflow-input-json__value" x-show="row.item" x-on:mousedown.prevent
+                        x-on:click="if (row.branch) toggleJson(row.item); else if (row.copyable) copyValue(row.value, row.id)"
+                        :aria-expanded="row.branch ? !row.collapsed : null" :class="{ 'is-copied': copiedRow === row.id }"
+                        :disabled="!row.branch && !row.copyable" :title="row.branch ? (row.collapsed ? 'Развернуть' : 'Свернуть') : (copiedRow === row.id ? 'Скопировано' : 'Скопировать значение')"
+                        draggable="true" x-on:dragstart="if(row.item) $event.dataTransfer.setData('application/workflow-expression', JSON.stringify(row.item))"><span class="workflow-json-tree__caret" aria-hidden="true" x-show="row.branch" x-text="row.collapsed ? '›' : '⌄'"></span><span class="workflow-input-json__key" x-text="row.label"></span><span :class="'workflow-input-json__' + row.type" x-text="row.text"></span></button>
                     <span class="workflow-input-json__closing" x-show="!row.item" x-text="row.text"></span>
                 </div>
             </template>
@@ -21,4 +24,5 @@
     <small class="workflow-expression-picker__hint" x-show="!selectedSource?.available">Нет результата запуска. Показана структура данных.</small>
     <small class="workflow-expression-picker__hint" x-show="selectedSource?.truncated">Показана часть данных. Подстановка передаст значение целиком.</small>
     <small class="workflow-expression-picker__hint" role="status" x-show="preview === 'Скопировано'">Скопировано</small>
+    <small role="status" x-show="copyError" x-text="copyError" x-cloak></small>
 </div>

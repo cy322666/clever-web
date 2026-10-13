@@ -8,6 +8,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -50,18 +51,17 @@ class ControlConditionAction extends ConditionAction
             \Filament\Schemas\Components\Group::make()
                 ->extraAttributes(['class' => 'workflow-condition-form'])
                 ->schema([
-                    Select::make('logic')
+                    ToggleButtons::make('logic')
                         ->label('Совпадение')
                         ->hiddenLabel()
-                        ->extraInputAttributes(['aria-label' => 'Совпадение условий'])
                         ->options([
-                            'and' => 'Все условия (И)',
-                            'or' => 'Любое условие (ИЛИ)',
+                            'and' => 'И',
+                            'or' => 'ИЛИ',
                         ])
                         ->default('and')
-                        ->afterStateHydrated(fn(Select $component, ?string $state) => $component->state($state ?: 'and'))
+                        ->afterStateHydrated(fn(ToggleButtons $component, ?string $state) => $component->state($state ?: 'and'))
                         ->required()
-                        ->native(false),
+                        ->inline()->grouped(),
 
                     Repeater::make('conditions')
                         ->label(static::workflowTrans('fields.conditions.label'))

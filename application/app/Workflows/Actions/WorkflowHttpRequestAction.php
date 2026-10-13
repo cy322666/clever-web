@@ -3,7 +3,9 @@
 namespace App\Workflows\Actions;
 
 use App\Forms\Components\WorkflowValueInput;
+use App\Forms\Components\WorkflowHeadersInput;
 use App\Services\Workflows\WorkflowHttpBody;
+use App\Services\Workflows\WorkflowHttpHeaders;
 use App\Services\Workflows\WorkflowHttpStatusCodes;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -29,7 +31,7 @@ class WorkflowHttpRequestAction
         return [
             WorkflowValueInput::make('method')->label('Метод')->options(array_combine(['GET','POST','PUT','PATCH','DELETE','HEAD'], ['GET','POST','PUT','PATCH','DELETE','HEAD']))->default('GET')->required(),
             WorkflowValueInput::make('url')->label('URL')->placeholder('https://api.example.com/…')->required(),
-            WorkflowValueInput::make('headers')->label('Заголовки · JSON')->multiline(3)->default('{}'),
+            WorkflowHeadersInput::make('headers')->label('Заголовки')->default('{}'),
             Select::make('body_format')->label('Формат тела')->options(WorkflowHttpBody::FORMATS)
                 ->default('json')->afterStateHydrated(function (Select $component, mixed $state): void {
                     if ($state === null) $component->state('json');
@@ -77,13 +79,7 @@ class WorkflowHttpRequestAction
             if (!in_array($method, ['GET','POST','PUT','PATCH','DELETE','HEAD'], true)) throw new RuntimeException('Недопустимый HTTP-метод.');
             $timeout = filter_var($config['timeout'] ?? 15, FILTER_VALIDATE_INT);
             if (!$timeout || $timeout < 1 || $timeout > 30) throw new RuntimeException('Таймаут: от 1 до 30 секунд.');
-            $headers = $config['headers'] ?? [];
-            if (is_string($headers)) $headers = json_decode($headers ?: '{}', true, 32, JSON_THROW_ON_ERROR);
-            if (!is_array($headers)) throw new RuntimeException('Заголовки должны быть JSON-объектом.');
-            foreach ($headers as $key => $value) {
-                // RFC 9110 field names are tokens, including underscores used by external APIs.
-                if (!is_string($key) || !preg_match('/^[!#$%&\'*+.^_`|~0-9A-Za-z-]+$/D', $key) || !is_scalar($value) || preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', (string)$value) || in_array(strtolower($key), ['host','content-length','transfer-encoding','connection','proxy-authorization'], true)) throw new RuntimeException('Недопустимый заголовок запроса.');
-            }
+            $headers = WorkflowHttpHeaders::parse($config['headers'] ?? []);
             $format = WorkflowHttpBody::format($config);
             if ($format === 'form') {
                 $body = WorkflowHttpBody::form($config['form_fields'] ?? []);

@@ -104,30 +104,85 @@ test('interaction effects preserve node geometry and respect reduced motion', ()
     assert.doesNotMatch(css,/\[data-workflow-node-card\]:hover\s*\{[^}]*(?:transform|translate|scale):/);
 });
 
-test('backdrop is static at every zoom and pan while placement still snaps to half steps', () => {
+function gridGeometry(canvas) {
+    const style = canvas.gridStyle();
+    const pitch = Number(style.match(/background-size:([^p]+)px/)[1]);
+    const [, x, y] = style.match(/background-position:([^p]+)px ([^p]+)px/);
+    return {pitch, x:Number(x)+pitch/2, y:Number(y)+pitch/2};
+}
+
+test('backdrop dots stay on the same world coordinates through fractional zoom, pan and native scroll', () => {
     const {canvas} = fixture();
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     assert.doesNotMatch(css, /background-position:\s*0\s+0\s*!important/);
+    assert.match(css, /background-attachment:\s*local/);
+    assert.match(css, /rgb\(201 207 214 \/ var\(--workflow-grid-opacity, 1\)\) calc\(0\.85px \* var\(--workflow-grid-scale, 1\)\)/);
+    assert.match(css, /rgb\(85 88 99 \/ var\(--workflow-grid-opacity, 1\)\) calc\(0\.7px \* var\(--workflow-grid-scale, 1\)\)/);
     for (const view of ['vendor/filament-workflows/components/workflow-builder', 'filament/workflow-builder/workflow-execution-canvas']) {
         assert.match(readFileSync(new URL(`../../resources/views/${view}.blade.php`, import.meta.url), 'utf8'), /x-bind:style="gridStyle\(\)"/);
     }
-    for (const scale of [0.01, 0.05, 0.249, 0.25, 0.499, 0.5, 0.6, 0.999, 1, 1.333, 2]) {
+    for (const scale of [0.01, 0.05, 0.249, 0.25, 0.499, 0.5, 0.599, 0.6, 0.601, 0.999, 1, 1.333, 2]) {
         canvas.scale = scale;
         canvas.translateX = -123;
         canvas.translateY = 456;
         canvas.$refs.stage = {offsetLeft:7,offsetTop:11};
         canvas.$refs.viewport = {scrollLeft:3,scrollTop:9};
-        const verify = () => assert.equal(canvas.gridStyle(), 'background-size:20px 20px;background-position:0px 0px;');
+        const verify = () => {
+            const grid = gridGeometry(canvas);
+            assert.equal(grid.pitch, 20 * scale, 'The world grid must never switch density at zoom thresholds');
+            assert.match(canvas.gridStyle(), new RegExp(`--workflow-grid-scale:${scale};`));
+            for (const [axis, offset, scroll] of [['x','offsetLeft','scrollLeft'], ['y','offsetTop','scrollTop']]) {
+                const origin = canvas.$refs.stage[offset] + canvas[axis === 'x' ? 'translateX' : 'translateY'];
+                for (const world of [-400, -20, 0, 20, 800]) {
+                    const screen = origin + world * scale - canvas.$refs.viewport[scroll];
+                    // CSS local backgrounds subtract native scroll just like stage content.
+                    const cell = (screen - (grid[axis] - canvas.$refs.viewport[scroll])) / grid.pitch;
+                    assert.ok(Math.abs(cell - Math.round(cell)) < 1e-9, `${axis}: world ${world} must remain on a dot at scale ${scale}`);
+                }
+            }
+        };
         verify();
-        canvas.translateX += 7;
-        canvas.translateY -= 9;
+        canvas.translateX += 7.375;
+        canvas.translateY -= 9.625;
+        verify();
+        canvas.$refs.viewport.scrollLeft += 31;
+        canvas.$refs.viewport.scrollTop += 47;
         verify();
         assert.equal(canvas.snapCoordinate(14), 10);
         assert.equal(canvas.snapCoordinate(16), 20);
         assert.equal(canvas.snapCoordinate(-16), -20);
     }
-    const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
-    assert.match(markup, /x-bind:style="gridStyle\(\)"/);
+});
+
+test('wheel pan, pointer zoom and restored viewport keep the backdrop and stage in phase', () => {
+    const {canvas, event} = fixture();
+    canvas.$refs.stage = {offsetLeft:0,offsetTop:0};
+    canvas.$refs.viewport = {clientWidth:800,clientHeight:600,scrollLeft:0,scrollTop:0,getBoundingClientRect:()=>({left:0,top:0})};
+    const verify = () => {
+        const grid = gridGeometry(canvas);
+        const dot = axis => {
+            const origin = axis === 'x' ? canvas.translateX : canvas.translateY;
+            const n = Math.round((origin-grid[axis])/grid.pitch);
+            return grid[axis]+n*grid.pitch;
+        };
+        assert.ok(Math.abs(dot('x')-canvas.translateX) < 1e-9);
+        assert.ok(Math.abs(dot('y')-canvas.translateY) < 1e-9);
+        assert.equal(grid.pitch/20,canvas.scale);
+    };
+    verify();
+    canvas.onCanvasWheel({...event(),deltaX:13.25,deltaY:-29.5,deltaMode:0});
+    verify();
+    canvas.onCanvasWheel({...event(220,180),deltaX:0,deltaY:51,deltaMode:0,ctrlKey:true});
+    verify();
+    canvas.zoomCanvas(0.5);
+    verify();
+    canvas.saveViewport();
+    const saved = canvas.gridStyle();
+    canvas.translateX = canvas.translateY = 0;
+    canvas.scale = 1;
+    assert.equal(canvas.restoreViewport(),true);
+    assert.equal(canvas.gridStyle(),saved);
+    verify();
 });
 
 test('node overflow menu focuses enabled actions, cycles with arrows and restores focus on close', () => {

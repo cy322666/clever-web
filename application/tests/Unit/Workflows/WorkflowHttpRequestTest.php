@@ -47,6 +47,19 @@ class WorkflowHttpRequestTest extends TestCase
         }
         Http::assertNothingSent();
     }
+
+    public function test_header_rows_resolve_values_and_send_the_same_headers_as_legacy_json(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['*' => Http::response(['ok' => true])]);
+        $context = (new WorkflowContext)->setStepOutput('previous', ['id' => 42, 'name' => 'Test']);
+        $result = $this->action()->handle(['url' => 'https://public.example', 'headers' => [
+            ['name' => 'X-ID', 'value' => '{{ $json.id }}'],
+            ['name' => 'X-Name', 'value' => '{{ $json.name }}'],
+        ]], $context);
+        $this->assertTrue($result['success']);
+        Http::assertSent(fn ($request) => $request->hasHeader('X-ID', '42') && $request->hasHeader('X-Name', 'Test'));
+    }
     public function test_request_preserves_json_and_pins_public_dns_without_redirects(): void
     {
         Http::preventStrayRequests();
