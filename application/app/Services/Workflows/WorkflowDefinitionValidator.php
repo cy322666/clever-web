@@ -65,7 +65,8 @@ final class WorkflowDefinitionValidator
             catch (\InvalidArgumentException $error) { $errors[] = $error->getMessage(); }
         }
         if ($type === 'workflow_loop') {
-            if (!in_array($config['mode'] ?? 'all', ['all', 'once'], true)) $errors[] = 'Выберите режим цикла.';
+            try { \App\Workflows\Actions\WorkflowLoopAction::iterationLimit($config); }
+            catch (\InvalidArgumentException $error) { $errors[] = $error->getMessage(); }
             if (!self::expression($config['items'] ?? null)) {
                 try { \App\Workflows\Actions\WorkflowLoopAction::items($config['items'] ?? null); }
                 catch (\InvalidArgumentException $error) { $errors[] = $error->getMessage(); }

@@ -30,6 +30,7 @@ try {
     $html = Livewire\Livewire::mount('workflow-inspector-deploy-probe', ['workflowActions' => [
         ['id' => 'probe-a', 'name' => 'Probe A', 'type' => 'workflow_delay', 'config' => ['seconds' => 5]],
         ['id' => 'probe-b', 'name' => 'Probe B', 'type' => 'workflow_delay', 'config' => ['seconds' => 8]],
+        ['id' => 'probe-loop', 'name' => 'Probe Loop', 'type' => 'workflow_loop', 'config' => ['items' => '[10,20,30]', 'mode' => 'all']],
     ]]);
     if (!preg_match('/wire:snapshot="([^"]+)"/', $html, $match)) throw new RuntimeException('Missing editor snapshot');
     if (!str_contains($html, 'aria-label="Каталог нод"') || !str_contains($html, 'aria-label="Справочники"') || str_contains($html, 'workflow-node-library__rail')) {
@@ -64,8 +65,21 @@ try {
     if ((int) $value !== 12) throw new RuntimeException('Node switch lost the previous draft');
     $update('callMountedAction');
     if (($snapshot['data']['mountedActions'][0] ?? null) !== []) throw new RuntimeException('Inspector failed to apply and close');
+    $effects = $update('openWorkflowInspector', ['action:probe-loop']);
+    $form = implode('', $effects['partials'] ?? []);
+    if (!str_contains($form, 'Указать количество') || !str_contains($form, 'Количество проходов')) {
+        throw new RuntimeException('Loop iteration limit controls are missing');
+    }
+    $update('callMountedAction', [], ['mountedActions.0.data.mode' => 'limit', 'mountedActions.0.data.limit' => 2]);
+    $update('openWorkflowInspector', ['action:probe-loop']);
+    $config = $snapshot['data']['mountedActions'][0][0][0]['data'][0] ?? [];
+    if (($config['mode'] ?? null) !== 'limit' || (int) ($config['limit'] ?? 0) !== 2) {
+        throw new RuntimeException('Loop iteration limit was not preserved');
+    }
+    $result = (new App\Workflows\Actions\WorkflowLoopAction)->handle(['items' => [10, 20, 30], 'mode' => 'limit', 'limit' => 2]);
+    if (($result['output']['items'] ?? null) !== [10, 20]) throw new RuntimeException('Loop iteration limit was not applied');
     $probeSucceeded = true;
-    echo "WORKFLOW_INSPECTOR_PROBE_OK partial_render=1 switch=1 draft_preserved=1 external_requests=0 workflow_writes=0 first_open_ms={$firstMs}\n";
+    echo "WORKFLOW_INSPECTOR_PROBE_OK partial_render=1 switch=1 draft_preserved=1 loop_limit=1 external_requests=0 workflow_writes=0 first_open_ms={$firstMs}\n";
 } finally {
     Illuminate\Support\Facades\DB::rollBack();
 }
