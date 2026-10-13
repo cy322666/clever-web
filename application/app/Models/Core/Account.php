@@ -74,11 +74,16 @@ class Account extends Model
                 || ($account->exists && !$account->isDirty(['subdomain', 'zone', 'user_id'])
                     && !($account->isDirty('active') && $account->active))) return;
 
+            if (static::allowsDifferentAmoDomain($account->widget, $account->subdomain)) {
+                return;
+            }
+
             $other = static::query()->where('user_id', $account->user_id)
                 ->when($account->exists, fn ($query) => $query->whereKeyNot($account->getKey()))
                 ->whereNotNull('subdomain')->where('subdomain', '<>', '')
                 ->get()->first(fn (Account $connected): bool =>
                     ($connected->active || filled($connected->access_token) || filled($connected->refresh_token))
+                    && !static::allowsDifferentAmoDomain($connected->widget, $connected->subdomain)
                     && (strtolower(trim($connected->subdomain)) !== strtolower(trim($account->subdomain))
                         || strtolower($connected->zone ?: 'ru') !== strtolower($account->zone ?: 'ru'))
                 );
@@ -88,6 +93,21 @@ class Account extends Model
                 ]);
             }
         });
+    }
+
+    public static function allowsDifferentAmoDomain(?string $widget, ?string $subdomain): bool
+    {
+        if (static::normalizeWidget($widget) !== 'import-excel') {
+            return false;
+        }
+
+        $subdomain = mb_strtolower(trim((string) $subdomain));
+
+        return $subdomain !== '' && in_array(
+            $subdomain,
+            config('services.amocrm.widgets.import-excel.multi_domain_subdomains', []),
+            true,
+        );
     }
 
     public function user(): BelongsTo

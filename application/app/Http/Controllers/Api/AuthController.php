@@ -367,6 +367,7 @@ class AuthController extends Controller
                 $parsedSubdomain
                 && $primaryUserDomain['subdomain']
                 && $parsedSubdomain !== $primaryUserDomain['subdomain']
+                && ! Account::allowsDifferentAmoDomain($widget, $parsedSubdomain)
             ) {
                 Log::warning('amocrm.redirect blocked by single-domain guard', [
                     'user_id' => $user->id,
@@ -409,7 +410,11 @@ class AuthController extends Controller
             $exchangeErrors = [];
 
             foreach ($candidateSubdomains as $candidateSubdomain) {
-                $subdomainValidationError = $this->validateAmoSubdomainAllowedForUser($user, $candidateSubdomain);
+                $subdomainValidationError = $this->validateAmoSubdomainAllowedForUser(
+                    $user,
+                    $candidateSubdomain,
+                    $widget,
+                );
                 if ($subdomainValidationError !== null) {
                     $exchangeErrors[] = $candidateSubdomain.': '.$subdomainValidationError;
 
@@ -913,7 +918,11 @@ class AuthController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        foreach ($accounts as $account) {
+        $account = $accounts->first(fn (Account $account): bool =>
+            ! Account::allowsDifferentAmoDomain($account->widget, $account->subdomain)
+        ) ?? $accounts->first();
+
+        if ($account) {
             $subdomain = Str::lower((string) $account->subdomain);
 
             return [
@@ -1133,7 +1142,11 @@ class AuthController extends Controller
         ];
     }
 
-    private function validateAmoSubdomainAllowedForUser(User $user, string $subdomain): ?string
+    private function validateAmoSubdomainAllowedForUser(
+        User $user,
+        string $subdomain,
+        ?string $widget = null,
+    ): ?string
     {
         $subdomain = Str::lower(trim($subdomain));
 
@@ -1152,6 +1165,10 @@ class AuthController extends Controller
             return 'Этот amoCRM домен уже подключен к другому аккаунту платформы.';
         }
 
+        if (Account::allowsDifferentAmoDomain($widget, $subdomain)) {
+            return null;
+        }
+
         $connectedUserSubdomains = Account::query()
             ->where('user_id', $user->id)
             ->whereNotNull('subdomain')
@@ -1167,6 +1184,10 @@ class AuthController extends Controller
                             ->where('refresh_token', '<>', '');
                     });
             })
+            ->get(['widget', 'subdomain'])
+            ->reject(static fn (Account $account): bool =>
+                Account::allowsDifferentAmoDomain($account->widget, $account->subdomain)
+            )
             ->pluck('subdomain')
             ->map(static fn (mixed $value): string => Str::lower(trim((string) $value)))
             ->filter()

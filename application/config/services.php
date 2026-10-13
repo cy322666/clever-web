@@ -55,6 +55,10 @@ return [
                 'client_secret' => env('AMO_IMPORT_EXCEL_CLIENT_SECRET'),
                 'redirect_uri' => $widgetRedirectUri('AMO_IMPORT_EXCEL_REDIRECT_URI', '/api/amocrm/install/excel'),
                 'fallback_to_platform_credentials' => false,
+                'multi_domain_subdomains' => array_values(array_filter(array_map(
+                    static fn (string $subdomain): string => mb_strtolower(trim($subdomain)),
+                    explode(',', (string) env('AMO_IMPORT_EXCEL_MULTI_DOMAIN_SUBDOMAINS', '')),
+                ))),
             ],
             'yclients' => [
                 'client_id' => env('AMO_YCLIENTS_CLIENT_ID'),

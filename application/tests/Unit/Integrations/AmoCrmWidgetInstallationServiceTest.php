@@ -407,6 +407,59 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             && $request['redirect_uri'] === 'https://platform.example/api/amocrm/install/yclients');
     }
 
+    public function test_excel_allowlisted_domain_can_install_for_an_admin_with_another_workflow_domain(): void
+    {
+        config([
+            'services.amocrm.widgets.import-excel.client_id' => 'excel-client',
+            'services.amocrm.widgets.import-excel.client_secret' => 'excel-secret',
+            'services.amocrm.widgets.import-excel.redirect_uri' => 'https://platform.example/api/amocrm/install/excel',
+            'services.amocrm.widgets.import-excel.multi_domain_subdomains' => ['071026cleverexcel'],
+        ]);
+        $owner = User::withoutEvents(fn () => User::create([
+            'name' => 'Owner', 'email' => 'same-admin@example.test', 'password' => 'test',
+        ]));
+        (new Account)->forceFill([
+            'user_id' => $owner->id,
+            'widget' => 'workflows',
+            'amo_account_id' => 33292090,
+            'subdomain' => '280926techscenario',
+            'zone' => 'ru',
+            'active' => true,
+            'access_token' => 'workflow-access',
+        ])->save();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://071026cleverexcel.amocrm.ru/oauth2/access_token' => Http::response([
+                'access_token' => 'excel-access', 'refresh_token' => 'excel-refresh',
+            ]),
+            'https://071026cleverexcel.amocrm.ru/api/v4/account' => Http::response([
+                'id' => 34000001, 'current_user_id' => 778899,
+            ]),
+            'https://071026cleverexcel.amocrm.ru/api/v4/users/778899' => Http::response([
+                'id' => 778899, 'email' => 'same-admin@example.test',
+            ]),
+        ]);
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)
+            ->install('excel-code', '071026cleverexcel.amocrm.ru', 'import-excel');
+
+        $this->assertSame($owner->id, $result['user']->id);
+        $this->assertSame('import-excel', $result['account']->widget);
+        $this->assertSame('071026cleverexcel', $result['account']->subdomain);
+        $this->assertSame(34000001, $result['account']->amo_account_id);
+        $this->assertSame('excel-access', $result['account']->access_token);
+        $this->assertDatabaseHas('accounts', [
+            'user_id' => $owner->id,
+            'widget' => 'workflows',
+            'subdomain' => '280926techscenario',
+        ]);
+    }
+
     public function test_yclients_install_does_not_fall_back_to_common_keys(): void
     {
         config([
