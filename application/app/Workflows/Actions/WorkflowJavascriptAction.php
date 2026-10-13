@@ -2,7 +2,8 @@
 
 namespace App\Workflows\Actions;
 
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\CodeEditor;
+use Filament\Forms\Components\CodeEditor\Enums\Language;
 use Leek\FilamentWorkflows\Concerns\WorkflowAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 use Symfony\Component\Process\Process;
@@ -19,8 +20,9 @@ class WorkflowJavascriptAction
     public static function workflowDefaultConfig(): array { return ['javascript_code' => 'return $json;']; }
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
-        return [Textarea::make('javascript_code')->label('JavaScript')->hiddenLabel()->rows(16)->required()
-            ->default('return $json;')->extraInputAttributes(['class' => 'workflow-json-input', 'spellcheck' => 'false', 'aria-label' => 'Код JavaScript'])];
+        return [CodeEditor::make('javascript_code')->label('JavaScript')->hiddenLabel()->required()
+            ->language(Language::JavaScript)->default('return $json;')
+            ->view('filament.workflow-builder.javascript-editor')];
     }
 
     public function handle(array $config, ?WorkflowContext $context = null): array

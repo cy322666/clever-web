@@ -13,6 +13,29 @@ use Tests\TestCase;
 
 class WorkflowEditorSaveStateTest extends TestCase
 {
+    public function test_javascript_editor_draft_survives_main_save_and_reopening(): void
+    {
+        self::prepareDatabase();
+        Http::preventStrayRequests();
+        Queue::fake();
+        $this->actingAs(User::findOrFail(2));
+        $flow = Workflow::create(['name'=>'Code editor','user_id'=>2,'is_active'=>false,'definition'=>[
+            'version'=>2,'trigger'=>['type'=>'manual','config'=>[]],
+            'actions'=>[['id'=>'code','type'=>'workflow_javascript','config'=>['javascript_code'=>'return $json;']]],
+        ]]);
+        $code = "const value = \$json.id;\nreturn { value };\n";
+        Livewire::test(SaveStateEditor::class, ['record'=>$flow->id])
+            ->call('openWorkflowInspector','action:code')
+            ->set('mountedActions.0.data.javascript_code', $code)
+            ->call('save')->assertHasNoErrors();
+        $this->assertSame($code, $flow->fresh()->definition['actions'][0]['config']['javascript_code']);
+        Livewire::test(SaveStateEditor::class, ['record'=>$flow->id])
+            ->call('openWorkflowInspector','action:code')
+            ->assertSet('mountedActions.0.data.javascript_code', $code);
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
     public function test_client_draft_changes_are_saved_without_calling_node_mutation_handlers(): void
     {
         self::prepareDatabase();

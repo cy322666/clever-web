@@ -31,6 +31,7 @@ try {
         ['id' => 'probe-a', 'name' => 'Probe A', 'type' => 'workflow_delay', 'config' => ['seconds' => 5]],
         ['id' => 'probe-b', 'name' => 'Probe B', 'type' => 'workflow_delay', 'config' => ['seconds' => 8]],
         ['id' => 'probe-loop', 'name' => 'Probe Loop', 'type' => 'workflow_loop', 'config' => ['items' => '[10,20,30]', 'mode' => 'all']],
+        ['id' => 'probe-code', 'name' => 'Probe Code', 'type' => 'workflow_javascript', 'config' => ['javascript_code' => 'return $json;']],
     ]]);
     if (!preg_match('/wire:snapshot="([^"]+)"/', $html, $match)) throw new RuntimeException('Missing editor snapshot');
     if (!str_contains($html, 'aria-label="Каталог нод"') || !str_contains($html, 'aria-label="Справочники"') || str_contains($html, 'workflow-node-library__rail')) {
@@ -68,6 +69,12 @@ try {
     if ((int) $value !== 12) throw new RuntimeException('Node switch lost the previous draft');
     $update('callMountedAction');
     if (($snapshot['data']['mountedActions'][0] ?? null) !== []) throw new RuntimeException('Inspector failed to apply and close');
+    $effects = $update('openWorkflowInspector', ['action:probe-code']);
+    $form = implode('', $effects['partials'] ?? []);
+    if (!str_contains($form, 'workflow-javascript-editor') || !str_contains($form, 'codeEditorFormComponent') || !str_contains($form, 'Форматировать')) {
+        throw new RuntimeException('JavaScript code editor is missing');
+    }
+    $update('callMountedAction');
     $effects = $update('openWorkflowInspector', ['action:probe-loop']);
     $form = implode('', $effects['partials'] ?? []);
     if (!str_contains($form, 'Указать количество') || !str_contains($form, 'Количество проходов')) {

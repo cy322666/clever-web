@@ -8,6 +8,14 @@ use Tests\TestCase;
 
 class WorkflowJavascriptTest extends TestCase
 {
+    public function test_configuration_uses_a_javascript_code_editor_without_changing_the_runtime(): void
+    {
+        $field = WorkflowJavascriptAction::workflowConfigSchema()[0];
+        $this->assertInstanceOf(\Filament\Forms\Components\CodeEditor::class, $field);
+        $this->assertSame(\Filament\Forms\Components\CodeEditor\Enums\Language::JavaScript, $field->getLanguage());
+        $this->assertSame('filament.workflow-builder.javascript-editor', $field->getView());
+    }
+
     public function test_javascript_receives_typed_data_and_returns_items_and_logs(): void
     {
         $context = (new WorkflowContext)->setTriggerData(['seed' => 3]);

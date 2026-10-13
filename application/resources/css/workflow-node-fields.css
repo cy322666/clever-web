@@ -1,4 +1,16 @@
 /* One scale for every node form; no transform/zoom on editable controls. */
+.workflow-javascript-editor { display: block !important; overflow: hidden; }
+.workflow-javascript-editor > div { width: 100%; min-width: 0; }
+.workflow-javascript-editor__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #d9dde3; font-size: 11px; }
+.workflow-javascript-editor__toolbar button { padding: 3px 7px; border: 1px solid #c5cbd5; border-radius: 5px; font-size: 11px; cursor: pointer; }
+.workflow-javascript-editor__toolbar button:disabled { opacity: .5; cursor: wait; }
+.workflow-javascript-editor__error { margin: 0; padding: 8px 10px; color: #b42318; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.workflow-javascript-editor .cm-editor { font-size: 12px; min-height: 320px; }
+.workflow-javascript-editor .cm-scroller { max-height: 65vh; min-height: 320px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 20px; }
+.workflow-javascript-editor .cm-content { padding-block: 8px; }
+.workflow-javascript-editor .cm-line { padding-inline: 8px; }
+.dark .workflow-javascript-editor__toolbar, .dark .workflow-javascript-editor__toolbar button { border-color: var(--workflow-dark-line); }
+.dark .workflow-javascript-editor__error { color: #ff9e9e; }
 .workflow-inspector.workflow-node-settings .workflow-node-settings__parameters {
     font-size: 12px;
     line-height: 18px;

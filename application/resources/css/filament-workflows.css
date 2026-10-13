@@ -7133,6 +7133,27 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-settings__parameters .workflow-entity-link-section { padding-top: 16px; border-top: 1px solid #d9dde3 !important; }
 .dark .workflow-node-settings__parameters .workflow-entity-link-section { border-top-color: var(--workflow-dark-line) !important; }
 /* Node identity. Tile geometry, ports, captions and connection paths stay unchanged. */
+.workflow-node-editor #workflow-canvas .workflow-node-artwork {
+    position: absolute; inset: 0; pointer-events: none; border-radius: 15px;
+    /* 194px square windows, one uniform scale. Never stretch the source art. */
+    background-image: url('../images/workflow-nodes/duotone-approved.png');
+    background-repeat: no-repeat; background-size: 766.494845% 545.360825%;
+    background-position: var(--art-x) var(--art-y);
+}
+.workflow-node-artwork[data-node-artwork="contact-find"] { --art-x: 13.070379%; --art-y: 20.949074%; }
+.workflow-node-artwork[data-node-artwork="contact-create"] { --art-x: 38.205723%; --art-y: 20.949074%; }
+.workflow-node-artwork[data-node-artwork="contact-update"] { --art-x: 61.948956%; --art-y: 20.949074%; }
+.workflow-node-artwork[data-node-artwork="lead-create"] { --art-x: 86.929621%; --art-y: 20.949074%; }
+.workflow-node-artwork[data-node-artwork="lead-update"] { --art-x: 13.070379%; --art-y: 51.388889%; }
+.workflow-node-artwork[data-node-artwork="condition"] { --art-x: 38.205723%; --art-y: 51.388889%; }
+.workflow-node-artwork[data-node-artwork="loop"] { --art-x: 61.948956%; --art-y: 51.388889%; }
+.workflow-node-artwork[data-node-artwork="assign"] { --art-x: 86.929621%; --art-y: 51.388889%; }
+.workflow-node-artwork[data-node-artwork="http"] { --art-x: 13.070379%; --art-y: 81.944444%; }
+.workflow-node-artwork[data-node-artwork="javascript"] { --art-x: 38.205723%; --art-y: 81.944444%; }
+.workflow-node-artwork[data-node-artwork="telegram"] { --art-x: 61.948956%; --art-y: 81.944444%; }
+.workflow-node-artwork[data-node-artwork="manual"] { --art-x: 86.929621%; --art-y: 81.944444%; }
+.workflow-node-editor #workflow-canvas .workflow-node-card:has(.workflow-node-artwork) > .workflow-node-card__icon { position: static; }
+.workflow-node-editor #workflow-canvas .workflow-node-card--disabled .workflow-node-artwork { filter: grayscale(1); opacity: .3; }
 .workflow-node-card[data-node-family="crm"] { --workflow-node-fill: #2674f5; }
 .workflow-node-card[data-node-family="control"] { --workflow-node-fill: #8051dd; }
 .workflow-node-card[data-node-family="data"],
@@ -7175,6 +7196,9 @@ svg.workflow-control-icon { color: #248548 !important; }
 /* Execution is a separate signal, never confused with the node's family color. */
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-status {
     width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #fff;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card:has(.workflow-node-artwork) > .workflow-node-status {
+    right: 3px; bottom: 3px; width: 17px; height: 17px;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is([data-execution-status="completed"], [data-execution-status="success"]) {
     border-color: #269b51 !important; box-shadow: 0 0 0 1px #269b51 !important;

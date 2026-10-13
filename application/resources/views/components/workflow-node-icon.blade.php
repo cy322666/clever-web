@@ -1,5 +1,25 @@
 @props(['appearance'])
-{{-- Original library SVGs, composed as an entity silhouette and its action cue. --}}
+@php
+    // Use the selected artwork itself, not a similarly named library substitute.
+    $artwork = match ($appearance['glyph'].':'.($appearance['modifier'] ?? '')) {
+        'user:magnifying-glass' => 'contact-find',
+        'user:plus' => 'contact-create',
+        'user:pencil-simple' => 'contact-update',
+        'briefcase:plus' => 'lead-create',
+        'briefcase:pencil-simple' => 'lead-update',
+        'arrows-split:' => 'condition',
+        'arrows-clockwise:' => 'loop',
+        'brackets-curly:equals' => 'assign',
+        'globe:' => 'http',
+        'code:' => 'javascript',
+        'telegram-logo:' => 'telegram',
+        'play:' => 'manual',
+        default => null,
+    };
+@endphp
+@if($artwork)
+    <span class="workflow-node-artwork" data-node-artwork="{{ $artwork }}" aria-hidden="true"></span>
+@else
 <span {{ $attributes->class(['workflow-node-glyph', 'workflow-node-glyph--action' => $appearance['modifier'] !== null, 'workflow-node-glyph--assignment' => $appearance['modifier'] === 'equals']) }} aria-hidden="true">
     @if($appearance['modifier'] !== null)
         <x-filament::icon :icon="'wficon-'.$appearance['glyph'].($appearance['modifier'] === 'equals' ? '-bold' : '-fill')" class="workflow-node-glyph__entity"/>
@@ -8,3 +28,4 @@
         <x-filament::icon :icon="'wficon-'.$appearance['glyph'].($appearance['glyph'] === 'telegram-logo' ? '-fill' : '-duotone')" class="workflow-node-glyph__main"/>
     @endif
 </span>
+@endif

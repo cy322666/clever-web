@@ -11,6 +11,16 @@ use Tests\TestCase;
 
 class WorkflowNodeAppearanceTest extends TestCase
 {
+    public function test_selected_icons_use_the_approved_original_not_a_library_substitution(): void
+    {
+        $this->assertSame('828411cf0c58e17fbdbe8cbe6e2278aab5fd3575d8d3ad47ffda150c511b9bad', hash_file('sha256', resource_path('images/workflow-nodes/duotone-approved.png')));
+        foreach (['amocrm_create_contact'=>'contact-create', 'amocrm_update_contact_fields'=>'contact-update', 'amocrm_create_lead'=>'lead-create', 'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_javascript'=>'javascript', 'workflow_set_variable'=>'assign', 'http_request'=>'http', 'telegram_send_message'=>'telegram'] as $type=>$artwork) {
+            $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance'=>WorkflowNodeAppearance::action($type)]);
+            $this->assertStringContainsString('data-node-artwork="'.$artwork.'"', $html);
+            $this->assertStringNotContainsString('<svg', $html);
+        }
+    }
+
     public function test_crm_operations_have_distinct_action_cues_and_keep_the_entity(): void
     {
         foreach (['contact' => 'user', 'lead' => 'briefcase', 'company' => 'buildings'] as $entity => $glyph) {
@@ -45,10 +55,12 @@ class WorkflowNodeAppearanceTest extends TestCase
         $this->assertGreaterThan(30, count($appearances));
         foreach ($appearances as $appearance) {
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
-            $this->assertStringContainsString('<svg', $html);
+            $this->assertTrue(str_contains($html, '<svg') || str_contains($html, 'data-node-artwork='));
             $this->assertStringContainsString('aria-hidden="true"', $html);
             $this->assertStringNotContainsString('<script', $html);
-            $this->assertStringContainsString('workflow-node-glyph__'.($appearance['modifier'] ? 'action' : 'main'), $html);
+            if (!str_contains($html, 'data-node-artwork=')) {
+                $this->assertStringContainsString('workflow-node-glyph__'.($appearance['modifier'] ? 'action' : 'main'), $html);
+            }
         }
     }
 

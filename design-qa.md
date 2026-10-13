@@ -109,6 +109,10 @@ Further input-panel simplification: collapsed object/array tree with short field
 
 ## 2026-10-13 saturated square nodes with duotone icons
 
+**Superseded, rejected by the user on 2026-10-13.** The pass below incorrectly
+accepted different Phosphor contours as an intentional adaptation. That was not
+authorized by the selected image. See the corrective comparison below.
+
 Source visual truth: `/Users/integrator/.codex/generated_images/01a08aaa-871f-7a11-b7b6-caf11ffbba04/exec-ba7fb147-32df-49b9-9a64-c19f6c2a4900.png` (1487 x 1058 px), the user's selected third icon option. Scope: saturated tiles, rounded squares and duotone glyphs. Connector arrows, paths, grid, coordinates, ports and execution behavior are explicitly outside the change.
 
 Browser-rendered evidence (local, ignored QA artifacts):
@@ -135,6 +139,39 @@ Interaction/runtime checks: settings opened and fully loaded, closed without a s
 
 Automated verification: 37 focused PHP tests / 816 assertions; 95 canvas, loading and inspector JavaScript tests; production build; rendering probe for all 81 registered action/trigger icons. Full unrelated application suites are not claimed clean.
 
-Implementation checklist: selected appearance installed; states checked; ports/geometry preserved; reference comparison complete; no remaining P0/P1/P2 findings. P3 follow-up: none required.
+Implementation checklist at that time was incomplete: exact selected artwork was not installed.
+
+final result: blocked
+
+## 2026-10-13 selected artwork correction and JavaScript editor
+
+Source visual truth: `/Users/integrator/.codex/generated_images/01a08aaa-871f-7a11-b7b6-caf11ffbba04/exec-ba7fb147-32df-49b9-9a64-c19f6c2a4900.png`, 1487 x 1058 px. The user reattached this exact third option. The original PNG is now the actual source asset, unchanged, with twelve measured 194 x 194 square windows. No replacement library is used for those twelve icons; node types absent from the source retain their existing fallback.
+
+Rendered evidence, all 1280 x 720 px, CSS viewport 1280 x 720, density 1:
+
+- `backups/canvas-controls-20261012/approved-icons-comparison.png`: combined source and real card components at matching approximately 82px tile scale, same order and dark idle state, captured at `http://127.0.0.1:8098/compare`.
+- `backups/canvas-controls-20261012/approved-icons-states-dark.png` and `approved-icons-states-light.png`: readable 113px tiles, including disabled, running, success and error states. These also provide focused glyph evidence.
+- `backups/canvas-controls-20261012/javascript-editor-dark.png` and `javascript-editor-light.png`: actual inspector, syntax highlighting, line numbers and formatted code. Canvas nodes remain 96 x 96px.
+
+Findings and comparison history:
+
+1. P1, previous implementation: thin library glyphs did not match selected solid silhouettes and thick action signs. Replaced the twelve selected glyphs with the actual approved artwork. Uniform atlas scaling avoids distortion and excludes board captions/background.
+2. P2, first light-theme capture: artwork inherited zero radius from its intermediate wrapper, exposing dark corner pixels. Explicit 15px inner clipping now follows the unchanged 16px card border. Re-captured light/dark and combined reference views with no exposed corners.
+3. P2, state capture: success/error badges overlapped the enlarged action sign. Moved only the badge to the inner corner and reduced it to 17px. Re-captured both themes; signs remain readable.
+4. Editor runtime check caught an Alpine lazy-loader name mismatch. Kept the original CodeEditor component identity and attached formatting methods after initialization. Re-tested opening, formatting, undo, applying, reopening and syntax errors. No new console errors or warnings after this correction.
+
+Required fidelity surfaces:
+
+- Typography: canvas captions and controls retain existing fonts/sizes; code uses 12px monospace, 20px line height with horizontal scrolling instead of oversized prose wrapping.
+- Spacing/layout: existing node size, shape, ports, coordinates, edge paths and grid are unchanged. Inspector retains compact shared form dimensions. Code editor is bounded to 65vh and scrolls internally.
+- Colors/tokens: selected source colors and two-tone opacity preserved in both themes. Disabled artwork is grayscale; execution indicators are separate live elements.
+- Image quality: exact source contours, not substitute vectors. Source provides about 2x pixels at normal 96px node size. At extreme zoom raster artwork can soften; this is an explicit P3 limitation, not a claim of vector sharpness. A future vector master must preserve the selected contours and be compared again.
+- Copy/content: node names and categories unchanged. Added only JavaScript, Format action and actionable syntax/load messages. No mock board labels appear in node art.
+
+Functional checks: formatting stays in-browser, never executes code; a syntax error preserves the document; concurrent edits/close cannot be overwritten by delayed formatting; one CodeMirror transaction supports undo; Apply and main Save preserve code across reopen. No live CRM or workflow actions were executed. The runtime remains JavaScript only.
+
+Automated checks: 100 focused JS tests; 41 focused PHP tests / 850 assertions; production build; inspector rendering/draft probe; all 81 registered node renderings. This does not claim full CI is green. Prettier is lazy-loaded on demand; existing dependency audit findings were not changed with an unrelated upgrade.
+
+Implementation checklist: approved artwork restored; themes/statuses checked; compact code editor and formatter verified; no remaining P0/P1/P2 findings.
 
 final result: passed

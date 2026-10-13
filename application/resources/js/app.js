@@ -1,3 +1,25 @@
+window.workflowJavascriptFormatting = (disabled = false) => ({
+    formatDisabled: disabled,
+    formatting: false,
+    formatError: '',
+    async formatCode() {
+        if (this.formatDisabled || this.formatting || !this.editor) return;
+        const editor = this.editor;
+        this.formatting = true;
+        this.formatError = '';
+        try {
+            const {formatEditor} = await import('./workflow-code-format.mjs');
+            if (this.editor !== editor) return;
+            const applied = await formatEditor(editor, () => this.editor === editor);
+            if (!applied && this.editor === editor) this.formatError = 'Код изменился. Нажмите «Форматировать» ещё раз.';
+        } catch (error) {
+            if (this.editor === editor) this.formatError = 'Код не изменён. ' + (error instanceof SyntaxError ? 'Проверьте синтаксис: ' + error.message : 'Не удалось загрузить форматирование. Попробуйте ещё раз.');
+        } finally {
+            this.formatting = false;
+        }
+    },
+});
+
 // Track the request from the click, not from the server response. Save buttons,
 // modal and canvas share component-scoped state, including validation/network failures.
 window.initializeWorkflowNodeLoading = () => {
