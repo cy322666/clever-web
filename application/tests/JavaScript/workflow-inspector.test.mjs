@@ -117,6 +117,21 @@ test('inside controls and teleported dropdowns do not dismiss the inspector', ()
     panel.dismissInspector({target:{closest:()=>({})}});assert.equal(panel.opened,true);
 });
 
+test('opening and copying from references preserves the mounted unsaved settings', () => {
+    const {panel}=fixture();panel.opened=true;
+    const draft={name:'configureWorkflowAction',data:{name:'Unsaved contact'}};
+    panel.$wire.mountedActions=[draft];
+    panel.$wire.callMountedAction=()=>assert.fail('References must not save the form');
+    for (const selector of ['[data-workflow-reference-toggle]','[data-workflow-reference-panel]']) {
+        panel.dismissInspector({target:{closest:selectors=>selectors.includes(selector) ? {} : null}});
+        assert.equal(panel.opened,true);
+        assert.equal(panel.$wire.mountedActions[0],draft);
+    }
+    const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
+    const builder=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    for (const html of [view,builder]) assert.match(html,/data-workflow-reference-toggle/);
+});
+
 test('close button and Escape hide without a roundtrip; explicit Apply retains validation', () => {
     const {panel}=fixture();panel.opened=true;panel.currentId='action:a';panel.$wire.mountedActions=[{name:'configureWorkflowAction'}];
     panel.$wire.callMountedAction=()=>assert.fail('Close must be immediate');

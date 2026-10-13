@@ -6931,11 +6931,6 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-run__button:disabled { opacity: .5; cursor: wait; }
 .workflow-node-run__button[aria-busy="true"] { opacity: 1; }
 .workflow-node-run__label { display: inline-flex; align-items: center; gap: 6px; }
-.workflow-manual-run { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.workflow-manual-run__status { font-size: 12px; text-decoration: underline; }
-.workflow-manual-run__error { max-width: 300px; font-size: 12px; color: #c65353; }
-.workflow-manual-run select { max-width: 180px; padding: 5px 26px 5px 8px; border: 1px solid #cfd5dd; border-radius: 6px; background: #fff; color: #374151; font-size: 12px; }
-.dark .workflow-manual-run select { background: var(--workflow-dark-panel); color: var(--workflow-dark-text); border-color: var(--workflow-dark-line); }
 .workflow-run-spinner { display: inline-block; flex: 0 0 auto; width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: workflow-run-spin .75s linear infinite; }
 @keyframes workflow-run-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .workflow-run-spinner { animation-duration: 2s; } }

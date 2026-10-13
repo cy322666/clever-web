@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const source = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/node-library.blade.php', import.meta.url), 'utf8');
-function fixture() {
+function fixture(inspector = null) {
     const window={innerWidth:1440,innerHeight:900,addEventListener(){},dispatchEvent(){}};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8'), {window,document:{addEventListener(){}},CustomEvent:class{}});
+    runInNewContext(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8'), {window,document:{addEventListener(){},querySelector:()=>inspector && {getBoundingClientRect:()=>inspector}},CustomEvent:class{}});
     const state=window.workflowNodeLibrary(), changes=[];
-    state.$nextTick=fn=>fn();state.$refs={};state.$wire={$set:(...args)=>changes.push(args)};
+    state.$nextTick=fn=>fn();state.$refs={panel:{contains:()=>false}};state.$wire={$set:(...args)=>changes.push(args)};
     return {state,changes};
 }
 test('catalog browsing is entirely client side and insertion state is reset only on close', () => {
@@ -27,6 +27,33 @@ test('catalog browsing is entirely client side and insertion state is reset only
     assert.equal(state.floatingStyle().position,'fixed');
     assert.deepEqual(changes, ['insertConnection','insertActionPath','insertActionIndex','targetPath'].map(key=>[key,null,false]));
     assert.match(source, /selectTriggerType\(@js\(\$trigger\['type'\]\), !replaceTrigger\)/);
+});
+
+test('references open beside the visible inspector and stay on screen on narrow viewports', () => {
+    const {state}=fixture({left:1000,top:100});
+    state.openFor({mode:'variables',anchor:{x:1400,y:880}});
+    assert.equal(state.floatingStyle().left,'668px');
+    assert.equal(state.floatingStyle().top,'112px');
+    state.viewport={width:375,height:400};
+    assert.equal(state.floatingStyle().left,'43px');
+    assert.equal(state.floatingStyle().top,'12px');
+    assert.match(source,/x-bind:data-workflow-reference-panel/);
+    assert.match(source,/dismissLibrary\(\$event\)/);
+});
+
+test('reference browsing and pasting coexist without requests; ordinary catalog still dismisses', () => {
+    const {state,changes}=fixture();state.openFor({mode:'variables'});
+    for (const selector of ['.workflow-inspector','[data-workflow-reference-toggle]']) {
+        state.dismissLibrary({target:{closest:selectors=>selectors.includes(selector) ? {} : null}});
+        assert.equal(state.open,true);
+    }
+    state.$refs.panel.contains=()=>true;
+    state.dismissLibrary({target:{}});assert.equal(state.open,true);
+    assert.deepEqual(changes,[]);
+    state.$refs.panel.contains=()=>false;
+    state.dismissLibrary({target:{}});assert.equal(state.open,false);
+    state.openFor({mode:'action'});
+    state.dismissLibrary({target:{closest:()=>({})}});assert.equal(state.open,false);
 });
 
 test('every category is available from the unified root, with nested back navigation', () => {

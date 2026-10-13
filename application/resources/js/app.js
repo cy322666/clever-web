@@ -28,8 +28,7 @@ window.initializeWorkflowNodeLoading = () => {
     window.Livewire.interceptAction(({action, onFinish}) => {
         const saving = ['save', 'create'].includes(action.name);
         const requestId = saving ? action.name : action.name === 'runWorkflowCanvasNode' ? action.params[0]
-            : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger')
-            : action.name === 'runWorkflowManually' ? '__workflow' : null;
+            : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger') : null;
         if (!requestId) return;
         const pending = window.Alpine.store('workflowNodeRuns')[saving ? 'saving' : 'pending'];
         const componentId = action.component.id;
@@ -49,9 +48,8 @@ window.workflowNodeIsRunning = (wire, nodeId = null) => {
     const requested = nodeId === null ? Object.keys(pending).length > 0 : (pending[nodeId] || 0) > 0;
     // Queuing a loop ends the HTTP request, not the execution. Polling owns its end.
     const queued = Boolean(wire.nodePreviewTaskId) && (nodeId === null || wire.nodePreviewProgress?.node_id === nodeId);
-    return requested || queued || (nodeId === null && ['pending', 'running'].includes(wire.manualRunStatus));
+    return requested || queued;
 };
-window.workflowManualIsRunning = wire => window.workflowNodeIsRunning(wire, '__workflow') || ['pending', 'running'].includes(wire.manualRunStatus);
 window.workflowIsSaving = wire => Object.keys(window.Alpine?.store('workflowNodeRuns')?.saving?.[wire.$id] || {}).length > 0;
 document.addEventListener('livewire:init', window.initializeWorkflowNodeLoading);
 window.initializeWorkflowNodeLoading();
@@ -257,7 +255,7 @@ window.workflowInspector = () => ({
     dismissInspector(event) {
         if (!this.opened || this.$el.contains(event.target)) return;
         // Filament widgets may teleport their options or a nested dialog.
-        if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box')) return;
+        if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box, [data-workflow-reference-toggle], [data-workflow-reference-panel]')) return;
         this.hideInspector();
     },
     hideInspector() {
@@ -327,7 +325,10 @@ window.workflowNodeLibrary = () => ({
     floatingStyle() {
         const width = Math.min(320, this.viewport.width - 24);
         const height = Math.min(470, this.viewport.height - 24);
-        const anchor = this.anchor || {x: (this.viewport.width - width) / 2, y: Math.max(100, (this.viewport.height - height) / 2)};
+        let anchor = this.anchor || {x: (this.viewport.width - width) / 2, y: Math.max(100, (this.viewport.height - height) / 2)};
+        // References coexist with the draft instead of covering it on desktop.
+        const inspector = this.mode === 'variables' ? document.querySelector('.workflow-inspector:not([hidden])')?.getBoundingClientRect() : null;
+        if (inspector && inspector.left >= width + 24) anchor = {x: inspector.left - width - 12, y: inspector.top + 12};
         return {position: 'fixed', left: `${Math.max(12, Math.min(anchor.x, this.viewport.width-width-12))}px`, top: `${Math.max(12, Math.min(anchor.y, this.viewport.height-height-12))}px`, width: `${width}px`, maxHeight: `${height}px`};
     },
     normalize(value) { return String(value ?? '').toLocaleLowerCase('ru-RU').trim(); },
@@ -355,6 +356,12 @@ window.workflowNodeLibrary = () => ({
         window.dispatchEvent(new CustomEvent('workflow-node-library-closed'));
         // Keep the insertion context while browsing categories and searching.
         ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.$wire.$set(key, null, false));
+    },
+    dismissLibrary(event) {
+        if (!this.open || this.$refs.panel.contains(event.target)) return;
+        // Keep browsing/copying while the user pastes into the mounted form.
+        if (this.mode === 'variables' && event.target.closest?.('.workflow-inspector, [data-workflow-reference-toggle]')) return;
+        this.closeLibrary();
     },
     goBack() {
         this.query = '';

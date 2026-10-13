@@ -81,10 +81,7 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
-                    <button type="button" class="workflow-workbench__quick-action" x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
-                    @if($workflowRecord && !$isReplay && method_exists($this, 'runWorkflowManually'))
-                        @include('filament.workflow-builder.workflow-manual-run')
-                    @endif
+                    <button type="button" class="workflow-workbench__quick-action" data-workflow-reference-toggle x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
                     @if(($this->nodePreviewTaskId ?? null) && empty($this->mountedActions))
                         @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])
                     @endif

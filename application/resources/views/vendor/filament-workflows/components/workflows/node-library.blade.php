@@ -238,11 +238,11 @@
     x-on:workflow-node-created.window="open = false; anchor = null"
     x-on:workflow-node-inserted.window="open = false; anchor = null"
     x-on:keydown.escape.window="if (open) closeLibrary()"
-    x-on:pointerdown.window.capture="if (open && !$refs.panel.contains($event.target)) closeLibrary()"
+    x-on:pointerdown.window.capture="dismissLibrary($event)"
     x-on:resize.window="viewport = { width: window.innerWidth, height: window.innerHeight }"
     class="workflow-node-library workflow-node-library--floating is-contextual"
 >
-    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()" class="workflow-node-library__panel" role="dialog" aria-label="Каталог нод">
+    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()" x-bind:data-workflow-reference-panel="mode === 'variables' ? '' : null" class="workflow-node-library__panel" role="dialog" x-bind:aria-label="mode === 'variables' ? 'Справочники' : 'Каталог нод'">
         <header class="workflow-node-library__header">
             <button x-cloak x-show="mode !== 'all' && mode !== 'variables' && (!replaceTrigger || view !== 'root')" type="button" x-on:click="goBack()" class="workflow-node-library__close" aria-label="Назад в каталоге" title="Назад">
                 <x-filament::icon icon="heroicon-o-arrow-left" class="h-4 w-4"/>

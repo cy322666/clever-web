@@ -15,7 +15,7 @@ function fixture() {
     assert.equal(interceptors.length, 1, 'navigation must not register a second handler');
     const wire = {$id: 'editor-1', editingActionId: 'contact', nodePreviewTaskId: null, nodePreviewProgress: {}};
     return {
-        wire, stores, saving: (editor = wire) => window.workflowIsSaving(editor), manualRunning: () => window.workflowManualIsRunning(wire), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
+        wire, stores, saving: (editor = wire) => window.workflowIsSaving(editor), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
         start(name, params = [], editor = wire) {
             let finish;
             interceptors[0]({action: {name, params, component: {id: editor.$id, reactive: editor}}, onFinish(callback) { finish = callback; }});
@@ -101,27 +101,12 @@ test('save feedback is accessible, disables repeat submits and reserves its widt
     assert.match(css, /\.workflow-save-button\[aria-busy="true"\][^\n]+opacity: 1; cursor: wait/);
 });
 
-test('manual flow has immediate feedback, stays busy while queued and never marks every node running', () => {
+test('removed standalone flow run has no loading handler or queued state', () => {
     const f = fixture();
-    const finish = f.start('runWorkflowManually');
-    assert.equal(f.manualRunning(), true);
-    assert.equal(f.running(), true);
-    assert.equal(f.running('contact'), false);
+    assert.equal(f.start('runWorkflowManually'), undefined);
     f.wire.manualRunStatus = 'pending';
-    finish();
-    for (const state of ['pending', 'running']) {
-        f.wire.manualRunStatus = state;
-        assert.equal(f.manualRunning(), true);
-        assert.equal(f.running(), true);
-    }
-    for (const state of ['completed', 'failed', 'cancelled', 'paused', null]) {
-        f.wire.manualRunStatus = state;
-        assert.equal(f.manualRunning(), false);
-        assert.equal(f.running(), false);
-    }
-    const failed = f.start('runWorkflowManually');
-    failed();
-    assert.equal(f.manualRunning(), false);
+    assert.equal(f.running(), false);
+    assert.equal(f.running('contact'), false);
 });
 
 test('loop spinner survives the queued response and polls, then clears on completion or cancellation', () => {

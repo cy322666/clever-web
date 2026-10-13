@@ -34,8 +34,15 @@ try {
         ['id' => 'probe-code', 'name' => 'Probe Code', 'type' => 'workflow_javascript', 'config' => ['javascript_code' => 'return $json;']],
     ]]);
     if (!preg_match('/wire:snapshot="([^"]+)"/', $html, $match)) throw new RuntimeException('Missing editor snapshot');
-    if (!str_contains($html, 'aria-label="Каталог нод"') || !str_contains($html, 'aria-label="Справочники"') || str_contains($html, 'workflow-node-library__rail')) {
+    if (!str_contains($html, "mode === 'variables' ? 'Справочники' : 'Каталог нод'") || !str_contains($html, 'aria-label="Справочники"') || str_contains($html, 'workflow-node-library__rail')) {
         throw new RuntimeException('Editor must expose one context catalog and a separate references control');
+    }
+    if (substr_count($html, 'data-workflow-reference-toggle') !== 2 || !str_contains($html, 'x-bind:data-workflow-reference-panel')) {
+        throw new RuntimeException('References must be available from both the toolbar and mounted inspector');
+    }
+    if (str_contains($html, 'workflow-manual-run') || method_exists(App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\EditWorkflow::class, 'runWorkflowManually')
+        || method_exists(App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\EditWorkflow::class, 'pollManualWorkflowRun')) {
+        throw new RuntimeException('Standalone editor run must be removed, including its server entrypoints');
     }
     if (!str_contains($html, 'x-bind:hidden="!opened" hidden') || str_contains($html, 'has-inspector')) {
         throw new RuntimeException('Canvas space must follow the actual inspector visibility');
