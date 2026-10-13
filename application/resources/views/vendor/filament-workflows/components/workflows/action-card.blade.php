@@ -18,6 +18,7 @@
     $icon = $metadata['icon'] ?? ($isCondition ? 'heroicon-o-arrows-right-left' : 'heroicon-o-cog-6-tooth');
     $config = $action['config'] ?? [];
     $icon = \App\Services\Workflows\WorkflowAmoIcons::action($actionType, $config, $icon);
+    $appearance = \App\Services\Workflows\WorkflowNodeAppearance::action($actionType, $config, $icon);
     $entity = $config['target_entity'] ?? $config['entity'] ?? (str_contains($actionType, 'lead') ? 'lead' : '');
     $entityLabel = ['lead' => 'Сделка', 'contact' => 'Контакт', 'company' => 'Компания', 'customer' => 'Покупатель', 'task' => 'Задача'][$entity] ?? null;
     $subtitle = $isCondition ? 'Если / иначе' : ($entityLabel ? 'amoCRM · ' . $entityLabel : ($metadata['category'] ?? 'Действие'));
@@ -29,6 +30,7 @@
 
 <div
     data-workflow-node-card
+    data-node-family="{{ $appearance['family'] }}"
     data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
     @if($readOnly && $executionCount !== null)
         x-bind:class="{ 'workflow-node-card--selected': selectedNodeId() === 'action:' + @js($actionId) }"
@@ -76,7 +78,7 @@
     @endif
 
     <span class="workflow-node-card__icon">
-        <x-workflow-icon :icon="$icon" :type="$actionType" :amo="str_starts_with($actionType, 'amocrm_')" class="h-6 w-6"/>
+        <x-workflow-node-icon :appearance="$appearance"/>
     </span>
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
     @include('filament.workflow-builder.workflow-node-status')

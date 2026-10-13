@@ -11,6 +11,7 @@
     $name = $nodeName ?: ($metadata['name'] ?? 'Событие запуска');
     $icon = $metadata['icon'] ?? 'heroicon-o-bolt';
     $icon = \App\Services\Workflows\WorkflowAmoIcons::trigger($type, $icon);
+    $appearance = \App\Services\Workflows\WorkflowNodeAppearance::trigger($type, $icon);
     $hasSettings = in_array($type, ['schedule', 'generic-webhook'], true);
     $subtitle = match ($type) {
         'manual' => 'Запуск вручную',
@@ -26,6 +27,7 @@
 
 <div
     data-workflow-node-card
+    data-node-family="{{ $appearance['family'] }}"
     @if(! $readOnly)
         x-data="workflowInlineNodeName(@js($nodeId), @js($name))"
         @if($hasSettings)
@@ -48,7 +50,7 @@
         <button type="button" class="workflow-node-port workflow-node-port--output" x-on:pointerdown.stop="startConnection(@js($nodeId), 'output', $event)" x-on:keydown.enter.prevent.stop="startConnection(@js($nodeId), 'output', $event)" x-on:click.stop aria-label="Выход запуска"></button>
     @endif
     <span class="workflow-node-card__icon">
-        <x-workflow-icon :icon="$icon" :amo="str_starts_with($type, 'amocrm-') || $type === 'amo-button'" class="h-6 w-6"/>
+        <x-workflow-node-icon :appearance="$appearance"/>
     </span>
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
     @include('filament.workflow-builder.workflow-node-status')

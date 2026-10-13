@@ -7132,6 +7132,62 @@ svg.workflow-control-icon { color: #248548 !important; }
 }
 .workflow-node-settings__parameters .workflow-entity-link-section { padding-top: 16px; border-top: 1px solid #d9dde3 !important; }
 .dark .workflow-node-settings__parameters .workflow-entity-link-section { border-top-color: var(--workflow-dark-line) !important; }
+/* Node identity. Tile geometry, ports, captions and connection paths stay unchanged. */
+.workflow-node-card[data-node-family="crm"] { --workflow-node-fill: #2674f5; }
+.workflow-node-card[data-node-family="control"] { --workflow-node-fill: #8051dd; }
+.workflow-node-card[data-node-family="data"],
+.workflow-node-card[data-node-family="trigger"] { --workflow-node-fill: #e9a321; }
+.workflow-node-card[data-node-family="http"] { --workflow-node-fill: #00a99d; }
+.workflow-node-card[data-node-family="telegram"] { --workflow-node-fill: #06a9dd; }
+.workflow-node-card[data-node-family="neutral"] { --workflow-node-fill: #657287; }
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled) {
+    background: var(--workflow-node-fill) !important;
+    border-color: rgb(255 255 255 / 22%) !important;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-card__icon {
+    width: 3rem; height: 3rem; flex-basis: 3rem; color: #fff !important;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph {
+    display: block; position: relative; width: 3rem; height: 3rem;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > svg {
+    position: absolute; inset: 0; width: 100%; height: 100%; color: inherit;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph__main [opacity] { opacity: .4; }
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > .workflow-node-glyph__entity {
+    width: 88%; height: 88%; top: 0; left: -7%; opacity: .48;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > .workflow-node-glyph__action {
+    width: 57%; height: 57%; inset: auto -8% 0 auto;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph--assignment > .workflow-node-glyph__entity {
+    width: 100%; height: 100%; inset: 0;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph--assignment > .workflow-node-glyph__action {
+    width: 42%; height: 42%; inset: 29%;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family].workflow-node-card--disabled > .workflow-node-card__icon {
+    color: #7d899a !important;
+}
+.dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family].workflow-node-card--disabled > .workflow-node-card__icon {
+    color: #a1adbd !important;
+}
+/* Execution is a separate signal, never confused with the node's family color. */
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-status {
+    width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #fff;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is([data-execution-status="completed"], [data-execution-status="success"]) {
+    border-color: #269b51 !important; box-shadow: 0 0 0 1px #269b51 !important;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is([data-execution-status="error"], [data-execution-status="failed"], [data-execution-status="validation_error"]) {
+    border-color: #cb6161 !important; box-shadow: 0 0 0 1px #cb6161 !important;
+}
+.dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is([data-execution-status="completed"], [data-execution-status="success"]) {
+    border-color: #72ba91 !important; box-shadow: 0 0 0 1px #72ba91 !important;
+}
+.dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is([data-execution-status="error"], [data-execution-status="failed"], [data-execution-status="validation_error"]) {
+    border-color: #e68e8e !important; box-shadow: 0 0 0 1px #e68e8e !important;
+}
 @media (max-width: 900px) {
     .fi-modal-window.workflow-node-settings { width: calc(100vw - 16px) !important; height: calc(100dvh - 16px); max-height: calc(100dvh - 16px) !important; margin: 8px auto !important; }
     .workflow-node-settings__workspace { overflow: auto; }

@@ -1,0 +1,83 @@
+<?php
+
+namespace Tests\Unit\Workflows;
+
+use App\Services\Workflows\WorkflowNodeAppearance;
+use BladeUI\Icons\Factory;
+use Illuminate\Support\Facades\Blade;
+use Leek\FilamentWorkflows\Actions\ActionRegistry;
+use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
+use Tests\TestCase;
+
+class WorkflowNodeAppearanceTest extends TestCase
+{
+    public function test_crm_operations_have_distinct_action_cues_and_keep_the_entity(): void
+    {
+        foreach (['contact' => 'user', 'lead' => 'briefcase', 'company' => 'buildings'] as $entity => $glyph) {
+            foreach (['amocrm_find_entity' => 'magnifying-glass', 'amocrm_create_'.$entity => 'plus', 'amocrm_update_'.$entity.'_fields' => 'pencil-simple'] as $type => $modifier) {
+                $this->assertSame(['family'=>'crm', 'glyph'=>$glyph, 'modifier'=>$modifier], WorkflowNodeAppearance::action($type, ['target_entity'=>$entity]));
+            }
+        }
+        $this->assertSame('note', WorkflowNodeAppearance::action('amocrm_add_note', ['target_entity'=>'lead'])['glyph']);
+        $this->assertSame('tag', WorkflowNodeAppearance::action('amocrm_read', ['operation'=>'contacts.tags'])['glyph']);
+        $this->assertSame('briefcase', WorkflowNodeAppearance::action('amocrm_read', ['operation'=>'leads.list'])['glyph']);
+    }
+
+    public function test_families_are_semantic_and_not_execution_statuses(): void
+    {
+        foreach (['control-condition'=>'control', 'workflow_loop'=>'control', 'workflow_filter_list'=>'control', 'workflow_delay'=>'control', 'workflow_set_variable'=>'data', 'workflow_javascript'=>'data', 'http_request'=>'http', 'telegram_send_message'=>'telegram', 'unknown'=>'neutral'] as $type=>$family) {
+            $this->assertSame($family, WorkflowNodeAppearance::action($type)['family']);
+        }
+        foreach (['manual'=>'play', 'schedule'=>'clock', 'generic-webhook'=>'webhooks-logo'] as $type=>$glyph) {
+            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null], WorkflowNodeAppearance::trigger($type));
+        }
+    }
+
+    public function test_all_registered_nodes_render_local_library_assets(): void
+    {
+        $appearances = [];
+        foreach (app(ActionRegistry::class)->getAllWithMetadata() as $meta) {
+            $appearances[] = WorkflowNodeAppearance::action($meta['type'], [], $meta['icon'] ?? '');
+        }
+        foreach (app(TriggerRegistry::class)->getAllWithMetadata() as $meta) {
+            $appearances[] = WorkflowNodeAppearance::trigger($meta['type'], $meta['icon'] ?? '');
+        }
+        $this->assertGreaterThan(30, count($appearances));
+        foreach ($appearances as $appearance) {
+            $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
+            $this->assertStringContainsString('<svg', $html);
+            $this->assertStringContainsString('aria-hidden="true"', $html);
+            $this->assertStringNotContainsString('<script', $html);
+            $this->assertStringContainsString('workflow-node-glyph__'.($appearance['modifier'] ? 'action' : 'main'), $html);
+        }
+    }
+
+    public function test_readonly_cards_share_the_appearance_without_changing_ports(): void
+    {
+        foreach (['control-condition'=>['yes','no'], 'workflow_loop'=>['done','each'], 'amocrm_create_contact'=>['output']] as $type=>$ports) {
+            $html = Blade::render('<x-filament-workflows::workflows.action-card :action="$action" :read-only="true" :execution-count="2"/>', ['action'=>['id'=>'probe','type'=>$type,'name'=>'Проверка','disabled'=>true]]);
+            $this->assertStringContainsString('data-node-family=', $html);
+            $this->assertStringContainsString('workflow-node-card--disabled', $html);
+            $this->assertStringContainsString('workflow-node-status--success', $html);
+            $this->assertStringContainsString('workflow-node-status--error', $html);
+            $this->assertStringContainsString('workflow-node-port--input', $html);
+            foreach ($ports as $port) $this->assertStringContainsString('workflow-node-port--output'.($port === 'output' ? '"' : '-'.$port), $html);
+        }
+        $trigger = Blade::render('<x-filament-workflows::workflows.trigger-card type="manual" :read-only="true"/>');
+        $this->assertStringContainsString('data-node-family="trigger"', $trigger);
+        $this->assertStringContainsString('workflow-node-port--output', $trigger);
+    }
+
+    public function test_vendored_icons_are_valid_self_contained_current_color_svgs(): void
+    {
+        foreach (glob(resource_path('svg/workflow-nodes/*.svg')) as $path) {
+            $name = pathinfo($path, PATHINFO_FILENAME);
+            $svg = app(Factory::class)->svg('wficon-'.$name)->toHtml();
+            $this->assertNotFalse(simplexml_load_string($svg), $name);
+            $this->assertStringContainsString('viewBox="0 0 256 256"', $svg, $name);
+            $this->assertStringContainsString('currentColor', $svg, $name);
+            $this->assertDoesNotMatchRegularExpression('/<(script|image|foreignObject)|(?:href|onload|onclick)=/i', $svg, $name);
+        }
+        $this->assertStringContainsString('MIT', file_get_contents(resource_path('svg/workflow-nodes/LICENSE')));
+    }
+}

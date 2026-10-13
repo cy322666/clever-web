@@ -135,6 +135,10 @@ class AppServiceProvider extends ServiceProvider
             'path' => resource_path('svg/services'),
             'prefix' => 'service',
         ]);
+        app(\BladeUI\Icons\Factory::class)->add('workflow-node', [
+            'path' => resource_path('svg/workflow-nodes'),
+            'prefix' => 'wficon',
+        ]);
         QueueMonitor::observe(QueueMonitorObserver::class);
 
         FilamentView::registerRenderHook(

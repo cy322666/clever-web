@@ -106,3 +106,35 @@ Further input-panel simplification: collapsed object/array tree with short field
 - Comparison history: the source showed the heavier «Сценарии» heading and taller spacing. The implementation replaced the caption, reduced weight and tightened header/list/button spacing. The combined post-fix capture showed no remaining P0/P1/P2 mismatch against the requested deltas.
 - Automated verification: widget archive integrity passed; focused PHPUnit suite passed with 6 tests / 21 assertions; production archive readback matched the local SHA-256.
 - Final result: passed
+
+## 2026-10-13 saturated square nodes with duotone icons
+
+Source visual truth: `/Users/integrator/.codex/generated_images/01a08aaa-871f-7a11-b7b6-caf11ffbba04/exec-ba7fb147-32df-49b9-9a64-c19f6c2a4900.png` (1487 x 1058 px), the user's selected third icon option. Scope: saturated tiles, rounded squares and duotone glyphs. Connector arrows, paths, grid, coordinates, ports and execution behavior are explicitly outside the change.
+
+Browser-rendered evidence (local, ignored QA artifacts):
+
+- Full-view combined reference/implementation: `backups/canvas-controls-20261012/node-appearance-comparison.png`, 1280 x 720 px, captured at `http://127.0.0.1:8098/compare` in the Codex in-app browser.
+- Focused readable-scale states: `backups/canvas-controls-20261012/node-appearance-states-dark.png` and `node-appearance-states-light.png`, 1280 x 720 px.
+- Actual editor, unchanged connections: `backups/canvas-controls-20261012/node-appearance-editor.png`, 1280 x 720 px.
+- CSS viewport 1280 x 720, screenshot density 1. The source is displayed at 616 px width. The comparison gallery scales real 96 px tiles to 81.6 px, matching the source tile scale; state screenshots enlarge tiles to 113.3 px for glyph inspection. Editor evidence uses actual 96 x 96 px geometry, 16 px radius. Gallery-only layout differences are not product layout changes.
+
+Required fidelity surfaces:
+
+- Typography: production caption font, 14 px title / 12 px subtitle, weights and wrapping unchanged. Reference board captions are explanatory; editor keeps real node names and categories.
+- Spacing/layout: verified computed 96 x 96 px cards and 16 px radius for trigger, CRM, condition, loop and assignment. Only glyph footprint grows from 36 to 48 px. No node or port offset changes. Existing selection, hover tools and keyboard menu remain usable.
+- Colors/tokens: blue CRM, violet control flow, amber data/start, teal HTTP, cyan Telegram. Same family palette in both themes. Disabled cards remain neutral and dashed. Success/error borders and check/cross badges are independently legible on colored tiles; loading has its existing spinner on a neutral backing.
+- Assets: original locally vendored Phosphor 2.1.1 MIT SVGs, not generated or handcrafted paths. Entity silhouettes are translucent, action cues white. Search, create and update are distinct. Library-specific glyph contours are an intentional production adaptation of the selected concept.
+- Copy/content: existing node names, subtitles, actions and settings unchanged. No design-board headings or mock content enter production.
+
+Comparison history:
+
+1. P2: fill-weight plus and braces introduced boxed negative-space glyphs instead of the requested open signs. Replaced action cues and assignment braces with original bold-weight assets, used a filled Telegram mark. Fixed the QA gallery's inherited minimum width so all four columns are visible.
+2. Re-captured the combined reference and real components after these fixes. No actionable P0/P1/P2 visual differences remain within the approved scope. Light/dark success, error, running and disabled states were then checked at readable scale.
+
+Interaction/runtime checks: settings opened and fully loaded, closed without a stale panel, local disable/re-enable changed color immediately, keyboard overflow menu opened/closed, fit-to-view retained all connections. Preview asset-origin and checksum issues were fixed in the ignored harness, then the same form lifecycle completed without new browser errors. No real CRM calls, workflow runs or persisted changes were made by QA.
+
+Automated verification: 37 focused PHP tests / 816 assertions; 95 canvas, loading and inspector JavaScript tests; production build; rendering probe for all 81 registered action/trigger icons. Full unrelated application suites are not claimed clean.
+
+Implementation checklist: selected appearance installed; states checked; ports/geometry preserved; reference comparison complete; no remaining P0/P1/P2 findings. P3 follow-up: none required.
+
+final result: passed
