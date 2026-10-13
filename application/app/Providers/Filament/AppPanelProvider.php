@@ -136,6 +136,7 @@ class AppPanelProvider extends PanelProvider
                 Authenticate::class,
                 EnsureOnboardingCompleted::class,
             ])
+            ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop();
     }
 }
