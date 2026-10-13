@@ -39,15 +39,39 @@ class WorkflowCompactControlsTest extends TestCase
         $this->assertStringContainsString('Добавить переменную', $html);
     }
 
-    public function test_condition_logic_is_a_two_button_choice_and_both_values_save(): void
+    public function test_condition_logic_uses_separate_buttons_and_both_values_save(): void
     {
         foreach (['and', 'or'] as $logic) {
             $page = $this->editor('control-condition', ['logic' => $logic, 'conditions' => [['left' => 1, 'operator' => 'equals', 'right' => 1]]]);
             $html = $this->form($page);
             $this->assertStringContainsString('fi-fo-toggle-buttons', $html);
+            $this->assertSame(2, substr_count($html, 'fi-fo-toggle-buttons-btn-ctn'));
+            $this->assertDoesNotMatchRegularExpression('/class="[^"]*fi-fo-toggle-buttons[^\"]*fi-btn-group/', $html);
             $this->assertStringNotContainsString('Все условия (И)', $html);
+            $this->assertStringContainsString('workflow-value-field__header--unlabeled', $html);
+            $this->assertDoesNotMatchRegularExpression('/<label\b[^>]*>\s*Значение [12]/u', $html);
+            $this->assertStringContainsString('aria-label="Значение 1"', $html);
+            $this->assertStringContainsString('aria-label="Значение 2"', $html);
             $page->call('callMountedAction')->assertHasNoErrors();
             $this->assertSame($logic, $page->get('workflowActions')[0]['config']['logic']);
+        }
+    }
+
+    public function test_loop_form_has_no_annotations_and_preserves_input_and_mode(): void
+    {
+        foreach (['all', 'once'] as $mode) {
+            $items = '[{"id":17},{"id":18}]';
+            $page = $this->editor('workflow_loop', ['items' => $items, 'mode' => $mode, 'require_return' => true]);
+            $html = $this->form($page);
+            $this->assertStringContainsString('Что подать в цикл', $html);
+            $this->assertStringContainsString('Сколько элементов обработать', $html);
+            $this->assertStringNotContainsString('Выберите список из предыдущей ноды', $html);
+            $this->assertStringNotContainsString('Соедините конец ветки', $html);
+            $page->call('callMountedAction')->assertHasNoErrors();
+            $config = $page->get('workflowActions')[0]['config'];
+            $this->assertSame($items, $config['items']);
+            $this->assertSame($mode, $config['mode']);
+            $this->assertTrue($config['require_return']);
         }
     }
 

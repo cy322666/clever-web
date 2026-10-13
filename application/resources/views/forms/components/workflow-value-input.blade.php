@@ -16,8 +16,10 @@
         x-on:click="if ($event.target === $refs.value) suggest($event)"
         x-on:keyup="if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes($event.key)) suggest($event)"
         x-on:click.outside="suggestions = []">
-        <div class="workflow-value-field__header">
+        <div @class(['workflow-value-field__header', 'workflow-value-field__header--unlabeled' => $isLabelHidden()])>
+        @unless($isLabelHidden())
         <label :for="mode === 'value' && @js($hasOptions) ? @js($getId()) : @js($getId().'-value')">{{ $getLabel() }}@if($isRequired())<span aria-hidden="true"> *</span>@endif</label>
+        @endunless
         <div class="workflow-value-field__modes" role="group" aria-label="Способ задания значения">
             <button type="button" :aria-pressed="mode === 'value'" x-on:click="mode = 'value'; if (String(state ?? '').includes('{' + '{')) state = ''">Вручную</button>
             <button type="button" :aria-pressed="mode === 'expression'" x-on:click="mode = 'expression'; $nextTick(() => $refs.value.focus())">Переменная</button>

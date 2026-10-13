@@ -6879,6 +6879,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-settings .fi-fo-toggle-buttons label:hover { border-color: #a7b1be !important; }
 .workflow-node-settings .fi-fo-toggle-buttons-input:focus-visible + label { outline: 2px solid #a7bfcc; outline-offset: 2px; }
 .workflow-value-field__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 8px; }
+.workflow-value-field__header--unlabeled { justify-content: flex-end; }
 .workflow-value-field__header label { font-size: 13px; font-weight: 500; line-height: 1.4; }
 .workflow-value-field__modes { flex-shrink: 0; }
 .workflow-value-field .fi-input { box-sizing: border-box; min-height: 40px; line-height: 20px; width: 100%; }

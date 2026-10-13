@@ -25,11 +25,9 @@ class WorkflowLoopAction
         return [
             \Filament\Forms\Components\Hidden::make('require_return')->default(true),
             WorkflowValueInput::make('items')->label('Что подать в цикл')->required()
-                ->default('{{ $json }}')->placeholder('{{ $("Получить заказы").result }}')
-                ->helperText('Выберите список из предыдущей ноды или укажите JSON-массив. Внутри ветки текущий элемент доступен через $("Цикл").'),
+                ->default('{{ $json }}')->placeholder('{{ $("Получить заказы").result }}'),
             Select::make('mode')->label('Сколько элементов обработать')->required()->default('all')
-                ->options(['all' => 'Все элементы', 'once' => 'Один раз: только первый элемент'])
-                ->helperText('Соедините конец ветки «Каждый элемент» со входом цикла: возврат берёт следующий элемент. Без возврата выполняется только первый элемент. «Готово» сработает после возврата с последнего элемента или для пустого списка.'),
+                ->options(['all' => 'Все элементы', 'once' => 'Один раз: только первый элемент']),
         ];
     }
 

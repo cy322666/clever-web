@@ -61,7 +61,7 @@ class ControlConditionAction extends ConditionAction
                         ->default('and')
                         ->afterStateHydrated(fn(ToggleButtons $component, ?string $state) => $component->state($state ?: 'and'))
                         ->required()
-                        ->inline()->grouped(),
+                        ->inline(),
 
                     Repeater::make('conditions')
                         ->label(static::workflowTrans('fields.conditions.label'))
@@ -70,7 +70,7 @@ class ControlConditionAction extends ConditionAction
                         ->schema([
                             Grid::make(1)
                                 ->schema([
-                                    WorkflowValueInput::make('left')->label('Значение 1')->live(debounce: 400),
+                                    WorkflowValueInput::make('left')->label('Значение 1')->hiddenLabel()->live(debounce: 400),
                                     Hidden::make('left_field_type')->dehydrateStateUsing(
                                         fn (Get $get): ?string => WorkflowTriggerConditionVariableCatalog::conditionFieldType($get('left')),
                                     ),
@@ -97,7 +97,7 @@ class ControlConditionAction extends ConditionAction
                                         ->native(false)
                                         ->columnSpanFull(),
 
-                                    WorkflowValueInput::make('right')->label('Значение 2')
+                                    WorkflowValueInput::make('right')->label('Значение 2')->hiddenLabel()
                                         ->options(
                                             fn (Get $get): array => WorkflowTriggerConditionVariableCatalog::conditionFieldValueOptions($get('left')) ?? [],
                                             fn (Get $get): bool => WorkflowTriggerConditionVariableCatalog::conditionFieldValueOptions($get('left')) !== null,
