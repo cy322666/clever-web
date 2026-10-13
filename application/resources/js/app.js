@@ -2053,17 +2053,36 @@ window.workflowValueClipboard = () => ({
     copiedRow: null,
     copyError: '',
     copyTimer: null,
-    async copyValue(value, id) {
-        this.copyError = '';
+    copyPosition: null,
+    copySequence: 0,
+    clearCopyFeedback() {
+        this.copySequence++;
+        window.clearTimeout(this.copyTimer);
+        this.copyTimer = null;
         this.copiedRow = null;
+        this.copyPosition = null;
+    },
+    destroy() { this.clearCopyFeedback(); },
+    async copyValue(value, id, anchor = null) {
+        this.clearCopyFeedback();
+        this.copyError = '';
+        const sequence = this.copySequence;
         try {
             // Copy the value, not the expression, JSON key, quotes or comma.
             await navigator.clipboard.writeText(typeof value === 'string' ? value : (JSON.stringify(value) ?? 'null'));
+            if (sequence !== this.copySequence || (anchor && (!anchor.isConnected || !anchor.getClientRects().length))) return;
+            if (anchor) {
+                const rect = anchor.getBoundingClientRect();
+                // Match the compact notice size and keep it inside the viewport.
+                this.copyPosition = {
+                    left: Math.max(8, Math.min(rect.left, window.innerWidth - 118 - 8)),
+                    top: Math.max(8, Math.min(rect.top >= 40 ? rect.top - 34 : rect.bottom + 8, window.innerHeight - 26 - 8)),
+                };
+            }
             this.copiedRow = id;
-            window.clearTimeout(this.copyTimer);
-            this.copyTimer = window.setTimeout(() => { this.copiedRow = null; }, 1500);
+            this.copyTimer = window.setTimeout(() => this.clearCopyFeedback(), 1500);
         } catch {
-            this.copyError = 'Не удалось скопировать. Выделите значение и нажмите Ctrl+C.';
+            if (sequence === this.copySequence) this.copyError = 'Не удалось скопировать. Выделите значение и нажмите Ctrl+C.';
         }
     },
 });

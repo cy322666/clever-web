@@ -86,6 +86,15 @@
 .workflow-json-tree__caret { display: inline-block; width: 14px; color: #8290a3; }
 .workflow-input-json__value.is-copied { background: rgb(47 159 103 / .16); outline: 1px solid rgb(47 159 103 / .45); }
 .workflow-json-tree .workflow-input-json__value:focus-visible { outline: 2px solid #a7bfcc; outline-offset: 1px; }
+.workflow-copy-feedback {
+    position: fixed; z-index: 100; pointer-events: none;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    width: 118px; height: 26px; border: 1px solid #b8dec7; border-radius: 5px;
+    background: #effaf3; color: #267348; box-shadow: 0 2px 8px rgb(26 62 40 / .12);
+    font: 500 11px/1.2 ui-sans-serif, system-ui, sans-serif; white-space: nowrap;
+    animation: workflow-menu-appear 120ms ease-out;
+}
+.dark .workflow-copy-feedback { background: #253c30; color: #a1e1b8; border-color: #42694f; }
 .workflow-node-library.is-contextual .workflow-node-library__panel { border: 1px solid #d4dae2; border-radius: 10px; box-shadow: 0 12px 36px #2028331c; }
 .workflow-node-library.is-contextual .workflow-node-library__header { min-height: 48px; }
 .workflow-node-library.is-contextual .workflow-node-library__body { overflow-y: auto; }
@@ -132,5 +141,5 @@
     .workflow-editor-page:has(~ [wire\:partial="action-modals"] .workflow-inspector:not([hidden])) .workflow-workbench__main { padding-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .workflow-inspector, .workflow-inspector *, .workflow-node-library *, .workflow-node-card__icon > svg, .workflow-node-port::before, .workflow-workbench button, [data-workflow-node-card]::after { animation: none !important; transition: none !important; }
+    .workflow-inspector, .workflow-inspector *, .workflow-copy-feedback, .workflow-node-library *, .workflow-node-card__icon > svg, .workflow-node-port::before, .workflow-workbench button, [data-workflow-node-card]::after { animation: none !important; transition: none !important; }
 }

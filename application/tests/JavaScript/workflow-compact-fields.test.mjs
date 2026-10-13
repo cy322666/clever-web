@@ -4,8 +4,8 @@ import {runInNewContext} from 'node:vm';
 import test from 'node:test';
 
 const plain = value => JSON.parse(JSON.stringify(value));
-function components(writeText = async () => {}) {
-    const window = {addEventListener() {}, setTimeout() {}, clearTimeout() {}};
+function components(writeText = async () => {}, windowOverrides = {}) {
+    const window = {addEventListener() {}, setTimeout() {}, clearTimeout() {}, ...windowOverrides};
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
         window, document:{addEventListener() {}}, navigator:{clipboard:{writeText}},
     });
@@ -85,11 +85,95 @@ test('JSON row content handles folding and copying; dragging still carries the e
     for (const view of ['workflow-json-tree','workflow-expression-picker']) {
         const source=readFileSync(new URL(`../../resources/views/filament/workflow-builder/${view}.blade.php`,import.meta.url),'utf8');
         assert.doesNotMatch(source,/collapseAll|expandAll|class="workflow-input-json__fold"/);
-        assert.match(source,/copyValue\(row\.(?:item\.)?value, row.id\)/);
+        assert.match(source,/copyValue\(row\.(?:item\.)?value, row.id, \$event.currentTarget\)/);
+        assert.match(source,/@include\('filament.workflow-builder.workflow-copy-feedback'\)/);
     }
     const picker=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-expression-picker.blade.php',import.meta.url),'utf8');
     assert.match(picker,/application\/workflow-expression/);
     assert.doesNotMatch(picker,/x-on:click="insert\(row.item\)"/);
+});
+
+test('copy feedback appears only after clipboard success, stays near the value and expires', async () => {
+    let resolveCopy, expire;
+    const cleared = [];
+    const viewer = components(() => new Promise(resolve => { resolveCopy = resolve; }), {
+        innerWidth: 800, innerHeight: 600,
+        setTimeout(callback, delay) { assert.equal(delay, 1500); expire = callback; return 7; },
+        clearTimeout(timer) { cleared.push(timer); },
+    }).workflowJsonViewer({});
+    const anchor = {
+        isConnected: true, getClientRects: () => [{}],
+        getBoundingClientRect: () => ({left: 750, top: 10, bottom: 28}),
+    };
+    const pending = viewer.copyValue(42, 'row', anchor);
+    assert.equal(viewer.copyPosition, null);
+    assert.equal(viewer.copiedRow, null);
+    resolveCopy(); await pending;
+    assert.deepEqual(plain(viewer.copyPosition), {left: 674, top: 36});
+    assert.equal(viewer.copiedRow, 'row');
+    expire();
+    assert.equal(viewer.copiedRow, null);
+    assert.equal(viewer.copyPosition, null);
+    assert.ok(cleared.includes(7));
+
+    anchor.getBoundingClientRect = () => ({left: 100, top: 300, bottom: 318});
+    const again = viewer.copyValue(0, 'next', anchor);
+    resolveCopy(); await again;
+    assert.deepEqual(plain(viewer.copyPosition), {left: 100, top: 266});
+    viewer.destroy();
+    assert.equal(viewer.copyPosition, null);
+    assert.equal(viewer.copyTimer, null);
+});
+
+test('late clipboard replies cannot revive a notice after another click or component removal', async () => {
+    const pending = [];
+    const viewer = components(() => new Promise((resolve, reject) => pending.push({resolve, reject}))).workflowJsonViewer({});
+    const first = viewer.copyValue(1, 'first'), second = viewer.copyValue(2, 'second');
+    pending[1].resolve(); await second;
+    pending[0].resolve(); await first;
+    assert.equal(viewer.copiedRow, 'second');
+
+    const failed = viewer.copyValue(3, 'failed'), last = viewer.copyValue(4, 'last');
+    pending[3].resolve(); await last;
+    pending[2].reject(Error('denied')); await failed;
+    assert.equal(viewer.copiedRow, 'last');
+    assert.equal(viewer.copyError, '');
+
+    const removed = viewer.copyValue(5, 'removed');
+    viewer.destroy();
+    pending[4].resolve(); await removed;
+    assert.equal(viewer.copiedRow, null);
+    assert.equal(viewer.copyPosition, null);
+});
+
+test('hidden values and clipboard failures never display success feedback', async () => {
+    for (const anchor of [{isConnected: false}, {isConnected: true, getClientRects: () => []}]) {
+        const viewer = components().workflowJsonViewer({});
+        await viewer.copyValue(42, 'hidden', anchor);
+        assert.equal(viewer.copiedRow, null);
+        assert.equal(viewer.copyPosition, null);
+    }
+    const failed = components(async () => { throw Error('denied'); }).workflowJsonViewer({});
+    await failed.copyValue(42, 'failed', {});
+    assert.equal(failed.copyPosition, null);
+    assert.equal(failed.copiedRow, null);
+    assert.match(failed.copyError, /Не удалось/);
+});
+
+test('shared copy notice is accessible, unclipped and dismisses when navigating away', () => {
+    const view = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-copy-feedback.blade.php', import.meta.url), 'utf8');
+    assert.match(view, /x-teleport="body"/);
+    assert.match(view, /role="status" aria-live="polite"/);
+    assert.match(view, /x-show="copiedRow !== null && copyPosition !== null"/);
+    for (const event of ['pointerdown.window', 'keydown.window', 'scroll.window.capture', 'resize.window']) {
+        assert.ok(view.includes(`x-on:${event}="clearCopyFeedback()"`));
+    }
+    const css = readFileSync(new URL('../../resources/css/workflow-inspector.css', import.meta.url), 'utf8');
+    const notice = css.match(/\.workflow-copy-feedback \{([^}]+)\}/)[1];
+    assert.match(notice, /position: fixed/);
+    assert.match(notice, /pointer-events: none/);
+    assert.match(notice, /width: 118px; height: 26px/);
+    assert.match(view, /Скопировано/);
 });
 
 test('picker copies empty collections but never copies stripped container data as null', () => {
