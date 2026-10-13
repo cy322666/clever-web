@@ -76,6 +76,24 @@ body.fi-body {
 }
 
 @media (min-width: 1024px) {
+    .fi-body-has-sidebar-collapsible-on-desktop .fi-main-sidebar:not(.fi-sidebar-open) {
+        width: var(--collapsed-sidebar-width);
+        flex: 0 0 var(--collapsed-sidebar-width);
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop .fi-main-sidebar:not(.fi-sidebar-open) .fi-sidebar-nav {
+        padding-inline: 0.25rem;
+        scrollbar-gutter: auto;
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop .fi-main-sidebar:not(.fi-sidebar-open) .fi-sidebar-nav-groups {
+        margin-inline: 0;
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop .fi-main-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {
+        min-height: 2.75rem;
+    }
+
     .fi-sidebar-open-collapse-sidebar-btn,
     .fi-sidebar-close-collapse-sidebar-btn,
     .fi-topbar-open-collapse-sidebar-btn,

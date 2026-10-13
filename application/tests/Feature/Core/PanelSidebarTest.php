@@ -12,7 +12,7 @@ class PanelSidebarTest extends TestCase
         $panel = Filament::getPanel('app');
 
         $this->assertSame('13rem', $panel->getSidebarWidth());
-        $this->assertSame('4.5rem', $panel->getCollapsedSidebarWidth());
+        $this->assertSame('3.5rem', $panel->getCollapsedSidebarWidth());
         $this->assertTrue($panel->isSidebarCollapsibleOnDesktop());
         $this->assertFalse($panel->isSidebarFullyCollapsibleOnDesktop());
     }
