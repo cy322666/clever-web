@@ -7149,7 +7149,6 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-artwork[data-node-artwork="loop"] { --art-x: 61.948956%; --art-y: 51.388889%; }
 .workflow-node-artwork[data-node-artwork="assign"] { --art-x: 86.929621%; --art-y: 51.388889%; }
 .workflow-node-artwork[data-node-artwork="http"] { --art-x: 13.070379%; --art-y: 81.944444%; }
-.workflow-node-artwork[data-node-artwork="javascript"] { --art-x: 38.205723%; --art-y: 81.944444%; }
 .workflow-node-artwork[data-node-artwork="telegram"] { --art-x: 61.948956%; --art-y: 81.944444%; }
 .workflow-node-artwork[data-node-artwork="manual"] { --art-x: 86.929621%; --art-y: 81.944444%; }
 .workflow-node-editor #workflow-canvas .workflow-node-card:has(.workflow-node-artwork) > .workflow-node-card__icon { position: static; }
@@ -7170,6 +7169,10 @@ svg.workflow-control-icon { color: #248548 !important; }
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph {
     display: block; position: relative; width: 3rem; height: 3rem;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph--language {
+    display: grid; place-items: center; font-family: Arial, sans-serif;
+    font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -1.5px;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > svg {
     position: absolute; inset: 0; width: 100%; height: 100%; color: inherit;

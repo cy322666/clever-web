@@ -11,13 +11,14 @@
         'arrows-clockwise:' => 'loop',
         'brackets-curly:equals' => 'assign',
         'globe:' => 'http',
-        'code:' => 'javascript',
         'telegram-logo:' => 'telegram',
         'play:' => 'manual',
         default => null,
     };
 @endphp
-@if($artwork)
+@if($appearance['glyph'] === 'code' && $appearance['modifier'] === null)
+    <span class="workflow-node-glyph workflow-node-glyph--language" data-node-language="javascript" aria-hidden="true">JS</span>
+@elseif($artwork)
     <span class="workflow-node-artwork" data-node-artwork="{{ $artwork }}" aria-hidden="true"></span>
 @else
 <span {{ $attributes->class(['workflow-node-glyph', 'workflow-node-glyph--action' => $appearance['modifier'] !== null, 'workflow-node-glyph--assignment' => $appearance['modifier'] === 'equals']) }} aria-hidden="true">

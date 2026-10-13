@@ -14,10 +14,23 @@ class WorkflowNodeAppearanceTest extends TestCase
     public function test_selected_icons_use_the_approved_original_not_a_library_substitution(): void
     {
         $this->assertSame('828411cf0c58e17fbdbe8cbe6e2278aab5fd3575d8d3ad47ffda150c511b9bad', hash_file('sha256', resource_path('images/workflow-nodes/duotone-approved.png')));
-        foreach (['amocrm_create_contact'=>'contact-create', 'amocrm_update_contact_fields'=>'contact-update', 'amocrm_create_lead'=>'lead-create', 'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_javascript'=>'javascript', 'workflow_set_variable'=>'assign', 'http_request'=>'http', 'telegram_send_message'=>'telegram'] as $type=>$artwork) {
+        foreach (['amocrm_create_contact'=>'contact-create', 'amocrm_update_contact_fields'=>'contact-update', 'amocrm_create_lead'=>'lead-create', 'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_set_variable'=>'assign', 'http_request'=>'http', 'telegram_send_message'=>'telegram'] as $type=>$artwork) {
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance'=>WorkflowNodeAppearance::action($type)]);
             $this->assertStringContainsString('data-node-artwork="'.$artwork.'"', $html);
             $this->assertStringNotContainsString('<svg', $html);
+        }
+    }
+
+    public function test_javascript_node_shows_its_language_instead_of_a_generic_code_symbol(): void
+    {
+        foreach ([false, true] as $disabled) {
+            $html = Blade::render('<x-filament-workflows::workflows.action-card :action="$action" :read-only="true"/>', [
+                'action'=>['id'=>'code','type'=>'workflow_javascript','name'=>'Преобразовать данные','disabled'=>$disabled],
+            ]);
+            $this->assertStringContainsString('data-node-family="data"', $html);
+            $this->assertStringContainsString('data-node-language="javascript" aria-hidden="true">JS</span>', $html);
+            $this->assertStringNotContainsString('data-node-artwork="javascript"', $html);
+            $this->assertStringNotContainsString('wficon-code', $html);
         }
     }
 
@@ -55,10 +68,10 @@ class WorkflowNodeAppearanceTest extends TestCase
         $this->assertGreaterThan(30, count($appearances));
         foreach ($appearances as $appearance) {
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
-            $this->assertTrue(str_contains($html, '<svg') || str_contains($html, 'data-node-artwork='));
+            $this->assertTrue(str_contains($html, '<svg') || str_contains($html, 'data-node-artwork=') || str_contains($html, 'data-node-language="javascript"'));
             $this->assertStringContainsString('aria-hidden="true"', $html);
             $this->assertStringNotContainsString('<script', $html);
-            if (!str_contains($html, 'data-node-artwork=')) {
+            if (!str_contains($html, 'data-node-artwork=') && !str_contains($html, 'data-node-language=')) {
                 $this->assertStringContainsString('workflow-node-glyph__'.($appearance['modifier'] ? 'action' : 'main'), $html);
             }
         }

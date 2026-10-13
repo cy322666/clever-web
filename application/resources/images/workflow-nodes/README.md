@@ -10,3 +10,6 @@ editor's 96px node size this supplies 2x artwork. The atlas is loaded once by Vi
 with a content hash; the ports, captions, state badges and edges remain live UI.
 Disabled nodes grayscale only the artwork. Nodes not present in the approved
 sheet retain their existing library fallback, with distinct entity/action cues.
+
+The JavaScript node uses an explicit `JS` lettermark instead of its atlas tile,
+as requested by the user. The other selected icons are unchanged.
