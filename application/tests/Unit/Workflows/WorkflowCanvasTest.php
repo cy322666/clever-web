@@ -15,6 +15,20 @@ class WorkflowCanvasTest extends TestCase
         WorkflowCanvasDatabase::prepare();
     }
 
+    public function test_grid_uses_a_shared_vector_pattern_outside_the_node_stage(): void
+    {
+        $html = Livewire::test(WorkflowCanvasFixture::class)->assertStatus(200)->html();
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($document);
+        $grid = $xpath->query('//*[@x-ref="viewport"]/svg[@class="workflow-canvas-grid"]');
+        $this->assertCount(1, $grid);
+        $this->assertSame('true', $grid[0]->getAttribute('aria-hidden'));
+        $this->assertTrue($grid[0]->hasAttribute('wire:ignore'));
+        $this->assertStringContainsString('x-bind:pattern-transform.camel="gridTransform()"', $html);
+        $this->assertStringNotContainsString('gridStyle()', $html);
+    }
+
     public function test_it_renders_hover_controls_only_for_existing_connections(): void
     {
         Livewire::test(WorkflowCanvasFixture::class)

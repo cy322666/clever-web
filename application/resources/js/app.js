@@ -598,17 +598,18 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return Math.round(value / step) * step;
     },
 
-    gridStyle() {
+    gridTransform() {
         const scale = this.scale || 1;
-        const pitch = this.gridSpacing * scale;
-        const phase = value => ((value % pitch) + pitch) % pitch;
         const x = (this.$refs.stage?.offsetLeft || 0) + this.translateX;
         const y = (this.$refs.stage?.offsetTop || 0) + this.translateY;
-        // Gradients place the dot at the tile centre. Align it with world (0, 0)
-        // using the same pan/zoom as stageStyle(), without changing grid density.
-        // Native scrolling is handled by background-attachment: local in CSS.
-        const opacity = Math.min(1, (scale / 0.35) ** 2);
-        return `--workflow-grid-scale:${scale};--workflow-grid-opacity:${opacity};background-size:${pitch}px ${pitch}px;background-position:${phase(x - pitch / 2)}px ${phase(y - pitch / 2)}px;`;
+        // Keep vector dots in world coordinates. Resizing CSS background tiles
+        // rounds fractional pitches independently of the transformed node layer.
+        // The tile-centred dot represents world (0, 0); never wrap the pan offset.
+        return `translate(${x} ${y}) scale(${scale}) translate(${-this.gridSpacing / 2} ${-this.gridSpacing / 2})`;
+    },
+
+    gridOpacity() {
+        return Math.min(1, ((this.scale || 1) / 0.35) ** 2);
     },
 
     cardPositions() {

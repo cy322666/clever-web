@@ -39,6 +39,9 @@ try {
     if (!str_contains($html, 'x-bind:hidden="!opened" hidden') || str_contains($html, 'has-inspector')) {
         throw new RuntimeException('Canvas space must follow the actual inspector visibility');
     }
+    if (!str_contains($html, 'class="workflow-canvas-grid"') || !str_contains($html, 'x-bind:pattern-transform.camel="gridTransform()"') || str_contains($html, 'gridStyle()')) {
+        throw new RuntimeException('Canvas must use the vector grid with the same pan and zoom as the nodes');
+    }
     $snapshot = json_decode(html_entity_decode($match[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
     request()->headers->set('X-Livewire', 'true');
     $update = function (string $method, array $params = [], array $updates = []) use (&$snapshot): array {

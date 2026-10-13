@@ -92,7 +92,17 @@ test('condition edges are neutral until evaluated and only the selected route is
 
 test('canvas keeps its dotted grid and uses round input ports like the prototype', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
-    assert.equal((css.match(/radial-gradient\(circle/g) ?? []).length,7);
+    const grid = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-canvas-grid.blade.php',import.meta.url),'utf8');
+    assert.doesNotMatch(css,/radial-gradient\(circle/,'Do not reintroduce fractionally rounded CSS background tiles');
+    assert.match(css,/\.workflow-canvas-grid\s*\{[^}]*position:\s*absolute;[^}]*pointer-events:\s*none;/s);
+    assert.match(css,/\.dark \.workflow-canvas-grid\s*\{[^}]*fill:\s*#555863;/s);
+    assert.match(grid,/aria-hidden="true" focusable="false" x-id="\['workflow-grid'\]" wire:ignore/);
+    assert.match(grid,/patternUnits="userSpaceOnUse"/);
+    assert.match(grid,/x-bind:width="gridSpacing" x-bind:height="gridSpacing"/);
+    assert.match(grid,/x-bind:pattern-transform\.camel="gridTransform\(\)"/);
+    assert.match(grid,/x-bind:cx="gridSpacing \/ 2" x-bind:cy="gridSpacing \/ 2"/);
+    assert.match(grid,/x-bind:fill="`url\(#\$\{\$id\('workflow-grid'\)\}\)`"/);
+    assert.match(grid,/x-bind:opacity="gridOpacity\(\)"/);
     assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*9px;[^}]*height:\s*9px;[^}]*border-radius:\s*50%;/s);
 });
 
@@ -105,21 +115,15 @@ test('interaction effects preserve node geometry and respect reduced motion', ()
 });
 
 function gridGeometry(canvas) {
-    const style = canvas.gridStyle();
-    const pitch = Number(style.match(/background-size:([^p]+)px/)[1]);
-    const [, x, y] = style.match(/background-position:([^p]+)px ([^p]+)px/);
-    return {pitch, x:Number(x)+pitch/2, y:Number(y)+pitch/2};
+    const [, x, y, scale, dx, dy] = canvas.gridTransform().match(/^translate\((\S+) (\S+)\) scale\((\S+)\) translate\((\S+) (\S+)\)$/).map(Number);
+    // SVG transforms compose right to left. The circle sits in the tile centre.
+    return {pitch:canvas.gridSpacing*scale, x:x+(dx+canvas.gridSpacing/2)*scale, y:y+(dy+canvas.gridSpacing/2)*scale};
 }
 
 test('backdrop dots stay on the same world coordinates through fractional zoom, pan and native scroll', () => {
     const {canvas} = fixture();
-    const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
-    assert.doesNotMatch(css, /background-position:\s*0\s+0\s*!important/);
-    assert.match(css, /background-attachment:\s*local/);
-    assert.match(css, /rgb\(201 207 214 \/ var\(--workflow-grid-opacity, 1\)\) calc\(0\.85px \* var\(--workflow-grid-scale, 1\)\)/);
-    assert.match(css, /rgb\(85 88 99 \/ var\(--workflow-grid-opacity, 1\)\) calc\(0\.7px \* var\(--workflow-grid-scale, 1\)\)/);
     for (const view of ['vendor/filament-workflows/components/workflow-builder', 'filament/workflow-builder/workflow-execution-canvas']) {
-        assert.match(readFileSync(new URL(`../../resources/views/${view}.blade.php`, import.meta.url), 'utf8'), /x-bind:style="gridStyle\(\)"/);
+        assert.match(readFileSync(new URL(`../../resources/views/${view}.blade.php`, import.meta.url), 'utf8'), /@include\('filament\.workflow-builder\.workflow-canvas-grid'\)/);
     }
     for (const scale of [0.01, 0.05, 0.249, 0.25, 0.499, 0.5, 0.599, 0.6, 0.601, 0.999, 1, 1.333, 2]) {
         canvas.scale = scale;
@@ -130,12 +134,12 @@ test('backdrop dots stay on the same world coordinates through fractional zoom, 
         const verify = () => {
             const grid = gridGeometry(canvas);
             assert.equal(grid.pitch, 20 * scale, 'The world grid must never switch density at zoom thresholds');
-            assert.match(canvas.gridStyle(), new RegExp(`--workflow-grid-scale:${scale};`));
+            assert.equal(canvas.gridOpacity(),Math.min(1,(scale/0.35)**2));
             for (const [axis, offset, scroll] of [['x','offsetLeft','scrollLeft'], ['y','offsetTop','scrollTop']]) {
                 const origin = canvas.$refs.stage[offset] + canvas[axis === 'x' ? 'translateX' : 'translateY'];
                 for (const world of [-400, -20, 0, 20, 800]) {
                     const screen = origin + world * scale - canvas.$refs.viewport[scroll];
-                    // CSS local backgrounds subtract native scroll just like stage content.
+                    // The absolute SVG scrolls with the viewport content, just like the stage.
                     const cell = (screen - (grid[axis] - canvas.$refs.viewport[scroll])) / grid.pitch;
                     assert.ok(Math.abs(cell - Math.round(cell)) < 1e-9, `${axis}: world ${world} must remain on a dot at scale ${scale}`);
                 }
@@ -177,12 +181,26 @@ test('wheel pan, pointer zoom and restored viewport keep the backdrop and stage 
     canvas.zoomCanvas(0.5);
     verify();
     canvas.saveViewport();
-    const saved = canvas.gridStyle();
+    const saved = canvas.gridTransform();
     canvas.translateX = canvas.translateY = 0;
     canvas.scale = 1;
     assert.equal(canvas.restoreViewport(),true);
-    assert.equal(canvas.gridStyle(),saved);
+    assert.equal(canvas.gridTransform(),saved);
     verify();
+});
+
+test('tiny zoom changes and pan across grid cells preserve the full, unwrapped transform', () => {
+    const {canvas} = fixture();
+    canvas.$refs.stage = {offsetLeft:7,offsetTop:11};
+    for (let index = 0; index <= 200; index++) {
+        canvas.scale = Math.exp((index-100)*0.001);
+        canvas.translateX = -5000.125+index*0.375;
+        canvas.translateY = 10000.875-index*0.625;
+        const grid=gridGeometry(canvas);
+        assert.equal(grid.x,canvas.translateX+7,'Pan must not wrap or round at tile boundaries');
+        assert.equal(grid.y,canvas.translateY+11);
+        assert.equal(grid.pitch,20*canvas.scale,'No pixel snapping or zoom thresholds');
+    }
 });
 
 test('node overflow menu focuses enabled actions, cycles with arrows and restores focus on close', () => {

@@ -183,7 +183,6 @@
             >
             <div
                 x-ref="viewport"
-                x-bind:style="gridStyle()"
                 x-on:pointerdown="startCanvasInteraction($event)"
                 x-on:wheel="onCanvasWheel($event)"
                 x-on:click.capture="suppressNodeClick($event)"
@@ -196,6 +195,7 @@
                 }"
                 class="workflow-node-editor__viewport"
             >
+                @include('filament.workflow-builder.workflow-canvas-grid')
                 <div class="workflow-selection-box" x-show="selectionBox" x-bind:style="selectionStyle()" x-cloak></div>
                 <div class="workflow-canvas-note" x-data="{ open: false, note: @js($this->definition['description'] ?? '') }" x-on:pointerdown.stop>
                     <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-label="Описание сценария" title="Описание сценария"><x-filament::icon icon="heroicon-o-document-text" class="h-4 w-4"/></button>

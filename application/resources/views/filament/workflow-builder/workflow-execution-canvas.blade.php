@@ -6,7 +6,8 @@
     <section class="workflow-node-editor workflow-execution-canvas" x-data="workflowNodeCanvas('clever.workflow.history.{{ $runId }}', @js($graph['definition']['canvas_layout'] ?? []), @js($graph['definition']['canvas_edge_routes'] ?? []), @js($graph['definition']['canvas_positions'] ?? null))"
         x-init="$nextTick(() => { initializeCanvas(); $nextTick(() => fitView()); })"
         x-on:pointermove.window="moveCanvas($event)" x-on:pointerup.window="stopCanvasInteraction($event)" x-on:pointercancel.window="stopCanvasInteraction($event)">
-        <div x-ref="viewport" x-bind:style="gridStyle()" class="workflow-node-editor__viewport" x-on:pointerdown="startCanvasInteraction($event)">
+        <div x-ref="viewport" class="workflow-node-editor__viewport" x-on:pointerdown="startCanvasInteraction($event)">
+            @include('filament.workflow-builder.workflow-canvas-grid')
             <button type="button" class="workflow-canvas-fit" x-on:pointerdown.stop x-on:click.stop="fitView()" aria-label="Показать весь запуск" title="Показать весь запуск"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
             <div x-ref="stage" x-bind:style="stageStyle()" class="workflow-node-editor__stage">
                 <svg x-ref="edgeLayer" class="workflow-node-edge-layer" aria-hidden="true" wire:ignore></svg>

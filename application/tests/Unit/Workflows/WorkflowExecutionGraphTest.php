@@ -104,6 +104,8 @@ class WorkflowExecutionGraphTest extends TestCase
     {
         Livewire::test(WorkflowHistoryFixture::class)->assertStatus(200)
             ->assertSee('workflow-execution-viewer', false)->assertSee('Показать весь запуск')
+            ->assertSeeHtml('class="workflow-canvas-grid"')
+            ->assertSeeHtml('x-bind:pattern-transform.camel="gridTransform()"')
             ->assertSee('Данные ноды: Запрос сделок')->assertSee('Следующий шаг')
             ->assertDontSee('workflow-run-steps');
     }
