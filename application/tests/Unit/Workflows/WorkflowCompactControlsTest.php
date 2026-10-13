@@ -75,12 +75,14 @@ class WorkflowCompactControlsTest extends TestCase
         }
     }
 
-    public function test_contact_source_buttons_preserve_the_selected_source_and_id(): void
+    public function test_contact_source_uses_separate_buttons_and_preserves_source_and_id(): void
     {
         foreach (['contact' => 'contact_id', 'lead' => 'lead_id'] as $source => $id) {
             $page = $this->editor('amocrm_contact_leads', ['source' => $source, $id => '{{ $json.id }}']);
             $html = $this->form($page);
             $this->assertStringContainsString('fi-fo-toggle-buttons', $html);
+            $this->assertSame(2, substr_count($html, 'fi-fo-toggle-buttons-btn-ctn'));
+            $this->assertDoesNotMatchRegularExpression('/class="[^"]*fi-fo-toggle-buttons[^"]*fi-btn-group/', $html);
             $this->assertStringContainsString('Контакт сделки', $html);
             $this->assertStringNotContainsString('Указать ID контакта', $html);
             $page->call('callMountedAction')->assertHasNoErrors();

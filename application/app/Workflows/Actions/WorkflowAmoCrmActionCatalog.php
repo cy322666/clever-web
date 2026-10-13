@@ -1917,7 +1917,7 @@ class AmoCrmContactLeadsAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            ToggleButtons::make('source')->label('Контакт')->options(['contact'=>'Вручную','lead'=>'Контакт сделки'])->inline()->grouped()->default('lead')->live()->required(),
+            ToggleButtons::make('source')->label('Контакт')->options(['contact'=>'Вручную','lead'=>'Контакт сделки'])->inline()->default('lead')->live()->required(),
             WorkflowValueInput::make('lead_id')->label('ID исходной сделки')->default(null)->placeholder('ID или переменная')->visible(fn (Get $get) => $get('source') !== 'contact')->required(),
             WorkflowValueInput::make('contact_id')->label('ID контакта')->visible(fn (Get $get) => $get('source') === 'contact')->required(),
             WorkflowValueInput::make('exclude_lead_id')->label('Исключить сделку · ID')->placeholder('Например, {{lead.id}}'),
