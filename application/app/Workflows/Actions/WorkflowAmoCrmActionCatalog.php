@@ -1947,7 +1947,7 @@ class AmoCrmQueryLeadsAction extends WorkflowAmoCrmAction
                 ] + collect(static::amoFieldOptions('lead'))->filter(fn ($label, $key) => is_numeric($key))->mapWithKeys(fn ($label, $key) => ['custom:' . $key => $label])->all()),
                 Select::make('operator')->label('Сравнение')->default('eq')->required()->options(fn (Get $get) => in_array($get('field'), ['id', 'name'], true) ? ['eq' => 'Равно'] : ['eq' => 'Равно', 'from' => 'От', 'to' => 'До']),
                 VariableTextInput::make('value')->label('Значение')->required(),
-            ])->helperText('Разные поля — И, несколько значений одного списочного поля — ИЛИ. Даты: YYYY-MM-DD или Unix-время. Для списочных полей — ID варианта. API-фильтры должны быть доступны в вашем amoCRM.'),
+            ]),
             Grid::make(2)->schema([
                 WorkflowValueInput::make('limit')->label('Лимит')->default(50)->required(),
                 WorkflowValueInput::make('page')->label('Страница')->default(1)->required(),
@@ -2054,8 +2054,7 @@ class AmoCrmReadAction extends WorkflowAmoCrmAction
                             'task_type' => \App\Services\Workflows\WorkflowNodeReferences::options('task_types') ?: [1 => 'Звонок', 2 => 'Встреча'],
                             default => $metadata($get)['options'] ?? [],
                         }),
-                ])->helperText(fn(Get $get) => 'Разные поля — И. Повторные значения списочного поля — ИЛИ.' . ($get('operation') === 'tasks.list'
-                    ? ' Для ID сущности укажите её тип.' : ' Расширенные фильтры требуют доступной API-фильтрации amoCRM.')),
+                ]),
             Grid::make(2)->schema([
                 WorkflowValueInput::make('limit')->label('На странице')->default(50)->required(),
                 WorkflowValueInput::make('page')->label('Страница')->default(1)->required(),

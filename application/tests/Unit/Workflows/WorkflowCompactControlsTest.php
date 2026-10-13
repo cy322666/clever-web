@@ -92,6 +92,35 @@ class WorkflowCompactControlsTest extends TestCase
         }
     }
 
+    public function test_query_filters_have_no_annotations_and_preserve_filter_and_pagination(): void
+    {
+        foreach ([
+            ['amocrm_query_leads', []],
+            ['amocrm_read', ['operation' => 'contacts.list', 'body_mode' => 'builder']],
+            ['amocrm_read', ['operation' => 'tasks.list', 'body_mode' => 'builder']],
+        ] as [$type, $config]) {
+            $page = $this->editor($type, $config + [
+                'filters' => [['field' => 'id', 'operator' => 'eq', 'value' => '42']],
+                'limit' => '1',
+                'page' => '2',
+            ]);
+            $html = $this->form($page);
+            $this->assertStringContainsString('Фильтры', $html);
+            $this->assertStringContainsString('Добавить фильтр', $html);
+            foreach (['Разные поля', 'Повторные значения', 'Расширенные фильтры', 'Для ID сущности укажите её тип', 'API-фильтры должны быть доступны'] as $annotation) {
+                $this->assertStringNotContainsString($annotation, $html);
+            }
+            $page->call('callMountedAction')->assertHasNoErrors();
+            $saved = $page->get('workflowActions')[0]['config'];
+            $this->assertCount(1, $saved['filters']);
+            $this->assertSame('id', $saved['filters'][0]['field']);
+            $this->assertSame('eq', $saved['filters'][0]['operator']);
+            $this->assertSame('42', $saved['filters'][0]['value']);
+            $this->assertSame('1', $saved['limit']);
+            $this->assertSame('2', $saved['page']);
+        }
+    }
+
     public function test_entity_forms_remove_summary_panels_but_keep_manual_and_expression_values(): void
     {
         foreach (['amocrm_create_lead', 'amocrm_create_contact', 'amocrm_create_company', 'amocrm_update_contact_fields'] as $type) {
