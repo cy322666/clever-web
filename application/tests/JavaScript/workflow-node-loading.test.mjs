@@ -15,7 +15,7 @@ function fixture() {
     assert.equal(interceptors.length, 1, 'navigation must not register a second handler');
     const wire = {$id: 'editor-1', editingActionId: 'contact', nodePreviewTaskId: null, nodePreviewProgress: {}};
     return {
-        wire, stores, manualRunning: () => window.workflowManualIsRunning(wire), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
+        wire, stores, saving: (editor = wire) => window.workflowIsSaving(editor), manualRunning: () => window.workflowManualIsRunning(wire), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
         start(name, params = [], editor = wire) {
             let finish;
             interceptors[0]({action: {name, params, component: {id: editor.$id, reactive: editor}}, onFinish(callback) { finish = callback; }});
@@ -44,7 +44,9 @@ for (const method of ['runWorkflowCanvasNode', 'runEditingWorkflowNode']) {
 
 test('overlapping requests keep the indicator until both finish; unrelated actions do not start it', () => {
     const f = fixture();
-    assert.equal(f.start('save'), undefined);
+    const saved = f.start('save');
+    assert.equal(f.running(), false, 'Saving must not show node execution indicators');
+    saved();
     assert.equal(f.start('pollWorkflowNodePreview'), undefined);
     const first = f.start('runWorkflowCanvasNode', ['contact']);
     const second = f.start('runWorkflowCanvasNode', ['contact']);
@@ -52,6 +54,51 @@ test('overlapping requests keep the indicator until both finish; unrelated actio
     assert.equal(f.running('contact'), true);
     second();
     assert.equal(f.running(), false);
+});
+
+for (const method of ['save', 'create']) {
+    test(`${method}: saving starts immediately, is editor-scoped and finishes on any outcome`, () => {
+        const f = fixture();
+        assert.equal(f.saving(), false);
+        const finish = f.start(method);
+        assert.equal(f.saving(), true);
+        assert.equal(f.saving({...f.wire, $id: 'another-editor'}), false);
+        assert.equal(f.running(), false);
+        const unrelated = f.start('runEditingWorkflowNode');
+        unrelated();
+        assert.equal(f.saving(), true, 'Other completed requests cannot stop the spinner');
+        finish();
+        finish();
+        assert.equal(f.saving(), false);
+        assert.equal(Object.keys(f.stores.workflowNodeRuns.saving).length, 0);
+        const retry = f.start(method);
+        assert.equal(f.saving(), true);
+        retry();
+        assert.equal(f.saving(), false);
+    });
+}
+
+test('overlapping save requests keep feedback until every request has finished', () => {
+    const f = fixture();
+    const first = f.start('save'), second = f.start('save');
+    first();
+    assert.equal(f.saving(), true);
+    second();
+    assert.equal(f.saving(), false);
+});
+
+test('save feedback is accessible, disables repeat submits and reserves its width', () => {
+    const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
+    assert.match(view, /x-bind:disabled="workflowIsSaving\(\$wire\)"/);
+    assert.match(view, /x-bind:aria-busy="workflowIsSaving\(\$wire\)"/);
+    assert.match(view, /x-bind:aria-label="workflowIsSaving\(\$wire\) \? 'Сохраняю…'/);
+    assert.match(view, /wire:target="save,create"/);
+    assert.match(view, /workflow-save-button__progress" role="status" aria-live="polite"/);
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
+    assert.match(css, /\.workflow-save-button__content\s*\{ display: inline-grid;/);
+    assert.match(css, /\.workflow-save-button__label\s*\{ grid-area: 1 \/ 1;/);
+    assert.match(css, /\.workflow-save-button__progress\s*\{ visibility: hidden;/);
+    assert.match(css, /\.workflow-save-button\[aria-busy="true"\][^\n]+opacity: 1; cursor: wait/);
 });
 
 test('manual flow has immediate feedback, stays busy while queued and never marks every node running', () => {

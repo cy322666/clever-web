@@ -2,6 +2,14 @@
 @import './workflow-node-fields.css';
 @tailwind utilities;
 
+/* Both labels share a grid cell so saving never shifts the toolbar. */
+.workflow-save-button__content { display: inline-grid; }
+.workflow-save-button__label { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.workflow-save-button__progress { visibility: hidden; }
+.workflow-save-button[aria-busy="true"] .workflow-save-button__idle { visibility: hidden; }
+.workflow-save-button[aria-busy="true"] .workflow-save-button__progress { visibility: visible; }
+.workflow-workbench .workflow-workbench__quick-actions .workflow-save-button[aria-busy="true"] { opacity: 1; cursor: wait; }
+
 /* Saved workflows stay neutral; only actual unsaved edits use the accent. */
 .workflow-workbench .workflow-workbench__quick-actions .workflow-workbench__quick-action.workflow-save-button--clean {
     background: #fff !important;

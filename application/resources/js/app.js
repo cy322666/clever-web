@@ -1,22 +1,23 @@
-// Track the request from the click, not from the server response. The modal and
-// canvas share this component-scoped state, including validation/network failures.
+// Track the request from the click, not from the server response. Save buttons,
+// modal and canvas share component-scoped state, including validation/network failures.
 window.initializeWorkflowNodeLoading = () => {
     if (!window.Livewire?.interceptAction || !window.Alpine || window.Alpine.store('workflowNodeRuns')) return;
-    window.Alpine.store('workflowNodeRuns', {pending: {}});
+    window.Alpine.store('workflowNodeRuns', {pending: {}, saving: {}});
     window.Livewire.interceptAction(({action, onFinish}) => {
-        const nodeId = action.name === 'runWorkflowCanvasNode' ? action.params[0]
+        const saving = ['save', 'create'].includes(action.name);
+        const requestId = saving ? action.name : action.name === 'runWorkflowCanvasNode' ? action.params[0]
             : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger')
             : action.name === 'runWorkflowManually' ? '__workflow' : null;
-        if (!nodeId) return;
-        const pending = window.Alpine.store('workflowNodeRuns').pending;
+        if (!requestId) return;
+        const pending = window.Alpine.store('workflowNodeRuns')[saving ? 'saving' : 'pending'];
         const componentId = action.component.id;
         pending[componentId] ??= {};
-        pending[componentId][nodeId] = (pending[componentId][nodeId] || 0) + 1;
+        pending[componentId][requestId] = (pending[componentId][requestId] || 0) + 1;
         let finished = false;
         onFinish(() => {
             if (finished) return;
             finished = true;
-            if (--pending[componentId][nodeId] <= 0) delete pending[componentId][nodeId];
+            if (--pending[componentId][requestId] <= 0) delete pending[componentId][requestId];
             if (!Object.keys(pending[componentId]).length) delete pending[componentId];
         });
     });
@@ -29,6 +30,7 @@ window.workflowNodeIsRunning = (wire, nodeId = null) => {
     return requested || queued || (nodeId === null && ['pending', 'running'].includes(wire.manualRunStatus));
 };
 window.workflowManualIsRunning = wire => window.workflowNodeIsRunning(wire, '__workflow') || ['pending', 'running'].includes(wire.manualRunStatus);
+window.workflowIsSaving = wire => Object.keys(window.Alpine?.store('workflowNodeRuns')?.saving?.[wire.$id] || {}).length > 0;
 document.addEventListener('livewire:init', window.initializeWorkflowNodeLoading);
 window.initializeWorkflowNodeLoading();
 

@@ -109,14 +109,21 @@
                     <button
                         type="submit"
                         aria-label="{{ $submitLabel }}"
+                        x-bind:aria-label="workflowIsSaving($wire) ? 'Сохраняю…' : @js($submitLabel)"
+                        aria-busy="false"
+                        x-bind:aria-busy="workflowIsSaving($wire)"
+                        x-bind:disabled="workflowIsSaving($wire)"
                         title="{{ $submitLabel }}"
-                        class="workflow-workbench__quick-action workflow-workbench__quick-action--primary workflow-workbench__quick-action--labeled"
+                        class="workflow-workbench__quick-action workflow-workbench__quick-action--primary workflow-workbench__quick-action--labeled workflow-save-button"
                         x-bind:class="{ 'workflow-save-button--clean': !hasUnsavedChanges }"
                         x-bind:data-unsaved="hasUnsavedChanges ? 'true' : 'false'"
                         wire:loading.attr="disabled"
-                        wire:target="save"
+                        wire:target="save,create"
                     >
-                        <span>{{ $submitLabel }}</span>
+                        <span class="workflow-save-button__content">
+                            <span class="workflow-save-button__label workflow-save-button__idle">{{ $submitLabel }}</span>
+                            <span class="workflow-save-button__label workflow-save-button__progress" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span> Сохраняю…</span>
+                        </span>
                     </button>
 
                     <details class="workflow-workbench__more" x-on:click.outside="$el.open = false" x-on:keydown.escape.stop="$el.open = false">
