@@ -53,8 +53,22 @@ class WorkflowNodeAppearanceTest extends TestCase
             $this->assertSame($family, WorkflowNodeAppearance::action($type)['family']);
         }
         foreach (['manual'=>'play', 'schedule'=>'clock', 'generic-webhook'=>'webhooks-logo'] as $type=>$glyph) {
-            $tone = ['manual'=>'manual', 'schedule'=>'schedule', 'generic-webhook'=>'webhook'][$type];
-            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null,'tone'=>$tone], WorkflowNodeAppearance::trigger($type));
+            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null,'tone'=>'trigger'], WorkflowNodeAppearance::trigger($type));
+        }
+    }
+
+    public function test_all_start_methods_share_one_color_without_replacing_their_icons(): void
+    {
+        $types = array_column(app(TriggerRegistry::class)->getAllWithMetadata(), 'type');
+        $this->assertContains('manual', $types);
+        $this->assertContains('schedule', $types);
+        $this->assertContains('generic-webhook', $types);
+        foreach ([...$types, 'future-trigger'] as $type) {
+            $this->assertSame('trigger', WorkflowNodeAppearance::trigger($type)['tone']);
+            foreach ([false, true] as $readOnly) {
+                $html = Blade::render('<x-filament-workflows::workflows.trigger-card :type="$type" :read-only="$readOnly"/>', compact('type', 'readOnly'));
+                $this->assertStringContainsString('data-node-tone="trigger"', $html, $type);
+            }
         }
     }
 
@@ -80,7 +94,7 @@ class WorkflowNodeAppearanceTest extends TestCase
         }
     }
 
-    public function test_operation_colors_distinguish_similar_nodes_and_are_shared_by_editor_and_history(): void
+    public function test_entity_operations_share_blue_while_other_types_keep_their_colors_in_editor_and_history(): void
     {
         $types = ['amocrm_find_entity'=>'query', 'amocrm_create_contact'=>'create', 'amocrm_update_contact_fields'=>'update',
             'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_filter_list'=>'filter', 'workflow_delay'=>'delay',
@@ -91,7 +105,7 @@ class WorkflowNodeAppearanceTest extends TestCase
             $this->assertSame($tone, WorkflowNodeAppearance::action($type)['tone']);
             preg_match('/\[data-node-tone="'.$tone.'"\] \{ --workflow-node-fill: (#[a-f0-9]+); \}/', $css, $matches);
             $this->assertNotEmpty($matches, $type);
-            $colors[] = $matches[1];
+            $colors[$tone] = $matches[1];
             foreach ([false, true] as $readOnly) {
                 $html = Blade::render('<x-filament-workflows::workflows.action-card :action="$action" :read-only="$readOnly"/>', [
                     'action'=>['id'=>'probe', 'type'=>$type, 'name'=>'Одно название', 'disabled'=>true], 'readOnly'=>$readOnly,
@@ -99,7 +113,10 @@ class WorkflowNodeAppearanceTest extends TestCase
                 $this->assertStringContainsString('data-node-tone="'.$tone.'"', $html);
             }
         }
-        $this->assertCount(count($types), array_unique($colors));
+        $this->assertSame('#2878df', $colors['query']);
+        $this->assertSame($colors['query'], $colors['create']);
+        $this->assertSame($colors['query'], $colors['update']);
+        $this->assertCount(count($types) - 2, array_unique($colors));
         $this->assertStringContainsString('background-blend-mode: luminosity;', $css);
         $this->assertStringContainsString('.workflow-node-card--disabled .workflow-node-artwork { filter: grayscale(1);', $css);
     }

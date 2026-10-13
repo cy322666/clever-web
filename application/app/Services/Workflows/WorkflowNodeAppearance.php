@@ -64,12 +64,7 @@ final class WorkflowNodeAppearance
             ? self::look('trigger', $system[$type])
             : self::look('trigger', self::entityGlyph(WorkflowAmoIcons::trigger($type, $fallback)), 'lightning');
 
-        return $appearance + ['tone' => match ($type) {
-            'manual', 'amo-button', 'amo-bulk' => 'manual',
-            'schedule', 'date-condition' => 'schedule',
-            'generic-webhook' => 'webhook',
-            default => 'event',
-        }];
+        return $appearance + ['tone' => 'trigger'];
     }
 
     /** Color describes the operation, not the provider or a run's status. */

@@ -16,6 +16,9 @@ foreach ([
         $appearance = $group === 0
             ? App\Services\Workflows\WorkflowNodeAppearance::action($entry['type'], [], $entry['icon'] ?? '')
             : App\Services\Workflows\WorkflowNodeAppearance::trigger($entry['type'], $entry['icon'] ?? '');
+        if ($group === 1 && $appearance['tone'] !== 'trigger') {
+            throw new RuntimeException('Start node color is inconsistent: '.$entry['type']);
+        }
         $html = Illuminate\Support\Facades\Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
         if (!str_contains($html, 'workflow-node-artwork') && !str_contains($html, 'data-node-language="javascript"') && (!str_contains($html, '<svg') || !str_contains($html, 'workflow-node-glyph'))) {
             throw new RuntimeException('Node icon did not render: '.$entry['type']);

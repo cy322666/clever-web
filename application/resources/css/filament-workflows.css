@@ -7158,8 +7158,8 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-editor #workflow-canvas .workflow-node-card--disabled .workflow-node-artwork { filter: grayscale(1); opacity: .3; }
 .workflow-node-card[data-node-family] { --workflow-node-fill: #657287; }
 .workflow-node-card[data-node-tone="query"] { --workflow-node-fill: #2878df; }
-.workflow-node-card[data-node-tone="create"] { --workflow-node-fill: #20a366; }
-.workflow-node-card[data-node-tone="update"] { --workflow-node-fill: #ec7844; }
+.workflow-node-card[data-node-tone="create"] { --workflow-node-fill: #2878df; }
+.workflow-node-card[data-node-tone="update"] { --workflow-node-fill: #2878df; }
 .workflow-node-card[data-node-tone="copy"] { --workflow-node-fill: #3f9787; }
 .workflow-node-card[data-node-tone="link"] { --workflow-node-fill: #6874c9; }
 .workflow-node-card[data-node-tone="remove"] { --workflow-node-fill: #ce586e; }
@@ -7171,10 +7171,7 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-card[data-node-tone="javascript"] { --workflow-node-fill: #daa51f; }
 .workflow-node-card[data-node-tone="http"] { --workflow-node-fill: #00a399; }
 .workflow-node-card[data-node-tone="telegram"] { --workflow-node-fill: #06a9dd; }
-.workflow-node-card[data-node-tone="manual"] { --workflow-node-fill: #dc596f; }
-.workflow-node-card[data-node-tone="schedule"] { --workflow-node-fill: #a37b47; }
-.workflow-node-card[data-node-tone="webhook"] { --workflow-node-fill: #8b6bb6; }
-.workflow-node-card[data-node-tone="event"] { --workflow-node-fill: #677e95; }
+.workflow-node-card[data-node-tone="trigger"] { --workflow-node-fill: #ef8799; }
 .workflow-node-card[data-node-tone="automation"] { --workflow-node-fill: #a75eb9; }
 .workflow-node-card[data-node-tone="subscription"] { --workflow-node-fill: #9d8160; }
 .workflow-node-card[data-node-tone="neutral"] { --workflow-node-fill: #657287; }
