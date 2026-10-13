@@ -100,7 +100,7 @@
             x-on:focusout="if (!$el.contains($event.relatedTarget)) closeMenu()"
             x-on:workflow-node-menu-open.window="if ($event.detail !== $el) closeMenu()">
             <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" x-bind:disabled="!!canvasAction(@js($actionId))?.disabled || workflowNodeIsRunning($wire)"
-                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Запустить ветку цикла с выбранными настройками' : 'Реально выполнить ноду в текущем контексте' }}">
+                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Взять первый элемент, не выполняя следующие ноды' : 'Реально выполнить ноду в текущем контексте' }}">
                 <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
             </button>
             <button type="button" x-on:click.stop="removeCanvasAction(@js($actionId))"

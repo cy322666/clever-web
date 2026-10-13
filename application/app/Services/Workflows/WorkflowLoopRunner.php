@@ -87,7 +87,7 @@ final class WorkflowLoopRunner
         $this->sequence(array_keys($this->nodes), WorkflowGraph::targets($this->edges, $start), $context, $execute, [], $start);
     }
 
-    /** Manual runs respect the selected item mode, but never run the done branch. */
+    /** A node preview emits one item; whole-flow debugging runs the selected iterations. */
     public function runNode(string $id, WorkflowContext $context, callable $execute, bool $preview = false, ?array $inputSources = null): bool
     {
         $entry = $this->nodes[$id] ?? throw new InvalidArgumentException('Нода цикла не найдена.');
@@ -103,7 +103,15 @@ final class WorkflowLoopRunner
         }
         $context->forgetStepOutputs(array_map(fn ($key) => substr($key, 7), array_diff($this->reachable([$id]), $inputSources ?? [])));
         $result = $this->execute($entry, $context, $execute, [], $inputSources);
-        return ($entry['step']['disabled'] ?? false) || $this->iterate($id, $result['output'] ?? [], $context, $execute, [], $preview)['completed'];
+        if ($preview) {
+            $items = $result['output']['items'] ?? [];
+            if (!($entry['step']['disabled'] ?? false) && $items !== []) {
+                $context->setStepOutput($entry['step']['id'], ['_workflow_loop' => true, 'item' => $items[0], 'index' => 0]);
+            }
+            // Neither each nor done is executed by an individual node's play button.
+            return false;
+        }
+        return ($entry['step']['disabled'] ?? false) || $this->iterate($id, $result['output'] ?? [], $context, $execute, [])['completed'];
     }
 
     private function sequence(array $allowed, array $active, WorkflowContext $context, callable $execute, array $iteration, string $source, ?string $returnTo = null): array
@@ -181,7 +189,7 @@ final class WorkflowLoopRunner
         return $result;
     }
 
-    private function iterate(string $id, array $output, WorkflowContext $context, callable $execute, array $parent, bool $preview = false): array
+    private function iterate(string $id, array $output, WorkflowContext $context, callable $execute, array $parent): array
     {
         $items = \App\Workflows\Actions\WorkflowLoopAction::items($output['items'] ?? null);
         $body = $this->bodies[$id];
@@ -196,10 +204,8 @@ final class WorkflowLoopRunner
             // definitions that predate explicit return connections.
             if (!$outcome['returned'] || $outcome['transfers'] !== []) return ['completed' => false, 'transfers' => $outcome['transfers']];
         }
-        if (!$preview || $items === []) {
-            $context->restoreLoopState($baseline);
-            $context->setStepOutput(substr($id, 7), $output);
-        }
+        $context->restoreLoopState($baseline);
+        $context->setStepOutput(substr($id, 7), $output);
         return ['completed' => true, 'transfers' => []];
     }
 

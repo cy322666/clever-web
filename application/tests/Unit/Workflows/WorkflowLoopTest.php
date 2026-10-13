@@ -148,15 +148,17 @@ class WorkflowLoopTest extends TestCase
         return new WorkflowDebugger($registry);
     }
 
-    public function test_node_preview_executes_first_item_and_body_but_not_after_and_preserves_item_for_picker(): void
+    public function test_node_preview_only_emits_first_item_and_preserves_it_for_the_next_manual_node(): void
     {
         $def = $this->definition();
         $result = $this->debugger()->executeNode($def['actions'][0], [], [], null, null, false, $def);
         $this->assertSame('completed', $result['status'], $result['error'] ?? '');
-        $this->assertSame(['loop', 'body'], array_column($result['results'], 'id'));
-        $this->assertSame(1, $result['results'][1]['output']['id']);
+        $this->assertSame(['loop'], array_column($result['results'], 'id'));
         $this->assertSame(['id' => 1], WorkflowOutputView::value($result['results'][0]['output']));
         $this->assertSame(1, WorkflowContext::fromArray($result['context'])->get('$("Цикл").id'));
+        $next = $this->debugger()->executeNode($def['actions'][1], $result['context'], [], null, null, false, $def);
+        $this->assertSame(['body'], array_column($next['results'], 'id'));
+        $this->assertSame(1, $next['results'][0]['output']['id']);
         Http::assertNothingSent();
     }
 
@@ -174,14 +176,67 @@ class WorkflowLoopTest extends TestCase
         $this->assertCount(5, $session['results']);
     }
 
-    public function test_manual_loop_run_respects_all_once_and_empty_input_without_running_done(): void
+    public function test_manual_loop_preserves_first_value_types_in_output_and_next_node_input(): void
     {
-        foreach ([['all', [1, 2, 3], 3], ['once', [1, 2, 3], 1], ['all', [], 0]] as [$mode, $ids, $count]) {
+        foreach ([null, false, 0, '', ['id' => 7, 'nested' => ['active' => false]]] as $item) {
+            $def = $this->definition([$item, 'must not be selected']);
+            $def['actions'][1]['config'] = ['value' => '{{ $json }}', 'named' => '{{ $("Цикл") }}'];
+            $debugger = $this->debugger();
+            $preview = $debugger->executeNode($def['actions'][0], [], [], null, null, false, $def);
+            $this->assertSame('completed', $preview['status']);
+            $this->assertSame($item, WorkflowOutputView::value($preview['results'][0]['output']));
+            $this->assertSame(1, \App\Services\Workflows\WorkflowExecutionStats::annotate($preview['results'])[0]['display_count']);
+            $next = $debugger->executeNode($def['actions'][1], $preview['context'], [], null, null, false, $def);
+            $this->assertSame(['value' => $item, 'named' => $item], $next['results'][0]['output']);
+        }
+    }
+
+    public function test_restarting_loop_clears_stale_downstream_data_and_always_selects_the_first_item(): void
+    {
+        $def = $this->definition();
+        $def['actions'][1] = $this->step('body', 'workflow_set_variable', ['assignments' => [['name' => 'order_id', 'value' => '{{ $json.id }}']]]);
+        $context = $this->context()->setVariable('_workflow_values', ['order_id' => 3, 'upstream' => 42]);
+        $context->setStepOutput('loop', ['_workflow_loop' => true, 'item' => ['id' => 3], 'index' => 2]);
+        $context->setStepOutput('body', ['order_id' => 3]);
+        $context->setStepOutput('after', ['old' => true]);
+        $preview = $this->debugger()->executeNode($def['actions'][0], $context->toArray(), [], null, null, false, $def);
+        $this->assertSame(['id' => 1], WorkflowOutputView::value($preview['results'][0]['output']));
+        $fresh = WorkflowContext::fromArray($preview['context']);
+        $this->assertNull($fresh->getStepOutput('body'));
+        $this->assertNull($fresh->getStepOutput('after'));
+        $this->assertSame(['upstream' => 42], $fresh->getVariable('_workflow_values'));
+    }
+
+    public function test_invalid_or_disabled_loop_preview_never_runs_a_branch_or_returns_a_stale_item(): void
+    {
+        foreach ([['items' => 'not an array'], ['mode' => 'limit', 'limit' => 0]] as $invalid) {
+            $def = $this->definition();
+            $def['actions'][0]['config'] = array_replace($def['actions'][0]['config'], $invalid);
+            $context = $this->context();
+            $context->setStepOutput('loop', ['_workflow_loop' => true, 'item' => ['id' => 99]]);
+            $preview = $this->debugger()->executeNode($def['actions'][0], $context->toArray(), [], null, null, false, $def);
+            $this->assertSame('failed', $preview['status']);
+            $this->assertSame(['loop'], array_column($preview['results'], 'id'));
+            $this->assertEmpty(WorkflowContext::fromArray($preview['context'])->getStepOutput('loop'));
+        }
+        $def = $this->definition();
+        $def['actions'][0]['disabled'] = true;
+        $preview = $this->debugger()->executeNode($def['actions'][0], [], [], null, null, false, $def);
+        $this->assertSame(['loop'], array_column($preview['results'], 'id'));
+        $this->assertSame('skipped', $preview['results'][0]['status']);
+        $this->assertSame(0, \App\Services\Workflows\WorkflowExecutionStats::annotate($preview['results'])[0]['display_count']);
+        Http::assertNothingSent();
+    }
+
+    public function test_manual_loop_always_emits_one_item_or_an_empty_list_without_running_any_branch(): void
+    {
+        foreach ([['all', [1, 2, 3], 1], ['once', [1, 2, 3], 1], ['all', [], 0]] as [$mode, $ids, $count]) {
             $def = $this->definition(array_map(fn ($id) => compact('id'), $ids), $mode);
             $def['connections'][] = $this->edge('body', 'loop');
             $session = $this->debugger()->executeNode($def['actions'][0], [], [], null, null, false, $def);
             $this->assertSame('completed', $session['status'], $session['error'] ?? '');
-            $this->assertCount(1 + $count, $session['results']);
+            $this->assertSame(['loop'], array_column($session['results'], 'id'));
+            $this->assertSame($ids === [] ? [] : ['id' => 1], WorkflowOutputView::value($session['results'][0]['output']));
             $this->assertNotContains('after', array_column($session['results'], 'id'));
             $counts = \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']);
             $this->assertSame($count, $counts[0]['display_count']);
@@ -194,7 +249,7 @@ class WorkflowLoopTest extends TestCase
         $def['actions'][1] = $this->step('body', 'http_request', ['url' => 'https://example.com/write', 'method' => 'POST']);
         $session = app(WorkflowDebugger::class)->executeNode($def['actions'][0], [], [], null, null, false, $def);
         $this->assertSame('completed', $session['status'], $session['error'] ?? '');
-        $this->assertSame('simulated', $session['results'][1]['status']);
+        $this->assertSame(['loop'], array_column($session['results'], 'id'));
         Http::assertNothingSent();
 
         $def = $this->definition();
@@ -380,8 +435,8 @@ class WorkflowLoopTest extends TestCase
         $session = $runner->advance($runner->start($def, [], null, null));
         $this->assertSame('after', $session['pending'][0]['step']['id']);
         $preview = $runner->executeNode($def['actions'][0], [], [], null, null, false, $def);
-        $this->assertSame(['loop', 'body', 'body', 'body'], array_column($preview['results'], 'id'));
-        $this->assertSame(1, $preview['results'][1]['output']['id']);
+        $this->assertSame(['loop'], array_column($preview['results'], 'id'));
+        $this->assertSame(['id' => 1], WorkflowOutputView::value($preview['results'][0]['output']));
     }
 
     public function test_editor_connects_and_disconnects_a_return_without_enabling_implicit_iteration(): void

@@ -78,8 +78,33 @@ try {
     }
     $result = (new App\Workflows\Actions\WorkflowLoopAction)->handle(['items' => [10, 20, 30], 'mode' => 'limit', 'limit' => 2]);
     if (($result['output']['items'] ?? null) !== [10, 20]) throw new RuntimeException('Loop iteration limit was not applied');
+    $loopDefinition = ['trigger' => ['type' => 'manual'], 'actions' => [
+        ['id' => 'loop', 'type' => 'workflow_loop', 'config' => ['items' => [['id' => 10], ['id' => 20], ['id' => 30]], 'mode' => 'limit', 'limit' => 2]],
+        ['id' => 'body', 'type' => 'workflow_set_variable', 'config' => ['assignments' => [['name' => 'item_id', 'value' => '{{ $json.id }}']]]],
+        ['id' => 'done', 'type' => 'workflow_set_variable', 'config' => ['assignments' => [['name' => 'finished', 'value' => true]]]],
+    ], 'connections' => [
+        ['sourceId' => 'trigger', 'sourcePort' => 'output', 'targetId' => 'action:loop'],
+        ['sourceId' => 'action:loop', 'sourcePort' => 'each', 'targetId' => 'action:body'],
+        ['sourceId' => 'action:body', 'sourcePort' => 'output', 'targetId' => 'action:loop'],
+        ['sourceId' => 'action:loop', 'sourcePort' => 'done', 'targetId' => 'action:done'],
+    ]];
+    $debugger = app(App\Workflows\Engine\WorkflowDebugger::class);
+    $loopPreview = $debugger->executeNode($loopDefinition['actions'][0], [], [], null, null, false, $loopDefinition);
+    if ($loopPreview['status'] !== 'completed' || array_column($loopPreview['results'], 'id') !== ['loop']
+        || App\Services\Workflows\WorkflowOutputView::value($loopPreview['results'][0]['output']) !== ['id' => 10]) {
+        throw new RuntimeException('Single loop node must emit only the first item without running its branch');
+    }
+    $nextPreview = $debugger->executeNode($loopDefinition['actions'][1], $loopPreview['context'], [], null, null, false, $loopDefinition);
+    if ($nextPreview['status'] !== 'completed' || ($nextPreview['results'][0]['output']['item_id'] ?? null) !== 10) {
+        throw new RuntimeException('The next manual node did not receive the selected loop item');
+    }
+    $fullRun = $debugger->start($loopDefinition, [], null, null);
+    while ($fullRun['status'] === 'ready') $fullRun = $debugger->advance($fullRun);
+    if ($fullRun['status'] !== 'completed' || array_column($fullRun['results'], 'id') !== ['loop', 'body', 'body', 'done']) {
+        throw new RuntimeException('Whole-flow iteration behavior changed');
+    }
     $probeSucceeded = true;
-    echo "WORKFLOW_INSPECTOR_PROBE_OK partial_render=1 switch=1 draft_preserved=1 loop_limit=1 external_requests=0 workflow_writes=0 first_open_ms={$firstMs}\n";
+    echo "WORKFLOW_INSPECTOR_PROBE_OK partial_render=1 switch=1 draft_preserved=1 loop_limit=1 single_loop_node=1 external_requests=0 workflow_writes=0 first_open_ms={$firstMs}\n";
 } finally {
     Illuminate\Support\Facades\DB::rollBack();
 }

@@ -65,42 +65,75 @@ class WorkflowNodePreviewTest extends TestCase
         return $this->previews->start(7, $editor, $definition['actions'][0], [], [], null, $definition);
     }
 
-    public function test_canvas_and_modal_enqueue_once_return_immediately_and_poll_all_selected_items(): void
+    public function test_canvas_and_modal_run_only_the_loop_then_the_next_manual_node_receives_one_item(): void
     {
-        foreach (['canvas', 'modal'] as $button) {
+        foreach ([['canvas', 'all'], ['canvas', 'once'], ['canvas', 'limit'], ['modal', 'all'], ['modal', 'once'], ['modal', 'limit']] as [$button, $mode]) {
             Queue::fake();
             $definition = $this->definition();
+            $definition['actions'][0]['config']['mode'] = $mode;
+            if ($mode === 'limit') $definition['actions'][0]['config']['limit'] = 2;
+            $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $definition['actions']])->set('definition', $definition);
+            if ($button === 'modal') $page->call('openWorkflowInspector', 'action:loop')->call('runEditingWorkflowNode');
+            else $page->call('runWorkflowCanvasNode', 'loop');
+            $loop = $page->get('nodeRunResults')['loop'];
+            $this->assertSame('completed', $loop['status'], $button.' '.$mode.': '.($loop['error'] ?? ''));
+            $page->assertHasNoErrors()->assertSet('nodePreviewTaskId', null)
+                ->assertSet('nodePreviewProgress', [])
+                ->assertSet('nodeRunResults.loop.output.item.id', 1)->assertSet('nodeRunResults.loop.display_count', 1)
+                ->assertDispatched('workflow-debug-updated');
+            $this->assertSame(['loop'], array_keys($page->get('nodeRunResults')));
+            $this->assertSame($mode, $page->get('workflowActions')[0]['config']['mode']);
+            if ($mode === 'limit') $this->assertSame(2, $page->get('workflowActions')[0]['config']['limit']);
+            Queue::assertNothingPushed();
+
+            if ($button === 'modal') $page->call('openWorkflowInspector', 'action:assign')->call('runEditingWorkflowNode');
+            else $page->call('runWorkflowCanvasNode', 'assign');
+            $page->assertHasNoErrors();
+            $assign = $page->get('nodeRunResults')['assign'];
+            $this->assertSame('completed', $assign['status'], $button.' '.$mode.': '.($assign['error'] ?? ''));
+            $this->assertSame(1, $page->get('nodeRunResults')['assign']['resolved_input']['assignments'][0]['value']);
+            $this->assertSame(['loop', 'assign'], array_keys($page->get('nodeRunResults')));
+            $this->assertSame(1, $page->get('nodeRunResults')['loop']['display_count']);
+            Queue::assertNothingPushed();
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_loop_node_play_never_calls_external_body_or_done_actions(): void
+    {
+        $executor = $this->createMock(\App\Services\Workflows\WorkflowAmoCrmActionExecutor::class);
+        $executor->expects($this->never())->method('execute');
+        $this->app->instance(\App\Services\Workflows\WorkflowAmoCrmActionExecutor::class, $executor);
+        foreach (['canvas', 'modal'] as $button) {
+            $definition = $this->definition();
+            $definition['actions'][1] = ['id' => 'assign', 'type' => 'amocrm_create_contact', 'config' => ['name' => 'Must not create']];
+            $definition['actions'][] = ['id' => 'after', 'type' => 'http_request', 'config' => ['url' => 'https://example.invalid/write', 'method' => 'POST']];
+            $definition['connections'][] = ['sourceId' => 'action:loop', 'sourcePort' => 'done', 'targetId' => 'action:after'];
             $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $definition['actions']])->set('definition', $definition);
             if ($button === 'modal') $page->call('openWorkflowActionEditor', 'loop')->call('runEditingWorkflowNode');
             else $page->call('runWorkflowCanvasNode', 'loop');
-            $page->assertHasNoErrors()->assertSet('nodePreviewProgress.status', 'queued');
-            $page->assertSet('nodePreviewProgress.node_id', 'loop');
-            $this->assertStringContainsString('Ожидание обработчика', json_encode($page->effects, JSON_UNESCAPED_UNICODE));
-            $this->assertStringContainsString('workflow-run-spinner', json_encode($page->effects));
-            $this->assertStringContainsString('wire:poll.2s=', $page->html());
+            $page->assertHasNoErrors()->assertSet('nodeRunResults.loop.status', 'completed');
             $this->assertArrayNotHasKey('assign', $page->get('nodeRunResults'));
-            $id = $page->get('nodePreviewTaskId');
-            $this->assertNotNull($id);
-            $page->call('runWorkflowCanvasNode', 'loop')->call('runWorkflowCanvasNode', 'assign');
-            Queue::assertPushed(RunNodePreview::class, 1);
-            $job = Queue::pushed(RunNodePreview::class)->first();
-            $this->assertSame(1, $job->tries);
-            $this->assertTrue($job->failOnTimeout);
-            $this->assertSame('workflows', $job->queue);
-            $job->handle($this->previews);
-            $state = $this->previews->status(7, $id);
-            $this->assertSame('completed', $state['status'], $state['error'] ?? '');
-            $this->assertSame(3, $state['sequence']);
-            $this->assertSame('Запомнить ID', $state['current_node']);
-            $page->call('pollWorkflowNodePreview')->assertSet('nodePreviewTaskId', null)
-                ->assertDispatched('workflow-debug-updated');
-            $this->assertSame(['id' => 2], \App\Services\Workflows\WorkflowOutputView::value($page->get('nodeRunResults')['loop']['output']));
-            $this->assertSame(2, $page->get('nodeRunResults')['loop']['display_count']);
-            $this->assertSame(2, $page->get('nodeRunResults')['assign']['display_count']);
-            $this->assertArrayHasKey('assign', $page->get('nodeRunResults'));
-            $job->handle($this->previews);
-            $this->assertSame($state, $this->previews->status(7, $id));
+            $this->assertArrayNotHasKey('after', $page->get('nodeRunResults'));
         }
+        Queue::assertNothingPushed();
+        Http::assertNothingSent();
+    }
+
+    public function test_already_queued_preview_is_delivered_once_without_running_the_branch(): void
+    {
+        $id = $this->start();
+        $job = Queue::pushed(RunNodePreview::class)->first();
+        $this->assertSame(1, $job->tries);
+        $this->assertTrue($job->failOnTimeout);
+        $job->handle($this->previews);
+        $state = $this->previews->status(7, $id);
+        $this->assertSame('completed', $state['status'], $state['error'] ?? '');
+        $this->assertSame(1, $state['sequence']);
+        $this->assertSame('Каждый заказ', $state['current_node']);
+        $this->assertSame(['loop'], array_column($this->previews->result(7, $id)['results'], 'id'));
+        $job->handle($this->previews);
+        $this->assertSame($state, $this->previews->status(7, $id));
         Http::assertNothingSent();
     }
 

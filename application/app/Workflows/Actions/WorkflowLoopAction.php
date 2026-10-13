@@ -31,6 +31,7 @@ class WorkflowLoopAction
             Select::make('mode')->label('Сколько элементов обработать')->required()->default('all')
                 ->options(['all' => 'Все элементы', 'once' => 'Один раз: только первый элемент', 'limit' => 'Указать количество']),
             TextInput::make('limit')->label('Количество проходов')->integer()->minValue(1)->maxValue(self::MAX_ITEMS)
+                ->dehydrateStateUsing(static fn ($state): ?int => filled($state) ? (int) $state : null)
                 ->placeholder('Например, 5')
                 ->visibleJs("\$get('mode') === 'limit'")
                 ->required(fn (Get $get): bool => $get('mode') === 'limit')

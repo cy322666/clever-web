@@ -140,15 +140,7 @@ trait HasWorkflowDebugger
     private function executeWorkflowNodePreview(array $step, array $input): void
     {
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-        // A loop can include slow API calls and nested feedback. Do not hold the UI request open.
-        if (\App\Services\Workflows\WorkflowGraph::loop($step)) {
-            $this->nodePreviewTaskId = app(\App\Services\Workflows\WorkflowNodePreview::class)->start(
-                (int) Auth::id(), $this->getId(), $step, $this->workflowDebugContext(), $input,
-                $record?->exists ? $record->getKey() : null, $this->definition);
-            unset($this->nodeRunResults[$step['id']]);
-            $this->pollWorkflowNodePreview();
-            return;
-        }
+        // Every node button executes only that node. A loop just exposes its first item.
         $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), true, $this->definition);
         $this->applyWorkflowNodePreview($step['id'], $session);
     }

@@ -96,7 +96,8 @@ class WorkflowLoopFeedbackTest extends TestCase
         $definition['actions'][1]['config']['conditions'][0]['right'] = 100;
         $debugger = app(WorkflowDebugger::class);
         $preview = $debugger->executeNode($definition['actions'][2], [], [], null, null, false, $definition);
-        $this->assertSame(['inner', 'body', 'body'], array_column($preview['results'], 'id'));
+        $this->assertSame(['inner'], array_column($preview['results'], 'id'));
+        $this->assertSame(['id' => 99], $preview['results'][0]['output']['item']);
         $calls = 0;
         try {
             (new WorkflowLoopRunner($definition))->run(new WorkflowContext, function ($step, $context) use (&$calls) {
@@ -126,30 +127,30 @@ class WorkflowLoopFeedbackTest extends TestCase
         $this->assertSame($calls, array_column($session['results'], 'id'));
     }
 
-    public function test_root_preview_bounds_nested_done_feedback_without_restricting_connections(): void
+    public function test_root_node_preview_never_enters_nested_done_feedback(): void
     {
         $definition = $this->definition();
         $definition['actions'][1]['config']['conditions'][0]['right'] = 100;
         $this->assertSame([], WorkflowDefinitionValidator::issues($definition));
         $session = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition);
-        $this->assertSame('failed', $session['status']);
-        $this->assertStringContainsString('200 шагов', $session['error']);
-        $this->assertCount(201, $session['results']);
+        $this->assertSame('completed', $session['status']);
+        $this->assertNull($session['error']);
+        $this->assertSame(['outer'], array_column($session['results'], 'id'));
         $annotated = \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']);
         $this->assertGreaterThan(0, $annotated[0]['display_count']);
         $this->assertNotContains('after', array_column($session['results'], 'id'));
         Http::assertNothingSent();
     }
 
-    public function test_cancellation_callback_stops_before_next_action_and_keeps_completed_results(): void
+    public function test_cancellation_callback_stops_before_the_single_node(): void
     {
         $definition = $this->definition();
         $session = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition,
-            function ($step, $sequence): void { if ($sequence === 3) throw new \RuntimeException('Остановлено'); });
+            function ($step, $sequence): void { $this->assertSame(1, $sequence); throw new \RuntimeException('Остановлено'); });
         $this->assertSame('failed', $session['status']);
         $this->assertSame('Остановлено', $session['error']);
-        $this->assertSame(['outer', 'check', 'inner'], array_column($session['results'], 'id'));
-        $this->assertSame('error', $session['results'][2]['status']);
+        $this->assertSame(['outer'], array_column($session['results'], 'id'));
+        $this->assertSame('error', $session['results'][0]['status']);
         Http::assertNothingSent();
     }
 

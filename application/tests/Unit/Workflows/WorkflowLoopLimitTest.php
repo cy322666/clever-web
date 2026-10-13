@@ -76,13 +76,15 @@ class WorkflowLoopLimitTest extends TestCase
         $this->assertSame([10, 20], $calls[3]['input']);
     }
 
-    public function test_preview_respects_the_limit_and_iteration_count_but_does_not_run_done(): void
+    public function test_node_preview_keeps_the_saved_limit_but_only_exposes_the_first_item(): void
     {
         $definition = $this->definition();
         $result = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition);
         $this->assertSame('completed', $result['status'], $result['error'] ?? '');
-        $this->assertSame(['loop', 'body', 'body'], array_column($result['results'], 'id'));
-        $this->assertSame(2, WorkflowExecutionStats::annotate($result['results'])[0]['display_count']);
+        $this->assertSame(['loop'], array_column($result['results'], 'id'));
+        $this->assertSame(10, $result['results'][0]['output']['item']);
+        $this->assertSame(1, WorkflowExecutionStats::annotate($result['results'])[0]['display_count']);
+        $this->assertSame(2, $result['definition']['actions'][0]['config']['limit']);
         Http::assertNothingSent();
     }
 
@@ -90,7 +92,8 @@ class WorkflowLoopLimitTest extends TestCase
     {
         $definition = $this->definition();
         unset($definition['connections'][2]);
-        $result = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition);
+        $debugger = app(WorkflowDebugger::class);
+        $result = $debugger->advance($debugger->start($definition, [], null, null));
         $this->assertSame('completed', $result['status'], $result['error'] ?? '');
         $this->assertSame(['loop', 'body'], array_column($result['results'], 'id'));
     }
@@ -112,9 +115,13 @@ class WorkflowLoopLimitTest extends TestCase
         $definition['connections'][2]['sourcePort'] = 'done';
         $definition['connections'][] = ['sourceId' => 'action:body', 'sourcePort' => 'each', 'targetId' => 'action:inner'];
         $definition['connections'][] = ['sourceId' => 'action:inner', 'sourcePort' => 'output', 'targetId' => 'action:body'];
-        $result = app(WorkflowDebugger::class)->executeNode($definition['actions'][0], [], [], null, null, false, $definition);
-        $this->assertSame('completed', $result['status'], $result['error'] ?? '');
+        $debugger = app(WorkflowDebugger::class);
+        $result = $debugger->advance($debugger->start($definition, [], null, null));
         $this->assertSame(['loop', 'body', 'inner', 'body', 'inner'], array_column($result['results'], 'id'));
+        $this->assertSame('ready', $result['status'], $result['error'] ?? '');
+        $result = $debugger->advance($result);
+        $this->assertSame('completed', $result['status'], $result['error'] ?? '');
+        $this->assertSame('after', $result['results'][5]['id']);
     }
 
     public function test_limited_mode_survives_export_and_import(): void
