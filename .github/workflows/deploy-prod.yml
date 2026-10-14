@@ -406,6 +406,8 @@ jobs:
               compose_cmd exec -T --user "$supervisor_uid:$supervisor_gid" supervisor sh -c \
                 'test -w /var/www/html/storage && test -w /var/www/html/bootstrap/cache'
 
+              compose_cmd exec -T --user www-data supervisor php artisan horizon:terminate || true
+
               external_healthcheck >/dev/null || true
               echo "Rollback completed."
               exit "$exit_code"
@@ -454,21 +456,27 @@ jobs:
 
             start_application
 
-            compose_cmd exec -T app php artisan optimize:clear
+            compose_cmd exec -T --user www-data app php artisan optimize:clear
 
             if [ "$AUTO_MIGRATE" = "true" ]; then
-              compose_cmd exec -T app php artisan migrate --force
+              compose_cmd exec -T --user www-data app php artisan migrate --force
             else
               echo "AUTO_MIGRATE=false, skipping migrations."
             fi
 
-            compose_cmd exec -T app php artisan optimize
+            compose_cmd exec -T --user www-data app php artisan optimize
+
+            # Horizon is long-lived; let current jobs finish and respawn with this release.
+            # Run inside its own container so Horizon targets the correct master hostname.
+            compose_cmd exec -T --user www-data supervisor php artisan horizon:terminate
+            sleep 5
 
             # optimize:clear removes the scheduler heartbeat from the shared cache.
             # Give schedule:work enough time to write the next one before failing deploy.
             smoke_ready=false
             for ((attempt = 1; attempt <= 15; attempt++)); do
-              if compose_cmd exec -T app php artisan app:smoke --strict; then
+              if compose_cmd exec -T --user www-data app php artisan app:smoke --strict && \
+                compose_cmd exec -T --user www-data supervisor php artisan horizon:status; then
                 smoke_ready=true
                 break
               fi
@@ -476,8 +484,9 @@ jobs:
               sleep 5
             done
             if [ "$smoke_ready" != "true" ]; then
-              echo "Strict smoke check did not pass within 75 seconds." >&2
-              exit 1
+              echo "Strict smoke and queue checks did not pass within 75 seconds." >&2
+              # A bare exit does not invoke ERR, leaving a failed release deployed.
+              false
             fi
 
             bash ops/deploy/assert-clean-tree.sh "$DEPLOY_SHA"
