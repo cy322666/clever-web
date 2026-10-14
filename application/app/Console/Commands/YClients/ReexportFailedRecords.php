@@ -6,7 +6,6 @@ use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -238,25 +237,6 @@ class ReexportFailedRecords extends Command
 
     private function runNormalFlowNow(Record $record): void
     {
-        $exitCode = Artisan::call('yc:send-record', [
-            'record_id' => $record->id,
-            'account_id' => $record->account_id,
-            'setting_id' => $record->setting_id,
-            '--skip-note' => !$this->option('with-notes'),
-        ]);
-
-        if ($exitCode !== 0) {
-            throw new \RuntimeException('yc:send-record failed: ' . trim(Artisan::output()));
-        }
-
-        $exitCode = Artisan::call('yc:update-entities', [
-            'record_id' => $record->id,
-            'account_id' => $record->account_id,
-            'setting_id' => $record->setting_id,
-        ]);
-
-        if ($exitCode !== 0) {
-            throw new \RuntimeException('yc:update-entities failed: ' . trim(Artisan::output()));
-        }
+        (new RecordSend($record, $record->account, $record->setting, (bool) $this->option('with-notes')))->handle();
     }
 }

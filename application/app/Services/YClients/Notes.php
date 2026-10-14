@@ -13,7 +13,7 @@ class Notes
     /**
      * @throws ConnectionException
      */
-    public static function createNoteLead(YClients $client, Record $record, LeadModel $lead, Client $amoApi): void
+    public static function createNoteLead(YClients $client, Record $record, LeadModel $lead, Client $amoApi, ?EntityCreateGuard $guard = null): void
     {
         $note = $amoApi->service->notes()->create();
 
@@ -29,6 +29,8 @@ class Notes
             ' - Мастер : ' . $record->staff_name,
             ' Комментарий : ' . $record->comment,
         ]);
-        $note->save();
+        if ($guard === null || $guard->claim()) {
+            $note->save();
+        }
     }
 }

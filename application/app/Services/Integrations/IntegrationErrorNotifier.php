@@ -334,6 +334,8 @@ final class IntegrationErrorNotifier
         $error = mb_strtolower($error);
 
         return match (true) {
+            str_contains($error, 'locktimeoutexception') => ['internal', 'Не удалось дождаться завершения другой задачи обработки записи.'],
+            str_contains($error, 'unconfirmedcreateexception') => ['uncertain_write', 'Ответ на создание в CRM потерян. Повторное создание остановлено для защиты от дублей, нужна сверка записи.'],
             $forced === 'auth', preg_match('/\b401\b|invalid.grant|invalid.token|refresh.token|unauthorized/', $error) === 1 => ['auth', 'Не удалось подтвердить авторизацию. Проверьте подключение CRM или сервиса.'],
             preg_match('/\b403\b|forbidden|access.denied/', $error) === 1 => ['forbidden', 'Сервис отказал в доступе. Проверьте права подключения.'],
             preg_match('/\b429\b|too.many.requests|rate.limit/', $error) === 1 => ['rate_limit', 'Превышен лимит запросов внешнего сервиса.'],

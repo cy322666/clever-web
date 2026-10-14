@@ -15,11 +15,23 @@ abstract class Contacts
      */
     public static function updateOrCreate(Client $client, $amoApi, ?int $responsibleUserId = null): ContactModel
     {
-        $contact = static::resolveExistingContact($client, $amoApi);
+        $guard = EntityCreateGuard::forContact($client);
+        $contact = $client->contact_id ? static::get($amoApi, $client->contact_id) : null;
+
+        if (!$contact && $guard->exists()) {
+            $contact = $guard->recover(
+                fn (int $id) => static::get($amoApi, $id),
+                fn (int $startedAt) => static::recoverCreated($client, $amoApi, $startedAt),
+            );
+        }
+
+        $contact = $contact ?: static::resolveExistingContact($client, $amoApi);
 
         if (!$contact) {
-            $contact = static::create($amoApi, $client, $responsibleUserId);
+            $contact = static::create($amoApi, $client, $responsibleUserId, $guard);
         } else {
+            // Persist a found/reconciled contact before updates that can fail independently.
+            $client->forceFill(['contact_id' => $contact->id])->save();
             $contact = static::update($contact, $client, $amoApi);
         }
 
@@ -27,6 +39,35 @@ abstract class Contacts
         $client->save();
 
         return  $contact;
+    }
+
+    private static function recoverCreated(Client $client, \App\Services\amoCRM\Client $amoApi, int $startedAt): ?ContactModel
+    {
+        $phone = self::phoneSearchKey($client->phone);
+        $email = self::normalizeEmail($client->email);
+        $candidates = [];
+
+        foreach (['phone' => $phone, 'email' => $email] as $type => $value) {
+            if ($value === null) {
+                continue;
+            }
+            $result = AmoTransportRetry::run(fn () => $type === 'phone'
+                ? $amoApi->service->contacts()->searchByPhone($value)
+                : $amoApi->service->contacts()->searchByEmail($value));
+
+            foreach (self::contactsFromSearchResult($result) as $contact) {
+                if ((int) $contact->created_at < $startedAt - 5 || (int) $contact->created_at > $startedAt + 300) {
+                    continue;
+                }
+                if (($phone !== null && !in_array($phone, self::contactPhoneKeys($contact), true))
+                    || ($email !== null && !in_array($email, self::contactEmailKeys($contact), true))) {
+                    continue;
+                }
+                $candidates[(int) $contact->id] = $contact;
+            }
+        }
+
+        return count($candidates) === 1 ? reset($candidates) : null;
     }
 
     /**
@@ -122,12 +163,9 @@ abstract class Contacts
         }
 
         if (is_object($contacts)) {
-            try {
-                // ContactCollection exposes all() through __call, so method_exists() is false.
-                $contacts = $contacts->all();
-            } catch (Throwable) {
-                return [];
-            }
+            // ContactCollection exposes all() through __call. Propagate lazy-load failures:
+            // a failed request must never become "no contact, create one".
+            $contacts = $contacts->all();
         }
 
         if (!is_iterable($contacts)) {
@@ -177,6 +215,7 @@ abstract class Contacts
         \App\Services\amoCRM\Client $amoApi,
         Client $client,
         ?int $responsibleUserId = null,
+        ?EntityCreateGuard $guard = null,
     ): ContactModel
     {
         $contact = $amoApi->service->contacts()->create();
@@ -187,7 +226,13 @@ abstract class Contacts
         }
 
         static::fill($contact, $client);
-        $contact->save();
+
+        $save = function () use ($contact): ContactModel {
+            $contact->save();
+            return $contact;
+        };
+        // Field metadata may require reads. Claim only immediately before the POST.
+        $guard ? $guard->create($save) : $save();
 
         return $contact;
     }

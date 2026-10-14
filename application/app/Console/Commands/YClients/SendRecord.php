@@ -7,10 +7,11 @@ use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client;
 use App\Services\YClients\Notes;
+use App\Services\YClients\EntityCreateGuard;
+use App\Services\YClients\RecordSyncLock;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\YClients\Leads as ServiceLead;
 use App\Services\YClients\Contacts as ServiceContact;
@@ -23,7 +24,7 @@ class SendRecord extends Command
      *
      * @var string
      */
-    protected $signature = 'yc:send-record {record_id} {account_id} {setting_id} {--skip-note}';
+    protected $signature = 'yc:send-record {record_id} {account_id} {setting_id} {--skip-note} {--lock-owner=} {--defer-status}';
 
     /**
      * The console command description.
@@ -42,9 +43,7 @@ class SendRecord extends Command
     {
         $recordId = $this->argument('record_id');
 
-        return Cache::store(config('cache.yclients_lock_store', 'database'))
-            ->lock('yclients:send-record:' . $recordId, 120)
-            ->block(60, fn () => $this->handleLocked());
+        return RecordSyncLock::run((int) $recordId, fn () => $this->handleLocked(), $this->option('lock-owner'));
     }
 
     /**
@@ -59,6 +58,10 @@ class SendRecord extends Command
         $account = Account::query()->findOrFail($this->argument('account_id'));
         /** @var Setting $setting */
         $setting = Setting::query()->findOrFail($this->argument('setting_id'));
+
+        if ((int) $record->account_id !== (int) $account->id || (int) $record->setting_id !== (int) $setting->id) {
+            throw new \InvalidArgumentException('YClients record account/setting scope mismatch.');
+        }
 
         $amoMapping = $setting->amoMappingForCompany($record->company_id);
         $objectStatus = $record->getStatusId($setting);
@@ -119,6 +122,15 @@ class SendRecord extends Command
             }
         }
 
+        $createGuard = EntityCreateGuard::forLead($record);
+
+        if (empty($lead) && $createGuard->exists()) {
+            $lead = $createGuard->recover(
+                fn (int $id) => ServiceLead::get($amoApi, $id),
+                fn (int $startedAt) => ServiceLead::recoverCreated($amoApi, $record, $contact?->id, $objectStatus, $startedAt),
+            );
+        }
+
         if (empty($lead)) {
 
             //уже прокинутая в амо сделка
@@ -127,6 +139,7 @@ class SendRecord extends Command
                 ->where('id', '!=', $record->id)
                 ->whereNotNull('lead_id')
                 ->where('account_id', $account->id)
+                ->where('company_id', $record->company_id)
                 ->first();
 
             if (!empty($recordDouble) && $recordDouble->lead_id) {
@@ -177,7 +190,7 @@ class SendRecord extends Command
                     $responsibleUserId
                 );
             } else {
-                $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId, $amoApi);
+                $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId, $amoApi, $createGuard);
             }
         } catch (Throwable $e) {
             Log::error('YClients lead sync failed during save()', [
@@ -202,20 +215,33 @@ class SendRecord extends Command
             throw $e;
         }
 
-        if (!$this->option('skip-note')) {
-            Notes::createNoteLead($ycApi, $record, $lead, $amoApi);
+        // Persist the acknowledged CRM ID before any subsequent API call (including notes).
+        // A note timeout must never turn a successful create into another create attempt.
+        $record->lead_id = $lead->id;
+        $record->save();
+
+        // Reserve the optional note durably: Laravel release() reuses the original job
+        // payload, so an in-memory "note attempted" flag cannot prevent duplicate POSTs.
+        $noteGuard = EntityCreateGuard::forNote($record);
+        if (!$this->option('skip-note') && !$noteGuard->exists()) {
+            Notes::createNoteLead($ycApi, $record, $lead, $amoApi, $noteGuard);
         }
 
-        $record->lead_id = $lead->id;
-        $record->status = Record::STATUS_SUCCESS;
-        $record->error_message = null;
-        $record->save();
+        if (!$this->option('defer-status')) {
+            $record->refresh()->forceFill(['status' => Record::STATUS_SUCCESS, 'error_message' => null])->save();
+        }
 
         return self::SUCCESS;
     }
 
     private function failRecord(Record $record, string $message, array $context = []): int
     {
+        if ($this->option('defer-status')) {
+            $this->error($this->formatErrorMessage($message, $context));
+            return self::FAILURE;
+        }
+
+        $record->refresh();
         $record->status = Record::STATUS_FAILED;
         $record->error_message = $this->formatErrorMessage($message, $context);
         $record->save();
@@ -225,9 +251,9 @@ class SendRecord extends Command
 
     private function completeRecordWithoutLead(Record $record): int
     {
-        $record->status = Record::STATUS_SUCCESS;
-        $record->error_message = null;
-        $record->save();
+        if (!$this->option('defer-status')) {
+            $record->refresh()->forceFill(['status' => Record::STATUS_SUCCESS, 'error_message' => null])->save();
+        }
 
         return self::SUCCESS;
     }

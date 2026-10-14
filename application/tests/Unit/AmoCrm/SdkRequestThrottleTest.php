@@ -7,6 +7,7 @@ use App\Services\amoCRM\AmoCrmRequestThrottle;
 use App\Services\amoCRM\EloquentStorage;
 use App\Services\amoCRM\IsolatedOauthClient;
 use Illuminate\Container\Container;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Sleep;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -31,6 +32,8 @@ class SdkRequestThrottleTest extends TestCase
         $this->previousContainer = Container::getInstance();
         $container = new Container;
         Container::setInstance($container);
+        $container->instance('log', new \Psr\Log\NullLogger());
+        Facade::setFacadeApplication($container);
         $this->throttle = new class
         {
             public array $events = [];
@@ -53,6 +56,8 @@ class SdkRequestThrottleTest extends TestCase
     {
         Mockery::close();
         Sleep::fake(false);
+        Facade::clearResolvedInstances();
+        Facade::setFacadeApplication(null);
         Container::setInstance($this->previousContainer);
         parent::tearDown();
     }
@@ -223,6 +228,8 @@ class SdkRequestThrottleTest extends TestCase
         $response = Mockery::mock('overload:Ufee\\Amo\\Api\\Response');
         $response->shouldReceive('getCode')->andReturnUsing(fn () => $query->status);
         $response->shouldReceive('getData')->andReturn('{}');
+        $response->shouldReceive('getInfo')->andReturn((object) ['total_time' => 30]);
+        $response->shouldReceive('getError')->andReturn('Operation timed out: https://example.test/?token=secret');
 
         return $query;
     }

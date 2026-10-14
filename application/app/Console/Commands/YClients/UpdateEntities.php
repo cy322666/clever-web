@@ -9,6 +9,7 @@ use App\Services\amoCRM\Client;
 use App\Services\amoCRM\Models\Contacts;
 use App\Services\amoCRM\Models\Leads;
 use App\Services\YClients\AmoTransportRetry;
+use App\Services\YClients\RecordSyncLock;
 use App\Services\YClients\YClients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +22,7 @@ class UpdateEntities extends Command
      *
      * @var string
      */
-    protected $signature = 'yc:update-entities {record_id} {account_id} {setting_id}';
+    protected $signature = 'yc:update-entities {record_id} {account_id} {setting_id} {--lock-owner=} {--defer-status}';
 
     /**
      * The console command description.
@@ -56,6 +57,11 @@ class UpdateEntities extends Command
      */
     public function handle()
     {
+        return RecordSyncLock::run((int) $this->argument('record_id'), fn () => $this->handleLocked(), $this->option('lock-owner'));
+    }
+
+    private function handleLocked(): int
+    {
         $recordId  = $this->argument('record_id');
         $accountId = $this->argument('account_id');
         $settingId = $this->argument('setting_id');
@@ -63,12 +69,14 @@ class UpdateEntities extends Command
         $record  = Record::query()->findOrFail($recordId);
         $account = Account::query()->findOrFail($accountId);
         $setting = Setting::query()->findOrFail($settingId);
+        if ((int) $record->account_id !== (int) $account->id || (int) $record->setting_id !== (int) $setting->id) {
+            throw new \InvalidArgumentException('YClients record account/setting scope mismatch.');
+        }
         $client = $record->scopedClient();
-
-        $amoApi = app(Client::class, ['account' => $account])->init();
 
         try {
             if ($setting->fields_contact || $setting->fields_lead) {
+                $amoApi = app(Client::class, ['account' => $account])->init();
                 $yc = new YClients($setting);
 
                 //заполненные поля с ключами
@@ -85,12 +93,7 @@ class UpdateEntities extends Command
             throw $e;
         }
 
-//  $note = $contact->createNote();
-//  $note->text = $clientYC->object()->getComment();
-//  $note->element_type = 1;
-//  $note->element_id = $contact->id;
-//  $note->save();
-
+        return self::SUCCESS;
     }
 
     /**
@@ -193,6 +196,11 @@ class UpdateEntities extends Command
 
     private function failRecord(Record $record, string $message, array $context = []): void
     {
+        if ($this->option('defer-status')) {
+            return;
+        }
+
+        $record->refresh();
         $record->status = Record::STATUS_FAILED;
 
         if (blank($record->error_message)) {

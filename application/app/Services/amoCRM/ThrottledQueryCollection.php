@@ -3,6 +3,7 @@
 namespace App\Services\amoCRM;
 
 use App\Models\Core\Account;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
 use RuntimeException;
 use Ufee\Amo\Base\Models\QueryModel;
@@ -37,6 +38,27 @@ final class ThrottledQueryCollection extends QueryCollection
 
     public function pushByCode($code, QueryModel $query)
     {
+        if ((int) $code === 0 && $query->response) {
+            $info = $query->response->getInfo();
+            $error = strtolower((string) $query->response->getError());
+            // Do not log query strings, tokens, headers, payloads or raw cURL URLs.
+            Log::warning('amoCRM transport request failed.', [
+                'account_id' => $this->account->id,
+                'method' => $query->method,
+                'path' => parse_url((string) $query->url, PHP_URL_PATH),
+                'transport_reason' => match (true) {
+                    str_contains($error, 'resolv') => 'dns',
+                    str_contains($error, 'timed out'), str_contains($error, 'timeout') => 'timeout',
+                    str_contains($error, 'ssl'), str_contains($error, 'certificate') => 'tls',
+                    str_contains($error, 'connect') => 'connection',
+                    default => 'transport',
+                },
+                'total_seconds' => $info->total_time ?? null,
+                'dns_seconds' => $info->namelookup_time ?? null,
+                'connect_seconds' => $info->connect_time ?? null,
+            ]);
+        }
+
         if ((int) $code === 429) {
             // Ufee does not expose response headers; use the shared fallback cooldown.
             app(AmoCrmRequestThrottle::class)->cooldown($this->account, null, $query->getRetries());

@@ -48,6 +48,7 @@ final class AmoTransportRetry
     public static function isTransportMessage(string $message): bool
     {
         return preg_match('/Invalid API response \(non JSON\), code: (?:0|500|502|503|504)(?=\s|$)/', $message) === 1
+            || preg_match('/amoCRM API v4 error: .* returned (?:500|502|503|504):/', $message) === 1
             || preg_match('/curl error (?:6|7|28)(?=\D|$)/i', $message) === 1
             || preg_match('/timed[ -]?out|connection refused|could not resolve/i', $message) === 1;
     }

@@ -7,20 +7,32 @@ use App\Models\Core\Account;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\YClients\AmoTransportRetry;
+use App\Services\YClients\EntityCreateGuard;
+use App\Services\YClients\RecordSyncLock;
+use App\Services\YClients\UnconfirmedCreateException;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 class RecordSend implements ShouldQueue
 {
     use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 4;
+    // Lock contention must not consume the four transport attempts.
+    public int $tries = 50;
+
+    public int $maxExceptions = 4;
+
+    public ?string $attemptKey = null;
 
     public int $timeout = 300;
 
@@ -40,6 +52,7 @@ class RecordSend implements ShouldQueue
     )
     {
         $this->onQueue('yclients_record');
+        $this->attemptKey = (string) Str::uuid();
     }
 
     public function tags(): array
@@ -57,37 +70,62 @@ class RecordSend implements ShouldQueue
      */
     public function handle(): void
     {
+        // During an expand/contract deploy, do not start writes before the receipt migration.
+        if (!EntityCreateGuard::ready()) {
+            if ($this->job) {
+                Log::warning('YClients sync deferred until create receipts migration is applied.');
+                $this->release(60);
+                return;
+            }
+            throw new RuntimeException('YClients create receipts migration is required before synchronization.');
+        }
+
+        $lock = $this->syncLock();
+
+        if (!$lock->get()) {
+            if ($this->job) {
+                $this->release(30);
+                return;
+            }
+
+            throw new LockTimeoutException('YClients record is already being synchronized.');
+        }
+
         try {
-            $createNote = $this->createNote && $this->attempts() === 1;
+            $this->updateState(Record::STATUS_PENDING);
             $exitCode = Artisan::call('yc:send-record', [
                 'record_id' => $this->record->id,
                 'account_id' => $this->account->id,
                 'setting_id' => $this->setting->id,
-                '--skip-note' => !$createNote,
+                '--skip-note' => !$this->createNote,
+                '--lock-owner' => $lock->owner(),
+                '--defer-status' => true,
             ]);
 
             if ($exitCode !== 0) {
-                $this->markFailed('yc:send-record returned non-zero exit code.', [
-                    'exit_code' => $exitCode,
-                    'command_output' => trim(Artisan::output()),
-                ]);
-
-                return;
+                throw new RuntimeException('yc:send-record failed: '.trim(Artisan::output()));
             }
 
             $exitCode = Artisan::call('yc:update-entities', [
                 'record_id' => $this->record->id,
                 'account_id' => $this->account->id,
                 'setting_id' => $this->setting->id,
+                '--lock-owner' => $lock->owner(),
+                '--defer-status' => true,
             ]);
 
             if ($exitCode !== 0) {
-                $this->markFailed('yc:update-entities returned non-zero exit code.', [
-                    'exit_code' => $exitCode,
-                    'command_output' => trim(Artisan::output()),
-                ]);
+                throw new RuntimeException('yc:update-entities failed: '.trim(Artisan::output()));
             }
+
+            $this->updateState(Record::STATUS_SUCCESS);
+            $this->retryCache()->forget($this->retryKey());
         } catch (Throwable $e) {
+            if ($e instanceof LockTimeoutException && $this->job) {
+                $this->release(30);
+                return;
+            }
+
             if ($this->releaseTransportFailure($e)) {
                 return;
             }
@@ -96,12 +134,20 @@ class RecordSend implements ShouldQueue
                 'error' => $e->getMessage(),
                 'exception' => $e::class,
             ]);
+
+            if ($this->job) {
+                $this->fail($e);
+            } else {
+                throw $e;
+            }
+        } finally {
+            $lock->release();
         }
     }
 
     private function releaseTransportFailure(Throwable $exception): bool
     {
-        if (!AmoTransportRetry::isTransportError($exception)) {
+        if (!AmoTransportRetry::isTransportError($exception) && !$exception instanceof UnconfirmedCreateException) {
             return false;
         }
 
@@ -111,13 +157,12 @@ class RecordSend implements ShouldQueue
             return false;
         }
 
-        if ($record->status === Record::STATUS_SUCCESS && blank($record->error_message)) {
-            return true;
-        }
+        // Queue release does not reserialize mutated job properties. Keep the bounded
+        // transport counter in the shared store, independently from lock contention.
+        $this->retryCache()->add($this->retryKey(), 0, 86400);
+        $attempt = (int) $this->retryCache()->increment($this->retryKey());
 
-        $attempt = $this->attempts();
-
-        if (!$this->job || !$record->lead_id || $attempt >= $this->tries) {
+        if (!$this->job || $attempt >= 4) {
             return false;
         }
 
@@ -142,6 +187,51 @@ class RecordSend implements ShouldQueue
         $this->release($delay);
 
         return true;
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        $lock = $this->syncLock();
+        if (!$lock->isOwnedByCurrentProcess() && !$lock->get()) {
+            return; // Another job still owns the record. Do not overwrite its result.
+        }
+
+        try {
+            $record = Record::query()->find($this->record->id);
+            if ($record && $record->status === Record::STATUS_PENDING) {
+                $this->markFailed('YClients RecordSend exhausted its queue attempts.', [
+                    'error' => $exception?->getMessage(),
+                    'exception' => $exception ? $exception::class : null,
+                ]);
+            }
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function syncLock(): \Illuminate\Contracts\Cache\Lock
+    {
+        $uuid = $this->job?->uuid();
+        return RecordSyncLock::make((int) $this->record->id, $uuid ? 'job:'.$uuid : null);
+    }
+
+    private function retryCache(): \Illuminate\Contracts\Cache\Repository
+    {
+        return Cache::store(config('cache.yclients_lock_store', 'database'));
+    }
+
+    private function retryKey(): string
+    {
+        return 'yclients:record-transport:'.($this->job?->uuid() ?: $this->attemptKey ?: $this->record->id);
+    }
+
+    private function updateState(string $status): void
+    {
+        // Always read fresh: a stale model with original error=null will not clear a newer error.
+        Record::query()->findOrFail($this->record->id)->forceFill([
+            'status' => $status,
+            'error_message' => null,
+        ])->save();
     }
 
     private function markFailed(string $message, array $context = []): void

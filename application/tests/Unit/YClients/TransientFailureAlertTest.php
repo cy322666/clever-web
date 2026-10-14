@@ -254,6 +254,28 @@ class TransientFailureAlertTest extends TestCase
         $this->assertSame(180, $this->alert()->delay);
     }
 
+    public function test_recovered_lock_contention_does_not_send_a_network_alert(): void
+    {
+        $record = $this->record();
+        $record->update(['error_message' => 'exception: Illuminate\\Contracts\\Cache\\LockTimeoutException']);
+        $this->notifier->modelFailed($record);
+        $job = $this->alert();
+        $this->assertSame(180, $job->delay);
+        $this->assertStringNotContainsString('Не удалось связаться', $job->message);
+        $record->update(['status' => Record::STATUS_SUCCESS, 'error_message' => null]);
+        $this->deliver($job);
+        Http::assertNothingSent();
+    }
+
+    public function test_unconfirmed_create_has_an_actionable_reason_not_a_generic_network_error(): void
+    {
+        $record = $this->record();
+        $record->update(['error_message' => 'exception: App\\Services\\YClients\\UnconfirmedCreateException']);
+        $this->notifier->modelFailed($record);
+        $this->deliver($this->alert());
+        Http::assertSent(fn ($request) => str_contains($request['text'], 'защиты от дублей'));
+    }
+
     #[DataProvider('serverErrors')]
     public function test_server_errors_are_deferred(string $error): void
     {

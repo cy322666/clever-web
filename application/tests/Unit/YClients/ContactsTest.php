@@ -119,4 +119,17 @@ class ContactsTest extends TestCase
         $this->assertSame(3, $contacts->calls);
         Sleep::assertSequence([Sleep::for(5)->seconds(), Sleep::for(15)->seconds()]);
     }
+
+    public function test_lazy_collection_failure_is_not_an_empty_search_result(): void
+    {
+        $method = (new ReflectionClass(Contacts::class))->getMethod('contactsFromSearchResult');
+        $collection = new class {
+            public function __call(string $method, array $arguments): never
+            {
+                throw new Exception('Invalid API response (non JSON), code: 0');
+            }
+        };
+        $this->expectExceptionMessage('Invalid API response');
+        $method->invoke(null, $collection);
+    }
 }

@@ -67,12 +67,54 @@ abstract class Leads
         return null;
     }
 
+    public static function recoverCreated(
+        \App\Services\amoCRM\Client $amoApi,
+        Record $record,
+        ?int $contactId,
+        object $status,
+        int $startedAt,
+    ): ?Lead {
+        $matches = [];
+        for ($page = 1; $page <= 5; $page++) {
+            $response = AmoTransportRetry::run(fn () => $amoApi->requestV4('GET', '/api/v4/leads', [], [
+                'query' => 'Запись #'.$record->record_id,
+                'with' => 'contacts', 'page' => $page, 'limit' => 250,
+            ]));
+            foreach (data_get($response, '_embedded.leads', []) as $lead) {
+                if (($lead['name'] ?? '') !== 'Запись #'.$record->record_id
+                    || (int) ($lead['pipeline_id'] ?? 0) !== (int) $status->pipeline_id
+                    || (int) ($lead['created_at'] ?? 0) < $startedAt - 5
+                    || (int) ($lead['created_at'] ?? 0) > $startedAt + 300) {
+                    continue;
+                }
+                $contacts = array_map('intval', array_column(data_get($lead, '_embedded.contacts', []), 'id'));
+                if ($contactId ? !in_array($contactId, $contacts, true) : $contacts !== []) {
+                    continue;
+                }
+                $ownedElsewhere = Record::query()->where('account_id', $record->account_id)
+                    ->where('lead_id', $lead['id'])
+                    ->where(fn ($query) => $query->where('record_id', '!=', $record->record_id)
+                        ->orWhere('company_id', '!=', $record->company_id))->exists();
+                if (!$ownedElsewhere) {
+                    $matches[(int) $lead['id']] = true;
+                }
+            }
+            if (empty(data_get($response, '_links.next.href'))) {
+                return count($matches) === 1 ? static::get($amoApi, (int) array_key_first($matches)) : null;
+            }
+        }
+
+        // An incomplete or ambiguous search is not permission to POST again.
+        return null;
+    }
+
     public static function create(
         ?Contact $contact,
         object $objectStatus,
         Record $record,
         ?int $responsibleUserId = null,
         ?\App\Services\amoCRM\Client $amoApi = null,
+        ?EntityCreateGuard $guard = null,
     ): Lead
     {
         $statusId = (int)($objectStatus->status_id ?? 0);
@@ -94,7 +136,11 @@ abstract class Leads
             $lead->responsible_user_id = $responsibleUserId;
         }
 
-        $lead->save();
+        $save = function () use ($lead): Lead {
+            $lead->save();
+            return $lead;
+        };
+        $guard ? $guard->create($save) : $save();
 
         return $lead;
     }

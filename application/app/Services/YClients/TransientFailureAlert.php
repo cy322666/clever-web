@@ -19,7 +19,9 @@ final class TransientFailureAlert
     public static function isTransient(string $error): bool
     {
         return AmoTransportRetry::isTransportMessage($error)
-            || str_contains($error, 'Illuminate\\Http\\Client\\ConnectionException');
+            || str_contains($error, 'Illuminate\\Http\\Client\\ConnectionException')
+            || str_contains($error, 'LockTimeoutException')
+            || str_contains($error, 'UnconfirmedCreateException');
     }
 
     public static function forRecord(Record $record): self
