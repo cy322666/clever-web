@@ -55,7 +55,7 @@ class WorkflowNodeLibraryTest extends TestCase
     public function test_context_catalog_contains_every_category_without_a_second_sidebar(): void
     {
         $html = $this->renderNodeLibrary([], false);
-        $this->assertStringContainsString('aria-label="Каталог нод"', $html);
+        $this->assertStringContainsString('x-bind:aria-label="mode === \'variables\' ? \'Справочники\' : \'Каталог нод\'"', $html);
         $this->assertStringNotContainsString('workflow-node-library__rail', $html);
         foreach (['Триггеры', 'Действия', 'Запросы', 'Сервисы'] as $category) {
             $this->assertStringContainsString('<strong>'.$category.'</strong>', $html);

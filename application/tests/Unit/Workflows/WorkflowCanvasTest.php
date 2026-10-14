@@ -146,7 +146,7 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('Назад к процессам')
             ->assertDontSee('История запусков')
             ->assertSee('aria-label="Справочники"', false)
-            ->assertSee('aria-label="Каталог нод"', false)
+            ->assertSee('x-bind:aria-label="mode === \'variables\' ? \'Справочники\' : \'Каталог нод\'"', false)
             ->assertDontSee('workflow-node-library__rail', false)
             ->assertDontSee('Связаться с клиентом');
 
