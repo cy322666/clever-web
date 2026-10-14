@@ -769,7 +769,7 @@ body.fi-body {
     min-height: 30rem;
     flex: 1;
     overflow: auto;
-    cursor: default;
+    cursor: grab;
     touch-action: pan-x pan-y;
     background-color: #f5f3ef;
 }
@@ -789,6 +789,17 @@ body.fi-body {
 
 .workflow-node-editor__viewport.is-node-dragging {
     cursor: grabbing;
+    user-select: none;
+}
+
+.workflow-node-editor__viewport.is-panning,
+.workflow-node-editor__viewport.is-panning * {
+    cursor: grabbing !important;
+    user-select: none;
+}
+
+.workflow-node-editor__viewport.is-selecting {
+    cursor: crosshair;
     user-select: none;
 }
 

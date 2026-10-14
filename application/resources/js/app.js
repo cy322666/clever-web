@@ -492,6 +492,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     scale: 1,
     translateX: 0,
     translateY: 0,
+    canvasPan: null,
     pointerId: null,
     pointerStartX: 0,
     pointerStartY: 0,
@@ -1149,6 +1150,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     destroy() {
+        this.stopCanvasPan(true);
         this.saveViewport();
         this.mutationObserver?.disconnect();
         this.resizeObserver?.disconnect();
@@ -1448,7 +1450,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     onCanvasWheel(event) {
         if (event.target.closest('input, textarea, select, [contenteditable="true"], .workflow-canvas-note')) return;
         event.preventDefault();
-        if (this.draggingNodeId !== null || this.selectionOrigin || this.pendingEdgeDrag || this.routeDrag || this.areaDrag) return;
+        if (this.canvasPan || this.draggingNodeId !== null || this.selectionOrigin || this.pendingEdgeDrag || this.routeDrag || this.areaDrag) return;
         const viewport = this.$refs.viewport;
         const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
         const dx = event.deltaX * unit;
@@ -1560,7 +1562,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     startCanvasInteraction(event) {
-        if (this.connecting || this.routeDrag) return;
+        if (this.canvasPan || this.connecting || this.routeDrag || this.areaDrag || this.pendingEdgeDrag || this.selectionOrigin || this.draggingNodeId !== null) return;
         const target = event.target instanceof Element ? event.target : null;
         const card = target?.closest('[data-workflow-node-card]');
         const node = card?.closest('[data-workflow-node-id]');
@@ -1580,7 +1582,32 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        this.startBoxSelection(event);
+        if (event.shiftKey) this.startBoxSelection(event);
+        else this.startCanvasPan(event);
+    },
+
+    startCanvasPan(event) {
+        const target = event.target instanceof Element ? event.target : null;
+        if (event.button !== 0 || !target || event.isPrimary === false
+            || target.closest('button, a, input, textarea, select, [role="button"], [contenteditable="true"], [draggable="true"], [data-workflow-node-card], .workflow-node-port, .workflow-canvas-note, .workflow-canvas-area__header, .workflow-canvas-area__resize')) return;
+
+        this.canvasPan = {pointerId:event.pointerId, x:event.clientX, y:event.clientY,
+            translateX:this.translateX, translateY:this.translateY, moved:false};
+        this.$refs.viewport?.setPointerCapture?.(event.pointerId);
+        this.$refs.viewport?.classList.add('is-panning');
+        event.preventDefault();
+    },
+
+    stopCanvasPan(cancel = false, pointerId = null) {
+        const pan = this.canvasPan;
+        if (!pan || (pointerId !== null && pointerId !== pan.pointerId)) return;
+        this.canvasPan = null;
+        this.$refs.viewport?.classList.remove('is-panning');
+        if (this.$refs.viewport?.hasPointerCapture?.(pan.pointerId)) {
+            this.$refs.viewport.releasePointerCapture(pan.pointerId);
+        }
+        if (pan.moved) this.saveViewport();
+        else if (!cancel) this.clearNodeSelection();
     },
 
     startNodeDrag(event, node = null) {
@@ -1643,6 +1670,20 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     moveCanvas(event) {
+        if (this.canvasPan) {
+            const pan = this.canvasPan;
+            if (event.pointerId !== pan.pointerId) return;
+            if (event.buttons === 0) return this.stopCanvasPan(true);
+            const dx = event.clientX - pan.x, dy = event.clientY - pan.y;
+            if (!pan.moved && Math.hypot(dx, dy) < 4) return;
+            pan.moved = true;
+            // Viewport pixels, not node/world coordinates: the gesture stays 1:1 at any zoom.
+            this.translateX = pan.translateX + dx;
+            this.translateY = pan.translateY + dy;
+            event.preventDefault();
+            this.scheduleGraphRefresh();
+            return;
+        }
         if (this.areaDrag) return this.moveAreaDrag(event);
         if (this.routeDrag && this.routeDrag.pointerId === event.pointerId) {
             const drag = this.routeDrag;
@@ -1722,6 +1763,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     stopCanvasInteraction(event) {
+        if (this.canvasPan?.pointerId === event.pointerId) {
+            this.stopCanvasPan(event.type === 'pointercancel');
+            return;
+        }
         if (this.areaDrag?.pointerId === event.pointerId) return this.stopAreaDrag(event.type === 'pointercancel');
         if (this.routeDrag?.pointerId === event.pointerId) {
             if (event.type === 'pointercancel') this.cancelEdgeRouteDrag();

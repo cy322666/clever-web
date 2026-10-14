@@ -1017,20 +1017,136 @@ test('saved routes reject malformed coordinates and browser storage cannot overr
     assert.match(css,/\.workflow-sortable-item\[data-workflow-node-id\]\s*\{[^}]*z-index:\s*2;/s);
 });
 
-test('selection mode draws a fresh rectangle without a modifier and does not pan', () => {
+test('Shift drag selects a rectangle instead of panning and retains the earlier selection', () => {
     const f = fixture();
     f.target.closest = () => null;
     f.node.getBoundingClientRect = () => ({left:20,top:30,right:70,bottom:80});
     f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0});
-    f.canvas.selectionMode = true;
     f.canvas.selectedNodeIds = ['old-selection'];
-    f.canvas.startCanvasInteraction(f.event(0,0));
+    f.canvas.startCanvasInteraction({...f.event(0,0), shiftKey:true});
     f.canvas.moveCanvas(f.event(100,100));
-    assert.deepEqual([...f.canvas.selectedNodeIds], ['action:test']);
+    assert.deepEqual([...f.canvas.selectedNodeIds], ['old-selection', 'action:test']);
+    assert.equal(f.canvas.canvasPan, null);
     assert.equal(f.canvas.routeDrag, null);
     assert.equal(f.canvas.translateX, 0);
     f.canvas.stopCanvasInteraction(f.event(100,100));
     assert.equal(f.canvas.selectionBox, null);
+});
+
+test('left drag on empty canvas pans 1:1 at every zoom without moving nodes or saving workflow data', () => {
+    for (const scale of [.25, 1, 2]) {
+        const f = fixture(), classes = new Set();
+        f.target.closest = () => null;
+        f.canvas.$refs.viewport.classList = {add: c => classes.add(c), remove: c => classes.delete(c)};
+        f.canvas.$refs.viewport.hasPointerCapture = () => true;
+        let releases = 0;
+        f.canvas.$refs.viewport.releasePointerCapture = () => releases++;
+        f.canvas.scale = scale;
+        f.canvas.translateX = 120;
+        f.canvas.translateY = -80;
+        f.canvas.positions = {'action:test': {x:40,y:60}};
+        f.canvas.selectedNodeIds = ['action:test'];
+        const down = f.event(10,20);
+        f.canvas.startCanvasInteraction(down);
+        assert.equal(down.prevented, true);
+        assert.equal(f.captures(), 1);
+        assert.equal(classes.has('is-panning'), true);
+        assert.equal(f.canvas.selectionBox, null);
+        f.canvas.moveCanvas(f.event(70,65));
+        assert.equal(f.canvas.translateX, 180);
+        assert.equal(f.canvas.translateY, -35);
+        f.canvas.stopCanvasInteraction({...f.event(70,65),type:'pointerup'});
+        assert.equal(f.canvas.canvasPan, null);
+        assert.equal(classes.has('is-panning'), false);
+        assert.equal(releases, 1);
+        assert.deepEqual(f.canvas.positions, {'action:test': {x:40,y:60}});
+        assert.deepEqual(f.canvas.selectedNodeIds, ['action:test']);
+        assert.equal(f.saves(), 0);
+        assert.deepEqual(JSON.parse(f.viewportStorage.get(f.canvas.layoutKey + ':viewport')), {x:180,y:-35,scale});
+        f.canvas.moveCanvas(f.event(100,100));
+        assert.equal(f.canvas.translateX, 180);
+    }
+});
+
+test('an empty click clears selection without moving the viewport or opening node settings', () => {
+    const f = fixture();
+    f.target.closest = () => null;
+    f.canvas.selectedNodeIds = ['action:test'];
+    f.canvas.startCanvasInteraction(f.event());
+    f.canvas.moveCanvas(f.event(11,21));
+    f.canvas.stopCanvasInteraction(f.event(11,21));
+    assert.equal(f.canvas.translateX, 0);
+    assert.equal(f.canvas.translateY, 0);
+    assert.equal(f.canvas.selectedNodeIds.length, 0);
+    assert.equal(f.saves(), 0);
+    assert.equal(f.events().length, 0);
+});
+
+test('pan only follows its initial pointer and ignores wheel until the mouse is released', () => {
+    const f = fixture();
+    f.target.closest = () => null;
+    f.canvas.startCanvasInteraction(f.event());
+    f.canvas.startCanvasInteraction({...f.event(300,400),pointerId:2});
+    f.canvas.moveCanvas({...f.event(400,500),pointerId:2});
+    f.canvas.stopCanvasInteraction({...f.event(),pointerId:2});
+    f.canvas.stopCanvasPan(true, 2);
+    assert.equal(f.canvas.canvasPan.pointerId, 1);
+    assert.equal(f.canvas.translateX, 0);
+    f.canvas.onCanvasWheel({...f.event(),deltaX:0,deltaY:100});
+    assert.equal(f.canvas.translateY, 0);
+    f.canvas.moveCanvas(f.event(40,60));
+    f.canvas.moveCanvas({...f.event(300,400),buttons:0});
+    assert.equal(f.canvas.canvasPan, null);
+    assert.equal(f.canvas.translateX, 30);
+    assert.equal(f.canvas.translateY, 40);
+});
+
+test('pointer cancellation, lost capture and window blur stop pan without clearing selection', () => {
+    for (const finish of ['cancel','capture','blur','destroy']) {
+        const f = fixture();
+        f.target.closest = () => null;
+        f.canvas.selectedNodeIds = ['action:test'];
+        f.canvas.startCanvasInteraction(f.event());
+        if (finish === 'cancel') f.canvas.stopCanvasInteraction({...f.event(),type:'pointercancel'});
+        else if (finish === 'capture') f.canvas.stopCanvasPan(true, 1);
+        else if (finish === 'destroy') f.canvas.destroy();
+        else f.canvas.stopCanvasPan(true);
+        assert.equal(f.canvas.canvasPan, null);
+        assert.deepEqual(f.canvas.selectedNodeIds, ['action:test']);
+        f.canvas.moveCanvas(f.event(100,200));
+        assert.equal(f.canvas.translateX, 0);
+    }
+    for (const path of ['../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',
+        '../../resources/views/filament/workflow-builder/workflow-execution-canvas.blade.php']) {
+        const view = readFileSync(new URL(path, import.meta.url), 'utf8');
+        assert.match(view, /x-on:blur.window="stopCanvasPan\(true\)"/);
+        assert.match(view, /x-on:lostpointercapture="stopCanvasPan\(true, \$event.pointerId\)"/);
+        assert.match(view, /x-on:wheel="onCanvasWheel\(\$event\)"/);
+    }
+});
+
+test('pan never hijacks node controls, editable fields or another active canvas gesture', () => {
+    for (const control of ['button','a','input','textarea','select','[role="button"]','[contenteditable="true"]',
+        '[draggable="true"]','.workflow-node-port','.workflow-canvas-note','.workflow-canvas-area__header','.workflow-canvas-area__resize']) {
+        const f = fixture();
+        f.target.closest = selector => selector.split(', ').includes(control) ? {} : null;
+        f.canvas.startCanvasInteraction(f.event());
+        assert.equal(f.canvas.canvasPan, null, control);
+        assert.equal(f.captures(), 0, control);
+    }
+    for (const gesture of ['connecting','routeDrag','areaDrag','pendingEdgeDrag','selectionOrigin']) {
+        const f = fixture();
+        f.target.closest = () => null;
+        f.canvas[gesture] = {};
+        f.canvas.startCanvasInteraction(f.event());
+        assert.equal(f.canvas.canvasPan, null, gesture);
+    }
+    for (const extras of [{button:1},{button:2},{isPrimary:false}]) {
+        const f = fixture();
+        f.target.closest = () => null;
+        f.canvas.startCanvasInteraction({...f.event(),...extras});
+        assert.equal(f.canvas.canvasPan, null);
+    }
 });
 
 test('Shift, Ctrl and Cmd clicks toggle membership without opening or dragging a node', () => {

@@ -171,7 +171,8 @@
                 x-on:workflow-layout-reset.window="resetNodeLayout()"
                 x-on:workflow-debug-updated.window="setExecutionState(debugCanvasState())"
                 x-on:workflow-debug-inspection.window="if ($event.detail.componentId === $wire.$id) setExecutionState($event.detail.state)"
-                x-on:keydown.escape.window="stopAreaDrag(true); cancelConnection(); clearNodeSelection()"
+                x-on:keydown.escape.window="stopCanvasPan(true); stopAreaDrag(true); cancelConnection(); clearNodeSelection()"
+                x-on:blur.window="stopCanvasPan(true)"
                 x-on:keydown.window="clipboardShortcut($event)"
                 x-on:submit.window.capture="if ($event.target.contains($el)) saveNodeLayout()"
                 x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
@@ -185,6 +186,7 @@
             <div
                 x-ref="viewport"
                 x-on:pointerdown="startCanvasInteraction($event)"
+                x-on:lostpointercapture="stopCanvasPan(true, $event.pointerId)"
                 x-on:wheel="onCanvasWheel($event)"
                 x-on:click.capture="suppressNodeClick($event)"
                 x-on:dblclick="openCanvasPalette($event)"
