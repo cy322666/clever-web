@@ -86,6 +86,8 @@ class WorkflowDebugInputTest extends TestCase
     public function test_single_condition_check_uses_the_same_owned_trigger_data_as_the_picker(): void
     {
         \Tests\Support\WorkflowListDatabase::prepare();
+        (require database_path('migrations/2023_09_01_120654_create_fields_table.php'))->up();
+        \Illuminate\Support\Facades\Schema::table('amocrm_fields', fn ($t) => $t->boolean('active')->default(true));
         \Illuminate\Support\Facades\Schema::table('workflow_runs', fn ($t) => $t->json('context_data'));
         $this->actingAs(\App\Models\User::findOrFail(1));
         $step = ['id' => 'if', 'type' => 'control-condition', 'config' => ['logic' => 'and', 'conditions' => [[

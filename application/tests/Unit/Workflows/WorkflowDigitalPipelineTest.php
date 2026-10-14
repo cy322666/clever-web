@@ -27,7 +27,7 @@ class WorkflowDigitalPipelineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); WorkflowListDatabase::prepare(); Http::preventStrayRequests(); Bus::fake();
-        DB::table('accounts')->insert(['id'=>1,'user_id'=>1,'widget'=>'workflows','subdomain'=>'dp-test','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['id'=>1,'user_id'=>1,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'dp-test','active'=>true,'refresh_token'=>'test']);
     }
 
     private function seedFlow(int $id, string $type, array $starts = [], int $owner = 1, bool $active = true): void

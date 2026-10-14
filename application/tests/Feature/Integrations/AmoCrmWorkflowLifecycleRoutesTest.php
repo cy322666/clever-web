@@ -81,17 +81,19 @@ class AmoCrmWorkflowLifecycleRoutesTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_off_hook_only_logs_and_does_not_call_the_disconnect_handler(): void
+    public function test_off_hook_delegates_to_the_workflow_scoped_disconnect_handler(): void
     {
         Log::spy();
 
         $controller = new class extends AuthController
         {
             public bool $disconnectCalled = false;
+            public ?string $disconnectedWidget = null;
 
             public function off(Request $request, ?string $forcedWidget = null)
             {
                 $this->disconnectCalled = true;
+                $this->disconnectedWidget = $forcedWidget;
 
                 return response()->json(['ok' => false]);
             }
@@ -105,7 +107,8 @@ class AmoCrmWorkflowLifecycleRoutesTest extends TestCase
         ]));
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertFalse($controller->disconnectCalled);
+        $this->assertTrue($controller->disconnectCalled);
+        $this->assertSame('workflows', $controller->disconnectedWidget);
         Log::shouldHaveReceived('info')->once()->with(
             'amocrm.flow.off received',
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.account.id') === 33098322

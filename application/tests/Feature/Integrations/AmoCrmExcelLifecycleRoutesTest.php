@@ -67,11 +67,19 @@ class AmoCrmExcelLifecycleRoutesTest extends TestCase
     public function test_off_hook_logs_excel_callback(): void
     {
         Log::spy();
+        config(['services.amocrm.widgets.import-excel.client_id' => 'excel-test-client',
+            'services.amocrm.widgets.import-excel.client_secret' => 'excel-test-secret',
+            'widget_lifecycle.telegram.token' => '']);
+        $this->instance(\App\Services\Integrations\AmoCrmDisconnectService::class, Mockery::mock()
+            ->shouldReceive('disconnect')->once()->with('excel-test-client', 33098322, 'import-excel')
+            ->andReturn(collect())->getMock());
 
         $response = (new AuthController)->offExcel(Request::create(
             '/api/amocrm/off/excel',
             'POST',
-            ['account' => ['id' => 33098322, 'subdomain' => 'widgetscenario']],
+            ['account' => ['id' => 33098322, 'subdomain' => 'widgetscenario'],
+                'client_uuid' => 'excel-test-client', 'account_id' => 33098322,
+                'signature' => hash_hmac('sha256', 'excel-test-client|33098322', 'excel-test-secret')],
         ));
 
         $this->assertSame(200, $response->getStatusCode());

@@ -26,7 +26,7 @@ class WorkflowDelayTest extends TestCase
     {
         \Tests\Support\WorkflowCanvasDatabase::prepare();
         $page = \Livewire\Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
-            ->assertSee('Пауза до 30 секунд')->call('selectActionType', 'workflow_delay');
+            ->assertSee('Задержка')->call('selectActionType', 'workflow_delay');
         $steps = $page->get('workflowActions');
         $id = end($steps)['id'];
         $page->call('openWorkflowActionEditor', $id)->set('mountedActions.0.data.seconds', '{{ $json.seconds }}')->call('callMountedAction')->assertHasNoErrors();

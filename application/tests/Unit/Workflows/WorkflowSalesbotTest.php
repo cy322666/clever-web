@@ -53,8 +53,8 @@ class WorkflowSalesbotTest extends TestCase
     public function test_bot_list_loads_all_pages_and_caches_only_the_current_account(): void
     {
         DB::table('accounts')->insert([
-            ['id'=>11,'user_id'=>1,'widget'=>'workflows','subdomain'=>'one','active'=>true,'refresh_token'=>'test'],
-            ['id'=>22,'user_id'=>2,'widget'=>'workflows','subdomain'=>'two','active'=>true,'refresh_token'=>'test'],
+            ['id'=>11,'user_id'=>1,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'one','active'=>true,'refresh_token'=>'test'],
+            ['id'=>22,'user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'two','active'=>true,'refresh_token'=>'test'],
         ]);
         $client = $this->createMock(Client::class);
         $client->expects($this->exactly(3))->method('requestV4')->willReturnCallback(function ($method,$path,$payload,$query) {

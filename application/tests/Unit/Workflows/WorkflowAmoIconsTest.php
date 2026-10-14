@@ -16,8 +16,8 @@ class WorkflowAmoIconsTest extends TestCase
         $svg = \Illuminate\Support\Facades\Blade::render(
             '<x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/>',
         );
-        $this->assertStringContainsString('fill="#229ED9"', $svg);
-        $this->assertStringContainsString('fill="#fff"', $svg);
+        $this->assertStringContainsString('stop-color="#229ED9"', $svg);
+        $this->assertStringContainsString('fill="#FFFFFF"', $svg);
 
         foreach ([
             resource_path('views/vendor/filament-workflows/components/workflows/node-library.blade.php'),
@@ -67,15 +67,15 @@ class WorkflowAmoIconsTest extends TestCase
         $this->assertSame('none', (string) $svg->path['fill']);
     }
 
-    public function test_repeated_deal_icons_have_independent_clipping_references(): void
+    public function test_repeated_brand_icons_have_independent_gradient_references(): void
     {
-        $first = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="amocrm-lead"/>');
-        $second = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="amocrm-lead"/>');
+        $first = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="service-telegram"/>');
+        $second = \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="service-telegram"/>');
         preg_match_all('/\bid=["\']([^"\']+)["\']/', $first, $ids);
         $this->assertNotEmpty($ids[1]);
         foreach ($ids[1] as $id) $this->assertStringNotContainsString($id, $second);
-        $this->assertStringContainsString('workflow-amo-icon', $first);
-        $this->assertStringNotContainsString('url(#b)', $first);
+        $this->assertStringNotContainsString('url(#linearGradient-1)', $first);
+        $this->assertStringContainsString('workflow-amo-icon', \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="amocrm-lead"/>'));
         $this->assertStringContainsString('workflow-amo-icon', \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="heroicon-o-user" :amo="true"/>'));
         $this->assertStringNotContainsString('workflow-amo-icon', \Illuminate\Support\Facades\Blade::render('<x-workflow-icon icon="heroicon-o-play"/>'));
     }

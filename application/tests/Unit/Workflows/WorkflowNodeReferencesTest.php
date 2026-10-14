@@ -24,7 +24,7 @@ class WorkflowNodeReferencesTest extends TestCase
         (require database_path('migrations/2023_09_01_120654_create_fields_table.php'))->up();
         Schema::table('amocrm_fields', fn(Blueprint $table)=>$table->boolean('active')->default(true));
         $this->actingAs(User::findOrFail(1));
-        DB::table('accounts')->insert(['id'=>1,'user_id'=>1,'widget'=>'workflows','subdomain'=>'test','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['id'=>1,'user_id'=>1,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'test','active'=>true,'refresh_token'=>'test']);
     }
     public function test_reference_plan_depends_on_node_entity(): void
     {

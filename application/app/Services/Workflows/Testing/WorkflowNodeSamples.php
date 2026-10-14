@@ -56,7 +56,7 @@ final class WorkflowNodeSamples
             $request('POST', '/api/v4/leads/101/notes', [['note_type' => 'common', 'params' => ['text' => 'QA note']]]),
         ]);
         $add('amocrm_change_tags', $target('lead', 101) + ['tags_to_add' => 'QA', 'tags_to_remove' => 'Old'], $success('tags_changed', 'lead', 101, ['added' => ['QA'], 'removed' => ['Old']]), 'changeTags', [
-            $request('GET', '/api/v4/leads/101'), $request('PATCH', '/api/v4/leads/101', ['_embedded' => ['tags' => [['name' => 'QA']]]]),
+            $request('PATCH', '/api/v4/leads/101', ['tags_to_add' => [['name' => 'QA']], 'tags_to_delete' => [['name' => 'Old']]]),
         ]);
         $add('amocrm_change_lead_status', $target('lead', 101) + ['status_id' => 143], $success('status_changed', 'lead', 101, ['pipeline_id' => null, 'status_id' => 143]), 'changeLeadStatus', [$request('PATCH', '/api/v4/leads/101', ['status_id' => 143])]);
         foreach (['link' => 'linked', 'unlink' => 'unlinked'] as $verb => $action) {

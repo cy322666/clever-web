@@ -2,7 +2,7 @@ define(['jquery'], function ($) {
     var API_BASE = 'https://app.clevercrm.pro/api/amocrm/workflows/manual-buttons';
     var BLOCK_ID = 'clever-workflow-buttons';
     var BULK_MODAL_ID = 'clever-workflow-bulk-modal';
-    var VERSION = '1.0.45';
+    var VERSION = '1.0.46';
     var CAPTION_LOGO_FILE = 'images/clever_mini_logo.png?v=' + VERSION;
     var LOAD_RETRIES = 0;
 
@@ -522,9 +522,12 @@ define(['jquery'], function ($) {
 
         }
 
-        function selectedLeadIds() {
+        function selectedEntities(defaultType) {
             var selected = {};
-            var ids = [];
+            var entities = [];
+            var seen = {};
+            var invalid = false;
+            var types = {lead: 'lead', leads: 'lead', contact: 'contact', contacts: 'contact', company: 'company', companies: 'company'};
 
             try {
                 selected = self.list_selected ? (self.list_selected().selected || {}) : {};
@@ -532,41 +535,38 @@ define(['jquery'], function ($) {
                 selected = {};
             }
 
-            function pushId(value) {
-                var id = parseInt(value, 10);
-
-                if (id > 0 && ids.indexOf(id) === -1) {
-                    ids.push(id);
-                }
+            var records = selected && typeof selected === 'object' ? Object.keys(selected) : [];
+            if (!records.length || records.length > 250) {
+                return {entities: [], error: 'Выберите от 1 до 250 элементов.'};
             }
 
-            function collect(value, key, depth) {
-                if (depth > 3 || value === null || typeof value === 'undefined') {
+            // Only SDK records carry identity. Indexes, phones and emails are not IDs.
+            records.forEach(function (key) {
+                var record = selected[key];
+                if (!record || typeof record !== 'object' || Array.isArray(record)) {
+                    invalid = true;
                     return;
                 }
-
-                if (typeof value !== 'object') {
-                    if (/^\d+$/.test(String(key || '')) || /^(id|ID|entity_id|entityId)$/.test(String(key || ''))) {
-                        pushId(value || key);
-                    }
-
+                var rawType = typeof record.type === 'undefined' ? defaultType :
+                    (typeof record.type === 'string' ? record.type.toLowerCase() : null);
+                var type = Object.prototype.hasOwnProperty.call(types, rawType) ? types[rawType] : null;
+                if (typeof record.id !== 'number' && typeof record.id !== 'string') {
+                    invalid = true;
                     return;
                 }
-
-                pushId(value.id || value.ID || value.entity_id || value.entityId);
-
-                if (/^\d+$/.test(String(key || ''))) {
-                    pushId(key);
+                var id = Number(record.id);
+                if (!type || !/^[1-9][0-9]*$/.test(String(record.id)) || id > 9007199254740991) {
+                    invalid = true;
+                    return;
                 }
+                var identity = type + ':' + id;
+                if (!seen[identity]) {
+                    entities.push({type: type, id: id});
+                    seen[identity] = true;
+                }
+            });
 
-                $.each(value, function (childKey, childValue) {
-                    collect(childValue, childKey, depth + 1);
-                });
-            }
-
-            collect(selected, '', 0);
-
-            return ids;
+            return {entities: invalid ? [] : entities, error: invalid ? 'Не удалось определить тип или ID выбранного элемента.' : ''};
         }
 
         function captureListSelection(leadIds) {
@@ -653,12 +653,13 @@ define(['jquery'], function ($) {
             }, 420);
         }
 
-        function openBulkModal() {
+        function openBulkModal(defaultType) {
             injectStyles();
 
-            var leadIds = selectedLeadIds();
+            var selection = selectedEntities(defaultType);
+            var entities = selection.entities;
             var subdomain = accountSubdomain();
-            var selectionSnapshot = captureListSelection(leadIds);
+            var selectionSnapshot = captureListSelection(entities.map(function (entity) { return entity.id; }));
 
             $('#' + BULK_MODAL_ID).remove();
             $('body').append([
@@ -669,7 +670,7 @@ define(['jquery'], function ($) {
                 '<button type="button" class="clever-workflow-bulk__close" aria-label="Закрыть">×</button>',
                 '</div>',
                 '<div class="clever-workflow-bulk__body">',
-                '<div class="clever-workflow-bulk__meta">Выбрано сделок: ' + leadIds.length + '</div>',
+                '<div class="clever-workflow-bulk__meta">Выбрано элементов: ' + entities.length + '</div>',
                 '<div class="clever-workflow-bulk__content">',
                 '<div class="clever-workflow-bulk__message clever-workflow-card__loader">Загрузка потоков</div>',
                 '</div>',
@@ -678,11 +679,11 @@ define(['jquery'], function ($) {
                 '</div>'
             ].join(''));
 
-            $('#' + BULK_MODAL_ID).data('lead-ids', leadIds);
+            $('#' + BULK_MODAL_ID).data('entities', entities);
             restoreListSelectionSoon(selectionSnapshot);
 
-            if (!leadIds.length) {
-                bulkMessage('Выберите сделки для запуска потока.', true);
+            if (selection.error) {
+                bulkMessage(selection.error, true);
                 return;
             }
 
@@ -691,7 +692,7 @@ define(['jquery'], function ($) {
                 API_BASE,
                 {
                     subdomain: subdomain,
-                    source: 'amo-button'
+                    source: 'amo-bulk'
                 },
                 function (response) {
                     var workflows = response.workflows || [];
@@ -702,7 +703,7 @@ define(['jquery'], function ($) {
                     }
 
                     if (!workflows.length) {
-                        bulkMessage('Нет включенных потоков с запуском кнопкой.', false);
+                        bulkMessage('Нет включенных потоков с массовым запуском.', false);
                         return;
                     }
 
@@ -732,15 +733,17 @@ define(['jquery'], function ($) {
 
         function runBulkWorkflow($button) {
             var $modal = $('#' + BULK_MODAL_ID);
-            var leadIds = $modal.data('lead-ids') || [];
+            var entities = $modal.data('entities') || [];
             var workflowId = $button.data('workflow-id');
             var $buttons = $modal.find('.clever-workflow-bulk__scenario');
 
-            if (!leadIds.length) {
-                bulkMessage('Выберите сделки для запуска потока.', true);
+            if ($modal.data('running')) return;
+            if (!entities.length || entities.length > 250) {
+                bulkMessage('Выберите от 1 до 250 элементов.', true);
                 return;
             }
 
+            $modal.data('running', true);
             $buttons.prop('disabled', true);
             $button.text('Запускаю...');
 
@@ -750,18 +753,20 @@ define(['jquery'], function ($) {
                 {
                     subdomain: accountSubdomain(),
                     workflow_id: workflowId,
-                    lead_ids: leadIds,
-                    source: 'amo-button'
+                    entities: entities,
+                    source: 'amo-bulk'
                 },
                 function (response) {
                     if (response.ok) {
                         $('#' + BULK_MODAL_ID).remove();
                     } else {
+                        $modal.data('running', false);
                         $buttons.prop('disabled', false);
                         bulkMessage(response.message || 'Не удалось запустить поток.', true);
                     }
                 },
                 function () {
+                    $modal.data('running', false);
                     $buttons.prop('disabled', false);
                     bulkMessage('Не удалось запустить поток.', true);
                 }
@@ -890,16 +895,36 @@ define(['jquery'], function ($) {
                 return true;
             },
             'leads.selected': function () {
-                openBulkModal();
+                openBulkModal('lead');
                 return true;
             },
             'leads:selected': function () {
-                openBulkModal();
+                openBulkModal('lead');
                 return true;
             },
             leads: {
                 selected: function () {
+                    openBulkModal('lead');
+                    return true;
+                }
+            },
+            'contacts.selected': function () {
+                openBulkModal();
+                return true;
+            },
+            'contacts:selected': function () {
+                openBulkModal();
+                return true;
+            },
+            contacts: {
+                selected: function () {
                     openBulkModal();
+                    return true;
+                }
+            },
+            companies: {
+                selected: function () {
+                    openBulkModal('company');
                     return true;
                 }
             },

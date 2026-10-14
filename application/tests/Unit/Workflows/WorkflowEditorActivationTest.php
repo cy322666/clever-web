@@ -35,7 +35,7 @@ class WorkflowEditorActivationTest extends TestCase
         $page->definition['actions'][0]['config']['seconds'] = 15;
         $page->toggleWorkflowActivation();
         $this->assertFalse($flow->fresh()->is_active);
-        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','subdomain'=>'test','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'test','active'=>true,'refresh_token'=>'test']);
         $page->toggleWorkflowActivation();
         $this->assertTrue($flow->fresh()->is_active);
         $this->assertSame(15,$flow->fresh()->definition['actions'][0]['config']['seconds']);

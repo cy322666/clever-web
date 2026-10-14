@@ -94,9 +94,13 @@ class WorkflowSetVariableTest extends TestCase
         $context = WorkflowContext::fromArray($session['context'])->setVariable('_workflow_values', ['contact_id' => 999]);
         $definition['actions'][0]['config']['items'] = [['id' => 4]];
         $preview = $runner->executeNode($definition['actions'][0], $context->toArray(), [], null, null, false, $definition);
-        $last = end($preview['results']);
         $this->assertSame('completed', $preview['status'], $preview['error'] ?? '');
-        $this->assertNull($last['output']['seen']);
+        $this->assertSame(['loop'], array_column($preview['results'], 'id'));
+        $this->assertSame(['id' => 4], \App\Services\Workflows\WorkflowOutputView::value($preview['results'][0]['output']));
+        $this->assertNull(WorkflowContext::fromArray($preview['context'])->get('$vars.contact_id'));
+        $next = $runner->executeNode(end($definition['actions']), $preview['context'], [], null, null, false, $definition);
+        $this->assertSame('completed', $next['status'], $next['error'] ?? '');
+        $this->assertSame(['seen' => null], $next['results'][0]['output']);
         Http::assertNothingSent();
     }
 

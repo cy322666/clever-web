@@ -63,7 +63,7 @@ class WorkflowAmoWebhookEventsTest extends TestCase
     public function test_new_events_can_be_selected_saved_and_scheduled_for_subscription_on_activation(): void
     {
         $this->app->instance('env', 'local');
-        (new Account)->forceFill(['user_id'=>1, 'widget'=>'workflows', 'active'=>true, 'subdomain'=>'test', 'refresh_token'=>'test-only'])->saveQuietly();
+        (new Account)->forceFill(['user_id'=>1, 'widget'=>'workflows', 'client_id'=>'workflow-test-client', 'active'=>true, 'subdomain'=>'test', 'refresh_token'=>'test-only'])->saveQuietly();
         foreach (['add_message', 'add_outgoing_message', 'add_unsorted', 'update_unsorted', 'delete_unsorted'] as $event) {
             $type = 'amocrm-'.str_replace('_', '-', $event);
             $page = Livewire::test(WorkflowCanvasFixture::class)->call('beginTriggerAdd')->call('selectTriggerType', $type)
@@ -132,7 +132,7 @@ class WorkflowAmoWebhookEventsTest extends TestCase
     {
         $events = explode(' ', self::EVENTS);
         foreach ($events as $event) $this->workflow($event);
-        config(['workflow-webhooks.public_url'=>'https://app.example.test']);
+        config(['workflow-webhooks.public_url'=>'https://app.example.test', 'services.amocrm.widgets.workflows.client_id'=>'webhook-events-test']);
         $account = (new Account)->forceFill(['id'=>1,'user_id'=>1,'active'=>true,'widget'=>'workflows','subdomain'=>'webhook-test','access_token'=>'test-only','refresh_token'=>'test-only', 'client_id'=>'webhook-events-test', 'client_secret'=>'test-only', 'redirect_uri'=>'https://app.example.test/oauth', 'zone'=>'ru']);
         $service = app(WorkflowAmoCrmWebhookService::class);
         $url = $service->callbackUrl($account);

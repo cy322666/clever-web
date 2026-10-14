@@ -172,7 +172,7 @@ class WorkflowActionFieldsTest extends TestCase
         $this->assertStringNotContainsString('Свернуть всё', $html);
         $this->assertStringNotContainsString('Развернуть всё', $html);
         $this->assertStringContainsString('toggle(row.path)', $html);
-        $this->assertStringContainsString('copyValue(row.value, row.id)', $html);
+        $this->assertStringContainsString('copyValue(row.value, row.id, $event.currentTarget)', $html);
     }
 
     public function test_status_form_keeps_pipeline_and_status_expressions_as_strings(): void

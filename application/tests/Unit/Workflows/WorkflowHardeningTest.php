@@ -122,9 +122,9 @@ class WorkflowHardeningTest extends TestCase
         $graph = WorkflowExecutionGraph::build($this->definition([['id' => 'note', 'type' => 'amocrm_add_note', 'config' => []]]), [
             ['id' => 'note', 'type' => 'amocrm_add_note', 'status' => 'completed', 'output' => ['entity_id' => 11]],
             ['id' => 'note', 'type' => 'amocrm_add_note', 'status' => 'completed', 'output' => ['entity_id' => 12]],
-            ['id' => 'note', 'type' => 'amocrm_add_note', 'status' => 'completed', 'output' => ['entity_id' => 13]],
+            ['id' => 'note', 'type' => 'amocrm_add_note', 'status' => 'completed', 'output' => [['id' => 13], ['id' => 14]]],
         ]);
-        $this->assertSame(1, $graph['nodes'][1]['item_count']);
+        $this->assertSame(4, $graph['nodes'][1]['item_count']);
         $this->assertSame(3, $graph['nodes'][1]['execution_count']);
         $this->assertSame([1, 2, 3], array_column($graph['results'], 'occurrence'));
     }

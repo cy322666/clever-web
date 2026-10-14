@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Jobs\Integrations\CompleteAmoCrmWidgetInstallation;
 use App\Models\Core\Account;
 use App\Services\Integrations\AmoCrmWidgetLifecycleTelegramNotifier;
+use App\Services\Integrations\AmoCrmDisconnectService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -43,8 +44,7 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
     public function test_get_and_post_install_queue_encrypted_finder_codes(): void
     {
         $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)
-            ->shouldReceive('notify')->twice()
-            ->with('install', 'finder', Mockery::type('array'), Mockery::type('array'));
+            ->shouldNotReceive('notify'); // Only the completed installation job announces success.
 
         foreach (['GET', 'POST'] as $method) {
             $this->json($method, '/api/amocrm/install/finder', [
@@ -77,9 +77,13 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_off_uses_notification_flow_without_touching_shared_authorization(): void
+    public function test_signed_off_uses_finder_scoped_disconnect_and_notification(): void
     {
-        DB::shouldReceive('connection')->never();
+        config(['services.amocrm.widgets.finder.client_id' => 'finder-test-client',
+            'services.amocrm.widgets.finder.client_secret' => 'finder-test-secret']);
+        $this->instance(AmoCrmDisconnectService::class, Mockery::mock()
+            ->shouldReceive('disconnect')->twice()
+            ->with('finder-test-client', 33098322, 'finder')->andReturn(collect())->getMock());
         $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)
             ->shouldReceive('notify')->twice()
             ->with('off', 'finder', Mockery::type('array'), Mockery::type('array'));
@@ -87,14 +91,28 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
         foreach (['GET', 'POST'] as $method) {
             $this->json($method, '/api/amocrm/off/finder', [
                 'account_id' => 33098322,
-                'signature' => 'callback-signature',
-            ])->assertOk()->assertExactJson(['ok' => true]);
+                'client_uuid' => 'finder-test-client',
+                'signature' => hash_hmac('sha256', 'finder-test-client|33098322', 'finder-test-secret'),
+            ])->assertOk()->assertExactJson(['ok' => true, 'updated' => 0, 'mail_queued' => 0]);
         }
 
-        Log::shouldHaveReceived('info')->twice()->with(
+        Log::shouldHaveReceived('info')->with(
             'amocrm.finder.off received',
             Mockery::on(fn (array $context): bool => data_get($context, 'payload.signature') === '[received]'),
-        );
+        )->twice();
+        Queue::assertNothingPushed();
+        Http::assertNothingSent();
+    }
+
+    public function test_unsigned_off_cannot_disconnect_or_notify(): void
+    {
+        DB::shouldReceive('connection')->never();
+        $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)->shouldNotReceive('notify');
+        foreach (['GET', 'POST'] as $method) {
+            $this->json($method, '/api/amocrm/off/finder', [
+                'account_id' => 33098322, 'signature' => 'invalid',
+            ])->assertForbidden();
+        }
         Queue::assertNothingPushed();
         Http::assertNothingSent();
     }

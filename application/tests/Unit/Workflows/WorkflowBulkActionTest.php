@@ -31,7 +31,7 @@ class WorkflowBulkActionTest extends TestCase
         WorkflowListDatabase::prepare();
         Http::preventStrayRequests();
         Bus::fake();
-        DB::table('accounts')->insert(['id' => 1, 'user_id' => 1, 'widget' => 'workflows', 'subdomain' => 'bulk-test', 'active' => true]);
+        DB::table('accounts')->insert(['id' => 1, 'user_id' => 1, 'widget' => 'workflows', 'client_id' => 'workflow-test-client', 'subdomain' => 'bulk-test', 'active' => true, 'refresh_token' => 'test-only']);
     }
 
     private function seedFlow(int $id, string $type = 'amo-bulk', array $starts = [], int $owner = 1, bool $active = true): void

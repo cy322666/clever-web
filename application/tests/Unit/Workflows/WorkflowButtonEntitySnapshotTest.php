@@ -15,7 +15,7 @@ class WorkflowButtonEntitySnapshotTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); WorkflowListDatabase::prepare(); Http::preventStrayRequests();
-        DB::table('accounts')->insert(['id'=>11,'user_id'=>2,'widget'=>'workflows','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['id'=>11,'user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','active'=>true,'refresh_token'=>'test']);
     }
     private function input(): array { return ['source'=>'amocrm-button','lead'=>['id'=>42,'name'=>'Stale'],'account'=>['id'=>11],'_workflow_start_node_id'=>'trigger:button','received_at'=>'original']; }
     private function service(Client $client): WorkflowButtonEntitySnapshot

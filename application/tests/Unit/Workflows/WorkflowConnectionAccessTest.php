@@ -49,16 +49,21 @@ class WorkflowConnectionAccessTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    public function test_activation_accepts_any_active_connection_for_the_same_amo_domain(): void
+    public function test_activation_requires_dedicated_workflow_oauth_and_a_single_amo_domain(): void
     {
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
-        $id = DB::table('accounts')->insertGetId(['user_id'=>2,'widget'=>'workflows','subdomain'=>'client','active'=>false,'refresh_token'=>'test']);
+        $id = DB::table('accounts')->insertGetId(['user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'client','active'=>false,'refresh_token'=>'test']);
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
         DB::table('accounts')->where('id',$id)->update(['active'=>true,'refresh_token'=>'']);
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
         DB::table('accounts')->where('id',$id)->update(['refresh_token'=>'test','widget'=>'tilda']);
+        $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
+        $this->assertNull(User::findOrFail(2)->resolveAmoAccountForWidget('workflows'));
+        DB::table('accounts')->where('id',$id)->update(['widget'=>'workflows','client_id'=>'another-client']);
+        $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
+        DB::table('accounts')->where('id',$id)->update(['client_id'=>'workflow-test-client']);
         $this->assertTrue(WorkflowConnectionAccess::hasActiveConnection(2));
-        $this->assertSame('tilda', User::findOrFail(2)->resolveAmoAccountForWidget('workflows')?->widget);
+        $this->assertSame($id, User::findOrFail(2)->resolveAmoAccountForWidget('workflows')?->id);
         DB::table('accounts')->insert(['user_id'=>2,'widget'=>'default','subdomain'=>'different','active'=>true,'refresh_token'=>'old']);
         $this->assertFalse(WorkflowConnectionAccess::hasActiveConnection(2));
     }
@@ -85,7 +90,7 @@ class WorkflowConnectionAccessTest extends TestCase
 
     public function test_manual_workflow_can_activate_after_connection_and_disable_after_disconnect(): void
     {
-        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','subdomain'=>'client','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'client','active'=>true,'refresh_token'=>'test']);
         $workflow = (new Workflow)->forceFill(['name'=>'Test','user_id'=>2,'is_active'=>true,'definition'=>[
             'trigger'=>['type'=>'manual'], 'actions'=>[['id'=>'delay','type'=>'workflow_delay','config'=>['seconds'=>1]]],
         ]]);
@@ -102,7 +107,7 @@ class WorkflowConnectionAccessTest extends TestCase
         DB::table('apps')->where('user_id', 2)->update([
             'expires_tariff_at' => now()->subDay()->toDateString(),
         ]);
-        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','subdomain'=>'client','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'client','active'=>true,'refresh_token'=>'test']);
 
         $workflow = (new Workflow)->forceFill(['name'=>'Черновик','user_id'=>2,'is_active'=>false,'definition'=>[
             'trigger'=>['type'=>'manual'], 'actions'=>[['id'=>'delay','type'=>'workflow_delay','config'=>['seconds'=>1]]],
@@ -119,7 +124,7 @@ class WorkflowConnectionAccessTest extends TestCase
 
     public function test_expired_period_disables_an_active_workflow_before_execution(): void
     {
-        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','subdomain'=>'client','active'=>true,'refresh_token'=>'test']);
+        DB::table('accounts')->insert(['user_id'=>2,'widget'=>'workflows','client_id'=>'workflow-test-client','subdomain'=>'client','active'=>true,'refresh_token'=>'test']);
         $workflow = (new Workflow)->forceFill(['name'=>'Активный поток','user_id'=>2,'is_active'=>true,'definition'=>[
             'trigger'=>['type'=>'manual'], 'actions'=>[['id'=>'delay','type'=>'workflow_delay','config'=>['seconds'=>1]]],
         ]]);
@@ -167,7 +172,7 @@ class WorkflowConnectionAccessTest extends TestCase
         $this->assertArrayHasKey('settings', $manifest);
         $this->assertSame('custom', $manifest['settings']['connection']['type']);
         $this->assertFalse($manifest['settings']['connection']['required']);
-        $this->assertSame('1.0.45', $manifest['widget']['version']);
+        $this->assertSame('1.0.46', $manifest['widget']['version']);
         $this->assertStringNotContainsString('Сценарии Clever', $script);
         $this->assertStringNotContainsString('Сценарий #', $script);
         $this->assertStringNotContainsString('Нет включённых потоков с запуском', $script);

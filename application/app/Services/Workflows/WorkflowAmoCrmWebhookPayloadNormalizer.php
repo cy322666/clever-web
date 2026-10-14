@@ -148,11 +148,32 @@ class WorkflowAmoCrmWebhookPayloadNormalizer
 
             $existing = Arr::get($payload, 'contacts.' . $action, []);
             $existing = is_array($existing) ? $existing : [];
-            foreach ($items as $item) if (!in_array($item, $existing, true)) $existing[] = $item;
+            $seen = [];
+            foreach ($existing as $item) {
+                $seen[serialize($this->canonicalItem($item))] = true;
+            }
+            foreach ($items as $item) {
+                $key = serialize($this->canonicalItem($item));
+                if (isset($seen[$key])) continue;
+                $existing[] = $item;
+                $seen[$key] = true;
+            }
             Arr::set($payload, 'contacts.' . $action, $existing);
         }
 
         return $payload;
+    }
+
+    /** Object key order is irrelevant; value types and list order are not. */
+    private function canonicalItem(array $item): array
+    {
+        foreach ($item as &$value) {
+            if (is_array($value)) $value = $this->canonicalItem($value);
+        }
+        unset($value);
+        if (!array_is_list($item)) ksort($item);
+
+        return $item;
     }
 
     /**

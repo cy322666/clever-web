@@ -21,9 +21,9 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
         $response = $this->get('/api/amocrm/industry-clinics-salons/redirect?code=secret-code&referer=example.amocrm.ru&platform=1');
 
         $response
-            ->assertOk()
-            ->assertSee('Решение установлено')
-            ->assertSee('Клиники и салоны');
+            ->assertStatus(303)
+            ->assertRedirect('https://example.amocrm.ru/settings/widgets/')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
 
         Log::shouldHaveReceived('info')->with(
             'amocrm.industry-clinics-salons.install received',
@@ -71,8 +71,8 @@ class AmoCrmIndustryClinicsSalonsLifecycleRoutesTest extends TestCase
                 && $context['message_id'] === 502),
         )->once();
         Http::assertSent(fn ($request): bool => str_contains($request['text'], '🔴 Виджет отключён')
-            && str_contains($request['text'], 'Аккаунт: 123')
-            && str_contains($request['text'], 'ID интеграции: client-id')
+            && str_contains($request['text'], 'Домен: не передан')
+            && ! str_contains($request['text'], 'client-id')
             && ! str_contains($request['text'], 'secret'));
     }
 }

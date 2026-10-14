@@ -117,3 +117,31 @@ test('empty and oversized selections never make requests', () => {
         assert.match(app.message(), /от 1 до 250/);
     }
 });
+
+test('a known list may supply a missing type, but never overrides an invalid explicit type or ID', () => {
+    const app = widget([{id: '42'}], 'llist', '/leads/list/');
+    app.instance.callbacks.leads.selected();
+    app.clickRun();
+    assert.deepEqual(app.requests[1].data.entities, [{type: 'lead', id: 42}]);
+
+    for (const record of [
+        {id: [42], type: 'lead'}, {id: '9007199254740992', type: 'lead'},
+        {id: '42abc', type: 'lead'}, {id: 1.5, type: 'lead'},
+        {id: 42, type: 'task'}, {id: 42, type: 1},
+        {phones: ['79991234567'], type: 'lead'},
+    ]) {
+        const invalid = widget([record], 'llist', '/leads/list/');
+        invalid.instance.callbacks.leads.selected();
+        assert.equal(invalid.requests.length, 0);
+        assert.match(invalid.message(), /Не удалось определить тип/);
+    }
+});
+
+test('contact selection aliases keep the same typed bulk contract', () => {
+    for (const callback of ['contacts:selected', 'contacts.selected']) {
+        const app = widget([{id: 42, type: 'company'}]);
+        app.instance.callbacks[callback]();
+        app.clickRun();
+        assert.deepEqual(app.requests[1].data.entities, [{type: 'company', id: 42}]);
+    }
+});
