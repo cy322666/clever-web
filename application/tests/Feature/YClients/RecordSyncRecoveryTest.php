@@ -8,6 +8,7 @@ use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\amoCRM\Client as AmoClient;
 use App\Services\YClients\Leads;
+use App\Services\YClients\RecordSyncLock;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -127,6 +128,24 @@ class RecordSyncRecoveryTest extends TestCase
         $api->service->method('__call')->willReturn($service);
         $this->assertSame($lead, Leads::recoverCreated($api, $record, 77, (object) ['pipeline_id' => 10], 1000));
         $this->assertNull(Leads::recoverCreated($api, $record, 77, (object) ['pipeline_id' => 10], 1000));
+    }
+
+    public function test_manual_reexport_does_not_mark_a_busy_record_failed_or_erase_its_state(): void
+    {
+        $record = $this->record();
+        $record->update(['status' => Record::STATUS_FAILED, 'error_message' => 'original failure']);
+        $lock = RecordSyncLock::make($record->id);
+        $this->assertTrue($lock->get());
+        try {
+            $this->artisan('yc:reexport-failed', ['user_id' => 1, '--from' => now()->subDay()->toDateTimeString(),
+                '--record-db-id' => $record->id, '--sync' => true])->assertSuccessful();
+            $this->assertSame('original failure', $record->fresh()->error_message);
+            $this->assertSame(Record::STATUS_FAILED, $record->fresh()->status);
+            $this->assertTrue($lock->isOwnedByCurrentProcess());
+            Http::assertNothingSent();
+        } finally {
+            $lock->release();
+        }
     }
 
     private function record(): Record

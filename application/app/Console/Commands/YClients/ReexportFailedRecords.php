@@ -6,6 +6,7 @@ use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -108,8 +109,6 @@ class ReexportFailedRecords extends Command
             }
 
             try {
-                $this->markPending($record);
-
                 if ($this->option('sync')) {
                     $this->runNormalFlowNow($record);
                     $stats['synced']++;
@@ -117,6 +116,7 @@ class ReexportFailedRecords extends Command
                     continue;
                 }
 
+                $this->markPending($record);
                 RecordSend::dispatch(
                     $record->fresh(),
                     $record->account,
@@ -126,6 +126,9 @@ class ReexportFailedRecords extends Command
 
                 $stats['queued']++;
                 $this->line($this->recordLine($record, 'queued'));
+            } catch (LockTimeoutException) {
+                $stats['skipped']++;
+                $this->line($this->recordLine($record->fresh(), 'skipped-already-processing'));
             } catch (Throwable $e) {
                 $stats['failed']++;
                 $this->markFailed($record, 'YClients re-export failed before dispatch.', [
