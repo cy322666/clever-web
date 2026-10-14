@@ -1017,6 +1017,12 @@ test('saved routes reject malformed coordinates and browser storage cannot overr
     assert.match(css,/\.workflow-sortable-item\[data-workflow-node-id\]\s*\{[^}]*z-index:\s*2;/s);
 });
 
+test('canvas background keeps the ordinary arrow cursor before and during panning', () => {
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
+    assert.match(css, /\.workflow-node-editor__viewport\s*\{[^}]*cursor:\s*default;/s);
+    assert.match(css, /\.workflow-node-editor__viewport\.is-panning,\s*\.workflow-node-editor__viewport\.is-panning \*\s*\{[^}]*cursor:\s*default !important;/s);
+});
+
 test('Ctrl, Cmd and Shift drag select a rectangle instead of panning and retain the earlier selection', () => {
     for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
         const f = fixture();
