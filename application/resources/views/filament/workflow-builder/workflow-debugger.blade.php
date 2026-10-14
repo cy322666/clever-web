@@ -1,40 +1,62 @@
-<section x-data="workflowDebugPanel()" x-show="$wire.debugOpen" x-cloak class="workflow-debugger"
-    x-init="selectedIndex = ($wire.debugState.results || []).length ? 0 : -1"
-    x-on:workflow-debug-updated.window="selectedIndex = ($event.detail.state.results || []).length - 1"
-    x-on:workflow-debug-select.window="selectNode($event.detail.id)">
-    <header class="workflow-debugger__bar">
-        <strong>Отладка</strong>
-        <span x-text="$wire.debugState.status === 'historical' ? 'Данные сохранённого запуска · ничего не выполняется' : ($wire.debugState.real ? 'Реальное выполнение' : 'Без изменений · запросы читают amoCRM')"></span>
-        <div class="workflow-debugger__actions">
-            <button type="button" wire:click="editWorkflowDebugInput" x-show="$wire.debugState.results?.length || $wire.debugState.status === 'expired'" x-bind:disabled="busy || playing">Изменить данные</button>
-            <button type="button" x-on:click="startAndRun()" x-bind:disabled="busy || playing" class="workflow-debugger__primary" x-text="$wire.debugReal ? 'Выполнить поток' : 'Проверить поток'"></button>
-            <button type="button" wire:click="startWorkflowDebug" wire:loading.attr="disabled" x-bind:disabled="busy || playing">Пошагово</button>
-            <button type="button" x-on:click="next()" x-bind:disabled="busy || $wire.debugState.status !== 'ready'">Выполнить шаг</button>
-            <button type="button" x-show="!playing" x-on:click="run()" x-bind:disabled="busy || $wire.debugState.status !== 'ready'">Продолжить</button>
-            <button type="button" x-show="playing" x-on:click="playing = false">Пауза</button>
-            <button type="button" x-on:click="playing = false" wire:click="closeWorkflowDebugger" aria-label="Закрыть отладку"><x-filament::icon icon="heroicon-o-x-mark" class="h-4 w-4"/></button>
-        </div>
-    </header>
-    <div class="workflow-debugger__setup" x-show="!$wire.debugState.results?.length">
-        @include('filament.workflow-builder.workflow-debug-input')
-        <div>
-            <label class="workflow-debugger__toggle"><input type="checkbox" wire:model.live="debugReal"> Реальные действия</label>
-            <label x-show="$wire.debugReal" class="workflow-debugger__toggle"><input type="checkbox" wire:model="debugRealConfirmed"> Подтверждаю изменения и отправку сообщений</label>
-            <small>«Проверить поток» пройдёт всю цепочку. «Пошагово» подготовит данные и позволит выполнять по одному шагу. После изменения настроек начните новую проверку.</small>
-        </div>
+<aside class="workflow-debug-side workflow-debug-ui" x-bind:hidden="!$wire.debugOpen" hidden aria-label="Результаты отладки">
+    <div class="workflow-debug-side__scroll">
+        <section x-show="!debugConfigured()" class="workflow-debug-start">
+            <h2>Данные для отладки</h2>
+            <p>Выберите точку запуска и входные данные.</p>
+            <fieldset x-bind:disabled="busy">
+                @include('filament.workflow-builder.workflow-debug-input')
+                <label class="workflow-debug-check"><input type="checkbox" wire:model.live="debugReal"> Реальные действия</label>
+                <label x-show="$wire.debugReal" class="workflow-debug-check"><input type="checkbox" wire:model="debugRealConfirmed"> Подтверждаю изменения и отправку сообщений</label>
+                <p class="workflow-debug-hint" x-text="$wire.debugReal ? 'Запуск изменяет данные и отправляет сообщения.' : 'Изменения отключены. Запросы могут читать amoCRM и внешние сервисы.'"></p>
+            </fieldset>
+        </section>
+        {{-- Alpine owns result rows. Livewire must not morph its x-for clones. --}}
+        <section wire:ignore x-show="debugConfigured()">
+            <header class="workflow-debug-side__heading">
+                <label for="workflow-debug-node-{{ $this->getId() }}">Нода</label>
+                <select id="workflow-debug-node-{{ $this->getId() }}" x-bind:value="selectedDebugId || ''" x-on:change="selectDebugNode($event.target.value)">
+                    <option value="">Выберите ноду на схеме</option>
+                    <template x-for="node in debugNodes()" :key="node.id"><option :value="node.id" x-text="node.name"></option></template>
+                </select>
+                <div class="workflow-debug-meta"><span class="workflow-debug-dot" :data-status="debugCurrent().status"></span><span x-text="debugStatusLabel(debugCurrent().status)"></span><span x-show="debugCurrent().duration_ms != null" x-text="'· ' + debugCurrent().duration_ms + ' мс'"></span></div>
+            </header>
+            <div class="workflow-debug-pass" x-show="debugOccurrences().length">
+                <span>Проход</span>
+                <button type="button" aria-label="Предыдущий проход" x-on:click="moveDebugOccurrence(-1)" :disabled="selectedIndex === debugOccurrences()[0]?.index"><x-filament::icon icon="heroicon-o-chevron-left" class="h-4 w-4"/></button>
+                <select aria-label="Проход ноды" :value="selectedIndex" x-on:change="selectDebugResult($event.target.value)">
+                    <template x-for="(result, index) in debugOccurrences()" :key="result.index"><option :value="result.index" x-text="debugOccurrenceLabel(result, index)"></option></template>
+                </select>
+                <button type="button" aria-label="Следующий проход" x-on:click="moveDebugOccurrence(1)" :disabled="selectedIndex === debugOccurrences().at(-1)?.index"><x-filament::icon icon="heroicon-o-chevron-right" class="h-4 w-4"/></button>
+            </div>
+            <div class="workflow-debug-tabs" role="tablist" aria-label="Данные ноды">
+                <button type="button" role="tab" id="debug-summary-{{ $this->getId() }}" aria-controls="debug-data-{{ $this->getId() }}" :aria-selected="debugTab === 'summary'" x-on:click="debugTab = 'summary'">Результат</button>
+                <button type="button" role="tab" id="debug-input-{{ $this->getId() }}" aria-controls="debug-data-{{ $this->getId() }}" :aria-selected="debugTab === 'input'" x-on:click="debugTab = 'input'">Вход</button>
+                <button type="button" role="tab" id="debug-output-{{ $this->getId() }}" aria-controls="debug-data-{{ $this->getId() }}" :aria-selected="debugTab === 'output'" x-on:click="debugTab = 'output'">Выход</button>
+            </div>
+            <div id="debug-data-{{ $this->getId() }}" role="tabpanel" :aria-labelledby="'debug-' + debugTab + '-{{ $this->getId() }}'" class="workflow-debug-data">
+                <div x-show="selectedIndex < 0" class="workflow-debug-empty"><strong>Нода ещё не выполнялась</strong><p>Выполните следующий шаг или выберите ноду с результатом.</p></div>
+                <div x-show="selectedIndex >= 0 && debugTab === 'summary'">
+                    <div class="workflow-debug-outcome" :data-tone="debugExplanation().tone"><strong x-text="debugExplanation().title"></strong><p x-show="debugExplanation().note" x-text="debugExplanation().note"></p></div>
+                    <template x-for="(comparison, index) in debugExplanation().details" :key="index">
+                        <section class="workflow-debug-comparison">
+                            <strong x-text="(comparison.passed ? '✓ ' : '× ') + 'Условие ' + (index + 1)"></strong>
+                            <label>Выражение</label><code x-text="comparison.label"></code>
+                            <label>Значение 1 <small x-text="comparison.actual_type"></small></label><code x-text="comparison.actual"></code>
+                            <label>Проверка</label><div x-text="comparison.operator"></div>
+                            <div x-show="!comparison.unary"><label>Значение 2 <small x-text="comparison.expected_type"></small></label><code x-text="comparison.expected"></code></div>
+                        </section>
+                    </template>
+                    <div x-show="!debugExplanation().details.length && !debugCurrent().error">
+                        @include('filament.workflow-builder.workflow-json-tree', ['expression' => 'debugOutputValue()', 'title' => 'Выходные данные'])
+                    </div>
+                </div>
+                <div x-show="selectedIndex >= 0 && debugTab !== 'summary'">
+                    @include('filament.workflow-builder.workflow-json-tree', ['expression' => "debugTab === 'input' ? debugInputValue() : debugOutputValue()"])
+                </div>
+            </div>
+        </section>
     </div>
-    <div class="workflow-debugger__error" x-show="$wire.debugState.error" x-text="$wire.debugState.error"></div>
-    <div x-show="$wire.debugState.results?.length" class="workflow-debugger__inspection">
-        <div class="workflow-debugger__stepbar">
-            <button type="button" x-on:click="selectedIndex = Math.max(0, selectedIndex - 1)" aria-label="Предыдущий результат">←</button>
-            <strong x-text="current().name || 'Нода ещё не выполнялась'"></strong>
-            <span x-text="current().sequence ? 'Шаг ' + current().sequence + ' · ' + statusLabel(current().status) : ''"></span>
-            <button type="button" x-on:click="selectedIndex = Math.min(($wire.debugState.results || []).length - 1, selectedIndex + 1)" aria-label="Следующий результат">→</button>
-            <button type="button" x-show="current().id" x-on:click="$wire.openWorkflowActionEditor(current().id)">Настроить</button>
-        </div>
-        <div class="workflow-data-panes">
-            <section><h3>Вход</h3><pre x-text="pretty(current().resolved_input ?? current().input ?? {})"></pre></section>
-            <section><h3>Выход</h3><pre x-text="pretty(current().error ? {error: current().error} : current().output ?? {})"></pre></section>
-        </div>
-    </div>
-</section>
+    <footer class="workflow-debug-side__footer" x-show="debugConfigured()">
+        <button type="button" x-on:click="openDebugSettings()" :disabled="!selectedDebugId || busy || playing"><x-filament::icon icon="heroicon-o-cog-6-tooth" class="h-4 w-4"/>Открыть настройки ноды<x-filament::icon icon="heroicon-o-chevron-right" class="h-4 w-4"/></button>
+    </footer>
+</aside>

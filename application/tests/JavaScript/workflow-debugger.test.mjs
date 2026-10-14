@@ -1,0 +1,125 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+
+function fixture() {
+    const events = [], window = {addEventListener() {}, dispatchEvent: event => events.push(event)};
+    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+        window, document: {addEventListener() {}, querySelector: () => null},
+        CustomEvent: class {constructor(type, props) {this.type = type; Object.assign(this, props);}},
+    });
+    const panel = window.workflowDebugPanel();
+    panel.$wire = {$id:'flow',debugOpen:true,debugState:{status:'ready',results:[],next_id:'a'},workflowActions:[{id:'a',name:'Проверка'},{id:'loop',name:'Каждый заказ'}]};
+    panel.$watch = () => {};
+    panel.initDebugPanel();
+    return {panel, events};
+}
+
+test('local node and occurrence selection shows the latest pass then moves through recorded passes', () => {
+    const {panel} = fixture();
+    panel.$wire.debugState.results = [{id:'a',output:{passed:true},iteration:[{node:'loop',index:0}]},{id:'other'},{id:'a',output:{passed:false},iteration:[{node:'loop',index:2}]}];
+    panel.selectDebugNode('a');
+    assert.equal(panel.selectedIndex,2);
+    assert.equal(panel.debugOutputValue().passed,false);
+    panel.moveDebugOccurrence(-1);
+    assert.equal(panel.selectedIndex,0);
+    assert.match(panel.debugOccurrenceLabel(panel.debugCurrent(),0),/Каждый заказ: 1/);
+    panel.updateDebugSelection();
+    assert.equal(panel.selectedIndex,0,'new results must not steal an inspected pass');
+    panel.selectDebugNode('loop');
+    assert.equal(panel.selectedIndex,-1);
+    assert.equal(panel.debugOccurrences().length,0);
+});
+
+test('single step serializes requests and returns to a paused ready state', async () => {
+    const {panel} = fixture(); let release, calls = 0;
+    panel.$wire.nextWorkflowDebugStep = async () => {calls++; await new Promise(resolve => release=resolve); panel.$wire.debugState.results.push({id:'a',status:'completed'}); return true;};
+    const pending = panel.nextDebug();
+    assert.equal(panel.busy,true);
+    await panel.nextDebug(); assert.equal(calls,1);
+    release(); await pending;
+    assert.equal(panel.busy,false); assert.equal(panel.debugRunLabel(),'Пауза'); assert.equal(panel.selectedIndex,0);
+});
+
+test('pause waits for the in-flight action and never starts the following step', async () => {
+    const {panel} = fixture(); let release, calls=0;
+    panel.$wire.nextWorkflowDebugStep = async () => {calls++; await new Promise(resolve => release=resolve); return true;};
+    const pending = panel.runDebug();
+    panel.playing=false;
+    assert.match(panel.debugRunLabel(),/Ожидаем/);
+    await panel.closeDebug(); assert.equal(panel.$wire.debugOpen,true);
+    release(); await pending;
+    assert.equal(calls,1); assert.equal(panel.busy,false); assert.equal(panel.playing,false);
+});
+
+test('completion stops auto execution and network failures do not retry real actions', async () => {
+    const {panel} = fixture(); let calls=0;
+    panel.$wire.nextWorkflowDebugStep=async()=>{calls++;panel.$wire.debugState.status='completed';return false;};
+    await panel.runDebug(); assert.equal(calls,1); assert.equal(panel.debugRunLabel(),'Завершено');
+    panel.$wire.debugState.status='ready';
+    panel.$wire.nextWorkflowDebugStep=async()=>{calls++;throw Error('offline');};
+    await panel.runDebug(); await panel.nextDebug(); await panel.runDebug();
+    assert.equal(calls,2); assert.equal(panel.busy,false); assert.match(panel.debugError,/мог выполниться/);
+});
+
+test('validation does not run steps; historical and stale sessions cannot continue', async () => {
+    const {panel} = fixture();
+    panel.$wire.startWorkflowDebug=async()=>false;
+    panel.$wire.nextWorkflowDebugStep=()=>assert.fail('must not run');
+    await panel.startDebug(true); assert.match(panel.debugError,/Запуск не начат/);
+    panel.debugError='';
+    for (const status of ['historical','stale','expired','failed']) {panel.$wire.debugState.status=status;await panel.runDebug();await panel.nextDebug();}
+});
+
+test('opening the unchanged settings card closes only the debug layout and keeps results', async () => {
+    const {panel,events}=fixture();
+    panel.$wire.debugState.results=[{id:'a',output:{count:1}}];panel.selectDebugNode('a');
+    panel.$wire.closeWorkflowDebugger=async()=>{panel.$wire.debugOpen=false;};
+    await panel.openDebugSettings();
+    const opened=events.find(event=>event.type==='workflow-inspector-open');
+    assert.equal(opened.detail.nodeId,'action:a');
+    assert.equal(panel.debugResults().length,1);
+});
+
+test('debug layout is independent of the settings card and hides without leaving a reserved column', () => {
+    const css=readFileSync(new URL('../../resources/css/workflow-debugger.css',import.meta.url),'utf8');
+    assert.match(css,/\.workflow-debug-ui\[hidden\] \{ display: none !important;/);
+    assert.doesNotMatch(css,/\.workflow-node-card|\.workflow-inspector/);
+    const view=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    assert.match(view,/workflow-debug-trail'\)\s*<\/section>\s*@include\('filament.workflow-builder.workflow-debugger/);
+    const panel=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debugger.blade.php',import.meta.url),'utf8');
+    const trail=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debug-trail.blade.php',import.meta.url),'utf8');
+    assert.match(panel,/<section wire:ignore x-show="debugConfigured\(\)">/);
+    assert.match(trail,/<nav wire:ignore/);
+});
+
+test('automatic execution preserves the pass selected by the user while explicit next follows execution', async () => {
+    const {panel}=fixture();
+    panel.$wire.debugState.results=[{id:'a',output:{id:1}},{id:'a',output:{id:2}}];
+    panel.selectDebugResult(0);
+    panel.$wire.nextWorkflowDebugStep=async()=>{panel.$wire.debugState.results.push({id:'a',output:{id:3}});panel.$wire.debugState.status='completed';return false;};
+    await panel.runDebug();assert.equal(panel.selectedIndex,0);
+    panel.$wire.debugState.status='ready';await panel.nextDebug();assert.equal(panel.selectedIndex,3);
+});
+
+test('the canvas shows the inspected pass, not the opposite branch from the latest loop iteration', () => {
+    const {panel}=fixture();
+    panel.$wire.debugState.results=[{id:'a',output:{passed:false}},{id:'a',output:{passed:true}}];
+    panel.selectDebugResult(0);
+    assert.equal(panel.debugCanvasState().results.at(-1).output.passed,false);
+    assert.equal(panel.debugCanvasState().next_id,null);
+    assert.equal(panel.$wire.debugState.results.length,2,'inspection cannot alter the live session');
+    panel.$wire.debugOpen=false;
+    assert.equal(panel.debugCanvasState().results.at(-1).output.passed,true);
+});
+
+test('failed reset keeps the inspected result and does not claim an action was executed', async () => {
+    const {panel}=fixture();
+    panel.$wire.debugState.results=[{id:'a',output:{id:1}}];panel.selectDebugResult(0);
+    panel.$wire.editWorkflowDebugInput=async()=>{throw Error('offline');};
+    await panel.resetDebug();
+    assert.equal(panel.selectedIndex,0);assert.equal(panel.selectedDebugId,'a');
+    assert.match(panel.debugError,/Не удалось связаться/);
+    assert.doesNotMatch(panel.debugError,/мог выполниться/);
+});

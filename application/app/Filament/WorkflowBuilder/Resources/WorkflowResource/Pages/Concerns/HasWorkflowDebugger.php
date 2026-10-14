@@ -329,10 +329,17 @@ trait HasWorkflowDebugger
     private function publishDebugState(array $session): void
     {
         $this->debugState = [
-            'status' => $session['status'], 'real' => $session['real'], 'results' => \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']),
+            'status' => $session['status'], 'real' => $session['real'], 'results' => $this->explainDebugResults(\App\Services\Workflows\WorkflowExecutionStats::annotate($session['results'])),
             'next_id' => $session['pending'][0]['step']['id'] ?? null,
             'error' => $session['error'],
         ];
         $this->dispatch('workflow-debug-updated', state: $this->debugState);
+    }
+
+    protected function explainDebugResults(array $results): array
+    {
+        return array_map(static fn (array $result): array => array_merge($result, [
+            'explanation' => \App\Services\Workflows\WorkflowExecutionExplanation::forResult($result),
+        ]), $results);
     }
 }

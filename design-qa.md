@@ -193,3 +193,25 @@ Automated checks: 85 focused JavaScript tests passed; production build and white
 Implementation checklist: opaque surface; no header strip; unnumbered editable title; contextual controls; light/dark appearance and existing editing lifecycle checked.
 
 final result: passed
+
+## 2026-10-14 debugger workspace
+
+Scope: implement the first approved debugger layout inside the existing Laravel/Livewire editor. The user explicitly excluded redesigning the settings card and node visuals. The original node artwork, colors, sizes, connections, grid and settings markup are retained. Only debugger layout, selection and result presentation changed.
+
+Reference: `workflow-debugger-first/qa/desktop-1280-final.png` in the task visualization directory. Evidence: `backups/debugger-20261014/dark-loop-final.png`, `light-loop-final.png`, `desktop-condition.png`, and `mobile-final.png`. Desktop source and both final implementations were opened together in one comparison input at 1280 x 720, CSS density 1. The right-hand result column and its text are readable in these full-size captures. Mobile evidence is 390 x 844. The real Blade views and built assets were exercised at loopback port 8104 using an isolated SQLite fixture with HTTP requests blocked and the queue faked. No customer scenario or CRM action was executed.
+
+Fidelity checks: top debugger control bar, canvas on the left, 420px result column on the right, bottom execution trail, pass selector and fixed settings footer follow the approved composition. Existing editor typography is preserved; scoped 12px controls and 15px result heading use the established compact scale. Light and dark surfaces, orange primary controls, gray separators and state indicators match the existing design tokens. No bitmap or node icon was replaced. Actual recorded node names, values and statuses replace the prototype's sample content. The result selector supports nodes with no result as well as recorded passes. The narrow layout stacks the result panel under the canvas with internal scrolling.
+
+Comparison and repair history:
+
+1. P1: Livewire morphing Alpine-generated result rows produced stale indexes and console errors after execution. Result rows and the trail now use `wire:ignore`; repeat runs and pass selection have no console errors or warnings.
+2. P1: inspecting an earlier loop pass initially left the latest pass's branch highlighted. Inspection now projects the recorded prefix to the canvas without changing the actual execution session. The second of three passes correctly shows the empty value and the No branch, while the third contains an email and follows Yes.
+3. Lifecycle verification: opening settings leaves the existing settings interface unchanged and closes only the debug layout. Closing settings and reopening debugging restores the recorded results without a blank reserved column. Node/pass/tab selection stays local and does not issue a server request.
+
+Functional checks: single-step and continuous execution, visible request state, completion, selecting all three loop passes, condition operands/operator/types, input/output JSON, reset and settings round trip. Unit checks cover in-flight pause, request serialization, network errors without automatic retries, historical/stale sessions and preserving a selected pass during continuous execution. Pause stops subsequent requests after the current action or cycle finishes; this UI change does not rewrite the execution engine or promise cancellation inside an ongoing cycle. The existing main header at phone width remains outside this scoped change.
+
+Validation: 105 focused JavaScript tests, 34 focused PHP tests / 195 assertions, production asset build and whitespace checks. Broader pre-existing failures in the widget JavaScript suite and the debug-input SQLite fixture are tracked separately; this is not a claim that full CI passed. Deployment status is reported separately from local visual acceptance.
+
+Implementation checklist: approved debugger structure; actual pass data and matching route; original settings and node design retained; both themes checked; close/reopen lifecycle checked; no remaining scoped P0/P1/P2 findings.
+
+final result: passed

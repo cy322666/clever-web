@@ -46,7 +46,9 @@
     {{-- Keep the poll directive mounted: Filament may update only the node modal.
          The expression sends no request while there is no active preview. --}}
     <span wire:poll.2s="$wire.nodePreviewTaskId && $wire.pollWorkflowNodePreview()" aria-hidden="true"></span>
-    <div class="workflow-workbench__shell">
+    <div class="workflow-workbench__shell" x-data="workflowDebugPanel()" x-init="initDebugPanel()"
+        x-on:workflow-debug-updated.window="$nextTick(() => updateDebugSelection())"
+        x-on:workflow-debug-select.window="selectDebugNode($event.detail.id)">
         <div class="workflow-workbench__toolbar">
             <div class="workflow-workbench__toolbar-layout">
                 <div class="workflow-workbench__identity">
@@ -147,6 +149,7 @@
             </div>
         </div>
 
+        @include('filament.workflow-builder.workflow-debug-toolbar')
         <div class="workflow-workbench__main">
             <x-filament-workflows::workflows.node-library
                 :triggers="$workflowTriggerOptions"
@@ -161,12 +164,13 @@
             <section
                 wire:key="workflow-canvas-{{ $workflowLayoutKey }}"
                 x-data="workflowNodeCanvas(@js($workflowLayoutKey), $wire.definition.canvas_layout ?? null, $wire.definition.canvas_edge_routes ?? null)"
-                x-init="$nextTick(() => { initializeCanvas(); setExecutionState($wire.debugState); })"
+                x-init="$nextTick(() => { initializeCanvas(); setExecutionState($wire.debugState); }); $watch('selectedDebugId', id => { if ($wire.debugOpen) { selectedNodeIds = id ? ['action:' + id] : []; applyNodeSelection(); } })"
                 x-on:pointermove.window="moveCanvas($event)"
                 x-on:pointerup.window="stopCanvasInteraction($event)"
                 x-on:pointercancel.window="stopCanvasInteraction($event)"
                 x-on:workflow-layout-reset.window="resetNodeLayout()"
-                x-on:workflow-debug-updated.window="setExecutionState($event.detail.state)"
+                x-on:workflow-debug-updated.window="setExecutionState(debugCanvasState())"
+                x-on:workflow-debug-inspection.window="if ($event.detail.componentId === $wire.$id) setExecutionState($event.detail.state)"
                 x-on:keydown.escape.window="stopAreaDrag(true); cancelConnection(); clearNodeSelection()"
                 x-on:keydown.window="clipboardShortcut($event)"
                 x-on:submit.window.capture="if ($event.target.contains($el)) saveNodeLayout()"
@@ -270,8 +274,9 @@
                     @endif
                 </div>
             </div>
-            @include('filament.workflow-builder.workflow-debugger')
+            @include('filament.workflow-builder.workflow-debug-trail')
             </section>
+            @include('filament.workflow-builder.workflow-debugger')
         </div>
     </div>
 </div>

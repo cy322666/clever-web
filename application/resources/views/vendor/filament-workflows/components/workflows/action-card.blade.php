@@ -46,7 +46,7 @@
         x-on:pointerup.capture="if (connecting && !$event.target.closest('.workflow-node-port')) finishConnection('action:' + @js($actionId), $event)"
         x-on:click.capture="if (connecting && !$event.target.closest('.workflow-node-port')) { $event.stopImmediatePropagation(); completeConnection('action:' + @js($actionId)); }"
         x-data="workflowInlineNodeName(@js($actionId), @js($actionName))"
-        x-on:click="if ($wire.debugOpen) $wire.selectWorkflowCanvasNode(@js($actionId)); else if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId: $wire.$id, nodeId: 'action:' + @js($actionId), name: nodeName}}))"
+        x-on:click="if ($wire.debugOpen) selectDebugNode(@js($actionId)); else if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId: $wire.$id, nodeId: 'action:' + @js($actionId), name: nodeName}}))"
         tabindex="0"
         x-on:keydown.enter.self.prevent="$el.click()"
         aria-label="Настроить: {{ $actionName }}"

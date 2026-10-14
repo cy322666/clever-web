@@ -2128,20 +2128,118 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 });
 
 window.workflowDebugPanel = () => ({
-    selectedIndex: -1, playing: false, busy: false,
-    async startAndRun() {
-        if (this.busy || this.playing) return;
-        this.busy = true;
-        let started = false;
-        try { started = await this.$wire.startWorkflowDebug(); } finally { this.busy = false; }
-        if (started) await this.run();
+    selectedIndex: -1, selectedDebugId: null, playing: false, busy: false,
+    debugTab: 'summary', debugError: '', debugRequestName: null, followDebug: true,
+    initDebugPanel() {
+        this.updateDebugSelection();
+        this.$watch('$wire.debugOpen', open => { if (!open) this.playing = false; this.publishDebugInspection(); });
     },
-    current() { return (this.$wire.debugState.results || [])[this.selectedIndex] || {}; },
-    pretty(value) { return JSON.stringify(value, null, 2); },
-    statusLabel(value) { return {completed:'Выполнено', simulated:'Без изменений', skipped:'Пропущено', error:'Ошибка', validation_error:'Ошибка настроек'}[value] || value; },
-    selectNode(id) { this.selectedIndex = (this.$wire.debugState.results || []).findIndex((r) => r.id === id); },
-    async next() { if (this.busy) return false; this.busy = true; try { return await this.$wire.nextWorkflowDebugStep(); } finally { this.busy = false; } },
-    async run() { this.playing = true; try { while(this.playing && await this.next()) {} } finally { this.playing = false; } },
+    destroy() { this.playing = false; },
+    debugResults() { return this.$wire.debugState.results || []; },
+    debugConfigured() { return Boolean(this.$wire.debugState.status); },
+    debugCurrent() { return this.debugResults()[this.selectedIndex] || {}; },
+    debugNodes() {
+        const nodes = [];
+        const visit = actions => (actions || []).forEach(action => {
+            nodes.push({id: action.id, name: action.name || action.type});
+            visit(action.config?.true_actions); visit(action.config?.false_actions);
+        });
+        visit(this.$wire.workflowActions);
+        for (const result of this.debugResults()) if (!nodes.some(node => node.id === result.id)) nodes.push({id: result.id, name: result.name || result.id});
+        return nodes;
+    },
+    debugNodeName(id) { return this.debugNodes().find(node => node.id === id)?.name || id || ''; },
+    debugOccurrences() { return this.debugResults().map((result, index) => ({...result, index})).filter(result => result.id === this.selectedDebugId); },
+    debugOccurrenceLabel(result, index) {
+        const rounds = (result.iteration || []).map(round => this.debugNodeName(round.node) + ': ' + (Number(round.index) + (round.kind === 'feedback' ? 0 : 1))).join(' / ');
+        return (rounds || 'Проход ' + (index + 1)) + ' · ' + this.debugStatusLabel(result.status);
+    },
+    selectDebugNode(id) {
+        this.followDebug = false;
+        this.selectedDebugId = id;
+        this.selectedIndex = this.debugResults().findLastIndex(result => result.id === id);
+        this.debugTab = 'summary';
+        this.publishDebugInspection();
+    },
+    selectDebugResult(index) {
+        this.followDebug = false;
+        this.selectedIndex = Number(index);
+        this.selectedDebugId = this.debugCurrent().id || null;
+        this.publishDebugInspection();
+    },
+    moveDebugOccurrence(direction) {
+        const results = this.debugOccurrences();
+        const index = results.findIndex(result => result.index === this.selectedIndex) + direction;
+        if (results[index]) this.selectDebugResult(results[index].index);
+    },
+    updateDebugSelection() {
+        if (this.followDebug) {
+            this.selectedIndex = this.debugResults().length - 1;
+            this.selectedDebugId = this.debugCurrent().id || this.$wire.debugState.next_id || null;
+        }
+        this.publishDebugInspection();
+    },
+    debugCanvasState() {
+        if (!this.$wire.debugOpen || this.followDebug || this.selectedIndex < 0 || !this.debugConfigured()) return this.$wire.debugState;
+        return {...this.$wire.debugState, results:this.debugResults().slice(0, this.selectedIndex + 1), next_id:null};
+    },
+    publishDebugInspection() { window.dispatchEvent(new CustomEvent('workflow-debug-inspection', {detail:{componentId:this.$wire.$id,state:this.debugCanvasState()}})); },
+    debugStatusLabel(value) { return {completed:'Выполнено', success:'Выполнено', simulated:'Без изменений', skipped:'Пропущено', failed:'Ошибка', error:'Ошибка', validation_error:'Ошибка настроек'}[value] || 'Ещё не выполнялась'; },
+    debugRunLabel() {
+        if (this.busy && this.debugRequestName !== 'nextWorkflowDebugStep') return {startWorkflowDebug:'Подготовка запуска',editWorkflowDebugInput:'Подготовка данных',closeWorkflowDebugger:'Закрытие'}[this.debugRequestName] || 'Загрузка';
+        if (this.busy) return this.playing ? 'Выполняется' : 'Ожидаем завершения шага';
+        return {ready:'Пауза', completed:'Завершено', failed:'Ошибка', stale:'Схема изменена', expired:'Сессия истекла', historical:'История'}[this.$wire.debugState.status] || 'Подготовка';
+    },
+    debugInputValue() { return this.debugCurrent().resolved_input ?? this.debugCurrent().input ?? {}; },
+    debugOutputValue() { return Object.prototype.hasOwnProperty.call(this.debugCurrent(), 'display_output') ? this.debugCurrent().display_output : this.debugCurrent().output ?? {}; },
+    debugExplanation() { return this.debugCurrent().explanation || {title:this.debugStatusLabel(this.debugCurrent().status), details:[], note:this.debugCurrent().error || ''}; },
+    async debugRequest(method) {
+        if (this.busy) return false;
+        this.busy = true; this.debugError = ''; this.debugRequestName = method;
+        try { return await this.$wire[method](); }
+        catch {
+            this.playing = false;
+            this.debugError = method === 'nextWorkflowDebugStep'
+                ? 'Связь с сервером потеряна. Шаг мог выполниться. Проверьте историю перед повторным запуском.'
+                : 'Не удалось связаться с сервером. Повторите действие после восстановления соединения.';
+            return false;
+        }
+        finally { this.busy = false; this.debugRequestName = null; this.updateDebugSelection(); }
+    },
+    async startDebug(continuous = false) {
+        if (this.busy || this.playing) return;
+        this.followDebug = true;
+        if (await this.debugRequest('startWorkflowDebug')) {
+            if (continuous) await this.runDebug();
+        } else if (!this.debugError) this.debugError = 'Запуск не начат. Проверьте входные данные и подтверждение реальных действий.';
+    },
+    async nextDebug(follow = true) {
+        if (this.busy || this.$wire.debugState.status !== 'ready' || this.debugError) return false;
+        if (follow) this.followDebug = true;
+        return this.debugRequest('nextWorkflowDebugStep');
+    },
+    async runDebug() {
+        if (this.busy || this.playing || this.$wire.debugState.status !== 'ready' || this.debugError) return;
+        this.playing = true;
+        try { while (this.playing && this.$wire.debugOpen && await this.nextDebug(false)) {} }
+        finally { this.playing = false; }
+    },
+    async resetDebug() {
+        if (this.busy || this.playing) return;
+        if (await this.debugRequest('editWorkflowDebugInput') === false) return;
+        this.selectedIndex = -1; this.selectedDebugId = null; this.followDebug = true;
+    },
+    async closeDebug() {
+        this.playing = false;
+        // An in-flight real action cannot be cancelled by closing its UI.
+        if (!this.busy) await this.debugRequest('closeWorkflowDebugger');
+    },
+    async openDebugSettings() {
+        if (this.busy || this.playing || !this.selectedDebugId) return;
+        await this.closeDebug();
+        if (this.$wire.debugOpen) return;
+        window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId:this.$wire.$id, nodeId:'action:' + this.selectedDebugId, name:this.debugNodeName(this.selectedDebugId)}}));
+    },
 });
 
 window.workflowExecutionViewer = (graph) => ({

@@ -30,7 +30,10 @@ class WorkflowDebugPanelTest extends TestCase
             ->call('startWorkflowDebug')->assertSet('debugState.real', false)
             ->assertSet('debugState.status', 'ready')->assertSet('debugState.next_id', 'fetch')
             ->call('nextWorkflowDebugStep')->assertSet('debugState.results.0.output.count', 1)
-            ->call('nextWorkflowDebugStep')->assertSet('debugState.next_id', 'yes');
+            ->call('nextWorkflowDebugStep')->assertSet('debugState.next_id', 'yes')
+            ->assertSet('debugState.results.1.explanation.details.0.actual', '1')
+            ->assertSet('debugState.results.1.explanation.details.0.expected', '0')
+            ->assertSet('debugState.results.1.explanation.details.0.passed', true);
 
         $page->set('workflowActions.0.config.limit', 30)
             ->call('nextWorkflowDebugStep')->assertSet('debugState.status', 'stale');
@@ -47,5 +50,15 @@ class WorkflowDebugPanelTest extends TestCase
             ->set('debugReal', false)->set('debugInput', 'not json')
             ->call('startWorkflowDebug')->assertSet('debugSessionId', null);
         Http::assertNothingSent();
+    }
+
+    public function test_workspace_renders_dedicated_toolbar_side_inspector_and_path_without_changing_node_settings(): void
+    {
+        Livewire::test(WorkflowDebugFixture::class)->call('openWorkflowDebugger')
+            ->assertSee('Результаты отладки')->assertSee('Управление отладкой')
+            ->assertSee('Выполненные шаги')->assertSee('Проход ноды')
+            ->assertSee('Открыть настройки ноды')->assertDontSee('workflow-debugger__stepbar', false)
+            ->call('startWorkflowDebug')->call('closeWorkflowDebugger')->assertSet('debugOpen', false)
+            ->call('openWorkflowDebugger')->assertSet('debugState.status', 'ready');
     }
 }

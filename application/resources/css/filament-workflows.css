@@ -1,4 +1,5 @@
 @import './workflow-inspector.css';
+@import './workflow-debugger.css';
 @import './workflow-node-fields.css';
 @tailwind utilities;
 
