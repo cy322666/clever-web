@@ -31,7 +31,14 @@ final class EntityCreateGuard
 
     public static function forNote(Record $record): self
     {
-        return new self(hash('sha256', implode('|', ['note', $record->account_id, $record->company_id, $record->record_id])),
+        // Deduplicate a replay of this event, not every future note for the appointment.
+        // Do not include local status/timestamps: synchronization changes those on each attempt.
+        $event = hash('sha256', json_encode(array_map(
+            fn (string $field): string => (string) $record->{$field},
+            ['lead_id', 'attendance', 'title', 'datetime', 'staff_name', 'comment'],
+        ), JSON_THROW_ON_ERROR));
+
+        return new self(hash('sha256', implode('|', ['note', $record->account_id, $record->company_id, $record->record_id, $event])),
             (int) $record->account_id, 'note');
     }
 

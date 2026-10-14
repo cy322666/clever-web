@@ -93,6 +93,23 @@ class EntityCreateGuardTest extends TestCase
         EntityCreateGuard::forContact($client)->recover(fn () => $this->fail(), fn () => $this->fail());
     }
 
+    public function test_note_retries_are_deduplicated_but_changed_appointment_events_are_not_suppressed(): void
+    {
+        $record = $this->record(['lead_id' => 42, 'attendance' => 0, 'comment' => 'First visit']);
+        $this->assertTrue(EntityCreateGuard::forNote($record)->claim());
+        $record->status = Record::STATUS_SUCCESS;
+        $record->updated_at = now()->addMinute();
+        $this->assertTrue(EntityCreateGuard::forNote($record)->exists());
+        $this->assertFalse(EntityCreateGuard::forNote($record)->claim());
+
+        $record->attendance = 1;
+        $this->assertFalse(EntityCreateGuard::forNote($record)->exists());
+        $this->assertTrue(EntityCreateGuard::forNote($record)->claim());
+        $record->comment = 'Changed comment';
+        $this->assertTrue(EntityCreateGuard::forNote($record)->claim());
+        $this->assertFalse(EntityCreateGuard::forNote($record)->claim());
+    }
+
     public function test_zero_or_mismatched_remote_id_is_not_acknowledged(): void
     {
         $guard = EntityCreateGuard::forLead($this->record());
