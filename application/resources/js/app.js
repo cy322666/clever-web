@@ -1582,7 +1582,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             return;
         }
 
-        if (event.shiftKey) this.startBoxSelection(event);
+        if (event.ctrlKey || event.metaKey || event.shiftKey) this.startBoxSelection(event);
         else this.startCanvasPan(event);
     },
 
@@ -1660,8 +1660,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         }
 
         const rect = this.$refs.viewport.getBoundingClientRect();
-        this.selectionOrigin = {x:event.clientX,y:event.clientY,rect,previous:event.shiftKey ? [...this.selectedNodeIds] : []};
-        if (!event.shiftKey) this.selectedNodeIds = [];
+        const additive = event.ctrlKey || event.metaKey || event.shiftKey;
+        this.selectionOrigin = {x:event.clientX,y:event.clientY,rect,previous:additive ? [...this.selectedNodeIds] : []};
+        if (!additive) this.selectedNodeIds = [];
         this.applyNodeSelection();
         this.selectionBox = {x:event.clientX-rect.left,y:event.clientY-rect.top,width:0,height:0};
         this.pointerId = event.pointerId;

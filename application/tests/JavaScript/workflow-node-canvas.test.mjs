@@ -1017,20 +1017,35 @@ test('saved routes reject malformed coordinates and browser storage cannot overr
     assert.match(css,/\.workflow-sortable-item\[data-workflow-node-id\]\s*\{[^}]*z-index:\s*2;/s);
 });
 
-test('Shift drag selects a rectangle instead of panning and retains the earlier selection', () => {
-    const f = fixture();
-    f.target.closest = () => null;
-    f.node.getBoundingClientRect = () => ({left:20,top:30,right:70,bottom:80});
-    f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0});
-    f.canvas.selectedNodeIds = ['old-selection'];
-    f.canvas.startCanvasInteraction({...f.event(0,0), shiftKey:true});
-    f.canvas.moveCanvas(f.event(100,100));
-    assert.deepEqual([...f.canvas.selectedNodeIds], ['old-selection', 'action:test']);
-    assert.equal(f.canvas.canvasPan, null);
-    assert.equal(f.canvas.routeDrag, null);
-    assert.equal(f.canvas.translateX, 0);
-    f.canvas.stopCanvasInteraction(f.event(100,100));
-    assert.equal(f.canvas.selectionBox, null);
+test('Ctrl, Cmd and Shift drag select a rectangle instead of panning and retain the earlier selection', () => {
+    for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
+        const f = fixture();
+        f.target.closest = () => null;
+        f.node.getBoundingClientRect = () => ({left:20,top:30,right:70,bottom:80});
+        f.canvas.$refs.viewport.getBoundingClientRect = () => ({left:0,top:0});
+        f.canvas.selectedNodeIds = ['old-selection'];
+        f.canvas.startCanvasInteraction({...f.event(0,0), [modifier]:true});
+        f.canvas.moveCanvas(f.event(100,100)); // Releasing the modifier cannot turn selection into panning.
+        assert.deepEqual([...f.canvas.selectedNodeIds], ['old-selection', 'action:test']);
+        assert.equal(f.canvas.canvasPan, null);
+        assert.equal(f.canvas.routeDrag, null);
+        assert.equal(f.canvas.translateX, 0);
+        assert.equal(f.canvas.translateY, 0);
+        f.canvas.stopCanvasInteraction(f.event(100,100));
+        assert.equal(f.canvas.selectionBox, null);
+        assert.equal(f.canvas.selectionOrigin, null);
+        assert.equal(f.canvas.pointerId, null);
+        assert.equal(f.saves(), 0);
+
+        // The next plain drag still moves the canvas and leaves selected nodes in place.
+        f.canvas.startCanvasInteraction(f.event(200,200));
+        f.canvas.moveCanvas(f.event(260,230));
+        f.canvas.stopCanvasInteraction(f.event(260,230));
+        assert.equal(f.canvas.translateX, 60);
+        assert.equal(f.canvas.translateY, 30);
+        assert.deepEqual([...f.canvas.selectedNodeIds], ['old-selection', 'action:test']);
+        assert.equal(f.saves(), 0);
+    }
 });
 
 test('left drag on empty canvas pans 1:1 at every zoom without moving nodes or saving workflow data', () => {
@@ -1344,13 +1359,13 @@ test('each unsaved editor gets a stable draft layout key, not a shared request U
     assert.match(blade, /wire:key="workflow-start-\{\{ \$startId \}\}"/);
 });
 
-test('Shift rectangle selects several nodes and group drag preserves relative spacing at zoom', () => {
+test('Ctrl rectangle selects several nodes and group drag preserves relative spacing at zoom', () => {
     const f = fixture();
     const second = {...f.node, dataset:{workflowNodeId:'action:second'},style:{},getBoundingClientRect:()=>({left:100,top:40,right:140,bottom:80})};
     f.node.getBoundingClientRect=()=>({left:20,top:40,right:60,bottom:80});
     f.canvas.nodeElements=()=>[f.node,second];
     f.canvas.$refs.viewport.getBoundingClientRect=()=>({left:0,top:0});
-    f.canvas.startBoxSelection({...f.event(0,0),shiftKey:true});
+    f.canvas.startBoxSelection({...f.event(0,0),ctrlKey:true});
     f.canvas.moveCanvas(f.event(160,100));
     assert.deepEqual([...f.canvas.selectedNodeIds],['action:test','action:second']);
     f.canvas.stopCanvasInteraction(f.event(160,100));
