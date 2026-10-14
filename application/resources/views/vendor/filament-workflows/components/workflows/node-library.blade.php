@@ -237,18 +237,20 @@
     x-on:workflow-masks-open.window="openFor({ mode: 'variables', anchor: $event.detail?.anchor })"
     x-on:workflow-node-created.window="open = false; anchor = null"
     x-on:workflow-node-inserted.window="open = false; anchor = null"
+    x-on:workflow-node-replaced.window="open = false; anchor = null"
     x-on:keydown.escape.window="if (open) closeLibrary()"
     x-on:pointerdown.window.capture="dismissLibrary($event)"
     x-on:resize.window="viewport = { width: window.innerWidth, height: window.innerHeight }"
     class="workflow-node-library workflow-node-library--floating is-contextual"
 >
-    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()" x-bind:data-workflow-reference-panel="mode === 'variables' ? '' : null" class="workflow-node-library__panel" role="dialog" x-bind:aria-label="mode === 'variables' ? 'Справочники' : 'Каталог нод'">
+    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()" x-bind:data-workflow-reference-panel="mode === 'variables' ? '' : null" class="workflow-node-library__panel" role="dialog" x-bind:aria-busy="workflowNodeIsAdding($wire)" x-bind:aria-label="mode === 'variables' ? 'Справочники' : 'Каталог нод'">
         <header class="workflow-node-library__header">
             <button x-cloak x-show="mode !== 'all' && mode !== 'variables' && (!replaceTrigger || view !== 'root')" type="button" x-on:click="goBack()" class="workflow-node-library__close" aria-label="Назад в каталоге" title="Назад">
                 <x-filament::icon icon="heroicon-o-arrow-left" class="h-4 w-4"/>
             </button>
             <div>
-                <h2 x-text="mode === 'all' ? 'Добавить ноду' : mode === 'variables' ? 'Справочники' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'Триггеры' : 'Действия'"></h2>
+                <h2 x-show="!workflowNodeIsAdding($wire)" x-text="mode === 'all' ? 'Добавить ноду' : mode === 'variables' ? 'Справочники' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'Триггеры' : 'Действия'"></h2>
+                <div x-cloak x-show="workflowNodeIsAdding($wire)" class="workflow-node-library__pending" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span>Добавляю…</div>
             </div>
 
             <button
@@ -313,7 +315,7 @@
                     <span class="workflow-node-library__group-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
                     <span><strong>Телеграм</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
                 </button>
-                <button type="button" x-show="(view === 'telegram' || query !== '') && matches('telegram телеграм отправить сообщение')" wire:click="selectActionType('telegram_send_message')" class="workflow-node-library__item">
+                <button type="button" x-show="(view === 'telegram' || query !== '') && matches('telegram телеграм отправить сообщение')" wire:click="selectActionType('telegram_send_message')" x-bind:disabled="workflowNodeIsAdding($wire)" class="workflow-node-library__item">
                     <span class="workflow-node-library__item-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
                     <span><strong>Отправить сообщение</strong></span>
                 </button>
@@ -328,13 +330,13 @@
                 @endforeach
                 @foreach($queryActions as $queryAction)
                     @php($queryActionGroup = $queryActionGroups[$queryAction['type']] ?? 'Другое')
-                    <button type="button" x-show="(query !== '' || view === @js($queryActionGroup)) && matches(@js('amoCRM '.$queryActionGroup.' запрос '.$queryAction['name']))" wire:click="selectActionType(@js($queryAction['type']))" class="workflow-node-library__item">
+                    <button type="button" x-show="(query !== '' || view === @js($queryActionGroup)) && matches(@js('amoCRM '.$queryActionGroup.' запрос '.$queryAction['name']))" wire:click="selectActionType(@js($queryAction['type']))" x-bind:disabled="workflowNodeIsAdding($wire)" class="workflow-node-library__item">
                         <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::action($queryAction['type'], [], $queryAction['icon'])" :amo="true" class="h-5 w-5"/></span>
                         <span><strong>{{ $queryAction['name'] }}</strong></span>
                     </button>
                 @endforeach
                 @foreach(\App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations() as $operation => $item)
-                    <button type="button" x-show="(query !== '' || view === @js($item['group'])) && matches(@js($item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? [])))" wire:click="selectReadOperation(@js($operation))" class="workflow-node-library__item">
+                    <button type="button" x-show="(query !== '' || view === @js($item['group'])) && matches(@js($item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? [])))" wire:click="selectReadOperation(@js($operation))" x-bind:disabled="workflowNodeIsAdding($wire)" class="workflow-node-library__item">
                         <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::action('amocrm_read', ['operation' => $operation], 'heroicon-o-circle-stack')" :amo="true" class="h-5 w-5"/></span>
                         <span><strong>{{ $item['name'] }}</strong></span>
                     </button>
@@ -354,6 +356,7 @@
                             x-show="matches(@js($trigger['search_text']))"
                             type="button"
                             x-on:click="$wire.selectTriggerType(@js($trigger['type']), !replaceTrigger)"
+                            x-bind:disabled="workflowNodeIsAdding($wire)"
                             wire:loading.attr="disabled"
                             class="workflow-node-library__item"
                         >
@@ -375,6 +378,7 @@
                         x-show="matches(@js($action['search_text']))"
                         type="button"
                         wire:click="selectActionType(@js($action['type']))"
+                        x-bind:disabled="workflowNodeIsAdding($wire)"
                         wire:loading.attr="disabled"
                         class="workflow-node-library__item"
                     >
@@ -414,6 +418,7 @@
                             <button
                                 type="button"
                                 x-on:click="$wire.selectTriggerType(@js($trigger['type']), !replaceTrigger)"
+                                x-bind:disabled="workflowNodeIsAdding($wire)"
                                 wire:loading.attr="disabled"
                                 class="workflow-node-library__item"
                             >
@@ -460,6 +465,7 @@
                         <button
                             type="button"
                             wire:click="selectActionType(@js($action['type']))"
+                            x-bind:disabled="workflowNodeIsAdding($wire)"
                             wire:loading.attr="disabled"
                             class="workflow-node-library__item"
                         >
@@ -502,6 +508,7 @@
                             <button
                                 type="button"
                                 wire:click="selectActionType(@js($action['type']))"
+                                x-bind:disabled="workflowNodeIsAdding($wire)"
                                 wire:loading.attr="disabled"
                                 class="workflow-node-library__item"
                             >

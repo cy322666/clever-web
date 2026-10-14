@@ -1,7 +1,7 @@
 <aside class="workflow-inspector workflow-node-settings" x-data="workflowInspector()"
     x-on:workflow-inspector-open.window="if ($event.detail.componentId === $wire.$id) openInspector($event.detail)"
     x-on:workflow-inspector-close.window="if ($event.detail.componentId === $wire.$id) hideInspector()"
-    x-on:sync-action-modals.window="if (!processing && $event.detail.id === $wire.$id && $event.detail.newActionNestingIndex === null) { opened = false; currentId = null; announce() }"
+    x-on:sync-action-modals.window="syncInspectorActions($event.detail)"
     x-on:pointerdown.window.capture="dismissInspector($event)"
     x-on:form-validation-error.window="if ($event.detail.livewireId === $wire.$id) showValidationErrors()"
     x-on:keydown.escape.stop="if (!$event.defaultPrevented) hideInspector()"

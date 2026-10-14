@@ -50,6 +50,65 @@ class WorkflowMultipleStartsTest extends TestCase
         $this->assertCount(1, $page->get('definition')['additional_triggers']);
     }
 
+    public function test_added_schedule_renders_its_card_and_settings_in_the_same_response(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class)->call('selectTriggerType', 'schedule', true);
+        $id = $page->get('definition')['additional_triggers'][0]['id'];
+
+        $this->assertArrayHasKey('html', $page->effects, 'Adding a node must not render only the inspector.');
+        $this->assertStringContainsString('data-workflow-node-id="'.$id.'"', $page->effects['html']);
+        $this->assertStringContainsString('data-inspector-node="'.$id.'"', $page->effects['html']);
+        $this->assertStringContainsString('Часовой пояс', $page->effects['html']);
+        $page->assertDispatched('workflow-node-created', nodeId: $id)
+            ->assertSet('mountedActions.0.name', 'configureTrigger');
+        Http::assertNothingSent();
+    }
+
+    public function test_adding_start_after_editing_node_keeps_the_draft_and_renders_the_new_card(): void
+    {
+        foreach (['schedule', 'manual', 'generic-webhook'] as $type) {
+            $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [
+                ['id' => 'delay', 'type' => 'workflow_delay', 'config' => ['seconds' => 5]],
+            ]])->call('openWorkflowInspector', 'action:delay')
+                ->set('mountedActions.0.data.seconds', 8)->call('selectTriggerType', $type, true);
+            $id = $page->get('definition')['additional_triggers'][0]['id'];
+
+            $page->assertSet('workflowActions.0.config.seconds', 8)
+                ->assertDispatched('workflow-node-created', nodeId: $id);
+            $this->assertStringContainsString('data-workflow-node-id="'.$id.'"', $page->effects['html'] ?? '');
+            if ($type === 'schedule') {
+                $page->assertSet('mountedActions.0.data.timezone', config('app.timezone'));
+                $this->assertStringContainsString('Часовой пояс', $page->effects['html']);
+            }
+        }
+    }
+
+    public function test_replacing_start_refreshes_the_card_without_repositioning_it_as_a_new_node(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class)
+            ->set('definition.trigger', ['type' => 'manual', 'config' => []])
+            ->set('definition.canvas_layout.trigger', ['x' => 120, 'y' => 240])
+            ->call('beginTriggerReplace', 'trigger')->call('selectTriggerType', 'schedule', false);
+
+        $page->assertSet('trigger.type', 'schedule')
+            ->assertSet('definition.canvas_layout.trigger', ['x' => 120, 'y' => 240])
+            ->assertDispatched('workflow-node-replaced', nodeId: 'trigger')
+            ->assertNotDispatched('workflow-node-created');
+        $this->assertStringContainsString('data-workflow-node-id="trigger"', $page->effects['html'] ?? '');
+    }
+
+    public function test_invalid_open_draft_does_not_add_start_or_close_the_catalog_as_success(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [
+            ['id' => 'delay', 'type' => 'workflow_delay', 'config' => ['seconds' => 5]],
+        ]])->call('openWorkflowInspector', 'action:delay')
+            ->set('mountedActions.0.data.seconds', '')->call('selectTriggerType', 'schedule', true);
+
+        $page->assertHasErrors()->assertNotDispatched('workflow-node-created')
+            ->assertNotDispatched('workflow-node-replaced');
+        $this->assertSame([], $page->get('definition')['additional_triggers'] ?? []);
+    }
+
     public function test_debug_starts_only_the_selected_chain(): void
     {
         $step = fn ($id) => ['id' => $id, 'type' => 'control-condition', 'config' => ['conditions' => [['left' => 1, 'operator' => 'equals', 'right' => 1]]]];

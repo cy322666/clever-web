@@ -166,3 +166,18 @@ test('server-mounted settings for a new trigger open after another draft was dis
     panel.inspectorMounted({dataset:{inspectorNode:'trigger:new',inspectorTitle:'По расписанию'}});
     assert.equal(panel.opened,true);assert.equal(panel.dismissed,false);
 });
+
+test('a stale catalog-close event does not hide settings mounted in the same response', () => {
+    const {panel}=fixture();
+    panel.$wire.mountedActions=[{name:'configureTrigger'}];
+    panel.inspectorMounted({dataset:{inspectorNode:'trigger:new',inspectorTitle:'По расписанию'}});
+    panel.syncInspectorActions({id:'flow',newActionNestingIndex:null});
+    assert.equal(panel.opened,true);assert.equal(panel.currentId,'trigger:new');
+    panel.$wire.mountedActions=[];
+    panel.syncInspectorActions({id:'other',newActionNestingIndex:null});
+    assert.equal(panel.opened,true);
+    panel.syncInspectorActions({id:'flow',newActionNestingIndex:null});
+    assert.equal(panel.opened,false);assert.equal(panel.currentId,null);
+    const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
+    assert.match(view,/x-on:sync-action-modals.window="syncInspectorActions\(\$event.detail\)"/);
+});

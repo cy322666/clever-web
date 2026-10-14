@@ -24,13 +24,14 @@ window.workflowJavascriptFormatting = (disabled = false) => ({
 // modal and canvas share component-scoped state, including validation/network failures.
 window.initializeWorkflowNodeLoading = () => {
     if (!window.Livewire?.interceptAction || !window.Alpine || window.Alpine.store('workflowNodeRuns')) return;
-    window.Alpine.store('workflowNodeRuns', {pending: {}, saving: {}});
+    window.Alpine.store('workflowNodeRuns', {pending: {}, saving: {}, adding: {}});
     window.Livewire.interceptAction(({action, onFinish}) => {
         const saving = ['save', 'create'].includes(action.name);
-        const requestId = saving ? action.name : action.name === 'runWorkflowCanvasNode' ? action.params[0]
+        const adding = ['selectTriggerType', 'selectActionType', 'selectReadOperation'].includes(action.name);
+        const requestId = saving || adding ? action.name : action.name === 'runWorkflowCanvasNode' ? action.params[0]
             : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger') : null;
         if (!requestId) return;
-        const pending = window.Alpine.store('workflowNodeRuns')[saving ? 'saving' : 'pending'];
+        const pending = window.Alpine.store('workflowNodeRuns')[saving ? 'saving' : adding ? 'adding' : 'pending'];
         const componentId = action.component.id;
         pending[componentId] ??= {};
         pending[componentId][requestId] = (pending[componentId][requestId] || 0) + 1;
@@ -51,6 +52,7 @@ window.workflowNodeIsRunning = (wire, nodeId = null) => {
     return requested || queued;
 };
 window.workflowIsSaving = wire => Object.keys(window.Alpine?.store('workflowNodeRuns')?.saving?.[wire.$id] || {}).length > 0;
+window.workflowNodeIsAdding = wire => Object.keys(window.Alpine?.store('workflowNodeRuns')?.adding?.[wire.$id] || {}).length > 0;
 document.addEventListener('livewire:init', window.initializeWorkflowNodeLoading);
 window.initializeWorkflowNodeLoading();
 
@@ -231,6 +233,15 @@ window.workflowInspector = () => ({
             this.positionInspector();
             this.announce();
         }
+    },
+    syncInspectorActions(detail) {
+        if (this.processing || detail.id !== this.$wire.$id || detail.newActionNestingIndex !== null) return;
+        // Adding a schedule unmounts the catalog and mounts its settings in one
+        // response. Ignore the earlier close event when the final draft is open.
+        if (['configureWorkflowAction', 'configureTrigger'].includes(this.$wire.mountedActions?.[0]?.name)) return;
+        this.opened = false;
+        this.currentId = null;
+        this.announce();
     },
     nextTab(direction) {
         const tabs = ['settings', 'input', 'output'];

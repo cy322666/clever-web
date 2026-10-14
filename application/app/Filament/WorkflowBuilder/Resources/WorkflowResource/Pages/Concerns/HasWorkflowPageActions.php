@@ -64,6 +64,7 @@ trait HasWorkflowPageActions
     {
         if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft()) return;
         if ($add) $this->replacingTriggerNodeId = null;
+        $replacing = $this->replacingTriggerNodeId !== null;
         $registry = app(TriggerRegistry::class);
 
         if (!$registry->has($type) || in_array($type, ['date-condition', 'workflow-completed'], true)) {
@@ -84,8 +85,14 @@ trait HasWorkflowPageActions
         $this->unmountAction();
 
         if ($type === 'schedule') {
+            $this->resetWorkflowInspectorSchema();
             $this->mountAction('configureTrigger');
         }
+
+        // Mounting settings normally renders only the inspector. Insertion also
+        // changes the graph, so its new card must arrive in this same response.
+        $this->forceRender();
+        $this->dispatch($replacing ? 'workflow-node-replaced' : 'workflow-node-created', nodeId: $this->editingTriggerNodeId);
     }
 
     protected function workflowMasksAction(): Action

@@ -129,8 +129,16 @@ try {
     if ($fullRun['status'] !== 'completed' || array_column($fullRun['results'], 'id') !== ['loop', 'body', 'body', 'done']) {
         throw new RuntimeException('Whole-flow iteration behavior changed');
     }
+    $effects = $update('selectTriggerType', ['schedule', true]);
+    $scheduleId = $snapshot['data']['editingTriggerNodeId'] ?? '';
+    if (!$scheduleId || !str_contains($effects['html'] ?? '', 'data-workflow-node-id="'.$scheduleId.'"')
+        || !str_contains($effects['html'] ?? '', 'data-inspector-node="'.$scheduleId.'"')
+        || !str_contains($effects['html'] ?? '', 'Часовой пояс')
+        || !in_array('workflow-node-created', array_column($effects['dispatches'] ?? [], 'name'), true)) {
+        throw new RuntimeException('New schedule must render its card and settings and close the catalog in one response');
+    }
     $probeSucceeded = true;
-    echo "WORKFLOW_INSPECTOR_PROBE_OK partial_render=1 switch=1 draft_preserved=1 loop_limit=1 single_loop_node=1 external_requests=0 workflow_writes=0 first_open_ms={$firstMs}\n";
+    echo "WORKFLOW_INSPECTOR_PROBE_OK partial_render=1 switch=1 draft_preserved=1 loop_limit=1 single_loop_node=1 schedule_insert=1 external_requests=0 workflow_writes=0 first_open_ms={$firstMs}\n";
 } finally {
     Illuminate\Support\Facades\DB::rollBack();
 }

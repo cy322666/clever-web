@@ -15,7 +15,7 @@ function fixture() {
     assert.equal(interceptors.length, 1, 'navigation must not register a second handler');
     const wire = {$id: 'editor-1', editingActionId: 'contact', nodePreviewTaskId: null, nodePreviewProgress: {}};
     return {
-        wire, stores, saving: (editor = wire) => window.workflowIsSaving(editor), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
+        wire, stores, adding: (editor = wire) => window.workflowNodeIsAdding(editor), saving: (editor = wire) => window.workflowIsSaving(editor), running: (nodeId = null, editor = wire) => window.workflowNodeIsRunning(editor, nodeId),
         start(name, params = [], editor = wire) {
             let finish;
             interceptors[0]({action: {name, params, component: {id: editor.$id, reactive: editor}}, onFinish(callback) { finish = callback; }});
@@ -85,6 +85,38 @@ test('overlapping save requests keep feedback until every request has finished',
     assert.equal(f.saving(), true);
     second();
     assert.equal(f.saving(), false);
+});
+
+for (const method of ['selectTriggerType', 'selectActionType', 'selectReadOperation']) {
+    test(`${method}: catalog feedback starts immediately and ends on every request outcome`, () => {
+        const f = fixture();
+        assert.equal(f.adding(), false);
+        const finish = f.start(method, ['schedule', true]);
+        assert.equal(f.adding(), true);
+        assert.equal(f.adding({...f.wire, $id: 'another-editor'}), false);
+        assert.equal(f.running(), false);
+        assert.equal(f.saving(), false);
+        const save = f.start('save');
+        save();
+        assert.equal(f.adding(), true);
+        finish();
+        finish();
+        assert.equal(f.adding(), false);
+        const retry = f.start(method, ['schedule', true]);
+        assert.equal(f.adding(), true);
+        retry();
+        assert.equal(f.adding(), false);
+    });
+}
+
+test('all catalog insertion buttons block double clicks and expose accessible pending feedback', () => {
+    const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/node-library.blade.php', import.meta.url), 'utf8');
+    const insertButtons = [...view.matchAll(/<button\b[^>]*(?:selectTriggerType|selectActionType|selectReadOperation)[^>]*>/gs)];
+    assert.equal(insertButtons.length, 8);
+    for (const [button] of insertButtons) assert.match(button, /x-bind:disabled="workflowNodeIsAdding\(\$wire\)"/);
+    assert.match(view, /x-bind:aria-busy="workflowNodeIsAdding\(\$wire\)"/);
+    assert.match(view, /workflow-node-library__pending" role="status" aria-live="polite"/);
+    assert.match(view, /workflow-node-replaced.window="open = false; anchor = null"/);
 });
 
 test('save feedback is accessible, disables repeat submits and reserves its width', () => {

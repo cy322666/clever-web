@@ -22,6 +22,14 @@ trait HasCompactWorkflowConfigurationPanels
         return $this->mountedActions === [];
     }
 
+    protected function resetWorkflowInspectorSchema(): void
+    {
+        $this->cachedMountedActions = null;
+        foreach (array_keys($this->cachedSchemas) as $schemaName) {
+            if (str_starts_with($schemaName, 'mountedActionSchema')) unset($this->cachedSchemas[$schemaName]);
+        }
+    }
+
     public function openWorkflowInspector(string $nodeId): void
     {
         $isAction = str_starts_with($nodeId, 'action:');
@@ -39,10 +47,7 @@ trait HasCompactWorkflowConfigurationPanels
             $this->callMountedAction();
             if ($this->mountedActions !== []) return;
         }
-        $this->cachedMountedActions = null;
-        foreach (array_keys($this->cachedSchemas) as $schemaName) {
-            if (str_starts_with($schemaName, 'mountedActionSchema')) unset($this->cachedSchemas[$schemaName]);
-        }
+        $this->resetWorkflowInspectorSchema();
         if ($isAction) $this->openWorkflowActionEditor(substr($nodeId, 7));
         else $this->editTriggerNode($nodeId);
         // Switching forms does not change graph geometry. Reuse Filament's
@@ -84,10 +89,7 @@ trait HasCompactWorkflowConfigurationPanels
         if ($this->mountedActions !== []) return;
         // Mounting another node uses the same action name and nesting index.
         // Discard the previous schema, as Filament's replaceMountedAction() does.
-        $this->cachedMountedActions = null;
-        foreach (array_keys($this->cachedSchemas) as $schemaName) {
-            if (str_starts_with($schemaName, 'mountedActionSchema')) unset($this->cachedSchemas[$schemaName]);
-        }
+        $this->resetWorkflowInspectorSchema();
         if (str_starts_with($target, 'action:')) $this->openWorkflowActionEditor(substr($target, 7));
         else $this->editTriggerNode($target);
     }
