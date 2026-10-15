@@ -101,6 +101,27 @@ class WorkflowAmoWebhookEventsTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_one_amo_event_starts_every_active_scenario_listening_to_it(): void
+    {
+        $this->workflow('add_lead');
+        $this->workflow('add_lead');
+        $this->workflow('add_lead', owner: 2);
+        $this->workflow('add_lead', active: false);
+
+        $contexts = [];
+        $service = $this->service(2, $contexts);
+        $this->assertSame(['add_lead'], $service->requiredEventsForUser(1));
+
+        $result = $service->handleIncomingWebhook(
+            (new Account)->forceFill(['id' => 1, 'user_id' => 1, 'subdomain' => 'test']),
+            $this->payload('add_lead'),
+        );
+
+        $this->assertSame(2, $result['started']);
+        $this->assertSame(['add_lead', 'add_lead'], array_column($contexts, 'event'));
+        Bus::assertDispatchedTimes(ExecuteWorkflowJob::class, 2);
+    }
+
     public function test_message_batches_keep_each_uuid_text_attachment_and_direction(): void
     {
         $this->workflow('add_message'); $this->workflow('add_outgoing_message');

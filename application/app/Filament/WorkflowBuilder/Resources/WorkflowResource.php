@@ -307,12 +307,6 @@ class WorkflowResource extends BaseWorkflowResource
 
         $triggerType = (string) data_get($definition, 'trigger.type');
 
-        foreach (\App\Services\Workflows\WorkflowStartNodes::all($definition) as $start) {
-            if ($duplicateIssue = static::uniqueAmoTriggerIssue((string) ($start['type'] ?? ''), $record, $data)) {
-                $issues[] = $duplicateIssue;
-            }
-        }
-
         $actionTypes = static::workflowActionTypes((array) data_get($definition, 'actions', []));
         $unsupportedTypes = array_values(array_intersect(
             $actionTypes,
@@ -348,53 +342,6 @@ class WorkflowResource extends BaseWorkflowResource
         }
 
         return array_values(array_unique($issues));
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private static function uniqueAmoTriggerIssue(
-        string $triggerType,
-        ?Workflow $record = null,
-        array $data = []
-    ): ?string {
-        if (! AppWorkflow::requiresUniqueActiveTrigger($triggerType)) {
-            return null;
-        }
-
-        $tenantColumn = config('filament-workflows.tenancy.column', 'user_id');
-        $accountId = $record?->account_id ?? ($data['account_id'] ?? null);
-        $userId = $record?->{$tenantColumn} ?? ($data[$tenantColumn] ?? auth()->id());
-
-        $duplicate = AppWorkflow::activeDuplicateForUniqueTrigger(
-            $triggerType,
-            $accountId,
-            $userId,
-            $record?->getKey(),
-        );
-
-        if (! $duplicate instanceof AppWorkflow) {
-            return null;
-        }
-
-        $duplicateName = filled($duplicate->name) ? $duplicate->name : '#'.$duplicate->getKey();
-
-        return sprintf(
-            'Триггер «%s» уже используется активным сценарием «%s». Выключите его или выберите другой amoCRM-триггер.',
-            static::triggerTypeName($triggerType),
-            $duplicateName,
-        );
-    }
-
-    private static function triggerTypeName(string $triggerType): string
-    {
-        $triggerClass = app(TriggerRegistry::class)->get($triggerType);
-
-        if (is_string($triggerClass) && method_exists($triggerClass, 'name')) {
-            return (string) $triggerClass::name();
-        }
-
-        return $triggerType;
     }
 
     /**

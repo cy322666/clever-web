@@ -69,16 +69,6 @@ class Workflow extends BaseWorkflow
                 ]);
             }
 
-            foreach (\App\Services\Workflows\WorkflowStartNodes::all($workflow->definition ?? []) as $start) {
-                if ($workflow->is_active && static::activeDuplicateForUniqueTrigger(
-                    (string) ($start['type'] ?? ''),
-                    $workflow->account_id,
-                    $workflow->user_id,
-                    $workflow->exists ? $workflow->getKey() : null,
-                )) {
-                    $workflow->is_active = false;
-                }
-            }
         });
 
         static::deleting(static function (Workflow $workflow): void {
@@ -126,11 +116,6 @@ class Workflow extends BaseWorkflow
         return is_array($actions) && static::actionListHasConfiguredAction($actions);
     }
 
-    public static function requiresUniqueActiveTrigger(string $triggerType): bool
-    {
-        return str_starts_with($triggerType, 'amocrm-');
-    }
-
     public function scopeWithStartType(\Illuminate\Database\Eloquent\Builder $query, string $type): \Illuminate\Database\Eloquent\Builder
     {
         // Indexed JSON paths work consistently in PostgreSQL and the isolated SQLite tests.
@@ -140,35 +125,6 @@ class Workflow extends BaseWorkflow
                 $query->orWhere('definition->additional_triggers['.$index.']->type', $type);
             }
         });
-    }
-
-    public static function activeDuplicateForUniqueTrigger(
-        string $triggerType,
-        int|string|null $accountId = null,
-        int|string|null $userId = null,
-        int|string|null $exceptWorkflowId = null,
-    ): ?self {
-        if (! static::requiresUniqueActiveTrigger($triggerType)) {
-            return null;
-        }
-
-        $query = static::query()
-            ->where('is_active', true)
-            ->withStartType($triggerType);
-
-        if (filled($accountId)) {
-            $query->where('account_id', $accountId);
-        } elseif (filled($userId)) {
-            $query->where('user_id', $userId);
-        } else {
-            return null;
-        }
-
-        if (filled($exceptWorkflowId)) {
-            $query->whereKeyNot($exceptWorkflowId);
-        }
-
-        return $query->first(['id', 'name', 'definition']);
     }
 
     /**

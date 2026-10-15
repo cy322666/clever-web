@@ -3,6 +3,7 @@
 namespace Tests\Unit\Workflows;
 
 use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Models\Core\Account;
 use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowAmoCrmWebhookService;
@@ -92,7 +93,7 @@ class WorkflowWebhookSetupTest extends TestCase
         }
     }
 
-    public function test_lookup_and_duplicate_guard_find_additional_starts(): void
+    public function test_lookup_finds_additional_starts(): void
     {
         $workflow = $this->workflow('schedule');
         $definition = $workflow->definition;
@@ -103,8 +104,23 @@ class WorkflowWebhookSetupTest extends TestCase
         $workflow->definition = $definition;
         $workflow->saveQuietly();
         $this->assertSame($workflow->id, Workflow::query()->withStartType('manual')->first()?->id);
-        $this->assertSame($workflow->id, Workflow::activeDuplicateForUniqueTrigger('amocrm-add-lead', userId: 1)?->id);
-        $this->assertNull(Workflow::activeDuplicateForUniqueTrigger('amocrm-add-lead', userId: 2));
+        $this->assertSame($workflow->id, Workflow::query()->withStartType('amocrm-add-lead')->first()?->id);
+    }
+
+    public function test_two_scenarios_can_activate_with_the_same_amo_trigger(): void
+    {
+        $first = $this->workflow('amocrm-add-lead');
+        $first->save();
+
+        $second = $this->workflow('amocrm-add-lead', active: false);
+        $second->name = 'Другой сценарий';
+        $second->save();
+
+        $this->assertSame([], WorkflowResource::activationIssuesForWorkflow($second));
+        $second->update(['is_active' => true]);
+
+        $this->assertTrue($first->fresh()->is_active);
+        $this->assertTrue($second->fresh()->is_active);
     }
 
     public function test_a_local_amo_receiver_is_a_visible_configuration_issue_not_a_retryable_failure(): void
