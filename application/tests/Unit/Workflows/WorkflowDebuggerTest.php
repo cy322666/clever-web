@@ -108,6 +108,27 @@ class WorkflowDebuggerTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_production_condition_can_compare_the_named_filters_count_including_zero(): void
+    {
+        $executor = new class(app(ActionRegistry::class)) extends WorkflowExecutor {
+            public function one(array $step, \Leek\FilamentWorkflows\Context\WorkflowContext $context): array
+            { return $this->runActionStep($step, $context); }
+        };
+        $step = ['id' => 'if', 'type' => 'control-condition', 'config' => ['conditions' => [[
+            'left' => '{{ $("Фильтр списка").count }}', 'operator' => 'gt', 'right' => '0',
+        ]]]];
+        $context = (new \App\Workflows\Context\WorkflowContext)
+            ->setVariable('_node_names', ['Фильтр списка' => ['filter']]);
+
+        foreach ([0 => false, 2 => true] as $count => $expected) {
+            $context->setStepOutput('filter', ['items' => array_fill(0, $count, ['id' => 1]), 'count' => $count, 'has_matches' => $count > 0]);
+            $result = $executor->one($step, $context);
+            $this->assertTrue($result['success'], $result['error'] ?? 'Condition failed');
+            $this->assertSame($expected, $result['output']['passed']);
+        }
+        Http::assertNothingSent();
+    }
+
     public function test_safe_mode_does_not_send_write_requests_to_amo(): void
     {
         $runner = app(WorkflowDebugger::class);

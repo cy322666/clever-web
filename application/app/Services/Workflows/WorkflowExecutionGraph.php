@@ -16,6 +16,7 @@ final class WorkflowExecutionGraph
             'iteration' => $step->input_data['_loop_iteration'] ?? [],
             'status' => $step->status instanceof \BackedEnum ? $step->status->value : (string) $step->status,
             'input' => \Illuminate\Support\Arr::except($step->input_data ?? [], ['_resolved_input', '_node_id', '_loop_iteration']), 'output' => $step->output_data ?? [],
+            'output_recorded' => $step->output_data !== null,
             // A final context belongs to the last attempt, never substitute it into older attempts.
             'resolved_input' => data_get($step->input_data, '_resolved_input'),
             'error' => $step->error_message, 'duration_ms' => $step->duration_ms,
@@ -53,6 +54,7 @@ final class WorkflowExecutionGraph
             unset($node);
         }
         $graph['trigger_data'] = data_get($run->context_data, 'trigger_data', []);
+        $graph['display_trigger_data'] = WorkflowOutputView::trigger($graph['trigger_data']);
 
         return $graph;
     }
@@ -116,12 +118,20 @@ final class WorkflowExecutionGraph
             $result['name'] ??= $names['action:'.$result['id']] ?? $metadata[$result['type']]['name'] ?? 'Нода';
             $result['explanation'] = WorkflowExecutionExplanation::forResult($result);
             $output = $result['output'] ?? [];
-            $result['display_output'] = WorkflowOutputView::isCondition($output)
-                ? ($output['passed'] ? 'Условие выполнено. Ветка «Да».' : 'Условие не выполнено. Ветка «Нет».')
-                : WorkflowOutputView::value($output);
+            $result['display_output'] = ($result['output_recorded'] ?? true) === false
+                ? ['message' => 'Выходные данные не сохранены или срок их хранения истёк.']
+                : (WorkflowOutputView::isCondition($output)
+                    ? ($output['passed'] ? 'Условие выполнено. Ветка «Да».' : 'Условие не выполнено. Ветка «Нет».')
+                    : WorkflowOutputView::displayValue($output));
             $result['display_responses'] = array_map(fn ($exchange) => WorkflowOutputView::entity($exchange['response']['body'] ?? null), $output['amo_exchange'] ?? []);
+            $result['display_input'] ??= ['message' => 'Входные данные этого шага не записаны.'];
+            unset($result['input'], $result['resolved_input']);
         }
         unset($result);
+        foreach ($nodes as &$node) {
+            if (is_array($node['result'] ?? null)) unset($node['result']['input'], $node['result']['resolved_input']);
+        }
+        unset($node);
 
         // Layout offsets are relative to the editor's tree/flex bases. The
         // history canvas must use that same structure, not flatten it into a row.

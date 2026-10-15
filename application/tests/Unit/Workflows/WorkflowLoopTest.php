@@ -326,7 +326,7 @@ class WorkflowLoopTest extends TestCase
         $run->setRelation('steps', $logs);
         $graph = \App\Services\Workflows\WorkflowExecutionGraph::fromRun($run);
         $this->assertSame($external ? ['loop', 'body', 'body', 'body', 'body', 'after'] : ['loop', 'body', 'body', 'body', 'after'], array_column($graph['results'], 'id'));
-        $this->assertArrayNotHasKey('_node_id', $graph['results'][1]['input']);
+        $this->assertArrayNotHasKey('input', $graph['results'][1]);
         Http::assertNothingSent();
     }
 

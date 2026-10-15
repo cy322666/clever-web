@@ -37,6 +37,9 @@ class WorkflowExecutionGraphTest extends TestCase
         $this->assertFalse($branches['no']['active']);
         $this->assertSame(['fetch', 'if', 'yes'], array_column($graph['results'], 'id'));
         $this->assertSame('Запрос сделок', $graph['results'][0]['name']);
+        $this->assertArrayNotHasKey('input', $graph['results'][1]);
+        $this->assertArrayNotHasKey('resolved_input', $graph['results'][1]);
+        $this->assertArrayNotHasKey('input', collect($graph['nodes'])->firstWhere('id', 'action:if')['result']);
     }
 
     public function test_history_keeps_snapshot_layout_and_routes_not_the_current_workflow_layout(): void
@@ -54,6 +57,15 @@ class WorkflowExecutionGraphTest extends TestCase
         $this->assertStringContainsString(':read-only="true" :execution-nodes=', $view);
         foreach (['canvas_layout','canvas_positions','canvas_edge_routes'] as $key) $this->assertStringContainsString("['$key']",$view);
         $this->assertStringNotContainsString('class="workflow-execution-node" style="left:', $view);
+    }
+
+    public function test_missing_saved_output_is_not_reported_as_an_empty_action_result(): void
+    {
+        $run = WorkflowHistoryFixture::sampleRun();
+        $run->steps[0]->output_data = null;
+        $result = WorkflowExecutionGraph::fromRun($run)['results'][0];
+        $this->assertFalse($result['output_recorded']);
+        $this->assertStringContainsString('не сохранены', $result['display_output']['message']);
     }
 
     public function test_old_runs_show_the_known_execution_path_without_inventing_a_definition(): void

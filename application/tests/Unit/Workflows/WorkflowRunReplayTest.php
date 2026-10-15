@@ -69,8 +69,9 @@ class WorkflowRunReplayTest extends TestCase
         $this->assertSame(['x' => 45, 'y' => 92], $replay['definition']['canvas_layout']['trigger']);
         $this->assertSame(['fetch', 'yes', 'yes'], array_column($replay['results'], 'id'));
         $this->assertSame(['completed', 'error', 'completed'], array_column($replay['results'], 'status'));
-        $this->assertNull($replay['results'][0]['resolved_input']); // Legacy context is not an attempt-specific input.
-        $this->assertSame(['limit' => 50], $replay['results'][0]['input']);
+        $this->assertArrayNotHasKey('resolved_input', $replay['results'][0]);
+        $this->assertArrayNotHasKey('input', $replay['results'][0]);
+        $this->assertSame(['message' => 'Входные данные этого шага не записаны.'], $replay['results'][0]['display_input']);
         $this->assertSame(99, $replay['results'][2]['output']['id']);
         $this->assertSame(77, $replay['input']['lead']['id']);
         $this->assertEquals($before, DB::table('workflows')->where('id', 1)->first());

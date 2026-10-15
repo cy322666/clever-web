@@ -47,11 +47,13 @@
                         </section>
                     </template>
                     <div x-show="!debugExplanation().details.length && !debugCurrent().error">
-                        @include('filament.workflow-builder.workflow-json-tree', ['expression' => 'debugOutputValue()', 'title' => 'Выходные данные'])
+                        <p x-show="debugOutputEmpty()">Нода не вернула выходных данных.</p>
+                        <div x-show="!debugOutputEmpty()">@include('filament.workflow-builder.workflow-json-tree', ['expression' => 'debugOutputValue()', 'title' => 'Выходные данные'])</div>
                     </div>
                 </div>
                 <div x-show="selectedIndex >= 0 && debugTab !== 'summary'">
-                    @include('filament.workflow-builder.workflow-json-tree', ['expression' => "debugTab === 'input' ? debugInputValue() : debugOutputValue()"])
+                    <p x-show="debugTab === 'output' && debugOutputEmpty()">Нода не вернула выходных данных.</p>
+                    <div x-show="debugTab === 'input' || !debugOutputEmpty()">@include('filament.workflow-builder.workflow-json-tree', ['expression' => "debugTab === 'input' ? debugInputValue() : debugOutputValue()"])</div>
                 </div>
             </div>
         </section>

@@ -2237,8 +2237,9 @@ window.workflowDebugPanel = () => ({
         if (this.busy) return this.playing ? 'Выполняется' : 'Ожидаем завершения шага';
         return {ready:'Пауза', completed:'Завершено', failed:'Ошибка', stale:'Схема изменена', expired:'Сессия истекла', historical:'История'}[this.$wire.debugState.status] || 'Подготовка';
     },
-    debugInputValue() { return this.debugCurrent().resolved_input ?? this.debugCurrent().input ?? {}; },
-    debugOutputValue() { return Object.prototype.hasOwnProperty.call(this.debugCurrent(), 'display_output') ? this.debugCurrent().display_output : this.debugCurrent().output ?? {}; },
+    debugInputValue() { return this.debugCurrent().display_input ?? {message:'Входные данные этого шага не записаны.'}; },
+    debugOutputValue() { return this.debugCurrent().display_output ?? {message:'Выходные данные этого шага не записаны.'}; },
+    debugOutputEmpty() { const value = this.debugOutputValue(); return Array.isArray(value) ? value.length === 0 : value !== null && typeof value === 'object' && Object.keys(value).length === 0; },
     debugExplanation() { return this.debugCurrent().explanation || {title:this.debugStatusLabel(this.debugCurrent().status), details:[], note:this.debugCurrent().error || ''}; },
     async debugRequest(method) {
         if (this.busy) return false;
@@ -2308,27 +2309,29 @@ window.workflowExecutionViewer = (graph) => ({
     exchanges() { return this.current().output?.amo_exchange || []; },
     exchange() { return this.exchanges()[this.exchangeIndex] || this.exchanges()[0]; },
     requestData() {
-        if (!this.isAmoStep()) return this.current().resolved_input ?? this.current().input ?? this.graph.trigger_data ?? {};
+        if (this.selectedIndex < 0 && !this.pendingNode) return this.graph.display_trigger_data ?? {message:'Данные запуска не записаны.'};
+        if (!this.isAmoStep()) return this.current().display_input ?? {message:'Входные данные этого шага не записаны.'};
         if (this.exchange()) return this.exchange().request?.body ?? this.exchange().request?.query ?? null;
         return {message: this.current().output?.deduplicated
             ? 'Найден существующий контакт: POST создания не отправлялся. HTTP-журнал этого старого шага не сохранён.'
-            : 'HTTP-запрос не сохранён. Ниже настройки шага, а не отправленное тело запроса.',
-            configuration: this.current().resolved_input ?? this.current().input ?? {}};
+            : 'HTTP-запрос этого шага не сохранён.'};
     },
+    exchangeResponse() { return this.current().display_responses?.[this.exchangeIndex] ?? this.current().display_responses?.[0] ?? this.exchange()?.response?.body ?? null; },
+    exchangeHasBody() { const response = this.exchangeResponse(); return response !== null && response !== '' && (!Array.isArray(response) || response.length > 0) && (typeof response !== 'object' || Object.keys(response).length > 0); },
     responseData() {
-        if (this.isAmoStep() && this.exchange() && this.current().display_responses) return this.current().display_responses[this.exchangeIndex] ?? this.current().display_responses[0] ?? null;
+        if (this.isAmoStep() && this.exchange() && this.exchangeHasBody()) return this.exchangeResponse();
         if (Object.prototype.hasOwnProperty.call(this.current(), 'display_output')) return this.current().display_output;
         if (this.isAmoStep() && this.exchange()) return this.exchange().response?.body ?? null;
-        const output = this.current().output ?? {};
-        return this.current().error ? {...output, error:this.current().error} : output;
+        return this.current().display_output ?? {message:'Выходные данные этого шага не записаны.'};
     },
+    responseEmpty() { const value = this.responseData(); return Array.isArray(value) ? value.length === 0 : value !== null && typeof value === 'object' && Object.keys(value).length === 0; },
     executions() { return this.graph.results.map((result,index) => ({...result,index})).filter(result => result.id === this.current().id); },
     selectExecution(index) { this.pendingNode = null; this.exchangeIndex = 0; this.selectedIndex = Number(index); },
     executionLabel(result) {
         const time = result.started_at ? new Date(result.started_at).toLocaleTimeString('ru-RU') : '';
         return 'Выполнение ' + result.occurrence + ' из ' + result.occurrence_count + (time ? ' · ' + time : '') + ' · ' + this.statusLabel(result.status);
     },
-    current() { return this.pendingNode ? {id:this.pendingNode.id.slice(7),name:this.pendingNode.name,status:'not_executed',input:this.pendingNode.action.config,output:{message:'Эта нода не выполнялась в выбранном запуске.'}} : this.graph.results[this.selectedIndex] || {}; },
+    current() { return this.pendingNode ? {id:this.pendingNode.id.slice(7),name:this.pendingNode.name,status:'not_executed',display_output:{message:'Эта нода не выполнялась в выбранном запуске.'}} : this.graph.results[this.selectedIndex] || {}; },
     selectedNodeId() { return this.current().id ? 'action:' + this.current().id : 'trigger'; },
     selectNode(id) { this.exchangeIndex = 0; this.selectedIndex = id === 'trigger' ? -1 : this.graph.results.findLastIndex((r) => 'action:' + r.id === id); this.pendingNode = this.selectedIndex === -1 && id !== 'trigger' ? this.graph.nodes.find((node) => node.id === id) : null; },
     previous() { this.exchangeIndex = 0; this.pendingNode = null; this.selectedIndex = Math.max(-1, this.selectedIndex - 1); },

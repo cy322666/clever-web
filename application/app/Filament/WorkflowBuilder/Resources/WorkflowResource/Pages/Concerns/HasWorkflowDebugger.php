@@ -338,8 +338,14 @@ trait HasWorkflowDebugger
 
     protected function explainDebugResults(array $results): array
     {
-        return array_map(static fn (array $result): array => array_merge($result, [
-            'explanation' => \App\Services\Workflows\WorkflowExecutionExplanation::forResult($result),
-        ]), $results);
+        return array_map(static function (array $result): array {
+            $result['explanation'] = \App\Services\Workflows\WorkflowExecutionExplanation::forResult($result);
+            $result['display_input'] ??= ['message' => 'Входные данные этого шага не записаны.'];
+            $result['display_output'] ??= \App\Services\Workflows\WorkflowOutputView::displayValue($result['output'] ?? []);
+            // These are editor settings, not the data that entered the node.
+            unset($result['input'], $result['resolved_input']);
+
+            return $result;
+        }, $results);
     }
 }

@@ -55,9 +55,20 @@ test('history shows captured HTTP exchanges and preserves the selected step on r
     viewer.updateGraph({results:[a,b,{id:'c'}],nodes:[]});
     assert.equal(viewer.selectedNodeId(),'action:b');
     assert.equal(viewer.isAmoStep(),false);
-    const old = components().workflowExecutionViewer({results:[{id:'a',type:'amocrm_add_note',output:{action:'note_created'}}],nodes:[]});
+    const old = components().workflowExecutionViewer({results:[{id:'a',type:'amocrm_add_note',output:{action:'note_created'},display_output:{action:'note_created'}}],nodes:[]});
     assert.equal(old.responseData().action,'note_created');
     assert.match(old.requestData().message,/не сохранён/);
+    assert.equal(Object.hasOwn(old.requestData(),'configuration'),false);
+});
+
+test('history falls back to the node result when amoCRM returns an empty response body', () => {
+    const result = {id:'update',type:'amocrm_update_lead_fields',output:{amo_exchange:[{response:{code:204,body:[]}}]},
+        display_output:{action:'updated',entity_id:77},display_responses:[[]]};
+    const viewer = components().workflowExecutionViewer({results:[result],nodes:[]});
+    assert.equal(viewer.responseData().entity_id,77);
+    assert.equal(viewer.responseEmpty(),false);
+    viewer.graph.results[0].display_output = [];
+    assert.equal(viewer.responseEmpty(),true);
 });
 
 test('JSON input renders compact nested values while insertion keeps the original body path', () => {
@@ -105,9 +116,19 @@ test('all three executions of the same node can be selected with distinct reques
         assert.equal(viewer.requestData().text,'Attempt '+(index+1));
         assert.match(viewer.executionLabel(viewer.current()),new RegExp('Выполнение '+(index+1)+' из 3'));
     }
-    const legacy = components().workflowExecutionViewer({results:[{id:'contact',type:'amocrm_create_contact',input:{name:'Test'},output:{entity_id:77,deduplicated:true}}],nodes:[]});
+    const legacy = components().workflowExecutionViewer({results:[{id:'contact',type:'amocrm_create_contact',input:{name:'Test'},output:{entity_id:77,deduplicated:true},display_output:{entity_id:77}}],nodes:[]});
     assert.equal(legacy.responseData().entity_id,77);
     assert.match(legacy.requestData().message,/POST создания не отправлялся/);
+    assert.equal(Object.hasOwn(legacy.requestData(),'configuration'),false);
+});
+
+test('history input shows the captured business value, never the condition config', () => {
+    const result={id:'if',type:'control-condition',input:{logic:'and'},resolved_input:{logic:'and'},display_input:{count:0,items:[]},display_output:false};
+    const viewer=components().workflowExecutionViewer({results:[result],nodes:[],display_trigger_data:{id:42}});
+    assert.equal(viewer.requestData().count,0);
+    assert.equal(viewer.responseData(),false);
+    viewer.previous();
+    assert.equal(viewer.requestData().id,42);
 });
 
 test('variable autocomplete filters, replaces only its token and preserves surrounding text', () => {

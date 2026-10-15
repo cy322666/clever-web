@@ -76,6 +76,21 @@ class WorkflowLeadOutputTest extends TestCase
         }
     }
 
+    public function test_empty_api_bodies_do_not_hide_the_recorded_node_result(): void
+    {
+        $updated = ['action' => 'updated', 'entity_type' => 'lead', 'entity_id' => 77,
+            'amo_exchange' => [['response' => ['code' => 204, 'body' => []]]]];
+        $this->assertSame([], WorkflowOutputView::value($updated));
+        $this->assertSame(['action' => 'updated', 'entity_type' => 'lead', 'entity_id' => 77], WorkflowOutputView::displayValue($updated));
+        $this->assertSame(['status' => 204, 'body' => '', 'success' => true], WorkflowOutputView::displayValue(['status' => 204, 'body' => '', 'success' => true]));
+        $this->assertSame(['items' => [], 'count' => 0, 'has_more' => false], WorkflowOutputView::displayValue(['items' => [], 'count' => 0, 'has_more' => false]));
+
+        WorkflowCanvasDatabase::prepare();
+        $definition = ['trigger' => ['type' => 'manual'], 'actions' => [['id' => 'updated', 'type' => 'amocrm_update_lead_fields', 'config' => []]]];
+        $graph = WorkflowExecutionGraph::build($definition, [['id' => 'updated', 'type' => 'amocrm_update_lead_fields', 'status' => 'completed', 'output' => $updated]]);
+        $this->assertSame(77, $graph['results'][0]['display_output']['entity_id']);
+    }
+
     public function test_real_creation_path_projects_one_lead_without_an_extra_api_request(): void
     {
         Http::preventStrayRequests();

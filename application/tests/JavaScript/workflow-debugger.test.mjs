@@ -18,7 +18,7 @@ function fixture() {
 
 test('local node and occurrence selection shows the latest pass then moves through recorded passes', () => {
     const {panel} = fixture();
-    panel.$wire.debugState.results = [{id:'a',output:{passed:true},iteration:[{node:'loop',index:0}]},{id:'other'},{id:'a',output:{passed:false},iteration:[{node:'loop',index:2}]}];
+    panel.$wire.debugState.results = [{id:'a',display_output:{passed:true},iteration:[{node:'loop',index:0}]},{id:'other'},{id:'a',display_output:{passed:false},iteration:[{node:'loop',index:2}]}];
     panel.selectDebugNode('a');
     assert.equal(panel.selectedIndex,2);
     assert.equal(panel.debugOutputValue().passed,false);
@@ -30,6 +30,21 @@ test('local node and occurrence selection shows the latest pass then moves throu
     panel.selectDebugNode('loop');
     assert.equal(panel.selectedIndex,-1);
     assert.equal(panel.debugOccurrences().length,0);
+});
+
+test('debug input and output never fall back to internal node settings', () => {
+    const {panel} = fixture();
+    panel.$wire.debugState.results = [{id:'a',input:{logic:'and',conditions:[{left:null}]},resolved_input:{logic:'and'},output:{condition_results:[]}}];
+    panel.selectDebugNode('a');
+    assert.match(panel.debugInputValue().message,/не записаны/);
+    assert.match(panel.debugOutputValue().message,/не записаны/);
+    panel.$wire.debugState.results[0].display_input = {count:0,items:[]};
+    panel.$wire.debugState.results[0].display_output = false;
+    assert.equal(panel.debugInputValue().count,0);
+    assert.equal(panel.debugOutputValue(),false);
+    assert.equal(panel.debugOutputEmpty(),false);
+    panel.$wire.debugState.results[0].display_output = [];
+    assert.equal(panel.debugOutputEmpty(),true);
 });
 
 test('single step serializes requests and returns to a paused ready state', async () => {

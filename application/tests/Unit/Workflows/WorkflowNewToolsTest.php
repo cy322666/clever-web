@@ -29,7 +29,7 @@ class WorkflowNewToolsTest extends TestCase
     {
         $definition = ['trigger'=>['type'=>'manual'],'actions'=>[
             ['id'=>'filter','type'=>'workflow_filter_list','config'=>['items'=>'{{ $json.items }}','rules'=>[['field'=>'status_id','operator'=>'eq','value'=>'20']]]],
-            ['id'=>'if','type'=>'control-condition','config'=>['conditions'=>[['left'=>'{{ $json.count }}','operator'=>'gt','right'=>'0']]]],
+            ['id'=>'if','type'=>'control-condition','config'=>['conditions'=>[['left'=>'{{ $("Фильтр списка").count }}','operator'=>'gt','right'=>'0']]]],
             ['id'=>'yes','type'=>'http_request','config'=>['method'=>'POST','url'=>'https://public.example']],
             ['id'=>'no','type'=>'http_request','config'=>['method'=>'POST','url'=>'https://public.example']],
         ],'connections'=>[
@@ -45,6 +45,8 @@ class WorkflowNewToolsTest extends TestCase
             for ($i=0; $i<5 && $session['status']==='ready'; $i++) $session=$debugger->advance($session);
             $this->assertSame('completed',$session['status']);
             $this->assertSame(['filter','if',$items ? 'yes' : 'no'],array_column($session['results'],'id'));
+            $this->assertSame($items ? 1 : 0, $session['results'][1]['resolved_input']['conditions'][0]['left']);
+            $this->assertSame(['count' => $items ? 1 : 0, 'items' => $items ? [['id'=>2,'status_id'=>20]] : []], $session['results'][1]['display_input']);
         }
         Http::assertNothingSent();
     }

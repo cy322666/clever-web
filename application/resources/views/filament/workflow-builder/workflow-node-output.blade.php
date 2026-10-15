@@ -30,7 +30,13 @@
                 @endforelse
             </div>
         @else
-            @include('filament.workflow-builder.workflow-json-tree', ['value' => \App\Services\Workflows\WorkflowOutputView::value($result['output'] ?? [])])
+            @if(($result['output_recorded'] ?? true) === false)
+                <p class="workflow-node-output__empty">Выходные данные не сохранены или срок их хранения истёк.</p>
+            @elseif(($result['output'] ?? []) === [])
+                <p class="workflow-node-output__empty">Нода не вернула выходных данных.</p>
+            @else
+                @include('filament.workflow-builder.workflow-json-tree', ['value' => \App\Services\Workflows\WorkflowOutputView::displayValue($result['output'])])
+            @endif
         @endif
     @else
         <p class="workflow-node-output__empty">Запустите ноду, чтобы увидеть результат.</p>

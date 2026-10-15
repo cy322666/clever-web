@@ -136,8 +136,16 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         \Leek\FilamentWorkflows\Context\WorkflowContext $context,
         string $path
     ): array {
+        $displayInput = null;
+        if ($context instanceof \App\Workflows\Context\WorkflowContext) {
+            try {
+                $displayInput = \App\Services\Workflows\WorkflowOutputView::input($context->getNodeInput());
+            } catch (\InvalidArgumentException) {
+                $displayInput = ['message' => 'У ноды несколько входов. Откройте результаты исходных нод.'];
+            }
+        }
         if ($step['disabled'] ?? false) {
-            return $this->skippedTestStep($step, $path);
+            return $this->skippedTestStep($step, $path) + ['display_input' => $displayInput];
         }
 
         if (in_array($step['type'] ?? '', ['condition', 'control-condition'], true)) {
@@ -147,7 +155,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             $validation = $action->validateResolvedConfig($raw, $resolved);
             $result = ['id' => $step['id'] ?? 'step_'.$path, 'type' => $step['type'], 'path' => $path,
                 'name' => $step['name'] ?? $this->getActionName($step['type']), 'is_side_effect' => false,
-                'input' => $raw, 'resolved_input' => $resolved, 'output' => [], 'description' => ''];
+                'input' => $raw, 'resolved_input' => $resolved, 'display_input' => $displayInput, 'output' => [], 'description' => ''];
             if (!$validation['valid']) {
                 return $result + ['status' => 'validation_error', 'error' => implode(', ', $validation['errors'])];
             }
@@ -160,6 +168,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
         }
 
         $result = parent::executeTestStep($step, $context, $path);
+        $result['display_input'] = $displayInput;
 
         if (str_starts_with((string)($result['type'] ?? ''), 'amocrm_')) {
             $result['output'] = $this->withRealAmoCrmEntities($result['output'] ?? [], $context);

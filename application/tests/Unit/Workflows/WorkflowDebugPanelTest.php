@@ -33,7 +33,12 @@ class WorkflowDebugPanelTest extends TestCase
             ->call('nextWorkflowDebugStep')->assertSet('debugState.next_id', 'yes')
             ->assertSet('debugState.results.1.explanation.details.0.actual', '1')
             ->assertSet('debugState.results.1.explanation.details.0.expected', '0')
-            ->assertSet('debugState.results.1.explanation.details.0.passed', true);
+            ->assertSet('debugState.results.1.explanation.details.0.passed', true)
+            ->assertSet('debugState.results.1.display_input.count', 1)
+            ->assertSet('debugState.results.1.display_output', true);
+
+        $this->assertArrayNotHasKey('input', $page->get('debugState.results.1'));
+        $this->assertArrayNotHasKey('resolved_input', $page->get('debugState.results.1'));
 
         $page->set('workflowActions.0.config.limit', 30)
             ->call('nextWorkflowDebugStep')->assertSet('debugState.status', 'stale');
@@ -50,6 +55,21 @@ class WorkflowDebugPanelTest extends TestCase
             ->set('debugReal', false)->set('debugInput', 'not json')
             ->call('startWorkflowDebug')->assertSet('debugSessionId', null);
         Http::assertNothingSent();
+    }
+
+    public function test_empty_query_result_keeps_its_count_visible_in_live_debug(): void
+    {
+        $executor = $this->createMock(WorkflowAmoCrmActionExecutor::class);
+        $executor->expects($this->once())->method('execute')->willReturn(['success' => true, 'output' => [
+            'items' => [], 'count' => 0, 'has_more' => false,
+            'amo_exchange' => [['response' => ['body' => []]]],
+        ]]);
+        $this->app->instance(WorkflowAmoCrmActionExecutor::class, $executor);
+
+        Livewire::test(WorkflowDebugFixture::class)
+            ->call('startWorkflowDebug')->call('nextWorkflowDebugStep')
+            ->assertSet('debugState.results.0.display_output.count', 0)
+            ->assertSet('debugState.results.0.display_output.items', []);
     }
 
     public function test_workspace_renders_dedicated_toolbar_side_inspector_and_path_without_changing_node_settings(): void

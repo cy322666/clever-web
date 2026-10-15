@@ -80,14 +80,44 @@ final class WorkflowOutputView
         return $output;
     }
 
+    /** Keep empty HTTP bodies from hiding a node's recorded result in the UI. */
+    public static function displayValue(mixed $output): mixed
+    {
+        $value = self::value($output);
+        if (!in_array($value, [[], '', null], true) || !is_array($output)) return $value;
+
+        unset($output['amo_exchange'], $output['amo_exchange_truncated']);
+        return $output !== [] ? $output : $value;
+    }
+
     public static function actionPath(mixed $output, string $path): mixed
     {
+        // A list is shown as its items, but its public counters remain addressable.
+        // Otherwise $("Фильтр списка").count resolves to null after projection.
+        if (is_array($output) && isset($output['items']) && is_array($output['items'])
+            && in_array($path, ['count', 'input_count', 'has_matches', 'has_more'], true)
+            && array_key_exists($path, $output)) {
+            return $output[$path];
+        }
         $value = self::value($output);
         // Saved short expressions may still address the old singleton response array.
         if (self::isSingleEntityCreation($output) && ($path === '0' || str_starts_with($path, '0.'))) {
             $path = $path === '0' ? '' : substr($path, 2);
         }
         return WorkflowValuePath::get($value, $path);
+    }
+
+    /** The data arriving at a node, without a previous node's transport journal. */
+    public static function input(mixed $input): mixed
+    {
+        if (!is_array($input)) return $input;
+        if (is_array($input['items'] ?? null) && array_key_exists('count', $input)) {
+            return ['count' => $input['count'], 'items' => self::entity($input['items'])];
+        }
+        if (isset($input['_workflow_start_node_id']) || (isset($input['entity'], $input['item']) && is_array($input['item']))) {
+            return self::trigger($input);
+        }
+        return self::value($input);
     }
 
     private static function isSingleEntityCreation(mixed $output): bool

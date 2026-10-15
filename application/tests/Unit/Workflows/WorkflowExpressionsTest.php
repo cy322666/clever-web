@@ -3,6 +3,7 @@
 namespace Tests\Unit\Workflows;
 
 use App\Services\Workflows\WorkflowExpressionCatalog;
+use App\Services\Workflows\WorkflowOutputView;
 use App\Workflows\Context\WorkflowContext;
 use Tests\Support\WorkflowCanvasDatabase;
 use Tests\TestCase;
@@ -37,6 +38,21 @@ class WorkflowExpressionsTest extends TestCase
         $this->assertSame('456', $context->resolve('{{lead.id}}'));
         $this->assertNull($context->resolve('{{ $node["missing"].json.id }}'));
         $this->assertSame(1, WorkflowContext::fromArray($context->toArray())->resolve('{{ $json.count }}'));
+    }
+
+    public function test_short_list_references_keep_public_counters_without_exposing_transport_data(): void
+    {
+        $output = ['items' => [['id' => 7]], 'count' => 1, 'input_count' => 2, 'has_matches' => true,
+            'amo_exchange' => [['request' => ['body' => ['secret' => 'internal']]]]];
+        $context = (new WorkflowContext)->setStepOutput('filter', $output)
+            ->setVariable('_node_names', ['Фильтр списка' => ['filter']]);
+
+        $this->assertSame(1, $context->resolve('{{ $("Фильтр списка").count }}'));
+        $this->assertSame(2, $context->resolve('{{ $("Фильтр списка").input_count }}'));
+        $this->assertTrue($context->resolve('{{ $("Фильтр списка").has_matches }}'));
+        $this->assertSame([['id' => 7]], $context->resolve('{{ $("Фильтр списка") }}'));
+        $this->assertSame(['count' => 1, 'items' => [['id' => 7]]], WorkflowOutputView::input($output));
+        $this->assertNull($context->resolve('{{ $("Фильтр списка").amo_exchange }}'));
     }
 
     public function test_open_deal_counters_ignore_closed_statuses_and_flags(): void
