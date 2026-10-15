@@ -1,0 +1,14 @@
+[Unit]
+Description=Recover Clever application stack after VPS boot
+Requires=docker.service
+After=docker.service
+StartLimitIntervalSec=15min
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/clever-web
+ExecStart=/usr/local/sbin/clever-web-boot-recover
+TimeoutStartSec=15min
+Restart=on-failure
+RestartSec=45s

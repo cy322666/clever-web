@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Clever application stack shortly after VPS boot
+
+[Timer]
+OnBootSec=3min
+AccuracySec=10s
+Unit=clever-web-boot-recovery.service
+
+[Install]
+WantedBy=timers.target
