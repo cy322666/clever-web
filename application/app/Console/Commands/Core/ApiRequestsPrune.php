@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 
 class ApiRequestsPrune extends Command
 {
+    //архив
     protected $signature = 'app:api-requests-prune {--days=30}';
 
     protected $description = 'Delete old api_requests records by retention period in days';

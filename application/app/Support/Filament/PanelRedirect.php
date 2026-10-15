@@ -5,6 +5,7 @@ namespace App\Support\Filament;
 use App\Filament\App\Pages\Onboarding;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PanelRedirect
 {

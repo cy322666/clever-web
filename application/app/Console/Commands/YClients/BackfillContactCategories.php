@@ -17,6 +17,8 @@ use Ufee\Amo\Models\Contact;
 
 class BackfillContactCategories extends Command
 {
+    //архив
+
     protected $signature = 'yc:backfill-contact-categories
         {user_id : Local user id}
         {--account-id= : Limit records by amoCRM account id}

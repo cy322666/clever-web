@@ -46,27 +46,28 @@
             </div>
         </section>
 
-        <section class="workflow-admin-section">
-            <header><div><h2>Недавно изменённые сценарии</h2><p>Нажмите на сценарий, чтобы открыть его в контексте владельца.</p></div></header>
-            <div class="workflow-admin-workflows">
-                @forelse($workflows as $workflow)
-                    @php
-                        $owner = $workflow->owner;
-                        $domain = $owner?->accounts?->first()?->subdomain;
-                        $runStatus = $workflow->latestRun?->status;
-                    @endphp
-                    <a href="{{ $this->workflowUrl($workflow) }}">
-                        <span class="workflow-admin-workflow-state {{ $workflow->is_active ? 'is-active' : '' }}"></span>
-                        <span class="workflow-admin-workflow-name"><strong>{{ $workflow->name }}</strong><small>{{ $domain ?: $owner?->email }}</small></span>
-                        @if($workflow->queued_runs_count > 0)<span class="workflow-admin-queue">В очереди: {{ $workflow->queued_runs_count }}</span>@endif
-                        <span class="workflow-admin-run">{{ $runStatus?->getLabel() ?: 'Не запускался' }}</span>
-                        <x-filament::icon icon="heroicon-m-chevron-right" />
-                    </a>
-                @empty
-                    <p class="workflow-admin-empty">Сценариев пока нет</p>
-                @endforelse
-            </div>
-        </section>
+{{--        архив --}}
+{{--        <section class="workflow-admin-section">--}}
+{{--            <header><div><h2>Недавно изменённые сценарии</h2><p>Нажмите на сценарий, чтобы открыть его в контексте владельца.</p></div></header>--}}
+{{--            <div class="workflow-admin-workflows">--}}
+{{--                @forelse($workflows as $workflow)--}}
+{{--                    @php--}}
+{{--                        $owner = $workflow->owner;--}}
+{{--                        $domain = $owner?->accounts?->first()?->subdomain;--}}
+{{--                        $runStatus = $workflow->latestRun?->status;--}}
+{{--                    @endphp--}}
+{{--                    <a href="{{ $this->workflowUrl($workflow) }}">--}}
+{{--                        <span class="workflow-admin-workflow-state {{ $workflow->is_active ? 'is-active' : '' }}"></span>--}}
+{{--                        <span class="workflow-admin-workflow-name"><strong>{{ $workflow->name }}</strong><small>{{ $domain ?: $owner?->email }}</small></span>--}}
+{{--                        @if($workflow->queued_runs_count > 0)<span class="workflow-admin-queue">В очереди: {{ $workflow->queued_runs_count }}</span>@endif--}}
+{{--                        <span class="workflow-admin-run">{{ $runStatus?->getLabel() ?: 'Не запускался' }}</span>--}}
+{{--                        <x-filament::icon icon="heroicon-m-chevron-right" />--}}
+{{--                    </a>--}}
+{{--                @empty--}}
+{{--                    <p class="workflow-admin-empty">Сценариев пока нет</p>--}}
+{{--                @endforelse--}}
+{{--            </div>--}}
+{{--        </section>--}}
     </div>
 
     @once

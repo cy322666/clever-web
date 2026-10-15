@@ -17,6 +17,7 @@ use Throwable;
 
 class UpdateEntities extends Command
 {
+    //архив, используется вообще?
     /**
      * The name and signature of the console command.
      *

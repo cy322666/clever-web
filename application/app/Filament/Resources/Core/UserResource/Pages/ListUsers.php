@@ -28,27 +28,28 @@ class ListUsers extends ListRecords
     {
         $actions = [];
 
-        if (
-            config('features.panel_actions.queues', true)
-            && Route::has('filament.app.resources.queue-monitors.index')
-        ) {
-            $actions[] = Action::make('queues')
-                ->label('Очереди')
-                ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
-                ->openUrlInNewTab()
-                ->color(Color::Green);
-        }
+        //архив, скорее всего плагин есть его сносим
+//        if (
+//            config('features.panel_actions.queues', true)
+//            && Route::has('filament.app.resources.queue-monitors.index')
+//        ) {
+//            $actions[] = Action::make('queues')
+//                ->label('Очереди')
+//                ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
+//                ->openUrlInNewTab()
+//                ->color(Color::Green);
+//        }
 
-        if (
-            config('features.panel_actions.api_requests', true)
-            && Route::has('filament.app.pages.api-requests')
-        ) {
-            $actions[] = Action::make('api_requests')
-                ->label('Api запросы')
-                ->url(fn(): string => ApiRequests::getUrl())
-                ->openUrlInNewTab()
-                ->color(Color::Blue);
-        }
+//        if (
+//            config('features.panel_actions.api_requests', true)
+//            && Route::has('filament.app.pages.api-requests')
+//        ) {
+//            $actions[] = Action::make('api_requests')
+//                ->label('Api запросы')
+//                ->url(fn(): string => ApiRequests::getUrl())
+//                ->openUrlInNewTab()
+//                ->color(Color::Blue);
+//        }
 
         if (config('features.panel_actions.auth_logs', true)) {
             $actions[] = Action::make('auths')

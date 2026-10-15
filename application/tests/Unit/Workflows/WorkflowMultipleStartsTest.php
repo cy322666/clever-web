@@ -97,16 +97,19 @@ class WorkflowMultipleStartsTest extends TestCase
         $this->assertStringContainsString('data-workflow-node-id="trigger"', $page->effects['html'] ?? '');
     }
 
-    public function test_invalid_open_draft_does_not_add_start_or_close_the_catalog_as_success(): void
+    public function test_invalid_open_draft_is_kept_while_a_new_start_is_added(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [
             ['id' => 'delay', 'type' => 'workflow_delay', 'config' => ['seconds' => 5]],
         ]])->call('openWorkflowInspector', 'action:delay')
             ->set('mountedActions.0.data.seconds', '')->call('selectTriggerType', 'schedule', true);
 
-        $page->assertHasErrors()->assertNotDispatched('workflow-node-created')
-            ->assertNotDispatched('workflow-node-replaced');
-        $this->assertSame([], $page->get('definition')['additional_triggers'] ?? []);
+        $page->assertHasNoErrors()->assertDispatched('workflow-node-created')
+            ->assertSet('workflowInspectorDrafts.action:delay.data.seconds', '')
+            ->assertSet('mountedActions.0.name', 'configureTrigger');
+        $this->assertCount(1, $page->get('definition')['additional_triggers'] ?? []);
+        $page->call('openWorkflowInspector', 'action:delay')
+            ->assertSet('mountedActions.0.data.seconds', '');
     }
 
     public function test_debug_starts_only_the_selected_chain(): void

@@ -439,6 +439,7 @@ window.workflowWorkbench = () => ({
         const stable = value => Array.isArray(value) ? value.map(stable)
             : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
         const mounted = this.$wire.mountedActions?.[0];
+        if (Object.keys(this.$wire.workflowInspectorDrafts || {}).length) return true;
         if (['configureWorkflowAction', 'configureTrigger'].includes(mounted?.name) && this.$wire.workflowInspectorInitialData !== null
             && JSON.stringify(stable(mounted.data)) !== JSON.stringify(stable(this.$wire.workflowInspectorInitialData))) return true;
         return JSON.stringify(stable(editorState(state))) !== JSON.stringify(stable(editorState(saved)));

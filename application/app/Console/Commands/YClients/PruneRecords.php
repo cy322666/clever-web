@@ -7,6 +7,8 @@ use Illuminate\Console\Command;
 
 class PruneRecords extends Command
 {
+    //архив? переписать?
+
     protected $signature = 'yc:prune-records {--days=5} {--chunk=1000}';
 
     protected $description = 'Delete old YClients records from local database by retention period in days';

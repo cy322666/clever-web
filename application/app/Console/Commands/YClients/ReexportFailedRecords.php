@@ -12,6 +12,7 @@ use Throwable;
 
 class ReexportFailedRecords extends Command
 {
+    //архив? костыль как будто
     protected $signature = 'yc:reexport-failed
         {user_id : Local user id}
         {--from= : Start of period}

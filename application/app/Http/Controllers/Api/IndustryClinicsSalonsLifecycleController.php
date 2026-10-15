@@ -14,6 +14,7 @@ class IndustryClinicsSalonsLifecycleController extends Controller
     public function redirect(Request $request): RedirectResponse
     {
         $this->logCallback('install', $request);
+
         app(AmoCrmWidgetLifecycleTelegramNotifier::class)->notify(
             'install',
             'industry-clinics-salons',

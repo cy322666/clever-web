@@ -8,6 +8,7 @@ use Filament\Support\Enums\Width;
 
 class Dashboard extends BaseDashboard
 {
+    //главная страница с виджетами
     protected static string $routePath = 'dashboard';
 
     protected static ?string $title = 'Интеграции';

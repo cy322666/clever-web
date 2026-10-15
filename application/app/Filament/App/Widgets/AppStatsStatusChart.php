@@ -7,6 +7,7 @@ use Filament\Widgets\ChartWidget;
 
 class AppStatsStatusChart extends ChartWidget
 {
+    //архив
     protected int|string|array $columnSpan = ['md' => 1, 'xl' => 1];
 
     protected ?string $heading = 'Распределение статусов';

@@ -13,6 +13,7 @@ class BackfillWorkflowRunEntities extends Command
 {
     protected $signature = 'workflows:runs:index-entities {--chunk=500 : Размер пачки}';
 
+    // архив?
     protected $description = 'Заполнить индекс сущностей для поиска по исполнениям процессов.';
 
     public function handle(WorkflowRunEntityIndexService $indexer): int

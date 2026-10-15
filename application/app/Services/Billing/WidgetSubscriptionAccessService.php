@@ -18,6 +18,7 @@ use Throwable;
 
 class WidgetSubscriptionAccessService
 {
+    //походу проверка оплаты виджета
     public function canUse(User|int|null $user, string $widget): bool
     {
         $userId = $this->resolveUserId($user);

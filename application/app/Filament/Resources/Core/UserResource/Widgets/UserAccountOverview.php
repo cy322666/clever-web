@@ -80,10 +80,11 @@ class UserAccountOverview extends StatsOverviewWidget
                 ->descriptionIcon($amoConnected ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-triangle')
                 ->color($amoConnected ? 'success' : 'danger'),
 
-            Stat::make('Установленные интеграции', (string) $apps->count())
-                ->description('Только установленные')
-                ->descriptionIcon('heroicon-o-squares-2x2')
-                ->color('info'),
+            //архив
+//            Stat::make('Установленные интеграции', (string) $apps->count())
+//                ->description('Только установленные')
+//                ->descriptionIcon('heroicon-o-squares-2x2')
+//                ->color('info'),
 
             Stat::make('Активные', (string) $active)
                 ->description('Доступны и не просрочены')
@@ -95,9 +96,10 @@ class UserAccountOverview extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-o-exclamation-triangle')
                 ->color($expired > 0 ? 'danger' : 'gray'),
 
-            Stat::make('Истекают через 7 дней', (string) $expiringSoon)
-                ->descriptionIcon('heroicon-o-clock')
-                ->color($expiringSoon > 0 ? 'warning' : 'gray'),
+            //архив
+//            Stat::make('Истекают через 7 дней', (string) $expiringSoon)
+//                ->descriptionIcon('heroicon-o-clock')
+//                ->color($expiringSoon > 0 ? 'warning' : 'gray'),
         ];
     }
 

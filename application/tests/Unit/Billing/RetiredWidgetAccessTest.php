@@ -2,10 +2,8 @@
 
 namespace Tests\Unit\Billing;
 
-use App\Filament\Resources\Billing\WidgetSubscriptionResource;
 use App\Models\App;
 use App\Models\Billing\WidgetSubscription;
-use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -107,21 +105,6 @@ class RetiredWidgetAccessTest extends TestCase
 
         $this->assertSame(4, App::query()->count());
         $this->assertSame(4, WidgetSubscription::query()->count());
-    }
-
-    public function test_root_cannot_edit_retired_subscriptions_but_can_still_edit_supported_subscriptions(): void
-    {
-        $this->actingAs((new User)->forceFill(['id' => 1, 'is_root' => true]));
-
-        foreach (['alfacrm', 'calculator'] as $widget) {
-            $record = (new WidgetSubscription)->forceFill(['widget' => $widget]);
-            $this->assertFalse(WidgetSubscriptionResource::canEdit($record));
-            $this->assertArrayNotHasKey($widget, WidgetSubscriptionResource::widgetOptions());
-        }
-
-        $this->assertTrue(WidgetSubscriptionResource::canEdit((new WidgetSubscription)->forceFill(['widget' => 'tilda'])));
-        $this->assertTrue(WidgetSubscriptionResource::canEdit((new WidgetSubscription)->forceFill(['widget' => 'default'])));
-        $this->assertArrayHasKey('tilda', WidgetSubscriptionResource::widgetOptions());
     }
 
     public function test_trial_activates_widget_and_sets_installation_fields_immediately(): void

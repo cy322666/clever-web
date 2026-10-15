@@ -62,9 +62,10 @@ trait HasWorkflowPageActions
 
     public function selectTriggerType(string $type, bool $add = false): void
     {
-        if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft()) return;
+        if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft(allowInvalid: true)) return;
         if ($add) $this->replacingTriggerNodeId = null;
-        $replacing = $this->replacingTriggerNodeId !== null;
+        $replacingId = $this->replacingTriggerNodeId;
+        $replacing = $replacingId !== null;
         $registry = app(TriggerRegistry::class);
 
         if (!$registry->has($type) || in_array($type, ['date-condition', 'workflow-completed'], true)) {
@@ -80,6 +81,7 @@ trait HasWorkflowPageActions
             'type' => $type,
             'config' => $registry->getDefaultConfig($type),
         ]);
+        if ($replacing) unset($this->workflowInspectorDrafts[$replacingId]);
 
         $this->syncDefinition();
         $this->unmountAction();
@@ -782,9 +784,10 @@ trait HasWorkflowPageActions
         $this->syncDefinition();
     }
 
-    public function selectActionType(string $type): void
+    public function selectActionType(string $type, bool $openInspector = true): void
     {
-        if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft()) return;
+        $hadInspector = $this->mountedActions !== [] && $this->isWorkflowInspectorAction($this->getMountedAction());
+        if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft(allowInvalid: true)) return;
         $registry = app(ActionRegistry::class);
 
         if (in_array($type, array_merge(WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), ['run_workflow']), true)) {
@@ -855,6 +858,12 @@ trait HasWorkflowPageActions
 
         $this->syncDefinition();
         $this->unmountAction();
+
+        if ($hadInspector && $openInspector) {
+            $this->resetWorkflowInspectorSchema();
+            $this->openWorkflowActionEditor($actionId);
+            $this->forceRender();
+        }
 
         $this->dispatch('workflow-node-library-open', mode: 'action');
         if (isset($connection)) {

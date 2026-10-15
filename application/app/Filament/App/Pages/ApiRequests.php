@@ -7,6 +7,7 @@ use Filament\Pages\Page;
 
 class ApiRequests extends Page
 {
+    //архив, будем смотреть где то еще
     protected static string $routePath = 'api-requests';
 
     protected static ?string $title = 'API запросы';

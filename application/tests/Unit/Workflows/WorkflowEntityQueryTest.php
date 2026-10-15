@@ -147,6 +147,28 @@ class WorkflowEntityQueryTest extends TestCase
         }
     }
 
+    public function test_read_parameters_offer_supported_expansions_and_keep_raw_query_editable(): void
+    {
+        $this->assertArrayHasKey('contacts', WorkflowAmoReadCatalog::withOptions('leads.one'));
+        $this->assertArrayHasKey('leads', WorkflowAmoReadCatalog::withOptions('contacts.one'));
+        $this->assertArrayNotHasKey('tags', WorkflowAmoReadCatalog::withOptions('leads.one'));
+
+        $page = Livewire::test(EntityQueryEditorFixture::class, ['formData' => [
+            'operation' => 'leads.one', 'id' => '42', 'body_mode' => 'fields', 'parameters' => [],
+        ]]);
+        $page->assertSee('Добавить к ответу')->set('formData.with_preset', 'contacts');
+        $parameters = array_values($page->get('formData')['parameters']);
+        $this->assertSame([['name' => 'with', 'value' => 'contacts']], $parameters);
+        $page->set('formData.with_preset', 'source');
+        $parameters = array_values($page->get('formData')['parameters']);
+        $this->assertSame([['name' => 'with', 'value' => 'contacts,source']], $parameters);
+        $page->set('formData.with_preset', 'contacts');
+        $this->assertSame($parameters, array_values($page->get('formData')['parameters']));
+        $this->assertSame('contacts,source', WorkflowAmoReadCatalog::build([
+            'operation' => 'leads.one', 'id' => '42', 'body_mode' => 'fields', 'parameters' => $parameters,
+        ])['query']['with']);
+    }
+
     public function test_lead_form_renders_own_status_options_and_resets_value_on_field_change(): void
     {
         DB::table('amocrm_statuses')->insert(['user_id'=>1,'pipeline_id'=>10,'status_id'=>20,'pipeline_name'=>'Продажи','name'=>'Переговоры','active'=>true]);

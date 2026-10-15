@@ -12,6 +12,7 @@ class WorkflowHeadersInput extends Field
     protected function setUp(): void
     {
         parent::setUp();
+
         $this->rules([fn () => function (string $attribute, mixed $value, \Closure $fail): void {
             // A whole-object expression can only be checked after resolving it.
             if (is_string($value) && str_starts_with(trim($value), '{{')) return;

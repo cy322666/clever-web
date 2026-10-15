@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Filament\App\Pages\Dashboard;
 use App\Filament\App\Pages\Onboarding;
-use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class AppNavigationTest extends TestCase
@@ -30,7 +30,7 @@ class AppNavigationTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('app'));
 
         $this->assertSame(
-            ['Интеграции', 'Заявки на счет', 'Админ потоков'],
+            ['Интеграции', 'Админ потоков'],
             $this->navigationItems()->map(fn (NavigationItem $item): string => $item->getLabel())->all(),
         );
     }
@@ -40,7 +40,7 @@ class AppNavigationTest extends TestCase
         Filament::setCurrentPanel(Filament::getPanel('app'));
 
         $this->assertSame(url('/panel/start'), Onboarding::getUrl());
-        $this->assertSame(url('/panel/billing/subscription-plans'), SubscriptionPlanResource::getUrl());
+        $this->assertNotContains('panel/billing/subscription-plans', collect(Route::getRoutes())->map(fn ($route): string => $route->uri())->all());
     }
 
     private function navigationItems(): \Illuminate\Support\Collection

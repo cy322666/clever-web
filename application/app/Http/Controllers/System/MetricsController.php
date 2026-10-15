@@ -13,6 +13,8 @@ use Throwable;
 
 class MetricsController extends Controller
 {
+    //архив? не видел такой страницы
+
     private const DB_SLOW_QUERY_TOTAL_KEY = 'monitoring:db:slow_queries:total';
     private const DB_SLOW_QUERY_LAST_MS_KEY = 'monitoring:db:slow_queries:last_ms';
     private const DB_SLOW_QUERY_LAST_SEEN_KEY = 'monitoring:db:slow_queries:last_seen_unixtime';

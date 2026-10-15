@@ -11,6 +11,7 @@ use Throwable;
 
 class HealthController extends Controller
 {
+    //архив? непонятно используется или нет
     public function __invoke(Request $request): JsonResponse
     {
         $checks = [

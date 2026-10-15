@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 
 class Onboarding extends Page
 {
+    //установка/настройка платформы после реги
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $slug = 'start';

@@ -62,6 +62,11 @@ trait HasWorkflowNodeNames
             }
         }
         unset($mounted);
+        foreach ($this->workflowInspectorDrafts as &$draft) {
+            $draft['data'] = WorkflowExpressionCatalog::remapReferences($draft['data'], $before, $after);
+            $draft['initial'] = WorkflowExpressionCatalog::remapReferences($draft['initial'] ?? [], $before, $after);
+        }
+        unset($draft);
         $definition = WorkflowExpressionCatalog::normalizeNames($definition);
         $this->trigger = $definition['trigger'];
         $this->workflowActions = $definition['actions'];

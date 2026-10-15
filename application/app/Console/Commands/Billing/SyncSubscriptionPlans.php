@@ -9,6 +9,7 @@ use Throwable;
 
 class SyncSubscriptionPlans extends Command
 {
+    //походу архив
     private const DEFAULT_COST = [
         '1_month' => '2 990 ₽',
         '6_month' => '14 900 ₽',

@@ -12,6 +12,8 @@ use Throwable;
 
 class ReconcileLeadStatuses extends Command
 {
+    //архив? че а хуйня?
+
     protected $signature = 'yc:reconcile-lead-statuses
         {user_id : Local user id}
         {--account-id= : Limit to amoCRM account id}

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 
 class QueueOpsOverview extends StatsOverviewWidget
 {
+    //архив
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $heading = 'Операционные метрики очередей';
@@ -19,6 +20,7 @@ class QueueOpsOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
+        //архив
         $failedConnection = (string)(config('queue.failed.database') ?? config('database.default'));
         $monitorConnection = (string)(config('filament-jobs-monitor.connection') ?? config('database.default'));
         $failedTable = (string)config('queue.failed.table', 'failed_jobs');

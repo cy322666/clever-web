@@ -10,6 +10,8 @@ use Illuminate\Console\Command;
 class All extends Command
 {
     /**
+     * тут походу ваще все в архив (вся папка) старый формат инсталяции юзера на платформе
+     *
      * The name and signature of the console command.
      *
      * @var string

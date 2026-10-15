@@ -11,6 +11,8 @@ class SyncAmoCrmWebhooks extends Command
 {
     protected $signature = 'workflows:amocrm-webhooks:sync {user_id? : ID пользователя}';
 
+    //архив? для чего это делать то?
+
     protected $description = 'Синхронизировать webhook-подписки amoCRM для активных процессов.';
 
     public function handle(WorkflowAmoCrmWebhookService $webhooks): int

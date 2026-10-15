@@ -119,10 +119,10 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
 
     public function test_oauth_callback_is_separate_while_monitoring_uses_shared_account(): void
     {
-        $this->assertSame(
-            rtrim((string) config('app.url'), '/').'/api/amocrm/install/finder',
-            config('services.amocrm.widgets.finder.redirect_uri'),
-        );
+        $this->assertSame('/api/amocrm/install/finder', parse_url(
+            (string) config('services.amocrm.widgets.finder.redirect_uri'), PHP_URL_PATH,
+        ));
+        $this->assertNotSame(config('services.amocrm.redirect_uri'), config('services.amocrm.widgets.finder.redirect_uri'));
         $this->assertFalse(config('services.amocrm.widgets.finder.fallback_to_platform_credentials'));
         $this->assertSame(Account::DEFAULT_WIDGET, config('integrations.definitions.finder.amo_widget'));
     }

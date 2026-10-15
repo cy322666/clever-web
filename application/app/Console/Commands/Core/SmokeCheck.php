@@ -30,9 +30,6 @@ class SmokeCheck extends Command
             'jobs',
             'failed_jobs',
             'queue_monitors',
-            'vetmanager_settings',
-            'vetmanager_clients',
-            'vetmanager_visits',
         ] as $table) {
             try {
                 if (!Schema::hasTable($table)) {

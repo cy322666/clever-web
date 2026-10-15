@@ -14,14 +14,22 @@ trait HasWorkflowConnections
     {
         $item = \App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations()[$operation] ?? null;
         if (!$item) return;
+        $hadInspector = $this->mountedActions !== [] && $this->isWorkflowInspectorAction($this->getMountedAction());
         $before = WorkflowGraph::nodes($this->workflowActions);
-        $this->selectActionType('amocrm_read');
-        foreach (array_diff_key(WorkflowGraph::nodes($this->workflowActions), $before) as $node) {
+        $this->selectActionType('amocrm_read', openInspector: false);
+        $added = array_diff_key(WorkflowGraph::nodes($this->workflowActions), $before);
+        foreach ($added as $node) {
             data_set($this->workflowActions, $node['path'].'.config.operation', $operation);
             data_set($this->workflowActions, $node['path'].'.config.body_mode', \App\Services\Workflows\WorkflowEntityQuery::supports($operation) ? 'builder' : 'fields');
             data_set($this->workflowActions, $node['path'].'.name', $this->availableWorkflowNodeName($item['node_name'] ?? (($item['entity_group'] ?? $item['group']).' · '.$item['name']), $node['step']['id']));
         }
+        if ($added === []) return;
         $this->syncDefinition();
+        if ($hadInspector) {
+            $this->resetWorkflowInspectorSchema();
+            $this->openWorkflowActionEditor(reset($added)['step']['id']);
+            $this->forceRender();
+        }
     }
 
     protected function syncDefinition(): void

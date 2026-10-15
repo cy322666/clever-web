@@ -20,6 +20,7 @@ use Livewire\Attributes\Url;
 
 class WorkflowAdmin extends Page
 {
+    //архив
     protected static ?string $title = 'Администрирование потоков';
 
     protected static ?string $navigationLabel = 'Админ потоков';

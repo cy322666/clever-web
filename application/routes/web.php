@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\System\IntegrationOpenController;
 use App\Http\Controllers\System\MetricsController;
-use App\Http\Controllers\WorkflowDocumentationController;
+//use App\Http\Controllers\WorkflowDocumentationController;
 use App\Http\Controllers\YClientsMarketplaceController;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -31,30 +31,6 @@ Route::get('/', function (Request $request) {
     return redirect(route('filament.app.pages.dashboard'));
 });
 
-Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
-
-Route::get('/up', fn() => response('OK', 200))
-    ->name('up');
-Route::get('/amocrm/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
-    ->whereUuid('token')->middleware('throttle:60,1')->name('amocrm.installation.status');
-Route::get('/amocrm/finder/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
-    ->whereUuid('token')->middleware('throttle:60,1')->name('finder.installation.status');
-Route::get('/amocrm/workflows/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
-    ->whereUuid('token')->middleware('throttle:60,1')->name('workflows.installation.status');
-Route::get('/metrics', MetricsController::class)->name('metrics');
-Route::get('/yclients/marketplace/register', [YClientsMarketplaceController::class, 'register'])
-    ->middleware('throttle:30,1')
-    ->name('yclients.marketplace.register');
-Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
-    ->name('integrations.open')
-    ->middleware('auth');
-Route::middleware('auth')->group(function (): void {
-    Route::get('/workflow-builder/documentation.pdf', [WorkflowDocumentationController::class, 'account'])
-        ->name('workflow-builder.documentation.account');
-    Route::get('/workflow-builder/workflows/{workflow}/documentation.pdf', [WorkflowDocumentationController::class, 'workflow'])
-        ->name('workflow-builder.documentation.workflow');
-});
-
 Route::get('/auto-login/{user}', function (Request $request, User $user) {
 
     Auth::login($user);
@@ -63,3 +39,44 @@ Route::get('/auto-login/{user}', function (Request $request, User $user) {
     return redirect($request->redirect ?? env('APP_URL'));
 
 })->name('auto.login')->middleware('signed');
+
+//че за общий инсталл?
+Route::get('/amocrm/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
+    ->whereUuid('token')->middleware('throttle:60,1')->name('amocrm.installation.status');
+
+//Установки виджетов
+
+Route::get('/amocrm/finder/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
+    ->whereUuid('token')->middleware('throttle:60,1')->name('finder.installation.status');
+Route::get('/amocrm/workflows/installation/{token}', \App\Http\Controllers\System\AmoCrmInstallationController::class)
+    ->whereUuid('token')->middleware('throttle:60,1')->name('workflows.installation.status');
+
+Route::get('/yclients/marketplace/register', [YClientsMarketplaceController::class, 'register'])
+    ->middleware('throttle:30,1')
+    ->name('yclients.marketplace.register');
+
+//Установки виджетов
+
+
+//это че?
+Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
+    ->name('integrations.open')
+    ->middleware('auth');
+
+Route::get('/up', fn() => response('OK', 200))
+    ->name('up');
+
+//архив? не смог зайти
+Route::get('/metrics', MetricsController::class)->name('metrics');
+
+//это че за форма?
+Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
+
+//че за документация? сносим?
+//Route::middleware(
+//    'auth')->group(function (): void {
+//    Route::get('/workflow-builder/documentation.pdf', [WorkflowDocumentationController::class, 'account'])
+//        ->name('workflow-builder.documentation.account');
+//    Route::get('/workflow-builder/workflows/{workflow}/documentation.pdf', [WorkflowDocumentationController::class, 'workflow'])
+//        ->name('workflow-builder.documentation.workflow');
+//});

@@ -54,6 +54,7 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
 Route::group(['prefix' => 'amocrm'], function () {
 
+    //отраслевое в амо
     Route::get('industry-clinics-salons/redirect', [IndustryClinicsSalonsLifecycleController::class, 'redirect'])
         ->middleware('throttle:30,1')
         ->name('amocrm.industry-clinics-salons.redirect');
@@ -134,6 +135,7 @@ Route::group(['prefix' => 'amocrm'], function () {
         ->middleware('throttle:60,1')
         ->name('amocrm.distribution.index');
 
+    //Распределение: событие создания/смены этапа
     Route::post('distribution/digital-pipeline', [DistributionController::class, 'digitalPipeline'])
         ->middleware('throttle:120,1')
         ->name('amocrm.distribution.digital-pipeline');

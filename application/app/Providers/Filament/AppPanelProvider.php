@@ -4,7 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\Dashboard;
 use App\Filament\App\Pages\WorkflowAdmin;
-use App\Filament\Resources\Billing\InvoiceRequestResource;
+//use App\Filament\Resources\Billing\InvoiceRequestResource;
 use App\Filament\Resources\Core\UserResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Http\Middleware\ApplyUserLocale;
@@ -61,7 +61,7 @@ class AppPanelProvider extends PanelProvider
             ->login(\App\Filament\App\Auth\Login::class)
             ->registration(\App\Filament\App\Auth\Register::class)
             ->passwordReset()
-            ->brandName(fn (): string => request()->routeIs('filament.app.resources.workflows.*') ? '' : 'CleverCRM')
+            ->brandName(fn (): string => request()->routeIs('filament.app.resources.workflows.*') ? '' : 'Clever')
             ->brandLogo(asset('logo/full_logo.png'))
             ->brandLogoHeight('2rem')
             ->favicon(asset('favicon-clevercrm-20260922.ico'))
@@ -104,11 +104,12 @@ class AppPanelProvider extends PanelProvider
                                 ->icon('heroicon-o-squares-2x2')
                                 ->url(fn (): string => Dashboard::getUrl()),
 
-                            NavigationItem::make('InvoiceRequests')
-                                ->label('Заявки на счет')
-                                ->icon('heroicon-o-document-text')
-                                ->visible(fn (): bool => (bool) auth()->user()?->is_root)
-                                ->url(fn (): string => InvoiceRequestResource::getUrl()),
+//архив
+//                            NavigationItem::make('InvoiceRequests')
+//                                ->label('Заявки на счет')
+//                                ->icon('heroicon-o-document-text')
+//                                ->visible(fn (): bool => (bool) auth()->user()?->is_root)
+//                                ->url(fn (): string => InvoiceRequestResource::getUrl()),
 
                             NavigationItem::make('WorkflowAdmin')
                                 ->label('Админ потоков')

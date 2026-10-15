@@ -110,3 +110,11 @@ test('an open inspector tracks field edits without falsely marking an untouched 
     wire.mountedActions[0].data.seconds=5;assert.equal(workbench.hasUnsavedChanges,false);
     wire.mountedActions=[];assert.equal(workbench.hasUnsavedChanges,false);
 });
+
+test('an incomplete draft in another node still marks the workflow unsaved', () => {
+    const {workbench,wire}=fixture();
+    wire.workflowInspectorDrafts={'action:previous':{data:{seconds:''},initial:{seconds:5}}};
+    assert.equal(workbench.hasUnsavedChanges,true);
+    wire.workflowInspectorDrafts={};
+    assert.equal(workbench.hasUnsavedChanges,false);
+});

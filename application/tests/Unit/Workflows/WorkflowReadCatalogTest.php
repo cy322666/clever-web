@@ -132,6 +132,20 @@ class WorkflowReadCatalogTest extends TestCase
         $this->assertArrayNotHasKey('operation_variant', $config);
     }
 
+    public function test_deal_by_id_preset_is_saved_as_a_request_parameter(): void
+    {
+        $page = \Livewire\Livewire::test(\Tests\Support\WorkflowCanvasFixture::class, ['workflowActions' => [
+            ['id' => 'read', 'type' => 'amocrm_read', 'config' => ['operation' => 'leads.one', 'id' => '42', 'body_mode' => 'fields', 'parameters' => []]],
+        ]])->call('openWorkflowActionEditor', 'read')
+            ->set('mountedActions.0.data.with_preset', 'contacts')
+            ->call('callMountedAction')->assertHasNoErrors();
+
+        $config = $page->get('workflowActions')[0]['config'];
+        $this->assertSame('fields', $config['body_mode']);
+        $this->assertArrayNotHasKey('with_preset', $config);
+        $this->assertSame(['with' => 'contacts'], WorkflowAmoReadCatalog::build($config)['query']);
+    }
+
     public function test_legacy_json_opens_as_parameters_with_an_identical_query_string(): void
     {
         $original = ['operation'=>'tasks.list', 'body_mode'=>'json', 'json_body'=>json_encode([

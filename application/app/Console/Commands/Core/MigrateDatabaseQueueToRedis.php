@@ -10,6 +10,7 @@ use Throwable;
 
 class MigrateDatabaseQueueToRedis extends Command
 {
+    //архив
     protected $signature = 'app:queue-migrate-database-to-redis
         {--delete : Delete database jobs after successful Redis write}
         {--limit=1000 : Maximum jobs to migrate per run}';

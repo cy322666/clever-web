@@ -56,29 +56,29 @@ class AppStats extends TableWidget
                     ->color('danger')
                     ->sortable(),
 
-                TextColumn::make('activation_rate')
-                    ->label('Конверсия')
-                    ->alignCenter()
-                    ->suffix('%')
-                    ->color(fn(float $state): string => $state >= 75 ? 'success' : ($state >= 50 ? 'warning' : 'danger')
-                    )
-                    ->sortable(),
+//                TextColumn::make('activation_rate')
+//                    ->label('Конверсия')
+//                    ->alignCenter()
+//                    ->suffix('%')
+//                    ->color(fn(float $state): string => $state >= 75 ? 'success' : ($state >= 50 ? 'warning' : 'danger')
+//                    )
+//                    ->sortable(),
 
-                TextColumn::make('count_users_active')
-                    ->label('Клиентов с активной интеграцией')
-                    ->alignCenter()
-                    ->sortable(),
+//                TextColumn::make('count_users_active')
+//                    ->label('Клиентов с активной интеграцией')
+//                    ->alignCenter()
+//                    ->sortable(),
 
                 TextColumn::make('count_transactions')
                     ->label('Транзакций')
                     ->alignCenter()
                     ->sortable(),
 
-                TextColumn::make('last_install_at')
-                    ->label('Последняя установка')
-                    ->dateTime('Y-m-d H:i:s')
-                    ->placeholder('—')
-                    ->sortable(),
+//                TextColumn::make('last_install_at')
+//                    ->label('Последняя установка')
+//                    ->dateTime('Y-m-d H:i:s')
+//                    ->placeholder('—')
+//                    ->sortable(),
             ])
             ->paginated(false);
     }

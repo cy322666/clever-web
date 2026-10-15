@@ -25,6 +25,8 @@ class WorkflowRun extends BaseWorkflowRun
 
     protected static function getCurrentTenantId(): int|string|null
     {
+        //архив
+//        return \App\Services\Workflows\WorkflowAdminAccess::tenantId();
         return \App\Services\Workflows\WorkflowAdminAccess::tenantId();
     }
 

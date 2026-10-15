@@ -22,7 +22,7 @@ class Sync extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Command description (Архив)';
 
     /**
      * Execute the console command.

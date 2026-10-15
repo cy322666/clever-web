@@ -41,6 +41,6 @@ class WorkflowPageTitleTest extends TestCase
         $request = Request::create('/panel/dashboard');
         $request->setRouteResolver(fn () => (new Route('GET', '/panel/dashboard', []))->name('filament.app.pages.dashboard'));
         $this->app->instance('request', $request);
-        $this->assertSame('CleverCRM', Filament::getPanel('app')->getBrandName());
+        $this->assertSame('Clever', Filament::getPanel('app')->getBrandName());
     }
 }

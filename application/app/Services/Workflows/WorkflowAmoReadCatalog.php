@@ -120,6 +120,27 @@ final class WorkflowAmoReadCatalog
         return $item ? [$operation => $item['name']] : [];
     }
 
+    /** Supported values for the amoCRM `with` GET parameter. Tags are included without it. */
+    public static function withOptions(string $operation): array
+    {
+        return match ($operation) {
+            'leads.list', 'leads.one' => [
+                'contacts' => 'Контакты',
+                'catalog_elements' => 'Элементы списков',
+                'loss_reason' => 'Причина отказа',
+                'source' => 'Источник',
+                'source_id' => 'ID источника',
+                'is_price_modified_by_robot' => 'Изменение бюджета роботом',
+            ],
+            'contacts.list', 'contacts.one' => [
+                'leads' => 'Сделки',
+                'customers' => 'Покупатели',
+                'catalog_elements' => 'Элементы списков',
+            ],
+            default => [],
+        };
+    }
+
     public static function options(): array
     {
         $groups = [];

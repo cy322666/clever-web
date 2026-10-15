@@ -2016,14 +2016,40 @@ class AmoCrmReadAction extends WorkflowAmoCrmAction
             ToggleButtons::make('body_mode')->hiddenLabel()->inline()->live()->default('fields')
                 ->options(fn(Get $get) => (WorkflowEntityQuery::supports($get('operation')) ? ['builder' => 'Конструктор'] : []) + ['fields' => 'Параметры']
                     + ($get('body_mode') === 'json' ? ['json' => 'Сохранённый запрос'] : []))
+                ->visible(fn(Get $get) => WorkflowEntityQuery::supports((string)$get('operation')) || $get('body_mode') === 'json')
+                ->dehydratedWhenHidden()
                 ->afterStateUpdated(function(Get $get, Set $set) {
                     if ($get('body_mode') !== 'builder') return;
                     foreach (['limit'=>50, 'page'=>1, 'direction'=>'asc'] as $key=>$value) if (blank($get($key))) $set($key, $value);
                 }),
             ...static::queryBuilderFields(),
-            Repeater::make('parameters')->label('Параметры запроса')->columns(1)->defaultItems(0)->reorderable(false)->addActionLabel('Добавить параметр')
-                ->schema([TextInput::make('name')->label('Параметр')->placeholder('filter[id][]')->required(), WorkflowValueInput::make('value')->label('Значение')])
-                ->visible(fn(Get $get) => !in_array($get('body_mode'), ['json', 'builder'], true)),
+            Section::make('Параметры')->compact()->collapsible()->collapsed(fn(Get $get) => empty($get('parameters')))
+                ->visible(fn(Get $get) => !in_array($get('body_mode'), ['json', 'builder'], true))
+                ->schema([
+                    Select::make('with_preset')->label('Добавить к ответу')->native(false)->live()->dehydrated(false)
+                        ->options(fn(Get $get): array => \App\Services\Workflows\WorkflowAmoReadCatalog::withOptions((string)$get('operation')))
+                        ->visible(fn(Get $get): bool => \App\Services\Workflows\WorkflowAmoReadCatalog::withOptions((string)$get('operation')) !== [])
+                        ->afterStateUpdated(function(mixed $state, Get $get, Set $set): void {
+                            $with = (string)$state;
+                            if (!isset(\App\Services\Workflows\WorkflowAmoReadCatalog::withOptions((string)$get('operation'))[$with])) return;
+                            $parameters = $get('parameters') ?? [];
+                            $found = false;
+                            foreach ($parameters as &$parameter) {
+                                if (($parameter['name'] ?? null) !== 'with') continue;
+                                $values = array_filter(array_map('trim', explode(',', (string)($parameter['value'] ?? ''))));
+                                if (!in_array($with, $values, true)) $values[] = $with;
+                                $parameter['value'] = implode(',', $values);
+                                $found = true;
+                                break;
+                            }
+                            unset($parameter);
+                            if (!$found) $parameters[] = ['name' => 'with', 'value' => $with];
+                            $set('parameters', $parameters);
+                            $set('with_preset', null);
+                        }),
+                    Repeater::make('parameters')->label('Параметры запроса')->columns(1)->defaultItems(0)->reorderable(false)->addActionLabel('Добавить параметр')
+                        ->schema([TextInput::make('name')->label('Параметр')->placeholder('filter[id][]')->required(), WorkflowValueInput::make('value')->label('Значение')]),
+                ]),
             static::jsonBody()->label('Сохранённые параметры запроса')
                 ->helperText('Прежний запрос с динамическими параметрами. Передаётся в URL, без тела. Для нового запроса выберите конструктор или параметры.'),
         ];

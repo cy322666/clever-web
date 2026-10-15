@@ -3,7 +3,6 @@
 namespace Tests\Unit\Billing;
 
 use App\Console\Commands\Billing\SyncSubscriptionPlans;
-use App\Filament\Resources\Billing\SubscriptionPlanResource;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Models\Billing\SubscriptionPlan;
@@ -19,7 +18,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 use Symfony\Component\Console\Tester\CommandTester;
 
 class YClientsPricingTest extends TestCase
@@ -162,17 +160,6 @@ class YClientsPricingTest extends TestCase
         $tester = new CommandTester($command);
         $this->assertSame(1, $tester->execute(['--widget' => 'missing']));
         $this->assertSame(0, SubscriptionPlan::query()->count());
-    }
-
-    public function test_billing_labels_match_sidebar_for_new_periods(): void
-    {
-        $period = new ReflectionMethod(SubscriptionPlanResource::class, 'periodLabel');
-        $monthly = new ReflectionMethod(SubscriptionPlanResource::class, 'monthlyPriceLabel');
-        foreach ([[90, 7990, '3 месяца', '2 663'], [730, 39900, '24 месяца', '1 663']] as [$days, $price, $label, $amount]) {
-            $plan = new SubscriptionPlan(['widget' => 'yclients', 'period_days' => $days, 'price_rub' => $price]);
-            $this->assertSame($label, $period->invoke(null, $plan));
-            $this->assertSame('примерно '.$amount.' руб./мес.', $monthly->invoke(null, $plan));
-        }
     }
 
     private function plan(string $slug, string $widget, int $price, int $days): SubscriptionPlan

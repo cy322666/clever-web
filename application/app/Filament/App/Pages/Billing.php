@@ -6,6 +6,7 @@ use Filament\Pages\Page;
 
 class Billing extends Page
 {
+    //удаляем
 //    protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
 //при обновлении начало ругаться

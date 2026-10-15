@@ -8,6 +8,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class AppStatsOverview extends StatsOverviewWidget
 {
+    //архив
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $heading = 'Ключевые метрики';
@@ -23,30 +24,30 @@ class AppStatsOverview extends StatsOverviewWidget
             : 0;
 
         return [
-            Stat::make('Установки', $this->formatNumber($totals['integrations_installed']))
-                ->description('Уникальных приложений: ' . $totals['apps_total'])
-                ->descriptionIcon('heroicon-o-squares-2x2')
-                ->chart($totals['installs_trend_14'])
-                ->color('info'),
+//            Stat::make('Установки', $this->formatNumber($totals['integrations_installed']))
+//                ->description('Уникальных приложений: ' . $totals['apps_total'])
+//                ->descriptionIcon('heroicon-o-squares-2x2')
+//                ->chart($totals['installs_trend_14'])
+//                ->color('info'),
 
-            Stat::make('Активные интеграции', $this->formatNumber($totals['integrations_active']))
-                ->description('Активных клиентов: ' . $this->formatNumber($totals['clients_with_active']))
-                ->descriptionIcon('heroicon-o-bolt')
-                ->color('success'),
+//            Stat::make('Активные интеграции', $this->formatNumber($totals['integrations_active']))
+//                ->description('Активных клиентов: ' . $this->formatNumber($totals['clients_with_active']))
+//                ->descriptionIcon('heroicon-o-bolt')
+//                ->color('success'),
 
-            Stat::make('Просроченные', $this->formatNumber($totals['integrations_expired']))
-                ->description('Нужно продлить/переподключить')
-                ->descriptionIcon('heroicon-o-exclamation-triangle')
-                ->color('danger'),
+//            Stat::make('Просроченные', $this->formatNumber($totals['integrations_expired']))
+//                ->description('Нужно продлить/переподключить')
+//                ->descriptionIcon('heroicon-o-exclamation-triangle')
+//                ->color('danger'),
 
-            Stat::make('Истекают за 7 дней', $this->formatNumber($totals['integrations_expiring_soon']))
-                ->descriptionIcon('heroicon-o-clock')
-                ->color('warning'),
+//            Stat::make('Истекают за 7 дней', $this->formatNumber($totals['integrations_expiring_soon']))
+//                ->descriptionIcon('heroicon-o-clock')
+//                ->color('warning'),
 
-            Stat::make('Конверсия в активные', $activationRate . '%')
-                ->description('От всех установленных интеграций')
-                ->descriptionIcon('heroicon-o-chart-bar-square')
-                ->color($activationRate >= 75 ? 'success' : ($activationRate >= 50 ? 'warning' : 'danger')),
+//            Stat::make('Конверсия в активные', $activationRate . '%')
+//                ->description('От всех установленных интеграций')
+//                ->descriptionIcon('heroicon-o-chart-bar-square')
+//                ->color($activationRate >= 75 ? 'success' : ($activationRate >= 50 ? 'warning' : 'danger')),
 
             Stat::make('Транзакции', $this->formatNumber($totals['transactions_total']))
                 ->description('Суммарно по всем приложениям')

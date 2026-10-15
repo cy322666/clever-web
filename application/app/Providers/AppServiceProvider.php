@@ -41,7 +41,7 @@ use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 use Leek\FilamentWorkflows\Triggers\DateConditionTrigger;
 use App\Workflows\Triggers\ScheduleTrigger;
 use Leek\FilamentWorkflows\Triggers\TriggerRegistry;
-use Studio\Totem\Totem;
+//use Studio\Totem\Totem;
 use Throwable;
 
 class AppServiceProvider extends ServiceProvider
@@ -154,11 +154,6 @@ class AppServiceProvider extends ServiceProvider
         FilamentAsset::register([
             Js::make('amochat', resource_path('js/amochat.js')),
         ]);
-
-        //        Totem::auth(function(Request $request) {
-        //
-        //            return $request->user()->is_root;
-        //        });
 
         if ($this->app->environment('production')) {
             URL::forceScheme('https');

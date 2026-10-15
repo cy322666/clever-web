@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 trait BuildsHorizonTags
 {
+    //чет с горизонтом, очередь тегает?
     /**
      * @param array<int, mixed> $tags
      * @return array<int, string>

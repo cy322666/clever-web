@@ -15,6 +15,7 @@ use Throwable;
 
 class Market extends Widget
 {
+    //страница с виджетами на главной, это виджет с виджетами
     protected static bool $isLazy = false;
 
     protected string $view = 'filament.app.widgets.market';

@@ -10,6 +10,7 @@ use Ufee\Amo\Base\Models\Traits;
 
 class ApiModel extends Model
 {
+    //надо разобраться как починились обновы сущностей (может вообще не чинить?)
     use Traits\LinkedUsers;
 
     protected static

@@ -5,21 +5,82 @@ namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\View;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 
 trait HasCompactWorkflowConfigurationPanels
 {
     public ?array $workflowInspectorInitialData = null;
+
+    #[Locked]
+    public array $workflowInspectorDrafts = [];
 
     public function isWorkflowInspectorAction(Action $action): bool
     {
         return in_array($action->getName(), ['configureWorkflowAction', 'configureTrigger'], true);
     }
 
-    protected function applyWorkflowInspectorDraft(): bool
+    protected function applyWorkflowInspectorDraft(bool $allowInvalid = false): bool
     {
-        if ($this->mountedActions === [] || !$this->isWorkflowInspectorAction($this->getMountedAction())) return true;
-        $this->callMountedAction();
-        return $this->mountedActions === [];
+        if ($this->mountedActions !== [] && $this->isWorkflowInspectorAction($this->getMountedAction())) {
+            $nodeId = $this->currentWorkflowInspectorNodeId();
+            $deferred = false;
+            try {
+                $this->callMountedAction();
+            } catch (ValidationException $exception) {
+                if (!$allowInvalid) throw $exception;
+                $deferred = true;
+                $data = $this->mountedActions[0]['data'] ?? [];
+                if ($data === ($this->workflowInspectorInitialData ?? [])) {
+                    unset($this->workflowInspectorDrafts[$nodeId]);
+                } else {
+                    $this->workflowInspectorDrafts[$nodeId] = [
+                        'data' => $data,
+                        'initial' => $this->workflowInspectorInitialData,
+                    ];
+                }
+                $this->unmountAction();
+                $this->resetErrorBag();
+            }
+            if ($this->mountedActions !== []) return false;
+            if (!$deferred) unset($this->workflowInspectorDrafts[$nodeId]);
+        }
+
+        if ($allowInvalid) return true;
+
+        foreach (array_keys($this->workflowInspectorDrafts) as $nodeId) {
+            if (!isset(\App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)[$nodeId])
+                && !isset(\App\Services\Workflows\WorkflowStartNodes::all($this->definition)[$nodeId])) {
+                unset($this->workflowInspectorDrafts[$nodeId]);
+                continue;
+            }
+            $this->resetWorkflowInspectorSchema();
+            if (str_starts_with($nodeId, 'action:')) $this->openWorkflowActionEditor(substr($nodeId, 7));
+            else $this->editTriggerNode($nodeId);
+            $this->callMountedAction();
+            if ($this->mountedActions !== []) return false;
+            unset($this->workflowInspectorDrafts[$nodeId]);
+        }
+
+        return true;
+    }
+
+    private function currentWorkflowInspectorNodeId(): string
+    {
+        return ($this->mountedActions[0]['name'] ?? '') === 'configureTrigger'
+            ? $this->editingTriggerNodeId
+            : 'action:'.$this->editingActionId;
+    }
+
+    private function restoreWorkflowInspectorDraft(Action $action): void
+    {
+        $nodeId = $this->currentWorkflowInspectorNodeId();
+        $draft = $this->workflowInspectorDrafts[$nodeId] ?? null;
+        if ($draft !== null) {
+            $this->mountedActions[$action->getNestingIndex()]['data'] = $draft['data'];
+        }
+        $this->workflowInspectorInitialData = $draft['initial']
+            ?? ($this->mountedActions[$action->getNestingIndex()]['data'] ?? []);
     }
 
     protected function resetWorkflowInspectorSchema(): void
@@ -39,13 +100,10 @@ trait HasCompactWorkflowConfigurationPanels
         abort_unless($exists, 422);
 
         if ($this->mountedActions !== []) {
-            // Switching nodes commits the current draft using the real form's
-            // validation/dehydration. Invalid input stays open, never discarded.
             if (count($this->mountedActions) !== 1 || !$this->isWorkflowInspectorAction($this->getMountedAction())) return;
             if (($isAction && ($this->mountedActions[0]['name'] ?? '') === 'configureWorkflowAction' && $this->editingActionId === substr($nodeId, 7))
                 || (!$isAction && ($this->mountedActions[0]['name'] ?? '') === 'configureTrigger' && $this->editingTriggerNodeId === $nodeId)) return;
-            $this->callMountedAction();
-            if ($this->mountedActions !== []) return;
+            if (!$this->applyWorkflowInspectorDraft(allowInvalid: true)) return;
         }
         $this->resetWorkflowInspectorSchema();
         if ($isAction) $this->openWorkflowActionEditor(substr($nodeId, 7));
@@ -83,10 +141,7 @@ trait HasCompactWorkflowConfigurationPanels
         if (count($this->mountedActions) !== 1 || !in_array($this->mountedActions[0]['name'] ?? '', ['configureWorkflowAction', 'configureTrigger'], true)) return;
         $navigation = $this->workflowNodeNavigation();
         if (!in_array($target, array_column(array_merge($navigation['previous'], $navigation['next']), 'id'), true)) return;
-        // Use the same validation, dehydration and save handler as the Done button.
-        // This updates the editor draft only, not the saved/published workflow.
-        $this->callMountedAction();
-        if ($this->mountedActions !== []) return;
+        if (!$this->applyWorkflowInspectorDraft(allowInvalid: true)) return;
         // Mounting another node uses the same action name and nesting index.
         // Discard the previous schema, as Filament's replaceMountedAction() does.
         $this->resetWorkflowInspectorSchema();
@@ -125,7 +180,7 @@ trait HasCompactWorkflowConfigurationPanels
     public function configureTriggerAction(): Action
     {
         return parent::configureTriggerAction()
-            ->afterFormFilled(fn (Action $action) => $this->workflowInspectorInitialData = $this->mountedActions[$action->getNestingIndex()]['data'] ?? [])
+            ->afterFormFilled(fn (Action $action) => $this->restoreWorkflowInspectorDraft($action))
             ->visible(fn (): bool => in_array($this->editingTriggerNode()['type'] ?? '', ['schedule', 'generic-webhook'], true))
             ->modalHeading(fn () => new \Illuminate\Support\HtmlString(view('filament.workflow-builder.workflow-node-navigation', $this->workflowNodeNavigation())->render()))
             ->fillForm(fn () => ($this->editingTriggerNode()['type'] ?? '') === 'schedule'
@@ -146,7 +201,7 @@ trait HasCompactWorkflowConfigurationPanels
     public function configureWorkflowActionAction(): Action
     {
         return parent::configureWorkflowActionAction()
-            ->afterFormFilled(fn (Action $action) => $this->workflowInspectorInitialData = $this->mountedActions[$action->getNestingIndex()]['data'] ?? [])
+            ->afterFormFilled(fn (Action $action) => $this->restoreWorkflowInspectorDraft($action))
             ->modalHeading(fn () => new \Illuminate\Support\HtmlString(view('filament.workflow-builder.workflow-node-navigation', $this->workflowNodeNavigation())->render()))
             ->fillForm(function () {
                 $step = $this->getEditingWorkflowAction();

@@ -22,11 +22,11 @@ class AppStats extends Page
     protected function getHeaderWidgets(): array
     {
         return [
-            AppStatsOverview::class,
-            AppStatsInstallTrendChart::class,
-            AppStatsStatusChart::class,
+//            AppStatsOverview::class,
+//            AppStatsInstallTrendChart::class,
+//            AppStatsStatusChart::class,
             \App\Filament\App\Widgets\AppStats::class,
-            QueueOpsOverview::class,
+//            QueueOpsOverview::class,
         ];
     }
 

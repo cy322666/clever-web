@@ -14,30 +14,30 @@ class Kernel extends ConsoleKernel
     {
         $schedule->useCache(config('cache.schedule_store', config('cache.default', 'file')));
 
-        $schedule->command('app:monitor-heartbeat')
+        $schedule->command('app:monitor-heartbeat')//почему так часто?
             ->everyMinute();
 
-        $schedule->command('app:monitor-queue-health')
+        $schedule->command('app:monitor-queue-health')//почему так часто?
             ->everyMinute()
             ->withoutOverlapping();
 
-        $schedule->command('app:check-amo-ownership')
+        $schedule->command('app:check-amo-ownership')//зачем вообще проверять?
             ->everyFifteenMinutes()
             ->withoutOverlapping();
 
-        $schedule->command('app:queue-backfill-failed --limit=1000')
+        $schedule->command('app:queue-backfill-failed --limit=1000')//почему так часто?
             ->everyMinute()
             ->withoutOverlapping();
 
         $schedule->command('horizon:snapshot')
-            ->everyFiveMinutes()
+            ->everyTenMinutes()
             ->withoutOverlapping();
 
-        $schedule->command('horizon:sync-platform-monitoring')
+        $schedule->command('horizon:sync-platform-monitoring')//не нужен ваще?
             ->everyThirtyMinutes()
             ->withoutOverlapping();
 
-        $schedule->command('workflows:fail-stuck-runs')
+        $schedule->command('workflows:fail-stuck-runs')//сомнительно но окэй
             ->everyMinute()
             ->withoutOverlapping();
 
@@ -74,16 +74,19 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:clear-month-log --days=14')
             ->dailyAt('02:00');
 
-        $schedule->command('app:api-requests-prune --days=' . (int)env('API_REQUESTS_RETENTION_DAYS', 30))
-            ->dailyAt('03:00')
-            ->withoutOverlapping();
+        //архив
+//        $schedule->command('app:api-requests-prune --days=' . (int)env('API_REQUESTS_RETENTION_DAYS', 30))
+//            ->dailyAt('03:00')
+//            ->withoutOverlapping();
 
-        if ((bool)env('YCLIENTS_RECORDS_PRUNE_ENABLED', false)) {
-            $schedule->command('yc:prune-records --days=' . (int)env('YCLIENTS_RECORDS_RETENTION_DAYS', 5))
-                ->dailyAt('03:30')
-                ->withoutOverlapping();
-        }
+        //нужна общая чистка и внутри нее уже эту
+//        if ((bool)env('YCLIENTS_RECORDS_PRUNE_ENABLED', false)) {
+//            $schedule->command('yc:prune-records --days=' . (int)env('YCLIENTS_RECORDS_RETENTION_DAYS', 5))
+//                ->dailyAt('03:30')
+//                ->withoutOverlapping();
+//        }
 
+        //походу архив?
         $schedule->command(sprintf(
             'workflows:db-maintenance --days=%d --raw-days=%d --run-days=%d',
             (int)env('WORKFLOWS_DB_MAINTENANCE_DAYS', 45),

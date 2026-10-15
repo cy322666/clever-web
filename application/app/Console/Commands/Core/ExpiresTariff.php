@@ -9,6 +9,8 @@ use Illuminate\Console\Command;
 class ExpiresTariff extends Command
 {
     /**
+     * архив
+     *
      * The name and signature of the console command.
      *
      * @var string

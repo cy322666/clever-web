@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 
 class QueueBackfillFailed extends Command
 {
+    //архив
     protected $signature = 'app:queue-backfill-failed {--limit=5000} {--dry-run}';
 
     protected $description = 'Backfill failed_jobs into queue_monitors for Filament queue monitor UI';

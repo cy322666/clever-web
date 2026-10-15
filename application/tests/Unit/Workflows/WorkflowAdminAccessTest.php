@@ -149,7 +149,7 @@ class WorkflowAdminAccessTest extends TestCase
     public function test_root_admin_overview_renders(): void
     {
         Livewire::actingAs($this->root)->test(WorkflowAdmin::class)
-            ->assertOk()->assertSee('client')->assertSee('Сценарий клиента')->assertSee('Все подключения');
+            ->assertOk()->assertSee('client')->assertDontSee('Сценарий клиента')->assertSee('Все подключения');
     }
 
     /** @return array<string, mixed> */
