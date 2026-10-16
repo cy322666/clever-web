@@ -174,6 +174,8 @@ test('an empty loop body has a replace-me action inside its visual loop frame', 
     assert.match(view,/workflow-loop-frame/);
     assert.match(view,/data-workflow-loop-placeholder="edge\.sourcePort === 'each' && !edge\.targetId \? 'true' : null"/);
     assert.match(view,/openEdgePalette\(edge.sourceId, edge.sourcePort, edge.targetId\)/);
+    const browser = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-browser-page.blade.php',import.meta.url),'utf8');
+    assert.match(browser,/:data-workflow-loop-placeholder="edge\.sourcePort==='each'&&!edge\.targetId\?'true':null"/);
 });
 
 test('done continuation through a shared body is smooth while actual nested returns stay angular', () => {
