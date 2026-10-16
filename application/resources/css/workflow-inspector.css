@@ -114,10 +114,10 @@
 .workflow-node-editor #workflow-canvas [data-workflow-node-card]:hover { box-shadow: 0 3px 12px rgb(39 59 78 / .14); }
 .workflow-node-editor #workflow-canvas [data-workflow-node-card][data-node-running="true"] { border-color: #ef7656 !important; }
 .workflow-node-editor #workflow-canvas [data-workflow-node-card][data-node-running="true"]::after {
-    content: ''; position: absolute; inset: -5px; border: 1px solid #ef7656; border-radius: inherit;
-    pointer-events: none; animation: workflow-node-pulse 1.4s ease-out infinite;
+    content: ''; position: absolute; inset: -5px; border: 2px solid #ef7656; border-radius: inherit; box-shadow: 0 0 18px rgb(239 118 86 / .45);
+    pointer-events: none; animation: workflow-node-pulse 1s ease-out infinite;
 }
-@keyframes workflow-node-pulse { from { opacity: .65; scale: 1; } to { opacity: 0; scale: 1.09; } }
+@keyframes workflow-node-pulse { from { opacity: .95; scale: 1; } to { opacity: 0; scale: 1.2; } }
 .workflow-node-editor #workflow-canvas .workflow-node-card__tools button:hover { background: #edf3f7; color: #2d8bb2; }
 .workflow-node-editor #workflow-canvas .workflow-node-card__tools button[aria-label^="Удалить"]:hover { background: #fff0ee; color: #c75145; }
 .dark .workflow-node-editor #workflow-canvas .workflow-node-card__tools button:hover { background: var(--workflow-dark-hover); color: #83c5de; }

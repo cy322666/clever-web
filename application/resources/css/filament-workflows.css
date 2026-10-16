@@ -6959,6 +6959,9 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-edge.is-selected { stroke-width: 3.5; filter: drop-shadow(0 0 3px rgb(115 126 141 / 0.3)); }
 .workflow-node-edge--preview { stroke-dasharray: 5 4; }
 .workflow-node-edge.workflow-node-edge--completed { stroke: #4d9c70 !important; }
+.workflow-node-edge.workflow-node-edge--running { stroke: #ef7656 !important; stroke-dasharray: 8 6; animation: workflow-edge-flow .65s linear infinite; }
+@keyframes workflow-edge-flow { to { stroke-dashoffset: -28; } }
+@media (prefers-reduced-motion: reduce) { .workflow-node-edge.workflow-node-edge--running { animation: none; } }
 .workflow-connection-hint { position: absolute; z-index: 35; top: 1rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; border: 1px solid #c5cdd7; border-radius: 0.5rem; background: #fff; color: #465262; box-shadow: 0 3px 12px rgb(31 41 55 / 0.1); font-size: 0.8125rem; white-space: nowrap; }
 .workflow-connection-hint button:hover { color: #111827; }
 .dark .workflow-connection-hint { background: var(--workflow-dark-surface); border-color: var(--workflow-dark-line); color: var(--workflow-dark-text); }
@@ -7012,7 +7015,6 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .workflow-node-output__loading .workflow-run-spinner { width: 22px; height: 22px; }
 .workflow-node-output[aria-busy="true"] > :not(.workflow-node-output__loading):not(.workflow-preview-progress) { display: none; }
 [data-workflow-node-card][data-node-running="true"] > :is(.workflow-node-status--success, .workflow-node-status--error, .workflow-node-result) { display: none; }
-[data-workflow-node-card][data-node-running="true"] > .workflow-node-status--running { display: block; color: #ef7656; }
 .workflow-node-settings .fi-fo-toggle-buttons label { background: #f4f5f7 !important; color: #697482 !important; border: 1px solid #d9dde3 !important; box-shadow: none !important; min-height: 30px; font-size: 12px; padding: 5px 12px; cursor: pointer; transition: background-color 120ms, border-color 120ms; }
 .workflow-node-settings .fi-fo-toggle-buttons-input:checked + label { background: #e5e8ed !important; color: #29333f !important; border-color: #a7b1be !important; }
 .dark .workflow-node-settings .fi-fo-toggle-buttons label { background: var(--workflow-dark-input) !important; color: var(--workflow-dark-muted) !important; border-color: var(--workflow-dark-line) !important; }

@@ -56,6 +56,22 @@ test('overlapping requests keep the indicator until both finish; unrelated actio
     assert.equal(f.running(), false);
 });
 
+test('step debugger pulses only its in-flight node and clears on every finish', () => {
+    const f = fixture();
+    f.wire.debugState = {next_id: 'fetch'};
+    const finish = f.start('nextWorkflowDebugStep');
+    assert.equal(f.running('fetch'), true);
+    assert.equal(f.running('contact'), false);
+    f.wire.debugState.next_id = 'following';
+    assert.equal(f.running('fetch'), true, 'The response must not move a pending indicator to the next node');
+    assert.equal(f.running('following'), false);
+    finish();
+    assert.equal(f.running(), false);
+    f.wire.debugState.next_id = null;
+    assert.equal(f.start('nextWorkflowDebugStep'), undefined);
+    assert.equal(f.running(), false);
+});
+
 for (const method of ['save', 'create']) {
     test(`${method}: saving starts immediately, is editor-scoped and finishes on any outcome`, () => {
         const f = fixture();

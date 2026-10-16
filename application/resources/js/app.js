@@ -29,6 +29,7 @@ window.initializeWorkflowNodeLoading = () => {
         const saving = ['save', 'create'].includes(action.name);
         const adding = ['selectTriggerType', 'selectActionType', 'selectReadOperation'].includes(action.name);
         const requestId = saving || adding ? action.name : action.name === 'runWorkflowCanvasNode' ? action.params[0]
+            : action.name === 'nextWorkflowDebugStep' ? action.component.reactive.debugState?.next_id
             : action.name === 'runEditingWorkflowNode' ? (action.component.reactive.editingActionId || 'trigger') : null;
         if (!requestId) return;
         const pending = window.Alpine.store('workflowNodeRuns')[saving ? 'saving' : adding ? 'adding' : 'pending'];
@@ -1375,6 +1376,24 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return true;
     },
 
+    edgeRunning(edge, active, runningNodes, results) {
+        if (!edge?.targetId || !runningNodes.has(edge.targetId) || active === 'false') return false;
+        if (active === 'true') return true;
+        const source = results.get(edge.sourceId);
+        if (edge.sourcePort === 'yes' || edge.sourcePort === 'no') {
+            if (!['completed', 'success', 'skipped'].includes(source?.status)) return false;
+            const passed = source.status === 'skipped' ? true : source.output?.passed ?? source.condition_result;
+            return passed !== undefined && passed !== null
+                && edge.sourcePort === ([true, 1, '1', 'true'].includes(passed) ? 'yes' : 'no');
+        }
+        if (edge.sourceId.startsWith('trigger')) {
+            const starts = this.nodeElements().filter(node => node.dataset.workflowNodeId.startsWith('trigger'));
+            return edge.sourceId === (this.executionState?.start_node_id || this.$wire?.debugStartNodeId
+                || (starts.length === 1 ? starts[0].dataset.workflowNodeId : null));
+        }
+        return ['completed', 'success', 'skipped'].includes(source?.status);
+    },
+
     applyExecutionState() {
         if (!this.executionState) return;
         const results = new Map((this.executionState.results || []).map((r) => [r.id.startsWith('trigger') ? r.id : 'action:' + r.id, r]));
@@ -1438,7 +1457,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         // Observe that reset too; position writes below are idempotent to avoid a loop.
         this.mutationObserver.observe(stage, {
             childList: true, subtree: true, attributes: true,
-            attributeFilter: ['style', 'class', 'data-workflow-node-id', 'data-workflow-detached',
+            attributeFilter: ['style', 'class', 'data-workflow-node-id', 'data-workflow-detached', 'data-node-running',
                 'data-workflow-edge-source', 'data-workflow-edge-port', 'data-workflow-edge-target', 'data-workflow-loop-return', 'data-workflow-loop-feedback'],
         });
 
@@ -1998,6 +2017,12 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
         const nodes = this.nodeElements();
         const nodeById = new Map(nodes.map((node) => [node.dataset.workflowNodeId, node]));
+        const runningNodes = new Set(nodes.filter(node => node.querySelector('[data-workflow-node-card]')?.dataset?.nodeRunning === 'true').map(node => node.dataset.workflowNodeId));
+        const liveResults = new Map();
+        if (runningNodes.size) {
+            for (const result of this.$wire?.debugState?.results || this.executionState?.results || []) liveResults.set('action:' + result.id, result);
+            for (const result of Object.values(this.$wire?.nodeRunResults || {})) liveResults.set('action:' + result.id, result);
+        }
         const stageRect = stage.getBoundingClientRect();
         const scale = this.scale || 1;
         const paths = [];
@@ -2174,6 +2199,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const markerColors = {
             default: '#78716c',
             completed: '#4d9c70',
+            running: '#ef7656',
         };
 
         Object.entries(markerColors).forEach(([name, color]) => {
@@ -2196,10 +2222,11 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         const edgePaths = paths.flatMap(({d, port, active, edge, preview, control, loopReturn, placeholderReturn, route, handles}) => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const completed = !preview && this.edgeCompleted(edge, active);
-            const marker = completed ? 'completed' : 'default';
+            const running = !preview && this.edgeRunning(edge, active, runningNodes, liveResults);
+            const marker = running ? 'running' : completed ? 'completed' : 'default';
 
             path.setAttribute('d', d);
-            path.setAttribute('class', `workflow-node-edge${completed ? ' workflow-node-edge--completed' : ''}`);
+            path.setAttribute('class', `workflow-node-edge${completed ? ' workflow-node-edge--completed' : ''}${running ? ' workflow-node-edge--running' : ''}`);
             path.setAttribute('marker-end', `url(#workflow-edge-arrow-${marker})`);
             if (loopReturn) path.setAttribute('data-workflow-loop-return', 'true');
             path.dataset.workflowEdgePort = port;

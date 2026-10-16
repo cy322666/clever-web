@@ -221,7 +221,7 @@ test('condition edges are neutral until evaluated and only the selected route is
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
     assert.doesNotMatch(css,/workflow-node-edge--(?:yes|no)/);
-    assert.match(source,/const marker = completed \? 'completed' : 'default'/);
+    assert.match(source,/const marker = running \? 'running' : completed \? 'completed' : 'default'/);
     assert.match(source,/const completed = !preview && this\.edgeCompleted/);
 });
 
