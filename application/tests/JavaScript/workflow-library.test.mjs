@@ -26,7 +26,7 @@ test('catalog browsing is entirely client side and insertion state is reset only
     state.closeLibrary(); assert.equal(state.open,false);
     assert.equal(state.floatingStyle().position,'fixed');
     assert.deepEqual(changes, ['insertConnection','insertActionPath','insertActionIndex','targetPath'].map(key=>[key,null,false]));
-    assert.match(source, /selectTriggerType\(@js\(\$trigger\['type'\]\), !replaceTrigger\)/);
+    assert.match(source, /workflowEditorCall\(\$wire, 'selectTriggerType', @js\(\$trigger\['type'\]\), !replaceTrigger\)/);
 });
 
 test('references open beside the visible inspector and stay on screen on narrow viewports', () => {

@@ -43,6 +43,9 @@
         'workflow-workbench--page' => $pageMode,
     ])
 >
+    @unless($isReplay)
+        @include('filament.workflow-builder.workflow-draft-templates')
+    @endunless
     {{-- Keep the poll directive mounted: Filament may update only the node modal.
          The expression sends no request while there is no active preview. --}}
     <span wire:poll.2s="$wire.nodePreviewTaskId && $wire.pollWorkflowNodePreview()" aria-hidden="true"></span>
@@ -54,28 +57,26 @@
                 <div class="workflow-workbench__identity">
                     <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index') }}" class="workflow-workbench__quick-action" aria-label="Сценарии" title="К списку сценариев"><x-filament::icon icon="heroicon-o-arrow-left" class="h-5 w-5"/></a>
                     <div class="workflow-identity-inline" x-data="{ editing: false }">
-                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button type="button" title="Переименовать поток" x-on:click="editing=true; $nextTick(() => { $refs.name.focus(); $refs.name.select(); })">{{ $workflowTitle }}</button></h1>
+                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button type="button" title="Переименовать поток" x-text="$wire.data.name || @js($workflowTitle)" x-on:click="editing=true; $refs.name.value=$wire.data.name || @js($workflowTitle); $nextTick(() => { $refs.name.focus(); $refs.name.select(); })">{{ $workflowTitle }}</button></h1>
                         <input x-ref="name" x-show="editing" x-cloak value="{{ $workflowTitle }}" maxlength="255" aria-label="Название потока"
                             x-on:keydown.enter.prevent.stop="$el.blur()" x-on:keydown.escape.prevent.stop="editing=false; $el.value=@js($workflowTitle)"
-                            x-on:blur="if(editing) { editing=false; $wire.renameWorkflow($el.value); }" />
+                            x-on:blur="if(editing) { editing=false; workflowEditorCall($wire, 'renameWorkflow', $el.value); }" />
                         @error('name')<small>{{ $message }}</small>@enderror
-                        @if($this->definition['tags'] ?? [])<div class="workflow-identity-tags">@foreach(array_slice($this->definition['tags'],0,3) as $tag)<span>{{ $tag }}</span>@endforeach @if(count($this->definition['tags'])>3)<span>+{{ count($this->definition['tags'])-3 }}</span>@endif</div>@endif
+                        <div class="workflow-identity-tags" x-show="($wire.definition.tags || []).length" x-cloak><template x-for="tag in ($wire.definition.tags || []).slice(0,3)" :key="tag"><span x-text="tag"></span></template><span x-show="($wire.definition.tags || []).length > 3" x-text="'+' + (($wire.definition.tags || []).length - 3)"></span></div>
                     </div>
                     <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
                         <summary title="Теги потока" aria-label="Теги потока"><x-filament::icon icon="heroicon-o-tag" class="h-4 w-4"/></summary>
                         <div x-data="{ tag: '' }">
-                            @foreach($this->definition['tags'] ?? [] as $tag)
-                                <button type="button" class="workflow-tag-chip" wire:click="setWorkflowTags(@js(array_values(array_diff($this->definition['tags'] ?? [], [$tag]))))" title="Удалить тег">{{ $tag }} ×</button>
-                            @endforeach
-                            <input x-model="tag" aria-label="Новый тег" placeholder="Добавить тег · Enter" maxlength="50" x-on:keydown.enter.prevent.stop="if(tag.trim()) { $wire.setWorkflowTags([...@js($this->definition['tags'] ?? []),tag.trim()]); tag=''; }" />
+                            <template x-for="existingTag in ($wire.definition.tags || [])" :key="existingTag"><button type="button" class="workflow-tag-chip" x-on:click="workflowEditorCall($wire, 'setWorkflowTags', ($wire.definition.tags || []).filter(value => value !== existingTag))" title="Удалить тег" x-text="existingTag + ' ×'"></button></template>
+                            <input x-model="tag" aria-label="Новый тег" placeholder="Добавить тег · Enter" maxlength="50" x-on:keydown.enter.prevent.stop="if(tag.trim()) { workflowEditorCall($wire, 'setWorkflowTags', [...($wire.definition.tags || []),tag.trim()]); tag=''; }" />
                             @error('tags')<small>{{ $message }}</small>@enderror
                         </div>
                     </details>
                     <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
-                        <summary title="Папка потока" aria-label="Папка потока"><x-filament::icon icon="heroicon-o-folder" class="h-4 w-4"/><span>{{ $this->data['group_name'] ?? $workflowRecord?->group_name ?? '' }}</span></summary>
-                        <div><select aria-label="Папка потока" wire:change="setWorkflowFolder($event.target.value)">
+                        <summary title="Папка потока" aria-label="Папка потока"><x-filament::icon icon="heroicon-o-folder" class="h-4 w-4"/><span x-text="$wire.data.group_name || ''">{{ $this->data['group_name'] ?? $workflowRecord?->group_name ?? '' }}</span></summary>
+                        <div><select aria-label="Папка потока" x-on:change="workflowEditorCall($wire, 'setWorkflowFolder', $event.target.value)">
                             <option value="">Без папки</option>
-                            @foreach(\App\Services\Workflows\WorkflowFolders::options() as $folder)
+                            @foreach($this->workflowEditorFolderOptions() as $folder)
                                 <option value="{{ $folder }}" @selected(($this->data['group_name'] ?? $workflowRecord?->group_name) === $folder)>{{ $folder }}</option>
                             @endforeach
                         </select></div>
@@ -196,7 +197,7 @@
                 <div class="workflow-selection-box" x-show="selectionBox" x-bind:style="selectionStyle()" x-cloak></div>
                 <div class="workflow-canvas-note" x-data="{ open: false, note: @js($this->definition['description'] ?? '') }" x-on:pointerdown.stop>
                     <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-label="Описание сценария" title="Описание сценария"><x-filament::icon icon="heroicon-o-document-text" class="h-4 w-4"/></button>
-                    <textarea x-show="open" x-cloak x-model="note" x-on:change="$wire.updateWorkflowDescription(note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
+                    <textarea x-show="open" x-cloak x-model="note" x-on:change="workflowEditorCall($wire, 'updateWorkflowDescription', note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
@@ -233,6 +234,7 @@
                         <div
                             class="workflow-node-shell workflow-node-shell--trigger"
                             data-workflow-node-id="{{ $startId }}"
+                            data-draft-type="{{ $start['type'] ?? '' }}"
                             wire:key="workflow-start-{{ $startId }}"
                         >
                             @if($start && $startMetadata)
@@ -247,8 +249,7 @@
                             @else
                                 <button
                                     type="button"
-                                    wire:click="beginTriggerAdd"
-                                    x-on:click="window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger' } }))"
+                                    x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')"
                                     class="workflow-node-empty"
                                 >
                                     <span class="workflow-node-card__icon">
@@ -271,7 +272,7 @@
                         @endif
                     </main>
 
-                    @if($this->trigger || $workflowActionItems->isNotEmpty())
+                    @if(!$isReplay || $this->trigger || $workflowActionItems->isNotEmpty())
                         <x-filament-workflows::workflows.edge-controls :actions="$workflowActionItems->all()" :connections="$this->definition['connections'] ?? null" :start-ids="array_keys($workflowStarts)"/>
                     @endif
                 </div>

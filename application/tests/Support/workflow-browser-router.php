@@ -15,6 +15,9 @@ require $root.'/vendor/autoload.php';
 $app = require $root.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 Tests\Support\WorkflowBrowserDatabase::prepare(getenv('WORKFLOW_BROWSER_TEST_DB') ?: ':memory:');
+if (!Illuminate\Support\Facades\Schema::hasColumn('workflow_runs', 'context_data')) {
+    Illuminate\Support\Facades\Schema::table('workflow_runs', fn (Illuminate\Database\Schema\Blueprint $table) => $table->json('context_data')->nullable());
+}
 Illuminate\Support\Facades\File::ensureDirectoryExists('/private/tmp/clever-browser-editor-sessions');
 config(['app.url' => 'http://127.0.0.1:8768', 'session.driver' => 'file', 'session.files' => '/private/tmp/clever-browser-editor-sessions',
     'session.cookie' => 'clever_browser_editor_fixture', 'session.secure' => false, 'session.domain' => null, 'queue.default' => 'sync']);
@@ -48,6 +51,10 @@ if (! App\Models\Workflows\Workflow::count()) {
 Illuminate\Support\Facades\Route::get('/__workflow-browser-preview', function () {
     $html = Livewire\Livewire::mount(App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\BrowserEditWorkflow::class, ['record' => 1]);
 
+    return Illuminate\Support\Facades\Blade::render('<x-filament-panels::layout.base><div style="height:100vh">{!! $editor !!}</div></x-filament-panels::layout.base>', ['editor' => $html]);
+})->middleware('web');
+Illuminate\Support\Facades\Route::get('/__workflow-draft-preview', function () {
+    $html = Livewire\Livewire::mount(App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\EditWorkflow::class, ['record' => 1]);
     return Illuminate\Support\Facades\Blade::render('<x-filament-panels::layout.base><div style="height:100vh">{!! $editor !!}</div></x-filament-panels::layout.base>', ['editor' => $html]);
 })->middleware('web');
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);

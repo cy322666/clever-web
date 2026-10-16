@@ -11,7 +11,7 @@ final class WorkflowExpressionCatalog
     {
         if (!\Illuminate\Support\Facades\Auth::id()) return [];
 
-        return \App\Models\amoCRM\Field::getAllFields()
+        return WorkflowEditorReferenceQuery::for(\App\Models\amoCRM\Field::class)->where('user_id', auth()->id())->where('active', true)
             ->whereIn('entity_type', ['leads', 'contacts', 'companies', 'customers'])
             ->orderBy('field_id')->get(['field_id', 'name', 'entity_type'])
             ->map(fn ($field) => ['id' => (string) $field->field_id, 'label' => $field->name, 'entity' => $field->entity_type])

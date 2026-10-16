@@ -181,6 +181,8 @@ class WorkflowRunReplayTest extends TestCase
         $page = Livewire::test(ReplayWorkflow::class, ['run' => 1]);
         $this->assertSame(3, count($page->get('debugState.results')));
         $page->call('renameWorkflow', 'Отлаженный поток')->assertSet('data.name', 'Отлаженный поток');
+        $this->assertSame('Рабочий поток', Workflow::findOrFail(1)->name);
+        $page->call('save')->assertHasNoErrors();
         $this->assertSame('Отлаженный поток', Workflow::findOrFail(1)->name);
     }
 }

@@ -25,6 +25,14 @@ class EditWorkflow extends BaseEditWorkflow
 
     protected ?bool $requestedActivation = null;
 
+    // Signed, locked metadata avoids Livewire restoring the workflow from SQL
+    // on every settings request. The editable definition stays in the browser.
+    #[\Livewire\Attributes\Locked]
+    public array $workflowRecordSnapshot = [];
+
+    #[\Livewire\Attributes\Locked]
+    public ?string $workflowRecordVersion = null;
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -37,8 +45,51 @@ class EditWorkflow extends BaseEditWorkflow
 
     public function hydrate(): void
     {
+        if (!isset($this->record) && $this->workflowRecordSnapshot !== []) {
+            $this->record = (new \App\Models\Workflows\Workflow)->newFromBuilder($this->workflowRecordSnapshot);
+            $this->record->definition = $this->definition;
+        }
         $this->restoreWorkflowOwnerContext();
         parent::hydrate();
+    }
+
+    public function dehydrate(): void
+    {
+        // Historical debugging keeps its original model lifecycle and input/output loading.
+        if (method_exists($this, 'isWorkflowReplay') && $this->isWorkflowReplay()) return;
+        if (!$this->record) return;
+        $this->workflowRecordVersion ??= $this->recordVersion($this->record);
+        $this->workflowRecordSnapshot = $this->record->getAttributes();
+        // Do not ship a second copy of the persisted graph, or an Eloquent model
+        // identifier that would be restored from SQL on the following request.
+        unset($this->workflowRecordSnapshot['definition']);
+        $this->record = null;
+    }
+
+    private function recordVersion(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return hash('sha256', json_encode([$record->name, $record->group_name, $record->is_active, $record->failure_strategy, $record->definition, (string) $record->updated_at]));
+    }
+
+    protected function refreshWorkflowRecordForSave(): void
+    {
+        $record = \App\Models\Workflows\Workflow::query()->lockForUpdate()->findOrFail($this->getRecord()->getKey());
+        abort_unless((int) $record->user_id === (int) auth()->id(), 403);
+        if ($this->workflowRecordVersion !== null && !hash_equals($this->workflowRecordVersion, $this->recordVersion($record))) {
+            \Filament\Notifications\Notification::make()->warning()->title('Поток изменён в другом окне')
+                ->body('Черновик остался здесь и не перезаписал новую версию. Откройте актуальный поток перед сохранением.')->send();
+            throw \Illuminate\Validation\ValidationException::withMessages(['definition' => 'Поток изменён в другом окне. Черновик остаётся здесь. Откройте актуальную версию перед сохранением.']);
+        }
+        $this->record = $record;
+        $this->authorizeAccess();
+    }
+
+    protected function refreshWorkflowRecordForRuntime(): void
+    {
+        $record = \App\Models\Workflows\Workflow::query()->findOrFail($this->getRecord()->getKey());
+        abort_unless((int) $record->user_id === (int) auth()->id(), 403);
+        $this->record = $record;
+        $this->authorizeAccess();
     }
 
     protected function getHeaderActions(): array
@@ -61,35 +112,18 @@ class EditWorkflow extends BaseEditWorkflow
 
     public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
     {
-        if (!$this->applyWorkflowInspectorDraft()) return;
-        parent::save($shouldRedirect, $shouldSendSavedNotification);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($shouldRedirect, $shouldSendSavedNotification): void {
+            $this->refreshWorkflowRecordForSave();
+            if (!$this->applyWorkflowInspectorDraft()) return;
+            parent::save($shouldRedirect, $shouldSendSavedNotification);
+        });
     }
 
     protected function persistWorkflowNodeRename(string $nodeId, string $name): void
     {
+        // Renaming updates references in the draft, not the saved workflow.
+        // The existing inline confirmation/validation behaviour is retained.
         $this->authorizeAccess();
-        $record = $this->getRecord()->refresh();
-        abort_unless((int) $record->user_id === (int) auth()->id(), 403);
-
-        $saved = \App\Services\Workflows\WorkflowExpressionCatalog::normalizeNames($record->definition ?? []);
-        $savedNames = \App\Services\Workflows\WorkflowExpressionCatalog::referenceNames($saved['actions'] ?? [], $saved);
-        if (isset($savedNames[$nodeId])) {
-            // Existing node: save only its name and affected references. Other
-            // unsaved canvas edits and open settings remain drafts.
-            $data = ['definition' => $this->renamedWorkflowDefinition($saved, $nodeId, $name)];
-        } else {
-            // A newly added node does not exist on disk yet. Its graph must be
-            // written with the rename or the name would disappear on reload.
-            $data = WorkflowResource::forceInactiveWhenActivationInvalid(
-                ['definition' => $this->definition, 'is_active' => (bool) $record->is_active],
-                $record,
-                notify: true,
-            );
-        }
-        $record->forceFill($data + ['updated_by' => auth()->id()])->save();
-        $this->data['is_active'] = (bool) $record->is_active;
-        // Name and folder can still have unsaved edits. Only the graph changed.
-        $this->savedWorkflowEditorState['definition'] = $data['definition'];
     }
 
     protected function getSavedNotificationTitle(): ?string
@@ -99,6 +133,7 @@ class EditWorkflow extends BaseEditWorkflow
 
     protected function afterSave(): void
     {
+        $this->workflowRecordVersion = $this->recordVersion($this->getRecord());
         $this->savedWorkflowEditorState = $this->workflowEditorState();
         // Saving acknowledges the current graph; it does not change its markup.
         // A redundant morph rebases flex/tree offsets and dirties the saved layout.
@@ -119,6 +154,11 @@ class EditWorkflow extends BaseEditWorkflow
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $data = parent::mutateFormDataBeforeSave($data);
+        // The empty canvas schema intentionally has no identity fields.
+        $data['name'] = $this->data['name'] ?? $this->getRecord()->name;
+        $data['group_name'] = $this->data['group_name'] ?? null;
+        \Illuminate\Support\Facades\Validator::make($data, ['name' => 'required|string|max:255', 'group_name' => 'nullable|string|max:255'])->validate();
+        if (filled($data['group_name'])) \App\Services\Workflows\WorkflowFolders::assertFolderExists($data['group_name']);
         // The canvas form has no fields, so Filament strips data.is_active on dehydration.
         $data['is_active'] = $this->requestedActivation ?? (bool) $this->getRecord()->is_active;
         $data = WorkflowResource::forceInactiveWhenActivationInvalid($data, $this->record, notify: true);

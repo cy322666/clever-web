@@ -41,7 +41,7 @@ class WorkflowTriggerConditionVariableCatalog
         }
 
         $entity = ['lead' => 'leads', 'contact' => 'contacts', 'company' => 'companies', 'customer' => 'customers'][$match[1]];
-        return AmoCrmField::query()->where('user_id', Auth::id())->where('active', true)
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmField::class)->where('user_id', Auth::id())->where('active', true)
             ->where('entity_type', $entity)->where('field_id', $match[2])->first(['type', 'enums']);
     }
 
@@ -275,7 +275,7 @@ class WorkflowTriggerConditionVariableCatalog
             return [];
         }
 
-        $pipelines = AmoCrmStatus::query()
+        $pipelines = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('is_archive', false)
@@ -304,7 +304,7 @@ class WorkflowTriggerConditionVariableCatalog
 
         $options = [];
 
-        $statuses = AmoCrmStatus::query()
+        $statuses = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('is_archive', false)
@@ -340,7 +340,7 @@ class WorkflowTriggerConditionVariableCatalog
 
         $options = [];
 
-        $statuses = AmoCrmStatus::query()
+        $statuses = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('is_archive', false)
@@ -383,7 +383,7 @@ class WorkflowTriggerConditionVariableCatalog
             'customers' => ['key' => 'customer', 'group' => 'Покупатель'],
         ];
 
-        $fields = AmoCrmField::query()
+        $fields = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmField::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->whereNotNull('field_id')
@@ -632,7 +632,7 @@ class WorkflowTriggerConditionVariableCatalog
             return $cache[$cacheKey];
         }
 
-        $status = AmoCrmStatus::query()
+        $status = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', Auth::id())
             ->where('active', true)
             ->where('is_archive', false)
@@ -692,7 +692,7 @@ class WorkflowTriggerConditionVariableCatalog
      */
     private static function amoFieldIdItems(int $userId): array
     {
-        return AmoCrmField::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmField::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->whereNotNull('field_id')
@@ -754,7 +754,7 @@ class WorkflowTriggerConditionVariableCatalog
      */
     private static function amoPipelineIdItems(int $userId): array
     {
-        $statuses = AmoCrmStatus::query()
+        $statuses = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('is_archive', false)
@@ -791,7 +791,7 @@ class WorkflowTriggerConditionVariableCatalog
      */
     private static function amoStatusIdItems(int $userId): array
     {
-        return AmoCrmStatus::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->where('is_archive', false)
@@ -813,7 +813,7 @@ class WorkflowTriggerConditionVariableCatalog
      */
     private static function amoStaffIdItems(int $userId): array
     {
-        return AmoCrmStaff::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStaff::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->whereNotNull('staff_id')
@@ -833,7 +833,7 @@ class WorkflowTriggerConditionVariableCatalog
      */
     private static function amoStaffGroupIdItems(int $userId): array
     {
-        return AmoCrmStaff::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStaff::class)
             ->where('user_id', $userId)
             ->where('active', true)
             ->whereNotNull('group_id')

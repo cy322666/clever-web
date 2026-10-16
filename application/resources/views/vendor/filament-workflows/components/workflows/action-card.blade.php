@@ -49,7 +49,7 @@
         x-on:click="if ($wire.debugOpen) selectDebugNode(@js($actionId)); else if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId: $wire.$id, nodeId: 'action:' + @js($actionId), name: nodeName}}))"
         tabindex="0"
         x-on:keydown.enter.self.prevent="$el.click()"
-        aria-label="Настроить: {{ $actionName }}"
+        aria-label="Настроить: {{ $actionName }}" x-bind:aria-label="'Настроить: ' + nodeName"
     @endunless
     {{ $attributes->class([
         'workflow-card workflow-node-card workflow-node-card--compact',
@@ -68,13 +68,13 @@
             <span class="workflow-node-port workflow-node-port--output" aria-hidden="true"></span>
         @endif
     @else
-    <button type="button" class="workflow-node-port workflow-node-port--input" x-on:pointerdown.stop="startIncomingConnection('action:' + @js($actionId), $event)" x-on:pointerup.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) finishConnection('action:' + @js($actionId), $event)" x-on:click.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) completeConnection('action:' + @js($actionId))" aria-label="Вход: {{ $actionName }}"></button>
+    <button type="button" class="workflow-node-port workflow-node-port--input" x-on:pointerdown.stop="startIncomingConnection('action:' + @js($actionId), $event)" x-on:pointerup.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) finishConnection('action:' + @js($actionId), $event)" x-on:click.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) completeConnection('action:' + @js($actionId))" aria-label="Вход: {{ $actionName }}" x-bind:aria-label="'Вход: ' + nodeName"></button>
     @if($isCondition || $isLoop)
         @foreach($branchPorts as $port => $label)
-            <button type="button" class="workflow-node-port workflow-node-port--output workflow-node-port--output-{{ $port }}" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), @js($port), $event)" x-on:click.stop @endunless aria-label="Выход {{ $label }}: {{ $actionName }}"><span class="workflow-node-port__label">{{ $label }}</span></button>
+            <button type="button" class="workflow-node-port workflow-node-port--output workflow-node-port--output-{{ $port }}" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), @js($port), $event)" x-on:click.stop @endunless aria-label="Выход {{ $label }}: {{ $actionName }}" x-bind:aria-label="@js('Выход '.$label.': ') + nodeName"><span class="workflow-node-port__label">{{ $label }}</span></button>
         @endforeach
     @else
-        <button type="button" class="workflow-node-port workflow-node-port--output" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), 'output', $event)" x-on:click.stop @endunless aria-label="Выход: {{ $actionName }}"></button>
+        <button type="button" class="workflow-node-port workflow-node-port--output" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), 'output', $event)" x-on:click.stop @endunless aria-label="Выход: {{ $actionName }}" x-bind:aria-label="'Выход: ' + nodeName"></button>
     @endif
     @endif
 
@@ -98,24 +98,24 @@
     @unless($readOnly)
         <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop x-on:keydown.stop>
             <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" x-bind:disabled="!!canvasAction(@js($actionId))?.disabled || workflowNodeIsRunning($wire)"
-                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" title="{{ $isLoop ? 'Взять первый элемент, не выполняя следующие ноды' : 'Реально выполнить ноду в текущем контексте' }}">
+                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" x-bind:aria-label="'Выполнить ноду: ' + nodeName" title="{{ $isLoop ? 'Взять первый элемент, не выполняя следующие ноды' : 'Реально выполнить ноду в текущем контексте' }}">
                 <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
             </button>
             <button type="button" x-on:click.stop="removeCanvasAction(@js($actionId))"
-                aria-label="Удалить ноду: {{ $actionName }}" title="Удалить ноду">
+                aria-label="Удалить ноду: {{ $actionName }}" x-bind:aria-label="'Удалить ноду: ' + nodeName" title="Удалить ноду">
                 <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
             </button>
             <button
                 type="button"
                 x-on:click.stop="toggleCanvasAction(@js($actionId))"
-                x-bind:aria-label="(canvasAction(@js($actionId))?.disabled ? 'Включить' : 'Выключить') + @js(' ноду: '.$actionName)"
+                x-bind:aria-label="(canvasAction(@js($actionId))?.disabled ? 'Включить' : 'Выключить') + ' ноду: ' + nodeName"
                 x-bind:title="(canvasAction(@js($actionId))?.disabled ? 'Включить' : 'Выключить') + ' ноду'"
                 x-bind:aria-pressed="!!canvasAction(@js($actionId))?.disabled"
             >
                 <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/>
             </button>
-            <button type="button" wire:click.stop="duplicateWorkflowActionStep(@js($actionId))" wire:loading.attr="disabled" wire:target="duplicateWorkflowActionStep"
-                aria-label="Скопировать ноду: {{ $actionName }}" title="Скопировать ноду">
+            <button type="button" x-on:click.stop="workflowEditorCall($wire, 'duplicateWorkflowActionStep', @js($actionId))"
+                aria-label="Скопировать ноду: {{ $actionName }}" x-bind:aria-label="'Скопировать ноду: ' + nodeName" title="Скопировать ноду">
                 <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
             </button>
         </div>

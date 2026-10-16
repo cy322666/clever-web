@@ -34,8 +34,7 @@
         @if($hasSettings)
             x-on:click="if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } }))"
         @else
-            wire:click="beginTriggerReplace(@js($nodeId))"
-            x-on:click="if (!renaming) window.dispatchEvent(new CustomEvent('workflow-node-library-open', { detail: { mode: 'trigger', replace: true } }))"
+            x-on:click="if (!renaming) workflowEditorCall($wire, 'beginTriggerReplace', @js($nodeId))"
         @endif
         tabindex="0"
         x-on:keydown.enter.self.prevent="$el.click()"
@@ -72,13 +71,13 @@
             <button type="button" x-on:click.stop="startRename()" aria-label="Переименовать ноду: {{ $name }}" title="Переименовать ноду"><x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/></button>
             <button
                 type="button"
-                wire:click="beginTriggerReplace(@js($nodeId))"
+                x-on:click.stop="workflowEditorCall($wire, 'beginTriggerReplace', @js($nodeId))"
                 aria-label="Заменить событие запуска"
                 title="Заменить событие запуска"
             >
                 <x-filament::icon icon="heroicon-o-arrows-right-left" class="h-4 w-4"/>
             </button>
-            <button type="button" wire:click="removeTriggerNode(@js($nodeId))" aria-label="Удалить запуск" title="Удалить запуск"><x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/></button>
+            <button type="button" x-on:click.stop="workflowEditorCall($wire, 'removeTriggerNode', @js($nodeId))" aria-label="Удалить запуск" title="Удалить запуск"><x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/></button>
         </div>
     @endunless
 </div>

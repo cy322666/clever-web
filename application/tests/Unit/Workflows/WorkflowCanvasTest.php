@@ -72,7 +72,7 @@ class WorkflowCanvasTest extends TestCase
         $document = new \DOMDocument;
         @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
         $xpath = new \DOMXPath($document);
-        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and button[starts-with(@aria-label, "Скопировать ноду:")]]');
+        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and not(ancestor::template) and button[starts-with(@aria-label, "Скопировать ноду:")]]');
         $this->assertCount(3, $toolbars);
         foreach ($toolbars as $toolbar) {
             $buttons = $xpath->query('./button', $toolbar);
@@ -83,7 +83,7 @@ class WorkflowCanvasTest extends TestCase
             $this->assertStringContainsString('toggleCanvasAction', $buttons[2]->getAttribute('x-on:click.stop'));
             $this->assertFalse($buttons[1]->hasAttribute('wire:click.stop'));
             $this->assertFalse($buttons[2]->hasAttribute('wire:click.stop'));
-            $this->assertStringContainsString('duplicateWorkflowActionStep', $buttons[3]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('duplicateWorkflowActionStep', $buttons[3]->getAttribute('x-on:click.stop'));
             $this->assertStringContainsString('Скопировать ноду', $buttons[3]->getAttribute('aria-label'));
             $this->assertCount(0, $xpath->query('./div[@role="menu"]', $toolbar));
         }
@@ -208,6 +208,8 @@ class WorkflowCanvasTest extends TestCase
     public function test_titles_use_below_tile_captions(): void
     {
         $html = Livewire::test(WorkflowCanvasFixture::class)->html();
-        $this->assertSame(4, substr_count($html, 'class="workflow-node-card__body workflow-node-card__caption"'));
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $this->assertCount(4, (new \DOMXPath($document))->query('//div[@class="workflow-node-card__body workflow-node-card__caption" and not(ancestor::template)]'));
     }
 }

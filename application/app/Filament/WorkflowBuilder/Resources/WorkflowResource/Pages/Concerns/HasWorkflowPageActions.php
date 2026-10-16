@@ -32,6 +32,7 @@ trait HasWorkflowPageActions
     use HasWorkflowCredentials;
     use HasWorkflowStartNodes;
     use HasWorkflowNodeNames;
+    use HasWorkflowDraftReferences;
 
     #[\Livewire\Attributes\Locked]
     public ?array $savedWorkflowEditorState = null;
@@ -43,6 +44,27 @@ trait HasWorkflowPageActions
             'group_name' => $this->data['group_name'] ?? null,
             'definition' => array_merge($this->definition, ['trigger' => $this->trigger, 'actions' => $this->workflowActions]),
         ];
+    }
+
+    public function workflowDraftCatalog(): array
+    {
+        $actions = [];
+        $registry = app(ActionRegistry::class);
+        foreach ($registry->getAllWithMetadata() as $item) {
+            if (!($item['available'] ?? true) || in_array($item['type'], [...WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), 'run_workflow'], true)) continue;
+            $actions[$item['type']] = $item + ['defaults' => $registry->getDefaultConfig($item['type'])];
+        }
+        $triggers = [];
+        $registry = app(TriggerRegistry::class);
+        foreach ($registry->getAllWithMetadata() as $item) {
+            if (in_array($item['type'], ['date-condition', 'workflow-completed'], true)) continue;
+            $triggers[$item['type']] = $item + ['defaults' => $registry->getDefaultConfig($item['type'])];
+        }
+        $definition = array_merge($this->definition, ['trigger' => $this->trigger, 'actions' => $this->workflowActions]);
+        return ['actions' => $actions, 'triggers' => $triggers,
+            'operations' => \App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations(),
+            'connections' => \App\Services\Workflows\WorkflowGraph::connections($definition),
+            'names' => \App\Services\Workflows\WorkflowExpressionCatalog::referenceNames($this->workflowActions, $definition)];
     }
 
     public ?string $insertActionPath = null;

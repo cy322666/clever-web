@@ -120,7 +120,7 @@ class WorkflowAmoCrmActionCatalog
             return self::$pipelineNameCache[$cacheKey];
         }
 
-        $status = AmoCrmStatus::query()
+        $status = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', Auth::id())
             ->where('active', true)
             ->where('is_archive', false)
@@ -148,7 +148,7 @@ class WorkflowAmoCrmActionCatalog
             return self::$statusNameCache[$cacheKey];
         }
 
-        $query = AmoCrmStatus::query()
+        $query = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', Auth::id())
             ->where('active', true)
             ->where('is_archive', false)
@@ -544,7 +544,7 @@ abstract class WorkflowAmoCrmAction
         }
 
         $entityType = static::amoFieldEntityType($entity);
-        $query = AmoCrmField::query()
+        $query = \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmField::class)
             ->where('user_id', $userId)
             ->where('active', true);
 
@@ -766,7 +766,7 @@ abstract class WorkflowAmoCrmAction
      */
     protected static function amoResponsibleOptions(): array
     {
-        return AmoCrmStaff::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStaff::class)
             ->where('user_id', Auth::id())
             ->where('active', true)
             ->whereNotNull('staff_id')
@@ -783,7 +783,7 @@ abstract class WorkflowAmoCrmAction
      */
     protected static function amoPipelineOptions(): array
     {
-        return AmoCrmStatus::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', Auth::id())
             ->where('active', true)
             ->where('is_archive', false)
@@ -806,7 +806,7 @@ abstract class WorkflowAmoCrmAction
             return [];
         }
 
-        return AmoCrmStatus::query()
+        return \App\Services\Workflows\WorkflowEditorReferenceQuery::for(AmoCrmStatus::class)
             ->where('user_id', Auth::id())
             ->where('active', true)
             ->where('is_archive', false)

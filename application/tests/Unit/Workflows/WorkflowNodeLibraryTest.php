@@ -42,7 +42,7 @@ class WorkflowNodeLibraryTest extends TestCase
         $html = $this->renderNodeLibrary([], false);
         foreach (\App\Services\Workflows\WorkflowAmoReadCatalog::operations() as $key => $item) {
             $available = isset(\App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations()[$key]);
-            $this->assertSame($available, str_contains($html, 'selectReadOperation('.\Illuminate\Support\Js::from($key)->toHtml().')'), $key);
+            $this->assertSame($available, str_contains($html, "'selectReadOperation', ".\Illuminate\Support\Js::from($key)->toHtml().')'), $key);
         }
         $this->assertStringContainsString('<strong>Примечания</strong>', $html);
         $this->assertStringContainsString('<strong>Теги</strong>', $html);

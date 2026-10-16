@@ -56,7 +56,10 @@ class CreateWorkflow extends BaseCreateWorkflow
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data = parent::mutateFormDataBeforeCreate($data);
+        $data['name'] = $this->data['name'] ?? $data['name'] ?? null;
+        $data['group_name'] = $this->data['group_name'] ?? $this->folder;
         $data['name'] = filled($data['name'] ?? null) ? $data['name'] : 'Новый процесс';
+        \Illuminate\Support\Facades\Validator::make($data, ['name' => 'required|string|max:255', 'group_name' => 'nullable|string|max:255'])->validate();
         $data['is_active'] = (bool)($data['is_active'] ?? false);
         $data['failure_strategy'] = $data['failure_strategy'] ?? FailureStrategies::STOP;
 

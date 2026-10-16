@@ -70,7 +70,7 @@ test('closing during load waits for the request then closes without leaving a st
     assert.equal(panel.opened,false);assert.equal(panel.loading,false);
 });
 
-test('inline rename is optimistic, autosaves, and restores a rejected value', async () => {
+test('inline rename is optimistic, confirms the draft, and restores a rejected value', async () => {
     const {window}=fixture();const state=window.workflowInlineNodeName('a','Нода');
     let release;
     state.$wire={workflowActions:[{id:'a',name:'Нода'}],renameWorkflowNode:async(id,name,inline)=>{

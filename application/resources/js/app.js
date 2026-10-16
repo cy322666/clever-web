@@ -432,7 +432,7 @@ window.workflowInlineNodeName = (nodeId, initialName) => ({
         this.renaming = false;
         this.renamingBusy = true;
         try {
-            const savedName = await this.$wire.renameWorkflowNode(nodeId, name, true);
+            const savedName = await window.workflowEditorCall(this.$wire, 'renameWorkflowNode', nodeId, name, true);
             if (savedName !== name) throw new Error('Название не подтверждено сервером.');
             // The server snapshot may arrive without a canvas morph.
             this.optimisticName = name;
@@ -447,6 +447,14 @@ window.workflowInlineNodeName = (nodeId, initialName) => ({
         finally { this.renamingBusy = false; }
     },
 });
+
+const workflowEditorDrafts = new Map();
+window.workflowDraftFor = wire => workflowEditorDrafts.get(wire?.$id);
+window.workflowEditorCall = (wire, method, ...params) => {
+    const draft = window.workflowDraftFor(wire);
+    try { return Promise.resolve(draft?.[method] ? draft[method](...params) : wire[method](...params)); }
+    catch (error) { return Promise.reject(error); }
+};
 
 window.workflowWorkbench = () => ({
     get hasUnsavedChanges() {
@@ -480,7 +488,14 @@ window.workflowWorkbench = () => ({
 
     initWorkbench() {
         this.$nextTick(() => this.syncEditorHeight());
+        if (this.$el.querySelector('[data-workflow-draft-catalog]')) {
+            import('./workflow-editor-draft.mjs').then(({installWorkflowEditorDraft}) => {
+                if (this.$el.isConnected) workflowEditorDrafts.set(this.$wire.$id, installWorkflowEditorDraft(this.$wire, this.$el));
+            });
+        }
     },
+
+    destroy() { workflowEditorDrafts.delete(this.$wire?.$id); },
 
     syncEditorHeight() {
         const page = this.$el.closest('.workflow-editor-page');
@@ -508,7 +523,7 @@ window.workflowBrowserEditor = boot => ({
 window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null, initialCoordinates = null, initialAreas = null) => ({
     // The legacy Livewire/replay views and the browser editor share geometry only.
     clientWire: null,
-    get editorWire() { return this.clientWire || this.$wire; },
+    get editorWire() { return this.clientWire || window.workflowDraftFor?.(this.$wire)?.adapter || this.$wire; },
     layoutKey,
     initialLayout,
     initialEdgeRoutes,
@@ -708,6 +723,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     },
 
     canvasEdges(initialEdges, startIds) {
+        if (window.workflowDraftFor?.(this.$wire)) startIds = [
+            ...(this.editorWire.trigger ? ['trigger'] : []), ...(this.editorWire.definition.additional_triggers || []).map(node => node.id),
+        ];
         let connections = this.editorWire?.definition?.connections;
         if (!Array.isArray(connections) && !this.pendingConnections.length) return initialEdges.filter(edge => !edge.branch);
         connections = Array.isArray(connections) ? [...connections] : initialEdges.filter(edge => edge.targetId && !edge.branch);

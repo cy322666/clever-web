@@ -12,14 +12,7 @@ trait HasWorkflowIdentity
     {
         $name = trim($name);
         Validator::make(['name'=>$name],['name'=>'required|string|max:255'])->validate();
-        $record = $this->identityRecord();
-        if ($record) {
-            $this->syncDefinition();
-            $data = \App\Filament\WorkflowBuilder\Resources\WorkflowResource::forceInactiveWhenActivationInvalid(
-                ['name' => $name, 'definition' => $this->definition, 'is_active' => (bool) $record->is_active], $record, notify: true);
-            $record->forceFill($data)->save();
-            $this->data['is_active'] = $record->is_active;
-        }
+        $this->identityRecord();
         $this->data['name'] = $name;
     }
 
@@ -27,11 +20,7 @@ trait HasWorkflowIdentity
     {
         Validator::make(['tags'=>$tags],['tags'=>'array|max:20','tags.*'=>'required|string|max:50'])->validate();
         $tags = array_values(array_unique(array_filter(array_map('trim',$tags))));
-        $record = $this->identityRecord();
-        if ($record) {
-            $saved = $record->fresh()->definition ?? [];
-            $record->forceFill(['definition'=>array_merge($saved,['tags'=>$tags])])->saveQuietly();
-        }
+        $this->identityRecord();
         $this->definition['tags'] = $tags;
     }
 
@@ -39,7 +28,7 @@ trait HasWorkflowIdentity
     {
         $folder = filled($folder) ? $folder : null;
         if ($folder !== null) WorkflowFolders::assertFolderExists($folder);
-        if ($record = $this->identityRecord()) WorkflowFolders::move($record,$folder);
+        $this->identityRecord();
         $this->data['group_name'] = $folder;
         if (property_exists($this, 'folder')) $this->folder = $folder;
     }

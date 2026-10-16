@@ -129,7 +129,7 @@ class WorkflowHardeningTest extends TestCase
         $this->assertSame([1, 2, 3], array_column($graph['results'], 'occurrence'));
     }
 
-    public function test_editor_rename_saves_the_current_schema_without_enabling_it(): void
+    public function test_editor_rename_keeps_the_current_schema_in_draft_without_enabling_it(): void
     {
         $this->actingAs(User::findOrFail(2));
         $flow = (new Workflow)->forceFill(['user_id' => 2, 'name' => 'Before', 'is_active' => false,
@@ -141,8 +141,10 @@ class WorkflowHardeningTest extends TestCase
         $page->definition['actions'][0]['config']['seconds'] = 10;
         $page->workflowActions = $page->definition['actions'];
         $page->renameWorkflow('After');
-        $this->assertSame('After', $flow->fresh()->name);
-        $this->assertSame(10, $flow->fresh()->definition['actions'][0]['config']['seconds']);
+        $this->assertSame('After', $page->data['name']);
+        $this->assertSame(10, $page->definition['actions'][0]['config']['seconds']);
+        $this->assertSame('Before', $flow->fresh()->name);
+        $this->assertSame(1, $flow->fresh()->definition['actions'][0]['config']['seconds']);
         $this->assertFalse($flow->fresh()->is_active);
     }
 }

@@ -114,7 +114,7 @@ class WorkflowEditorSaveStateTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_inline_node_rename_is_persisted_without_saving_an_open_inspector_draft(): void
+    public function test_inline_node_rename_stays_in_draft_until_explicit_save(): void
     {
         self::prepareDatabase();
         Http::preventStrayRequests();
@@ -137,13 +137,18 @@ class WorkflowEditorSaveStateTest extends TestCase
         $this->assertSame('Ожидание', $page->effects['returns'][0] ?? null);
         $this->assertArrayNotHasKey('html', $page->effects);
         $stored = $flow->fresh()->definition;
-        $this->assertSame('Ожидание', $stored['actions'][0]['name']);
+        $this->assertSame('Пауза', $stored['actions'][0]['name']);
         $this->assertSame(5, $stored['actions'][0]['config']['seconds']);
-        $this->assertSame('{{ $("Ожидание").seconds }}', $stored['actions'][1]['config']['seconds']);
+        $this->assertSame('{{ $("Пауза").seconds }}', $stored['actions'][1]['config']['seconds']);
         $this->assertNotSame(['x' => 700, 'y' => 300], $stored['canvas_layout']['action:delay'] ?? null);
-        $this->assertSame($stored, $page->get('savedWorkflowEditorState')['definition']);
+        $this->assertSame('Пауза', $page->get('savedWorkflowEditorState')['definition']['actions'][0]['name']);
         $this->assertSame(19, $page->get('mountedActions.0.data.seconds'));
         $this->assertSame(['x' => 700, 'y' => 300], $page->get('definition.canvas_layout.action:delay'));
+        $page->call('save')->assertHasNoErrors();
+        $stored = $flow->fresh()->definition;
+        $this->assertSame('Ожидание', $stored['actions'][0]['name']);
+        $this->assertSame(19, $stored['actions'][0]['config']['seconds']);
+        $this->assertSame('{{ $("Ожидание").seconds }}', $stored['actions'][1]['config']['seconds']);
         Http::assertNothingSent();
         Queue::assertNothingPushed();
     }

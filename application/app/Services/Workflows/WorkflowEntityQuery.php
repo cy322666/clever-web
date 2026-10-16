@@ -49,7 +49,7 @@ final class WorkflowEntityQuery
         ];
         if (!$userId) return $fields;
         $entity = explode('.', $operation)[0];
-        foreach (Field::query()->where('user_id', $userId)->where('entity_type', $entity)->where('active', true)->orderBy('sort')->get() as $custom) {
+        foreach (WorkflowEditorReferenceQuery::for(Field::class)->where('user_id', $userId)->where('entity_type', $entity)->where('active', true)->orderBy('sort')->get() as $custom) {
             $type = match ($custom->type) {
                 'numeric' => 'number', 'date', 'date_time' => 'date',
                 'select', 'multiselect', 'radiobutton' => 'enum', 'checkbox' => 'boolean',

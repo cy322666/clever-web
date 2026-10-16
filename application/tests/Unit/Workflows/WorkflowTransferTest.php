@@ -111,11 +111,14 @@ class WorkflowTransferTest extends TestCase
         WorkflowFolders::create('Папка A'); WorkflowFolders::create('Папка B');
         $editor->setWorkflowFolder('Папка A'); $editor->setWorkflowFolder('Папка B');
         $fresh = $flow->fresh();
-        $this->assertSame('Новое',$fresh->name);
-        $this->assertSame(['Тест','Продажи'],$fresh->definition['tags']);
-        $this->assertSame('Папка B',$fresh->group_name);
+        $this->assertSame('Новое',$editor->data['name']);
+        $this->assertSame(['Тест','Продажи'],$editor->definition['tags']);
+        $this->assertSame('Папка B',$editor->data['group_name']);
+        $this->assertSame('Старое',$fresh->name);
+        $this->assertSame(['Продажи'],$fresh->definition['tags']);
+        $this->assertNull($fresh->group_name);
         $this->assertFalse($fresh->is_active);
-        $this->assertSame('https://unsaved.test',$fresh->definition['actions'][0]['config']['url']);
+        $this->assertSame('https://example.test',$fresh->definition['actions'][0]['config']['url']);
         $this->assertSame('https://unsaved.test',$editor->definition['actions'][0]['config']['url']);
         $editor->setWorkflowFolder(null); $this->assertNull($flow->fresh()->group_name);
         $this->actingAs(User::findOrFail(2));
