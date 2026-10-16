@@ -188,9 +188,10 @@ export function createBrowserEditor(boot) {
                       : this.metadata(node).category || 'Действие';
             },
             syncBrowserHeight() {
-                this.$el.style.setProperty(
+                const root = this.$refs.browserEditor;
+                root.style.setProperty(
                     '--workflow-page-top',
-                    Math.max(0, this.$el.getBoundingClientRect().top) + 'px',
+                    Math.max(0, root.getBoundingClientRect().top) + 'px',
                 );
             },
             openNode(id) {
@@ -201,7 +202,8 @@ export function createBrowserEditor(boot) {
                 this.selectedNodeIds = [id];
                 this.inspectorTab = 'settings';
                 this.libraryOpen = false;
-                this.$el.toggleAttribute('data-workflow-inspector-open', true);
+                // Alpine's $el can be the clicked card; reserve space on the stable editor root.
+                this.$refs.browserEditor.toggleAttribute('data-workflow-inspector-open', true);
                 this.applyNodeSelection();
                 this.$nextTick(() => this.renderInspector());
             },
@@ -210,7 +212,7 @@ export function createBrowserEditor(boot) {
                 this.codeEditorCleanup = null;
                 this.selectedId = null;
                 this.expressionOpen = false;
-                this.$el.removeAttribute('data-workflow-inspector-open');
+                this.$refs.browserEditor.removeAttribute('data-workflow-inspector-open');
                 this.$nextTick(() => this.scheduleGraphRefreshAfterPaint());
             },
             switchTab(tab) {
@@ -553,7 +555,7 @@ export function createBrowserEditor(boot) {
                     if (nodeId) {
                         this.selectedId = nodeId;
                         this.inspectorTab = 'output';
-                        this.$el.toggleAttribute('data-workflow-inspector-open', true);
+                        this.$refs.browserEditor.toggleAttribute('data-workflow-inspector-open', true);
                     }
                     this.$nextTick(() => this.renderInspector());
                     if (state.error) this.error = state.error;

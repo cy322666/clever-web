@@ -135,6 +135,28 @@ test('local fields and rename do not request the server', () => {
     assert(state.hasUnsavedChanges);
 });
 
+test('inspector reserves and releases canvas space on the editor root, never the clicked card', () => {
+    const state = editor();
+    const attributes = new Set();
+    state.$refs.browserEditor = {
+        toggleAttribute: (name, enabled) => (enabled ? attributes.add(name) : attributes.delete(name)),
+        removeAttribute: (name) => attributes.delete(name),
+    };
+    state.$el = {
+        toggleAttribute: () => assert.fail('Must not reserve space on a clicked card'),
+        removeAttribute: () => assert.fail('Must not release space on the close button'),
+    };
+    state.applyNodeSelection = () => {};
+    state.scheduleGraphRefreshAfterPaint = () => {};
+    state.openNode('action:a');
+    assert.equal(state.selectedId, 'action:a');
+    assert(attributes.has('data-workflow-inspector-open'));
+    state.closeInspector();
+    assert.equal(state.selectedId, null);
+    assert(!attributes.has('data-workflow-inspector-open'));
+    assert(!state.hasUnsavedChanges);
+});
+
 test('variable insertion updates the active code editor instead of its hidden textarea', () => {
     const state = editor();
     state.selectedId = 'action:a';
@@ -187,8 +209,9 @@ test('one-node Play performs a real single-node request without silently simulat
         return { session: 'one', status: 'completed', results: [] };
     };
     state.setExecutionState = () => {};
-    state.$el = { toggleAttribute() {} };
+    state.$refs.browserEditor = { toggleAttribute() {} };
     await state.runDebug('node', 'action:a');
+    assert.equal(state.error, '');
     assert.equal(payload.real, true);
     assert.equal(payload.command, 'node');
     assert.equal(payload.nodeId, 'action:a');

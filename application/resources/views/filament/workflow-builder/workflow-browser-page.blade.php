@@ -5,7 +5,7 @@
         <script type="application/json" data-browser-boot>{!! json_encode($browserBoot, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) !!}</script>
         <p x-show="!ready" role="status" x-text="loadError || 'Открываю редактор…'">Открываю редактор…</p>
         <template x-if="ready">
-            <div x-data="editor" x-init="$nextTick(() => mountEditor())"
+            <div x-data="editor" x-ref="browserEditor" x-init="$nextTick(() => mountEditor())"
                  class="workflow-editor-page workflow-workbench workflow-workbench--page workflow-browser"
                  x-on:resize.window="syncBrowserHeight()" x-on:keydown.window="browserShortcut($event)"
                  x-on:workflow-node-library-open.window="openLibrary($event.detail.mode)"
