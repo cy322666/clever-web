@@ -211,8 +211,8 @@ final class WorkflowExpressionCatalog
                 if (!is_string($key) || !preg_match('/^[\pL\pN_.-]+$/uD', $key)
                     || preg_match('/token|password|authorization|secret/i', $key)) continue;
                 $path = $prefix === '' ? $key : $prefix.'.'.$key;
+                $paths[$path] = true;
                 if (is_array($value) && !array_is_list($value)) $visit($value, $path, $depth + 1);
-                elseif (!is_array($value)) $paths[$path] = true;
                 if (count($paths) >= 100) break;
             }
         };

@@ -2849,7 +2849,7 @@ window.workflowValueField = (state, filterItemsPath = null) => ({
         const wrap = value => '{{ ' + value + ' }}';
         const root = expression.match(/^\$\(\s*(["']?)([^"']*)$/u);
         const customField = expression.match(/^(.*\.cf)\(\s*(\d*)$/u);
-        const member = expression.match(/^(.*)\.([A-Za-z]*)$/u);
+        const member = expression.match(/^(.*)\.([\p{L}\p{N}_-]*)$/u);
         let candidates;
         if (root) {
             // Complete the node first, instead of flooding the list with its children.
@@ -2870,17 +2870,28 @@ window.workflowValueField = (state, filterItemsPath = null) => ({
         } else {
             const normalized = value => value.replace(/\$\('([^']*)'\)/gu, (_, name) => '$(' + JSON.stringify(name) + ')').toLocaleLowerCase();
             const search = normalized(query);
-            candidates = this.sources.flatMap(source => (source.fields || []).map(item => ({...item, source: source.name})))
-                .filter(item => item.expression && [item.expression, item.label, item.path, item.source].some(value => normalized(String(value ?? '')).includes(search)));
+            candidates = this.sources.flatMap(source => (source.fields || []).flatMap(item => {
+                const base = item.expression?.replace(/^\{\{\s*|\s*\}\}$/g, '').trim();
+                if (item.type !== 'array' || !base) return [{...item, source: source.name}];
+                // The node returns a list, not an object with these properties.
+                // Offer its real item keys with an explicit, valid first()/last()
+                // selector while keeping the whole collection available.
+                const selector = member?.[1].includes('.last()') ? 'last' : 'first';
+                return [{...item, source: source.name, label: 'Весь список', searchExpression: wrap(base + '.')},
+                    ...(item.item_fields || []).filter(key => /^[\p{L}_][\p{L}\p{N}_-]*(?:\.[\p{L}_][\p{L}\p{N}_-]*)*$/u.test(key))
+                        .map(key => ({source: source.name, label: (selector === 'last' ? 'Последний элемент' : 'Первый элемент') + ' · ' + key,
+                            expression: wrap(base + '.' + selector + '().' + key), searchExpression: wrap(base + '.' + key)}))];
+            })).filter(item => item.expression && [item.expression, item.searchExpression, item.label, item.path, item.source]
+                .some(value => normalized(String(value ?? '')).includes(search)));
             if (member && /^(\$\(|\$json\b|lead\b|contact\b|company\b|customer\b)/u.test(member[1])) {
                 const functions = [
                     {name: 'cf', suffix: 'cf()', label: 'Поле по ID: cf(123)', argument: true},
                     {name: 'first', suffix: 'first()', label: 'Первый элемент'},
                     {name: 'last', suffix: 'last()', label: 'Последний элемент'},
                 ].filter(item => item.name.startsWith(member[2]));
-                candidates = [...functions.map(item => ({source: 'Функция', label: item.label,
+                candidates = [...candidates, ...functions.map(item => ({source: 'Функция', label: item.label,
                     expression: wrap(member[1] + '.' + item.suffix),
-                    caret: item.argument ? ('{{ ' + member[1] + '.cf(').length : undefined})), ...candidates];
+                    caret: item.argument ? ('{{ ' + member[1] + '.cf(').length : undefined}))];
             }
         }
         const seen = new Set();
