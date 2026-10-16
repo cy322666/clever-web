@@ -112,7 +112,11 @@ final class WorkflowOutputView
         if (is_array($output['items'] ?? null)
             && (array_key_exists('has_more', $output) || array_key_exists('has_matches', $output)
                 || array_key_exists('count', $output))) {
-            return $value;
+            $visible = ['items' => self::entity($output['items'])];
+            foreach (['count', 'input_count'] as $counter) {
+                if (array_key_exists($counter, $output)) $visible[$counter] = $output[$counter];
+            }
+            return $visible;
         }
 
         unset($output['amo_exchange'], $output['amo_exchange_truncated']);

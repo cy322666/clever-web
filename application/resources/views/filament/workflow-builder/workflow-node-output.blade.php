@@ -36,7 +36,7 @@
                 <p class="workflow-node-output__empty">Нода не вернула выходных данных.</p>
             @else
                 @php($visibleOutput = \App\Services\Workflows\WorkflowOutputView::displayValue($result['output']))
-                @if($visibleOutput === [] && is_array($result['output']['items'] ?? null))
+                @if(is_array($visibleOutput) && ($visibleOutput['items'] ?? null) === [] && is_array($result['output']['items'] ?? null))
                     <p class="workflow-node-output__empty">Элементы не найдены.</p>
                 @else
                     @include('filament.workflow-builder.workflow-json-tree', ['value' => $visibleOutput])
