@@ -31,6 +31,7 @@
 }
 
 :root {
+    --clever-topbar-height: 3rem;
     --clever-ink: #0f0f0f;
     --clever-text: #0f172a;
     --clever-muted: #6f6f6f;
@@ -62,6 +63,21 @@ body.fi-body {
     background: #f6f4f0;
     color: var(--clever-text);
     font-family: var(--font-sans);
+}
+
+.fi-body.fi-body-has-topbar .fi-topbar {
+    min-height: var(--clever-topbar-height);
+}
+
+.fi-body.fi-body-has-topbar .fi-main-ctn {
+    min-height: calc(100dvh - var(--clever-topbar-height));
+}
+
+@media (min-width: 1024px) {
+    .fi-body.fi-body-has-topbar .fi-sidebar {
+        top: var(--clever-topbar-height);
+        height: calc(100dvh - var(--clever-topbar-height));
+    }
 }
 
 .fi-layout,
@@ -6505,7 +6521,7 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-data-panes > section + section { border-left: 1px solid #e1e5eb; }
 .workflow-data-panes h3 { padding: 0.5rem 0.875rem 0; font-size: 0.6875rem; font-weight: 600; color: #737d8b; }
 .workflow-data-panes pre { max-height: 25vh; min-height: 5rem; overflow: auto; padding: 0.625rem 0.875rem; margin: 0; background: transparent; color: #465262; font: 0.75rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
-.workflow-history-page { position: relative; height: calc(100dvh - 4rem); min-height: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
+.workflow-history-page { position: relative; height: calc(100dvh - var(--clever-topbar-height)); min-height: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
 body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page-content, .fi-page-header-main-ctn) { max-width: none !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; }
 .workflow-history-page__layout { flex-direction: row; }
 .workflow-history-page__header { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 3.5rem; height: 3.5rem; padding: 0 1rem; border-color: #d4dae2; }
@@ -6518,7 +6534,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .dark .workflow-history-page .workflow-workbench__quick-action:is(:hover, :focus-visible) { background: var(--workflow-dark-hover) !important; color: var(--workflow-dark-text) !important; }
 .workflow-history-page .workflow-workbench__quick-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .workflow-history-page > .workflow-overview-nav { flex: 0 0 auto; }
-.workflow-account-history-page .fi-page-header-main-ctn { height: calc(100dvh - 4rem); }
+.workflow-account-history-page .fi-page-header-main-ctn { height: calc(100dvh - var(--clever-topbar-height)); }
 .workflow-account-history-page .fi-header { flex-shrink: 0; }
 .workflow-account-history-page :is(.fi-page-main, .fi-page-content) { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .workflow-account-history-page .workflow-history-page { height: auto; flex: 1; }
