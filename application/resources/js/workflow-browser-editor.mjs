@@ -205,7 +205,10 @@ export function createBrowserEditor(boot) {
                 if (this.connecting) return;
                 this.error = '';
                 this.selectedId = id;
-                if (id.startsWith('trigger')) this.debugStartNodeId = id;
+                if (id.startsWith('trigger') && this.debugStartNodeId !== id) {
+                    this.debugStartNodeId = id;
+                    this.clearDebugInput();
+                }
                 this.selectedNodeIds = [id];
                 this.inspectorTab = 'settings';
                 this.libraryOpen = false;
@@ -229,6 +232,7 @@ export function createBrowserEditor(boot) {
             renameCurrent(value) {
                 if (!this.selectedId || !String(value).trim()) return;
                 try {
+                    if (this.renamePending && this.renamePending.id !== this.selectedId) this.flushRename(true);
                     this.machine.rename(this.selectedId, value);
                     this.error = '';
                     this.renamePending = { id: this.selectedId, name: this.currentNode.name };
@@ -550,10 +554,16 @@ export function createBrowserEditor(boot) {
                     this.saving = false;
                 }
             },
+            clearDebugInput() {
+                this.debugSession = null;
+                this.debugRawInput = null;
+                this.debugLoadedInputSnapshot = null;
+                this.debugInput = '{}';
+            },
             async loadDebugInput() {
                 if (!this.doc.id || this.running) return;
                 try {
-                    const result = await this.request(`/${this.doc.id}/debug`, { command: 'input' });
+                    const result = await this.request(`/${this.doc.id}/debug`, { command: 'input', nodeId: this.debugStartNodeId });
                     this.debugRawInput = result.input;
                     this.debugInput = JSON.stringify(result.display_input ?? result.input, null, 2);
                     this.debugLoadedInputSnapshot = this.debugInput;
@@ -1146,7 +1156,9 @@ export function createBrowserEditor(boot) {
                     const itemFields = collectionItemFields(value);
                     fields.push({ label: node.name, path: '', expression: '{{ ' + reference + ' }}',
                         type: Array.isArray(value) ? 'array' : 'object', item_fields: itemFields });
-                    if (itemFields.length && node.id !== '$json')
+                    const hasItemsOutput = Array.isArray(result?.output?.items)
+                        || ['amocrm_read', 'amocrm_query_leads', 'amocrm_contact_leads', 'workflow_filter_list'].includes(node.type);
+                    if (itemFields.length && node.id !== '$json' && hasItemsOutput)
                         fields.push({ label: 'Список элементов', path: '.items', expression: '{{ ' + reference + '.items }}',
                             type: 'array', item_fields: itemFields });
                     const visit = (value, path = '', depth = 0) => {

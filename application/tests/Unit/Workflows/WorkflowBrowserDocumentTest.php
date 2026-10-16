@@ -88,6 +88,22 @@ class WorkflowBrowserDocumentTest extends TestCase
         $this->assertSame('Запрос', $workflow->fresh()->definition['actions'][0]['name']);
     }
 
+    public function test_trigger_rename_updates_its_references_without_changing_action_settings(): void
+    {
+        $workflow = $this->workflow();
+        $definition = $workflow->definition;
+        $definition['actions'][0]['config']['url'] = '{{ $("Старт").item.url }}';
+        $workflow->update(['definition' => $definition]);
+        $this->patchJson('/workflow-editor/'.$workflow->id.'/node-name', [
+            'version' => app(WorkflowBrowserDocument::class)->version($workflow->fresh()),
+            'node_id' => 'trigger', 'name' => 'Ручной запуск',
+        ])->assertOk();
+        $saved = $workflow->fresh()->definition;
+        $this->assertSame('Ручной запуск', $saved['trigger']['name']);
+        $this->assertSame('{{ $("Ручной запуск").item.url }}', $saved['actions'][0]['config']['url']);
+        $this->assertTrue($saved['actions'][0]['config']['unknown_setting']['keep']);
+    }
+
     public function test_other_owner_cannot_read_refresh_debug_or_overwrite_workflow(): void
     {
         $workflow = $this->workflow();

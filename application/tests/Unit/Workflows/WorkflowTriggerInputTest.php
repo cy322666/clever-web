@@ -108,6 +108,21 @@ class WorkflowTriggerInputTest extends TestCase
         $this->assertSame(17, WorkflowOutputView::triggerPath($generic, 'payload.id'));
     }
 
+    public function test_browser_debug_input_returns_business_entity_separately_from_raw_execution_data(): void
+    {
+        $page = $this->page();
+        $this->history($page->record, $this->normalized());
+        $this->history($page->record, ['_workflow_start_node_id' => 'trigger:hook', 'event' => 'generic-webhook',
+            'source' => 'webhook', 'body' => ['id' => 999], 'payload' => ['id' => 999]]);
+        $response = $this->postJson('/workflow-editor/'.$page->record->id.'/debug', ['command' => 'input', 'nodeId' => 'trigger'])
+            ->assertOk()
+            ->assertJsonPath('display_input.id', $this->item['id'])
+            ->assertJsonPath('input.source', 'amocrm');
+        $this->assertArrayNotHasKey('source', $response->json('display_input'));
+        $this->postJson('/workflow-editor/'.$page->record->id.'/debug', ['command' => 'input', 'nodeId' => 'trigger:hook'])
+            ->assertOk()->assertJsonPath('display_input.id', 999);
+    }
+
     public function test_get_deal_by_id_builds_the_expected_request_from_the_short_field(): void
     {
         $context = (new WorkflowContext($this->normalized()))->setVariable('_node_names', ['Событие' => ['trigger']]);

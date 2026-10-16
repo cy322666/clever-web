@@ -9,6 +9,7 @@ use App\Services\Workflows\WorkflowExecutionStats;
 use App\Services\Workflows\WorkflowGraph;
 use App\Services\Workflows\WorkflowNodeReferences;
 use App\Services\Workflows\WorkflowOutputView;
+use App\Services\Workflows\WorkflowStartNodes;
 use App\Workflows\Engine\WorkflowDebugger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,8 +83,17 @@ final class WorkflowBrowserController extends Controller
         $data = $request->validate(['command' => 'required|in:start,step,node,input', 'session' => 'nullable|uuid',
             'definition' => 'nullable|array', 'input' => 'nullable|array', 'nodeId' => 'nullable|string|max:150', 'real' => 'boolean']);
         if ($data['command'] === 'input') {
-            $preview = app(\App\Services\Workflows\WorkflowGenericWebhookService::class)->latestPreview($owned);
-            $run = \App\Models\Workflows\WorkflowRun::query()->where('user_id', auth()->id())->where('workflow_id', $owned->id)->latest('created_at')->first();
+            $startId = $data['nodeId'] ?? 'trigger';
+            $start = WorkflowStartNodes::all($owned->definition)[$startId] ?? null;
+            abort_unless($start, 422, 'Выбранный запуск не найден.');
+            $preview = ($start['type'] ?? '') === 'generic-webhook'
+                ? app(\App\Services\Workflows\WorkflowGenericWebhookService::class)->latestPreview($owned) : null;
+            $run = \App\Models\Workflows\WorkflowRun::query()->where('user_id', auth()->id())
+                ->where('workflow_id', $owned->id)
+                ->where(function ($query) use ($startId): void {
+                    $query->where('context_data->trigger_data->_workflow_start_node_id', $startId);
+                    if ($startId === 'trigger') $query->orWhereNull('context_data->trigger_data->_workflow_start_node_id');
+                })->latest('created_at')->first();
 
             $input = $preview ? ['body' => $preview['payload'], 'headers' => $preview['headers']] : data_get($run?->context_data, 'trigger_data', []);
             return response()->json(['input' => $input, 'display_input' => WorkflowOutputView::trigger($input)]);

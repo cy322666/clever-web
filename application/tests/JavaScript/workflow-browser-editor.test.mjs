@@ -188,6 +188,47 @@ test('inspector rename updates immediately and saves only the node name in the b
     state.destroy();
 });
 
+test('rapid renames serialize versions and keep the latest name', async () => {
+    const state = editor();
+    state.selectedId = 'action:a';
+    let releaseFirst;
+    const calls = [];
+    state.request = (path, payload) => {
+        calls.push(payload);
+        const saved = document();
+        saved.definition.actions[0].name = payload.name;
+        if (calls.length === 1) return new Promise((resolve) => { releaseFirst = () => resolve({ document: saved, version: 'one' }); });
+        return Promise.resolve({ document: saved, version: 'two' });
+    };
+    state.renameCurrent('Первая');
+    const first = state.flushRename();
+    state.renameCurrent('Вторая');
+    const second = state.flushRename();
+    await Promise.resolve();
+    releaseFirst();
+    await Promise.all([first, second]);
+    assert.equal(calls[1].version, 'one');
+    assert.equal(calls[1].name, 'Вторая');
+    assert.equal(state.currentNode.name, 'Вторая');
+    assert(!state.hasUnsavedChanges);
+    state.destroy();
+});
+
+test('renaming a new node saves its graph automatically', async () => {
+    const state = editor();
+    state.selectedId = state.machine.add({ type: 'workflow_delay', name: 'Новая пауза', defaults: { seconds: 2 } });
+    let path;
+    state.request = async (requested, payload) => {
+        path = requested;
+        return { document: clone(payload.document), version: 'new' };
+    };
+    state.renameCurrent('Автоматически сохранена');
+    await state.flushRename(true);
+    assert.equal(path, '/120/document');
+    assert(!state.hasUnsavedChanges);
+    state.destroy();
+});
+
 test('list field suggestions use selected collection item keys without numeric expressions', () => {
     const state = editor();
     state.machine.value.definition.actions.push({ id: 'list', type: 'amocrm_read', name: 'Сделки', config: { operation: 'leads.list' } });
@@ -217,6 +258,7 @@ test('trigger input displays the entity while the execution keeps its original e
     state.setExecutionState = () => {};
     state.$refs.browserEditor = { toggleAttribute() {} };
     await state.loadDebugInput();
+    assert.equal(requests[0].nodeId, 'trigger');
     assert.equal(state.debugInput, JSON.stringify(raw.item, null, 2));
     await state.runDebug('start');
     assert.equal(requests[1].input.account.id, 7);
@@ -225,6 +267,21 @@ test('trigger input displays the entity while the execution keeps its original e
     await state.runDebug('start');
     assert.equal(requests[2].input.item.name, 'Новая заявка');
     assert.equal(requests[2].input.account.id, 7);
+});
+
+test('switching triggers discards the previous transport envelope', () => {
+    const state = editor();
+    state.machine.value.definition.additional_triggers = [{ id: 'trigger:hook', type: 'generic-webhook', name: 'Вебхук', config: {} }];
+    state.debugRawInput = { source: 'amocrm', item: { id: 1 } };
+    state.debugInput = '{"id":1}';
+    state.debugSession = 'old';
+    state.$refs.browserEditor = { toggleAttribute() {} };
+    state.applyNodeSelection = () => {};
+    state.openNode('trigger:hook');
+    assert.equal(state.debugStartNodeId, 'trigger:hook');
+    assert.equal(state.debugInput, '{}');
+    assert.equal(state.debugRawInput, null);
+    assert.equal(state.debugSession, null);
 });
 
 test('collection item paths and webhook edits never require a positional index', () => {
