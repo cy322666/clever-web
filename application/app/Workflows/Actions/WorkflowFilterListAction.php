@@ -25,7 +25,8 @@ class WorkflowFilterListAction
             WorkflowValueInput::make('items')->label('Список')->default('{{ $json.items }}')->required(),
             Select::make('match')->label('Совпадение')->options(['all'=>'Все условия · И','any'=>'Любое условие · ИЛИ'])->default('all')->required(),
             Repeater::make('rules')->label('Условия для каждого элемента')->addActionLabel('Добавить условие')->defaultItems(0)->schema([
-                WorkflowValueInput::make('field')->label('Поле элемента')->placeholder('pipeline_id, status_id, id…')->required(),
+                WorkflowValueInput::make('field')->label('Поле элемента')->relativePath()
+                    ->placeholder('Выберите ключ элемента списка')->helperText('Поле одного элемента, без [n].')->required(),
                 Select::make('operator')->label('Сравнение')->options(['eq'=>'Равно','neq'=>'Не равно','gt'=>'Больше','gte'=>'Не меньше','lt'=>'Меньше','lte'=>'Не больше','contains'=>'Содержит','empty'=>'Пусто','not_empty'=>'Не пусто'])->default('eq')->required(),
                 WorkflowValueInput::make('value')->label('Значение'),
             ]),
@@ -45,7 +46,7 @@ class WorkflowFilterListAction
             $rules = $config['rules'] ?? [];
             if (!is_array($rules) || count($rules) > 50) throw new \RuntimeException('Допустимо до 50 условий.');
             foreach ($rules as $rule) {
-                if (!is_array($rule) || !preg_match('/^[\w.-]+$/D', $rule['field'] ?? '') || !in_array($rule['operator'] ?? '', ['eq','neq','gt','gte','lt','lte','contains','empty','not_empty'], true)) throw new \RuntimeException('Заполните поле и сравнение каждого условия.');
+                if (!is_array($rule) || !preg_match('/^[\pL\pN_.-]+$/uD', $rule['field'] ?? '') || !in_array($rule['operator'] ?? '', ['eq','neq','gt','gte','lt','lte','contains','empty','not_empty'], true)) throw new \RuntimeException('Заполните поле и сравнение каждого условия.');
             }
             $matched = array_values(array_filter($items, function ($item) use ($rules, $mode): bool {
                 if ($rules === []) return true;

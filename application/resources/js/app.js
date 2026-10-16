@@ -408,14 +408,16 @@ window.workflowNodeLibrary = () => ({
 });
 
 window.workflowInlineNodeName = (nodeId, initialName) => ({
-    renaming: false, nameDraft: '', renameError: '', renamingBusy: false,
+    renaming: false, nameDraft: '', renameError: '', renamingBusy: false, optimisticName: null,
     get nodeName() {
+        if (this.optimisticName !== null) return this.optimisticName;
         if (nodeId === 'trigger') return this.$wire.trigger?.name || initialName;
         if (nodeId.startsWith('trigger:')) return this.$wire.definition?.additional_triggers?.find(node => node.id === nodeId)?.name || initialName;
         const find = steps => (steps || []).flatMap(step => [step, ...find(step.config?.true_actions), ...find(step.config?.false_actions)]);
         return find(this.$wire.workflowActions).find(node => node.id === nodeId)?.name || initialName;
     },
     startRename() {
+        if (this.renamingBusy) return;
         this.nameDraft = this.nodeName;
         this.renameError = '';
         this.renaming = true;
@@ -426,12 +428,20 @@ window.workflowInlineNodeName = (nodeId, initialName) => ({
         const name = this.nameDraft.trim();
         if (!name || [...name].length > 100) { this.renameError = 'От 1 до 100 символов'; return; }
         if (name === this.nodeName) { this.renaming = false; return; }
+        this.optimisticName = name;
+        this.renaming = false;
         this.renamingBusy = true;
         try {
-            await this.$wire.renameWorkflowNode(nodeId, name);
-            if (this.nodeName === name) this.renaming = false;
-            else this.renameError = 'Это название уже используется или нода удалена.';
-        } catch { this.renameError = 'Не удалось переименовать. Попробуйте ещё раз.'; }
+            await this.$wire.renameWorkflowNode(nodeId, name, true);
+            // The server snapshot may arrive without a canvas morph.
+            this.optimisticName = name;
+        } catch {
+            this.optimisticName = null;
+            this.nameDraft = name;
+            this.renaming = true;
+            this.renameError = 'Не удалось сохранить название. Проверьте, что оно уникально.';
+            this.$nextTick(() => this.$refs.nodeNameInput?.focus());
+        }
         finally { this.renamingBusy = false; }
     },
 });
@@ -2075,8 +2085,9 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 maxY = Math.max(maxY, startY + 40);
                 return;
             }
-            const buttonX = startX + 100;
-            const buttonY = startY + (['yes', 'done'].includes(port) ? -44 : ['no', 'each'].includes(port) ? 44 : 0);
+            const loopPlaceholder = button.dataset.workflowLoopPlaceholder !== undefined;
+            const buttonX = startX + (loopPlaceholder ? 190 : 100);
+            const buttonY = startY + (loopPlaceholder ? 100 : ['yes', 'done'].includes(port) ? -44 : ['no', 'each'].includes(port) ? 44 : 0);
             const buttonRadius = (button.getBoundingClientRect?.().width || 22 * scale) / scale / 2;
             const endX = buttonX - buttonRadius;
 
@@ -2087,6 +2098,22 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 edge: {sourceId: button.dataset.workflowEdgeSource, sourcePort: port, targetId: null},
             });
             positionControl(button, buttonX, buttonY);
+            if (loopPlaceholder) {
+                const frame = button.parentElement?.querySelector('.workflow-loop-frame');
+                const cardRect = card.getBoundingClientRect();
+                const left = (cardRect.left - stageRect.left) / scale - 24;
+                const top = (cardRect.top - stageRect.top) / scale - 42;
+                const right = Math.max((cardRect.right - stageRect.left) / scale, buttonX + buttonRadius) + 24;
+                const bottom = Math.max((cardRect.bottom - stageRect.top) / scale + 72, buttonY + 48) + 24;
+                if (frame) {
+                    for (const [property, value] of Object.entries({left, top, width: right - left, height: bottom - top})) {
+                        if (!frame.style[property] || Math.abs(parseFloat(frame.style[property]) - value) > 0.01) frame.style[property] = `${value}px`;
+                    }
+                    if (frame.style.visibility !== 'visible') frame.style.visibility = 'visible';
+                }
+                maxX = Math.max(maxX, right);
+                maxY = Math.max(maxY, bottom);
+            }
             maxX = Math.max(maxX, buttonX + buttonRadius);
             maxY = Math.max(maxY, buttonY + buttonRadius);
         });
@@ -2096,6 +2123,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 if (button.style.visibility !== 'hidden') button.style.visibility = 'hidden';
                 const remove = button.nextElementSibling;
                 if (remove?.hasAttribute('data-workflow-edge-delete') && remove.style.visibility !== 'hidden') remove.style.visibility = 'hidden';
+                const frame = button.parentElement?.querySelector('.workflow-loop-frame');
+                if (frame) frame.style.visibility = 'hidden';
             }
         });
 
@@ -2496,11 +2525,12 @@ window.workflowExpressionPicker = (sources, customFields = []) => ({
             const collapsed = this.collapsedJson.includes(item.key);
             const label = depth && parentType !== 'array' ? JSON.stringify(item.label) + ': ' : '';
             const value = container || !item.available ? 'null' : JSON.stringify(item.value) ?? 'null';
+            const arrayPreview = item.type === 'array' && !nested.length && item.count > 0 ? `[${item.count} элементов]` : null;
             rows.push({id: item.key + ':value', item, depth, label, type: container ? 'punctuation' : item.type,
                 value: container ? (item.type === 'array' ? [] : {}) : item.value,
                 copyable: item.available && (!container || item.count === 0),
                 branch: container && nested.length > 0, collapsed,
-                text: container ? open + (collapsed ? ' … ' + close + comma : nested.length ? '' : close + comma) : value + comma});
+                text: container ? (arrayPreview ? arrayPreview + comma : open + (collapsed ? ' … ' + close + comma : nested.length ? '' : close + comma)) : value + comma});
             if (container && nested.length && !collapsed) {
                 nested.forEach((child, index) => visit(child, depth + 1, index < nested.length - 1 ? ',' : '', item.type));
                 rows.push({id: item.key + ':close', depth, label: '', type: 'punctuation', text: close + comma});
@@ -2544,6 +2574,7 @@ window.workflowExpressionPicker = (sources, customFields = []) => ({
     },
     valueText(value) { const text = typeof value === 'string' ? value : JSON.stringify(value); return (text ?? 'null').slice(0, 180); },
     async insert(item) {
+        if (!item?.expression) return;
         if (!this.field?.isConnected) {
             try { await navigator.clipboard.writeText(item.expression); this.preview = 'Скопировано'; } catch { this.preview = item.expression; }
             return;
@@ -2625,13 +2656,46 @@ window.workflowHeadersField = (state) => ({
     removeRow(id) { this.rows = this.rows.filter(row => row.id !== id); this.syncRows(); },
 });
 
-window.workflowValueField = (state) => ({
-    state, mode: 'value', sources: [], customFields: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
-    init() { if (typeof this.state === 'boolean') this.state = this.state ? '1' : '0'; this.mode = typeof this.state === 'string' && this.state.includes('{{') ? 'expression' : 'value'; },
+window.workflowFilterItemFields = (sources, expression) => {
+    const normalize = value => String(value ?? '').trim()
+        .replace(/^\{\{\s*|\s*\}\}$/g, '')
+        .replace(/\$node\[(["'])(.*?)\1\]\.json/g, (_, quote, name) => '$(' + JSON.stringify(name) + ')')
+        .replace(/\$\('([^']*)'\)/g, (_, name) => '$(' + JSON.stringify(name) + ')').trim();
+    const selected = normalize(expression);
+    if (!selected) return [];
+    const ordered = sources.filter(source => source.id !== '$vars').flatMap(source => source.fields || []);
+    let list = ordered.find(field => field.type === 'array' && field.expression && normalize(field.expression) === selected);
+    if (!list && /^\$json(?:\.items)?$/.test(selected)) {
+        const source = sources.filter(item => item.id !== '$vars').at(-1);
+        list = source?.fields.find(field => field.type === 'array' && (selected === '$json' ? field.key === '' : ['', '.items'].includes(field.key)));
+    }
+    if (!list && selected.startsWith('[')) {
+        try {
+            const items = JSON.parse(selected);
+            if (Array.isArray(items)) return [...new Set(items.slice(0, 20).flatMap(item => item && typeof item === 'object' && !Array.isArray(item) ? Object.keys(item) : []))];
+        } catch { /* A draft JSON value is not a source. */ }
+    }
+    return list?.item_fields || [];
+};
+
+window.workflowValueField = (state, filterItemsPath = null) => ({
+    state, filterItemsPath, mode: 'value', sources: [], customFields: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
+    init() { if (typeof this.state === 'boolean') this.state = this.state ? '1' : '0'; this.mode = !this.filterItemsPath && typeof this.state === 'string' && this.state.includes('{{') ? 'expression' : 'value'; },
     suggest(event) {
         const field = event.target;
         if (!field?.hasAttribute?.('data-workflow-value-input')) return;
         const text = field.value;
+        if (this.filterItemsPath) {
+            let itemsExpression = '';
+            try { itemsExpression = this.$wire.$get(this.filterItemsPath) ?? ''; } catch { /* The form can be changing nodes. */ }
+            const keys = window.workflowFilterItemFields(this.sources, itemsExpression);
+            this.tokenStart = 0;
+            this.tokenEnd = text.length;
+            this.suggestions = keys.filter(key => key.toLocaleLowerCase().startsWith(text.toLocaleLowerCase()) && key !== text)
+                .slice(0, 8).map(key => ({source: 'Элемент списка', label: key, expression: key, replacement: key}));
+            this.suggestionIndex = 0;
+            return;
+        }
         const cursor = field.selectionStart ?? text.length;
         const before = text.slice(0, cursor);
         const start = before.lastIndexOf('{{');
@@ -2668,7 +2732,7 @@ window.workflowValueField = (state) => ({
             const normalized = value => value.replace(/\$\('([^']*)'\)/gu, (_, name) => '$(' + JSON.stringify(name) + ')').toLocaleLowerCase();
             const search = normalized(query);
             candidates = this.sources.flatMap(source => (source.fields || []).map(item => ({...item, source: source.name})))
-                .filter(item => [item.expression, item.label, item.path, item.source].some(value => normalized(String(value ?? '')).includes(search)));
+                .filter(item => item.expression && [item.expression, item.label, item.path, item.source].some(value => normalized(String(value ?? '')).includes(search)));
             if (member && /^(\$\(|\$json\b|lead\b|contact\b|company\b|customer\b)/u.test(member[1])) {
                 const functions = [
                     {name: 'cf', suffix: 'cf()', label: 'Поле по ID: cf(123)', argument: true},

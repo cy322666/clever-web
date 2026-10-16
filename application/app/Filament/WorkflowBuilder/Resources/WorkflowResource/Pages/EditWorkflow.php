@@ -65,6 +65,33 @@ class EditWorkflow extends BaseEditWorkflow
         parent::save($shouldRedirect, $shouldSendSavedNotification);
     }
 
+    protected function persistWorkflowNodeRename(string $nodeId, string $name): void
+    {
+        $this->authorizeAccess();
+        $record = $this->getRecord()->refresh();
+        abort_unless((int) $record->user_id === (int) auth()->id(), 403);
+
+        $saved = \App\Services\Workflows\WorkflowExpressionCatalog::normalizeNames($record->definition ?? []);
+        $savedNames = \App\Services\Workflows\WorkflowExpressionCatalog::referenceNames($saved['actions'] ?? [], $saved);
+        if (isset($savedNames[$nodeId])) {
+            // Existing node: save only its name and affected references. Other
+            // unsaved canvas edits and open settings remain drafts.
+            $data = ['definition' => $this->renamedWorkflowDefinition($saved, $nodeId, $name)];
+        } else {
+            // A newly added node does not exist on disk yet. Its graph must be
+            // written with the rename or the name would disappear on reload.
+            $data = WorkflowResource::forceInactiveWhenActivationInvalid(
+                ['definition' => $this->definition, 'is_active' => (bool) $record->is_active],
+                $record,
+                notify: true,
+            );
+        }
+        $record->forceFill($data + ['updated_by' => auth()->id()])->save();
+        $this->data['is_active'] = (bool) $record->is_active;
+        // Name and folder can still have unsaved edits. Only the graph changed.
+        $this->savedWorkflowEditorState['definition'] = $data['definition'];
+    }
+
     protected function getSavedNotificationTitle(): ?string
     {
         return null;

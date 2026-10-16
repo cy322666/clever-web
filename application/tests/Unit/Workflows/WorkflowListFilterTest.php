@@ -34,4 +34,13 @@ class WorkflowListFilterTest extends TestCase
             ['field'=>'id','operator'=>'eq','value'=>2],['field'=>'id','operator'=>'eq','value'=>3],
         ]])['output']['count']);
     }
+
+    public function test_relative_nested_and_unicode_item_keys_do_not_need_an_array_index(): void
+    {
+        $result = (new WorkflowFilterListAction)->handle(['items' => [
+            ['Контакт' => ['Имя' => 'Анна']], ['Контакт' => ['Имя' => 'Иван']],
+        ], 'rules' => [['field' => 'Контакт.Имя', 'operator' => 'eq', 'value' => 'Иван']]]);
+        $this->assertTrue($result['success']);
+        $this->assertSame([['Контакт' => ['Имя' => 'Иван']]], $result['output']['items']);
+    }
 }

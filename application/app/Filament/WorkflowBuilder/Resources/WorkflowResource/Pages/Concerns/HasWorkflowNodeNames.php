@@ -35,27 +35,14 @@ trait HasWorkflowNodeNames
             ->action(fn (array $arguments, array $data) => $this->renameWorkflowNode((string) ($arguments['id'] ?? ''), $data['name']));
     }
 
-    public function renameWorkflowNode(string $nodeId, string $name): void
+    public function renameWorkflowNode(string $nodeId, string $name, bool $inline = false): void
     {
         $name = trim($name);
         if ($name === '' || mb_strlen($name) > 100) throw ValidationException::withMessages(['name' => 'Введите название от 1 до 100 символов.']);
         $definition = array_merge($this->definition, ['trigger' => $this->trigger, 'actions' => $this->workflowActions]);
         $before = WorkflowExpressionCatalog::referenceNames($this->workflowActions, $definition);
-        if ($this->availableWorkflowNodeName($name, $nodeId) !== $name) {
-            throw ValidationException::withMessages(['name' => 'Нода с таким названием уже есть. Укажите другое название.']);
-        }
-        if ($nodeId === 'trigger' && $this->trigger) {
-            $definition['trigger']['name'] = $name;
-        } elseif (isset(WorkflowStartNodes::all($definition)[$nodeId])) {
-            foreach ($definition['additional_triggers'] as &$start) if ($start['id'] === $nodeId) $start['name'] = $name;
-            unset($start);
-        } elseif ($node = WorkflowGraph::nodes($this->workflowActions)['action:'.$nodeId] ?? null) {
-            data_set($definition['actions'], $node['path'].'.name', $name);
-        } else {
-            throw ValidationException::withMessages(['name' => 'Нода уже удалена. Обновите схему.']);
-        }
+        $definition = $this->renamedWorkflowDefinition($definition, $nodeId, $name);
         $after = WorkflowExpressionCatalog::referenceNames($definition['actions'], $definition);
-        $definition['actions'] = WorkflowExpressionCatalog::remapReferences($definition['actions'], $before, $after);
         foreach ($this->mountedActions as &$mounted) {
             if (isset($mounted['data']) && in_array($mounted['name'], ['configureWorkflowAction', 'configureTrigger'], true)) {
                 $mounted['data'] = WorkflowExpressionCatalog::remapReferences($mounted['data'], $before, $after);
@@ -67,9 +54,36 @@ trait HasWorkflowNodeNames
             $draft['initial'] = WorkflowExpressionCatalog::remapReferences($draft['initial'] ?? [], $before, $after);
         }
         unset($draft);
-        $definition = WorkflowExpressionCatalog::normalizeNames($definition);
         $this->trigger = $definition['trigger'];
         $this->workflowActions = $definition['actions'];
         $this->definition = $definition;
+        if (method_exists($this, 'persistWorkflowNodeRename')) {
+            $this->persistWorkflowNodeRename($nodeId, $name);
+            if ($inline) $this->skipRender();
+        }
+    }
+
+    protected function renamedWorkflowDefinition(array $definition, string $nodeId, string $name): array
+    {
+        $actions = $definition['actions'] ?? [];
+        $before = WorkflowExpressionCatalog::referenceNames($actions, $definition);
+        $otherNames = $before;
+        unset($otherNames[$nodeId]);
+        if (WorkflowExpressionCatalog::uniqueName($name, array_values($otherNames)) !== $name) {
+            throw ValidationException::withMessages(['name' => 'Нода с таким названием уже есть. Укажите другое название.']);
+        }
+        if ($nodeId === 'trigger' && is_array($definition['trigger'] ?? null)) {
+            $definition['trigger']['name'] = $name;
+        } elseif (isset(WorkflowStartNodes::all($definition)[$nodeId])) {
+            foreach ($definition['additional_triggers'] as &$start) if ($start['id'] === $nodeId) $start['name'] = $name;
+            unset($start);
+        } elseif ($node = WorkflowGraph::nodes($actions)['action:'.$nodeId] ?? null) {
+            data_set($definition['actions'], $node['path'].'.name', $name);
+        } else {
+            throw ValidationException::withMessages(['name' => 'Нода уже удалена. Обновите схему.']);
+        }
+        $after = WorkflowExpressionCatalog::referenceNames($definition['actions'] ?? [], $definition);
+        $definition['actions'] = WorkflowExpressionCatalog::remapReferences($definition['actions'] ?? [], $before, $after);
+        return WorkflowExpressionCatalog::normalizeNames($definition);
     }
 }

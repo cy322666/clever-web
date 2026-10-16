@@ -87,8 +87,25 @@ class WorkflowTriggerInputTest extends TestCase
         $this->assertSame($this->item, WorkflowOutputView::trigger(['body' => $body, 'method' => 'POST']));
         $body['leads']['status'][] = ['id' => '999'];
         $this->assertSame([$this->item, ['id' => '999']], WorkflowOutputView::trigger($body));
+        $body['contacts'] = ['add' => [['id' => '12']]];
+        $this->assertSame(['leads' => [$this->item, ['id' => '999']], 'contacts' => [['id' => '12']]], WorkflowOutputView::trigger($body));
         $custom = ['items' => [['id' => 1]], 'meta' => false];
         $this->assertSame($custom, WorkflowOutputView::trigger(['body' => $custom]));
+    }
+
+    public function test_all_trigger_envelopes_show_only_business_input(): void
+    {
+        $generic = ['_workflow_start_node_id' => 'trigger:hook', 'source' => 'webhook', 'method' => 'POST',
+            'headers' => ['authorization' => 'hidden'], 'query' => ['debug' => '1'],
+            'payload' => ['id' => 17, 'name' => 'Заявка'], 'received_at' => 'today'];
+        $this->assertSame(['id' => 17, 'name' => 'Заявка'], WorkflowOutputView::trigger($generic));
+        $this->assertSame(['id' => 17, 'name' => 'Заявка'], WorkflowOutputView::input($generic));
+        $this->assertSame(['id' => 17, 'name' => 'Заявка'], WorkflowOutputView::trigger(['body' => $generic['payload']] + $generic));
+        $this->assertSame([], WorkflowOutputView::trigger(['event' => 'scheduled', 'frequency' => 'daily',
+            'cron_expression' => '0 0 * * *', 'triggered_at' => 'today']));
+        $this->assertSame([], WorkflowOutputView::trigger(['event' => 'workflow-called',
+            'source_workflow_id' => 12, 'source_workflow_run_id' => 34, 'triggered_at' => 'today']));
+        $this->assertSame(17, WorkflowOutputView::triggerPath($generic, 'payload.id'));
     }
 
     public function test_get_deal_by_id_builds_the_expected_request_from_the_short_field(): void

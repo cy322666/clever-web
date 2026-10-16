@@ -6,11 +6,12 @@
     $optionState = is_bool($state) ? ($state ? '1' : '0') : (is_scalar($state) ? trim((string) $state) : '');
     $initialMode = is_string($state) && str_contains($state, '{{') ? 'expression' : 'value';
     $expressionPlaceholder = '{{ $json.id }}';
+    $filterItemsPath = $isRelativePath() && preg_match('/^(.*)\.rules\.[^.]+\.field$/', $path, $matches) ? $matches[1].'.items' : null;
 @endphp
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field" :label="''">
     <div class="workflow-value-field" wire:key="value-{{ md5($path.json_encode($options)) }}"
-        x-data="workflowValueField($wire.{{ $applyStateBindingModifiers('$entangle(\'' . $path . '\')') }})"
-        x-on:workflow-expression-field="mode = 'expression'; $nextTick(() => $refs.value.focus())"
+        x-data="workflowValueField($wire.{{ $applyStateBindingModifiers('$entangle(\'' . $path . '\')') }}, @js($filterItemsPath))"
+        x-on:workflow-expression-field="if (!@js($isRelativePath())) { mode = 'expression'; $nextTick(() => $refs.value.focus()); }"
         x-on:workflow-expression-suggestions="sources = $event.detail.sources; customFields = $event.detail.customFields || []; suggest({target: $refs.value})"
         x-on:input="suggest($event)" x-on:keydown="suggestionKey($event)"
         x-on:click="if ($event.target === $refs.value) suggest($event)"
@@ -20,10 +21,10 @@
         @unless($isLabelHidden())
         <label :for="mode === 'value' && @js($hasOptions) ? @js($getId()) : @js($getId().'-value')">{{ $getLabel() }}@if($isRequired())<span aria-hidden="true"> *</span>@endif</label>
         @endunless
-        <div class="workflow-value-field__modes" role="group" aria-label="Способ задания значения">
+        @unless($isRelativePath())<div class="workflow-value-field__modes" role="group" aria-label="Способ задания значения">
             <button type="button" :aria-pressed="mode === 'value'" x-on:click="mode = 'value'; if (String(state ?? '').includes('{' + '{')) state = ''">Вручную</button>
             <button type="button" :aria-pressed="mode === 'expression'" x-on:click="mode = 'expression'; $nextTick(() => $refs.value.focus())">Переменная</button>
-        </div>
+        </div>@endunless
         </div>
         @if ($hasOptions)
             <x-filament::input.wrapper x-show.important="mode === 'value'" :valid="! $errors->has($path)">
@@ -42,7 +43,7 @@
             @if($getTextareaRows())
             <textarea x-ref="value" x-model="state" data-workflow-value-input class="fi-input" rows="{{ $getTextareaRows() }}" id="{{ $getId() }}-value" @disabled($isDisabled()) aria-label="{{ $getLabel() }}" placeholder="{{ $getPlaceholder() }}" x-on:dragover.prevent x-on:drop.prevent="const raw = $event.dataTransfer.getData('application/workflow-expression'); if (raw) { state = JSON.parse(raw).expression; mode = 'expression'; }"></textarea>
             @else
-            <input x-ref="value" x-model="state" data-workflow-value-input class="fi-input"
+            <input x-ref="value" x-model="state" data-workflow-value-input @if($isRelativePath()) data-workflow-filter-item-field @endif class="fi-input"
                 id="{{ $getId() }}-value" :type="mode === 'expression' ? 'text' : @js($getType())" @disabled($isDisabled())
                 :inputmode="mode === 'expression' ? 'text' : @js($getInputMode())" step="{{ $getStep() }}"
                 {{ $getExtraInputAttributeBag() }}
@@ -50,7 +51,7 @@
                 :placeholder="mode === 'expression' ? @js($expressionPlaceholder) : @js($getPlaceholder())"
                 aria-label="{{ $getLabel() }}"
                 x-on:dragover.prevent
-                x-on:drop.prevent="const raw = $event.dataTransfer.getData('application/workflow-expression'); if (raw) { state = JSON.parse(raw).expression; mode = 'expression'; $refs.value.focus(); }"
+                x-on:drop.prevent="const raw = $event.dataTransfer.getData('application/workflow-expression'); if (raw && !@js($isRelativePath())) { state = JSON.parse(raw).expression; mode = 'expression'; $refs.value.focus(); }"
             />
             <datalist id="{{ $getId() }}-suggestions">@foreach($getValueSuggestions() as $suggestion)<option value="{{ $suggestion }}"></option>@endforeach</datalist>
             @endif

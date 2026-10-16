@@ -70,16 +70,40 @@ test('closing during load waits for the request then closes without leaving a st
     assert.equal(panel.opened,false);assert.equal(panel.loading,false);
 });
 
-test('inline rename validates, retains rejected input and does not open a modal', async () => {
+test('inline rename is optimistic, autosaves, and restores a rejected value', async () => {
     const {window}=fixture();const state=window.workflowInlineNodeName('a','Нода');
-    state.$wire={workflowActions:[{id:'a',name:'Нода'}],renameWorkflowNode:async(id,name)=>{if(name!=='Занято') state.$wire.workflowActions[0].name=name;}};
+    let release;
+    state.$wire={workflowActions:[{id:'a',name:'Нода'}],renameWorkflowNode:async(id,name,inline)=>{
+        assert.equal(inline,true);
+        if(name==='Занято') throw new Error('Duplicate');
+        await new Promise(resolve=>release=resolve);
+        state.$wire.workflowActions[0].name=name;
+    }};
     state.$nextTick=fn=>fn();state.$refs={nodeNameInput:{focus(){},select(){}}};
     state.startRename();assert.equal(state.nameDraft,'Нода');
     state.nameDraft=' ';await state.commitRename();assert.equal(state.renaming,true);
     state.nameDraft='Занято';await state.commitRename();assert.equal(state.renaming,true);assert.ok(state.renameError);
-    state.nameDraft='Новая нода';await state.commitRename();assert.equal(state.renaming,false);assert.equal(state.nodeName,'Новая нода');
+    state.nameDraft='Новая нода';const pending=state.commitRename();
+    assert.equal(state.renaming,false);assert.equal(state.nodeName,'Новая нода');
+    release();await pending;assert.equal(state.nodeName,'Новая нода');
     state.startRename();state.nameDraft='Отмена';state.renaming=false;await state.commitRename();
     assert.equal(state.nodeName,'Новая нода','Escape must not commit on blur');
+});
+
+test('filter fields come from the selected collection, never indexed rows', () => {
+    const {window}=fixture();
+    const sources=[{id:'a',name:'Сделки',fields:[
+        {type:'array',key:'',expression:'{{ $("Сделки") }}',item_fields:['id','status_id','contact.name']},
+        {type:'object',key:'[0]',expression:null},
+    ]},{id:'b',name:'Контакты',fields:[{type:'array',key:'',expression:'{{ $("Контакты") }}',item_fields:['id','phone']}]}];
+    assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Сделки") }}')),['id','status_id','contact.name']);
+    assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Контакты") }}')),['id','phone']);
+    assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $json.items }}')),['id','phone']);
+    const field=window.workflowValueField('', 'mountedActions.0.data.items');
+    field.$wire={$get:()=> '{{ $("Сделки") }}'};
+    field.sources=sources;
+    field.suggest({target:{value:'sta',hasAttribute:()=>true}});
+    assert.deepEqual(Array.from(field.suggestions,item=>item.expression),['status_id']);
 });
 
 test('dock positioning cannot override panel visibility', () => {

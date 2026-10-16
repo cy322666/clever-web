@@ -18,10 +18,25 @@ final class WorkflowOutputView
         if (is_array($input['item'] ?? null) && in_array($input['entity'] ?? null, ['lead', 'contact', 'company', 'customer', 'task', 'talk', 'message', 'note', 'unsorted'], true)) {
             return self::entity($input['item']);
         }
-        if (array_key_exists('body', $input) && (isset($input['headers']) || isset($input['method']) || isset($input['_workflow_start_node_id']) || count($input) === 1)) {
+        $envelope = array_key_exists('_workflow_start_node_id', $input) || isset($input['source'])
+            || isset($input['workflow_id']) || isset($input['received_at'])
+            || isset($input['triggered_at']) || isset($input['headers']) || isset($input['method']);
+        if (array_key_exists('body', $input) && ($envelope || count($input) === 1)) {
             return self::amoWebhookEntity($input['body']);
         }
-        unset($input['_workflow_start_node_id']);
+        if (array_key_exists('payload', $input) && $envelope) {
+            return self::amoWebhookEntity($input['payload']);
+        }
+        if ($envelope) {
+            // Schedule and workflow-to-workflow starts may have no entity body.
+            // Do not show their transport and scheduling fields as input data.
+            return self::entity(array_diff_key($input, array_flip([
+                '_workflow_start_node_id', 'source', 'event', 'action', 'entity', 'entity_id',
+                'workflow_id', 'source_workflow_id', 'source_workflow_run_id', 'is_manual',
+                'account', 'widget', 'webhook', 'headers', 'query', 'method', 'url', 'path',
+                'ip', 'raw_body', 'received_at', 'triggered_at', 'frequency', 'cron_expression',
+            ])));
+        }
         return self::amoWebhookEntity($input);
     }
 
@@ -30,14 +45,20 @@ final class WorkflowOutputView
         if (!is_array($body) || !is_array($body['account'] ?? null)
             || !isset($body['account']['id'], $body['account']['subdomain'])) return $body;
         $collections = array_intersect_key($body, array_flip(['leads', 'contacts', 'companies', 'customers', 'tasks', 'talks', 'messages', 'notes', 'unsorted']));
-        if (count($collections) !== 1) return $body;
-        $events = reset($collections);
-        if (!is_array($events) || count($events) !== 1) return $body;
-        $items = reset($events);
-        if (!is_array($items) || !array_is_list($items) || $items === []) return $body;
-        foreach ($items as $item) {
-            if (!is_array($item) || (!isset($item['id']) && !isset($item['uid']))) return $body;
+        if ($collections === []) return $body;
+        $entities = [];
+        foreach ($collections as $type => $events) {
+            if (!is_array($events)) return array_diff_key($body, ['account' => true]);
+            foreach ($events as $items) {
+                if (!is_array($items) || !array_is_list($items)) return array_diff_key($body, ['account' => true]);
+                foreach ($items as $item) {
+                    if (!is_array($item) || (!isset($item['id']) && !isset($item['uid']))) return array_diff_key($body, ['account' => true]);
+                    $entities[$type][] = $item;
+                }
+            }
         }
+        if (count($entities) !== 1) return self::entity($entities);
+        $items = reset($entities);
         // A batch stays a collection: never silently discard the other entities.
         return self::entity(count($items) === 1 ? $items[0] : $items);
     }
@@ -114,7 +135,8 @@ final class WorkflowOutputView
         if (is_array($input['items'] ?? null) && array_key_exists('count', $input)) {
             return ['count' => $input['count'], 'items' => self::entity($input['items'])];
         }
-        if (isset($input['_workflow_start_node_id']) || (isset($input['entity'], $input['item']) && is_array($input['item']))) {
+        if (isset($input['_workflow_start_node_id']) || isset($input['source'], $input['payload'])
+            || (isset($input['entity'], $input['item']) && is_array($input['item']))) {
             return self::trigger($input);
         }
         return self::value($input);

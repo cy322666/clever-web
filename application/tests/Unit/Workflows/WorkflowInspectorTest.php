@@ -44,6 +44,20 @@ class WorkflowInspectorTest extends TestCase
         $this->assertStringNotContainsString('fi-modal-close-overlay',$html);
     }
 
+    public function test_filter_rule_field_is_bound_to_its_collection_for_key_completion(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [[
+            'id' => 'filter', 'type' => 'workflow_filter_list', 'config' => [
+                'items' => '{{ $json.items }}', 'match' => 'all',
+                'rules' => [['field' => '', 'operator' => 'eq', 'value' => '']],
+            ],
+        ]]])->call('openWorkflowInspector', 'action:filter')->assertHasNoErrors();
+        $html = implode('', $page->effects['partials'] ?? []);
+        $this->assertStringContainsString('data-workflow-filter-item-field', $html);
+        $this->assertStringContainsString('data.items', $html);
+        $this->assertStringContainsString('Поле одного элемента, без [n].', $html);
+    }
+
     public function test_switching_saves_the_previous_draft_and_refills_only_the_new_node(): void
     {
         $page = $this->editor()->call('openWorkflowInspector','action:a')->set('mountedActions.0.data.seconds',12)

@@ -6160,6 +6160,53 @@ body:has(.workflow-list-page) .fi-main {
     outline: 2px solid rgb(115 115 115 / 0.15);
 }
 
+.workflow-loop-frame {
+    position: absolute;
+    box-sizing: border-box;
+    visibility: hidden;
+    border: 1px dashed #a9b2c1;
+    border-radius: 18px;
+    background: rgb(120 135 160 / 0.045);
+    pointer-events: none;
+}
+
+.workflow-loop-frame > span {
+    position: absolute;
+    top: 12px;
+    left: 20px;
+    color: #647084;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.workflow-node-edge-add.workflow-loop-replace {
+    z-index: 2;
+    width: 130px;
+    height: 86px;
+    border: 1px dashed #919bad;
+    border-radius: 12px;
+    background: #f8f9fb;
+    color: #465368;
+}
+
+.workflow-loop-replace__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.workflow-node-edge-add.workflow-loop-replace svg { width: 18px; height: 18px; }
+.workflow-loop-replace__content strong { font-size: 12px; font-weight: 600; }
+.workflow-loop-replace__content small { font-size: 10px; color: #778397; }
+
+.dark .workflow-loop-frame { border-color: #5f6878; background: rgb(160 175 205 / 0.035); }
+.dark .workflow-loop-frame > span { color: #abb5c5; }
+.dark .workflow-node-edge-add.workflow-loop-replace { border-color: #738095; background: #30343c; color: #e2e7ef; }
+.dark .workflow-loop-replace__content small { color: #aab4c2; }
+
 .workflow-node-edge-add[data-workflow-edge-target],
 .workflow-node-edge-add[data-workflow-edge-delete] {
     opacity: 0;
@@ -7324,4 +7371,9 @@ svg.workflow-control-icon { color: #248548 !important; }
     .workflow-node-settings__workspace { overflow: auto; }
     .workflow-node-settings__workspace > .fi-sc { grid-template-columns: minmax(170px, 1fr) minmax(300px, 1.5fr) minmax(170px, 1fr) !important; }
     .workflow-node-settings__parameters { padding: 16px !important; }
+}
+.dark .workflow-node-edge-add.workflow-loop-replace {
+    background: #30343c !important;
+    border-color: #738095 !important;
+    box-shadow: none;
 }

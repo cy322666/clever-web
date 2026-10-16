@@ -83,7 +83,8 @@ class WorkflowExpressionsTest extends TestCase
         $sources = WorkflowExpressionCatalog::sources($actions, 'no', []);
         $this->assertSame(['trigger', 'before', 'if'], array_column($sources, 'id'));
         $this->assertFalse($sources[1]['available']);
-        $this->assertContains('{{ $('.json_encode($sources[1]['name'], JSON_UNESCAPED_UNICODE).')[0].id }}', array_column($sources[1]['fields'], 'expression'));
+        $this->assertSame(['id', 'name', 'price', 'pipeline_id', 'status_id'], $sources[1]['fields'][0]['item_fields']);
+        $this->assertCount(1, $sources[1]['fields']);
     }
 
     public function test_read_query_does_not_invent_lead_fields_before_execution(): void
@@ -93,20 +94,18 @@ class WorkflowExpressionsTest extends TestCase
         $paths = array_column($sources[1]['fields'], 'path');
 
         $this->assertNotContains('.data', $paths);
-        $this->assertContains('[0].id', $paths);
-        $this->assertNotContains('[0].pipeline_id', $paths);
+        $this->assertSame(['Весь результат'], $paths);
+        $this->assertSame(['id'], $sources[1]['fields'][0]['item_fields']);
         $this->assertFalse($sources[1]['available']);
     }
 
     public function test_input_tree_keeps_short_labels_and_exact_parent_paths(): void
     {
         $fields = WorkflowExpressionCatalog::sources([], null, ['trigger_data' => ['items' => [['Имя.поле' => 'Тест']], 'count' => 1]])[0]['fields'];
-        $this->assertSame(['Результат', 'items', '[0]', 'Имя.поле', 'count'], array_column($fields, 'label'));
-        $this->assertSame('.items[0]', $fields[3]['parent']);
-        $this->assertSame('.items[0]["Имя.поле"]', $fields[3]['key']);
+        $this->assertSame(['Результат', 'items', 'count'], array_column($fields, 'label'));
         $this->assertSame('array', $fields[1]['type']);
         $this->assertSame(1, $fields[1]['count']);
-        $this->assertSame('Тест', $fields[3]['value']);
+        $this->assertSame(['Имя.поле'], $fields[1]['item_fields']);
     }
 
     public function test_picker_does_not_ship_copies_of_full_arrays_but_expressions_still_resolve_them(): void
@@ -119,12 +118,13 @@ class WorkflowExpressionsTest extends TestCase
         $this->assertSame($input, $sources[0]['fields'][0]['value']);
         $this->assertNull($picker[0]['fields'][0]['value']);
         $this->assertSame(1000, $picker[0]['fields'][1]['count']);
-        $this->assertTrue($picker[0]['truncated']);
+        $this->assertFalse($picker[0]['truncated']);
         $this->assertSame(array_column($sources[0]['fields'],'expression'), array_column($picker[0]['fields'],'expression'));
         $this->assertStringNotContainsString('not-for-the-picker', json_encode($picker));
         $context = (new WorkflowContext($input))->setVariable('_node_names', WorkflowExpressionCatalog::nodeNames([]));
         $this->assertSame($items, $context->resolve($picker[0]['fields'][1]['expression']));
-        $this->assertSame(1, $picker[0]['fields'][3]['value']);
+        $this->assertSame(['id', 'text'], $picker[0]['fields'][1]['item_fields']);
+        $this->assertCount(2, $picker[0]['fields']);
     }
 
     public function test_named_trigger_and_duplicate_actions_resolve_the_exact_nested_output(): void
@@ -139,11 +139,10 @@ class WorkflowExpressionsTest extends TestCase
             ->setVariable('_node_names',WorkflowExpressionCatalog::nodeNames($definition['actions'],$definition));
         $sources = WorkflowExpressionCatalog::sources($definition['actions'],'c',$context->toArray(),null,$definition);
         $this->assertSame(['Входящий хук','Мои "сделки": ответ','Мои "сделки": ответ (2)'],array_column($sources,'name'));
-        foreach ([42,1,2] as $index=>$expected) {
-            $field = collect($sources[$index]['fields'])->firstWhere('label','id');
-            $this->assertSame($expected,$context->resolve($field['expression']));
-            $this->assertSame('ID '.$expected,$context->resolve('ID '.$field['expression']));
-        }
+        $this->assertSame(['id'], $sources[0]['fields'][1]['item_fields']);
+        $this->assertSame(['id'], $sources[1]['fields'][1]['item_fields']);
+        $this->assertSame(['id'], $sources[2]['fields'][1]['item_fields']);
+        $this->assertSame([['id' => 1]], $context->resolve($sources[1]['fields'][1]['expression']));
         $this->assertSame(1,$context->resolve('{{ $node["a"].json.items[0].id }}'));
     }
 
@@ -190,9 +189,9 @@ class WorkflowExpressionsTest extends TestCase
         $definition = ['trigger'=>['type'=>'generic-webhook','name'=>'Вебхук']];
         $source = WorkflowExpressionCatalog::sources([],null,['trigger_data'=>$input],null,$definition)[0];
         $this->assertSame('',$source['fields'][0]['key']);
-        $this->assertSame(['Результат','leads','status','[0]','id'],array_column($source['fields'],'label'));
+        $this->assertSame(['Результат','leads','status'],array_column($source['fields'],'label'));
         $context = (new WorkflowContext($input))->setVariable('_node_names',WorkflowExpressionCatalog::nodeNames([],$definition));
-        $this->assertSame(42,$context->resolve($source['fields'][4]['expression']));
+        $this->assertSame(['id'], $source['fields'][2]['item_fields']);
         $this->assertSame($input,$context->getTriggerData());
         $this->assertSame($body,$context->resolve($source['fields'][0]['expression']));
     }

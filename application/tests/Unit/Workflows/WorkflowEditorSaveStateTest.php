@@ -114,6 +114,39 @@ class WorkflowEditorSaveStateTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_inline_node_rename_is_persisted_without_saving_an_open_inspector_draft(): void
+    {
+        self::prepareDatabase();
+        Http::preventStrayRequests();
+        Queue::fake();
+        $this->actingAs(User::findOrFail(2));
+        $flow = Workflow::create(['name' => 'Rename probe', 'user_id' => 2, 'is_active' => false, 'definition' => [
+            'version' => 2, 'trigger' => ['type' => 'manual', 'config' => []],
+            'actions' => [
+                ['id' => 'delay', 'type' => 'workflow_delay', 'name' => 'Пауза', 'config' => ['seconds' => 5]],
+                ['id' => 'next', 'type' => 'workflow_delay', 'config' => ['seconds' => '{{ $("Пауза").seconds }}']],
+            ],
+        ]]);
+        $page = Livewire::test(SaveStateEditor::class, ['record' => $flow->id])
+            ->call('openWorkflowInspector', 'action:delay')
+            ->set('mountedActions.0.data.seconds', 19)
+            ->set('definition.canvas_layout.action:delay', ['x' => 700, 'y' => 300])
+            ->call('renameWorkflowNode', 'delay', 'Ожидание', true)
+            ->assertHasNoErrors()
+            ->assertSet('workflowActions.0.name', 'Ожидание');
+        $this->assertArrayNotHasKey('html', $page->effects);
+        $stored = $flow->fresh()->definition;
+        $this->assertSame('Ожидание', $stored['actions'][0]['name']);
+        $this->assertSame(5, $stored['actions'][0]['config']['seconds']);
+        $this->assertSame('{{ $("Ожидание").seconds }}', $stored['actions'][1]['config']['seconds']);
+        $this->assertNotSame(['x' => 700, 'y' => 300], $stored['canvas_layout']['action:delay'] ?? null);
+        $this->assertSame($stored, $page->get('savedWorkflowEditorState')['definition']);
+        $this->assertSame(19, $page->get('mountedActions.0.data.seconds'));
+        $this->assertSame(['x' => 700, 'y' => 300], $page->get('definition.canvas_layout.action:delay'));
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
     public static function prepareDatabase(): void
     {
         WorkflowListDatabase::prepare();

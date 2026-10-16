@@ -164,6 +164,17 @@ test('local edge projection recognizes done feedback, multiple starts and empty 
     assert.equal(edges.find(e=>e.sourceId==='trigger:two').targetId,'action:before');
 });
 
+test('an empty loop body has a replace-me action inside its visual loop frame', () => {
+    const canvas=localDraft([{id:'loop',type:'workflow_loop'}],[]);
+    const each=canvas.canvasEdges([],['trigger']).find(edge=>edge.sourceId==='action:loop'&&edge.sourcePort==='each');
+    assert.equal(each.targetId,null);
+    const view=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php',import.meta.url),'utf8');
+    assert.match(view,/workflow-loop-replace/);
+    assert.match(view,/Замените меня/);
+    assert.match(view,/workflow-loop-frame/);
+    assert.match(view,/openEdgePalette\(edge.sourceId, edge.sourcePort, edge.targetId\)/);
+});
+
 test('done continuation through a shared body is smooth while actual nested returns stay angular', () => {
     const edge = (source,port,target) => ({sourceId:'action:'+source,sourcePort:port,targetId:'action:'+target});
     const actions = [{id:'outer',type:'workflow_loop'},{id:'inner',type:'workflow_loop'},

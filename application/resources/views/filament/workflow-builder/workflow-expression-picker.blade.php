@@ -15,7 +15,7 @@
                         x-on:click="if (row.branch) toggleJson(row.item); else if (row.copyable) copyValue(row.value, row.id, $event.currentTarget)"
                         :aria-expanded="row.branch ? !row.collapsed : null" :class="{ 'is-copied': copiedRow === row.id }"
                         :disabled="!row.branch && !row.copyable" :title="row.branch ? (row.collapsed ? 'Развернуть' : 'Свернуть') : (copiedRow === row.id ? 'Скопировано' : 'Скопировать значение')"
-                        draggable="true" x-on:dragstart="if(row.item) $event.dataTransfer.setData('application/workflow-expression', JSON.stringify(row.item))"><span class="workflow-json-tree__caret" aria-hidden="true" x-show="row.branch" x-text="row.collapsed ? '›' : '⌄'"></span><span class="workflow-input-json__key" x-text="row.label"></span><span :class="'workflow-input-json__' + row.type" x-text="row.text"></span></button>
+                        x-bind:draggable="!!row.item?.expression" x-on:dragstart="if(row.item?.expression) $event.dataTransfer.setData('application/workflow-expression', JSON.stringify(row.item))"><span class="workflow-json-tree__caret" aria-hidden="true" x-show="row.branch" x-text="row.collapsed ? '›' : '⌄'"></span><span class="workflow-input-json__key" x-text="row.label"></span><span :class="'workflow-input-json__' + row.type" x-text="row.text"></span></button>
                     <span class="workflow-input-json__closing" x-show="!row.item" x-text="row.text"></span>
                 </div>
             </template>

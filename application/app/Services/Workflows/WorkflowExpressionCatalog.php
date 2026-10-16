@@ -114,7 +114,7 @@ final class WorkflowExpressionCatalog
         if ($variables !== []) {
             $source = self::source('$vars', 'Переменные текущего прохода', $variables, true);
             foreach ($source['fields'] as &$field) {
-                $field['expression'] = '{{ $vars'.$field['key'].' }}';
+                if ($field['expression'] !== null) $field['expression'] = '{{ $vars'.$field['key'].' }}';
                 preg_match('/^\.([A-Za-z][A-Za-z0-9_]*)/', $field['key'], $match);
                 $name = $match[1] ?? '';
                 $field['available'] = $field['key'] === '' || array_key_exists($name, $context['variables']['_workflow_values'] ?? []);
@@ -167,7 +167,7 @@ final class WorkflowExpressionCatalog
     {
         $fields = [];
         $truncated = false;
-        $visit = function (mixed $value, string $path = '', int $depth = 0, ?string $parent = null, string $label = 'Результат') use (&$visit, &$fields, &$truncated, $name, $available): void {
+        $visit = function (mixed $value, string $path = '', int $depth = 0, ?string $parent = null, string $label = 'Результат', bool $addressable = true) use (&$visit, &$fields, &$truncated, $name, $available): void {
             if (count($fields) >= 150 || $depth > 6) {
                 $truncated = true;
                 return;
@@ -177,10 +177,13 @@ final class WorkflowExpressionCatalog
                 'key' => $path, 'parent' => $parent, 'label' => $label, 'depth' => $depth,
                 'type' => is_array($value) ? (array_is_list($value) ? 'array' : 'object') : get_debug_type($value),
                 'count' => is_array($value) && $available ? count($value) : null,
-                'expression' => '{{ $('.json_encode($name, JSON_UNESCAPED_UNICODE).')'.$path.' }}',
+                // An array can be inserted as a whole. Its [n] children are
+                // preview data, not stable collection variables.
+                'expression' => $addressable ? '{{ $('.json_encode($name, JSON_UNESCAPED_UNICODE).')'.$path.' }}' : null,
+                'item_fields' => is_array($value) && array_is_list($value) ? self::listItemFields($value) : [],
                 'value' => $available ? $value : null, 'available' => $available,
             ];
-            if (! is_array($value)) {
+            if (! is_array($value) || array_is_list($value)) {
                 return;
             }
             foreach ($value as $key => $child) {
@@ -189,12 +192,34 @@ final class WorkflowExpressionCatalog
                     continue;
                 }
                 $part = is_int($key) ? '['.$key.']' : (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', (string) $key) ? '.'.$key : '['.json_encode($key, JSON_UNESCAPED_UNICODE).']');
-                $visit($child, $path.$part, $depth + 1, $path, is_int($key) ? '['.$key.']' : (string) $key);
+                $visit($child, $path.$part, $depth + 1, $path, is_int($key) ? '['.$key.']' : (string) $key,
+                    $addressable && ! array_is_list($value));
             }
         };
         $visit($output, $rootPath);
 
         return ['id' => $id, 'name' => $name, 'available' => $available, 'fields' => $fields, 'truncated' => $truncated];
+    }
+
+    /** Relative paths for one element, never a positional [n] expression. */
+    private static function listItemFields(array $items): array
+    {
+        $paths = [];
+        $visit = function (array $object, string $prefix = '', int $depth = 0) use (&$visit, &$paths): void {
+            if ($depth > 4 || count($paths) >= 100) return;
+            foreach ($object as $key => $value) {
+                if (!is_string($key) || !preg_match('/^[\pL\pN_.-]+$/uD', $key)
+                    || preg_match('/token|password|authorization|secret/i', $key)) continue;
+                $path = $prefix === '' ? $key : $prefix.'.'.$key;
+                if (is_array($value) && !array_is_list($value)) $visit($value, $path, $depth + 1);
+                elseif (!is_array($value)) $paths[$path] = true;
+                if (count($paths) >= 100) break;
+            }
+        };
+        foreach (array_slice($items, 0, 20) as $item) {
+            if (is_array($item) && !array_is_list($item)) $visit($item);
+        }
+        return array_keys($paths);
     }
 
     private static function before(array $actions, ?string $target, array $before = []): ?array
