@@ -54,6 +54,40 @@ class WorkflowBrowserDocumentTest extends TestCase
         $this->assertSame('Другое окно', $workflow->fresh()->name);
     }
 
+    public function test_renaming_one_node_saves_its_name_and_references_without_other_draft_fields(): void
+    {
+        $workflow = $this->workflow();
+        $definition = $workflow->definition;
+        $definition['actions'][] = ['id' => 'next', 'name' => 'Следующая', 'type' => 'workflow_set_variable',
+            'config' => ['assignments' => [['name' => 'url', 'value' => '{{ $("Запрос").json.url }}']]]];
+        $workflow->update(['definition' => $definition]);
+        $version = app(WorkflowBrowserDocument::class)->version($workflow->fresh());
+
+        $response = $this->patchJson('/workflow-editor/'.$workflow->id.'/node-name', [
+            'version' => $version, 'node_id' => 'action:http', 'name' => 'HTTP ответ',
+        ])->assertOk()->assertJsonPath('document.definition.actions.0.name', 'HTTP ответ');
+        $saved = $workflow->fresh();
+        $this->assertSame('HTTP ответ', $saved->definition['actions'][0]['name']);
+        $this->assertSame('{{ $("HTTP ответ").json.url }}', $saved->definition['actions'][1]['config']['assignments'][0]['value']);
+        $this->assertTrue($saved->definition['actions'][0]['config']['unknown_setting']['keep']);
+        $this->assertNotSame($version, $response->json('version'));
+    }
+
+    public function test_node_rename_rejects_stale_version_and_foreign_owner(): void
+    {
+        $workflow = $this->workflow();
+        $version = app(WorkflowBrowserDocument::class)->version($workflow);
+        $workflow->update(['name' => 'Из другого окна']);
+        $this->patchJson('/workflow-editor/'.$workflow->id.'/node-name', [
+            'version' => $version, 'node_id' => 'action:http', 'name' => 'Не применять',
+        ])->assertStatus(409);
+        $this->actingAs(User::findOrFail(2));
+        $this->patchJson('/workflow-editor/'.$workflow->id.'/node-name', [
+            'version' => $version, 'node_id' => 'action:http', 'name' => 'Чужое',
+        ])->assertNotFound();
+        $this->assertSame('Запрос', $workflow->fresh()->definition['actions'][0]['name']);
+    }
+
     public function test_other_owner_cannot_read_refresh_debug_or_overwrite_workflow(): void
     {
         $workflow = $this->workflow();
@@ -96,6 +130,7 @@ class WorkflowBrowserDocumentTest extends TestCase
         $workflow = $this->workflow();
         $page = Livewire::test(\App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\BrowserEditWorkflow::class, ['record' => $workflow->id]);
         $page->assertSeeHtml('workflowBrowserEditor(')->assertSeeHtml('data-browser-boot');
+        $page->assertSeeHtml('data-workflow-loop-placeholder')->assertSee('Замените меня');
         $this->assertFalse(property_exists($page->instance(), 'workflowActions'));
         $this->assertFalse(property_exists($page->instance(), 'definition'));
         $this->assertFalse(property_exists($page->instance(), 'savedWorkflowEditorState'));

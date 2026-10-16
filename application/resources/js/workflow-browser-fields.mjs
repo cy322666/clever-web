@@ -220,7 +220,7 @@ export function nodeFields(node, refs = {}, operations = {}) {
                 'rules',
                 '',
                 [
-                    field('field', 'Поле элемента'),
+                    field('field', 'Поле элемента', { itemField: true }),
                     choice('operator', 'Условие', {
                         eq: 'Равно',
                         neq: 'Не равно',

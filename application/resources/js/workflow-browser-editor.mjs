@@ -1,4 +1,4 @@
-import { BrowserWorkflowDocument, clone, getPath, setPath, ports } from './workflow-browser-document.mjs';
+import { BrowserWorkflowDocument, clone, getPath, setPath, ports, collectionItemFields, filterItemFields, applyTriggerDisplayInput } from './workflow-browser-document.mjs';
 import { nodeFields } from './workflow-browser-fields.mjs';
 import '../css/workflow-browser-editor.css';
 
@@ -39,6 +39,10 @@ export function createBrowserEditor(boot) {
             librarySearch: '',
             libraryMode: 'all',
             saving: false,
+            renameTimer: null,
+            renamePending: null,
+            renameTask: Promise.resolve(),
+            renameQueued: 0,
             savedNotice: false,
             notice: '',
             error: '',
@@ -48,6 +52,8 @@ export function createBrowserEditor(boot) {
             runningId: null,
             debugOpen: false,
             debugInput: '{}',
+            debugRawInput: null,
+            debugLoadedInputSnapshot: null,
             debugReal: false,
             debugPlaying: false,
             debugSession: null,
@@ -138,6 +144,7 @@ export function createBrowserEditor(boot) {
                 geometry.destroy.call(this);
                 window.removeEventListener('beforeunload', this.beforeLeave);
                 clearTimeout(this.noticeTimer);
+                clearTimeout(this.renameTimer);
                 this.codeEditorCleanup?.();
             },
             startIds() {
@@ -220,12 +227,52 @@ export function createBrowserEditor(boot) {
                 this.$nextTick(() => this.renderInspector());
             },
             renameCurrent(value) {
+                if (!this.selectedId || !String(value).trim()) return;
                 try {
                     this.machine.rename(this.selectedId, value);
-                    this.$nextTick(() => this.renderInspector());
+                    this.error = '';
+                    this.renamePending = { id: this.selectedId, name: this.currentNode.name };
+                    clearTimeout(this.renameTimer);
+                    this.renameTimer = setTimeout(() => this.flushRename(true), 400);
                 } catch (error) {
                     this.error = error.message;
                 }
+            },
+            finishRename(input) {
+                if (!String(input.value).trim() || input.value.trim() !== this.currentNode?.name)
+                    input.value = this.currentNode?.name || '';
+                this.flushRename(true);
+            },
+            flushRename(autoSaveNew = false) {
+                clearTimeout(this.renameTimer);
+                if (this.saving) {
+                    this.renameTimer = setTimeout(() => this.flushRename(autoSaveNew), 100);
+                    return this.renameTask;
+                }
+                const pending = this.renamePending;
+                this.renamePending = null;
+                if (!pending) return this.renameTask;
+                const persisted = this.doc.id &&
+                    new BrowserWorkflowDocument(JSON.parse(this.machine.saved)).node(pending.id);
+                if (!persisted) return autoSaveNew ? this.saveDocument() : this.renameTask;
+                this.renameQueued++;
+                this.renameTask = this.renameTask.then(async () => {
+                    const result = await this.request(`/${this.doc.id}/node-name`, {
+                        version: this.version,
+                        node_id: pending.id,
+                        name: pending.name,
+                    }, 'PATCH');
+                    this.version = result.version;
+                    // The acknowledgement advances only the saved baseline. Other local edits stay intact.
+                    this.machine.saved = JSON.stringify(new BrowserWorkflowDocument(result.document).value);
+                    return true;
+                }).catch((error) => {
+                    this.error = error.message;
+                    return false;
+                }).finally(() => {
+                    this.renameQueued--;
+                });
+                return this.renameTask;
             },
             setDocument(path, value) {
                 this.machine.checkpoint();
@@ -386,6 +433,8 @@ export function createBrowserEditor(boot) {
             },
             async saveDocument(active = null) {
                 if (this.saving) return false;
+                if (this.renamePending || this.renameQueued) await this.flushRename();
+                if (this.saving) return false;
                 this.saveNodeLayout();
                 const sent = clone(this.doc),
                     revision = this.machine.revision;
@@ -505,7 +554,10 @@ export function createBrowserEditor(boot) {
                 if (!this.doc.id || this.running) return;
                 try {
                     const result = await this.request(`/${this.doc.id}/debug`, { command: 'input' });
-                    this.debugInput = JSON.stringify(result.input, null, 2);
+                    this.debugRawInput = result.input;
+                    this.debugInput = JSON.stringify(result.display_input ?? result.input, null, 2);
+                    this.debugLoadedInputSnapshot = this.debugInput;
+                    if (this.selectedId?.startsWith('trigger') && this.inspectorTab === 'input') this.renderInspector();
                 } catch (error) {
                     this.error = error.message;
                 }
@@ -535,8 +587,13 @@ export function createBrowserEditor(boot) {
                     const parsed = JSON.parse(this.debugInput || '{}');
                     if (!parsed || typeof parsed !== 'object')
                         throw new Error('На входе нужен объект или массив JSON.');
+                    const triggerInput = this.debugRawInput
+                        ? this.debugInput === this.debugLoadedInputSnapshot
+                            ? clone(this.debugRawInput)
+                            : applyTriggerDisplayInput(this.debugRawInput, parsed)
+                        : parsed;
                     const input = {
-                        ...parsed,
+                        ...triggerInput,
                         _workflow_start_node_id: this.startIds().includes(this.debugStartNodeId)
                             ? this.debugStartNodeId
                             : this.startIds()[0],
@@ -822,7 +879,8 @@ export function createBrowserEditor(boot) {
                             this.error = 'Проверьте JSON в поле «' + spec.label + '».';
                         }
                     });
-                if (!spec.json && !spec.number && !spec.headers && spec.rows !== 18)
+                if (spec.itemField) this.attachFilterAutocomplete(wrapper, input, commit);
+                else if (!spec.json && !spec.number && !spec.headers && spec.rows !== 18)
                     this.attachAutocomplete(wrapper, input, commit);
                 if (spec.rows === 18) {
                     input.addEventListener('keydown', (event) => {
@@ -1071,12 +1129,28 @@ export function createBrowserEditor(boot) {
                 ];
                 return nodes.map((node) => {
                     const reference = node.id === '$json' ? '$json' : '$(' + JSON.stringify(node.name) + ')',
-                        fields = [{ label: node.name, path: '', expression: '{{ ' + reference + ' }}' }];
+                        fields = [];
                     const result = [...(this.debugState.results || [])]
                         .reverse()
                         .find((row) => 'action:' + row.id === node.id);
+                    const operation = node.config?.operation;
+                    const expected = node.type === 'amocrm_read' && operation?.endsWith('.list')
+                        ? Object.keys(this.references.query?.[operation]?.fields || {}).filter((key) => !key.startsWith('custom:'))
+                        : node.type === 'amocrm_query_leads'
+                          ? ['id', 'name', 'price', 'pipeline_id', 'status_id']
+                          : node.type === 'amocrm_contact_leads'
+                            ? ['id', 'pipeline_id', 'status_id']
+                            : [];
+                    const sample = expected.length ? [Object.fromEntries(expected.map((key) => [key, null]))] : null;
+                    const value = node.id === '$json' ? node.value : (result?.display_output ?? result?.output ?? sample);
+                    const itemFields = collectionItemFields(value);
+                    fields.push({ label: node.name, path: '', expression: '{{ ' + reference + ' }}',
+                        type: Array.isArray(value) ? 'array' : 'object', item_fields: itemFields });
+                    if (itemFields.length && node.id !== '$json')
+                        fields.push({ label: 'Список элементов', path: '.items', expression: '{{ ' + reference + '.items }}',
+                            type: 'array', item_fields: itemFields });
                     const visit = (value, path = '', depth = 0) => {
-                        if (!value || typeof value !== 'object' || depth > 3 || count > 1500) return;
+                        if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 3 || count > 1500) return;
                         Object.entries(value)
                             .slice(0, 40)
                             .forEach(([key, child]) => {
@@ -1090,16 +1164,63 @@ export function createBrowserEditor(boot) {
                                     label: key,
                                     path: next,
                                     expression: '{{ ' + reference + next + ' }}',
+                                    type: Array.isArray(child) ? 'array' : typeof child,
+                                    item_fields: collectionItemFields(child),
                                 });
                                 visit(child, next, depth + 1);
                             });
                     };
-                    visit(node.id === '$json' ? node.value : (result?.display_output ?? result?.output));
-                    return { name: node.name, fields };
+                    visit(value);
+                    return { id: node.id, name: node.name, fields };
                 });
+            },
+            attachFilterAutocomplete(wrapper, input, commit) {
+                const popup = element('div', 'workflow-browser-autocomplete');
+                popup.hidden = true;
+                let suggestions = [], active = 0;
+                const choose = (item) => {
+                    input.value = item;
+                    commit(item);
+                    popup.hidden = true;
+                    input.focus();
+                };
+                const paint = () => {
+                    suggestions = filterItemFields(this.expressionSources(), this.currentNode?.config?.items)
+                        .filter((key) => key.toLocaleLowerCase().startsWith(input.value.toLocaleLowerCase()))
+                        .slice(0, 8);
+                    popup.replaceChildren();
+                    popup.hidden = !suggestions.length;
+                    suggestions.forEach((key, index) => {
+                        const button = element('button', '', key);
+                        button.type = 'button';
+                        button.classList.toggle('is-active', index === active);
+                        button.addEventListener('pointerdown', (event) => {
+                            event.preventDefault();
+                            choose(key);
+                        });
+                        popup.append(button);
+                    });
+                };
+                input.addEventListener('focus', paint);
+                input.addEventListener('input', () => { active = 0; paint(); });
+                input.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') { popup.hidden = true; return; }
+                    if (popup.hidden) return;
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        active = (active + (event.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length;
+                        paint();
+                    } else if ((event.key === 'Enter' || event.key === 'Tab') && suggestions[active]) {
+                        event.preventDefault();
+                        choose(suggestions[active]);
+                    }
+                });
+                input.addEventListener('blur', () => { popup.hidden = true; });
+                wrapper.append(popup);
             },
             attachAutocomplete(wrapper, input, commit) {
                 if (!window.workflowValueField) return;
+                input.setAttribute('data-workflow-value-input', '');
                 const helper = window.workflowValueField(input.value),
                     popup = element('div', 'workflow-browser-autocomplete');
                 popup.hidden = true;

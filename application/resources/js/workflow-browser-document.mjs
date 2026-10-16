@@ -25,6 +25,69 @@ export const ports = (node) =>
         : ['condition', 'control-condition'].includes(node.type)
           ? ['yes', 'no']
           : ['output'];
+
+/** Paths inside one list item, never positional array indexes. */
+export function collectionItemFields(items) {
+    if (!Array.isArray(items)) return [];
+    const paths = new Set();
+    const visit = (value, prefix = '', depth = 0) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 2) return;
+        for (const [key, child] of Object.entries(value).slice(0, 40)) {
+            if (!/^[\p{L}\p{N}_-]+$/u.test(key) || /^\d+$/.test(key)) continue;
+            const path = prefix ? prefix + '.' + key : key;
+            paths.add(path);
+            if (paths.size >= 100) return;
+            visit(child, path, depth + 1);
+        }
+    };
+    items.slice(0, 20).forEach((item) => visit(item));
+    return [...paths];
+}
+
+export function filterItemFields(sources, expression) {
+    const normalize = (value) => String(value ?? '').trim()
+        .replace(/^\{\{\s*|\s*\}\}$/g, '')
+        .replace(/\$node\[(["'])(.*?)\1\]\.json/g, (_, quote, name) => '$(' + JSON.stringify(name) + ')')
+        .replace(/\$\('([^']*)'\)/g, (_, name) => '$(' + JSON.stringify(name) + ')')
+        .replace(/(\$\("(?:[^"\\]|\\.)*"\))\.json(?=\.|$)/g, '$1');
+    const selected = normalize(expression);
+    if (!selected) return [];
+    if (selected.startsWith('[')) {
+        try { return collectionItemFields(JSON.parse(selected)); } catch { return []; }
+    }
+    const fields = sources.flatMap((source) => source.fields || []);
+    const field = fields.find((item) => item.type === 'array' && normalize(item.expression) === selected);
+    if (field) return field.item_fields || [];
+    if (selected === '$json.items')
+        return fields.find((item) => item.type === 'array' && normalize(item.expression) === '$json')?.item_fields || [];
+    return [];
+}
+
+export function applyTriggerDisplayInput(raw, visible) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return visible;
+    const input = clone(raw);
+    if (input.item && typeof input.item === 'object') {
+        input.item = visible;
+        if (input.entity && Object.hasOwn(input, input.entity)) input[input.entity] = visible;
+        if (input.action && Object.hasOwn(input, input.action)) input[input.action] = visible;
+        const idKey = input.entity + '_id';
+        if (input.payload && Object.hasOwn(input.payload, idKey) && visible?.id != null)
+            input.payload[idKey] = visible.id;
+    }
+    else if (Object.hasOwn(input, 'body')) {
+        const body = input.body;
+        if (body?.account && typeof body.account === 'object') {
+            const collections = ['leads', 'contacts', 'companies', 'customers', 'tasks', 'talks', 'messages', 'notes', 'unsorted'];
+            const slots = collections.flatMap((kind) => Object.values(body[kind] || {}).flatMap((items) =>
+                Array.isArray(items) ? items.map((_, index) => ({ kind, items, index })) : []));
+            if (slots.length === 1) slots[0].items[slots[0].index] = visible;
+            else input.body = visible;
+        } else input.body = visible;
+    } else if (Object.hasOwn(input, 'payload')) input.payload = visible;
+    else if (visible && typeof visible === 'object' && !Array.isArray(visible)) Object.assign(input, visible);
+    else return visible;
+    return input;
+}
 const uuid = (prefix) =>
     prefix +
     (globalThis.crypto?.randomUUID?.() ||
@@ -163,7 +226,7 @@ export class BrowserWorkflowDocument {
             throw new Error('Название должно содержать от 1 до 100 символов.');
         if (this.uniqueName(name, id) !== name) throw new Error('Нода с таким названием уже есть.');
         if (node.name === name) return;
-        this.checkpoint();
+        this.checkpoint('rename:' + id);
         const names = { [node.name]: name };
         node.name = name;
         // All node configurations, including triggers, participate in reference remapping.

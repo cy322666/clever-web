@@ -132,6 +132,57 @@ final class WorkflowBrowserDocument
         });
     }
 
+    /** Persist one name without saving unrelated browser edits. */
+    public function renameNode(Workflow $workflow, array $payload): array
+    {
+        $data = Validator::make($payload, [
+            'version' => 'required|string|size:64',
+            'node_id' => 'required|string|max:150',
+            'name' => 'required|string|max:100',
+        ])->validate();
+        $name = trim($data['name']);
+        if ($name === '') {
+            throw ValidationException::withMessages(['name' => 'Введите название ноды.']);
+        }
+
+        return DB::transaction(function () use ($workflow, $data, $name): array {
+            $locked = Workflow::query()->where('user_id', auth()->id())
+                ->lockForUpdate()->findOrFail($workflow->getKey());
+            abort_unless(hash_equals($this->version($locked), $data['version']), 409,
+                'Сценарий изменился в другом окне. Ваше название осталось в этом окне.');
+            $definition = $locked->definition;
+            $before = WorkflowExpressionCatalog::referenceNames($definition['actions'] ?? [], $definition);
+            $nodeId = $data['node_id'];
+            $id = str_starts_with($nodeId, 'action:') ? substr($nodeId, 7) : $nodeId;
+            abort_unless(isset($before[$id]), 422, 'Нода не найдена. Сохраните новую ноду вместе со сценарием.');
+            if (in_array($name, array_diff_key($before, [$id => true]), true)) {
+                throw ValidationException::withMessages(['name' => 'Нода с таким названием уже есть.']);
+            }
+            if ($before[$id] !== $name) {
+                $after = $before;
+                $after[$id] = $name;
+                $definition = WorkflowExpressionCatalog::remapReferences($definition, $before, $after);
+                if ($id === 'trigger') {
+                    $definition['trigger']['name'] = $name;
+                } elseif (str_starts_with($id, 'trigger:')) {
+                    foreach ($definition['additional_triggers'] ?? [] as $index => $start) {
+                        if (($start['id'] ?? null) === $id) $definition['additional_triggers'][$index]['name'] = $name;
+                    }
+                } else {
+                    $entry = WorkflowGraph::nodes($definition['actions'] ?? [])[$nodeId] ?? null;
+                    abort_unless($entry, 422, 'Нода не найдена.');
+                    data_set($definition, 'actions.'.$entry['path'].'.name', $name);
+                }
+                $locked->definition = $definition;
+                $locked->updated_by = auth()->id();
+                $locked->save();
+                $locked->refresh();
+            }
+
+            return ['document' => $this->document($locked), 'version' => $this->version($locked)];
+        });
+    }
+
     public function restoreSecrets(array $definition, array $previous): array
     {
         try {

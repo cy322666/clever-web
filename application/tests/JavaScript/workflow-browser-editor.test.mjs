@@ -8,6 +8,9 @@ import {
     getPath,
     setPath,
     ports,
+    collectionItemFields,
+    filterItemFields,
+    applyTriggerDisplayInput,
 } from '../../resources/js/workflow-browser-document.mjs';
 import { nodeFields } from '../../resources/js/workflow-browser-fields.mjs';
 
@@ -36,6 +39,9 @@ function editor() {
         getPath,
         setPath,
         ports,
+        collectionItemFields,
+        filterItemFields,
+        applyTriggerDisplayInput,
         nodeFields,
         console,
         setTimeout,
@@ -155,6 +161,83 @@ test('inspector reserves and releases canvas space on the editor root, never the
     assert.equal(state.selectedId, null);
     assert(!attributes.has('data-workflow-inspector-open'));
     assert(!state.hasUnsavedChanges);
+});
+
+test('inspector rename updates immediately and saves only the node name in the background', async () => {
+    const state = editor();
+    state.selectedId = 'action:a';
+    state.setDocument('name', 'Другой несохранённый заголовок');
+    const calls = [];
+    state.request = async (path, payload, method) => {
+        calls.push({ path, payload, method });
+        const saved = document();
+        saved.definition.actions[0].name = payload.name;
+        return { document: saved, version: 'new' };
+    };
+    state.renameCurrent('Быстрая пауза');
+    assert.equal(state.currentNode.name, 'Быстрая пауза');
+    assert.equal(calls.length, 0);
+    await state.flushRename();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, '/120/node-name');
+    assert.equal(calls[0].method, 'PATCH');
+    assert.equal(calls[0].payload.name, 'Быстрая пауза');
+    assert.equal(state.version, 'new');
+    assert.equal(state.doc.name, 'Другой несохранённый заголовок');
+    assert(state.hasUnsavedChanges);
+    state.destroy();
+});
+
+test('list field suggestions use selected collection item keys without numeric expressions', () => {
+    const state = editor();
+    state.machine.value.definition.actions.push({ id: 'list', type: 'amocrm_read', name: 'Сделки', config: { operation: 'leads.list' } });
+    state.machine.value.definition.actions.push({ id: 'filter', type: 'workflow_filter_list', name: 'Фильтр', config: { items: '{{ $("Сделки").items }}' } });
+    state.machine.value.definition.connections.push(
+        { sourceId: 'action:list', sourcePort: 'output', targetId: 'action:filter' },
+    );
+    state.selectedId = 'action:filter';
+    state.canvasEdges = () => state.doc.definition.connections;
+    state.debugState.results = [{ id: 'list', display_output: [{ id: 1, nested: { title: 'A' } }, { id: 2, price: 20 }] }];
+    const sources = state.expressionSources();
+    const keys = filterItemFields(sources, '{{ $("Сделки").items }}');
+    assert.deepEqual(keys.sort(), ['id', 'nested', 'nested.title', 'price']);
+    assert(!sources.flatMap((source) => source.fields).some((field) => /\[\d+\]/.test(field.expression)));
+});
+
+test('trigger input displays the entity while the execution keeps its original envelope', async () => {
+    const state = editor();
+    state.selectedId = 'trigger';
+    const raw = { entity: 'lead', item: { id: 42, name: 'Заявка' }, account: { id: 7 }, source: 'amocrm' };
+    const requests = [];
+    state.request = async (path, payload) => {
+        requests.push(payload);
+        if (payload.command === 'input') return { input: raw, display_input: raw.item };
+        return { session: 's', status: 'completed', results: [] };
+    };
+    state.setExecutionState = () => {};
+    state.$refs.browserEditor = { toggleAttribute() {} };
+    await state.loadDebugInput();
+    assert.equal(state.debugInput, JSON.stringify(raw.item, null, 2));
+    await state.runDebug('start');
+    assert.equal(requests[1].input.account.id, 7);
+    assert.equal(requests[1].input.item.id, 42);
+    state.debugInput = JSON.stringify({ id: 42, name: 'Новая заявка' });
+    await state.runDebug('start');
+    assert.equal(requests[2].input.item.name, 'Новая заявка');
+    assert.equal(requests[2].input.account.id, 7);
+});
+
+test('collection item paths and webhook edits never require a positional index', () => {
+    assert.deepEqual(collectionItemFields([{ name: 'A', details: { city: 'Калининград' } }]), ['name', 'details', 'details.city']);
+    const raw = { body: { account: { id: 5, subdomain: 'test' }, leads: { add: [{ id: 1 }] } }, headers: { Host: 'test' } };
+    const edited = applyTriggerDisplayInput(raw, { id: 1, name: 'Новая' });
+    assert.equal(edited.body.account.id, 5);
+    assert.equal(edited.body.leads.add[0].name, 'Новая');
+    assert.equal(edited.headers.Host, 'test');
+    const normalized = applyTriggerDisplayInput({ entity: 'lead', action: 'add', item: { id: 1 }, lead: { id: 1 }, add: { id: 1 }, payload: { lead_id: 1 } }, { id: 2 });
+    assert.equal(normalized.lead.id, 2);
+    assert.equal(normalized.add.id, 2);
+    assert.equal(normalized.payload.lead_id, 2);
 });
 
 test('variable insertion updates the active code editor instead of its hidden textarea', () => {

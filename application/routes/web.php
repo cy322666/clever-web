@@ -70,6 +70,7 @@ Route::get('/up', fn() => response('OK', 200))
 Route::middleware(['auth', 'throttle:120,1'])->prefix('workflow-editor')->group(function (): void {
     Route::post('/document', [\App\Http\Controllers\WorkflowBrowserController::class, 'save']);
     Route::put('/{workflow}/document', [\App\Http\Controllers\WorkflowBrowserController::class, 'save'])->whereNumber('workflow');
+    Route::patch('/{workflow}/node-name', [\App\Http\Controllers\WorkflowBrowserController::class, 'renameNode'])->whereNumber('workflow');
     Route::delete('/{workflow}/document', [\App\Http\Controllers\WorkflowBrowserController::class, 'delete'])->whereNumber('workflow');
     Route::post('/{workflow}/duplicate', [\App\Http\Controllers\WorkflowBrowserController::class, 'duplicate'])->whereNumber('workflow');
     Route::post('/{workflow}/references', [\App\Http\Controllers\WorkflowBrowserController::class, 'references'])->whereNumber('workflow');

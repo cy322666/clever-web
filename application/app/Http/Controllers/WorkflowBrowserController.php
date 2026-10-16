@@ -49,6 +49,11 @@ final class WorkflowBrowserController extends Controller
         return response()->json($documents->references());
     }
 
+    public function renameNode(Request $request, WorkflowBrowserDocument $documents, int $workflow): JsonResponse
+    {
+        return response()->json($documents->renameNode($this->owned($workflow), $request->all()));
+    }
+
     public function duplicate(Request $request, WorkflowBrowserDocument $documents, int $workflow): JsonResponse
     {
         $owned = $this->owned($workflow);
@@ -80,7 +85,8 @@ final class WorkflowBrowserController extends Controller
             $preview = app(\App\Services\Workflows\WorkflowGenericWebhookService::class)->latestPreview($owned);
             $run = \App\Models\Workflows\WorkflowRun::query()->where('user_id', auth()->id())->where('workflow_id', $owned->id)->latest('created_at')->first();
 
-            return response()->json(['input' => $preview ? ['body' => $preview['payload'], 'headers' => $preview['headers']] : (data_get($run?->context_data, 'trigger_data', []))]);
+            $input = $preview ? ['body' => $preview['payload'], 'headers' => $preview['headers']] : data_get($run?->context_data, 'trigger_data', []);
+            return response()->json(['input' => $input, 'display_input' => WorkflowOutputView::trigger($input)]);
         }
         $definition = $documents->restoreSecrets($data['definition'] ?? [], $owned->definition);
         $key = 'workflow-browser-debug:'.auth()->id().':'.$owned->id.':'.($data['session'] ?? Str::uuid());
