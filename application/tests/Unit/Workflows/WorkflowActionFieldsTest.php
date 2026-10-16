@@ -152,7 +152,7 @@ class WorkflowActionFieldsTest extends TestCase
         $html = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance())->toHtml();
         $this->assertFalse(str_contains($html, 'Данные шагов'));
         $this->assertTrue(str_contains($html, 'workflow-node-output'));
-        $this->assertTrue(str_contains($html, 'Запустить'));
+        $this->assertFalse(str_contains($html, 'Запустить'));
         $this->assertFalse(str_contains($html, 'Запустить ноду'));
         $this->assertTrue(str_contains($html, 'Переменная'));
         $this->assertFalse(str_contains($html, '@js'));

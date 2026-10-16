@@ -341,7 +341,7 @@ class WorkflowLoopTest extends TestCase
         $page->call('openWorkflowActionEditor', $node['id']);
         $schema = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance());
         view()->share('errors', new \Illuminate\Support\ViewErrorBag);
-        $this->assertStringContainsString('Запустить', $schema->toHtml());
+        $this->assertStringNotContainsString('workflow-node-run__button', $schema->toHtml());
         $this->assertStringNotContainsString('Выполнить 1 раз', $schema->toHtml());
         $page->set('mountedActions.0.data.items', '[{"id":17},{"id":18}]')->set('mountedActions.0.data.mode', 'once')
             ->call('callMountedAction')->assertHasNoErrors();
