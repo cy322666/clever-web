@@ -296,6 +296,13 @@ export class BrowserWorkflowDocument {
                         sourcePort: ports(node)[0],
                         targetId: connection.targetId,
                     });
+                else if (connection.sourcePort === 'each' && this.node(connection.sourceId)?.type === 'workflow_loop') {
+                    // A node replacing the loop placeholder must return to the loop.
+                    // Inserting another node on this edge can extend the body later.
+                    const returnPorts = node.type === 'workflow_loop' ? ['done']
+                        : ['condition', 'control-condition'].includes(node.type) ? ['yes', 'no'] : ['output'];
+                    returnPorts.forEach((port) => d.connections.push({ sourceId: id, sourcePort: port, targetId: connection.sourceId }));
+                }
             }
         }
         return id;

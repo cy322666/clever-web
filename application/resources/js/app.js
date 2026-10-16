@@ -2103,10 +2103,19 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             if (loopPlaceholder) {
                 const frame = button.parentElement?.querySelector('.workflow-loop-frame');
                 const cardRect = card.getBoundingClientRect();
+                const inputPort = card.querySelector('.workflow-node-port--input');
+                const inputRect = (inputPort || card).getBoundingClientRect();
+                const returnRoute = this.connectionRoute(
+                    {x: buttonX + buttonRadius, y: buttonY},
+                    {x: ((inputPort ? inputRect.left + inputRect.width / 2 : inputRect.left) - stageRect.left) / scale,
+                        y: (inputRect.top + inputRect.height / 2 - stageRect.top) / scale},
+                    true,
+                );
+                paths.push({d: returnRoute.d, port: 'output', preview: true, loopReturn: true, placeholderReturn: true});
                 const left = (cardRect.left - stageRect.left) / scale - 24;
                 const top = (cardRect.top - stageRect.top) / scale - 42;
-                const right = Math.max((cardRect.right - stageRect.left) / scale, buttonX + buttonRadius) + 24;
-                const bottom = Math.max((cardRect.bottom - stageRect.top) / scale + 72, buttonY + 48) + 24;
+                const right = Math.max((cardRect.right - stageRect.left) / scale, buttonX + buttonRadius, returnRoute.right) + 24;
+                const bottom = Math.max((cardRect.bottom - stageRect.top) / scale + 72, buttonY + 48, returnRoute.bottom) + 24;
                 if (frame) {
                     for (const [property, value] of Object.entries({left, top, width: right - left, height: bottom - top})) {
                         if (!frame.style[property] || Math.abs(parseFloat(frame.style[property]) - value) > 0.01) frame.style[property] = `${value}px`;
@@ -2166,7 +2175,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             definitions.appendChild(marker);
         });
 
-        const edgePaths = paths.flatMap(({d, port, active, edge, preview, control, loopReturn, route, handles}) => {
+        const edgePaths = paths.flatMap(({d, port, active, edge, preview, control, loopReturn, placeholderReturn, route, handles}) => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const completed = !preview && this.edgeCompleted(edge, active);
             const marker = completed ? 'completed' : 'default';
@@ -2178,6 +2187,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
             path.dataset.workflowEdgePort = port;
             if (active !== undefined) path.dataset.workflowEdgeActive = active;
             if (preview) path.classList.add('workflow-node-edge--preview');
+            if (placeholderReturn) path.classList.add('workflow-node-edge--placeholder-return');
             if (edge && active === undefined) {
                 const hit = document.createElementNS(namespace, 'path');
                 hit.setAttribute('d', d);

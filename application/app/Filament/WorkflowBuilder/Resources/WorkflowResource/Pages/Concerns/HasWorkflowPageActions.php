@@ -843,7 +843,18 @@ trait HasWorkflowPageActions
             $this->syncDefinition();
             if ($connection['targetId']) $this->disconnectWorkflowNodes($connection['sourceId'], $connection['sourcePort'], $connection['targetId']);
             $this->connectWorkflowNodes($connection['sourceId'], $connection['sourcePort'], 'action:'.$actionId);
-            if ($connection['targetId']) $this->connectWorkflowNodes('action:'.$actionId, $type === 'workflow_loop' ? 'each' : ($type === 'control-condition' ? 'yes' : 'output'), $connection['targetId']);
+            if ($connection['targetId']) {
+                $this->connectWorkflowNodes('action:'.$actionId, $type === 'workflow_loop' ? 'each' : ($type === 'control-condition' ? 'yes' : 'output'), $connection['targetId']);
+            } elseif ($connection['sourcePort'] === 'each'
+                && \App\Services\Workflows\WorkflowGraph::loop(\App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)[$connection['sourceId']]['step'] ?? [])) {
+                // Replacing the empty loop-body placeholder closes the iteration.
+                // Further actions can be inserted into this return edge.
+                $returnPorts = $type === 'workflow_loop' ? ['done']
+                    : (in_array($type, ['condition', 'control-condition'], true) ? ['yes', 'no'] : ['output']);
+                foreach ($returnPorts as $returnPort) {
+                    $this->connectWorkflowNodes('action:'.$actionId, $returnPort, $connection['sourceId']);
+                }
+            }
         }
         $this->insertConnection = null;
 

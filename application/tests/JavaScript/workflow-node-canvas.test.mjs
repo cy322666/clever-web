@@ -722,6 +722,29 @@ test('return path is rounded below the body and ends at the loop input', () => {
     assert.equal(route.right,624);
 });
 
+test('empty loop placeholder visibly returns to the loop input', () => {
+    let expected;
+    for (const scale of [.5,1,2]) {
+        const fixture = routingFixture([{id:'action:loop',x:100,y:100}],
+            [{source:'action:loop',target:'',port:'each'}],scale);
+        const control = fixture.controls[0];
+        control.dataset.workflowLoopPlaceholder = 'true';
+        control.getBoundingClientRect = () => ({width:130*scale});
+        const frame = {style:{}};
+        control.parentElement = {querySelector:() => frame};
+        const paths = fixture.draw();
+        assert.equal(paths.length,2);
+        assert.match(paths[0],/ C /);
+        assert.match(paths[1],/ Q /);
+        assert.match(paths[1],/L 100 148$/);
+        assert.ok(parseFloat(frame.style.height) > 300);
+        if (expected) assert.deepEqual(paths,expected);
+        expected = paths;
+    }
+    assert.ok(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8')
+        .includes("path.classList.add('workflow-node-edge--placeholder-return')"));
+});
+
 test('drawn return controls depend only on endpoints, not intermediate cards', () => {
     const f = fixture();
     const makeNode = (id,left,top) => {

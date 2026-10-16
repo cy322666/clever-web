@@ -597,4 +597,35 @@ class WorkflowLoopTest extends TestCase
         $this->assertSame([], WorkflowGraph::targets($page->get('definition')['connections'], 'action:loop', 'each'));
         $this->assertSame(['loop'], array_column($this->execute($page->get('definition')), 'id'));
     }
+
+    public function test_replacing_empty_loop_body_connects_its_action_back_to_the_loop(): void
+    {
+        $def = ['trigger' => ['type' => 'manual'], 'actions' => [
+            $this->step('loop', 'workflow_loop', ['items' => [['id' => 1], ['id' => 2]], 'mode' => 'all', 'require_return' => true]),
+        ], 'connections' => [$this->edge('trigger', 'loop')]];
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $def['actions']])->set('definition', $def);
+        $page->call('openAddActionOnConnection', 'action:loop', 'each')->call('selectActionType', 'workflow_delay');
+
+        $definition = $page->get('definition');
+        $bodyId = 'action:'.$definition['actions'][1]['id'];
+        $this->assertSame([$bodyId], WorkflowGraph::targets($definition['connections'], 'action:loop', 'each'));
+        $this->assertSame(['action:loop'], WorkflowGraph::targets($definition['connections'], $bodyId));
+        $this->assertCount(1, WorkflowGraph::loopReturns($definition));
+        $this->assertSame(['loop', $definition['actions'][1]['id'], $definition['actions'][1]['id']], array_column($this->execute($definition), 'id'));
+    }
+
+    public function test_condition_replacing_empty_loop_body_returns_on_both_branches(): void
+    {
+        $def = ['trigger' => ['type' => 'manual'], 'actions' => [
+            $this->step('loop', 'workflow_loop', ['items' => [['id' => 1]], 'mode' => 'once', 'require_return' => true]),
+        ], 'connections' => [$this->edge('trigger', 'loop')]];
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => $def['actions']])->set('definition', $def);
+        $page->call('openAddActionOnConnection', 'action:loop', 'each')->call('selectActionType', 'control-condition');
+        $definition = $page->get('definition');
+        $conditionId = 'action:'.$definition['actions'][1]['id'];
+        foreach (['yes', 'no'] as $port) {
+            $this->assertSame(['action:loop'], WorkflowGraph::targets($definition['connections'], $conditionId, $port));
+        }
+        $this->assertCount(2, WorkflowGraph::loopReturns($definition));
+    }
 }

@@ -83,7 +83,10 @@ class WorkflowLeadOutputTest extends TestCase
         $this->assertSame([], WorkflowOutputView::value($updated));
         $this->assertSame(['action' => 'updated', 'entity_type' => 'lead', 'entity_id' => 77], WorkflowOutputView::displayValue($updated));
         $this->assertSame(['status' => 204, 'body' => '', 'success' => true], WorkflowOutputView::displayValue(['status' => 204, 'body' => '', 'success' => true]));
-        $this->assertSame(['items' => [], 'count' => 0, 'has_more' => false], WorkflowOutputView::displayValue(['items' => [], 'count' => 0, 'has_more' => false]));
+        $this->assertSame([], WorkflowOutputView::displayValue([
+            'items' => [], 'count' => 0, 'page' => 1, 'has_more' => false, 'next_page' => null,
+            'request' => ['method' => 'GET', 'path' => '/api/v4/leads', 'query' => ['limit' => 10]],
+        ]));
 
         WorkflowCanvasDatabase::prepare();
         $definition = ['trigger' => ['type' => 'manual'], 'actions' => [['id' => 'updated', 'type' => 'amocrm_update_lead_fields', 'config' => []]]];

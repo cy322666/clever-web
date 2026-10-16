@@ -96,6 +96,26 @@ test('empty PHP config dictionaries become editable objects instead of arrays lo
     assert.equal(JSON.parse(JSON.stringify(document.value)).definition.actions.at(-1).config.foo, 'bar');
 });
 
+test('replacing an empty loop-body placeholder creates a return connection', () => {
+    for (const [type, expectedPorts] of [
+        ['http_request', ['output']],
+        ['control-condition', ['yes', 'no']],
+        ['workflow_loop', ['done']],
+    ]) {
+        const document = new BrowserWorkflowDocument(fixture());
+        document.value.definition.connections = document.value.definition.connections.filter(
+            (edge) => !(edge.sourceId === 'action:loop' && edge.sourcePort === 'each'),
+        );
+        const id = document.add({ type, name: 'Действие', defaults: {} }, {
+            connection: { sourceId: 'action:loop', sourcePort: 'each', targetId: null },
+        });
+        assert.deepEqual(document.value.definition.connections.filter((edge) => edge.sourceId === id),
+            expectedPorts.map((sourcePort) => ({ sourceId: id, sourcePort, targetId: 'action:loop' })));
+        assert(document.value.definition.connections.some((edge) =>
+            edge.sourceId === 'action:loop' && edge.sourcePort === 'each' && edge.targetId === id));
+    }
+});
+
 test('node reference rename preserves literals and handles escaped JSON, both quote styles', () => {
     assert.equal(
         remapReferences('Запрос; {{ $("Запрос").id }}; {{ $(\'Запрос\') }}', { Запрос: 'Новый' }),

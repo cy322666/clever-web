@@ -107,6 +107,14 @@ final class WorkflowOutputView
         $value = self::value($output);
         if (!in_array($value, [[], '', null], true) || !is_array($output)) return $value;
 
+        // An empty CRM collection is still a real business result. Falling back
+        // to the raw journal would expose request, pagination and transport data.
+        if (is_array($output['items'] ?? null)
+            && (array_key_exists('has_more', $output) || array_key_exists('has_matches', $output)
+                || array_key_exists('count', $output))) {
+            return $value;
+        }
+
         unset($output['amo_exchange'], $output['amo_exchange_truncated']);
         return $output !== [] ? $output : $value;
     }
