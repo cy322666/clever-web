@@ -134,6 +134,7 @@ class WorkflowEditorSaveStateTest extends TestCase
             ->call('renameWorkflowNode', 'delay', 'Ожидание', true)
             ->assertHasNoErrors()
             ->assertSet('workflowActions.0.name', 'Ожидание');
+        $this->assertSame('Ожидание', $page->effects['returns'][0] ?? null);
         $this->assertArrayNotHasKey('html', $page->effects);
         $stored = $flow->fresh()->definition;
         $this->assertSame('Ожидание', $stored['actions'][0]['name']);

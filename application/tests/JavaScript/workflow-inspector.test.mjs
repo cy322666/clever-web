@@ -78,6 +78,7 @@ test('inline rename is optimistic, autosaves, and restores a rejected value', as
         if(name==='Занято') throw new Error('Duplicate');
         await new Promise(resolve=>release=resolve);
         state.$wire.workflowActions[0].name=name;
+        return name;
     }};
     state.$nextTick=fn=>fn();state.$refs={nodeNameInput:{focus(){},select(){}}};
     state.startRename();assert.equal(state.nameDraft,'Нода');
@@ -90,6 +91,11 @@ test('inline rename is optimistic, autosaves, and restores a rejected value', as
     assert.equal(state.nodeName,'Новая нода','Escape must not commit on blur');
 });
 
+test('inline rename commits on outside pointer press even if the canvas prevents blur', () => {
+    const markup=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inline-node-name.blade.php',import.meta.url),'utf8');
+    assert.match(markup,/x-on:pointerdown\.window="if \(renaming && !\$el\.contains\(\$event\.target\)\) commitRename\(\)"/);
+});
+
 test('filter fields come from the selected collection, never indexed rows', () => {
     const {window}=fixture();
     const sources=[{id:'a',name:'Сделки',fields:[
@@ -99,11 +105,14 @@ test('filter fields come from the selected collection, never indexed rows', () =
     assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Сделки") }}')),['id','status_id','contact.name']);
     assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Контакты") }}')),['id','phone']);
     assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $json.items }}')),['id','phone']);
+    assert.equal(window.workflowFilterItemPath('{{ $("Сделки")[0].status_id }}','{{ $("Сделки") }}'),'status_id');
+    assert.equal(window.workflowFilterItemPath('{{ $("Сделки").name }}','{{ $("Сделки") }}'),'name');
     const field=window.workflowValueField('', 'mountedActions.0.data.items');
     field.$wire={$get:()=> '{{ $("Сделки") }}'};
     field.sources=sources;
     field.suggest({target:{value:'sta',hasAttribute:()=>true}});
     assert.deepEqual(Array.from(field.suggestions,item=>item.expression),['status_id']);
+    assert.ok(field.suggestions.every(item=>!item.expression.includes('[0]')));
 });
 
 test('dock positioning cannot override panel visibility', () => {

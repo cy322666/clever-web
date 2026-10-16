@@ -35,7 +35,7 @@ trait HasWorkflowNodeNames
             ->action(fn (array $arguments, array $data) => $this->renameWorkflowNode((string) ($arguments['id'] ?? ''), $data['name']));
     }
 
-    public function renameWorkflowNode(string $nodeId, string $name, bool $inline = false): void
+    public function renameWorkflowNode(string $nodeId, string $name, bool $inline = false): string
     {
         $name = trim($name);
         if ($name === '' || mb_strlen($name) > 100) throw ValidationException::withMessages(['name' => 'Введите название от 1 до 100 символов.']);
@@ -61,6 +61,8 @@ trait HasWorkflowNodeNames
             $this->persistWorkflowNodeRename($nodeId, $name);
             if ($inline) $this->skipRender();
         }
+
+        return $name;
     }
 
     protected function renamedWorkflowDefinition(array $definition, string $nodeId, string $name): array

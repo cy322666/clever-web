@@ -172,6 +172,7 @@ test('an empty loop body has a replace-me action inside its visual loop frame', 
     assert.match(view,/workflow-loop-replace/);
     assert.match(view,/Замените меня/);
     assert.match(view,/workflow-loop-frame/);
+    assert.match(view,/data-workflow-loop-placeholder="edge\.sourcePort === 'each' && !edge\.targetId \? 'true' : null"/);
     assert.match(view,/openEdgePalette\(edge.sourceId, edge.sourcePort, edge.targetId\)/);
 });
 

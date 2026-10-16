@@ -36,6 +36,19 @@ class WorkflowFilterListAction
     public function handle(array $config, ?WorkflowContext $context = null): array
     {
         try {
+            $collection = $config['items'] ?? null;
+            if (!is_array($config['rules'] ?? [])) throw new \RuntimeException('Условия фильтра должны быть списком.');
+            foreach ($config['rules'] ?? [] as $index => $rule) {
+                if (!is_array($rule)) throw new \RuntimeException('Добавьте поле элемента и сравнение для каждого условия.');
+                $field = self::relativeField($rule['field'] ?? null, $collection);
+                if (!preg_match('/^[\pL_][\pL\pN_-]*(?:\.[\pL_][\pL\pN_-]*)*$/uD', $field)) {
+                    throw new \RuntimeException('Поле элемента: выберите ключ из списка, например name. Не вставляйте {{ ... }} или [0].');
+                }
+                if (!in_array($rule['operator'] ?? null, ['eq','neq','gt','gte','lt','lte','contains','empty','not_empty'], true)) {
+                    throw new \RuntimeException('Выберите сравнение для каждого условия.');
+                }
+                $config['rules'][$index]['field'] = $field;
+            }
             $config = $context ? $context->resolve($config) : $config;
             $items = $config['items'] ?? null;
             if (is_string($items)) $items = json_decode($items, true, 64, JSON_THROW_ON_ERROR);
@@ -45,9 +58,6 @@ class WorkflowFilterListAction
             if (!in_array($mode, ['all','any'], true)) throw new \RuntimeException('Выберите И или ИЛИ.');
             $rules = $config['rules'] ?? [];
             if (!is_array($rules) || count($rules) > 50) throw new \RuntimeException('Допустимо до 50 условий.');
-            foreach ($rules as $rule) {
-                if (!is_array($rule) || !preg_match('/^[\pL\pN_.-]+$/uD', $rule['field'] ?? '') || !in_array($rule['operator'] ?? '', ['eq','neq','gt','gte','lt','lte','contains','empty','not_empty'], true)) throw new \RuntimeException('Заполните поле и сравнение каждого условия.');
-            }
             $matched = array_values(array_filter($items, function ($item) use ($rules, $mode): bool {
                 if ($rules === []) return true;
                 $results = array_map(function ($rule) use ($item): bool {
@@ -68,5 +78,20 @@ class WorkflowFilterListAction
             }));
             return ['success'=>true, 'output'=>['items'=>$matched,'count'=>count($matched),'has_matches'=>$matched !== [],'input_count'=>count($items)]];
         } catch (\Throwable $e) { return ['success'=>false, 'error'=>$e->getMessage()]; }
+    }
+
+    private static function relativeField(mixed $field, mixed $collection): string
+    {
+        $field = is_string($field) ? trim($field) : '';
+        if (!is_string($collection)
+            || !preg_match('/^\s*\{\{\s*(.*?)\s*\}\}\s*$/suD', $collection, $listMatch)
+            || !preg_match('/^\s*\{\{\s*(.*?)\s*\}\}\s*$/suD', $field, $fieldMatch)) return $field;
+
+        $source = trim($listMatch[1]);
+        $expression = trim($fieldMatch[1]);
+        if (!str_starts_with($expression, $source)) return $field;
+        $suffix = substr($expression, strlen($source));
+        if (str_starts_with($suffix, '[0]')) $suffix = substr($suffix, 3);
+        return str_starts_with($suffix, '.') ? substr($suffix, 1) : $field;
     }
 }

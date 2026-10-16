@@ -18,7 +18,7 @@
                 x-bind:data-workflow-edge-target="edge.targetId"
                 x-bind:data-workflow-loop-return="edge.loopReturn ? 'true' : 'false'"
                 x-bind:data-workflow-loop-feedback="edge.loopFeedback ? 'true' : 'false'"
-                x-bind:data-workflow-loop-placeholder="edge.sourcePort === 'each' && !edge.targetId ? '' : null"
+                x-bind:data-workflow-loop-placeholder="edge.sourcePort === 'each' && !edge.targetId ? 'true' : null"
                 x-bind:aria-label="edge.sourcePort === 'each' && !edge.targetId ? 'Заменить заглушку действием цикла' : edge.targetId ? 'Добавить промежуточную ноду' : 'Добавить действие'"
                 x-bind:title="edge.sourcePort === 'each' && !edge.targetId ? 'Выберите действие для каждого элемента' : edge.targetId ? 'Добавить промежуточную ноду · Перетащите, чтобы изменить связь' : 'Добавить действие'">
                 <template x-if="edge.sourcePort === 'each' && !edge.targetId">

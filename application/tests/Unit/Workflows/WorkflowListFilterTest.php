@@ -43,4 +43,31 @@ class WorkflowListFilterTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame([['Контакт' => ['Имя' => 'Иван']]], $result['output']['items']);
     }
+
+    public function test_old_collection_field_expression_becomes_a_relative_key(): void
+    {
+        $context = (new WorkflowContext)->setStepOutput('deals', ['items' => [
+            ['id' => 1, 'name' => 'Первый'], ['id' => 2, 'name' => 'Второй'],
+        ], 'count' => 2, 'has_more' => false])->setVariable('_node_names', ['Получить сделки' => ['deals']]);
+        foreach (['{{ $("Получить сделки").name }}', '{{ $("Получить сделки")[0].name }}'] as $field) {
+            $result = (new WorkflowFilterListAction)->handle([
+                'items' => '{{ $("Получить сделки") }}',
+                'rules' => [['field' => $field, 'operator' => 'eq', 'value' => 'Второй']],
+            ], $context);
+            $this->assertTrue($result['success'], $result['error'] ?? '');
+            $this->assertSame([['id' => 2, 'name' => 'Второй']], $result['output']['items']);
+        }
+    }
+
+    public function test_unrelated_or_indexed_item_expressions_are_rejected(): void
+    {
+        foreach (['{{ $("Другая нода").name }}', 'items[1].name'] as $field) {
+            $result = (new WorkflowFilterListAction)->handle([
+                'items' => [['name' => 'Тест']],
+                'rules' => [['field' => $field, 'operator' => 'eq', 'value' => 'Тест']],
+            ]);
+            $this->assertFalse($result['success']);
+            $this->assertStringContainsString('Поле элемента:', $result['error']);
+        }
+    }
 }

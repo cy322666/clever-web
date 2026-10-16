@@ -432,14 +432,16 @@ window.workflowInlineNodeName = (nodeId, initialName) => ({
         this.renaming = false;
         this.renamingBusy = true;
         try {
-            await this.$wire.renameWorkflowNode(nodeId, name, true);
+            const savedName = await this.$wire.renameWorkflowNode(nodeId, name, true);
+            if (savedName !== name) throw new Error('Название не подтверждено сервером.');
             // The server snapshot may arrive without a canvas morph.
             this.optimisticName = name;
-        } catch {
+        } catch (error) {
             this.optimisticName = null;
             this.nameDraft = name;
             this.renaming = true;
-            this.renameError = 'Не удалось сохранить название. Проверьте, что оно уникально.';
+            this.renameError = error?.message === 'Название не подтверждено сервером.'
+                ? error.message : 'Не удалось сохранить название. Проверьте, что оно уникально.';
             this.$nextTick(() => this.$refs.nodeNameInput?.focus());
         }
         finally { this.renamingBusy = false; }
@@ -2085,7 +2087,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
                 maxY = Math.max(maxY, startY + 40);
                 return;
             }
-            const loopPlaceholder = button.dataset.workflowLoopPlaceholder !== undefined;
+            const loopPlaceholder = button.dataset.workflowLoopPlaceholder === 'true';
             const buttonX = startX + (loopPlaceholder ? 190 : 100);
             const buttonY = startY + (loopPlaceholder ? 100 : ['yes', 'done'].includes(port) ? -44 : ['no', 'each'].includes(port) ? 44 : 0);
             const buttonRadius = (button.getBoundingClientRect?.().width || 22 * scale) / scale / 2;
@@ -2567,8 +2569,10 @@ window.workflowExpressionPicker = (sources, customFields = []) => ({
         if (!field?.matches?.('input:not([type=hidden]):not([type=search]):not([type=checkbox]):not([type=radio]):not([type=number]), textarea') || field.closest('.workflow-expression-picker') || field.readOnly || field.disabled || !scope?.contains(field)) return;
         // Select dropdowns contain text search inputs, but those are not configuration values.
         if (!field.hasAttribute('data-workflow-value-input') && !Array.from(field.attributes).some((attribute) => attribute.name.startsWith('wire:model'))) return;
-        this.field = field;
         field.closest('.workflow-value-field')?.dispatchEvent(new CustomEvent('workflow-expression-suggestions', {detail: {sources: this.sources, customFields: this.customFields}}));
+        // A list-filter key is relative to one item, not a full node expression.
+        if (field.hasAttribute('data-workflow-filter-item-field')) { this.field = null; return; }
+        this.field = field;
         this.fieldLabel = field.closest('.fi-fo-field')?.querySelector('label')?.textContent?.trim() || field.getAttribute('aria-label') || 'выбранное поле';
         this.refreshPreview();
     },
@@ -2678,9 +2682,28 @@ window.workflowFilterItemFields = (sources, expression) => {
     return list?.item_fields || [];
 };
 
+window.workflowFilterItemPath = (value, collection) => {
+    const field = String(value ?? '').trim();
+    const source = String(collection ?? '').trim().match(/^\{\{\s*(.*?)\s*\}\}$/s)?.[1]?.trim();
+    const expression = field.match(/^\{\{\s*(.*?)\s*\}\}$/s)?.[1]?.trim();
+    if (!source || !expression || !expression.startsWith(source)) return field;
+    let suffix = expression.slice(source.length);
+    if (suffix.startsWith('[0]')) suffix = suffix.slice(3);
+    const path = suffix.startsWith('.') ? suffix.slice(1) : '';
+    return /^[\p{L}_][\p{L}\p{N}_-]*(?:\.[\p{L}_][\p{L}\p{N}_-]*)*$/u.test(path) ? path : field;
+};
+
 window.workflowValueField = (state, filterItemsPath = null) => ({
     state, filterItemsPath, mode: 'value', sources: [], customFields: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
-    init() { if (typeof this.state === 'boolean') this.state = this.state ? '1' : '0'; this.mode = !this.filterItemsPath && typeof this.state === 'string' && this.state.includes('{{') ? 'expression' : 'value'; },
+    init() {
+        if (typeof this.state === 'boolean') this.state = this.state ? '1' : '0';
+        this.mode = !this.filterItemsPath && typeof this.state === 'string' && this.state.includes('{{') ? 'expression' : 'value';
+        if (this.filterItemsPath) {
+            let collection = '';
+            try { collection = this.$wire.$get(this.filterItemsPath) ?? ''; } catch { /* The form can be changing nodes. */ }
+            this.state = window.workflowFilterItemPath(this.state, collection);
+        }
+    },
     suggest(event) {
         const field = event.target;
         if (!field?.hasAttribute?.('data-workflow-value-input')) return;
