@@ -63,6 +63,14 @@ test('nested lists and ordinary object fields remain separate and resolvable', (
     assert.ok(suggest('{{ $("HTTP").sta').some(item => item.expression === '{{ $("HTTP").status }}'));
 });
 
+test('explicit first/last/cf prefixes keep functions reachable with many body fields', () => {
+    const {suggest} = fixture();
+    for (const [prefix, suffix] of [['fi', 'first()'], ['la', 'last()'], ['c', 'cf()']]) {
+        const choices = suggest('{{ $("Получить сделки").' + prefix);
+        assert.equal(choices[0].expression, '{{ $("Получить сделки").' + suffix + ' }}');
+    }
+});
+
 test('choosing a body field or whole collection replaces only the current token', () => {
     const {field, suggest} = fixture();
     let value = 'До {{ $("Получить сделки").na }} после';

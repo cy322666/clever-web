@@ -2889,9 +2889,10 @@ window.workflowValueField = (state, filterItemsPath = null) => ({
                     {name: 'first', suffix: 'first()', label: 'Первый элемент'},
                     {name: 'last', suffix: 'last()', label: 'Последний элемент'},
                 ].filter(item => item.name.startsWith(member[2]));
-                candidates = [...candidates, ...functions.map(item => ({source: 'Функция', label: item.label,
+                const functionCandidates = functions.map(item => ({source: 'Функция', label: item.label,
                     expression: wrap(member[1] + '.' + item.suffix),
-                    caret: item.argument ? ('{{ ' + member[1] + '.cf(').length : undefined}))];
+                    caret: item.argument ? ('{{ ' + member[1] + '.cf(').length : undefined}));
+                candidates = member[2] ? [...functionCandidates, ...candidates] : [...candidates, ...functionCandidates];
             }
         }
         const seen = new Set();
