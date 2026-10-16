@@ -60,6 +60,24 @@ class WorkflowCanvasRunTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_new_debug_session_clears_previous_single_node_badges_only_after_successful_start(): void
+    {
+        $executor = $this->createMock(WorkflowAmoCrmActionExecutor::class);
+        $executor->expects($this->once())->method('execute')->willReturn([
+            'success' => true, 'output' => ['items' => [['id' => 1], ['id' => 2]]],
+        ]);
+        $this->app->instance(WorkflowAmoCrmActionExecutor::class, $executor);
+        $page = Livewire::test(WorkflowDebugFixture::class)
+            ->call('runWorkflowCanvasNode', 'fetch')->assertHasNoErrors()
+            ->assertSet('nodeRunResults.fetch.display_count', 2)
+            ->set('debugReal', true)->set('debugRealConfirmed', false)
+            ->call('startWorkflowDebug')->assertReturned(false)
+            ->assertSet('nodeRunResults.fetch.display_count', 2)
+            ->set('debugReal', false)->call('startWorkflowDebug')->assertReturned(true)
+            ->assertSet('nodeRunResults', [])->assertSet('debugState.results', []);
+        Http::assertNothingSent();
+    }
+
     public function test_unknown_node_is_rejected(): void
     {
         $executor = $this->createMock(WorkflowAmoCrmActionExecutor::class);

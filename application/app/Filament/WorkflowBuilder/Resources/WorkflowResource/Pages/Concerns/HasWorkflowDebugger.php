@@ -260,6 +260,7 @@ trait HasWorkflowDebugger
             $session = app(WorkflowDebugger::class)->start($this->definition, $input, $record?->exists ? $record->getKey() : null, Auth::id(), $this->debugReal);
             $this->debugSessionId = (string) Str::uuid();
             $this->nodePreviewSessionId = null;
+            $this->nodeRunResults = [];
             Cache::put($this->debugCacheKey(), $session, now()->addHour());
             $this->publishDebugState($session);
             return true;

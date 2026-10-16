@@ -2302,8 +2302,16 @@ window.workflowDebugPanel = () => ({
         this.publishDebugInspection();
     },
     debugCanvasState() {
-        if (!this.$wire.debugOpen || this.followDebug || this.selectedIndex < 0 || !this.debugConfigured()) return this.$wire.debugState;
-        return {...this.$wire.debugState, results:this.debugResults().slice(0, this.selectedIndex + 1), next_id:null};
+        const state = this.$wire.debugState;
+        if (this.$wire.debugOpen && !this.followDebug && this.selectedIndex >= 0 && this.debugConfigured()) {
+            return {...state, results:this.debugResults().slice(0, this.selectedIndex + 1), next_id:null};
+        }
+        // Single-node play records results separately from a step-debug session.
+        // Keep its badges across form morphs without changing the recorded trail.
+        const previews = Object.values(this.$wire.nodeRunResults || {}).filter(result => result?.id);
+        if (!previews.length) return state;
+        const ids = new Set(previews.map(result => result.id));
+        return {...state, results:[...this.debugResults().filter(result => !ids.has(result.id)), ...previews]};
     },
     publishDebugInspection() { window.dispatchEvent(new CustomEvent('workflow-debug-inspection', {detail:{componentId:this.$wire.$id,state:this.debugCanvasState()}})); },
     debugStatusLabel(value) { return {completed:'Выполнено', success:'Выполнено', simulated:'Без изменений', skipped:'Пропущено', failed:'Ошибка', error:'Ошибка', validation_error:'Ошибка настроек'}[value] || 'Ещё не выполнялась'; },

@@ -159,7 +159,7 @@
             <section
                 wire:key="workflow-canvas-{{ $workflowLayoutKey }}"
                 x-data="workflowNodeCanvas(@js($workflowLayoutKey), $wire.definition.canvas_layout ?? null, $wire.definition.canvas_edge_routes ?? null)"
-                x-init="$nextTick(() => { initializeCanvas(); setExecutionState($wire.debugState); }); $watch('selectedDebugId', id => { if ($wire.debugOpen) { selectedNodeIds = id ? ['action:' + id] : []; applyNodeSelection(); } })"
+                x-init="$nextTick(() => { initializeCanvas(); setExecutionState(debugCanvasState()); }); $watch('selectedDebugId', id => { if ($wire.debugOpen) { selectedNodeIds = id ? ['action:' + id] : []; applyNodeSelection(); } })"
                 x-on:pointermove.window="moveCanvas($event)"
                 x-on:pointerup.window="stopCanvasInteraction($event)"
                 x-on:pointercancel.window="stopCanvasInteraction($event)"
