@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class YClientsMarketplaceTest extends TestCase
@@ -389,6 +390,45 @@ class YClientsMarketplaceTest extends TestCase
                     ],
                 ];
         });
+    }
+
+    #[DataProvider('existingWidgetAccess')]
+    public function test_multi_salon_activation_preserves_previously_extended_widget_access(int $status, string $subscriptionStatus): void
+    {
+        $user = $this->prepareUserForActivation();
+        config(['alerts.enabled' => false]);
+        (require database_path('migrations/2026_06_14_020000_create_manual_subscription_tables.php'))->up();
+        Schema::table('subscription_plans', fn (Blueprint $table) => $table->string('widget')->nullable());
+        DB::table('apps')->where('id', 20)->update([
+            'status' => $status, 'expires_tariff_at' => now()->addYear()->toDateString(),
+        ]);
+        $this->app->instance(WidgetSubscriptionAccessService::class, new WidgetSubscriptionAccessService());
+        Http::preventStrayRequests();
+        Http::fake(['https://api.yclients.ru/*' => Http::response([], 201)]);
+        $service = app(YClientsMarketplaceService::class);
+
+        foreach ([331981, 775848, 1114763, 1196465, 331981] as $salonId) {
+            $service->activateForUser($user, ['salon_id' => $salonId]);
+        }
+
+        $this->assertDatabaseHas('apps', [
+            'id' => 20, 'status' => $status, 'expires_tariff_at' => now()->addYear()->toDateString(),
+        ]);
+        $this->assertDatabaseCount('widget_subscriptions', 1);
+        $subscription = \App\Models\Billing\WidgetSubscription::query()->firstOrFail();
+        $this->assertSame($subscriptionStatus, $subscription->status);
+        $this->assertSame(now()->addYear()->toDateString(), $subscription->ends_at->toDateString());
+        $this->assertDatabaseHas('yclients_settings', ['id' => 30, 'active' => $status === App::STATE_ACTIVE]);
+        $this->assertDatabaseCount('yclients_marketplace_installations', 4);
+        Http::assertSentCount(4);
+    }
+
+    public static function existingWidgetAccess(): array
+    {
+        return [
+            'active annual subscription' => [App::STATE_ACTIVE, 'active'],
+            'temporarily disabled annual subscription' => [App::STATE_INACTIVE, 'blocked'],
+        ];
     }
 
     private function authenticatedRequest(User $user): Request

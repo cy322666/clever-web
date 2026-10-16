@@ -160,9 +160,14 @@ class WidgetSubscriptionAccessService
         }
 
         return DB::transaction(function () use ($userId, $widget, $endsAt): ?WidgetSubscription {
+            $app = $this->legacyApp($userId, $widget, lockForUpdate: true);
             $existing = $this->latestManualSubscription($userId, $widget);
 
             if ($existing instanceof WidgetSubscription) {
+                if ($app && $this->legacyAccessOutlastsTrial($app, $existing)) {
+                    $existing = $this->syncLegacyAppToManualSubscription($app) ?? $existing;
+                }
+
                 if ($existing->isCurrentlyUsable()) {
                     $this->syncSubscriptionToLegacyApp($existing);
                 }
@@ -170,7 +175,28 @@ class WidgetSubscriptionAccessService
                 return $existing;
             }
 
-            $app = $this->legacyApp($userId, $widget);
+            // Connecting a marketplace must not replace an existing entitlement with a trial.
+            if ($app && (int)$app->status !== App::STATE_CREATED) {
+                $isActive = $this->legacyAppRecordIsActive($app);
+                $subscription = WidgetSubscription::query()->create([
+                    'user_id' => $userId,
+                    'app_id' => $app->id,
+                    'widget' => $widget,
+                    'status' => $isActive
+                        ? WidgetSubscription::STATUS_ACTIVE
+                        : ((int)$app->status === App::STATE_INACTIVE
+                            ? WidgetSubscription::STATUS_BLOCKED
+                            : WidgetSubscription::STATUS_EXPIRED),
+                    'starts_at' => now()->toDateString(),
+                    'ends_at' => $this->parseLegacyExpiresAt($app)?->toDateString(),
+                    'blocked_at' => $isActive ? null : now(),
+                    'notes' => 'Existing widget access imported without changing its expiry.',
+                ]);
+                $this->syncSettingActive($app, $isActive);
+
+                return $subscription;
+            }
+
             $plan = SubscriptionPlan::query()
                 ->where('widget', $widget)
                 ->active()
@@ -383,7 +409,7 @@ class WidgetSubscriptionAccessService
         return $app !== null && $this->legacyAppRecordIsActive($app);
     }
 
-    private function legacyApp(int $userId, string $widget): ?App
+    private function legacyApp(int $userId, string $widget, bool $lockForUpdate = false): ?App
     {
         if (! Schema::hasTable('apps')) {
             return null;
@@ -392,8 +418,26 @@ class WidgetSubscriptionAccessService
         return App::query()
             ->where('user_id', $userId)
             ->where('name', $widget)
+            ->when($lockForUpdate, fn (Builder $query) => $query->lockForUpdate())
             ->latest('id')
             ->first();
+    }
+
+    private function legacyAccessOutlastsTrial(App $app, WidgetSubscription $subscription): bool
+    {
+        if ($subscription->status !== WidgetSubscription::STATUS_TRIAL
+            || $subscription->blocked_at !== null
+            || $subscription->ends_at === null
+            || (int)$app->status === App::STATE_CREATED) {
+            return false;
+        }
+
+        if (blank($app->expires_tariff_at)) {
+            return $this->legacyAppRecordIsActive($app);
+        }
+
+        return $this->parseLegacyExpiresAt($app)?->startOfDay()
+            ->gt($subscription->ends_at->copy()->startOfDay()) ?? false;
     }
 
     private function legacyAppRecordIsActive(App $app): bool
