@@ -113,6 +113,13 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         $this->expectException(\Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException::class);
         $page->set('workflowRecordSnapshot.user_id', 1);
     }
+
+    public function test_a_draft_from_the_previous_signed_in_account_cannot_be_reused(): void
+    {
+        $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $this->workflow()->id]);
+        $this->actingAs(User::findOrFail(1));
+        $page->call('readDictionary')->assertForbidden();
+    }
 }
 
 class DraftPersistenceEditor extends EditWorkflow

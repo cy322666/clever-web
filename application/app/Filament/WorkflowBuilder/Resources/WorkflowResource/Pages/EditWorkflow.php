@@ -50,6 +50,9 @@ class EditWorkflow extends BaseEditWorkflow
             $this->record->definition = $this->definition;
         }
         $this->restoreWorkflowOwnerContext();
+        // A signed draft belongs to the session's owner, not a later account
+        // signed into the same browser. This check needs no workflow SQL read.
+        abort_unless((int) $this->getRecord()->user_id === (int) auth()->id(), 403);
         parent::hydrate();
     }
 
