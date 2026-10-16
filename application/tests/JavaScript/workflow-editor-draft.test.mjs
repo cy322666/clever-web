@@ -90,3 +90,15 @@ test('uncontrolled cycles are rejected locally without losing the valid graph', 
     assert.throws(() => draft.connectWorkflowNodes('action:b', 'output', 'action:if'), /цикл/);
     assert.deepEqual(wire.definition, before);
 });
+test('local loop return edits retain the same explicit-return guard as server edits', () => {
+    const {draft, wire} = fixture();
+    wire.workflowActions.push({id: 'loop', name: 'Цикл', type: 'workflow_loop', config: {require_return: false}});
+    wire.definition.actions = clone(wire.workflowActions);
+    wire.definition.connections = [{sourceId: 'action:loop', sourcePort: 'each', targetId: 'action:b'}];
+    draft.connectWorkflowNodes('action:b', 'output', 'action:loop');
+    assert.equal(wire.workflowActions.find(node => node.id === 'loop').config.require_return, true);
+    wire.workflowActions.find(node => node.id === 'loop').config.require_return = false;
+    draft.disconnectWorkflowNodes('action:b', 'output', 'action:loop');
+    assert.equal(wire.workflowActions.find(node => node.id === 'loop').config.require_return, true);
+    assert.equal(wire.definition.connections.some(edge => edge.targetId === 'action:loop'), false);
+});

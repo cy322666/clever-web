@@ -140,6 +140,7 @@ export class WorkflowEditorDraft {
                 const entity = node.config.target_entity || 'lead';
                 node.config.context_key = 'found_' + entity + '_' + document.value.definition.actions.filter(other => other.type === type && (other.config.target_entity || 'lead') === entity).length;
             }
+            if (connection) for (const edge of validateDraftGraph(document)) document.node(edge.targetId).config.require_return = true;
             return id;
         }, true);
         for (const key of ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath']) this.wire.$set(key, null, false);
@@ -194,23 +195,17 @@ export class WorkflowEditorDraft {
     connectWorkflowNodes(source, port, target, replace = null) {
         this.mutate(document => {
             document.connect(source, port, target, replace);
-            const d = document.value.definition;
-            // Mark explicit loop returns just as the existing server does.
-            if (document.node(target)?.type === 'workflow_loop') {
-                const seen = new Set(), pending = d.connections.filter(e => e.sourceId === target && e.sourcePort === 'each').map(e => e.targetId);
-                while (pending.length) {
-                    const id = pending.pop();
-                    if (id === target || seen.has(id)) continue;
-                    seen.add(id);
-                    d.connections.filter(e => e.sourceId === id && (document.node(id)?.type !== 'workflow_loop' || e.sourcePort === 'done')).forEach(e => pending.push(e.targetId));
-                }
-                if (seen.has(source)) document.node(target).config.require_return = true;
-            }
+            for (const edge of validateDraftGraph(document)) document.node(edge.targetId).config.require_return = true;
         }, true);
         this.announce('workflow-connections-updated');
     }
     disconnectWorkflowNodes(source, port, target) {
-        this.mutate(document => document.disconnect(source, port, target), true);
+        this.mutate(document => {
+            // Removing a loop return must not silently re-enable implicit
+            // iteration. Keep the same require_return guard as the server.
+            for (const edge of validateDraftGraph(document)) document.node(edge.targetId).config.require_return = true;
+            document.disconnect(source, port, target);
+        }, true);
         this.announce('workflow-connections-updated');
     }
     copyWorkflowNodes(ids) {
