@@ -66,6 +66,16 @@ Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
 Route::get('/up', fn() => response('OK', 200))
     ->name('up');
 
+// Browser editor: graph/form changes stay local; only explicit save/runtime requests cross this boundary.
+Route::middleware(['auth', 'throttle:120,1'])->prefix('workflow-editor')->group(function (): void {
+    Route::post('/document', [\App\Http\Controllers\WorkflowBrowserController::class, 'save']);
+    Route::put('/{workflow}/document', [\App\Http\Controllers\WorkflowBrowserController::class, 'save'])->whereNumber('workflow');
+    Route::delete('/{workflow}/document', [\App\Http\Controllers\WorkflowBrowserController::class, 'delete'])->whereNumber('workflow');
+    Route::post('/{workflow}/duplicate', [\App\Http\Controllers\WorkflowBrowserController::class, 'duplicate'])->whereNumber('workflow');
+    Route::post('/{workflow}/references', [\App\Http\Controllers\WorkflowBrowserController::class, 'references'])->whereNumber('workflow');
+    Route::post('/{workflow}/debug', [\App\Http\Controllers\WorkflowBrowserController::class, 'debug'])->whereNumber('workflow');
+});
+
 //архив? не смог зайти
 Route::get('/metrics', MetricsController::class)->name('metrics');
 

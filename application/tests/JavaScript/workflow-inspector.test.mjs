@@ -6,14 +6,20 @@ import {runInNewContext} from 'node:vm';
 function fixture() {
     const events = [];
     const window = {addEventListener() {}, dispatchEvent: event => events.push(event)};
+    const attributes = new Set();
+    const editorPage = {
+        toggleAttribute: (name, enabled) => enabled ? attributes.add(name) : attributes.delete(name),
+        removeAttribute: name => attributes.delete(name),
+        hasAttribute: name => attributes.has(name),
+    };
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
-        window, document: {addEventListener() {}, querySelector: () => null}, CustomEvent: class {constructor(type, props) {this.type=type;Object.assign(this,props);}},
+        window, document: {addEventListener() {}, querySelector: selector => selector === '.workflow-editor-page' ? editorPage : null}, CustomEvent: class {constructor(type, props) {this.type=type;Object.assign(this,props);}},
     });
     const panel = window.workflowInspector();
     panel.$wire = {$id:'flow',mountedActions:[]};
     panel.$el = {querySelector:()=>null, contains:()=>false};
     panel.$nextTick = fn => fn();
-    return {window, panel, events};
+    return {window, panel, events, editorPage};
 }
 
 test('inspector opens immediately, serializes fast clicks and ends on the last requested node', async () => {
@@ -82,14 +88,52 @@ test('dock positioning cannot override panel visibility', () => {
     assert.equal('display' in panel.position,false);
 });
 
-test('canvas space follows the actual panel visibility, not a second event-driven open flag', () => {
+test('closing node settings immediately releases canvas space', () => {
+    const {panel,editorPage}=fixture();
+    panel.opened=true;
+    panel.announce();
+    assert.equal(editorPage.hasAttribute('data-workflow-inspector-open'),true);
+    assert.equal(panel.$el.hidden,false);
+    panel.hideInspector();
+    assert.equal(editorPage.hasAttribute('data-workflow-inspector-open'),false);
+    assert.equal(panel.$el.hidden,true);
+    panel.opened=true;
+    panel.announce();
+    panel.destroy();
+    assert.equal(editorPage.hasAttribute('data-workflow-inspector-open'),false);
+});
+
+test('a late Livewire redraw cannot restore the empty inspector column', () => {
+    const {window,panel,editorPage}=fixture();
+    let morphed;
+    window.Livewire={hook:(name, callback) => {
+        assert.equal(name,'morphed');
+        morphed=callback;
+        return () => { morphed=null; };
+    }};
+    panel.init();
+    panel.opened=true;
+    panel.announce();
+    editorPage.removeAttribute('data-workflow-inspector-open');
+    morphed({component:{id:'flow'}});
+    assert.equal(editorPage.hasAttribute('data-workflow-inspector-open'),true);
+    panel.hideInspector();
+    editorPage.toggleAttribute('data-workflow-inspector-open',true);
+    morphed({component:{id:'flow'}});
+    assert.equal(editorPage.hasAttribute('data-workflow-inspector-open'),false);
+    panel.destroy();
+    assert.equal(morphed,null);
+});
+
+test('canvas space follows inspector visibility without a stale sibling selector', () => {
     const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
     const canvas=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
     const css=readFileSync(new URL('../../resources/css/workflow-inspector.css',import.meta.url),'utf8');
     assert.match(view,/x-bind:hidden="!opened" hidden/);
     assert.doesNotMatch(canvas,/inspectorOpen|has-inspector/);
     assert.match(css,/\.workflow-inspector\[hidden\]\s*\{\s*display: none !important;/);
-    assert.match(css,/\.workflow-editor-page:has\(~ .*\.workflow-inspector:not\(\[hidden\]\)\).*padding-right: 440px/);
+    assert.match(css,/\.workflow-editor-page\[data-workflow-inspector-open\] \.workflow-workbench__main \{ padding-right: 440px; \}/);
+    assert.doesNotMatch(css,/\.workflow-editor-page:has\(~ .*\.workflow-inspector/);
 });
 
 test('outside pointer hides immediately and reopens the same incomplete draft without a request', async () => {

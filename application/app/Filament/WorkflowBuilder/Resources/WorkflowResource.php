@@ -691,10 +691,10 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return [
             'index' => Pages\ListWorkflows::route('/'),
-            'create' => Pages\CreateWorkflow::route('/create'),
+            'create' => Pages\BrowserCreateWorkflow::route('/create'),
             'replay' => Pages\ReplayWorkflow::route('/history/{run}/editor'),
             'history' => Pages\WorkflowHistory::route('/{record}/history'),
-            'edit' => Pages\EditWorkflow::route('/{record}/edit'),
+            'edit' => Pages\BrowserEditWorkflow::route('/{record}/edit'),
         ];
     }
 }

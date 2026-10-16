@@ -14,10 +14,10 @@
     color: #394452;
     font-size: 13px;
 }
-/* The visible panel itself owns the reserved space. No mirrored state or
-   event can leave a blank column behind after a late Livewire response. */
+/* The inspector synchronizes this marker with its visibility. A sibling
+   :has() selector can retain stale canvas padding after a Livewire morph. */
 .workflow-inspector[hidden] { display: none !important; }
-.workflow-editor-page:has(~ [wire\:partial="action-modals"] .workflow-inspector:not([hidden])) .workflow-workbench__main { padding-right: 440px; }
+.workflow-editor-page[data-workflow-inspector-open] .workflow-workbench__main { padding-right: 440px; }
 .workflow-inspector__header { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 18px; }
 .workflow-inspector__header strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
 .workflow-inspector__header button { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; flex: 0 0 auto; }
@@ -132,7 +132,7 @@
 .dark .workflow-node-rename input { background: var(--workflow-dark-input); color: var(--workflow-dark-text); border-color: var(--workflow-dark-outline); }
 .dark .workflow-node-library.is-contextual .workflow-node-library__panel { border-color: var(--workflow-dark-line); }
 @media (max-width: 900px) {
-    .workflow-editor-page:has(~ [wire\:partial="action-modals"] .workflow-inspector:not([hidden])) .workflow-workbench__main { padding-right: 0; }
+    .workflow-editor-page[data-workflow-inspector-open] .workflow-workbench__main { padding-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .workflow-inspector, .workflow-inspector *, .workflow-copy-feedback, .workflow-node-library *, .workflow-node-card__icon > svg, .workflow-node-port::before, .workflow-workbench button, [data-workflow-node-card]::after { animation: none !important; transition: none !important; }
