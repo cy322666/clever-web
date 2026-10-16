@@ -3,6 +3,7 @@
 namespace Tests\Unit\Workflows;
 
 use App\Models\User;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\ListWorkflows;
 use App\Models\Workflows\Workflow;
 use App\Models\Workflows\WorkflowCredential;
 use App\Services\Workflows\WorkflowCredentials;
@@ -32,10 +33,10 @@ class WorkflowCredentialsTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    public function test_editor_connection_encrypts_token_and_keeps_it_out_of_livewire_state(): void
+    public function test_connection_manager_encrypts_token_and_keeps_it_out_of_livewire_state(): void
     {
         $this->fakeBot();
-        $page = Livewire::test(WorkflowCanvasFixture::class)->assertSee('Подключения')
+        $page = Livewire::test(WorkflowCanvasFixture::class)->assertDontSee('aria-label="Подключения"', false)
             ->call('mountAction', 'workflowCredentials')
             ->assertSet('workflowCredentialProvider', 'telegram');
         $this->assertStringContainsString('Подключений пока нет', $this->credentialsModalHtml($page));
@@ -67,6 +68,15 @@ class WorkflowCredentialsTest extends TestCase
         $this->assertSame('@clever_test_bot', $credential->fresh()->name);
         Http::assertSentCount(1);
         Http::assertSent(fn ($request) => $request->method() === 'GET' && str_ends_with($request->url(), '/getMe'));
+    }
+
+    public function test_connections_are_available_from_the_workflow_list(): void
+    {
+        Livewire::test(ListWorkflows::class)
+            ->assertStatus(200)
+            ->assertSee('Подключения')
+            ->call('mountAction', 'workflowCredentials')
+            ->assertSet('workflowCredentialProvider', 'telegram');
     }
 
     public function test_connections_are_scoped_and_foreign_tokens_cannot_be_used(): void
@@ -138,17 +148,14 @@ class WorkflowCredentialsTest extends TestCase
         Http::assertSentCount(1); // Dry-run sends nothing after the connection check.
     }
 
-    public function test_connection_icon_is_immediately_after_activation_without_visible_text(): void
+    public function test_connection_icon_is_not_in_the_editor_toolbar(): void
     {
         $html = Livewire::test(WorkflowCanvasFixture::class)->html();
         $dom = new \DOMDocument;
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
         $xpath = new \DOMXPath($dom);
         $buttons = $xpath->query('//button[@aria-label="Подключения"]');
-        $this->assertCount(1, $buttons);
-        $button = $buttons->item(0);
-        $this->assertSame('', trim($button->textContent));
-        $this->assertSame('toggleWorkflowActivation', $xpath->query('preceding-sibling::*[1]', $button)->item(0)->getAttribute('wire:click'));
+        $this->assertCount(0, $buttons);
         $this->assertSame(['telegram' => 'Telegram'], WorkflowCredentials::providers());
         $this->assertSame([], WorkflowCredentials::schema('amocrm'));
     }

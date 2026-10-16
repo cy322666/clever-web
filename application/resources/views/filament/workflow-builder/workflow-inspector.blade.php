@@ -9,7 +9,6 @@
     x-bind:style="position" x-bind:aria-busy="loading" aria-label="Настройки ноды">
     <header class="workflow-inspector__header">
         <strong x-text="title || 'Нода'"></strong>
-        <button type="button" data-workflow-reference-toggle x-on:click="$dispatch('workflow-masks-open', { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} })" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-4 w-4"/></button>
         <button type="button" x-on:click="hideInspector()" aria-label="Закрыть настройки" title="Закрыть настройки"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
     </header>
     <nav class="workflow-inspector__tabs" role="tablist" aria-label="Данные ноды">

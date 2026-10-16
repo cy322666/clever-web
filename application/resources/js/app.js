@@ -458,28 +458,6 @@ window.workflowWorkbench = () => ({
     },
 });
 
-window.workflowNodeMenu = () => ({
-    menuOpen: false,
-    toggleMenu() {
-        if (this.menuOpen) return this.closeMenu(true);
-        window.dispatchEvent(new CustomEvent('workflow-node-menu-open', {detail: this.$el}));
-        this.menuOpen = true;
-        this.$nextTick(() => this.focusMenuItem(0));
-    },
-    closeMenu(returnFocus = false) {
-        this.menuOpen = false;
-        if (returnFocus) this.$refs.more.focus();
-    },
-    focusMenuItem(index) {
-        const items = [...this.$refs.menu.querySelectorAll('[role="menuitem"]')].filter(item => !item.disabled);
-        if (items.length) items[(index + items.length) % items.length].focus();
-    },
-    moveMenuFocus(event, direction) {
-        const items = [...this.$refs.menu.querySelectorAll('[role="menuitem"]')].filter(item => !item.disabled);
-        this.focusMenuItem(items.indexOf(event.target) + direction);
-    },
-});
-
 window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null, initialCoordinates = null, initialAreas = null) => ({
     layoutKey,
     initialLayout,

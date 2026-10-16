@@ -7,7 +7,6 @@
         <div class="workflow-debug-toolbar__actions">
             <button type="button" x-show="debugConfigured()" x-on:click="resetDebug()" :disabled="busy || playing" title="Настроить новый запуск">Новый запуск</button>
             <button type="button" x-show="!debugConfigured()" x-on:click="startDebug(false)" :disabled="busy || playing">Пошагово</button>
-            <button type="button" class="workflow-debug-primary" x-show="!debugConfigured()" x-on:click="startDebug(true)" :disabled="busy || playing"><x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/>Запустить</button>
             <button type="button" class="workflow-debug-primary" x-show="$wire.debugState.status === 'ready'" x-on:click="nextDebug()" :disabled="busy || playing || !!debugError"><x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/>Следующий шаг</button>
             <button type="button" x-show="$wire.debugState.status === 'ready' && !playing" x-on:click="runDebug()" :disabled="busy || !!debugError">Продолжить</button>
             <button type="button" x-show="playing" x-on:click="playing = false" title="Остановиться после текущего шага"><x-filament::icon icon="heroicon-s-pause" class="h-4 w-4"/>Пауза</button>

@@ -31,6 +31,7 @@ use Livewire\Attributes\Url;
 class ListWorkflows extends BaseListWorkflows
 {
     use \App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowImport;
+    use \App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWorkflowCredentials;
 
     protected static string $resource = WorkflowResource::class;
 
@@ -310,11 +311,13 @@ class ListWorkflows extends BaseListWorkflows
                     ->icon('heroicon-o-arrow-left')
                     ->color('gray')
                     ->url(\App\Filament\App\Pages\WorkflowAdmin::getUrl()),
+                $this->workflowCredentialsAction()->icon('heroicon-o-key')->color('gray'),
             ];
         }
 
         return [
             $this->importWorkflowAction(),
+            $this->workflowCredentialsAction()->icon('heroicon-o-key')->color('gray'),
             Action::make('create_workflow')
                 ->label('Новый сценарий')
                 ->icon('heroicon-o-plus')->iconButton()->tooltip('Новый сценарий')

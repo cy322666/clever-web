@@ -92,9 +92,6 @@
                             <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/><span>{{ $workflowRecord->is_active ? 'Выключить' : 'Включить' }}</span>
                         </button>
                     @endif
-                    <button type="button" wire:click="mountAction('workflowCredentials')" class="workflow-workbench__quick-action" title="Подключения сервисов" aria-label="Подключения">
-                        <x-filament::icon icon="heroicon-o-key" class="h-5 w-5"/>
-                    </button>
                     @if($isReplay)
                         <button class="workflow-workbench__quick-action" type="button" wire:click="openWorkflowDebugger" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         <a href="{{ $this->getReplayBackUrl() }}" class="workflow-workbench__quick-action" aria-label="Вернуться к запуску" title="Вернуться к запуску"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
@@ -132,9 +129,6 @@
                         <div class="workflow-workbench__menu" x-on:click="$el.closest('details').open = false">
                             <button type="button" x-on:click="window.dispatchEvent(new CustomEvent('workflow-export'))"><x-filament::icon icon="heroicon-o-arrow-down-tray" class="h-4 w-4"/> Экспорт JSON</button>
                             <button type="button" wire:click="mountAction('importWorkflow')"><x-filament::icon icon="heroicon-o-arrow-up-tray" class="h-4 w-4"/> Импорт JSON</button>
-                            <button type="button" x-on:click="window.dispatchEvent(new CustomEvent('workflow-layout-reset'))">
-                                <x-filament::icon icon="heroicon-o-squares-2x2" class="h-4 w-4"/> Выровнять блоки
-                            </button>
                             @if ($workflowRecord && !$isReplay)
                                 <button type="button" wire:click="duplicateCurrentWorkflow" wire:loading.attr="disabled" wire:target="duplicateCurrentWorkflow">
                                     <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/> Дублировать
@@ -209,6 +203,12 @@
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="addCanvasArea()" x-bind:disabled="canvasAreas().length >= 100" aria-label="Создать область этапа" title="Создать область этапа"><x-filament::icon icon="heroicon-o-rectangle-group" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
+                <button type="button" class="workflow-canvas-run" x-show="!$wire.debugOpen || !debugConfigured()" x-cloak
+                    x-on:pointerdown.stop x-on:click.stop="if (!$wire.debugOpen) $wire.openWorkflowDebugger(); else startDebug(true)"
+                    x-bind:disabled="busy || playing" x-bind:aria-busy="busy"
+                    x-bind:title="$wire.debugOpen ? 'Запустить отладку' : 'Настроить отладку'" aria-label="Запустить отладку">
+                    <x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/><span>Запустить</span>
+                </button>
                 <div class="workflow-connection-hint" x-show="connecting || connectionError" x-cloak x-on:pointerdown.stop>
                     <span x-text="connectionError || 'Выберите другую ноду'"></span><button type="button" x-show="selectedEdge" x-on:click="removeSelectedEdge()">Удалить связь</button><button type="button" x-on:click="cancelConnection()">Закрыть</button>
                 </div>

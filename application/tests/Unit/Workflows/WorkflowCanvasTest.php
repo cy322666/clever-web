@@ -66,13 +66,13 @@ class WorkflowCanvasTest extends TestCase
             ->assertSee('Добавить действие');
     }
 
-    public function test_action_hover_tools_have_four_icons_and_two_overflow_actions(): void
+    public function test_action_hover_tools_have_four_direct_icons_without_an_overflow_menu(): void
     {
         $html = Livewire::test(WorkflowCanvasFixture::class)->assertStatus(200)->html();
         $document = new \DOMDocument;
         @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
         $xpath = new \DOMXPath($document);
-        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and @x-data="workflowNodeMenu()"]');
+        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and button[starts-with(@aria-label, "Скопировать ноду:")]]');
         $this->assertCount(3, $toolbars);
         foreach ($toolbars as $toolbar) {
             $buttons = $xpath->query('./button', $toolbar);
@@ -83,14 +83,9 @@ class WorkflowCanvasTest extends TestCase
             $this->assertStringContainsString('toggleCanvasAction', $buttons[2]->getAttribute('x-on:click.stop'));
             $this->assertFalse($buttons[1]->hasAttribute('wire:click.stop'));
             $this->assertFalse($buttons[2]->hasAttribute('wire:click.stop'));
-            $this->assertSame('menu', $buttons[3]->getAttribute('aria-haspopup'));
-            $items = $xpath->query('./div[@role="menu"]/button[@role="menuitem"]', $toolbar);
-            $this->assertCount(2, $items);
-            $this->assertSame('Переименовать', trim($items[0]->textContent));
-            $this->assertStringContainsString('startRename()', $items[0]->getAttribute('x-on:click.stop'));
-            $this->assertFalse($items[0]->hasAttribute('wire:click.stop'));
-            $this->assertSame('Скопировать', trim($items[1]->textContent));
-            $this->assertStringContainsString('duplicateWorkflowActionStep', $items[1]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('duplicateWorkflowActionStep', $buttons[3]->getAttribute('wire:click.stop'));
+            $this->assertStringContainsString('Скопировать ноду', $buttons[3]->getAttribute('aria-label'));
+            $this->assertCount(0, $xpath->query('./div[@role="menu"]', $toolbar));
         }
     }
 
@@ -101,6 +96,19 @@ class WorkflowCanvasTest extends TestCase
         ]);
         $this->assertStringNotContainsString('workflowNodeMenu()', $html);
         $this->assertStringNotContainsString('role="menu"', $html);
+    }
+
+    public function test_editor_keeps_one_reference_button_and_moves_run_to_canvas(): void
+    {
+        $html = Livewire::test(WorkflowCanvasFixture::class)->assertStatus(200)->html();
+        $this->assertSame(1, substr_count($html, 'data-workflow-reference-toggle'));
+        $this->assertStringContainsString('class="workflow-canvas-run"', $html);
+        $this->assertStringNotContainsString('Выровнять блоки', $html);
+        $this->assertStringNotContainsString('aria-label="Подключения"', $html);
+
+        $settings = Livewire::test(WorkflowCanvasFixture::class)->call('openWorkflowActionEditor', 'task')->html();
+        $this->assertStringNotContainsString('wire:click="runEditingWorkflowNode"', $settings);
+        $this->assertStringNotContainsString('wire:click="refreshEditingNodeReferences"', $settings);
     }
 
     public function test_it_toggles_a_nested_node_without_changing_its_configuration(): void

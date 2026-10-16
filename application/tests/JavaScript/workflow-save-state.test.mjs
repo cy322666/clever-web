@@ -6,7 +6,7 @@ import test from 'node:test';
 function fixture() {
     const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
     const window = {};
-    runInNewContext(source.slice(source.indexOf('window.workflowWorkbench ='), source.indexOf('window.workflowNodeMenu =')), {window});
+    runInNewContext(source.slice(source.indexOf('window.workflowWorkbench ='), source.indexOf('window.workflowNodeCanvas =')), {window});
     const workbench = window.workflowWorkbench();
     workbench.$wire = {
         data: {name: 'Flow', group_name: null},

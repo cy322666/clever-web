@@ -329,11 +329,7 @@ trait HasCompactWorkflowConfigurationPanels
 
     private function nodeWorkspace(array $schema): array
     {
-        $step = $this->getEditingWorkflowAction();
-        $referenceType = $step['type'] ?? '';
-        $referencePlan = \App\Services\Workflows\WorkflowNodeReferences::plan($referenceType, $this->mountedActions[array_key_last($this->mountedActions)]['data'] ?? $step['config'] ?? []);
         return [Group::make()->extraAttributes(['class' => 'workflow-inspector__workspace'])->schema([
-            View::make('filament.workflow-builder.workflow-node-run')->viewData(compact('referenceType','referencePlan')),
             Group::make([View::make('filament.workflow-builder.workflow-expression-picker')->viewData(['sources' => \App\Services\Workflows\WorkflowExpressionCatalog::forPicker($this->getWorkflowExpressionSources())])])
                 ->extraAttributes(['x-show' => "tab === 'input'", 'class' => 'workflow-inspector__pane', 'role' => 'tabpanel', 'aria-label' => 'Вход']),
             Group::make($schema)

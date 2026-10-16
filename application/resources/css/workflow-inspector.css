@@ -21,7 +21,7 @@
 .workflow-inspector__header { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 18px; }
 .workflow-inspector__header strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
 .workflow-inspector__header button { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; flex: 0 0 auto; }
-.workflow-inspector__tabs { display: flex; padding: 0 146px 0 18px; gap: 14px; border-bottom: 1px solid #e1e5eb; font-size: 12px; }
+.workflow-inspector__tabs { display: flex; padding: 0 18px; gap: 14px; border-bottom: 1px solid #e1e5eb; font-size: 12px; }
 .workflow-inspector__tabs button { min-height: 38px; color: #7c8592; border-bottom: 2px solid transparent; }
 .workflow-inspector__tabs button[aria-selected=true] { color: #354151; border-color: #ee795a; }
 .workflow-inspector__loading { display: flex; gap: 10px; align-items: center; padding: 24px 18px; color: #7c8592; }
@@ -38,10 +38,6 @@
 /* The inspector scrolls the form; a zero flex basis collapses JSON in this auto-height pane. */
 .workflow-inspector .workflow-node-output .workflow-json-tree__viewport { flex: 0 0 auto; }
 .workflow-inspector .workflow-node-output__empty { margin: 60px auto; }
-.workflow-inspector .workflow-node-run { position: absolute; right: 18px; top: 59px; z-index: 1; margin: 0; padding: 0; gap: 4px; }
-.workflow-inspector .workflow-node-run__button { height: 28px; padding: 4px 8px; font-size: 11px; }
-.workflow-inspector .workflow-node-run__button svg { width: 12px; height: 12px; }
-.workflow-inspector .workflow-node-run .workflow-workbench__quick-action { width: 26px; height: 28px; padding: 4px; }
 .workflow-inspector .workflow-node-settings__parameters .fi-sc { grid-template-columns: minmax(0, 1fr) !important; row-gap: 12px !important; }
 .workflow-inspector .workflow-node-settings__parameters .fi-sc > :is(.fi-grid-col, .fi-sc-component) { grid-column: 1 / -1 !important; }
 .workflow-inspector .workflow-node-settings__parameters :is(.fi-fo-field-label-content, .fi-section-header-heading, .workflow-value-field__header label) { font-size: 12px; line-height: 18px; }
@@ -114,7 +110,6 @@
 .workflow-inspector .workflow-inspector__tabs button:hover { color: #ee795a; }
 .workflow-inspector .fi-input-wrp { transition: box-shadow 120ms, border-color 120ms; }
 .workflow-inspector .fi-input-wrp:focus-within { box-shadow: 0 0 0 2px rgb(238 121 90 / .13); }
-.workflow-inspector .workflow-node-run__button:hover { background: #db6548; }
 .workflow-node-editor #workflow-canvas .workflow-node-port::before { transition: box-shadow 120ms, background-color 120ms, border-color 120ms; }
 .workflow-node-editor #workflow-canvas [data-workflow-node-card]:hover { box-shadow: 0 3px 12px rgb(39 59 78 / .14); }
 .workflow-node-editor #workflow-canvas [data-workflow-node-card][data-node-running="true"] { border-color: #ef7656 !important; }
@@ -130,11 +125,10 @@
 .workflow-inspector { animation: workflow-inspector-appear 110ms ease-out; }
 @keyframes workflow-inspector-appear { from { opacity: .65; } to { opacity: 1; } }
 .dark .workflow-inspector { background: var(--workflow-dark-panel); border-color: var(--workflow-dark-line); color: var(--workflow-dark-text); }
+.dark .workflow-inspector .workflow-node-output { background: transparent; }
 .dark .workflow-inspector__tabs, .dark .workflow-inspector__footer { border-color: var(--workflow-dark-line); }
 .dark .workflow-inspector__tabs button[aria-selected=true] { color: var(--workflow-dark-text); }
 .dark .workflow-inspector__header button:hover, .dark .workflow-inspector__footer button:first-child:hover { background: var(--workflow-dark-hover); }
-.dark .workflow-inspector .workflow-node-run .workflow-workbench__quick-action { background: var(--workflow-dark-surface) !important; border-color: var(--workflow-dark-outline) !important; color: var(--workflow-dark-text) !important; }
-.dark .workflow-inspector .workflow-node-run .workflow-workbench__quick-action:hover { background: var(--workflow-dark-hover) !important; }
 .dark .workflow-node-rename input { background: var(--workflow-dark-input); color: var(--workflow-dark-text); border-color: var(--workflow-dark-outline); }
 .dark .workflow-node-library.is-contextual .workflow-node-library__panel { border-color: var(--workflow-dark-line); }
 @media (max-width: 900px) {

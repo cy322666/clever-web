@@ -129,7 +129,8 @@ test('opening and copying from references preserves the mounted unsaved settings
     }
     const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
     const builder=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
-    for (const html of [view,builder]) assert.match(html,/data-workflow-reference-toggle/);
+    assert.doesNotMatch(view,/data-workflow-reference-toggle/);
+    assert.match(builder,/data-workflow-reference-toggle/);
 });
 
 test('close button and Escape hide without a roundtrip; explicit Apply retains validation', () => {

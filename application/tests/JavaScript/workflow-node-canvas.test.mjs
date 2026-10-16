@@ -86,6 +86,19 @@ test('areas always render behind graph, use text inputs and have a separate crea
     assert.ok(area.includes('x-on:pointerdown.stop'));
 });
 
+test('canvas chrome has a centered debug start and compact top-right controls', () => {
+    const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
+    const toolbar = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debug-toolbar.blade.php', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
+    const inspectorCss = readFileSync(new URL('../../resources/css/workflow-inspector.css', import.meta.url), 'utf8');
+    assert.match(view, /class="workflow-canvas-run"[^>]*x-show="!\$wire\.debugOpen \|\| !debugConfigured\(\)"/);
+    assert.match(view, /if \(!\$wire\.debugOpen\) \$wire\.openWorkflowDebugger\(\); else startDebug\(true\)/);
+    assert.doesNotMatch(toolbar, /x-on:click="startDebug\(true\)"/);
+    assert.match(css, /\.workflow-canvas-run \{[^}]*left: 50%; bottom: 20px;/);
+    assert.match(css, /\.workflow-canvas-controls \.workflow-canvas-fit \{[^}]*width: 34px; height: 34px;/);
+    assert.match(inspectorCss, /\.dark \.workflow-inspector \.workflow-node-output \{ background: transparent; \}/);
+});
+
 test('stage areas match the selected solid panel with an unnumbered title and contextual controls', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
     const view = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-canvas-areas.blade.php', import.meta.url), 'utf8');
@@ -309,33 +322,6 @@ test('tiny zoom changes and pan across grid cells preserve the full, unwrapped t
         assert.equal(grid.y,canvas.translateY+11);
         assert.equal(grid.pitch,20*canvas.scale,'No pixel snapping or zoom thresholds');
     }
-});
-
-test('node overflow menu focuses enabled actions, cycles with arrows and restores focus on close', () => {
-    const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
-    const window = {dispatchEvent() {}};
-    runInNewContext(source.slice(source.indexOf('window.workflowNodeMenu ='),source.indexOf('window.workflowNodeCanvas =')), {
-        window, CustomEvent: class { constructor(type,options) { this.type=type;this.detail=options.detail; } },
-    });
-    const menu = window.workflowNodeMenu();
-    let focused;
-    const items = [false,true,false].map(disabled => ({disabled,focus(){focused=this;}}));
-    const more = {focus(){focused=this;}};
-    menu.$el = {};
-    menu.$refs = {menu:{querySelectorAll:()=>items},more};
-    menu.$nextTick = fn=>fn();
-    menu.toggleMenu();
-    assert.equal(menu.menuOpen,true);
-    assert.equal(focused,items[0]);
-    menu.moveMenuFocus({target:items[0]},1);
-    assert.equal(focused,items[2]);
-    menu.moveMenuFocus({target:items[2]},1);
-    assert.equal(focused,items[0]);
-    menu.moveMenuFocus({target:items[0]},-1);
-    assert.equal(focused,items[2]);
-    menu.toggleMenu();
-    assert.equal(menu.menuOpen,false);
-    assert.equal(focused,more);
 });
 
 test('node drags snap absolute card positions, preserve group spacing and never bypass with Alt', () => {

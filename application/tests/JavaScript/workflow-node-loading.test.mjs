@@ -172,7 +172,7 @@ test('the installed Livewire finishes actions for success, cancellation, HTTP an
 
 test('loading keeps the button opaque and replaces old results without a floating panel', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
-    assert.match(css, /\.workflow-node-run__button\[aria-busy="true"\]\s*\{ opacity: 1;/);
+    assert.match(css, /\.workflow-canvas-run\[aria-busy="true"\]\s*\{ opacity: 1;/);
     assert.match(css, /\.workflow-node-output\[aria-busy="true"\][^\n]+display: none/);
     const output = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-node-output.blade.php', import.meta.url), 'utf8');
     assert.match(output, /workflow-node-output__loading" role="status" aria-live="polite"/);
