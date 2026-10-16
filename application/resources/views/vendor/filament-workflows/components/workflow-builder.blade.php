@@ -56,11 +56,17 @@
             <div class="workflow-workbench__toolbar-layout">
                 <div class="workflow-workbench__identity">
                     <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index') }}" class="workflow-workbench__quick-action" aria-label="Сценарии" title="К списку сценариев"><x-filament::icon icon="heroicon-o-arrow-left" class="h-5 w-5"/></a>
-                    <div class="workflow-identity-inline" x-data="{ editing: false }">
-                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button type="button" title="Переименовать поток" x-text="$wire.data.name || @js($workflowTitle)" x-on:click="editing=true; $refs.name.value=$wire.data.name || @js($workflowTitle); $nextTick(() => { $refs.name.focus(); $refs.name.select(); })">{{ $workflowTitle }}</button></h1>
-                        <input x-ref="name" x-show="editing" x-cloak value="{{ $workflowTitle }}" maxlength="255" aria-label="Название потока"
-                            x-on:keydown.enter.prevent.stop="$el.blur()" x-on:keydown.escape.prevent.stop="editing=false; $el.value=@js($workflowTitle)"
-                            x-on:blur="if(editing) { editing=false; workflowEditorCall($wire, 'renameWorkflow', $el.value); }" />
+                    <div class="workflow-identity-inline" x-data="workflowInlineWorkflowName()" x-id="['workflow-name-error']"
+                        x-on:pointerdown.outside.capture="commitRename()"
+                        x-on:focusout="if (editing && !$el.contains($event.relatedTarget)) commitRename()"
+                        x-on:submit.window.capture="if ($event.target.contains($el)) finishBeforeSave($event)">
+                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button x-ref="title" type="button" title="Переименовать поток" x-text="workflowName" x-on:click="startRename()">{{ $workflowTitle }}</button></h1>
+                        <input x-ref="name" x-model="nameDraft" x-show="editing" x-cloak maxlength="255" aria-label="Название потока"
+                            x-bind:aria-invalid="!!renameError" x-bind:aria-describedby="renameError ? $id('workflow-name-error') : null"
+                            x-on:input="updateRename($event.target.value)"
+                            x-on:keydown.enter.stop="if (!$event.isComposing) { $event.preventDefault(); commitRename(); }"
+                            x-on:keydown.escape.prevent.stop="cancelRename()" />
+                        <small x-show="renameError" x-cloak x-text="renameError" x-bind:id="$id('workflow-name-error')" role="alert"></small>
                         @error('name')<small>{{ $message }}</small>@enderror
                         <div class="workflow-identity-tags" x-show="($wire.definition.tags || []).length" x-cloak><template x-for="tag in ($wire.definition.tags || []).slice(0,3)" :key="tag"><span x-text="tag"></span></template><span x-show="($wire.definition.tags || []).length > 3" x-text="'+' + (($wire.definition.tags || []).length - 3)"></span></div>
                     </div>

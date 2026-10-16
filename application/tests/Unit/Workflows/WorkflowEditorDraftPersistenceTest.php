@@ -62,6 +62,25 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_title_typed_in_browser_survives_inspector_requests_and_persists_only_on_save(): void
+    {
+        $flow = $this->workflow();
+        $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id])->set('debugInput', '{"id":1}');
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $page->set('data.name', 'Черновик названия')->call('openWorkflowInspector', 'action:a')
+            ->assertHasNoErrors()->assertSet('data.name', 'Черновик названия');
+        $this->assertSame([], $this->queries('workflows'));
+        $this->assertSame('Исходный', $flow->fresh()->name);
+        $page->call('save')->assertHasNoErrors()->assertSet('savedWorkflowEditorState.name', 'Черновик названия');
+        $this->assertSame('Черновик названия', $flow->fresh()->name);
+        $page->set('data.name', 'Второе название')->call('save')->assertHasNoErrors();
+        Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id])->assertSet('data.name', 'Второе название');
+        $this->assertSame(['keep' => true], $flow->fresh()->definition['vendor_key']);
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
     public function test_dictionary_is_reused_across_requests_and_refreshed_only_explicitly(): void
     {
         DB::table('amocrm_staffs')->insert([

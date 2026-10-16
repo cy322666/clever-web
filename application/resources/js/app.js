@@ -449,6 +449,59 @@ window.workflowInlineNodeName = (nodeId, initialName) => ({
     },
 });
 
+window.workflowInlineWorkflowName = () => ({
+    editing: false, nameDraft: '', originalName: '', renameError: '',
+    get workflowName() { return this.$wire.data?.name || 'Новый процесс'; },
+    startRename() {
+        this.originalName = this.$wire.data?.name ?? '';
+        this.nameDraft = this.workflowName;
+        this.renameError = '';
+        this.editing = true;
+        this.focusRename(true);
+    },
+    focusRename(select = false) {
+        this.$nextTick(() => {
+            if (!this.editing) return;
+            this.$refs.name?.focus();
+            if (select) this.$refs.name?.select();
+        });
+    },
+    updateRename(value) {
+        this.nameDraft = value;
+        this.renameError = '';
+        // The title is part of the same browser draft as the graph. Save always
+        // sees the latest keystroke, even before blur or while a form is open.
+        if (this.$wire.data.name !== value) this.$wire.$set('data.name', value, false);
+    },
+    commitRename() {
+        if (!this.editing) return true;
+        const name = this.nameDraft.trim();
+        if (!name || [...name].length > 255) {
+            this.renameError = 'Введите название от 1 до 255 символов.';
+            return false;
+        }
+        if (this.$wire.data.name !== name) this.$wire.$set('data.name', name, false);
+        this.nameDraft = name;
+        this.renameError = '';
+        this.editing = false;
+        return true;
+    },
+    cancelRename() {
+        if (!this.editing) return;
+        if (this.$wire.data.name !== this.originalName) this.$wire.$set('data.name', this.originalName, false);
+        this.nameDraft = this.originalName;
+        this.renameError = '';
+        this.editing = false;
+        this.$nextTick(() => this.$refs.title?.focus());
+    },
+    finishBeforeSave(event) {
+        if (this.commitRename()) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.focusRename();
+    },
+});
+
 const workflowEditorDrafts = new Map();
 window.workflowDraftFor = wire => workflowEditorDrafts.get(wire?.$id);
 window.workflowEditorCall = (wire, method, ...params) => {
