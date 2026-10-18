@@ -7092,13 +7092,18 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-canvas-controls button[aria-pressed="true"] { border-color: #339dc7; color: #339dc7; background: rgb(51 157 199 / .15); }
 .workflow-node-editor__viewport.is-selecting { cursor: crosshair; user-select: none; }
 .workflow-canvas-note > button { display: grid; place-items: center; width: 34px; height: 34px; flex: none; background: #fff; border: 1px solid #cfd5dd; border-radius: 5px; color: #697482; }
-.workflow-canvas-execution-controls { position: absolute; z-index: 35; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); }
+.workflow-canvas-execution-controls { position: absolute; z-index: 35; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; max-width: calc(100% - 32px); }
 .workflow-canvas-execution-action { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px; width: 40px; height: 40px; border: 1px solid #cfd5dd; border-radius: 7px; background: #fff; color: #697482; box-shadow: 0 2px 8px rgb(31 41 55 / .08); cursor: pointer; }
 .workflow-canvas-execution-action:is(:hover, :focus-visible) { background: #f3f4f6; color: #343c48; }
 .workflow-canvas-execution-action:focus-visible { outline: 2px solid #ef7959; outline-offset: 3px; }
 .workflow-canvas-execution-action svg { width: 20px; height: 20px; }
 .dark .workflow-canvas-execution-action { border-color: var(--workflow-dark-line); background: var(--workflow-dark-panel); color: var(--workflow-dark-text); }
 .dark .workflow-canvas-execution-action:is(:hover, :focus-visible) { background: var(--workflow-dark-hover); }
+.workflow-canvas-execution-action:disabled { opacity: .6; cursor: wait; }
+.workflow-canvas-activation[aria-pressed="true"] { border-color: #86efac; background: #ecfdf5; color: #15803d; }
+.workflow-canvas-activation[aria-pressed="true"]:is(:hover, :focus-visible) { background: #dcfce7; color: #166534; }
+.dark .workflow-canvas-activation[aria-pressed="true"] { border-color: #166534; background: rgb(22 163 74 / .18); color: #86efac; }
+.dark .workflow-canvas-activation[aria-pressed="true"]:is(:hover, :focus-visible) { background: rgb(22 163 74 / .28); color: #bbf7d0; }
 .workflow-canvas-run { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 8px; min-height: 40px; padding: 8px 18px; border: 1px solid #ef7959; border-radius: 7px; background: #ef7959; color: #fff; box-shadow: 0 5px 18px rgb(31 41 55 / .18); font-size: 13px; font-weight: 600; cursor: pointer; }
 .workflow-canvas-run:hover:not(:disabled) { background: #d9684b; border-color: #d9684b; }
 .workflow-canvas-run:disabled { opacity: .6; cursor: wait; }

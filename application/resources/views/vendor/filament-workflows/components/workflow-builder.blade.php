@@ -90,14 +90,8 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
-                    <button type="button" class="workflow-workbench__quick-action" data-workflow-reference-toggle x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
                     @if(($this->nodePreviewTaskId ?? null) && empty($this->mountedActions))
                         @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])
-                    @endif
-                    @if($workflowRecord && !$isReplay)
-                        <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-workbench__quick-action workflow-workbench__quick-action--labeled" aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" title="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Сохранить и включить поток' }}">
-                            <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/><span>{{ $workflowRecord->is_active ? 'Выключить' : 'Включить' }}</span>
-                        </button>
                     @endif
                     <button
                         type="submit"
@@ -208,6 +202,12 @@
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
                 <div class="workflow-canvas-execution-controls" role="toolbar" aria-label="Запуск и отладка" x-on:pointerdown.stop x-on:click.stop>
+                    <button type="button" class="workflow-canvas-execution-action" data-workflow-reference-toggle x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
+                    @if($workflowRecord && !$isReplay)
+                        <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-canvas-execution-action workflow-canvas-activation" data-workflow-activation-toggle aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" aria-label="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Включить поток' }}" title="{{ $workflowRecord->is_active ? 'Поток включён. Выключить' : 'Поток выключен. Сохранить и включить' }}">
+                            <x-filament::icon icon="heroicon-o-power" class="h-5 w-5"/>
+                        </button>
+                    @endif
                     <button type="button" class="workflow-canvas-run" x-show="!$wire.debugOpen || !debugConfigured()" x-cloak
                         x-on:pointerdown.stop x-on:click.stop="if (!$wire.debugOpen) $wire.openWorkflowDebugger(); else startDebug(true)"
                         x-bind:disabled="busy || playing" x-bind:aria-busy="busy"
