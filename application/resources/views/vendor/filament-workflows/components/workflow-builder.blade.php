@@ -235,15 +235,15 @@
 
                     <main id="workflow-canvas" class="workflow-builder workflow-node-flow">
                         <div class="workflow-node-starts">
-                        @foreach($workflowStarts ?: ['trigger' => null] as $startId => $start)
-                        @php($startMetadata = $start ? $this->getTriggerMetadata($start['type'], $start['config'] ?? []) : null)
+                        @foreach($workflowStarts as $startId => $start)
+                        @php($startMetadata = $this->getTriggerMetadata($start['type'], $start['config'] ?? []))
                         <div
                             class="workflow-node-shell workflow-node-shell--trigger"
                             data-workflow-node-id="{{ $startId }}"
                             data-draft-type="{{ $start['type'] ?? '' }}"
                             wire:key="workflow-start-{{ $startId }}"
                         >
-                            @if($start && $startMetadata)
+                            @if($startMetadata)
                                 <x-filament-workflows::workflows.trigger-card
                                     :node-id="$startId"
                                     :node-name="$start['name'] ?? null"
@@ -252,25 +252,27 @@
                                     :metadata="$startMetadata"
                                     :read-only="false"
                                 />
-                            @else
-                                <button
-                                    type="button"
-                                    x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')"
-                                    class="workflow-node-empty"
-                                    data-workflow-empty-start
-                                    aria-label="Выбрать способ запуска"
-                                >
-                                    <span class="workflow-node-card__icon">
-                                        <x-filament::icon icon="heroicon-o-plus" class="h-5 w-5"/>
-                                    </span>
-                                    <span class="workflow-node-card__caption">
-                                        <strong class="workflow-node-card__title">Выбрать запуск</strong>
-                                    </span>
-                                </button>
                             @endif
                         </div>
-
                         @endforeach
+                        <div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-start-add
+                             @if($workflowStarts === []) data-workflow-node-id="trigger" @endif>
+                            <button
+                                type="button"
+                                x-on:pointerdown.stop
+                                x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')"
+                                class="workflow-node-empty"
+                                data-workflow-empty-start
+                                aria-label="Выбрать событие"
+                            >
+                                <span class="workflow-node-card__icon">
+                                    <x-filament::icon icon="heroicon-o-plus" class="h-5 w-5"/>
+                                </span>
+                                <span class="workflow-node-card__caption">
+                                    <strong class="workflow-node-card__title">Выбрать событие</strong>
+                                </span>
+                            </button>
+                        </div>
                         </div>
                         @if($workflowActionItems->isNotEmpty())
                                 <x-filament-workflows::workflows.action-list

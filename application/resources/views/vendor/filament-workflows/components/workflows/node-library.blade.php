@@ -135,11 +135,11 @@
     ];
     $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
     $queryActionGroups = [
-        'amocrm_query_leads' => 'Сделки',
-        'amocrm_contact_leads' => 'Сделки',
-        'amocrm_get_contact' => 'Контакты',
+        'amocrm_query_leads' => 'lead',
+        'amocrm_contact_leads' => 'lead',
+        'amocrm_get_contact' => 'contact',
     ];
-    $queryActions = array_values(array_filter($actions, fn (array $action): bool => isset($queryActionGroups[$action['type'] ?? ''])));
+    $queryActions = array_values(array_filter($actions, fn (array $action): bool => isset($queryActionGroups[$action['type'] ?? '']) && ($action['available'] ?? true) !== false));
     $actionEntities = [
         'salesbot' => ['title' => 'Salesbot', 'description' => 'Запуск бота', 'icon' => 'heroicon-o-cpu-chip', 'types' => ['amocrm_start_salesbot'], 'items' => []],
         'contact' => ['title' => 'Контакт', 'description' => 'Создание и поля контакта', 'icon' => 'heroicon-o-user', 'types' => ['amocrm_create_contact', 'amocrm_update_contact_fields'], 'items' => []],
@@ -179,6 +179,10 @@
             'types' => ['amocrm_link_entity'],
             'items' => [],
         ],
+        'customer' => ['title' => 'Покупатель', 'icon' => 'heroicon-o-users', 'types' => [], 'items' => []],
+        'catalog' => ['title' => 'Списки и товары', 'icon' => 'heroicon-o-squares-2x2', 'types' => [], 'items' => []],
+        'event' => ['title' => 'События', 'icon' => 'heroicon-o-bolt', 'types' => [], 'items' => []],
+        'other' => ['title' => 'Другое', 'icon' => 'heroicon-o-circle-stack', 'types' => [], 'items' => []],
     ];
     $logicActions = [];
     foreach ($actionEntities as $key => &$group) $group['icon'] = \App\Services\Workflows\WorkflowAmoIcons::entity($key, $group['icon']);
@@ -216,15 +220,34 @@
         unset($entity);
     }
 
-    $actionEntities = array_filter($actionEntities, static fn (array $entity): bool => $entity['items'] !== []);
     $readOperations = \App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations();
+    $readEntityGroups = [
+        'Сделки' => 'lead', 'Контакты' => 'contact', 'Компании' => 'company',
+        'Покупатели' => 'customer', 'Задачи' => 'task', 'Списки и товары' => 'catalog',
+        'События' => 'event', 'Примечания' => 'note', 'Теги' => 'tags', 'Другое' => 'other',
+    ];
+    foreach ($queryActions as $action) {
+        $key = $queryActionGroups[$action['type']];
+        $action['search_text'] = mb_strtolower('amoCRM '.$actionEntities[$key]['title'].' '.$action['name'].' '.strip_tags((string) ($action['description'] ?? '')));
+        $actionEntities[$key]['query_items'][] = $action;
+    }
+    foreach ($readOperations as $operation => $item) {
+        $key = $readEntityGroups[$item['entity_group'] ?? $item['group']] ?? 'other';
+        $item['operation'] = $operation;
+        $item['search_text'] = mb_strtolower('amoCRM '.$actionEntities[$key]['title'].' '.$item['group'].' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? []));
+        $actionEntities[$key]['read_items'][] = $item;
+    }
+    $actionEntities = array_filter($actionEntities, static fn (array $entity): bool => $entity['items'] !== [] || ($entity['query_items'] ?? []) !== [] || ($entity['read_items'] ?? []) !== []);
+    $entityOrder = array_flip(['lead', 'contact', 'company', 'customer', 'task', 'note', 'tags', 'links', 'salesbot', 'catalog', 'event', 'other']);
+    uksort($actionEntities, static fn (string $a, string $b): int => $entityOrder[$a] <=> $entityOrder[$b]);
+    foreach ($actionEntities as &$entity) {
+        $entity['count'] = count($entity['items']) + count($entity['query_items'] ?? []) + count($entity['read_items'] ?? []);
+        $entity['search_texts'] = array_column(array_merge($entity['items'], $entity['query_items'] ?? [], $entity['read_items'] ?? []), 'search_text');
+    }
+    unset($entity);
     $triggerSearchTexts = array_merge(...array_values(array_map(static fn (array $group): array => array_column($group['items'], 'search_text'), $triggerGroups)));
-    $amoSearchTexts = array_column(array_merge(...array_column($actionEntities, 'items')), 'search_text');
-    $querySearchTexts = array_merge(
-        array_map(static fn (array $action): string => 'amoCRM '.$action['name'].' '.($queryActionGroups[$action['type']] ?? ''), $queryActions),
-        array_map(static fn (array $item): string => $item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? []), $readOperations),
-    );
-    $actionSearchTexts = array_merge(array_column($logicActions, 'search_text'), $amoSearchTexts, $querySearchTexts, ['telegram телеграм отправить сообщение']);
+    $amoSearchTexts = array_merge(...array_column($actionEntities, 'search_texts'));
+    $actionSearchTexts = array_merge(array_column($logicActions, 'search_text'), $amoSearchTexts, ['telegram телеграм отправить сообщение']);
 @endphp
 
 <aside
@@ -243,11 +266,10 @@
          x-bind:data-workflow-reference-panel="mode === 'variables' ? '' : null"
          class="workflow-node-library__panel" role="dialog"
          x-bind:aria-busy="workflowNodeIsAdding($wire)"
-         x-bind:aria-label="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать запуск' : 'Добавить ноду'">
+         x-bind:aria-label="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : 'Добавить ноду'">
         <header class="workflow-node-library__header">
             <div class="workflow-node-library__heading">
-                <h2 x-show="!workflowNodeIsAdding($wire)" x-text="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать запуск' : mode === 'action' ? 'Добавить действие' : 'Добавить ноду'"></h2>
-                <small x-show="mode !== 'variables' && !workflowNodeIsAdding($wire)" x-text="mode === 'trigger' ? 'Событие, с которого начинается сценарий' : mode === 'action' ? 'Шаг в выбранной ветке' : 'Выберите запуск или действие'"></small>
+                <h2 x-show="!workflowNodeIsAdding($wire)" x-text="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : mode === 'action' ? 'Добавить действие' : 'Добавить ноду'"></h2>
                 <div x-cloak x-show="workflowNodeIsAdding($wire)" class="workflow-node-library__pending" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span>Добавляю…</div>
             </div>
             <button x-cloak x-show="mode === 'variables'" type="button" wire:click="refreshWorkflowReference" wire:loading.attr="disabled"
@@ -262,7 +284,7 @@
             <label class="workflow-node-library__search">
                 <x-filament::icon icon="heroicon-o-magnifying-glass" class="h-4 w-4"/>
                 <input x-ref="search" x-model.debounce.100ms="query" type="search" autocomplete="off"
-                       x-bind:placeholder="mode === 'trigger' ? 'Найти способ запуска…' : 'Найти действие или сервис…'"
+                       x-bind:placeholder="mode === 'trigger' ? 'Найти событие…' : 'Найти действие или сервис…'"
                        aria-label="Поиск нод"/>
                 <button x-cloak x-show="query !== ''" type="button"
                         x-on:click="query = ''; $nextTick(() => $refs.search?.focus())" aria-label="Очистить поиск">
@@ -270,6 +292,6 @@
                 </button>
             </label>
         </div>
-        @include('filament.workflow-builder.workflow-node-catalog', compact('triggerGroups', 'logicActions', 'actionEntities', 'queryActions', 'queryActionGroups', 'readOperations', 'triggerSearchTexts', 'amoSearchTexts', 'querySearchTexts', 'actionSearchTexts', 'maskGroups', 'systemIdGroups'))
+        @include('filament.workflow-builder.workflow-node-catalog', compact('triggerGroups', 'logicActions', 'actionEntities', 'triggerSearchTexts', 'amoSearchTexts', 'actionSearchTexts', 'maskGroups', 'systemIdGroups'))
     </div>
 </aside>

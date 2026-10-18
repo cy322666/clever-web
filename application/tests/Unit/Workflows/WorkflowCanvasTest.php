@@ -154,7 +154,7 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('Назад к процессам')
             ->assertDontSee('История запусков')
             ->assertSee('aria-label="Справочники"', false)
-            ->assertSee('mode === \'trigger\' ? \'Выбрать запуск\' : \'Добавить ноду\'', false)
+            ->assertSee('mode === \'trigger\' ? \'Выбрать событие\' : \'Добавить ноду\'', false)
             ->assertDontSee('workflow-node-library__rail', false)
             ->assertDontSee('Связаться с клиентом');
 
@@ -218,9 +218,26 @@ class WorkflowCanvasTest extends TestCase
 
     public function test_an_empty_start_is_a_dashed_plus_slot(): void
     {
-        Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [], 'trigger' => null])
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [], 'trigger' => null])
             ->assertSee('data-workflow-empty-start', false)
-            ->assertSee('Выбрать запуск');
+            ->assertSee('Выбрать событие');
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$page->html());
+        $xpath = new \DOMXPath($document);
+        $this->assertCount(1, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-start-add and @data-workflow-node-id="trigger"]'));
+        $page->call('beginTriggerAdd')
+            ->assertDispatched('workflow-node-library-open', mode: 'trigger');
+        $page->call('selectTriggerType', 'manual')
+            ->assertSee('data-workflow-empty-start', false)
+            ->assertSee('Выбрать событие');
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$page->html());
+        $xpath = new \DOMXPath($document);
+        $this->assertCount(1, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-empty-start]'));
+        $this->assertCount(0, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-start-add and @data-workflow-node-id]'));
+        $page->call('beginTriggerAdd')->call('selectTriggerType', 'amo-button');
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$page->html());
+        $xpath = new \DOMXPath($document);
+        $this->assertCount(1, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-empty-start]'));
         $this->assertStringContainsString('icon="heroicon-o-plus"', file_get_contents(resource_path('views/vendor/filament-workflows/components/workflow-builder.blade.php')));
     }
 

@@ -18,7 +18,8 @@ test('catalog browsing is entirely client side and insertion state is reset only
     const {state,changes}=fixture();
     state.openFor();assert.equal(state.mode,'all');
     for (const mode of ['trigger', 'action', 'variables']) { state.openFor({mode}); assert.equal(state.mode, mode); assert.equal(state.open,true); }
-    for (const mode of ['query', 'service']) { state.openFor({mode}); assert.equal(state.mode, 'action'); assert.equal(state.view,mode); }
+    state.openFor({mode:'query'}); assert.equal(state.mode,'action'); assert.equal(state.view,'amocrm');
+    state.openFor({mode:'service'}); assert.equal(state.mode,'action'); assert.equal(state.view,'service');
     assert.deepEqual(changes, []);
     state.openFor({mode:'trigger', replace:true}); assert.equal(state.replaceTrigger,true);
     state.openFor({mode:'trigger'}); assert.equal(state.replaceTrigger,false);
@@ -60,12 +61,14 @@ test('reference browsing and pasting coexist without requests; ordinary catalog 
 
 test('the app-first catalog switches categories locally and keeps triggers out of branch mode', () => {
     const {state,changes}=fixture();state.openFor({anchor:{x:300,y:200}});
-    for(const category of ['logic','amocrm','query','service','trigger:system']) {
+    for(const category of ['logic','amocrm','service','trigger:system']) {
         state.selectCategory(category);
         assert.equal(state.view,category);
         assert.equal(state.mode,'all');
         assert.equal(state.query,'');
     }
+    state.selectCategory('amocrm');state.selectEntity('lead');assert.equal(state.view,'amocrm:lead');
+    state.selectCategory('amocrm');assert.equal(state.view,'amocrm');
     state.openFor({mode:'action'});
     assert.equal(state.view,'logic');
     assert.match(catalog,/x-show="mode === 'trigger' \|\| mode === 'all'"/);
@@ -80,7 +83,9 @@ test('global search covers actions, queries, services and triggers without losin
     const {state,changes}=fixture();state.openFor();state.query='получить КОНТАКТ';
     assert.equal(state.matches('amoCRM Контакты получить контакт'),true);
     assert.equal(state.matches('Создать контакт'),false);
-    assert.match(catalog,/view === 'query' : matchesAny\(@js\(\$querySearchTexts\)\)/);
+    assert.match(catalog,/view === @js\('amocrm:'\.\$key\) : matchesAny\(@js\(\$entity\['search_texts'\]\)\)/);
+    assert.match(catalog,/x-on:click="selectEntity\(@js\(\$key\)\)"/);
+    assert.doesNotMatch(catalog,/<span>Запросы<\/span>/);
     assert.match(catalog,/view === 'service' : matches\('telegram телеграм отправить сообщение'\)/);
     assert.match(catalog,/query === '' \|\| matches\(@js\(\$trigger\['search_text'\]\)\)/);
     assert.match(catalog,/query === '' \|\| matches\(@js\(\$action\['search_text'\]\)\)/);
@@ -107,7 +112,15 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     const builder = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
     assert.match(builder,/data-workflow-empty-start/);
     assert.match(builder,/icon="heroicon-o-plus"/);
-    assert.match(css,/\.workflow-node-empty\[data-workflow-empty-start\]\s*\{[^}]*border: 2px dashed/s);
+    assert.match(builder, /data-workflow-start-add/);
+    assert.match(builder, /Выбрать событие/);
+    assert.match(css,/\.workflow-node-empty\[data-workflow-empty-start\]\s*\{[^}]*border: 2px dashed[^}]*pointer-events: auto/s);
+    const draft = readFileSync(new URL('../../resources/js/workflow-editor-draft.mjs', import.meta.url), 'utf8');
+    assert.match(draft, /const starts = main\.querySelector\('\.workflow-node-starts'\);/);
+    assert.match(draft, /else if \(addSlot !== starts\.lastElementChild\)/);
+    assert.match(catalog, /<span>amoCRM<\/span><small>/);
+    assert.match(catalog, /<span>Сервисы<\/span><small>1<\/small>/);
+    assert.doesNotMatch(catalog, /workflow-node-library__item-add/);
     assert.match(css,/\.workflow-node-edge-add:not\(\.workflow-loop-replace\):not\(\[data-workflow-edge-delete\]\):is\(:hover, :focus-visible\)\s*\{[^}]*scale\(1\.3\)/s);
     assert.match(css,/\.workflow-node-card\[data-node-family\]:not\(\.workflow-node-card--disabled\):is\(:hover, :focus-visible\)\s*\{[^}]*outline-color/s);
     assert.match(css,/\.workflow-workbench--page \.workflow-workbench__toolbar,[^{]*\{\s*min-height: 2\.75rem/s);

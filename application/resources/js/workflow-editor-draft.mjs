@@ -279,12 +279,19 @@ export function installWorkflowEditorDraft(wire, root) {
                 window.Alpine.mutateDom(() => { window.Alpine.destroyTree(shell); shell.remove(); });
             }
         }
-        // The original empty-trigger affordance is reused, not redesigned.
-        if (!wire.trigger && !main.querySelector('.workflow-node-empty')) {
+        // The add-event slot remains after every start, including local draft additions.
+        const starts = main.querySelector('.workflow-node-starts');
+        let addSlot = starts.querySelector('[data-workflow-start-add]');
+        if (!addSlot) {
             const template = templates.find(el => el.dataset.workflowDraftTemplate === 'empty');
-            const empty = template.content.firstElementChild.cloneNode(true);
-            window.Alpine.mutateDom(() => { main.querySelector('.workflow-node-starts').append(empty); window.Alpine.initTree(empty); });
+            addSlot = template.content.firstElementChild.cloneNode(true);
+            window.Alpine.mutateDom(() => { starts.append(addSlot); window.Alpine.initTree(addSlot); });
         }
+        else if (addSlot !== starts.lastElementChild) window.Alpine.mutateDom(() => starts.append(addSlot));
+        window.Alpine.mutateDom(() => {
+            if (wire.trigger) delete addSlot.dataset.workflowNodeId;
+            else addSlot.dataset.workflowNodeId = 'trigger';
+        });
         announce('workflow-connections-updated');
     };
     const draft = new WorkflowEditorDraft(wire, catalog, render, announce);

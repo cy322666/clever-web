@@ -17,7 +17,8 @@ class WorkflowNodeLibraryTest extends TestCase
         ], true);
         $this->assertSame(1, substr_count($html, '<strong>Создать контакт</strong>'));
         $this->assertSame(1, substr_count($html, '<strong>Обновить контакт</strong>'));
-        $this->assertStringContainsString('Создание и поля контакта', $html);
+        $this->assertStringNotContainsString('Создание и поля контакта', $html);
+        $this->assertStringContainsString('selectEntity(', $html);
 
         \Tests\Support\WorkflowListDatabase::prepare();
         \Illuminate\Support\Facades\Http::preventStrayRequests();
@@ -46,22 +47,27 @@ class WorkflowNodeLibraryTest extends TestCase
         }
         $this->assertStringContainsString('<strong>Примечания</strong>', $html);
         $this->assertStringContainsString('<strong>Теги</strong>', $html);
-        $this->assertStringContainsString('Контакты', $html);
+        $this->assertStringContainsString('<strong>Контакт</strong>', $html);
         $this->assertStringNotContainsString(' · GET', $html);
         $this->assertStringNotContainsString('GET-запрос', $html);
-        $this->assertStringContainsString('<strong>Запросы amoCRM</strong>', $html);
+        $this->assertStringNotContainsString('<strong>Запросы amoCRM</strong>', $html);
+        $this->assertStringNotContainsString('Получить сущность или список', $html);
+        $this->assertStringContainsString("'selectReadOperation'", $html);
     }
 
     public function test_context_catalog_contains_every_category_without_a_second_sidebar(): void
     {
-        $html = $this->renderNodeLibrary([], false);
+        $html = $this->renderNodeLibrary([['type' => 'control-condition', 'name' => 'Условие']], false);
         $this->assertStringContainsString('aria-label="Категории нод"', $html);
         $this->assertStringNotContainsString('workflow-node-library__rail', $html);
-        foreach (['amoCRM', 'Запросы', 'Сервисы'] as $category) {
+        foreach (['amoCRM', 'Сервисы'] as $category) {
             $this->assertStringContainsString('<span>'.$category.'</span>', $html);
         }
+        $this->assertStringNotContainsString('<span>Запросы</span>', $html);
+        $this->assertStringContainsString('<span>Инструменты</span>', $html);
+        $this->assertStringContainsString('<span>Сервисы</span><small>1</small>', $html);
         $this->assertStringContainsString('selectCategory(', $html);
-        $this->assertStringNotContainsString('goBack()', $html);
+        $this->assertStringContainsString('selectEntity(', $html);
         $this->assertStringContainsString('workflow-masks-open', $html);
     }
 
@@ -85,7 +91,7 @@ class WorkflowNodeLibraryTest extends TestCase
         }
 
         foreach (['Сделка', 'Задача', 'Примечание', 'Теги', 'Компания', 'Связи'] as $group) {
-            $this->assertStringContainsString('workflow-node-library__section-title">'.$group.'</div>', $html);
+            $this->assertStringContainsString('<span><strong>'.$group.'</strong></span>', $html);
         }
     }
 

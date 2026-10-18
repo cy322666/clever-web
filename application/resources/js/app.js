@@ -374,11 +374,15 @@ window.workflowNodeLibrary = () => ({
     resetView(nextMode = this.mode) {
         this.mode = ['query', 'service'].includes(nextMode) ? 'action' : nextMode;
         this.view = nextMode === 'trigger' ? 'trigger:system'
-            : ['query', 'service'].includes(nextMode) ? nextMode : 'logic';
+            : nextMode === 'query' ? 'amocrm' : nextMode === 'service' ? 'service' : 'logic';
         this.query = '';
     },
     selectCategory(category) {
         this.view = category;
+        this.query = '';
+    },
+    selectEntity(entity) {
+        this.view = `amocrm:${entity}`;
         this.query = '';
     },
     openFor(detail = {}) {

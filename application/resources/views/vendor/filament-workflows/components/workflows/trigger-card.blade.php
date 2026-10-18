@@ -38,7 +38,7 @@
         @endif
         tabindex="0"
         x-on:keydown.enter.self.prevent="$el.click()"
-        aria-label="Выбрать запуск: {{ $name }}"
+        aria-label="Событие: {{ $name }}"
     @else
         aria-label="{{ $name }}"
     @endif
