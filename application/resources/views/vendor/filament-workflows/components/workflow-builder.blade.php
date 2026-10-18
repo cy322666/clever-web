@@ -169,8 +169,10 @@
                 x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
                 x-on:workflow-node-created.window="placeCreatedNode($event.detail)"
                 x-on:workflow-nodes-copied.window="placeCopiedNodes($event.detail)"
+                x-on:workflow-canvas-before-update.window="if ($event.detail.componentId === $wire.$id) draftPositions = cardPositions()"
+                x-on:workflow-canvas-after-update.window="if ($event.detail.componentId === $wire.$id) { applyNodePositions(); restoreCardPositions(draftPositions); draftPositions = null }"
                 x-on:workflow-connections-updated.window="scheduleGraphRefresh()"
-                x-on:workflow-node-library-closed.window="pendingDropPosition = null; pendingInsertion = null"
+                x-on:workflow-node-library-closed.window="pendingDropPosition = null; pendingInsertion = null; pendingTriggerPosition = null"
                 x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
                 class="workflow-node-editor"
             >
@@ -196,7 +198,12 @@
                     <textarea x-show="open" x-cloak x-model="note" x-on:change="workflowEditorCall($wire, 'updateWorkflowDescription', note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
-                    <button type="button" class="workflow-canvas-fit" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
+                    <button type="button" class="workflow-canvas-add-trigger" x-show="Boolean($wire.trigger)" x-cloak
+                        x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall($wire, 'beginTriggerAdd')"
+                        aria-label="Добавить способ запуска" title="Добавить способ запуска">
+                        <x-filament::icon icon="heroicon-o-bolt" class="h-4 w-4"/><span>Добавить запуск</span>
+                    </button>
+                    <button type="button" class="workflow-canvas-fit workflow-canvas-add-node" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="addCanvasArea()" x-bind:disabled="canvasAreas().length >= 100" aria-label="Создать область этапа" title="Создать область этапа"><x-filament::icon icon="heroicon-o-rectangle-group" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
@@ -256,12 +263,12 @@
                             @endif
                         </div>
                         @endforeach
-                        <div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-start-add
-                             @if($workflowStarts === []) data-workflow-node-id="trigger" @endif>
+                        @if($workflowStarts === [])
+                        <div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-start-add data-workflow-node-id="trigger">
                             <button
                                 type="button"
                                 x-on:pointerdown.stop
-                                x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')"
+                                x-on:click="captureTriggerAdd(); workflowEditorCall($wire, 'beginTriggerAdd')"
                                 class="workflow-node-empty"
                                 data-workflow-empty-start
                                 aria-label="Выбрать событие"
@@ -274,6 +281,7 @@
                                 </span>
                             </button>
                         </div>
+                        @endif
                         </div>
                         @if($workflowActionItems->isNotEmpty())
                                 <x-filament-workflows::workflows.action-list

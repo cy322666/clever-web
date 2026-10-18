@@ -3,6 +3,7 @@
 namespace Tests\Unit\Workflows;
 
 use Livewire\Livewire;
+use Tests\Support\EmptyWorkflowCanvasFixture;
 use Tests\Support\WorkflowCanvasFixture;
 use Tests\Support\WorkflowCanvasDatabase;
 use Tests\TestCase;
@@ -216,9 +217,9 @@ class WorkflowCanvasTest extends TestCase
         $this->assertSame($starts, $page->get('definition.additional_triggers') ?? []);
     }
 
-    public function test_an_empty_start_is_a_dashed_plus_slot(): void
+    public function test_the_first_start_replaces_the_dashed_plus_slot(): void
     {
-        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [], 'trigger' => null])
+        $page = Livewire::test(EmptyWorkflowCanvasFixture::class, ['workflowActions' => []])
             ->assertSee('data-workflow-empty-start', false)
             ->assertSee('Выбрать событие');
         $document = new \DOMDocument;
@@ -227,17 +228,21 @@ class WorkflowCanvasTest extends TestCase
         $this->assertCount(1, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-start-add and @data-workflow-node-id="trigger"]'));
         $page->call('beginTriggerAdd')
             ->assertDispatched('workflow-node-library-open', mode: 'trigger');
+        $this->assertSame(null, $page->get('trigger'));
         $page->call('selectTriggerType', 'manual')
-            ->assertSee('data-workflow-empty-start', false)
-            ->assertSee('Выбрать событие');
+            ->assertSet('trigger.type', 'manual');
+        $this->assertSame([], $page->get('definition.additional_triggers') ?? []);
         @$document->loadHTML('<?xml encoding="UTF-8">'.$page->html());
         $xpath = new \DOMXPath($document);
-        $this->assertCount(1, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-empty-start]'));
+        $this->assertCount(0, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-empty-start]'));
         $this->assertCount(0, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-start-add and @data-workflow-node-id]'));
         $page->call('beginTriggerAdd')->call('selectTriggerType', 'amo-button');
         @$document->loadHTML('<?xml encoding="UTF-8">'.$page->html());
         $xpath = new \DOMXPath($document);
-        $this->assertCount(1, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-empty-start]'));
+        $this->assertCount(0, $xpath->query('//*[@id="workflow-canvas"]//*[@data-workflow-empty-start]'));
+        $startNodes = $xpath->query('//*[@id="workflow-canvas"]//*[@class="workflow-node-shell workflow-node-shell--trigger" and @data-workflow-node-id and not(ancestor::template)]');
+        $this->assertCount(2, $startNodes, implode(', ', array_map(fn ($node) => $node->getAttribute('data-workflow-node-id'), iterator_to_array($startNodes))));
+        $this->assertCount(1, $xpath->query('//button[contains(concat(" ", normalize-space(@class), " "), " workflow-canvas-add-trigger ")]'));
         $this->assertStringContainsString('icon="heroicon-o-plus"', file_get_contents(resource_path('views/vendor/filament-workflows/components/workflow-builder.blade.php')));
     }
 

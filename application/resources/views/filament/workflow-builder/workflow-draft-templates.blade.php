@@ -22,7 +22,7 @@
         </div></template>
     @endforeach
     <template data-workflow-draft-template="empty"><div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-start-add>
-        <button type="button" x-on:pointerdown.stop x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')" class="workflow-node-empty" data-workflow-empty-start aria-label="Выбрать событие">
+        <button type="button" x-on:pointerdown.stop x-on:click="captureTriggerAdd(); workflowEditorCall($wire, 'beginTriggerAdd')" class="workflow-node-empty" data-workflow-empty-start aria-label="Выбрать событие">
             <span class="workflow-node-card__icon"><x-filament::icon icon="heroicon-o-plus" class="h-5 w-5"/></span>
             <span class="workflow-node-card__caption"><strong class="workflow-node-card__title">Выбрать событие</strong></span>
         </button>

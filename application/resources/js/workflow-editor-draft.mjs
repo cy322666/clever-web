@@ -252,6 +252,7 @@ export function installWorkflowEditorDraft(wire, root) {
         const nodes = [...(wire.trigger ? [{...wire.trigger, id: 'trigger'}] : []), ...(wire.definition.additional_triggers || []),
             ...flatActions(wire.workflowActions).map(node => ({...node, id: 'action:' + node.id}))];
         const main = root.querySelector('#workflow-canvas');
+        announce('workflow-canvas-before-update', {componentId: wire.$id});
         const templates = [...root.querySelectorAll('template[data-workflow-draft-template]')];
         for (const node of nodes) {
             const trigger = node.id.startsWith('trigger');
@@ -279,19 +280,22 @@ export function installWorkflowEditorDraft(wire, root) {
                 window.Alpine.mutateDom(() => { window.Alpine.destroyTree(shell); shell.remove(); });
             }
         }
-        // The add-event slot remains after every start, including local draft additions.
+        // The empty event slot is only the first start. Later starts use the
+        // separate canvas button, so the selected trigger replaces this slot.
         const starts = main.querySelector('.workflow-node-starts');
         let addSlot = starts.querySelector('[data-workflow-start-add]');
-        if (!addSlot) {
-            const template = templates.find(el => el.dataset.workflowDraftTemplate === 'empty');
-            addSlot = template.content.firstElementChild.cloneNode(true);
-            window.Alpine.mutateDom(() => { starts.append(addSlot); window.Alpine.initTree(addSlot); });
+        if (wire.trigger) {
+            if (addSlot) window.Alpine.mutateDom(() => { window.Alpine.destroyTree(addSlot); addSlot.remove(); });
+        } else {
+            if (!addSlot) {
+                const template = templates.find(el => el.dataset.workflowDraftTemplate === 'empty');
+                addSlot = template.content.firstElementChild.cloneNode(true);
+                window.Alpine.mutateDom(() => { starts.append(addSlot); window.Alpine.initTree(addSlot); });
+            }
+            if (addSlot !== starts.lastElementChild) window.Alpine.mutateDom(() => starts.append(addSlot));
+            window.Alpine.mutateDom(() => { addSlot.dataset.workflowNodeId = 'trigger'; });
         }
-        else if (addSlot !== starts.lastElementChild) window.Alpine.mutateDom(() => starts.append(addSlot));
-        window.Alpine.mutateDom(() => {
-            if (wire.trigger) delete addSlot.dataset.workflowNodeId;
-            else addSlot.dataset.workflowNodeId = 'trigger';
-        });
+        announce('workflow-canvas-after-update', {componentId: wire.$id});
         announce('workflow-connections-updated');
     };
     const draft = new WorkflowEditorDraft(wire, catalog, render, announce);

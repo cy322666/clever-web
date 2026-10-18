@@ -554,6 +554,61 @@ test('new detached node is centered in visible viewport at any zoom and pan with
     assert.match(markup, /workflow-node-created.window="placeCreatedNode\(\$event.detail\)"/);
 });
 
+test('the first trigger replaces the event slot and later starts use separate non-overlapping positions', () => {
+    const f = fixture();
+    const canvas = f.canvas;
+    canvas.scale = 0.5;
+    const stageRect = {left:100,top:50};
+    const slot = {getBoundingClientRect:() => ({left:150,top:150})};
+    canvas.$refs.stage = {getBoundingClientRect:()=>stageRect,querySelector:()=>slot};
+    let points = {'trigger':{x:0,y:0},'action:unrelated':{x:500,y:420}};
+    let ids = ['trigger','action:unrelated'];
+    canvas.nodeElements = () => ids.map(id => ({dataset:{workflowNodeId:id},
+        querySelector:()=>({getBoundingClientRect:()=>({width:48,height:48})})}));
+    canvas.cardPositions = () => structuredClone(points);
+    canvas.restoreCardPositions = desired => { points = desired; };
+    canvas.applyNodeSelection = () => {};
+    canvas.captureTriggerAdd();
+    canvas.placeCreatedNode({nodeId:'trigger'});
+    assert.deepEqual(JSON.parse(JSON.stringify(points.trigger)),{x:100,y:200});
+    ids.push('trigger:two');
+    points['trigger:two'] = {x:0,y:0};
+    canvas.placeCreatedNode({nodeId:'trigger:two'});
+    assert.deepEqual(JSON.parse(JSON.stringify(points['trigger:two'])),{x:100,y:420});
+    assert.deepEqual(points['action:unrelated'],{x:500,y:420});
+    points['action:unrelated'] = {x:100,y:640};
+    ids.push('trigger:three');
+    points['trigger:three'] = {x:0,y:0};
+    canvas.placeCreatedNode({nodeId:'trigger:three'});
+    assert.deepEqual(JSON.parse(JSON.stringify(points['trigger:three'])),{x:100,y:860});
+    assert.deepEqual(JSON.parse(JSON.stringify(points['trigger:two'])),{x:100,y:420});
+});
+
+test('the ordinary add-node menu offers actions; starts have their own button', () => {
+    const f = fixture();
+    f.canvas.$wire = {$set() {}};
+    f.canvas.preparePalette(null);
+    assert.equal(f.events().at(-1).detail.mode, 'action');
+    const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
+    assert.match(markup, /class="workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
+    assert.match(markup, /x-on:click\.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall\(\$wire, 'beginTriggerAdd'\)"/);
+});
+
+test('old overlapping starts are separated without moving the first start or actions', () => {
+    const {canvas} = fixture();
+    let points = {'trigger':{x:100,y:200},'trigger:two':{x:100,y:360},
+        'trigger:three':{x:100,y:420},'action:unrelated':{x:800,y:420}};
+    canvas.nodeElements = () => ['trigger','trigger:two','trigger:three','action:unrelated'].map(id => ({
+        dataset:{workflowNodeId:id},querySelector:()=>({})}));
+    canvas.cardPositions = () => structuredClone(points);
+    canvas.restoreCardPositions = desired => {points = desired;};
+    canvas.separateOverlappingTriggers();
+    assert.deepEqual(points.trigger,{x:100,y:200});
+    assert.deepEqual(points['action:unrelated'],{x:800,y:420});
+    assert.ok(points['trigger:two'].y-points.trigger.y >= 190);
+    assert.ok(points['trigger:three'].y-points['trigger:two'].y >= 190);
+});
+
 test('an imported layout survives unavailable local storage', () => {
     const f = fixture();
     f.canvas.initialLayout = {'action:test':{x:120,y:80}};

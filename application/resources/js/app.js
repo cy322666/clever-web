@@ -629,6 +629,8 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
     groupDragOrigins: {},
     pendingInsertion: null,
     pendingDropPosition: null,
+    pendingTriggerPosition: null,
+    draftPositions: null,
     initialized: false,
 
     // Areas are canvas annotations, never nodes or execution graph members.
@@ -939,6 +941,53 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.scheduleGraphRefreshAfterPaint();
     },
 
+    captureTriggerAdd() {
+        const stage = this.$refs.stage?.getBoundingClientRect();
+        const slot = this.$refs.stage?.querySelector?.('[data-workflow-start-add] [data-workflow-empty-start]')?.getBoundingClientRect();
+        if (!stage || !slot) return;
+        this.pendingTriggerPosition = {x:(slot.left-stage.left)/this.scale,y:(slot.top-stage.top)/this.scale};
+    },
+
+    nextTriggerPosition(excludeId = null, positions = this.cardPositions()) {
+        const starts = this.nodeElements().filter(node => node.dataset.workflowNodeId?.startsWith('trigger')
+            && node.dataset.workflowNodeId !== excludeId && node.querySelector('[data-workflow-node-card]'));
+        const last = starts.map(node => positions[node.dataset.workflowNodeId]).filter(Boolean)
+            .sort((a, b) => b.y - a.y)[0];
+        return last ? {x:last.x,y:last.y+220} : null;
+    },
+
+    freeTriggerPosition(point, excludeId = null, positions = this.cardPositions()) {
+        const candidate = {x:this.snapCoordinate(point.x),y:this.snapCoordinate(point.y)};
+        for (let attempt = 0; attempt < 100; attempt++) {
+            const occupied = Object.entries(positions).some(([id, other]) => id !== excludeId
+                && Math.abs(other.x-candidate.x) < 216 && Math.abs(other.y-candidate.y) < 190);
+            if (!occupied) break;
+            candidate.y += 220;
+        }
+        return candidate;
+    },
+
+    separateOverlappingTriggers() {
+        const positions = this.cardPositions();
+        const starts = this.nodeElements().filter(node => node.dataset.workflowNodeId?.startsWith('trigger')
+            && node.querySelector('[data-workflow-node-card]'));
+        const occupied = Object.fromEntries(Object.entries(positions).filter(([id]) => !id.startsWith('trigger')));
+        const desired = {...positions};
+        let changed = false;
+        starts.forEach((node, index) => {
+            const id = node.dataset.workflowNodeId;
+            if (!positions[id]) return;
+            // Keep the first start in place, then repair only overlapping starts.
+            const collision = Object.values(occupied).some(other => Math.abs(other.x-positions[id].x) < 216
+                && Math.abs(other.y-positions[id].y) < 190);
+            const point = index === 0 || !collision ? positions[id] : this.freeTriggerPosition(positions[id], id, occupied);
+            desired[id] = point;
+            occupied[id] = point;
+            if (point.x !== positions[id].x || point.y !== positions[id].y) changed = true;
+        });
+        if (changed) this.restoreCardPositions(desired);
+    },
+
     captureInsertion(sourceId, targetId, dropPosition = null) {
         const stage = this.$refs.stage;
         if (!stage) return;
@@ -992,7 +1041,25 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.pendingInsertion = null;
         const point = this.pendingDropPosition;
         this.pendingDropPosition = null;
+        const triggerPosition = this.pendingTriggerPosition;
+        this.pendingTriggerPosition = null;
         this.$nextTick(() => window.requestAnimationFrame(() => {
+            if (detail.nodeId?.startsWith('trigger')) {
+                const card = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId)
+                    ?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
+                const positions = this.cardPositions();
+                const desired = triggerPosition || (point ? {
+                    x:point.x-(card?.width ?? 96*this.scale)/this.scale/2,
+                    y:point.y-(card?.height ?? 96*this.scale)/this.scale/2,
+                } : this.nextTriggerPosition(detail.nodeId, positions));
+                if (!desired) return this.centerNodeGroup({[detail.nodeId]:{x:0,y:0}});
+                this.restoreCardPositions({...positions,
+                    [detail.nodeId]:this.freeTriggerPosition(desired, detail.nodeId, positions)});
+                this.selectedNodeIds = [detail.nodeId];
+                this.applyNodeSelection();
+                this.scheduleGraphRefreshAfterPaint();
+                return;
+            }
             if (!point) return this.centerNodeGroup({[detail.nodeId]:{x:0,y:0}});
             const card = this.nodeElements().find(node => node.dataset.workflowNodeId === detail.nodeId)?.querySelector('[data-workflow-node-card]')?.getBoundingClientRect();
             this.restoreCardPositions({...this.cardPositions(), [detail.nodeId]: {
@@ -1017,7 +1084,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         // round-trip or morph the canvas. The insertion request validates it.
         this.editorWire.$set('insertConnection', connection, false);
         ['insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.editorWire.$set(key, null, false));
-        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: connection ? 'action' : 'all', anchor}}));
+        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'action', anchor}}));
     },
 
     selectionStyle() {
@@ -1223,6 +1290,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.restoreNodeLayout();
         this.applyNodePositions();
         this.restoreCardPositions(this.initialCoordinates || this.editorWire?.definition?.canvas_positions);
+        this.separateOverlappingTriggers();
         this.observeCanvas();
         this.releaseBeforeMorphHook = window.Livewire?.hook('morph', ({el}) => {
             if (el === this.$el || el?.contains(this.$el)) this.morphPositions = this.cardPositions();
