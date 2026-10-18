@@ -63,6 +63,15 @@ test('queries, triggers, copying and connecting are local and retain original ID
     assert.equal(draft.selectTriggerType('manual'), 'trigger');
     assert.equal(wire.trigger.type, 'manual');
 });
+test('the branch picker cannot insert a trigger, even with a stale menu selection', () => {
+    const {draft, wire} = fixture();
+    wire.insertConnection = {sourceId: 'action:if', sourcePort: 'no', targetId: null};
+    assert.throws(() => draft.selectTriggerType('manual', true), /внутри ветки/);
+    assert.equal(wire.definition.additional_triggers, undefined);
+    draft.beginTriggerAdd();
+    assert.equal(wire.insertConnection, null);
+    assert.equal(draft.selectTriggerType('manual', true).startsWith('trigger:'), true);
+});
 test('invalid local rename preserves the document; open form still uses existing server validation', async () => {
     const {draft, wire} = fixture();
     const before = clone(wire.definition);

@@ -149,9 +149,10 @@ export class WorkflowEditorDraft {
         return id;
     }
     selectReadOperation(operation) { return this.selectActionType('amocrm_read', true, operation); }
-    beginTriggerAdd() { this.replacing = null; this.announce('workflow-node-library-open', {mode: 'trigger'}); }
-    beginTriggerReplace(id) { this.replacing = id; this.announce('workflow-node-library-open', {mode: 'trigger', replace: true}); }
+    beginTriggerAdd() { this.replacing = null; this.wire.$set('insertConnection', null, false); this.announce('workflow-node-library-open', {mode: 'trigger'}); }
+    beginTriggerReplace(id) { this.replacing = id; this.wire.$set('insertConnection', null, false); this.announce('workflow-node-library-open', {mode: 'trigger', replace: true}); }
     selectTriggerType(type, add = false) {
+        if (this.wire.insertConnection) throw new Error('Запуск нельзя добавить внутри ветки.');
         const metadata = this.catalog.triggers[type];
         if (!metadata) throw new Error('Событие пока недоступно.');
         const replacing = add ? null : this.replacing;

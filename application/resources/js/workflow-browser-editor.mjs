@@ -320,7 +320,7 @@ export function createBrowserEditor(boot) {
             },
             libraryItems() {
                 const items = [];
-                if (this.libraryMode !== 'actions')
+                if (this.libraryMode !== 'actions' && !this.pendingAdapter.insertConnection)
                     Object.values(this.triggers)
                         .filter((item) => !['date-condition', 'workflow-completed'].includes(item.type))
                         .forEach((item) => items.push({ ...item, trigger: true }));
@@ -343,7 +343,8 @@ export function createBrowserEditor(boot) {
                 );
             },
             openLibrary(mode = 'all') {
-                this.libraryMode = mode;
+                this.libraryMode = this.pendingAdapter.insertConnection ? 'actions'
+                    : ['action', 'actions', 'query', 'service'].includes(mode) ? 'actions' : mode;
                 this.libraryOpen = true;
                 this.librarySearch = '';
                 this.$nextTick(() => this.$refs.librarySearch?.focus());
@@ -351,6 +352,7 @@ export function createBrowserEditor(boot) {
             insertNode(item) {
                 try {
                     const connection = this.pendingAdapter.insertConnection;
+                    if (item.trigger && connection) throw new Error('Запуск нельзя добавить внутри ветки.');
                     const id = this.machine.add(item, {
                         trigger: item.trigger,
                         operation: item.operation,

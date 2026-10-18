@@ -634,7 +634,7 @@ test('captured plus taps open once and movement does not animate behind the edge
     assert.equal(calls,1);
     assert.equal(f.events().length, 1);
     assert.equal(f.events()[0].type, 'workflow-node-library-open');
-    assert.equal(f.events()[0].detail.mode, 'all');
+    assert.equal(f.events()[0].detail.mode, 'action');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     const rule = css.match(/\.workflow-sortable-item\s*\{([^}]+)\}/)[1];
     assert.doesNotMatch(rule,/transition:[^;]*transform/);

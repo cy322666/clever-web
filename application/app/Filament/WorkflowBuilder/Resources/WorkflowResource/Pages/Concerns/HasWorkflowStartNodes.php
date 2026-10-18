@@ -15,6 +15,7 @@ trait HasWorkflowStartNodes
 
     public function beginTriggerAdd(): void
     {
+        $this->cancelActionInsertion();
         $this->replacingTriggerNodeId = null;
         $this->dispatch('workflow-node-library-open', mode: 'trigger');
     }
@@ -22,6 +23,7 @@ trait HasWorkflowStartNodes
     public function beginTriggerReplace(string $id): void
     {
         if (!isset(WorkflowStartNodes::all($this->definition)[$id])) return;
+        $this->cancelActionInsertion();
         $this->replacingTriggerNodeId = $id;
         $this->dispatch('workflow-node-library-open', mode: 'trigger', replace: true);
     }

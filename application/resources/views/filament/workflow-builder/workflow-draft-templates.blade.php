@@ -22,9 +22,9 @@
         </div></template>
     @endforeach
     <template data-workflow-draft-template="empty"><div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-node-id="trigger" wire:key="workflow-start-trigger">
-        <button type="button" x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')" class="workflow-node-empty">
-            <span class="workflow-node-card__icon"><x-filament::icon icon="heroicon-o-bolt" class="h-5 w-5"/></span>
-            <span class="workflow-node-card__caption"><strong class="workflow-node-card__title">Выбрать запуск</strong><small class="workflow-node-card__subtitle">Добавьте триггер</small></span>
+        <button type="button" x-on:click="workflowEditorCall($wire, 'beginTriggerAdd')" class="workflow-node-empty" data-workflow-empty-start aria-label="Выбрать способ запуска">
+            <span class="workflow-node-card__icon"><x-filament::icon icon="heroicon-o-plus" class="h-5 w-5"/></span>
+            <span class="workflow-node-card__caption"><strong class="workflow-node-card__title">Выбрать запуск</strong></span>
         </button>
     </div></template>
 </div>

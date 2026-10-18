@@ -113,7 +113,7 @@
                                     </template>
                                 </div>
                             </div>
-                            <button type="button" class="workflow-browser-empty-start workflow-browser-button" x-show="!visibleNodes.length" x-on:pointerdown.stop x-on:click="openLibrary('trigger')">Выбрать запуск</button>
+                            <button type="button" class="workflow-browser-empty-start workflow-node-empty" data-workflow-empty-start x-show="!visibleNodes.length" x-on:pointerdown.stop x-on:click="openLibrary('trigger')" aria-label="Выбрать способ запуска"><span class="workflow-node-card__icon"><x-filament::icon icon="heroicon-o-plus" class="h-5 w-5"/></span><span class="workflow-node-card__caption"><strong class="workflow-node-card__title">Выбрать запуск</strong></span></button>
                         </div>
                     </section>
                 </div>

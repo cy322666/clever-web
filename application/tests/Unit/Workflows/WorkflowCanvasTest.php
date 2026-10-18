@@ -154,7 +154,7 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('Назад к процессам')
             ->assertDontSee('История запусков')
             ->assertSee('aria-label="Справочники"', false)
-            ->assertSee('x-bind:aria-label="mode === \'variables\' ? \'Справочники\' : \'Каталог нод\'"', false)
+            ->assertSee('mode === \'trigger\' ? \'Выбрать запуск\' : \'Добавить ноду\'', false)
             ->assertDontSee('workflow-node-library__rail', false)
             ->assertDontSee('Связаться с клиентом');
 
@@ -203,6 +203,25 @@ class WorkflowCanvasTest extends TestCase
             ->assertDontSee('date-condition', false)
             ->call('selectTriggerType', 'date-condition')
             ->assertSet('trigger.type', 'manual');
+    }
+
+    public function test_a_branch_picker_cannot_create_a_start_node(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class)
+            ->call('openAddActionOnConnection', 'action:condition', 'no')
+            ->assertDispatched('workflow-node-library-open', mode: 'action');
+        $starts = $page->get('definition.additional_triggers') ?? [];
+        $page->call('selectTriggerType', 'schedule', true)
+            ->assertSet('insertConnection.sourcePort', 'no');
+        $this->assertSame($starts, $page->get('definition.additional_triggers') ?? []);
+    }
+
+    public function test_an_empty_start_is_a_dashed_plus_slot(): void
+    {
+        Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [], 'trigger' => null])
+            ->assertSee('data-workflow-empty-start', false)
+            ->assertSee('Выбрать запуск');
+        $this->assertStringContainsString('icon="heroicon-o-plus"', file_get_contents(resource_path('views/vendor/filament-workflows/components/workflow-builder.blade.php')));
     }
 
     public function test_titles_use_below_tile_captions(): void

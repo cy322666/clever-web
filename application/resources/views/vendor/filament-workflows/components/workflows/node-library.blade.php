@@ -101,6 +101,7 @@
             strip_tags((string) ($trigger['description'] ?? '')),
             $type,
             $triggerGroups[$group]['title'],
+            $group === 'system' ? '' : 'amoCRM',
             $type === 'amo-button' ? 'кнопка кнопкой амо amoCRM сделка' : '',
             $type === 'amo-bulk' ? 'массовое действие список сделки контакты компании амо amoCRM' : '',
         ]));
@@ -139,19 +140,6 @@
         'amocrm_get_contact' => 'Контакты',
     ];
     $queryActions = array_values(array_filter($actions, fn (array $action): bool => isset($queryActionGroups[$action['type'] ?? ''])));
-    $currentInsertPath = (string) (($this->insertActionPath ?? null) ?? ($this->targetPath ?? ''));
-    $insideConditionBranch = str_contains($currentInsertPath, '.config.true_actions')
-        || str_contains($currentInsertPath, '.config.false_actions')
-        || str_starts_with($currentInsertPath, 'config.true_actions')
-        || str_starts_with($currentInsertPath, 'config.false_actions');
-    $insertContext = match (true) {
-        ($this->insertConnection['sourcePort'] ?? null) === 'yes' => 'Ветка «Да»',
-        ($this->insertConnection['sourcePort'] ?? null) === 'no' => 'Ветка «Нет»',
-        isset($this->insertConnection) => 'Добавить в соединение',
-        str_contains($currentInsertPath, 'true_actions') => 'Ветка «Да»',
-        str_contains($currentInsertPath, 'false_actions') => 'Ветка «Нет»',
-        default => 'Отдельная нода',
-    };
     $actionEntities = [
         'salesbot' => ['title' => 'Salesbot', 'description' => 'Запуск бота', 'icon' => 'heroicon-o-cpu-chip', 'types' => ['amocrm_start_salesbot'], 'items' => []],
         'contact' => ['title' => 'Контакт', 'description' => 'Создание и поля контакта', 'icon' => 'heroicon-o-user', 'types' => ['amocrm_create_contact', 'amocrm_update_contact_fields'], 'items' => []],
@@ -210,7 +198,7 @@
             $action['name'] ?? '',
             strip_tags((string) ($action['description'] ?? '')),
             $type,
-            'amoCRM действие узел',
+            'действие узел',
         ]));
 
         if (in_array($type, ['control-condition', 'workflow_loop', 'workflow_set_variable', 'workflow_javascript', 'workflow_delay', 'workflow_filter_list', 'http_request'], true)) {
@@ -220,6 +208,7 @@
 
         foreach ($actionEntities as &$entity) {
             if (in_array($type, $entity['types'], true)) {
+                $action['search_text'] .= ' '.mb_strtolower('amoCRM '.$entity['title']);
                 $entity['items'][] = $action;
                 break;
             }
@@ -228,7 +217,14 @@
     }
 
     $actionEntities = array_filter($actionEntities, static fn (array $entity): bool => $entity['items'] !== []);
-    $allActions = array_merge($logicActions, ...array_column($actionEntities, 'items'));
+    $readOperations = \App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations();
+    $triggerSearchTexts = array_merge(...array_values(array_map(static fn (array $group): array => array_column($group['items'], 'search_text'), $triggerGroups)));
+    $amoSearchTexts = array_column(array_merge(...array_column($actionEntities, 'items')), 'search_text');
+    $querySearchTexts = array_merge(
+        array_map(static fn (array $action): string => 'amoCRM '.$action['name'].' '.($queryActionGroups[$action['type']] ?? ''), $queryActions),
+        array_map(static fn (array $item): string => $item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? []), $readOperations),
+    );
+    $actionSearchTexts = array_merge(array_column($logicActions, 'search_text'), $amoSearchTexts, $querySearchTexts, ['telegram телеграм отправить сообщение']);
 @endphp
 
 <aside
@@ -243,286 +239,37 @@
     x-on:resize.window="viewport = { width: window.innerWidth, height: window.innerHeight }"
     class="workflow-node-library workflow-node-library--floating is-contextual"
 >
-    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()" x-bind:data-workflow-reference-panel="mode === 'variables' ? '' : null" class="workflow-node-library__panel" role="dialog" x-bind:aria-busy="workflowNodeIsAdding($wire)" x-bind:aria-label="mode === 'variables' ? 'Справочники' : 'Каталог нод'">
+    <div x-ref="panel" x-cloak x-show="open" x-bind:style="floatingStyle()"
+         x-bind:data-workflow-reference-panel="mode === 'variables' ? '' : null"
+         class="workflow-node-library__panel" role="dialog"
+         x-bind:aria-busy="workflowNodeIsAdding($wire)"
+         x-bind:aria-label="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать запуск' : 'Добавить ноду'">
         <header class="workflow-node-library__header">
-            <button x-cloak x-show="mode !== 'all' && mode !== 'variables' && (!replaceTrigger || view !== 'root')" type="button" x-on:click="goBack()" class="workflow-node-library__close" aria-label="Назад в каталоге" title="Назад">
-                <x-filament::icon icon="heroicon-o-arrow-left" class="h-4 w-4"/>
-            </button>
-            <div>
-                <h2 x-show="!workflowNodeIsAdding($wire)" x-text="mode === 'all' ? 'Добавить ноду' : mode === 'variables' ? 'Справочники' : mode === 'query' ? 'Запросы' : mode === 'service' ? 'Сервисы' : mode === 'trigger' ? 'Триггеры' : 'Действия'"></h2>
+            <div class="workflow-node-library__heading">
+                <h2 x-show="!workflowNodeIsAdding($wire)" x-text="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать запуск' : mode === 'action' ? 'Добавить действие' : 'Добавить ноду'"></h2>
+                <small x-show="mode !== 'variables' && !workflowNodeIsAdding($wire)" x-text="mode === 'trigger' ? 'Событие, с которого начинается сценарий' : mode === 'action' ? 'Шаг в выбранной ветке' : 'Выберите запуск или действие'"></small>
                 <div x-cloak x-show="workflowNodeIsAdding($wire)" class="workflow-node-library__pending" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span>Добавляю…</div>
             </div>
-
-            <button
-                x-cloak
-                x-show="mode === 'variables'"
-                type="button"
-                wire:click="refreshWorkflowReference"
-                wire:loading.attr="disabled"
-                class="workflow-node-library__close workflow-node-library__refresh"
-                aria-label="Обновить переменные"
-                title="Обновить переменные"
-            >
+            <button x-cloak x-show="mode === 'variables'" type="button" wire:click="refreshWorkflowReference" wire:loading.attr="disabled"
+                    class="workflow-node-library__close workflow-node-library__refresh" aria-label="Обновить переменные" title="Обновить переменные">
                 <x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4"/>
             </button>
-
-            <button
-                type="button"
-                x-on:click="closeLibrary()"
-                class="workflow-node-library__close"
-                aria-label="Закрыть каталог"
-                title="Закрыть"
-            >
+            <button type="button" x-on:click="closeLibrary()" class="workflow-node-library__close" aria-label="Закрыть каталог" title="Закрыть">
                 <x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/>
             </button>
         </header>
-
         <div x-show="mode !== 'variables'" class="workflow-node-library__search-wrap">
             <label class="workflow-node-library__search">
                 <x-filament::icon icon="heroicon-o-magnifying-glass" class="h-4 w-4"/>
-                <input
-                    x-ref="search"
-                    x-model.debounce.100ms="query"
-                    type="search"
-                    autocomplete="off"
-                    placeholder="Поиск узлов…"
-                    aria-label="Поиск узлов"
-                />
-                <button
-                    x-cloak
-                    x-show="query !== ''"
-                    type="button"
-                    x-on:click="query = ''; $nextTick(() => $refs.search?.focus())"
-                    aria-label="Очистить поиск"
-                >
+                <input x-ref="search" x-model.debounce.100ms="query" type="search" autocomplete="off"
+                       x-bind:placeholder="mode === 'trigger' ? 'Найти способ запуска…' : 'Найти действие или сервис…'"
+                       aria-label="Поиск нод"/>
+                <button x-cloak x-show="query !== ''" type="button"
+                        x-on:click="query = ''; $nextTick(() => $refs.search?.focus())" aria-label="Очистить поиск">
                     <x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/>
                 </button>
             </label>
         </div>
-
-        <div class="workflow-node-library__body">
-            <div x-show="mode === 'all' && query === ''" class="workflow-node-library__list">
-                @foreach(['trigger' => ['Триггеры', 'heroicon-o-bolt'], 'action' => ['Действия', 'heroicon-o-cube'], 'query' => ['Запросы', 'heroicon-o-circle-stack'], 'service' => ['Сервисы', 'heroicon-o-globe-alt']] as $category => [$label, $icon])
-                    <button type="button" x-on:click="resetView(@js($category))" class="workflow-node-library__group">
-                        <span class="workflow-node-library__group-icon"><x-filament::icon :icon="$icon" class="h-5 w-5"/></span>
-                        <span><strong>{{ $label }}</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                    </button>
-                @endforeach
-            </div>
-            <div x-cloak x-show="mode === 'service' || (mode === 'all' && query !== '')" class="workflow-node-library__list">
-                <div x-show="mode === 'all'" class="workflow-node-library__section-title">Сервисы</div>
-                <button type="button" x-show="view === 'root' && query === ''" x-on:click="view = 'telegram'" class="workflow-node-library__group">
-                    <span class="workflow-node-library__group-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
-                    <span><strong>Телеграм</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                </button>
-                <button type="button" x-show="(view === 'telegram' || query !== '') && matches('telegram телеграм отправить сообщение')" x-on:click="workflowEditorCall($wire, 'selectActionType', 'telegram_send_message')" x-bind:disabled="workflowNodeIsAdding($wire)" class="workflow-node-library__item">
-                    <span class="workflow-node-library__item-icon"><x-workflow-icon icon="service-telegram" type="telegram_send_message" class="h-5 w-5"/></span>
-                    <span><strong>Отправить сообщение</strong></span>
-                </button>
-            </div>
-            <div x-cloak x-show="mode === 'query' || (mode === 'all' && query !== '')" class="workflow-node-library__list">
-                <div x-show="mode === 'all'" class="workflow-node-library__section-title">Запросы</div>
-                @foreach(\App\Services\Workflows\WorkflowAmoReadCatalog::options() as $group => $options)
-                    <button type="button" x-show="query === '' && view === 'root'" x-on:click="view = @js($group)" class="workflow-node-library__group">
-                        <span class="workflow-node-library__group-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::entity($group)" :amo="true" class="h-5 w-5"/></span>
-                        <span><strong>{{ $group }}</strong></span><x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                    </button>
-                @endforeach
-                @foreach($queryActions as $queryAction)
-                    @php($queryActionGroup = $queryActionGroups[$queryAction['type']] ?? 'Другое')
-                    <button type="button" x-show="(query !== '' || view === @js($queryActionGroup)) && matches(@js('amoCRM '.$queryActionGroup.' запрос '.$queryAction['name']))" x-on:click="workflowEditorCall($wire, 'selectActionType', @js($queryAction['type']))" x-bind:disabled="workflowNodeIsAdding($wire)" class="workflow-node-library__item">
-                        <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::action($queryAction['type'], [], $queryAction['icon'])" :amo="true" class="h-5 w-5"/></span>
-                        <span><strong>{{ $queryAction['name'] }}</strong></span>
-                    </button>
-                @endforeach
-                @foreach(\App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations() as $operation => $item)
-                    <button type="button" x-show="(query !== '' || view === @js($item['group'])) && matches(@js($item['group'].' '.($item['entity_group'] ?? '').' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? [])))" x-on:click="workflowEditorCall($wire, 'selectReadOperation', @js($operation))" x-bind:disabled="workflowNodeIsAdding($wire)" class="workflow-node-library__item">
-                        <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="\App\Services\Workflows\WorkflowAmoIcons::action('amocrm_read', ['operation' => $operation], 'heroicon-o-circle-stack')" :amo="true" class="h-5 w-5"/></span>
-                        <span><strong>{{ $item['name'] }}</strong></span>
-                    </button>
-                @endforeach
-            </div>
-            <div x-cloak x-show="mode === 'variables'" class="workflow-node-library__variables">
-                @include('filament.workflow-builder.mask-reference', [
-                    'groups' => $maskGroups,
-                    'systemIdGroups' => $systemIdGroups,
-                ])
-            </div>
-            <div x-cloak x-show="query !== '' && (mode === 'trigger' || mode === 'all')" class="workflow-node-library__list">
-                <div class="workflow-node-library__section-title">Триггеры</div>
-                @foreach($triggerGroups as $group)
-                    @foreach($group['items'] as $trigger)
-                        <button
-                            x-show="matches(@js($trigger['search_text']))"
-                            type="button"
-                            x-on:click="workflowEditorCall($wire, 'selectTriggerType', @js($trigger['type']), !replaceTrigger)"
-                            x-bind:disabled="workflowNodeIsAdding($wire)"
-                            wire:loading.attr="disabled"
-                            class="workflow-node-library__item"
-                        >
-                            <span class="workflow-node-library__item-icon workflow-node-library__item-icon--trigger">
-                                <x-workflow-icon :icon="$trigger['icon'] ?? 'heroicon-o-bolt'" :amo="str_starts_with($trigger['type'], 'amocrm-') || $trigger['type'] === 'amo-button'" class="h-4 w-4"/>
-                            </span>
-                            <span>
-                                <strong>{{ $trigger['display_name'] }}</strong>
-                            </span>
-                        </button>
-                    @endforeach
-                @endforeach
-            </div>
-
-            <div x-cloak x-show="query !== '' && (mode === 'action' || mode === 'all')" class="workflow-node-library__list">
-                <div class="workflow-node-library__section-title">Действия</div>
-                @foreach($allActions as $action)
-                    <button
-                        x-show="matches(@js($action['search_text']))"
-                        type="button"
-                        x-on:click="workflowEditorCall($wire, 'selectActionType', @js($action['type']))"
-                        x-bind:disabled="workflowNodeIsAdding($wire)"
-                        wire:loading.attr="disabled"
-                        class="workflow-node-library__item"
-                    >
-                        <span class="workflow-node-library__item-icon">
-                            <x-workflow-icon :icon="$action['icon'] ?? 'heroicon-o-cog-6-tooth'" :type="$action['type']" :amo="str_starts_with($action['type'], 'amocrm_')" class="h-4 w-4"/>
-                        </span>
-                        <span>
-                            <strong>{{ $action['name'] ?? 'Действие' }}</strong>
-                        </span>
-                    </button>
-                @endforeach
-            </div>
-
-            <div x-cloak x-show="query === '' && mode === 'trigger'">
-                <div x-show="view === 'root'" class="workflow-node-library__list">
-                    @foreach($triggerGroups as $groupKey => $group)
-                        <button
-                            type="button"
-                            x-on:click="view = @js($groupKey)"
-                            class="workflow-node-library__group"
-                        >
-                            <span class="workflow-node-library__group-icon">
-                                <x-workflow-icon :icon="$group['icon']" :amo="$groupKey !== 'system'" class="h-5 w-5"/>
-                            </span>
-                            <span>
-                                <strong>{{ $group['title'] }}</strong>
-                            </span>
-                            <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                        </button>
-                    @endforeach
-                </div>
-
-                @foreach($triggerGroups as $groupKey => $group)
-                    <div x-cloak x-show="view === @js($groupKey)" class="workflow-node-library__list">
-                        <div class="workflow-node-library__section-title">{{ $group['title'] }}</div>
-                        @foreach($group['items'] as $trigger)
-                            <button
-                                type="button"
-                                x-on:click="workflowEditorCall($wire, 'selectTriggerType', @js($trigger['type']), !replaceTrigger)"
-                                x-bind:disabled="workflowNodeIsAdding($wire)"
-                                wire:loading.attr="disabled"
-                                class="workflow-node-library__item"
-                            >
-                                <span class="workflow-node-library__item-icon workflow-node-library__item-icon--trigger">
-                                    <x-workflow-icon :icon="$trigger['icon'] ?? 'heroicon-o-bolt'" :amo="str_starts_with($trigger['type'], 'amocrm-') || $trigger['type'] === 'amo-button'" class="h-4 w-4"/>
-                                </span>
-                                <span>
-                                    <strong>{{ $trigger['display_name'] }}</strong>
-                                </span>
-                            </button>
-                        @endforeach
-                    </div>
-                @endforeach
-            </div>
-
-            <div x-cloak x-show="query === '' && mode === 'action'">
-                <div x-show="view === 'root'" class="workflow-node-library__list">
-                    @if($logicActions !== [])
-                        <button type="button" x-on:click="view = 'logic'" class="workflow-node-library__group">
-                            <span class="workflow-node-library__group-icon workflow-node-library__group-icon--logic">
-                                <x-filament::icon icon="heroicon-o-arrows-right-left" class="h-5 w-5"/>
-                            </span>
-                            <span>
-                                <strong>Управление потоком</strong>
-                            </span>
-                            <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                        </button>
-                    @endif
-
-                    <button type="button" x-on:click="view = 'amocrm'" class="workflow-node-library__group">
-                        <span class="workflow-node-library__group-icon workflow-node-library__group-icon--amo">
-                            <img src="{{ asset('images/workflows/amocrm.svg') }}" alt="" class="workflow-brand-icon"/>
-                        </span>
-                        <span>
-                            <strong>amoCRM</strong>
-                        </span>
-                        <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                    </button>
-                </div>
-
-                <div x-cloak x-show="view === 'logic'" class="workflow-node-library__list">
-                    <div class="workflow-node-library__section-title">Управление потоком</div>
-                    @foreach($logicActions as $action)
-                        <button
-                            type="button"
-                            x-on:click="workflowEditorCall($wire, 'selectActionType', @js($action['type']))"
-                            x-bind:disabled="workflowNodeIsAdding($wire)"
-                            wire:loading.attr="disabled"
-                            class="workflow-node-library__item"
-                        >
-                            <span class="workflow-node-library__item-icon">
-                                <x-workflow-icon :icon="$action['icon'] ?? 'heroicon-o-adjustments-horizontal'" :type="$action['type']" class="h-4 w-4"/>
-                            </span>
-                            <span>
-                                <strong>{{ $action['name'] ?? 'Условие' }}</strong>
-                            </span>
-                        </button>
-                    @endforeach
-                </div>
-
-                <div x-cloak x-show="view === 'amocrm'" class="workflow-node-library__list">
-                    @foreach($actionEntities as $entityKey => $entity)
-                        <button
-                            type="button"
-                            x-on:click="view = 'variants'; entity = @js($entityKey)"
-                            class="workflow-node-library__group"
-                        >
-                            <span class="workflow-node-library__group-icon">
-                                <x-workflow-icon :icon="$entity['icon']" :amo="true" class="h-5 w-5"/>
-                            </span>
-                            <span>
-                                <strong>{{ $entity['title'] }}</strong>
-                            </span>
-                            <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4"/>
-                        </button>
-                    @endforeach
-                </div>
-
-                @foreach($actionEntities as $entityKey => $entity)
-                    <div
-                        x-cloak
-                        x-show="view === 'variants' && entity === @js($entityKey)"
-                        class="workflow-node-library__list"
-                    >
-                        <div class="workflow-node-library__section-title">{{ $entity['title'] }} · действие</div>
-                        @foreach($entity['items'] as $action)
-                            <button
-                                type="button"
-                                x-on:click="workflowEditorCall($wire, 'selectActionType', @js($action['type']))"
-                                x-bind:disabled="workflowNodeIsAdding($wire)"
-                                wire:loading.attr="disabled"
-                                class="workflow-node-library__item"
-                            >
-                                <span class="workflow-node-library__item-icon">
-                                    <x-workflow-icon :icon="$action['icon'] ?? 'heroicon-o-cog-6-tooth'" :amo="true" class="h-4 w-4"/>
-                                </span>
-                                <span>
-                                    <strong>{{ $action['name'] ?? 'Действие' }}</strong>
-                                </span>
-                            </button>
-                        @endforeach
-                    </div>
-                @endforeach
-            </div>
-        </div>
+        @include('filament.workflow-builder.workflow-node-catalog', compact('triggerGroups', 'logicActions', 'actionEntities', 'queryActions', 'queryActionGroups', 'readOperations', 'triggerSearchTexts', 'amoSearchTexts', 'querySearchTexts', 'actionSearchTexts', 'maskGroups', 'systemIdGroups'))
     </div>
 </aside>

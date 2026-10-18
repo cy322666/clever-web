@@ -369,8 +369,55 @@
 }
 .workflow-browser-empty-start {
     position: absolute;
-    left: calc(50% - 75px);
+    left: calc(50% - 48px);
     top: 45%;
+    display: grid;
+    place-items: center;
+    width: 96px;
+    height: 96px;
+    min-height: 96px;
+    padding: 0;
+    border: 2px dashed #8d9bad;
+    border-radius: 16px;
+    background: #f6f8fb;
+    color: #6d7d91;
+    text-align: center;
+    transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+.workflow-browser-empty-start .workflow-node-card__icon {
+    display: grid;
+    place-items: center;
+}
+.workflow-browser-empty-start .workflow-node-card__icon svg {
+    width: 36px;
+    height: 36px;
+    transition: transform 140ms ease;
+}
+.workflow-browser-empty-start .workflow-node-card__caption {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: -50px;
+    width: 196px;
+}
+.workflow-browser-empty-start:is(:hover, :focus-visible) {
+    border-color: #ee795a;
+    background: #fff7f2;
+    box-shadow: 0 0 0 3px rgb(238 121 90 / 0.16);
+    outline: none;
+}
+.workflow-browser-empty-start:is(:hover, :focus-visible) .workflow-node-card__icon svg {
+    transform: scale(1.16);
+}
+.dark .workflow-browser-empty-start {
+    border-color: #8995a7;
+    background: #35363d;
+    color: #d1d5df;
+}
+@media (prefers-reduced-motion: reduce) {
+    .workflow-browser-empty-start,
+    .workflow-browser-empty-start .workflow-node-card__icon svg {
+        transition: none;
+    }
 }
 .workflow-browser-json {
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;

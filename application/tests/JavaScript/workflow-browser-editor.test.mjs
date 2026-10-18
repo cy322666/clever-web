@@ -94,6 +94,19 @@ test('slow save acknowledges only the sent revision and never erases later typin
     assert(!state.saving);
 });
 
+test('a browser branch plus offers only actions and refuses a trigger', () => {
+    const state = editor();
+    state.triggers = {manual: {type:'manual',name:'Ручной запуск',category:'Запуск'}};
+    state.catalog = {workflow_delay: {type:'workflow_delay',name:'Пауза',category:'Логика'}};
+    state.pendingAdapter.insertConnection = {sourceId:'action:a',sourcePort:'output',targetId:null};
+    state.openLibrary('action');
+    assert.equal(state.libraryMode,'actions');
+    assert.equal(state.libraryItems().some(item => item.trigger),false);
+    state.insertNode({...state.triggers.manual,trigger:true});
+    assert.match(state.error,/внутри ветки/);
+    assert.equal(state.doc.definition.additional_triggers,undefined);
+});
+
 test('successful save stays clean and sends the whole document only once', async () => {
     const state = editor();
     let calls = 0;

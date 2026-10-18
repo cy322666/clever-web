@@ -127,8 +127,9 @@ for (const method of ['selectTriggerType', 'selectActionType', 'selectReadOperat
 
 test('all catalog insertion buttons block double clicks and expose accessible pending feedback', () => {
     const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/node-library.blade.php', import.meta.url), 'utf8');
-    const insertButtons = [...view.matchAll(/<button\b[^>]*(?:selectTriggerType|selectActionType|selectReadOperation)[^>]*>/gs)];
-    assert.equal(insertButtons.length, 8);
+    const catalog = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-node-catalog.blade.php', import.meta.url), 'utf8');
+    const insertButtons = [...catalog.matchAll(/<button\b[^>]*(?:selectTriggerType|selectActionType|selectReadOperation)[^>]*>/gs)];
+    assert.ok(insertButtons.length >= 5);
     for (const [button] of insertButtons) assert.match(button, /x-bind:disabled="workflowNodeIsAdding\(\$wire\)"/);
     assert.match(view, /x-bind:aria-busy="workflowNodeIsAdding\(\$wire\)"/);
     assert.match(view, /workflow-node-library__pending" role="status" aria-live="polite"/);

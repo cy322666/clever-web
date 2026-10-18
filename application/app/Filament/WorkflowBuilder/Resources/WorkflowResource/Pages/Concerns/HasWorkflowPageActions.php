@@ -84,6 +84,7 @@ trait HasWorkflowPageActions
 
     public function selectTriggerType(string $type, bool $add = false): void
     {
+        if ($this->insertConnection !== null || $this->insertActionPath !== null || $this->targetPath !== null) return;
         if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft(allowInvalid: true)) return;
         if ($add) $this->replacingTriggerNodeId = null;
         $replacingId = $this->replacingTriggerNodeId;

@@ -353,11 +353,11 @@ window.workflowInspector = () => ({
 });
 
 window.workflowNodeLibrary = () => ({
-    open: false, mode: 'all', view: 'root', entity: null, query: '', replaceTrigger: false, anchor: null,
+    open: false, mode: 'all', view: 'logic', query: '', replaceTrigger: false, anchor: null,
     viewport: {width: window.innerWidth, height: window.innerHeight},
     floatingStyle() {
-        const width = Math.min(320, this.viewport.width - 24);
-        const height = Math.min(470, this.viewport.height - 24);
+        const width = Math.min(this.mode === 'variables' ? 320 : 530, this.viewport.width - 24);
+        const height = Math.min(this.mode === 'variables' ? 470 : 580, this.viewport.height - 24);
         let anchor = this.anchor || {x: (this.viewport.width - width) / 2, y: Math.max(100, (this.viewport.height - height) / 2)};
         // References coexist with the draft instead of covering it on desktop.
         const inspector = this.mode === 'variables' ? document.querySelector('.workflow-inspector:not([hidden])')?.getBoundingClientRect() : null;
@@ -370,10 +370,15 @@ window.workflowNodeLibrary = () => ({
         const source = this.normalize(value);
         return query === '' || query.split(/\s+/).every(token => source.includes(token));
     },
+    matchesAny(values) { return values.some(value => this.matches(value)); },
     resetView(nextMode = this.mode) {
-        this.mode = nextMode;
-        this.view = 'root';
-        this.entity = null;
+        this.mode = ['query', 'service'].includes(nextMode) ? 'action' : nextMode;
+        this.view = nextMode === 'trigger' ? 'trigger:system'
+            : ['query', 'service'].includes(nextMode) ? nextMode : 'logic';
+        this.query = '';
+    },
+    selectCategory(category) {
+        this.view = category;
         this.query = '';
     },
     openFor(detail = {}) {
@@ -395,16 +400,6 @@ window.workflowNodeLibrary = () => ({
         // Keep browsing/copying while the user pastes into the mounted form.
         if (this.mode === 'variables' && event.target.closest?.('.workflow-inspector, [data-workflow-reference-toggle]')) return;
         this.closeLibrary();
-    },
-    goBack() {
-        this.query = '';
-        if (this.mode === 'action' && this.view === 'variants') {
-            this.view = 'amocrm';
-            this.entity = null;
-        } else if (this.view !== 'root') {
-            this.view = 'root';
-            this.entity = null;
-        } else if (!this.replaceTrigger) this.resetView('all');
     },
 });
 
@@ -1018,7 +1013,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         // round-trip or morph the canvas. The insertion request validates it.
         this.editorWire.$set('insertConnection', connection, false);
         ['insertActionPath', 'insertActionIndex', 'targetPath'].forEach(key => this.editorWire.$set(key, null, false));
-        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: 'all', anchor}}));
+        window.dispatchEvent(new CustomEvent('workflow-node-library-open', {detail: {mode: connection ? 'action' : 'all', anchor}}));
     },
 
     selectionStyle() {
