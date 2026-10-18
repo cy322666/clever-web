@@ -46,7 +46,6 @@
         ['value' => '{{lead.name:default(Без названия)}}', 'id' => null, 'label' => 'Значение по умолчанию', 'options' => []],
         ['value' => '{{contact.phone:digits}}', 'id' => null, 'label' => 'Только цифры', 'options' => []],
         ['value' => '{{lead.tags:join(, )}}', 'id' => null, 'label' => 'Соединить список', 'options' => []],
-        ['value' => '{{payload:json}}', 'id' => null, 'label' => 'Тело webhook', 'options' => []],
     ];
     $reference = array_map('array_values', $reference);
 @endphp

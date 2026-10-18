@@ -2,6 +2,10 @@
 
 namespace Tests\Unit\Workflows;
 
+use App\Forms\Components\WorkflowMaskTextarea;
+use App\Services\Workflows\WorkflowVariableService;
+use App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog;
+use App\Workflows\Context\WorkflowContext;
 use Tests\TestCase;
 
 class WorkflowReferencePanelTest extends TestCase
@@ -12,6 +16,58 @@ class WorkflowReferencePanelTest extends TestCase
         $this->assertStringContainsString('::groupedConditionPickerOptions(false)', $builder);
         $this->assertStringNotContainsString('::groupedOptions(false)', $builder);
     }
+
+    public function test_removed_reference_types_are_absent_from_catalog_and_autocomplete_data(): void
+    {
+        $removedGroups = ['Вебхук', 'Текущая сущность', 'Беседа / чат'];
+        foreach ([
+            WorkflowTriggerConditionVariableCatalog::groupedMaskOptions(),
+            WorkflowTriggerConditionVariableCatalog::groupedOptions(),
+            WorkflowTriggerConditionVariableCatalog::groupedConditionPickerOptions(),
+            WorkflowMaskTextarea::make('message')->getGroupedVariables(),
+        ] as $groups) {
+            foreach ($removedGroups as $group) $this->assertArrayNotHasKey($group, $groups);
+            foreach (['Событие', 'Дата / время', 'Сделка', 'Контакт'] as $group) $this->assertArrayHasKey($group, $groups);
+        }
+
+        $variables = app(WorkflowVariableService::class)->getAvailableVariables();
+        foreach ($removedGroups as $group) $this->assertNotContains($group, array_column($variables, 'category'));
+        foreach (['payload', 'payload.key', 'raw_body', 'item.id', 'item.name', 'talk.id', 'chat_template_review.id'] as $path) {
+            $this->assertNotContains($path, array_column($variables, 'path'));
+            $this->assertArrayNotHasKey('{{'.$path.'}}', WorkflowTriggerConditionVariableCatalog::flatMaskOptions());
+        }
+        $this->assertArrayHasKey('{{lead.id}}', WorkflowTriggerConditionVariableCatalog::searchMasks('ID сделки'));
+        $this->assertSame([], WorkflowTriggerConditionVariableCatalog::searchMasks('Тело запроса'));
+    }
+
+    public function test_reference_html_does_not_send_removed_types_or_webhook_modifier_to_the_browser(): void
+    {
+        $html = view('filament.workflow-builder.mask-reference', [
+            'groups' => WorkflowTriggerConditionVariableCatalog::groupedMaskOptions(),
+            'systemIdGroups' => [],
+        ])->render();
+
+        foreach (['Вебхук', 'Текущая сущность', 'Беседа / чат', 'Тело webhook', 'payload', 'talk.', 'chat_template_review.'] as $removed) {
+            $this->assertStringNotContainsString($removed, html_entity_decode($html));
+        }
+        foreach (['Модификаторы', '{{now:date(d.m.Y)}}', '{{lead.name:trim}}', '{{lead.id}}', '{{contact.id}}'] as $retained) {
+            $this->assertStringContainsString($retained, $html);
+        }
+    }
+
+    public function test_reference_cleanup_does_not_remove_existing_runtime_values(): void
+    {
+        $context = new WorkflowContext([
+            'payload' => ['order_id' => 5074],
+            'item' => ['id' => 42],
+            'talk' => ['id' => 17],
+        ]);
+        $this->assertSame('5074', $context->resolve('{{payload.order_id}}'));
+        $this->assertSame('42', $context->resolve('{{item.id}}'));
+        $this->assertSame('17', $context->resolve('{{talk.id}}'));
+        $this->assertSame('{"order_id":5074}', $context->resolve('{{payload:json}}'));
+    }
+
     public function test_it_renders_reference_panel_without_duplicate_entity_groups(): void
     {
         $html = view('filament.workflow-builder.mask-reference', [
