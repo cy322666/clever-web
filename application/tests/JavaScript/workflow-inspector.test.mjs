@@ -102,7 +102,7 @@ test('filter fields come from the selected collection, never indexed rows', () =
         {type:'array',key:'',expression:'{{ $("Сделки") }}',item_fields:['id','status_id','contact.name']},
         {type:'object',key:'[0]',expression:null},
     ]},{id:'b',name:'Контакты',fields:[{type:'array',key:'',expression:'{{ $("Контакты") }}',item_fields:['id','phone']}]}];
-    assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Сделки") }}')),['id','status_id','contact.name']);
+    assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Сделки") }}')),['id','status_id']);
     assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $("Контакты") }}')),['id','phone']);
     assert.deepEqual(Array.from(window.workflowFilterItemFields(sources,'{{ $json.items }}')),['id','phone']);
     assert.equal(window.workflowFilterItemPath('{{ $("Сделки")[0].status_id }}','{{ $("Сделки") }}'),'status_id');

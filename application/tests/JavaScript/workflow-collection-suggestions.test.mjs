@@ -91,8 +91,10 @@ test('relative filter keys stay relative; typing never queries the server', () =
     const relative = window.workflowValueField('', 'mountedActions.0.data.items');
     relative.sources = field.sources;
     relative.$wire = {$get: () => '{{ $("Получить сделки") }}', $call() {assert.fail('Typing must stay local');}};
-    relative.suggest({target: {value: 'contact.n', hasAttribute: () => true}});
-    assert.deepEqual(Array.from(relative.suggestions, item => item.expression), ['contact.name']);
+    relative.suggest({target: {value: 'contact', hasAttribute: () => true}});
+    assert.deepEqual(Array.from(relative.suggestions, item => item.expression), []);
+    relative.suggest({target: {value: 'sta', hasAttribute: () => true}});
+    assert.deepEqual(Array.from(relative.suggestions, item => item.expression), ['status_id']);
     assert.ok(relative.suggestions.every(item => !item.expression.includes('first()')));
 });
 
@@ -103,4 +105,49 @@ test('an empty or unknown item schema keeps whole-list and function completion w
     assert.equal(choices[0].expression, '{{ $("Получить сделки") }}');
     assert.ok(choices.some(item => item.expression === '{{ $("Получить сделки").first() }}'));
     assert.ok(!choices.some(item => item.expression.endsWith('.name }}')));
+});
+
+test('filter collection completion addresses each item directly and stops at its first level', () => {
+    const {window, field} = fixture();
+    const filter = window.workflowValueField('', null, 'mountedActions.0.data.rules');
+    filter.sources = field.sources;
+    const suggest = value => {
+        filter.suggest({target: {value, selectionStart: value.length, hasAttribute: () => true}});
+        return Array.from(filter.suggestions);
+    };
+    const choices = suggest('{{ $("Получить сделки").');
+    assert.ok(choices.some(item => item.expression === '{{ $("Получить сделки").id }}'));
+    assert.ok(choices.some(item => item.expression === '{{ $("Получить сделки").contact }}'));
+    assert.ok(choices.every(item => !/first\(|last\(|cf\(|contact\.name|\[0\]/.test(item.expression)));
+    assert.equal(suggest('{{ $("Получить сделки").contact.').length, 0);
+    assert.equal(suggest('{{ $("Получить сделки").first().').length, 0);
+    assert.equal(suggest("{{ $('Получить сделки').sta")[0].expression, '{{ $("Получить сделки").status_id }}');
+});
+
+test('choosing an item key keeps the complete collection and fills only an empty rule locally', () => {
+    const {window, field} = fixture();
+    const filter = window.workflowValueField('', null, 'mountedActions.0.data.rules');
+    filter.sources = field.sources;
+    const value = '{{ $("Получить сделки").sta }}';
+    const input = {value, selectionStart: value.indexOf(' }}'), hasAttribute: () => true};
+    const writes = [];
+    filter.$wire = {
+        $get: () => ({existing: {field: 'name', operator: 'eq', value: 'Не менять'}, fresh: {field: '', operator: 'eq', value: '142'}}),
+        $set: (path, value, live) => writes.push([path, value, live]),
+        $call() { assert.fail('Selecting an item key must stay in the browser'); },
+    };
+    filter.$refs = {value: input}; filter.$nextTick = () => {};
+    filter.suggest({target: input});
+    filter.chooseSuggestion(filter.suggestions[0]);
+    assert.equal(filter.state, '{{ $("Получить сделки") }}');
+    assert.deepEqual(writes, [
+        ['mountedActions.0.data.__filter_item_field', 'status_id', false],
+        ['mountedActions.0.data.rules.fresh.field', 'status_id', false],
+    ]);
+});
+
+test('JSON list key completion excludes nested paths, indices and invalid property names', () => {
+    const {window} = fixture();
+    assert.deepEqual(Array.from(window.workflowFilterItemFields([], '[{"id":1,"contact":{"name":"Тест"},"contact.name":1,"0":1,"Имя":"Тест"}]')), ['id', 'contact', 'Имя']);
+    assert.equal(window.workflowFilterItemPath('{{ $("Сделки").contact.name }}', '{{ $("Сделки") }}'), '{{ $("Сделки").contact.name }}');
 });

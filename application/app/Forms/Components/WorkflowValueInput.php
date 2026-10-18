@@ -17,9 +17,12 @@ class WorkflowValueInput extends TextInput
     protected int $textareaRows = 0;
     protected array|Closure $valueSuggestions = [];
     protected bool $relativePath = false;
+    protected bool $collectionPath = false;
 
     public function relativePath(): static { $this->relativePath = true; return $this; }
     public function isRelativePath(): bool { return $this->relativePath; }
+    public function collectionPath(): static { $this->collectionPath = true; return $this; }
+    public function isCollectionPath(): bool { return $this->collectionPath; }
 
     public function suggestions(array|Closure $options): static { $this->valueSuggestions = $options; return $this; }
     public function getValueSuggestions(): array { return $this->evaluate($this->valueSuggestions); }

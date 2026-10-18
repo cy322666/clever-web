@@ -2795,6 +2795,7 @@ window.workflowHeadersField = (state) => ({
 });
 
 window.workflowFilterItemFields = (sources, expression) => {
+    const topLevel = keys => [...new Set(keys)].filter(key => /^[\p{L}_][\p{L}\p{N}_-]*$/u.test(key));
     const normalize = value => String(value ?? '').trim()
         .replace(/^\{\{\s*|\s*\}\}$/g, '')
         .replace(/\$node\[(["'])(.*?)\1\]\.json/g, (_, quote, name) => '$(' + JSON.stringify(name) + ')')
@@ -2810,10 +2811,10 @@ window.workflowFilterItemFields = (sources, expression) => {
     if (!list && selected.startsWith('[')) {
         try {
             const items = JSON.parse(selected);
-            if (Array.isArray(items)) return [...new Set(items.slice(0, 20).flatMap(item => item && typeof item === 'object' && !Array.isArray(item) ? Object.keys(item) : []))];
+            if (Array.isArray(items)) return topLevel(items.slice(0, 20).flatMap(item => item && typeof item === 'object' && !Array.isArray(item) ? Object.keys(item) : []));
         } catch { /* A draft JSON value is not a source. */ }
     }
-    return list?.item_fields || [];
+    return topLevel(list?.item_fields || []);
 };
 
 window.workflowFilterItemPath = (value, collection) => {
@@ -2824,11 +2825,11 @@ window.workflowFilterItemPath = (value, collection) => {
     let suffix = expression.slice(source.length);
     if (suffix.startsWith('[0]')) suffix = suffix.slice(3);
     const path = suffix.startsWith('.') ? suffix.slice(1) : '';
-    return /^[\p{L}_][\p{L}\p{N}_-]*(?:\.[\p{L}_][\p{L}\p{N}_-]*)*$/u.test(path) ? path : field;
+    return /^[\p{L}_][\p{L}\p{N}_-]*$/u.test(path) ? path : field;
 };
 
-window.workflowValueField = (state, filterItemsPath = null) => ({
-    state, filterItemsPath, mode: 'value', sources: [], customFields: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
+window.workflowValueField = (state, filterItemsPath = null, collectionRulesPath = null) => ({
+    state, filterItemsPath, collectionRulesPath, mode: 'value', sources: [], customFields: [], suggestions: [], suggestionIndex: 0, tokenStart: 0, tokenEnd: 0,
     init() {
         if (typeof this.state === 'boolean') this.state = this.state ? '1' : '0';
         this.mode = !this.filterItemsPath && typeof this.state === 'string' && this.state.includes('{{') ? 'expression' : 'value';
@@ -2890,6 +2891,15 @@ window.workflowValueField = (state, filterItemsPath = null) => ({
             const search = normalized(query);
             candidates = this.sources.flatMap(source => (source.fields || []).flatMap(item => {
                 const base = item.expression?.replace(/^\{\{\s*|\s*\}\}$/g, '').trim();
+                if (this.collectionRulesPath) {
+                    if (item.type !== 'array' || !base) return [];
+                    // A filter tests this key on every item, not on first()/last().
+                    // Store the collection as a whole and the item key in its rule.
+                    return [{...item, source: source.name, label: 'Весь список', searchExpression: wrap(base + '.')},
+                        ...(item.item_fields || []).filter(key => /^[\p{L}_][\p{L}\p{N}_-]*$/u.test(key))
+                            .map(key => ({source: source.name, label: 'Элемент коллекции · ' + key,
+                                expression: wrap(base + '.' + key), replacement: wrap(base), itemField: key}))];
+                }
                 if (item.type !== 'array' || !base) return [{...item, source: source.name}];
                 // The node returns a list, not an object with these properties.
                 // Offer its real item keys with an explicit, valid first()/last()
@@ -2901,7 +2911,7 @@ window.workflowValueField = (state, filterItemsPath = null) => ({
                             expression: wrap(base + '.' + selector + '().' + key), searchExpression: wrap(base + '.' + key)}))];
             })).filter(item => item.expression && [item.expression, item.searchExpression, item.label, item.path, item.source]
                 .some(value => normalized(String(value ?? '')).includes(search)));
-            if (member && /^(\$\(|\$json\b|lead\b|contact\b|company\b|customer\b)/u.test(member[1])) {
+            if (!this.collectionRulesPath && member && /^(\$\(|\$json\b|lead\b|contact\b|company\b|customer\b)/u.test(member[1])) {
                 const functions = [
                     {name: 'cf', suffix: 'cf()', label: 'Поле по ID: cf(123)', argument: true},
                     {name: 'first', suffix: 'first()', label: 'Первый элемент'},
@@ -2925,6 +2935,15 @@ window.workflowValueField = (state, filterItemsPath = null) => ({
         const cursor = this.tokenStart + (item.caret ?? (item.replacement === undefined ? replacement.length - 3 : replacement.length));
         const value = field.value.slice(0, this.tokenStart) + replacement + field.value.slice(this.tokenEnd);
         this.state = value;
+        if (this.collectionRulesPath) {
+            const key = item.itemField || '';
+            this.$wire.$set(this.collectionRulesPath.replace(/\.rules$/, '.__filter_item_field'), key, false);
+            if (key) {
+                const rules = this.$wire.$get(this.collectionRulesPath) || {};
+                const empty = Object.entries(rules).find(([, rule]) => !String(rule?.field ?? '').trim());
+                if (empty) this.$wire.$set(this.collectionRulesPath + '.' + empty[0] + '.field', key, false);
+            }
+        }
         this.mode = 'expression';
         this.suggestions = [];
         this.$nextTick(() => {

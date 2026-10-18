@@ -55,7 +55,29 @@ class WorkflowInspectorTest extends TestCase
         $html = implode('', $page->effects['partials'] ?? []);
         $this->assertStringContainsString('data-workflow-filter-item-field', $html);
         $this->assertStringContainsString('data.items', $html);
-        $this->assertStringContainsString('Поле одного элемента, без [n].', $html);
+        $this->assertStringContainsString('Поле первого уровня каждого элемента, без вложенности.', $html);
+        $this->assertStringContainsString('data.rules', $html);
+    }
+
+    public function test_a_selected_collection_key_prefills_a_new_rule_without_persisting_the_ui_hint(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [[
+            'id' => 'filter', 'type' => 'workflow_filter_list', 'config' => [
+                'items' => '{{ $("Сделки") }}', 'match' => 'all', 'rules' => [],
+            ],
+        ]]])->call('openWorkflowInspector', 'action:filter')
+            ->set('mountedActions.0.data.__filter_item_field', 'status_id')
+            ->call('mountAction', 'add', [], ['schemaComponent' => 'mountedActionSchema0.rules'])
+            ->assertHasNoErrors();
+        $rules = $page->get('mountedActions.0.data.rules');
+        $this->assertCount(1, $rules);
+        $this->assertSame('status_id', reset($rules)['field']);
+        $page->set('mountedActions.0.data.rules.'.array_key_first($rules).'.value', '142')
+            ->call('callMountedAction')->assertHasNoErrors();
+        $config = $page->get('workflowActions.0.config');
+        $this->assertSame('{{ $("Сделки") }}', $config['items']);
+        $this->assertSame('status_id', $config['rules'][0]['field']);
+        $this->assertArrayNotHasKey('__filter_item_field', $config);
     }
 
     public function test_switching_saves_the_previous_draft_and_refills_only_the_new_node(): void

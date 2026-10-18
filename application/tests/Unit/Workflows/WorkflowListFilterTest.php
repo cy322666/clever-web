@@ -35,13 +35,18 @@ class WorkflowListFilterTest extends TestCase
         ]])['output']['count']);
     }
 
-    public function test_relative_nested_and_unicode_item_keys_do_not_need_an_array_index(): void
+    public function test_only_top_level_unicode_item_keys_are_allowed(): void
     {
         $result = (new WorkflowFilterListAction)->handle(['items' => [
-            ['Контакт' => ['Имя' => 'Анна']], ['Контакт' => ['Имя' => 'Иван']],
-        ], 'rules' => [['field' => 'Контакт.Имя', 'operator' => 'eq', 'value' => 'Иван']]]);
+            ['Имя' => 'Анна'], ['Имя' => 'Иван'],
+        ], 'rules' => [['field' => 'Имя', 'operator' => 'eq', 'value' => 'Иван']]]);
         $this->assertTrue($result['success']);
-        $this->assertSame([['Контакт' => ['Имя' => 'Иван']]], $result['output']['items']);
+        $this->assertSame([['Имя' => 'Иван']], $result['output']['items']);
+        $nested = (new WorkflowFilterListAction)->handle(['items' => [
+            ['Контакт' => ['Имя' => 'Иван']],
+        ], 'rules' => [['field' => 'Контакт.Имя', 'operator' => 'eq', 'value' => 'Иван']]]);
+        $this->assertFalse($nested['success']);
+        $this->assertStringContainsString('первого уровня', $nested['error']);
     }
 
     public function test_old_collection_field_expression_becomes_a_relative_key(): void

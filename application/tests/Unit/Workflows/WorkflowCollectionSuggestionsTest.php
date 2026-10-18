@@ -66,6 +66,34 @@ class WorkflowCollectionSuggestionsTest extends TestCase
         $this->assertSame('Тест', $context->resolve('{{ $("HTTP").result.first().client_name }}'));
     }
 
+    public function test_a_direct_collection_field_is_checked_on_each_item_and_not_just_the_first(): void
+    {
+        $items = [
+            ['id' => 1, 'status_id' => 100, 'pipeline_id' => 10],
+            ['id' => 2, 'status_id' => 142, 'pipeline_id' => 10],
+            ['id' => 3, 'status_id' => 142, 'pipeline_id' => 20],
+        ];
+        $context = (new WorkflowContext)->setStepOutput('deals', ['items' => $items, 'count' => 3, 'has_more' => false])
+            ->setVariable('_node_names', ['Сделки' => ['deals']]);
+        $filtered = (new WorkflowFilterListAction)->handle([
+            'items' => '{{ $("Сделки") }}', 'match' => 'all', 'rules' => [
+                ['field' => '{{ $("Сделки").status_id }}', 'operator' => 'eq', 'value' => 142],
+                ['field' => 'pipeline_id', 'operator' => 'eq', 'value' => 10],
+            ],
+        ], $context);
+        $this->assertTrue($filtered['success'], $filtered['error'] ?? '');
+        $this->assertSame([$items[1]], $filtered['output']['items']);
+        $this->assertSame(3, $filtered['output']['input_count']);
+        foreach (['contact.name', '{{ $("Сделки").contact.name }}', 'items[0].id'] as $field) {
+            $invalid = (new WorkflowFilterListAction)->handle([
+                'items' => '{{ $("Сделки") }}',
+                'rules' => [['field' => $field, 'operator' => 'eq', 'value' => 142]],
+            ], $context);
+            $this->assertFalse($invalid['success']);
+            $this->assertStringContainsString('первого уровня', $invalid['error']);
+        }
+    }
+
     public function test_empty_collection_never_invents_body_fields(): void
     {
         $actions = [['id' => 'fetch', 'type' => 'amocrm_read'], ['id' => 'filter', 'type' => 'workflow_filter_list']];

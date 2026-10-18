@@ -7,10 +7,11 @@
     $initialMode = is_string($state) && str_contains($state, '{{') ? 'expression' : 'value';
     $expressionPlaceholder = '{{ $json.id }}';
     $filterItemsPath = $isRelativePath() && preg_match('/^(.*)\.rules\.[^.]+\.field$/', $path, $matches) ? $matches[1].'.items' : null;
+    $collectionRulesPath = $isCollectionPath() && preg_match('/^(.*)\.items$/', $path, $matches) ? $matches[1].'.rules' : null;
 @endphp
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field" :label="''">
     <div class="workflow-value-field" wire:key="value-{{ md5($path.json_encode($options)) }}"
-        x-data="workflowValueField($wire.{{ $applyStateBindingModifiers('$entangle(\'' . $path . '\')') }}, @js($filterItemsPath))"
+        x-data="workflowValueField($wire.{{ $applyStateBindingModifiers('$entangle(\'' . $path . '\')') }}, @js($filterItemsPath), @js($collectionRulesPath))"
         x-on:workflow-expression-field="if (!@js($isRelativePath())) { mode = 'expression'; $nextTick(() => $refs.value.focus()); }"
         x-on:workflow-expression-suggestions="sources = $event.detail.sources; customFields = $event.detail.customFields || []; suggest({target: $refs.value})"
         x-on:input="suggest($event)" x-on:keydown="suggestionKey($event)"

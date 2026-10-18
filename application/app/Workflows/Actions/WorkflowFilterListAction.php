@@ -3,9 +3,10 @@
 namespace App\Workflows\Actions;
 
 use App\Forms\Components\WorkflowValueInput;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Illuminate\Support\Arr;
+use Filament\Schemas\Components\Utilities\Get;
 use Leek\FilamentWorkflows\Concerns\WorkflowAction;
 use Leek\FilamentWorkflows\Context\WorkflowContext;
 
@@ -22,11 +23,13 @@ class WorkflowFilterListAction
     public static function workflowConfigSchema(?string $modelClass = null): array
     {
         return [
-            WorkflowValueInput::make('items')->label('Список')->default('{{ $json.items }}')->required(),
+            WorkflowValueInput::make('items')->label('Список')->collectionPath()->default('{{ $json.items }}')->required(),
+            Hidden::make('__filter_item_field')->dehydrated(false),
             Select::make('match')->label('Совпадение')->options(['all'=>'Все условия · И','any'=>'Любое условие · ИЛИ'])->default('all')->required(),
             Repeater::make('rules')->label('Условия для каждого элемента')->addActionLabel('Добавить условие')->defaultItems(0)->schema([
                 WorkflowValueInput::make('field')->label('Поле элемента')->relativePath()
-                    ->placeholder('Выберите ключ элемента списка')->helperText('Поле одного элемента, без [n].')->required(),
+                    ->default(fn (Get $get) => $get('../../__filter_item_field'))
+                    ->placeholder('Выберите ключ элемента списка')->helperText('Поле первого уровня каждого элемента, без вложенности.')->required(),
                 Select::make('operator')->label('Сравнение')->options(['eq'=>'Равно','neq'=>'Не равно','gt'=>'Больше','gte'=>'Не меньше','lt'=>'Меньше','lte'=>'Не больше','contains'=>'Содержит','empty'=>'Пусто','not_empty'=>'Не пусто'])->default('eq')->required(),
                 WorkflowValueInput::make('value')->label('Значение'),
             ]),
@@ -41,8 +44,8 @@ class WorkflowFilterListAction
             foreach ($config['rules'] ?? [] as $index => $rule) {
                 if (!is_array($rule)) throw new \RuntimeException('Добавьте поле элемента и сравнение для каждого условия.');
                 $field = self::relativeField($rule['field'] ?? null, $collection);
-                if (!preg_match('/^[\pL_][\pL\pN_-]*(?:\.[\pL_][\pL\pN_-]*)*$/uD', $field)) {
-                    throw new \RuntimeException('Поле элемента: выберите ключ из списка, например name. Не вставляйте {{ ... }} или [0].');
+                if (!preg_match('/^[\pL_][\pL\pN_-]*$/uD', $field)) {
+                    throw new \RuntimeException('Поле элемента: выберите поле первого уровня, например name. Вложенные пути и индексы не поддерживаются.');
                 }
                 if (!in_array($rule['operator'] ?? null, ['eq','neq','gt','gte','lt','lte','contains','empty','not_empty'], true)) {
                     throw new \RuntimeException('Выберите сравнение для каждого условия.');
@@ -61,7 +64,7 @@ class WorkflowFilterListAction
             $matched = array_values(array_filter($items, function ($item) use ($rules, $mode): bool {
                 if ($rules === []) return true;
                 $results = array_map(function ($rule) use ($item): bool {
-                    $actual = is_array($item) ? Arr::get($item, $rule['field']) : null;
+                    $actual = is_array($item) ? ($item[$rule['field']] ?? null) : null;
                     $value = $rule['value'] ?? null;
                     $equal = is_numeric($actual) && is_numeric($value) ? (float)$actual === (float)$value : $actual === $value;
                     $numeric = is_numeric($actual) && is_numeric($value);
