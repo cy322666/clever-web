@@ -30,7 +30,8 @@ class WorkflowHistoryFilterTest extends TestCase
         $this->actingAs(User::findOrFail(1));
         foreach ([[1, 1], [2, 1], [3, 2]] as [$id, $owner]) {
             $flow = (new Workflow)->forceFill(['id' => $id, 'user_id' => $owner, 'name' => 'Поток '.$id,
-                'is_active' => false, 'definition' => ['trigger' => ['type' => 'manual'], 'actions' => []]]);
+                'group_name' => $id === 2 ? 'Продажи' : null,
+                'is_active' => false, 'definition' => ['trigger' => ['type' => $id === 2 ? 'schedule' : 'manual'], 'actions' => []]]);
             $flow->save();
         }
         foreach ([[1, 1, 1, 'failed'], [2, 1, 1, 'completed'], [3, 1, 1, 'running'], [4, 1, 2, 'failed'], [5, 2, 3, 'failed']] as [$id, $owner, $flow, $status]) {
@@ -95,6 +96,8 @@ class WorkflowHistoryFilterTest extends TestCase
     {
         Livewire::test(ListWorkflowRuns::class)
             ->assertStatus(200)
+            ->assertSee('Группы сценариев')
+            ->assertSee('Тип запуска')
             ->assertSee('Поток 1')
             ->assertSee('Поток 2')
             ->assertDontSee('Поток 3')
@@ -105,7 +108,46 @@ class WorkflowHistoryFilterTest extends TestCase
             ->set('historyRunId', 1)
             ->assertSee('Запуск #1')
             ->assertSee('workflow-execution-viewer', false)
+            ->assertDontSee('workflow-folders', false)
             ->assertDontSee('workflow-account-history-list', false);
+    }
+
+    public function test_account_history_keeps_the_workflow_sidebar_and_filters_runs_by_folder_or_start_type(): void
+    {
+        $page = Livewire::test(ListWorkflowRuns::class)
+            ->assertSee('workflow-folders', false)
+            ->assertSee('Продажи')
+            ->assertSee('Ручной запуск')
+            ->assertSee('Расписание');
+
+        $this->assertSame(4, $page->instance()->getTableRecords()->total());
+        $page->call('selectFolder', 'Продажи')
+            ->assertSet('workflowGroupFilter', 'Продажи')
+            ->assertSet('workflowLaunchFilter', null)
+            ->assertSee('folder=', false);
+        $this->assertSame([4], $page->instance()->getTableRecords()->pluck('id')->all());
+        $this->assertStringContainsString('folder=', $page->instance()->getHistoryRunUrl(WorkflowRun::findOrFail(4)));
+        $this->assertStringContainsString('folder=', $page->instance()->getHistoryIndexUrl());
+
+        $page->call('selectLaunchType', 'schedule')->assertSet('workflowLaunchFilter', 'schedule');
+        $this->assertSame([4], $page->instance()->getTableRecords()->pluck('id')->all());
+
+        $page->call('selectLaunchType', 'manual')
+            ->assertSet('workflowGroupFilter', null)
+            ->assertSet('workflowLaunchFilter', 'manual');
+        $this->assertSame(3, $page->instance()->getTableRecords()->total());
+        $this->assertStringContainsString('launch=manual', $page->instance()->getHistoryRunUrl(WorkflowRun::findOrFail(1)));
+
+        $page->set('workflowLaunchFilter', 'unknown');
+        $this->assertSame(0, $page->instance()->getTableRecords()->total());
+
+        $page->call('selectFolder', null)->assertSet('workflowLaunchFilter', null);
+        $this->assertSame(4, $page->instance()->getTableRecords()->total());
+        $page->callAction('createFolder', ['name' => 'Новая папка'])
+            ->assertHasNoActionErrors()
+            ->assertSet('workflowGroupFilter', 'Новая папка');
+        $this->assertSame(0, $page->instance()->getTableRecords()->total());
+        Http::assertNothingSent();
     }
 
     public function test_account_history_cannot_open_another_clients_run(): void

@@ -139,7 +139,11 @@ class WorkflowRunResource extends Resource
                     ->extraCellAttributes(static::compactCellAttributes())
                     ->alignEnd(),
             ])
-            ->recordUrl(function (WorkflowRun $record): string {
+            ->recordUrl(function (WorkflowRun $record, $livewire): string {
+                if ($livewire instanceof Pages\ListWorkflowRuns) {
+                    return $livewire->getHistoryRunUrl($record);
+                }
+
                 $parameters = ['run' => $record->getKey()];
 
                 if (request()->boolean('errors')) {

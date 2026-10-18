@@ -7401,6 +7401,13 @@ svg.workflow-control-icon { color: #248548 !important; }
 }
 
 /* Account-wide history: scan runs first, open the canvas only for one run. */
+.workflow-account-history-overview {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.workflow-account-history-overview.is-root { grid-template-columns: minmax(0, 1fr); }
+.workflow-account-history-overview .workflow-folders { overflow-y: auto; }
 .workflow-account-history-list {
     width: min(100%, 108rem);
     min-height: 0;
@@ -7481,6 +7488,10 @@ svg.workflow-control-icon { color: #248548 !important; }
     .workflow-account-history-list { padding: 0.75rem; }
     .workflow-account-history-detail__header { flex-wrap: wrap; padding-block: 0.75rem; }
     .workflow-account-history-detail__actions { margin-left: 3rem; }
+}
+@media (max-width: 520px) {
+    .workflow-account-history-overview { overflow: auto; }
+    .workflow-account-history-overview .workflow-folders { overflow: visible; }
 }
 
 /* Compact editor chrome and an app-first node picker. */
