@@ -98,6 +98,8 @@ class WorkflowRunReplayTest extends TestCase
         $before = DB::table('workflows')->where('id', 1)->first();
         $page = Livewire::test(ReplayWorkflow::class, ['run' => 1])
             ->assertStatus(200)->assertSet('record.id', 1)->assertSet('debugState.status', 'historical')
+            ->assertSet('debugState.display_trigger_data.lead.id', 77)
+            ->assertSet('debugState.start_node_id', 'trigger')
             ->assertSet('debugReal', false)->assertSet('debugSessionId', null)
             ->assertSet('debugInputMode', 'json')->assertSet('nodeRunResults.yes.output.id', 99)
             ->assertSee('Сохранить')->assertDontSee('Сохранить как новый поток')

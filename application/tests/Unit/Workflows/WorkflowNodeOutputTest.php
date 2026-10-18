@@ -81,7 +81,7 @@ class WorkflowNodeOutputTest extends TestCase
         foreach (['Значение 1', 'Значение 2', '17', 'строка', 'число', 'строго равно', 'null', 'логическое', 'не задано', 'Условие не выполнено', '&lt;script&gt;'] as $text) $this->assertStringContainsString($text, $html);
         $this->assertStringNotContainsString('<script>alert(1)', $html);
         $this->assertStringNotContainsString('<header>', $html);
-        $this->assertStringNotContainsString('Ветка «Нет»', $html);
+        $this->assertStringContainsString('Ветка «Нет»', $html);
     }
 
     public function test_unary_condition_does_not_invent_a_second_operand(): void
@@ -93,16 +93,27 @@ class WorkflowNodeOutputTest extends TestCase
         ]]);
         $this->assertStringContainsString('пустая строка', $html);
         $this->assertStringNotContainsString('Значение 2', $html);
-        $this->assertStringNotContainsString('Ветка «Да»', $html);
+        $this->assertStringContainsString('Ветка «Да»', $html);
         $this->assertStringContainsString('2 мс', $html);
         $this->assertSame(1, substr_count($html, 'Условие выполнено'));
     }
 
-    public function test_regular_node_keeps_its_result_heading(): void
+    public function test_result_shows_only_duration_without_historical_disclaimer(): void
     {
-        $html = $this->renderResult(['output' => ['id' => 42], 'duration_ms' => 17]);
-        $this->assertStringContainsString('<header>Результат', $html);
+        $html = $this->renderResult(['output' => ['id' => 42], 'duration_ms' => 17, 'historical' => true]);
         $this->assertStringContainsString('17 мс', $html);
+        $this->assertStringNotContainsString('Результат <small>', $html);
+        $this->assertStringNotContainsString('Данные сохранённого запуска', $html);
+        $this->assertStringNotContainsString('После правок', $html);
+    }
+
+    public function test_saved_condition_with_only_a_decision_still_shows_its_branch(): void
+    {
+        $html = $this->renderResult(['type' => 'control-condition', 'status' => 'completed', 'historical' => true,
+            'output' => ['passed' => false], 'duration_ms' => 1400]);
+        $this->assertStringContainsString('Ветка «Нет»', $html);
+        $this->assertStringContainsString('1400 мс', $html);
+        $this->assertStringNotContainsString('&quot;passed&quot;', $html);
     }
 
     public function test_json_rows_do_not_render_template_indentation_as_preformatted_text(): void

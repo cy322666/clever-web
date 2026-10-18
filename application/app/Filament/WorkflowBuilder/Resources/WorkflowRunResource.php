@@ -10,16 +10,13 @@ use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
-use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -81,15 +78,11 @@ class WorkflowRunResource extends Resource
 
         $query = parent::getEloquentQuery()
             ->when(! (bool) Auth::user()?->is_root, fn (Builder $query): Builder => $query->where('user_id', Auth::id()))
-            ->with(['workflow', 'latestStep', 'triggeredBy', 'owner.accounts'])
-            ->withCount('steps');
+            ->with('workflow')
+            ->when((bool) Auth::user()?->is_root, fn (Builder $query): Builder => $query->with('owner.accounts'));
 
         if ($workflowId > 0) {
             $query->where('workflow_id', $workflowId);
-        }
-
-        if (static::hasEntityIndexTable()) {
-            $query->with('entityLinks');
         }
 
         return $query;
@@ -109,65 +102,62 @@ class WorkflowRunResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('workflow_name')
+                    ->label('Сценарий')
+                    ->state(fn (WorkflowRun $record): string => (string) ($record->workflow?->name ?: 'Сценарий удалён'))
+                    ->description(fn (WorkflowRun $record): ?string => (bool) Auth::user()?->is_root
+                        ? ($record->owner?->accounts?->first()?->subdomain ?: $record->owner?->email)
+                        : null)
+                    ->grow()
+                    ->extraCellAttributes(static::compactCellAttributes()),
+
+                TextColumn::make('status')
+                    ->label('Статус')
+                    ->state(fn (WorkflowRun $record): string => $record->status?->getLabel() ?: 'Неизвестен')
+                    ->badge()
+                    ->icon(fn (WorkflowRun $record): ?string => $record->status?->getIcon())
+                    ->color(fn (WorkflowRun $record): string => $record->status?->getColor() ?: 'gray')
+                    ->extraCellAttributes(static::compactCellAttributes()),
+
                 TextColumn::make('started_at')
-                    ->label('Дата срабатывания')
+                    ->label('Начало')
                     ->state(fn (WorkflowRun $record): string => static::startedDescription($record))
                     ->sortable()
                     ->inline()
                     ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('initiator')
-                    ->label('Инициатор')
-                    ->state(fn (WorkflowRun $record): HtmlString => static::initiatorHtml($record))
-                    ->html()
+                TextColumn::make('run_duration')
+                    ->label('Длительность')
+                    ->state(fn (WorkflowRun $record): string => static::runDuration($record))
                     ->inline()
                     ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('workflow_history_name')
-                    ->label('Сценарий')
-                    ->state(fn (WorkflowRun $record): HtmlString => static::workflowHtml($record))
-                    ->html()
-                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query
-                        ->join('workflows', 'workflow_runs.workflow_id', '=', 'workflows.id')
-                        ->orderBy('workflows.name', $direction)
-                        ->select('workflow_runs.*'))
-                    ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes()),
-
-                TextColumn::make('latest_block')
-                    ->label('Блок / шаг')
-                    ->state(fn (WorkflowRun $record): HtmlString => static::latestBlockHtml($record))
-                    ->html()
-                    ->inline()
-                    ->extraCellAttributes(static::compactCellAttributes()),
-
-                IconColumn::make('result_status')
-                    ->label('')
-                    ->state(fn (WorkflowRun $record): string => $record->status->value)
-                    ->icon(fn (WorkflowRun $record): ?string => $record->status->getIcon())
-                    ->color(fn (WorkflowRun $record): ?string => $record->status->getColor())
-                    ->tooltip(fn (WorkflowRun $record): string => $record->status === RunStatus::FAILED
-                        ? ($record->error_message ?: 'Ошибка выполнения')
-                        : ($record->status->getLabel() ?: 'Статус выполнения'))
+                TextColumn::make('id')
+                    ->label('ID запуска')
+                    ->state(fn (WorkflowRun $record): string => '#'.$record->getKey())
+                    ->sortable()
                     ->extraCellAttributes(static::compactCellAttributes())
-                    ->alignCenter(),
-
-                IconColumn::make('restart')
-                    ->label('')
-                    ->state(fn (WorkflowRun $record): bool => $record->status->isTerminal())
-                    ->icon(fn (bool $state): ?string => $state ? 'heroicon-o-arrow-path' : null)
-                    ->color('warning')
-                    ->tooltip('Перезапустить сценарий')
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->action(
-                        Action::make('restart_run')
-                            ->label('Перезапустить сценарий')
-                            ->action(fn (WorkflowRun $record): mixed => static::restartRun($record))
-                    ),
+                    ->alignEnd(),
             ])
+            ->recordUrl(function (WorkflowRun $record): string {
+                $parameters = ['run' => $record->getKey()];
+
+                if (request()->boolean('errors')) {
+                    $parameters['errors'] = 1;
+                }
+
+                if (($workflowId = request()->integer('workflow_id')) > 0) {
+                    $parameters['workflow_id'] = $workflowId;
+                }
+
+                return static::getUrl('index', $parameters);
+            })
+            ->recordAction(null)
+            ->recordActions([])
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100])
             ->defaultPaginationPageOption(50)
+            ->poll('10s')
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
@@ -175,6 +165,9 @@ class WorkflowRunResource extends Resource
                         RunStatus::COMPLETED->value => 'Завершен',
                         RunStatus::FAILED->value => 'Ошибка',
                         RunStatus::CANCELLED->value => 'Отменен',
+                        RunStatus::RUNNING->value => 'Выполняется',
+                        RunStatus::PENDING->value => 'Ожидает',
+                        RunStatus::PAUSED->value => 'Приостановлен',
                     ])
                     ->multiple(),
 
@@ -200,24 +193,32 @@ class WorkflowRunResource extends Resource
                         ? static::applyEntityIdSearch($query, (string) $data['value'])
                         : $query)
                     ->indicateUsing(fn (): array => []),
-            ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(4)
-            ->recordAction('view_steps')
-            ->recordActions([
-                Action::make('view_steps')
-                    ->modalHeading(fn (WorkflowRun $record): string => 'Исполнение процесса · '.$record->ulid)
-                    ->modalContent(fn (WorkflowRun $record) => view(
-                        'filament-workflows::filament.partials.run-steps-modal',
-                        ['run' => $record->load('steps')]
-                    ))
-                    ->modalWidth('5xl')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Закрыть'),
-            ], RecordActionsPosition::AfterContent)
+            ], layout: FiltersLayout::Dropdown)
+            ->filtersFormColumns(2)
+            ->persistFiltersInSession()
             ->toolbarActions([])
             ->emptyStateIcon('heroicon-o-play-circle')
-            ->emptyStateHeading('Исполнений пока нет')
-            ->emptyStateDescription('Здесь появятся запуски всех процессов текущего аккаунта.');
+            ->emptyStateHeading('Запусков пока нет')
+            ->emptyStateDescription('Здесь появятся выполнения сценариев текущего аккаунта.');
+    }
+
+    public static function runDuration(WorkflowRun $run): string
+    {
+        if ($run->started_at === null || $run->completed_at === null) {
+            return $run->status === RunStatus::RUNNING ? 'Выполняется' : '—';
+        }
+
+        $seconds = (int) abs($run->started_at->diffInSeconds($run->completed_at));
+
+        if ($seconds === 0) {
+            return 'менее 1 с';
+        }
+
+        if ($seconds < 60) {
+            return $seconds.' с';
+        }
+
+        return intdiv($seconds, 60).' мин. '.($seconds % 60).' с';
     }
 
     public static function triggerDescription(WorkflowRun $run): string
@@ -570,7 +571,7 @@ class WorkflowRunResource extends Resource
         return $exists;
     }
 
-    private static function restartRun(WorkflowRun $record): void
+    public static function restartRun(WorkflowRun $record): void
     {
         if (! $record->status->isTerminal()) {
             Notification::make()

@@ -32,9 +32,9 @@
     @if(! $readOnly)
         x-data="workflowInlineNodeName(@js($nodeId), @js($name))"
         @if($hasSettings)
-            x-on:click="if (!renaming) window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } }))"
+            x-on:click="if (!renaming) { if ($wire.debugOpen) selectDebugNode(@js($nodeId)); else window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } })); }"
         @else
-            x-on:click="if (!renaming) workflowEditorCall($wire, 'beginTriggerReplace', @js($nodeId))"
+            x-on:click="if (!renaming) { if ($wire.debugOpen) selectDebugNode(@js($nodeId)); else workflowEditorCall($wire, 'beginTriggerReplace', @js($nodeId)); }"
         @endif
         tabindex="0"
         x-on:keydown.enter.self.prevent="$el.click()"

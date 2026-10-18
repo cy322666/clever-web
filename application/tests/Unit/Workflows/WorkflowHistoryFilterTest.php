@@ -3,6 +3,7 @@
 namespace Tests\Unit\Workflows;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\WorkflowHistory;
+use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource\Pages\ListWorkflowRuns;
 use App\Models\User;
 use App\Models\Workflows\Workflow;
@@ -51,26 +52,25 @@ class WorkflowHistoryFilterTest extends TestCase
         $this->assertSame([1], $page->getWorkflowRuns()->modelKeys());
         $this->assertStringContainsString('errors=1', $page->getHistoryRunUrl(WorkflowRun::findOrFail(1)));
 
-        $all = new ListWorkflowRuns;
-        $this->assertCount(100, $all->getWorkflowRuns());
-        $all->historyErrorsOnly = true;
-        $this->assertSame([4, 1], $all->getWorkflowRuns()->modelKeys());
-        $this->assertStringContainsString('errors=1', $all->getHistoryRunUrl(WorkflowRun::findOrFail(1)));
+        $accountHistory = Livewire::test(ListWorkflowRuns::class);
+        $this->assertSame(124, $accountHistory->instance()->getTableRecords()->total());
+        $accountHistory->set('historyErrorsOnly', true);
+        $this->assertSame(2, $accountHistory->instance()->getTableRecords()->total());
+
         Http::assertNothingSent();
     }
 
     public function test_filter_resets_selection_and_never_leaves_a_successful_run_open(): void
     {
-        foreach ([new WorkflowHistory, new ListWorkflowRuns] as $page) {
-            if ($page instanceof WorkflowHistory) $page->record = Workflow::findOrFail(1);
-            $page->historyRunId = 2;
-            $page->historyErrorsOnly = true;
-            $page->updatedHistoryErrorsOnly();
-            $this->assertNull($page->historyRunId);
-            $this->assertSame('failed', $page->getSelectedRun($page->getWorkflowRuns())->status->value);
-            $page->historyRunId = 2; // An old link or stale URL cannot select a filtered-out execution.
-            $this->assertSame('failed', $page->getSelectedRun($page->getWorkflowRuns())->status->value);
-        }
+        $page = new WorkflowHistory;
+        $page->record = Workflow::findOrFail(1);
+        $page->historyRunId = 2;
+        $page->historyErrorsOnly = true;
+        $page->updatedHistoryErrorsOnly();
+        $this->assertNull($page->historyRunId);
+        $this->assertSame('failed', $page->getSelectedRun($page->getWorkflowRuns())->status->value);
+        $page->historyRunId = 2; // An old link or stale URL cannot select a filtered-out execution.
+        $this->assertSame('failed', $page->getSelectedRun($page->getWorkflowRuns())->status->value);
     }
 
     public function test_live_filter_has_an_empty_state_and_can_be_cleared(): void
@@ -89,5 +89,48 @@ class WorkflowHistoryFilterTest extends TestCase
         $page = Livewire::withQueryParams(['errors' => 1, 'run' => 1])
             ->test(WorkflowHistory::class, ['record' => 1])->assertSet('historyErrorsOnly', true);
         $this->assertSame([1], $page->instance()->getWorkflowRuns()->modelKeys());
+    }
+
+    public function test_account_history_lists_runs_before_opening_any_details(): void
+    {
+        Livewire::test(ListWorkflowRuns::class)
+            ->assertStatus(200)
+            ->assertSee('Поток 1')
+            ->assertSee('Поток 2')
+            ->assertDontSee('Поток 3')
+            ->assertSee('Длительность')
+            ->assertSee('ID запуска')
+            ->assertSee('run=1', false)
+            ->assertDontSee('workflow-execution-viewer', false)
+            ->set('historyRunId', 1)
+            ->assertSee('Запуск #1')
+            ->assertSee('workflow-execution-viewer', false)
+            ->assertDontSee('workflow-account-history-list', false);
+    }
+
+    public function test_account_history_cannot_open_another_clients_run(): void
+    {
+        $page = new ListWorkflowRuns;
+        $this->assertNull($page->getSelectedRun());
+        $page->historyRunId = 1;
+        $this->assertSame(1, $page->getSelectedRun()?->getKey());
+
+        $page->historyRunId = 5;
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        $page->getSelectedRun();
+    }
+
+    public function test_account_history_does_not_show_false_millisecond_precision(): void
+    {
+        $started = now()->startOfSecond();
+        $run = (new WorkflowRun)->forceFill([
+            'status' => 'completed',
+            'started_at' => $started,
+            'completed_at' => $started->copy()->addMilliseconds(61),
+        ]);
+
+        $this->assertSame('менее 1 с', WorkflowRunResource::runDuration($run));
+        $run->completed_at = $started->copy()->addSeconds(2);
+        $this->assertSame('2 с', WorkflowRunResource::runDuration($run));
     }
 }

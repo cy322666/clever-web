@@ -34,8 +34,8 @@
                 <button type="button" role="tab" id="debug-output-{{ $this->getId() }}" aria-controls="debug-data-{{ $this->getId() }}" :aria-selected="debugTab === 'output'" x-on:click="debugTab = 'output'">Выход</button>
             </div>
             <div id="debug-data-{{ $this->getId() }}" role="tabpanel" :aria-labelledby="'debug-' + debugTab + '-{{ $this->getId() }}'" class="workflow-debug-data">
-                <div x-show="selectedIndex < 0" class="workflow-debug-empty"><strong>Нода ещё не выполнялась</strong><p>Выполните следующий шаг или выберите ноду с результатом.</p></div>
-                <div x-show="selectedIndex >= 0 && debugTab === 'summary'">
+                <div x-show="selectedIndex < 0 && !debugSelectedTrigger()" class="workflow-debug-empty"><strong>Нода ещё не выполнялась</strong><p>Выполните следующий шаг или выберите ноду с результатом.</p></div>
+                <div x-show="(selectedIndex >= 0 || debugSelectedTrigger()) && debugTab === 'summary'">
                     <div class="workflow-debug-outcome" :data-tone="debugExplanation().tone"><strong x-text="debugExplanation().title"></strong><p x-show="debugExplanation().note" x-text="debugExplanation().note"></p></div>
                     <template x-for="(comparison, index) in debugExplanation().details" :key="index">
                         <section class="workflow-debug-comparison">
@@ -51,7 +51,7 @@
                         <div x-show="!debugOutputEmpty()">@include('filament.workflow-builder.workflow-json-tree', ['expression' => 'debugOutputValue()', 'title' => 'Выходные данные'])</div>
                     </div>
                 </div>
-                <div x-show="selectedIndex >= 0 && debugTab !== 'summary'">
+                <div x-show="(selectedIndex >= 0 || debugSelectedTrigger()) && debugTab !== 'summary'">
                     <p x-show="debugTab === 'output' && debugOutputEmpty()">Нода не вернула выходных данных.</p>
                     <div x-show="debugTab === 'input' || !debugOutputEmpty()">@include('filament.workflow-builder.workflow-json-tree', ['expression' => "debugTab === 'input' ? debugInputValue() : debugOutputValue()"])</div>
                 </div>

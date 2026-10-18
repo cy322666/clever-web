@@ -118,10 +118,11 @@ final class WorkflowExecutionGraph
             $result['name'] ??= $names['action:'.$result['id']] ?? $metadata[$result['type']]['name'] ?? 'Нода';
             $result['explanation'] = WorkflowExecutionExplanation::forResult($result);
             $output = $result['output'] ?? [];
+            $branch = WorkflowOutputView::conditionBranch($result);
             $result['display_output'] = ($result['output_recorded'] ?? true) === false
                 ? ['message' => 'Выходные данные не сохранены или срок их хранения истёк.']
-                : (WorkflowOutputView::isCondition($output)
-                    ? ($output['passed'] ? 'Условие выполнено. Ветка «Да».' : 'Условие не выполнено. Ветка «Нет».')
+                : (in_array($result['type'] ?? '', ['condition', 'control-condition'], true)
+                    ? ($branch ? 'Ветка «'.$branch.'»' : ['message' => 'Ветка не записана.'])
                     : WorkflowOutputView::displayValue($output));
             $result['display_responses'] = array_map(fn ($exchange) => WorkflowOutputView::entity($exchange['response']['body'] ?? null), $output['amo_exchange'] ?? []);
             $result['display_input'] ??= ['message' => 'Входные данные этого шага не записаны.'];
@@ -135,7 +136,7 @@ final class WorkflowExecutionGraph
 
         // Layout offsets are relative to the editor's tree/flex bases. The
         // history canvas must use that same structure, not flatten it into a row.
-        return ['nodes' => $nodes, 'edges' => $edges, 'results' => $results, 'historical_fallback' => false,
+        return ['nodes' => $nodes, 'edges' => $edges, 'results' => $results, 'historical_fallback' => false, 'start_node_id' => $startId,
             'definition' => $definition];
     }
 

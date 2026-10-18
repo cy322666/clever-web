@@ -329,8 +329,11 @@ trait HasWorkflowDebugger
 
     private function publishDebugState(array $session): void
     {
+        $triggerData = data_get($session, 'context.trigger_data', []);
         $this->debugState = [
             'status' => $session['status'], 'real' => $session['real'], 'results' => $this->explainDebugResults(\App\Services\Workflows\WorkflowExecutionStats::annotate($session['results'])),
+            'start_node_id' => $triggerData['_workflow_start_node_id'] ?? 'trigger',
+            'display_trigger_data' => \App\Services\Workflows\WorkflowOutputView::trigger($triggerData),
             'next_id' => $session['pending'][0]['step']['id'] ?? null,
             'error' => $session['error'],
         ];
@@ -342,7 +345,10 @@ trait HasWorkflowDebugger
         return array_map(static function (array $result): array {
             $result['explanation'] = \App\Services\Workflows\WorkflowExecutionExplanation::forResult($result);
             $result['display_input'] ??= ['message' => 'Входные данные этого шага не записаны.'];
-            $result['display_output'] ??= \App\Services\Workflows\WorkflowOutputView::displayValue($result['output'] ?? []);
+            $branch = \App\Services\Workflows\WorkflowOutputView::conditionBranch($result);
+            $result['display_output'] ??= in_array($result['type'] ?? '', ['condition', 'control-condition'], true)
+                ? ($branch ? 'Ветка «'.$branch.'»' : ['message' => 'Ветка не записана.'])
+                : \App\Services\Workflows\WorkflowOutputView::displayValue($result['output'] ?? []);
             // These are editor settings, not the data that entered the node.
             unset($result['input'], $result['resolved_input']);
 

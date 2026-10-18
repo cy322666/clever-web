@@ -6512,6 +6512,8 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-node-result, .workflow-execution-order { position: absolute; right: -0.5rem; top: -0.5rem; display: grid; width: 1.375rem; height: 1.375rem; place-items: center; border: 1px solid #939daa; border-radius: 50%; background: #fff; color: #465262; font-size: 0.6875rem; font-weight: 700; }
 .workflow-node-result[hidden] { display: none; }
 .workflow-node-output .workflow-condition-comparisons { flex: 1 1 0; min-height: 0; overflow: auto; font-size: 12px; }
+.workflow-node-output__duration { align-self: flex-end; color: #687385; font-size: 11px; }
+.workflow-condition-branch { display: block; margin: 10px 0 2px; font-size: 13px; }
 .workflow-condition-comparison { padding: 12px 0; border-bottom: 1px solid #e1e5eb; overflow-wrap: anywhere; }
 .workflow-condition-duration { float: right; margin-top: 12px; color: #687385; font-size: 11px; }
 /* Node settings should appear immediately after their form arrives, without a second fade delay. */
@@ -6523,6 +6525,7 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-condition-comparison dd { margin: 0 0 8px; white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; }
 .dark .workflow-condition-comparison { border-color: #414955; }
 .dark .workflow-condition-comparison dt { color: #aab5c4; }
+.dark .workflow-node-output__duration { color: #aab5c4; }
 .dark .workflow-condition-duration { color: #aab5c4; }
 .workflow-node-status { display: none; position: absolute; bottom: 8px; right: 8px; width: 17px; height: 17px; pointer-events: none; }
 .workflow-node-status svg { width: 100%; height: 100%; stroke-width: 2.5; }
@@ -7378,4 +7381,87 @@ svg.workflow-control-icon { color: #248548 !important; }
     background: #30343c !important;
     border-color: #738095 !important;
     box-shadow: none;
+}
+
+/* Account-wide history: scan runs first, open the canvas only for one run. */
+.workflow-account-history-list {
+    width: min(100%, 108rem);
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    margin-inline: auto;
+    padding: 1.25rem 1.5rem 2rem;
+}
+.workflow-account-history-list .fi-ta {
+    border: 1px solid #d9dee6 !important;
+    border-radius: 0.625rem !important;
+    box-shadow: none !important;
+}
+.workflow-account-history-list .fi-ta-row {
+    min-height: 3.25rem;
+}
+.workflow-account-history-list .fi-ta-row:hover {
+    background: #f5f7fa !important;
+}
+.workflow-account-history-detail__header {
+    min-height: 4rem;
+    height: auto;
+}
+.workflow-account-history-detail__eyebrow {
+    display: block;
+    color: #7a8493;
+    font-size: 0.6875rem;
+    line-height: 1.1rem;
+}
+.workflow-account-history-detail__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.workflow-account-history-detail__action {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid #cbd2dc;
+    border-radius: 0.375rem;
+    padding: 0.35rem 0.625rem;
+    color: #465262;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+.workflow-account-history-detail__action:is(:hover, :focus-visible) {
+    background: #eef1f5;
+    outline: none;
+}
+.workflow-account-history-detail__summary {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 1rem !important;
+}
+.workflow-account-history-detail__summary span {
+    font-size: 0.75rem;
+}
+.dark .workflow-account-history-list .fi-ta {
+    border-color: var(--workflow-dark-line) !important;
+    background: var(--workflow-dark-panel);
+}
+.dark .workflow-account-history-list .fi-ta-row:hover {
+    background: var(--workflow-dark-hover) !important;
+}
+.dark .workflow-account-history-detail__eyebrow {
+    color: var(--workflow-dark-muted);
+}
+.dark .workflow-account-history-detail__action {
+    border-color: var(--workflow-dark-line);
+    color: var(--workflow-dark-text);
+}
+.dark .workflow-account-history-detail__action:is(:hover, :focus-visible) {
+    background: var(--workflow-dark-hover);
+}
+@media (max-width: 760px) {
+    .workflow-account-history-list { padding: 0.75rem; }
+    .workflow-account-history-detail__header { flex-wrap: wrap; padding-block: 0.75rem; }
+    .workflow-account-history-detail__actions { margin-left: 3rem; }
 }

@@ -2,13 +2,13 @@
 
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowRunResource\Pages;
 
-use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Models\Workflows\WorkflowRun;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
+use Leek\FilamentWorkflows\Enums\RunStatus;
 
 class ListWorkflowRuns extends ListRecords
 {
@@ -18,11 +18,6 @@ class ListWorkflowRuns extends ListRecords
     #[\Livewire\Attributes\Url(as: 'errors')]
     public bool $historyErrorsOnly = false;
 
-    public function updatedHistoryErrorsOnly(): void
-    {
-        $this->historyRunId = null;
-    }
-
     protected static string $resource = WorkflowRunResource::class;
 
     protected static ?string $title = 'История';
@@ -31,7 +26,7 @@ class ListWorkflowRuns extends ListRecords
 
     protected Width|string|null $maxContentWidth = Width::Full;
 
-    protected string $view = 'filament.workflow-builder.workflow-history-page';
+    protected string $view = 'filament.workflow-builder.workflow-account-history-page';
 
     public function getHeading(): string|Htmlable|null
     {
@@ -43,68 +38,34 @@ class ListWorkflowRuns extends ListRecords
         return [];
     }
 
-    /**
-     * @return array<Action>
-     */
     protected function getHeaderActions(): array
     {
         return [];
     }
 
-    public function getHistoryWorkflow(): null
-    {
-        return null;
-    }
-
-    public function getHistoryTitle(): string
-    {
-        return 'Все исполнения';
-    }
-
-    public function getHistoryBackUrl(): string
-    {
-        return (bool) auth()->user()?->is_root
-            ? \App\Filament\App\Pages\WorkflowAdmin::getUrl()
-            : WorkflowResource::getUrl('index');
-    }
-
-    public function getHistoryActionUrl(): string
-    {
-        return $this->getHistoryBackUrl();
-    }
-
-    public function getHistoryActionLabel(): string
-    {
-        return (bool) auth()->user()?->is_root ? 'Админка' : 'Сценарии';
-    }
-
-    /**
-     * @return Collection<int, WorkflowRun>
-     */
-    public function getWorkflowRuns(): Collection
+    protected function getTableQuery(): Builder
     {
         return WorkflowRunResource::getEloquentQuery()
-            ->when($this->historyErrorsOnly, fn ($query) => $query->where('status', 'failed'))
-            ->latest('created_at')
-            ->limit(100)
-            ->get();
+            ->when($this->historyErrorsOnly, fn (Builder $query): Builder => $query->where('status', RunStatus::FAILED));
     }
 
-    public function getSelectedRun(Collection $runs): ?WorkflowRun
+    public function getSelectedRun(): ?WorkflowRun
     {
         $selectedId = $this->historyRunId ?? request()->integer('run');
-        $run = $selectedId > 0
-            ? ($runs->first(fn (WorkflowRun $run): bool => (int) $run->getKey() === $selectedId) ?? $runs->first())
-            : $runs->first();
+        if ($selectedId <= 0) {
+            return null;
+        }
 
-        $run?->loadMissing('steps');
-
-        return $run;
+        return WorkflowRunResource::getEloquentQuery()
+            ->with('steps')
+            ->withCount('steps')
+            ->whereKey($selectedId)
+            ->firstOrFail();
     }
 
-    public function getHistoryRunUrl(WorkflowRun $run): string
+    public function getHistoryIndexUrl(): string
     {
-        $parameters = ['run' => $run->getKey()];
+        $parameters = [];
         if ($this->historyErrorsOnly) {
             $parameters['errors'] = 1;
         }
@@ -115,5 +76,14 @@ class ListWorkflowRuns extends ListRecords
         }
 
         return WorkflowRunResource::getUrl('index', $parameters);
+    }
+
+    public function restartSelectedRun(): void
+    {
+        $run = $this->getSelectedRun();
+
+        if ($run !== null) {
+            WorkflowRunResource::restartRun($run);
+        }
     }
 }

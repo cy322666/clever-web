@@ -49,7 +49,10 @@ class ReplayWorkflow extends EditWorkflow
         $this->debugStartNodeId = $replay['input']['_workflow_start_node_id'] ?? 'trigger';
         $this->debugOpen = true;
         $this->debugReal = $this->debugRealConfirmed = false;
-        $this->debugState = ['status' => 'historical', 'real' => false, 'results' => $this->explainDebugResults($replay['results']), 'next_id' => null, 'error' => null];
+        $this->debugState = ['status' => 'historical', 'real' => false, 'results' => $this->explainDebugResults($replay['results']),
+            'start_node_id' => $this->debugStartNodeId,
+            'display_trigger_data' => \App\Services\Workflows\WorkflowOutputView::trigger($replay['input']),
+            'next_id' => null, 'error' => null];
         $this->nodeRunResults = collect($replay['results'])->keyBy('id')->all();
         $this->nodeRunResults[$this->debugStartNodeId] = ['historical' => true, 'status' => 'completed', 'output' => $replay['input']];
     }

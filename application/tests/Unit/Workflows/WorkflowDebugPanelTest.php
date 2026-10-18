@@ -35,7 +35,8 @@ class WorkflowDebugPanelTest extends TestCase
             ->assertSet('debugState.results.1.explanation.details.0.expected', '0')
             ->assertSet('debugState.results.1.explanation.details.0.passed', true)
             ->assertSet('debugState.results.1.display_input.count', 1)
-            ->assertSet('debugState.results.1.display_output', true);
+            ->assertSet('debugState.results.1.display_output', 'Ветка «Да»')
+            ->assertSet('debugState.start_node_id', 'trigger');
 
         $this->assertArrayNotHasKey('input', $page->get('debugState.results.1'));
         $this->assertArrayNotHasKey('resolved_input', $page->get('debugState.results.1'));
@@ -70,6 +71,18 @@ class WorkflowDebugPanelTest extends TestCase
             ->call('startWorkflowDebug')->call('nextWorkflowDebugStep')
             ->assertSet('debugState.results.0.display_output.count', 0)
             ->assertSet('debugState.results.0.display_output.items', []);
+    }
+
+    public function test_debug_trigger_shows_only_its_business_body(): void
+    {
+        $page = Livewire::test(WorkflowDebugFixture::class)
+            ->set('debugInput', json_encode(['body' => ['id' => 77, 'name' => 'Заявка'],
+                'method' => 'POST', 'headers' => ['authorization' => 'private']]))
+            ->call('startWorkflowDebug')->assertSet('debugState.start_node_id', 'trigger')
+            ->assertSet('debugState.display_trigger_data.id', 77)
+            ->assertSet('debugState.display_trigger_data.name', 'Заявка');
+
+        $this->assertArrayNotHasKey('headers', $page->get('debugState.display_trigger_data'));
     }
 
     public function test_workspace_renders_dedicated_toolbar_side_inspector_and_path_without_changing_node_settings(): void

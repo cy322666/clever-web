@@ -11,6 +11,23 @@ final class WorkflowOutputView
             && isset($output['branch'], $output['condition_results']);
     }
 
+    public static function conditionBranch(array $result): ?string
+    {
+        if (! in_array($result['type'] ?? '', ['condition', 'control-condition'], true)
+            || in_array($result['status'] ?? null, ['error', 'failed', 'validation_error', 'running', 'pending'], true)) return null;
+
+        $output = $result['output'] ?? [];
+        $passed = is_array($output) ? ($output['passed'] ?? null) : null;
+        $passed ??= $result['condition_result'] ?? null;
+        if (is_bool($passed)) return $passed ? 'Да' : 'Нет';
+
+        return match ($result['executed_branch'] ?? null) {
+            'true' => 'Да',
+            'false' => 'Нет',
+            default => null,
+        };
+    }
+
     public static function trigger(mixed $input): mixed
     {
         if (!is_array($input)) return $input;

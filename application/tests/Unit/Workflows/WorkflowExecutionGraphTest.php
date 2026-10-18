@@ -35,6 +35,8 @@ class WorkflowExecutionGraphTest extends TestCase
         $branches = collect($graph['edges'])->where('sourceId', 'action:if')->keyBy('sourcePort');
         $this->assertTrue($branches['yes']['active']);
         $this->assertFalse($branches['no']['active']);
+        $this->assertSame('Ветка «Да»', $graph['results'][1]['display_output']);
+        $this->assertSame('trigger', $graph['start_node_id']);
         $this->assertSame(['fetch', 'if', 'yes'], array_column($graph['results'], 'id'));
         $this->assertSame('Запрос сделок', $graph['results'][0]['name']);
         $this->assertArrayNotHasKey('input', $graph['results'][1]);
@@ -90,6 +92,7 @@ class WorkflowExecutionGraphTest extends TestCase
             $branches = collect(WorkflowExecutionGraph::build($definition, [$result])['edges'])->where('sourceId','action:if')->keyBy('sourcePort');
             $this->assertSame($passed, $branches['yes']['active']);
             $this->assertSame(!$passed, $branches['no']['active']);
+            $this->assertSame($passed ? 'Ветка «Да»' : 'Ветка «Нет»', WorkflowExecutionGraph::build($definition, [$result])['results'][0]['display_output']);
         }
         foreach (['running', 'failed', 'error', 'completed'] as $status) {
             $result = ['id'=>'if','type'=>'control-condition','status'=>$status,'output'=>[]];

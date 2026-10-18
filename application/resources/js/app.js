@@ -2339,9 +2339,21 @@ window.workflowDebugPanel = () => ({
     destroy() { this.playing = false; },
     debugResults() { return this.$wire.debugState.results || []; },
     debugConfigured() { return Boolean(this.$wire.debugState.status); },
-    debugCurrent() { return this.debugResults()[this.selectedIndex] || {}; },
+    debugSelectedTrigger() { return typeof this.selectedDebugId === 'string' && (this.selectedDebugId === 'trigger' || this.selectedDebugId.startsWith('trigger:')); },
+    debugCurrent() {
+        if (!this.debugSelectedTrigger()) return this.debugResults()[this.selectedIndex] || {};
+        const active = this.selectedDebugId === (this.$wire.debugState.start_node_id || 'trigger');
+        const value = active ? (this.$wire.debugState.display_trigger_data ?? []) : {message:'Этот запуск начался от другого триггера.'};
+        return {id:this.selectedDebugId, name:this.debugNodeName(this.selectedDebugId), status:active ? 'completed' : 'pending',
+            display_input:value, display_output:value,
+            explanation:{title:active ? 'Данные запуска' : 'Триггер не участвовал в запуске', details:[], note:''}};
+    },
     debugNodes() {
         const nodes = [];
+        const definition = this.$wire.definition || {};
+        const primary = this.$wire.trigger || definition.trigger;
+        if (primary) nodes.push({id:'trigger',name:primary.name || 'Запуск'});
+        for (const start of definition.additional_triggers || []) nodes.push({id:start.id,name:start.name || 'Запуск'});
         const visit = actions => (actions || []).forEach(action => {
             nodes.push({id: action.id, name: action.name || action.type});
             visit(action.config?.true_actions); visit(action.config?.false_actions);
@@ -2447,20 +2459,21 @@ window.workflowDebugPanel = () => ({
     },
     async openDebugSettings() {
         if (this.busy || this.playing || !this.selectedDebugId) return;
+        const nodeId = this.debugSelectedTrigger() ? this.selectedDebugId : 'action:' + this.selectedDebugId;
         await this.closeDebug();
         if (this.$wire.debugOpen) return;
-        window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId:this.$wire.$id, nodeId:'action:' + this.selectedDebugId, name:this.debugNodeName(this.selectedDebugId)}}));
+        window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId:this.$wire.$id, nodeId, name:this.debugNodeName(this.selectedDebugId)}}));
     },
 });
 
 window.workflowExecutionViewer = (graph) => ({
-    graph, selectedIndex: graph.results.length ? 0 : -1, pendingNode: null, exchangeIndex: 0,
+    graph, selectedIndex: graph.results.length ? 0 : -1, selectedTriggerId: graph.start_node_id || 'trigger', pendingNode: null, exchangeIndex: 0,
     updateGraph(next) {
         const selected = this.selectedNodeId();
         const record = this.current().execution_id;
         const index = this.selectedIndex;
         this.graph = next;
-        if (selected === 'trigger') { this.selectedIndex = -1; this.pendingNode = null; return; }
+        if (selected === 'trigger' || selected.startsWith('trigger:')) { this.selectedIndex = -1; this.selectedTriggerId = selected; this.pendingNode = null; return; }
         const match = record != null ? next.results.findIndex(r => r.execution_id === record) : index;
         if (match >= 0 && next.results[match] && 'action:' + next.results[match].id === selected) {
             this.selectedIndex = match;
@@ -2472,7 +2485,7 @@ window.workflowExecutionViewer = (graph) => ({
     exchanges() { return this.current().output?.amo_exchange || []; },
     exchange() { return this.exchanges()[this.exchangeIndex] || this.exchanges()[0]; },
     requestData() {
-        if (this.selectedIndex < 0 && !this.pendingNode) return this.graph.display_trigger_data ?? {message:'Данные запуска не записаны.'};
+        if (this.selectedIndex < 0 && !this.pendingNode) return this.triggerData();
         if (!this.isAmoStep()) return this.current().display_input ?? {message:'Входные данные этого шага не записаны.'};
         if (this.exchange()) return this.exchange().request?.body ?? this.exchange().request?.query ?? null;
         return {message: this.current().output?.deduplicated
@@ -2482,6 +2495,7 @@ window.workflowExecutionViewer = (graph) => ({
     exchangeResponse() { return this.current().display_responses?.[this.exchangeIndex] ?? this.current().display_responses?.[0] ?? this.exchange()?.response?.body ?? null; },
     exchangeHasBody() { const response = this.exchangeResponse(); return response !== null && response !== '' && (!Array.isArray(response) || response.length > 0) && (typeof response !== 'object' || Object.keys(response).length > 0); },
     responseData() {
+        if (this.selectedIndex < 0 && !this.pendingNode) return this.triggerData();
         if (this.isAmoStep() && this.exchange() && this.exchangeHasBody()) return this.exchangeResponse();
         if (Object.prototype.hasOwnProperty.call(this.current(), 'display_output')) return this.current().display_output;
         if (this.isAmoStep() && this.exchange()) return this.exchange().response?.body ?? null;
@@ -2494,9 +2508,18 @@ window.workflowExecutionViewer = (graph) => ({
         const time = result.started_at ? new Date(result.started_at).toLocaleTimeString('ru-RU') : '';
         return 'Выполнение ' + result.occurrence + ' из ' + result.occurrence_count + (time ? ' · ' + time : '') + ' · ' + this.statusLabel(result.status);
     },
-    current() { return this.pendingNode ? {id:this.pendingNode.id.slice(7),name:this.pendingNode.name,status:'not_executed',display_output:{message:'Эта нода не выполнялась в выбранном запуске.'}} : this.graph.results[this.selectedIndex] || {}; },
-    selectedNodeId() { return this.current().id ? 'action:' + this.current().id : 'trigger'; },
-    selectNode(id) { this.exchangeIndex = 0; this.selectedIndex = id === 'trigger' ? -1 : this.graph.results.findLastIndex((r) => 'action:' + r.id === id); this.pendingNode = this.selectedIndex === -1 && id !== 'trigger' ? this.graph.nodes.find((node) => node.id === id) : null; },
+    triggerData() { return this.selectedTriggerId === (this.graph.start_node_id || 'trigger')
+        ? (this.graph.display_trigger_data ?? {message:'Данные запуска не записаны.'})
+        : {message:'Этот запуск начался от другого триггера.'}; },
+    current() { return this.pendingNode ? {id:this.pendingNode.id.slice(7),name:this.pendingNode.name,status:'not_executed',display_output:{message:'Эта нода не выполнялась в выбранном запуске.'}}
+        : this.graph.results[this.selectedIndex] || this.graph.nodes.find(node => node.id === this.selectedTriggerId) || {}; },
+    selectedNodeId() { return this.selectedIndex < 0 && !this.pendingNode ? this.selectedTriggerId : 'action:' + this.current().id; },
+    selectNode(id) {
+        this.exchangeIndex = 0;
+        if (id === 'trigger' || id.startsWith('trigger:')) { this.selectedIndex = -1; this.selectedTriggerId = id; this.pendingNode = null; return; }
+        this.selectedIndex = this.graph.results.findLastIndex(r => 'action:' + r.id === id);
+        this.pendingNode = this.selectedIndex === -1 ? this.graph.nodes.find(node => node.id === id) : null;
+    },
     previous() { this.exchangeIndex = 0; this.pendingNode = null; this.selectedIndex = Math.max(-1, this.selectedIndex - 1); },
     next() { this.exchangeIndex = 0; this.pendingNode = null; this.selectedIndex = Math.min(this.graph.results.length - 1, this.selectedIndex + 1); },
     pretty(value) { return JSON.stringify(value, null, 2); },

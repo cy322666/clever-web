@@ -131,6 +131,32 @@ test('history input shows the captured business value, never the condition confi
     assert.equal(viewer.requestData().id,42);
 });
 
+test('history trigger selection exposes only the selected start body on both panes', () => {
+    const viewer=components().workflowExecutionViewer({results:[{id:'a'}],nodes:[{id:'trigger:hook',name:'Вебхук'}],
+        start_node_id:'trigger:hook',display_trigger_data:{id:77,name:'Заявка'}});
+    viewer.selectNode('trigger:hook');
+    assert.equal(viewer.selectedNodeId(),'trigger:hook');
+    assert.equal(viewer.current().name,'Вебхук');
+    assert.equal(viewer.requestData().id,77);
+    assert.equal(viewer.responseData().name,'Заявка');
+    viewer.selectNode('trigger');
+    assert.match(viewer.responseData().message,/другого триггера/);
+});
+
+test('live debug trigger selection shows the projected body, not the transport envelope', () => {
+    const panel=components().workflowDebugPanel();
+    panel.$wire={debugState:{status:'historical',start_node_id:'trigger:hook',display_trigger_data:{id:77,name:'Заявка'},results:[]},
+        definition:{additional_triggers:[{id:'trigger:hook',name:'Вебхук'}]},trigger:{type:'manual',name:'Ручной запуск'},workflowActions:[], $id:'fixture'};
+    panel.publishDebugInspection=()=>{};
+    panel.selectDebugNode('trigger:hook');
+    assert.equal(panel.debugSelectedTrigger(),true);
+    assert.equal(panel.debugCurrent().display_output.id,77);
+    assert.equal(panel.debugCurrent().name,'Вебхук');
+    assert.equal(panel.debugNodes().length,2);
+    panel.selectDebugNode('trigger');
+    assert.match(panel.debugCurrent().display_output.message,/другого триггера/);
+});
+
 test('variable autocomplete filters, replaces only its token and preserves surrounding text', () => {
     const field = components().workflowValueField('Сделка {{ id }} готова');
     field.init();
