@@ -94,7 +94,7 @@ test('canvas chrome has a centered debug start and compact top-right controls', 
     assert.match(view, /class="workflow-canvas-run"[^>]*x-show="!\$wire\.debugOpen \|\| !debugConfigured\(\)"/);
     assert.match(view, /if \(!\$wire\.debugOpen\) \$wire\.openWorkflowDebugger\(\); else startDebug\(true\)/);
     assert.doesNotMatch(toolbar, /x-on:click="startDebug\(true\)"/);
-    assert.match(css, /\.workflow-canvas-run \{[^}]*left: 50%; bottom: 20px;/);
+    assert.match(css, /\.workflow-canvas-execution-controls \{[^}]*left: 50%; bottom: 20px;/);
     assert.match(css, /\.workflow-canvas-controls \.workflow-canvas-fit \{[^}]*width: 34px; height: 34px;/);
     assert.match(inspectorCss, /\.dark \.workflow-inspector \.workflow-node-output \{ background: transparent; \}/);
 });
