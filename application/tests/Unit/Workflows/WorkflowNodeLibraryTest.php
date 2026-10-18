@@ -15,9 +15,9 @@ class WorkflowNodeLibraryTest extends TestCase
             ['type' => 'amocrm_create_contact', 'name' => 'Создать контакт'],
             ['type' => 'amocrm_update_contact_fields', 'name' => 'Обновить контакт'],
         ], true);
-        $this->assertSame(2, substr_count($html, '<strong>Создать контакт</strong>'));
-        $this->assertSame(2, substr_count($html, '<strong>Обновить контакт</strong>'));
-        $this->assertStringContainsString('Контакт · действие', $html);
+        $this->assertSame(1, substr_count($html, '<strong>Создать контакт</strong>'));
+        $this->assertSame(1, substr_count($html, '<strong>Обновить контакт</strong>'));
+        $this->assertStringContainsString('Создание и поля контакта', $html);
 
         \Tests\Support\WorkflowListDatabase::prepare();
         \Illuminate\Support\Facades\Http::preventStrayRequests();
@@ -46,21 +46,22 @@ class WorkflowNodeLibraryTest extends TestCase
         }
         $this->assertStringContainsString('<strong>Примечания</strong>', $html);
         $this->assertStringContainsString('<strong>Теги</strong>', $html);
-        $this->assertStringContainsString('<strong>Контакты</strong>', $html);
+        $this->assertStringContainsString('Контакты', $html);
         $this->assertStringNotContainsString(' · GET', $html);
         $this->assertStringNotContainsString('GET-запрос', $html);
-        $this->assertStringContainsString('<strong>Запросы</strong>', $html);
+        $this->assertStringContainsString('<strong>Запросы amoCRM</strong>', $html);
     }
 
     public function test_context_catalog_contains_every_category_without_a_second_sidebar(): void
     {
         $html = $this->renderNodeLibrary([], false);
-        $this->assertStringContainsString('x-bind:aria-label="mode === \'variables\' ? \'Справочники\' : \'Каталог нод\'"', $html);
+        $this->assertStringContainsString('aria-label="Категории нод"', $html);
         $this->assertStringNotContainsString('workflow-node-library__rail', $html);
-        foreach (['Триггеры', 'Действия', 'Запросы', 'Сервисы'] as $category) {
-            $this->assertStringContainsString('<strong>'.$category.'</strong>', $html);
+        foreach (['amoCRM', 'Запросы', 'Сервисы'] as $category) {
+            $this->assertStringContainsString('<span>'.$category.'</span>', $html);
         }
-        $this->assertStringContainsString('goBack()', $html);
+        $this->assertStringContainsString('selectCategory(', $html);
+        $this->assertStringNotContainsString('goBack()', $html);
         $this->assertStringContainsString('workflow-masks-open', $html);
     }
 
@@ -80,16 +81,12 @@ class WorkflowNodeLibraryTest extends TestCase
         $html = $this->renderNodeLibrary($actions, true);
 
         foreach ($actions as $action) {
-            $this->assertSame(2, substr_count($html, '<strong>' . $action['name'] . '</strong>'));
+            $this->assertSame(1, substr_count($html, '<strong>' . $action['name'] . '</strong>'));
         }
 
-        $this->assertStringContainsString('Сделка · действие', $html);
-        $this->assertStringContainsString('Задача · действие', $html);
-        $this->assertStringContainsString('Примечание · действие', $html);
-        $this->assertStringContainsString('Теги · действие', $html);
-        $this->assertStringContainsString('Компания · действие', $html);
-        $this->assertStringContainsString('Связи · действие', $html);
-        $this->assertStringContainsString('<strong>Теги</strong>', $html);
+        foreach (['Сделка', 'Задача', 'Примечание', 'Теги', 'Компания', 'Связи'] as $group) {
+            $this->assertStringContainsString('workflow-node-library__section-title">'.$group.'</div>', $html);
+        }
     }
 
     public function test_company_creation_node_can_be_added_from_the_real_catalog(): void
@@ -155,7 +152,7 @@ class WorkflowNodeLibraryTest extends TestCase
         \Illuminate\Support\Facades\Http::preventStrayRequests();
 
         $page = Livewire::test(\Tests\Support\WorkflowCanvasFixture::class)
-            ->assertSee('Теги · действие')
+            ->assertSee('Сменить теги')
             ->call('openDetachedActionPalette')
             ->call('selectActionType', 'amocrm_change_tags');
         $nodes = \App\Services\Workflows\WorkflowGraph::nodes($page->get('workflowActions'));
@@ -216,7 +213,7 @@ class WorkflowNodeLibraryTest extends TestCase
 
         $this->assertStringNotContainsString('Добавить узел', $html);
         $this->assertStringContainsString('Сервисы', $html);
-        $this->assertStringContainsString('Поиск узлов', $html);
+        $this->assertStringContainsString('Найти действие или сервис', $html);
     }
 
     public function test_removed_process_launch_nodes_are_not_offered(): void
