@@ -134,7 +134,7 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     assert.doesNotMatch(catalog, /workflow-node-library__item-add/);
     assert.match(css,/\.workflow-node-edge-add:not\(\.workflow-loop-replace\):not\(\[data-workflow-edge-delete\]\):is\(:hover, :focus-visible\)\s*\{[^}]*scale\(1\.3\)/s);
     assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-fit \{[^}]*width: 34px; height: 34px/s);
-    assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-add-trigger \{[^}]*flex: 0 0 34px/s);
+    assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-add-trigger \{[^}]*position: relative; inset: 0; flex: 0 0 34px/s);
     assert.match(css,/\.workflow-node-card\[data-node-family\]:not\(\.workflow-node-card--disabled\):is\(:hover, :focus-visible\)\s*\{[^}]*outline-color/s);
     assert.match(css,/\.workflow-workbench--page \.workflow-workbench__toolbar,[^{]*\{\s*min-height: 2\.75rem/s);
 });

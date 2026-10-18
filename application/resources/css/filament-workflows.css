@@ -7082,7 +7082,7 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-canvas-note { position: absolute; z-index: 36; right: 16px; top: 16px; display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
 .workflow-canvas-controls { position: absolute; z-index: 35; right: 16px; top: 58px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .workflow-canvas-controls .workflow-canvas-fit { position: static; width: 34px; height: 34px; }
-.workflow-canvas-controls .workflow-canvas-add-trigger { position: relative; flex: 0 0 34px; }
+.workflow-canvas-controls .workflow-canvas-add-trigger { position: relative; inset: 0; flex: 0 0 34px; }
 .workflow-canvas-add-trigger svg { transform: translate(-2px, -2px); }
 .workflow-canvas-add-trigger__plus { position: absolute; right: 5px; bottom: 3px; font-size: 12px; font-weight: 700; line-height: 1; }
 .workflow-canvas-add-trigger:is(:hover, :focus-visible) { border-color: #ed7858; color: #b44e36; background: #fff7f2; }
