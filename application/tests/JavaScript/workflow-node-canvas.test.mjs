@@ -590,7 +590,7 @@ test('the ordinary add-node menu offers actions; starts have their own button', 
     f.canvas.preparePalette(null);
     assert.equal(f.events().at(-1).detail.mode, 'action');
     const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
-    assert.match(markup, /class="workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
+    assert.match(markup, /class="workflow-canvas-fit workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
     assert.match(markup, /x-on:click\.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall\(\$wire, 'beginTriggerAdd'\)"/);
 });
 

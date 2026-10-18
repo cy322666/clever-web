@@ -198,10 +198,10 @@
                     <textarea x-show="open" x-cloak x-model="note" x-on:change="workflowEditorCall($wire, 'updateWorkflowDescription', note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
-                    <button type="button" class="workflow-canvas-add-trigger" x-show="Boolean($wire.trigger)" x-cloak
+                    <button type="button" class="workflow-canvas-fit workflow-canvas-add-trigger" x-show="Boolean($wire.trigger)" x-cloak
                         x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall($wire, 'beginTriggerAdd')"
                         aria-label="Добавить способ запуска" title="Добавить способ запуска">
-                        <x-filament::icon icon="heroicon-o-bolt" class="h-4 w-4"/><span>Добавить запуск</span>
+                        <x-filament::icon icon="heroicon-o-bolt" class="h-4 w-4"/><span class="workflow-canvas-add-trigger__plus" aria-hidden="true">+</span>
                     </button>
                     <button type="button" class="workflow-canvas-fit workflow-canvas-add-node" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="addCanvasArea()" x-bind:disabled="canvasAreas().length >= 100" aria-label="Создать область этапа" title="Создать область этапа"><x-filament::icon icon="heroicon-o-rectangle-group" class="h-4 w-4"/></button>

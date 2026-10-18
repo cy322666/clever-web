@@ -7082,10 +7082,10 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-canvas-note { position: absolute; z-index: 36; right: 16px; top: 16px; display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
 .workflow-canvas-controls { position: absolute; z-index: 35; right: 16px; top: 58px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .workflow-canvas-controls .workflow-canvas-fit { position: static; width: 34px; height: 34px; }
-.workflow-canvas-add-trigger { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 6px; align-self: flex-end; padding: 0 10px; border: 1px solid #c5cbd4; border-radius: 5px; background: #fff; color: #4b5563; box-shadow: 0 2px 6px rgb(31 41 55 / .1); font-size: 12px; font-weight: 600; white-space: nowrap; }
-.workflow-canvas-add-trigger svg { width: 16px; height: 16px; }
+.workflow-canvas-controls .workflow-canvas-add-trigger { position: relative; flex: 0 0 34px; }
+.workflow-canvas-add-trigger svg { transform: translate(-2px, -2px); }
+.workflow-canvas-add-trigger__plus { position: absolute; right: 5px; bottom: 3px; font-size: 12px; font-weight: 700; line-height: 1; }
 .workflow-canvas-add-trigger:is(:hover, :focus-visible) { border-color: #ed7858; color: #b44e36; background: #fff7f2; }
-.dark .workflow-canvas-add-trigger { border-color: #566171; background: #303844; color: #d4dbe5; }
 .dark .workflow-canvas-add-trigger:is(:hover, :focus-visible) { border-color: #f3a187; background: #403a3a; color: #fff; }
 .workflow-canvas-controls .workflow-canvas-fit svg, .workflow-canvas-note > button svg { width: 17px; height: 17px; }
 .workflow-canvas-controls button:disabled { opacity: .4; cursor: default; }

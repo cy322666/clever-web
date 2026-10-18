@@ -115,8 +115,9 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     assert.match(builder, /data-workflow-start-add/);
     assert.match(builder, /Выбрать событие/);
     assert.match(builder, /@if\(\$workflowStarts === \[\]\)\s*<div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-start-add/s);
-    assert.match(builder, /class="workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
-    assert.match(builder, /Добавить запуск/);
+    assert.match(builder, /class="workflow-canvas-fit workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
+    assert.match(builder, /aria-label="Добавить способ запуска" title="Добавить способ запуска"/);
+    assert.doesNotMatch(builder, /<span>Добавить запуск<\/span>/);
     assert.match(builder, /captureTriggerAdd\(\); workflowEditorCall\(\$wire, 'beginTriggerAdd'\)/);
     assert.match(builder, /workflow-canvas-before-update\.window=/);
     assert.match(builder, /workflow-canvas-after-update\.window=/);
@@ -132,7 +133,8 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     assert.match(catalog, /<span>Сервисы<\/span><small>1<\/small>/);
     assert.doesNotMatch(catalog, /workflow-node-library__item-add/);
     assert.match(css,/\.workflow-node-edge-add:not\(\.workflow-loop-replace\):not\(\[data-workflow-edge-delete\]\):is\(:hover, :focus-visible\)\s*\{[^}]*scale\(1\.3\)/s);
-    assert.match(css,/\.workflow-canvas-add-trigger \{[^}]*min-height: 34px/s);
+    assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-fit \{[^}]*width: 34px; height: 34px/s);
+    assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-add-trigger \{[^}]*flex: 0 0 34px/s);
     assert.match(css,/\.workflow-node-card\[data-node-family\]:not\(\.workflow-node-card--disabled\):is\(:hover, :focus-visible\)\s*\{[^}]*outline-color/s);
     assert.match(css,/\.workflow-workbench--page \.workflow-workbench__toolbar,[^{]*\{\s*min-height: 2\.75rem/s);
 });
