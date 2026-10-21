@@ -74,4 +74,25 @@ class WorkflowTelegramTest extends TestCase
         $this->assertSame($before, $page->get('workflowActions')[0]['config']['bot_token_encrypted']);
         $this->assertArrayNotHasKey('bot_token', $page->get('workflowActions')[0]['config']);
     }
+
+    public function test_editor_saves_continue_on_error_only_when_enabled(): void
+    {
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [[
+            'id' => 'telegram',
+            'type' => 'telegram_send_message',
+            'config' => TelegramSendMessageAction::protectConfig([
+                'bot_token' => '12345:test-token',
+                'chat_id' => '-1001',
+                'text' => 'Тест',
+            ]),
+        ]]]);
+        $step = $page->get('workflowActions')[0];
+        $this->assertFalse(TelegramSendMessageAction::continuesAfterError($step));
+
+        $page->call('openWorkflowActionEditor', 'telegram')
+            ->set('mountedActions.0.data.continue_on_error', true)
+            ->call('callMountedAction')->assertHasNoErrors();
+
+        $this->assertTrue(TelegramSendMessageAction::continuesAfterError($page->get('workflowActions')[0]));
+    }
 }

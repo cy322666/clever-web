@@ -6,6 +6,8 @@ use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
 use App\Services\Workflows\WorkflowSubscriptionAccess;
 use App\Workflows\Actions\ControlConditionAction;
+use App\Workflows\Actions\TelegramSendMessageAction;
+use App\Workflows\Actions\WorkflowLoopAction;
 use App\Workflows\Engine\WorkflowDebugger;
 use App\Workflows\Engine\WorkflowExecutor;
 use Illuminate\Support\Facades\Http;
@@ -159,6 +161,93 @@ class WorkflowDebuggerTest extends TestCase
         $this->assertSame('Тестовая ошибка', $session['error']);
         $this->assertCount(1, $session['results']);
         $this->assertSame($session, $runner->advance($session));
+    }
+
+    public function test_telegram_error_can_continue_in_real_debug_without_hiding_the_failed_node(): void
+    {
+        Http::fake(['api.telegram.org/*' => Http::response([
+            'ok' => false,
+            'description' => 'Forbidden: bot was blocked by the user',
+        ], 403)]);
+        $next = new class
+        {
+            public int $calls = 0;
+
+            public function handle(array $config): array
+            {
+                $this->calls++;
+
+                return ['success' => true, 'output' => ['reached' => true]];
+            }
+        };
+        $registry = $this->createMock(ActionRegistry::class);
+        $registry->method('has')->willReturn(true);
+        $registry->method('resolve')->willReturnCallback(
+            fn (string $type) => $type === 'telegram_send_message' ? new TelegramSendMessageAction : $next,
+        );
+        $runner = new WorkflowDebugger($registry);
+        $telegram = [
+            'id' => 'telegram',
+            'type' => 'telegram_send_message',
+            'config' => TelegramSendMessageAction::protectConfig([
+                'bot_token' => '12345:test-token',
+                'chat_id' => '123',
+                'text' => 'Тест',
+                'continue_on_error' => true,
+            ]),
+        ];
+        $definition = ['trigger' => ['type' => 'manual'], 'actions' => [$telegram, $this->step('next')],
+            'connections' => [
+                ['sourceId' => 'trigger', 'sourcePort' => 'output', 'targetId' => 'action:telegram'],
+                ['sourceId' => 'action:telegram', 'sourcePort' => 'output', 'targetId' => 'action:next'],
+            ]];
+
+        $session = $runner->advance($runner->start($definition, [], null, null, true));
+        $this->assertSame('ready', $session['status']);
+        $this->assertNull($session['error']);
+        $this->assertSame('error', $session['results'][0]['status']);
+        $this->assertTrue($session['results'][0]['continued_after_error']);
+        $this->assertStringContainsString('Telegram отклонил', $session['results'][0]['error']);
+        $session = $runner->advance($session);
+        $this->assertSame('completed', $session['status']);
+        $this->assertSame(1, $next->calls);
+
+        $definition['actions'][0]['config']['continue_on_error'] = false;
+        $session = $runner->advance($runner->start($definition, [], null, null, true));
+        $this->assertSame('failed', $session['status']);
+        $this->assertCount(1, $session['results']);
+        $this->assertSame(1, $next->calls);
+    }
+
+    public function test_telegram_error_inside_loop_does_not_stop_the_remaining_items(): void
+    {
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => false, 'description' => 'Forbidden'], 403)]);
+        $registry = $this->createMock(ActionRegistry::class);
+        $registry->method('has')->willReturn(true);
+        $registry->method('resolve')->willReturnCallback(fn (string $type) => $type === 'workflow_loop'
+            ? new WorkflowLoopAction : new TelegramSendMessageAction);
+        $runner = new WorkflowDebugger($registry);
+        $definition = ['trigger' => ['type' => 'manual'], 'actions' => [
+            ['id' => 'loop', 'type' => 'workflow_loop', 'config' => ['items' => [['id' => 1], ['id' => 2]]]],
+            ['id' => 'telegram', 'type' => 'telegram_send_message', 'config' => TelegramSendMessageAction::protectConfig([
+                'bot_token' => '12345:test-token',
+                'chat_id' => '123',
+                'text' => 'Тест',
+                'continue_on_error' => true,
+            ])],
+        ], 'connections' => [
+            ['sourceId' => 'trigger', 'sourcePort' => 'output', 'targetId' => 'action:loop'],
+            ['sourceId' => 'action:loop', 'sourcePort' => 'each', 'targetId' => 'action:telegram'],
+            ['sourceId' => 'action:telegram', 'sourcePort' => 'output', 'targetId' => 'action:loop'],
+        ]];
+
+        $session = $runner->advance($runner->start($definition, [], null, null, true));
+
+        $this->assertSame('completed', $session['status'], $session['error'] ?? '');
+        $this->assertNull($session['error']);
+        $this->assertSame(['loop', 'telegram', 'telegram'], array_column($session['results'], 'id'));
+        $this->assertSame(['error', 'error'], array_column(array_slice($session['results'], 1), 'status'));
+        Http::assertSentCount(2);
     }
 
     public function test_real_mode_is_blocked_without_an_active_period_while_safe_mode_stays_available(): void

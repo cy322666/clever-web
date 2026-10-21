@@ -6,6 +6,7 @@ use App\Services\Core\AlertService;
 use App\Services\Workflows\WorkflowGraph;
 use App\Services\Workflows\WorkflowSubscriptionAccess;
 use App\Workflows\Context\WorkflowContext as AppWorkflowContext;
+use App\Workflows\Actions\TelegramSendMessageAction;
 use App\Workflows\FailureStrategies;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
@@ -105,6 +106,13 @@ class WorkflowExecutor extends BaseWorkflowExecutor
                 $last->update($fields);
             }
             if (!($result['success'] ?? false)) {
+                if (TelegramSendMessageAction::continuesAfterFailure($step, $result)) {
+                    return [
+                        'success' => true,
+                        'output' => [],
+                        'continued_after_error' => true,
+                    ];
+                }
                 throw new NonRetryableWorkflowException($result['error'] ?? 'Ошибка выполнения ноды.');
             }
             return $result;

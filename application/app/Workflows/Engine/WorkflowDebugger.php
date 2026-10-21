@@ -5,6 +5,7 @@ namespace App\Workflows\Engine;
 use App\Services\Workflows\WorkflowGraph;
 use App\Services\Workflows\WorkflowSubscriptionAccess;
 use App\Workflows\Context\WorkflowContext;
+use App\Workflows\Actions\TelegramSendMessageAction;
 use InvalidArgumentException;
 use Throwable;
 
@@ -35,7 +36,7 @@ class WorkflowDebugger extends WorkflowTestRunner
             $session['results'] = $this->executeLoopTestGraph($graph, $context, $step['id'], true, null, $beforeStep);
             $session['context'] = $context->toArray();
             $last = end($session['results']);
-            $session['error'] = $last['error'] ?? null;
+            $session['error'] = ($last['continued_after_error'] ?? false) ? null : ($last['error'] ?? null);
             $session['status'] = $session['error'] ? 'failed' : 'completed';
             $session['pending'] = [];
             return $session;
@@ -88,7 +89,7 @@ class WorkflowDebugger extends WorkflowTestRunner
             // bounded scheduler as production, instead of a visited-node queue.
             $session['results'] = $this->executeLoopTestGraph($session['definition'], $context);
             $last = end($session['results']);
-            $session['error'] = $last['error'] ?? null;
+            $session['error'] = ($last['continued_after_error'] ?? false) ? null : ($last['error'] ?? null);
             $session['status'] = $session['error'] ? 'failed' : 'completed';
             $session['context'] = $context->toArray();
             $session['pending'] = [];
@@ -108,7 +109,7 @@ class WorkflowDebugger extends WorkflowTestRunner
                 $session['results'][] = $result;
             }
             $last = end($batch);
-            $session['error'] = $last['error'] ?? null;
+            $session['error'] = ($last['continued_after_error'] ?? false) ? null : ($last['error'] ?? null);
             if (!$session['error'] && $this->loopReachedDone) $this->activateGraphTargets($session, $step['id'], 'done');
             $session['pending'] = $this->pendingGraphNodes($session);
             $session['context'] = $context->toArray();
@@ -129,13 +130,15 @@ class WorkflowDebugger extends WorkflowTestRunner
         $result['sequence'] = count($session['results']) + 1;
         $result['completed_at'] = now()->toIso8601String();
         $failed = in_array($result['status'], ['error', 'validation_error', 'failed'], true);
+        $continueAfterError = TelegramSendMessageAction::continuesAfterFailure($step, $result);
+        if ($continueAfterError) $result['continued_after_error'] = true;
         if (array_key_exists('connections', $session['definition'])) {
             $port = $isCondition ? ((($step['disabled'] ?? false) || ($result['output']['passed'] ?? false)) ? 'yes' : 'no') : 'output';
             if ($isCondition && !$failed) {
                 $result['condition_result'] = ($step['disabled'] ?? false) ? null : ($port === 'yes');
                 $result['executed_branch'] = $port === 'yes' ? 'true' : 'false';
             }
-            if (!$failed) $this->activateGraphTargets($session, $step['id'], $port);
+            if (!$failed || $continueAfterError) $this->activateGraphTargets($session, $step['id'], $port);
         } elseif ($isCondition && ! $failed) {
             $passed = ($step['disabled'] ?? false) || (bool) ($result['output']['passed'] ?? false);
             $branch = $passed ? 'true_actions' : 'false_actions';
@@ -152,8 +155,8 @@ class WorkflowDebugger extends WorkflowTestRunner
         $session['results'][] = $result;
         if (array_key_exists('connections', $session['definition'])) $session['pending'] = $this->pendingGraphNodes($session);
         $session['context'] = $context->toArray();
-        $session['error'] = $result['error'] ?? null;
-        $session['status'] = $failed ? 'failed' : ($session['pending'] === [] ? 'completed' : 'ready');
+        $session['error'] = $continueAfterError ? null : ($result['error'] ?? null);
+        $session['status'] = $failed && !$continueAfterError ? 'failed' : ($session['pending'] === [] ? 'completed' : 'ready');
 
         return $session;
     }

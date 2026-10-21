@@ -5,6 +5,7 @@ namespace App\Workflows\Engine;
 use App\Models\Core\Account;
 use App\Workflows\Context\WorkflowContext;
 use App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog;
+use App\Workflows\Actions\TelegramSendMessageAction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Leek\FilamentWorkflows\Actions\ActionRegistry;
@@ -43,8 +44,11 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             unset($step['config']['true_actions'], $step['config']['false_actions']);
             $condition = \App\Services\Workflows\WorkflowGraph::condition($step);
             $result = $condition ? $this->executeTestConditionStep($step, $context, $node['path']) : $this->executeTestStep($step, $context, $node['path']);
+            $continued = TelegramSendMessageAction::continuesAfterFailure($step, $result);
+            if ($continued) $result['continued_after_error'] = true;
             $results[] = $result;
-            if (in_array($result['status'], ['error', 'validation_error'], true)) break;
+            if (in_array($result['status'], ['error', 'validation_error'], true)
+                && ! $continued) break;
             $port = $condition ? ((($step['disabled'] ?? false) || ($result['condition_result'] ?? false)) ? 'yes' : 'no') : 'output';
             foreach (\App\Services\Workflows\WorkflowGraph::targets($edges, $id, $port) as $target) $active[$target] = true;
         }
@@ -88,14 +92,22 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
                     $result['executed_branch'] = (($step['disabled'] ?? false) || $result['condition_result']) ? 'true' : 'false';
                 }
                 if ($result['output']['dry_run'] ?? false) $result['status'] = 'simulated';
+                $continued = TelegramSendMessageAction::continuesAfterFailure($step, $result);
+                if ($continued) $result['continued_after_error'] = true;
                 $results[] = $result;
-                return ['success' => !in_array($result['status'], ['error', 'validation_error', 'failed'], true), 'output' => $result['output'] ?? [], 'error' => $result['error'] ?? null];
+                return [
+                    'success' => !in_array($result['status'], ['error', 'validation_error', 'failed'], true)
+                        || $continued,
+                    'output' => $result['output'] ?? [],
+                    'error' => $result['error'] ?? null,
+                ];
             };
             if ($root !== null) $this->loopReachedDone = $runner->runNode('action:'.$root, $context, $execute, $preview, $inputSources);
             else $runner->run($context, $execute);
             if ($preview && isset($results[0])) $results[0]['output'] = $context->getStepOutput($root);
         } catch (\Throwable $error) {
-            if (!in_array($results[array_key_last($results)]['status'] ?? '', ['error', 'validation_error', 'failed'], true)) {
+            if (!in_array($results[array_key_last($results)]['status'] ?? '', ['error', 'validation_error', 'failed'], true)
+                || ($results[array_key_last($results)]['continued_after_error'] ?? false)) {
                 $results[] = ['id' => $lastId, 'type' => $lastStep['type'] ?? 'workflow_loop', 'iteration' => $lastIteration,
                     'status' => 'error', 'error' => $error->getMessage(), 'output' => []];
             }

@@ -4,6 +4,7 @@ namespace App\Workflows\Actions;
 
 use App\Forms\Components\WorkflowValueInput;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use App\Services\Workflows\WorkflowCredentials;
@@ -55,7 +56,28 @@ class TelegramSendMessageAction
             WorkflowValueInput::make('text')->label('Сообщение')->multiline(6)->required()->maxLength(4096),
             WorkflowValueInput::make('parse_mode')->label('Формат')->options(['plain' => 'Обычный текст', 'HTML' => 'HTML', 'MarkdownV2' => 'Markdown V2'])->default('plain')
                 ->afterStateHydrated(fn (WorkflowValueInput $component, $state) => $component->state($state ?: 'plain')),
+            Toggle::make('continue_on_error')->label('Продолжать сценарий при ошибке отправки')->default(false)
+                ->helperText('Ошибка останется в истории ноды, но следующие шаги выполнятся. При таймауте доставка сообщения неизвестна.'),
         ];
+    }
+
+    public static function continuesAfterError(array $step): bool
+    {
+        return ($step['type'] ?? null) === self::workflowType()
+            && ($step['config']['continue_on_error'] ?? false) === true;
+    }
+
+    public static function continuesAfterFailure(array $step, array $result): bool
+    {
+        if (! self::continuesAfterError($step)) {
+            return false;
+        }
+
+        if (isset($result['status'])) {
+            return $result['status'] === 'error';
+        }
+
+        return ($result['success'] ?? true) === false && ($result['retryable'] ?? null) !== false;
     }
 
     public static function protectConfig(array $config, array $previous = []): array
