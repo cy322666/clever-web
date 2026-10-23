@@ -181,19 +181,28 @@ class ApiModel extends Model
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             $freshModel = $this->service->find($this->id);
-            if (!$freshModel || !isset($freshModel->updated_at)) {
+            // SDK attributes use __get without __isset, so isset() rejects valid versions.
+            if (!$freshModel instanceof self
+                || (int)$freshModel->id !== (int)$this->id
+                || !$freshModel->hasAttribute('updated_at')
+                || $freshModel->updated_at === null) {
                 return false;
             }
 
             // Rebase optimistic-lock marker to latest entity version in amoCRM.
             $this->updated_at = $freshModel->updated_at;
+            $this->setChanged('updated_at');
 
             try {
                 if ($this->service->update($this)) {
                     return true;
                 }
             } catch (Throwable $e) {
-                if ($this->isLastModifiedConflict($e) && $attempt < $maxAttempts) {
+                if (!$this->isLastModifiedConflict($e)) {
+                    throw $e;
+                }
+
+                if ($attempt < $maxAttempts) {
                     usleep(200000 * $attempt);
                     continue;
                 }
