@@ -8,6 +8,8 @@ use App\Services\Integrations\IntegrationErrorDiagnostic;
 use App\Services\Integrations\IntegrationErrorNotifier;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Cache;
@@ -139,6 +141,31 @@ class IntegrationErrorDiagnosticsTest extends TestCase
             && !str_contains($job->message, 'outer:run') && !str_contains($job->message, 'Тип: RuntimeException'));
     }
 
+    public function test_backup_log_and_scheduler_exception_do_not_duplicate_the_dedicated_alert(): void
+    {
+        $subscriber = app(AdminErrorSubscriber::class);
+        $subscriber->logged(new MessageLogged('error', 'Database backup failed', ['reason' => 'No receipt']));
+        $subscriber->logged(new MessageLogged('error',
+            "Scheduled command ['/usr/local/bin/php' 'artisan' app:backup-db] failed with exit code [1].",
+            ['exception' => new RuntimeException('Scheduled command failed')]));
+        Queue::assertNotPushed(SendIntegrationErrorAlert::class);
+
+        $subscriber->logged(new MessageLogged('error',
+            "Scheduled command ['/usr/local/bin/php' 'artisan' app:other-task] failed with exit code [1]."));
+        Queue::assertPushed(SendIntegrationErrorAlert::class, 1);
+    }
+
+    public function test_backup_scheduled_failure_is_not_reported_twice_but_other_tasks_are(): void
+    {
+        $subscriber = app(AdminErrorSubscriber::class);
+        $schedule = app(Schedule::class);
+        $subscriber->scheduled(new ScheduledTaskFailed($schedule->command('app:backup-db'), new RuntimeException('failed')));
+        Queue::assertNotPushed(SendIntegrationErrorAlert::class);
+
+        $subscriber->scheduled(new ScheduledTaskFailed($schedule->command('app:other-task'), new RuntimeException('failed')));
+        Queue::assertPushed(SendIntegrationErrorAlert::class, 1);
+    }
+
     #[DataProvider('safeSummaries')]
     public function test_diagnostic_only_extracts_safe_technical_facts(string $error, string $expected): void
     {
@@ -155,6 +182,7 @@ class IntegrationErrorDiagnosticsTest extends TestCase
             'database query is secret' => ["SQLSTATE[23505] duplicate key (SQL: secret='private-value')", 'Ошибка базы данных, SQLSTATE 23505.'],
             'file path is secret' => ['Permission denied /private-value/customer.doc', 'Операция отклонена: недостаточно прав доступа.'],
             'command exit' => ['Command failed (exit 2)', 'Команда завершилась с кодом 2.'],
+            'backup upload' => ['Не удалось доставить архив в Telegram. Копия сохранена на сервере.', 'Архив БД не доставлен в Telegram. Копия сохранена на сервере.'],
         ];
     }
 }

@@ -93,16 +93,54 @@ class DatabaseBackupTelegramTest extends TestCase
         app(DatabaseBackupTelegram::class)->sendLatest();
     }
 
-    public function test_oversized_backup_stays_local(): void
+    public function test_large_encrypted_archive_is_sent_in_ordered_parts_and_can_be_reassembled(): void
     {
         $path = $this->archive();
-        $stream = fopen($path, 'ab');
-        ftruncate($stream, 49_000_001);
-        fclose($stream);
-        clearstatcache(true, $path);
+        $archive = file_get_contents($path);
+        config(['backup.telegram.max_document_bytes' => 100]);
+        $expectedParts = (int) ceil(strlen($archive) / 100);
+        $received = '';
+        $calls = 0;
+        Http::fake(function ($request) use ($archive, $expectedParts, &$received, &$calls) {
+            $calls++;
+            $expected = substr($archive, ($calls - 1) * 100, 100);
+            $body = $request->body();
+            $filename = 'current.zip.part'.sprintf('%03d', $calls);
+            $start = strpos($body, 'name="document"; filename="'.$filename.'"');
+            $this->assertNotFalse($start);
+            $dataStart = strpos($body, "\r\n\r\n", $start);
+            $this->assertNotFalse($dataStart);
+            $part = substr($body, $dataStart + 4, strlen($expected));
+            $this->assertSame($expected, $part);
+            $this->assertStringContainsString('Часть '.$calls.'/'.$expectedParts, $body);
+            $this->assertStringContainsString(hash('sha256', $archive), $body);
+            $this->assertStringNotContainsString('test-archive-password', $body);
+            $received .= $part;
+
+            return Http::response(['ok' => true, 'result' => ['message_id' => 40 + $calls,
+                'document' => ['file_size' => strlen($part)]]]);
+        });
+        $result = app(DatabaseBackupTelegram::class)->sendLatest();
+        $this->assertGreaterThan(1, $expectedParts);
+        $this->assertSame($expectedParts, $result['parts']);
+        $this->assertSame($expectedParts, $calls);
+        $this->assertSame($archive, $received);
+        $this->assertSame(hash('sha256', $archive), $result['sha256']);
+        $this->assertFileExists($path);
+    }
+
+    public function test_archive_requiring_more_than_100_parts_stays_local(): void
+    {
+        $path = $this->archive();
+        config(['backup.telegram.max_document_bytes' => 1]);
         Http::fake();
-        $this->expectExceptionMessage('превышает лимит');
-        app(DatabaseBackupTelegram::class)->sendLatest();
+        $this->expectExceptionMessage('слишком велик');
+        try {
+            app(DatabaseBackupTelegram::class)->sendLatest();
+        } finally {
+            Http::assertNothingSent();
+            $this->assertFileExists($path);
+        }
     }
 
     public function test_telegram_rejection_does_not_expose_bot_token(): void
@@ -123,8 +161,29 @@ class DatabaseBackupTelegramTest extends TestCase
         $this->archive();
         Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 42,
             'document' => ['file_size' => 1]]])]);
-        $this->expectExceptionMessage('не подтвердил получение полного архива');
+        $this->expectExceptionMessage('не подтвердил получение части 1/1');
         app(DatabaseBackupTelegram::class)->sendLatest();
+    }
+
+    public function test_rejected_second_part_stops_delivery_and_preserves_local_archive(): void
+    {
+        $path = $this->archive();
+        config(['backup.telegram.max_document_bytes' => 100]);
+        $calls = 0;
+        Http::fake(function () use (&$calls) {
+            $calls++;
+
+            return Http::response(['ok' => true, 'result' => ['message_id' => 40 + $calls,
+                'document' => ['file_size' => $calls === 1 ? 100 : 1]]]);
+        });
+        try {
+            app(DatabaseBackupTelegram::class)->sendLatest();
+            $this->fail('An unconfirmed part must fail the backup.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('части 2/', $e->getMessage());
+        }
+        $this->assertSame(2, $calls);
+        $this->assertFileExists($path);
     }
 
     private function command(int $backupExit = 0): BackupDatabase

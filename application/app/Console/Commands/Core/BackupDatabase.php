@@ -47,7 +47,8 @@ class BackupDatabase extends Command
     {
         try {
             $sent = $telegram->sendLatest($notBefore);
-            $this->info('Telegram received '.$sent['file'].' ('.$sent['size'].' bytes), message '.$sent['message_id']);
+            $this->info('Telegram received '.$sent['file'].' ('.$sent['size'].' bytes) in '
+                .($sent['parts'] ?? 1).' part(s), last message '.$sent['message_id']);
             Log::info('Database backup delivered to Telegram', $sent);
 
             return self::SUCCESS;

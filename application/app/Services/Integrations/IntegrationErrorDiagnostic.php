@@ -29,6 +29,19 @@ final class IntegrationErrorDiagnostic
     private static function summary(string $error): ?string
     {
         // Extract known technical facts, never forward arbitrary exception text or response bodies.
+        if (str_contains($error, 'Резервный архив слишком велик для отправки через Telegram')
+            || str_contains($error, 'превышает лимит отправки Telegram')) {
+            return 'Архив БД превышает лимит отправки в Telegram. Копия сохранена на сервере.';
+        }
+        if (str_contains($error, 'Telegram не подтвердил получение части ')) {
+            return 'Telegram не подтвердил получение части резервного архива. Копия сохранена на сервере.';
+        }
+        if (str_contains($error, 'Не удалось доставить архив в Telegram')) {
+            return 'Архив БД не доставлен в Telegram. Копия сохранена на сервере.';
+        }
+        if (str_contains($error, 'Не удалось создать резервную копию БД')) {
+            return 'Не удалось создать резервную копию БД. Старые архивы сохранены.';
+        }
         if (preg_match('/(?:parse error|syntax error)/i', $error)) {
             $summary = 'Ошибка синтаксиса PHP';
             if (preg_match('/unexpected\s+(?:token\s+)?[\x27\x22]([=;:,{}()\[\]])[\x27\x22]/i', $error, $match)) {

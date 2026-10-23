@@ -36,8 +36,8 @@ class DatabaseBackupTelegram
 
         $path = $disk->path($file);
         $size = $disk->size($file);
-        if ($size <= 0 || $size > 49_000_000) {
-            throw new RuntimeException('Архив пуст или превышает лимит отправки Telegram (49 МБ). Копия сохранена на сервере.');
+        if ($size <= 0) {
+            throw new RuntimeException('Резервный архив пуст.');
         }
         $this->verifyEncryption($path, $password);
         $hash = hash_file('sha256', $path);
@@ -46,29 +46,62 @@ class DatabaseBackupTelegram
             throw new RuntimeException('Не удалось прочитать резервный архив.');
         }
 
+        $partSize = min(49_000_000, max(1, (int) config('backup.telegram.max_document_bytes', 45_000_000)));
+        $parts = (int) ceil($size / $partSize);
+        if ($parts > 100) {
+            fclose($stream);
+            throw new RuntimeException('Резервный архив слишком велик для отправки через Telegram. Копия сохранена на сервере.');
+        }
+
         try {
-            $payload = [
-                'chat_id' => $chatId,
-                'caption' => "Clever: резервная копия БД\n".basename($file)
-                    ."\nЗашифрованный архив. Пароль хранится отдельно.\nSHA-256: ".$hash,
-            ];
-            if ($thread = config('backup.telegram.message_thread_id')) {
-                $payload['message_thread_id'] = $thread;
-            }
-            $response = Http::connectTimeout(10)->timeout(180)->withoutRedirecting()
-                ->attach('document', $stream, basename($file), ['Content-Type' => 'application/zip'])
-                ->post('https://api.telegram.org/bot'.$token.'/sendDocument', $payload);
-            if (! $response->successful() || $response->json('ok') !== true
-                || ! $response->json('result.message_id')
-                || (int) $response->json('result.document.file_size') !== $size) {
-                throw new RuntimeException('Telegram не подтвердил получение полного архива (HTTP '.$response->status().').');
+            $messageIds = [];
+            for ($part = 1; $part <= $parts; $part++) {
+                $bytes = min($partSize, $size - ($part - 1) * $partSize);
+                $partStream = $parts === 1 ? $stream : fopen('php://temp/maxmemory:1048576', 'w+b');
+                if ($partStream === false) {
+                    throw new RuntimeException('Не удалось подготовить часть резервного архива.');
+                }
+
+                try {
+                    if ($parts > 1) {
+                        if (stream_copy_to_stream($stream, $partStream, $bytes) !== $bytes) {
+                            throw new RuntimeException('Не удалось прочитать часть резервного архива.');
+                        }
+                        rewind($partStream);
+                    }
+                    $filename = basename($file).($parts > 1 ? '.part'.sprintf('%03d', $part) : '');
+                    $caption = "Clever: резервная копия БД\n".basename($file);
+                    if ($parts > 1) {
+                        $caption .= "\nЧасть {$part}/{$parts}. Соберите части по порядку в один ZIP.";
+                    }
+                    $payload = [
+                        'chat_id' => $chatId,
+                        'caption' => $caption."\nЗашифрованный архив. Пароль хранится отдельно.\nSHA-256: ".$hash,
+                    ];
+                    if ($thread = config('backup.telegram.message_thread_id')) {
+                        $payload['message_thread_id'] = $thread;
+                    }
+                    $response = Http::connectTimeout(10)->timeout(180)->withoutRedirecting()
+                        ->attach('document', $partStream, $filename, ['Content-Type' => $parts === 1 ? 'application/zip' : 'application/octet-stream'])
+                        ->post('https://api.telegram.org/bot'.$token.'/sendDocument', $payload);
+                    if (! $response->successful() || $response->json('ok') !== true
+                        || ! $response->json('result.message_id')
+                        || (int) $response->json('result.document.file_size') !== $bytes) {
+                        throw new RuntimeException('Telegram не подтвердил получение части '.$part.'/'.$parts.' (HTTP '.$response->status().').');
+                    }
+                    $messageIds[] = (int) $response->json('result.message_id');
+                } finally {
+                    if ($parts > 1) {
+                        fclose($partStream);
+                    }
+                }
             }
 
             return ['file' => basename($file), 'size' => $size, 'sha256' => $hash,
-                'message_id' => $response->json('result.message_id')];
+                'message_id' => end($messageIds), 'parts' => $parts, 'message_ids' => $messageIds];
         } catch (Throwable $e) {
             // HTTP exception messages can contain the bot token in the request URL.
-            throw new RuntimeException($e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Telegram не подтвердил получение полного архива')
+            throw new RuntimeException($e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Telegram не подтвердил получение части ')
                 ? $e->getMessage() : 'Не удалось доставить архив в Telegram. Копия сохранена на сервере.');
         } finally {
             fclose($stream);

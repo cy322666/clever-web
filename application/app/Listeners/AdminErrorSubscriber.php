@@ -79,6 +79,11 @@ final class AdminErrorSubscriber
         if ($this->capturing || ! in_array($event->level, ['error', 'critical', 'alert', 'emergency'], true)) {
             return;
         }
+        // BackupDatabase sends its own actionable alert; Laravel logs the same failure again.
+        if ($event->message === 'Database backup failed'
+            || preg_match('/^Scheduled command \[[^\]\n]*\bapp:backup-db\] failed with exit code \[\d+\]\.$/D', $event->message)) {
+            return;
+        }
         $notifier = app(IntegrationErrorNotifier::class);
         if (! $notifier->enabled()) {
             return;
@@ -123,6 +128,9 @@ final class AdminErrorSubscriber
         $command = 'запланированная задача';
         if (preg_match('/artisan[\x27\x22]?\s+([a-z0-9:-]+)/i', (string) $event->task->command, $match)) {
             $command = $match[1];
+        }
+        if ($command === 'app:backup-db') {
+            return;
         }
         if ($command === 'workflows:acceptance') {
             $context = app(\App\Services\Workflows\Testing\WorkflowAcceptanceDiagnostics::class)

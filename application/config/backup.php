@@ -5,6 +5,7 @@ return [
     'telegram' => [
         'enabled' => (bool) env('BACKUP_TELEGRAM_ENABLED', false),
         'disk' => env('BACKUP_TELEGRAM_DISK', 'local'),
+        'max_document_bytes' => (int) env('BACKUP_TELEGRAM_DOCUMENT_MAX_BYTES', 45_000_000),
         'token' => env('BACKUP_TELEGRAM_BOT_TOKEN', env('TELEGRAM_BOT_TOKEN')),
         'chat_id' => env('BACKUP_TELEGRAM_CHAT_ID', env('TELEGRAM_CHAT_ID')),
         'message_thread_id' => env('BACKUP_TELEGRAM_THREAD_ID', env('TELEGRAM_MESSAGE_THREAD_ID')),
