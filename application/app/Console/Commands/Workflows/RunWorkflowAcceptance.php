@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands\Workflows;
 
-use App\Services\Workflows\Testing\WorkflowAcceptanceTelegramReporter;
+use App\Services\Workflows\Testing\WorkflowAcceptanceEmailReporter;
 use App\Services\Workflows\Testing\WorkflowAcceptanceDiagnostics;
 use App\Services\Workflows\Testing\WorkflowAcceptanceStorage;
 use App\Services\Workflows\Testing\WorkflowReportSanitizer;
@@ -17,16 +17,16 @@ class RunWorkflowAcceptance extends Command
 {
     protected $signature = 'workflows:acceptance';
 
-    protected $description = 'Реальные проверки технического amoCRM-аккаунта с отчётом в Telegram';
+    protected $description = 'Реальные проверки технического amoCRM-аккаунта с отчётом по email';
 
-    public function handle(WorkflowAcceptanceTelegramReporter $reporter): int
+    public function handle(WorkflowAcceptanceEmailReporter $reporter): int
     {
         if (!config('workflow_acceptance.enabled')) {
             $this->warn('Реальный прогон отключён: WORKFLOW_ACCEPTANCE_ENABLED=false.');
             return self::SUCCESS;
         }
-        if (blank(config('workflow_acceptance.telegram.token')) || blank(config('workflow_acceptance.telegram.chat_id'))) {
-            $this->error('Не настроен Telegram для результатов; реальные изменения не запускаются.');
+        if (($error = $reporter->configurationError()) !== null) {
+            $this->error($error.' Реальные изменения не запускаются.');
             return self::FAILURE;
         }
 
@@ -50,7 +50,7 @@ class RunWorkflowAcceptance extends Command
         try {
             try {
                 WorkflowAcceptanceStorage::prepareDirectory($directory);
-                // Redis failure must still reach the private report and Telegram path.
+                // Redis failure must still reach the private report and email path.
                 $lock = Cache::lock('workflow-acceptance-notified:'.$domain, 1800);
                 $lockAcquired = (bool) $lock->get();
                 if (!$lockAcquired) {
@@ -90,11 +90,11 @@ class RunWorkflowAcceptance extends Command
             $deliverySaved = $this->persistReport($reportPath, $report);
             $this->line('Отчёт: '.$reportPath);
             if (!($delivery['ok'] ?? false)) {
-                $this->safeLog('workflow.acceptance.telegram_failed', ['report' => basename($reportPath), 'error' => $delivery['error'] ?? 'unknown']);
-                $this->error('Telegram не принял отчёт. Результаты сохранены на сервере.');
+                $this->safeLog('workflow.acceptance.email_failed', ['report' => basename($reportPath), 'error' => $delivery['error'] ?? 'unknown']);
+                $this->error('Отчёт не принят почтовым сервером. Результаты сохранены на сервере.');
                 return self::FAILURE;
             }
-            $this->info('Результаты реальных проверок отправлены в Telegram.');
+            $this->info('Результаты реальных проверок отправлены по email.');
             return !$deliverySaved || $this->hasFailures($report) ? self::FAILURE : self::SUCCESS;
         } finally {
             if ($lockAcquired) {
@@ -114,7 +114,7 @@ class RunWorkflowAcceptance extends Command
     {
         // Reject an absent/foreign connection before spawning a mutating runner.
         app(WorkflowAcceptanceDiagnostics::class)->assertReady($workflowId, $domain);
-        // Isolate CRM HTTP guards, auth state and signal handlers from Telegram delivery.
+        // Isolate CRM HTTP guards, auth state and signal handlers from email delivery.
         $process = new Process([
             PHP_BINARY, base_path('scripts/workflow-acceptance.php'),
             '--workflow='.$workflowId, '--expected-domain='.$domain,
@@ -176,6 +176,6 @@ class RunWorkflowAcceptance extends Command
 
     private function safeLog(string $message, array $context): void
     {
-        try { Log::error($message, $context); } catch (Throwable) { /* Still attempt Telegram if the log disk is full. */ }
+        try { Log::error($message, $context); } catch (Throwable) { /* Still attempt email if the log disk is full. */ }
     }
 }

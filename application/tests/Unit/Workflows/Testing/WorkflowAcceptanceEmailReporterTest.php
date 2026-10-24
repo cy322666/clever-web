@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Workflows\Testing;
 
-use App\Services\Workflows\Testing\WorkflowAcceptanceTelegramReporter;
-use Illuminate\Http\Client\ConnectionException;
+use App\Services\Workflows\Testing\WorkflowAcceptanceEmailReporter;
+use Illuminate\Mail\Mailer;
+use Illuminate\Mail\Message;
+use Illuminate\Mail\SentMessage;
+use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\SentMessage as TransportSentMessage;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
-final class WorkflowAcceptanceTelegramReporterTest extends TestCase
+final class WorkflowAcceptanceEmailReporterTest extends TestCase
 {
-    private WorkflowAcceptanceTelegramReporter $reporter;
+    private WorkflowAcceptanceEmailReporter $reporter;
+    private Mailer $mailer;
 
     protected function setUp(): void
     {
@@ -22,8 +29,12 @@ final class WorkflowAcceptanceTelegramReporterTest extends TestCase
             'chat_id' => '1234567',
             'message_thread_id' => '',
         ]);
+        config()->set('workflow_acceptance.email', ['to' => 'reports@example.test', 'mailer' => 'smtp']);
+        config()->set('mail.mailers.smtp.transport', 'smtp');
         Http::preventStrayRequests();
-        $this->reporter = new WorkflowAcceptanceTelegramReporter;
+        $this->mailer = \Mockery::mock(Mailer::class);
+        Mail::shouldReceive('mailer')->with('smtp')->andReturn($this->mailer);
+        $this->reporter = new WorkflowAcceptanceEmailReporter;
     }
 
     private function report(array $overrides = []): array
@@ -170,7 +181,7 @@ final class WorkflowAcceptanceTelegramReporterTest extends TestCase
         }
     }
 
-    public function test_long_errors_fit_telegram_limit_with_report_reference(): void
+    public function test_long_errors_stay_bounded_with_report_reference(): void
     {
         $cases = [];
         for ($index = 0; $index < 100; $index++) {
@@ -194,71 +205,82 @@ final class WorkflowAcceptanceTelegramReporterTest extends TestCase
         $this->assertStringStartsWith('🟢', $message);
     }
 
-    public function test_notification_sends_only_plain_text_summary_to_configured_chat_and_topic(): void
+    private function receipt(): SentMessage
     {
-        config()->set('workflow_acceptance.telegram.message_thread_id', '17');
-        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 123]])]);
+        $email = (new Email)->from('sender@example.test')->to('reports@example.test')->text('report');
+        return new SentMessage(new TransportSentMessage($email, Envelope::create($email)));
+    }
+
+    public function test_notification_sends_only_plain_text_to_configured_email_without_telegram(): void
+    {
+        config()->set('workflow_acceptance.telegram', []);
+        $receipt = $this->receipt();
+        $this->mailer->shouldReceive('raw')->once()->withArgs(function (string $text, callable $callback): bool {
+            $message = new Message(new Email);
+            $callback($message);
+            $email = $message->getSymfonyMessage();
+            $this->assertSame(['reports@example.test'], array_map(fn ($address) => $address->getAddress(), $email->getTo()));
+            $this->assertSame('CleverCRM: отчёт автотестов «Потоков»', $email->getSubject());
+            $this->assertSame([], $email->getAttachments());
+            $this->assertStringContainsString('Автотесты amoCRM', $text);
+            return true;
+        })->andReturn($receipt);
 
         $result = $this->reporter->notify($this->report(), 'report.json');
 
-        $this->assertSame(['ok' => true, 'message_id' => 123, 'error' => null], $result);
-        Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => $request->method() === 'POST'
-            && $request['chat_id'] === '1234567'
-            && $request['message_thread_id'] === '17'
-            && ! isset($request['document'])
-            && ! isset($request['parse_mode'])
-            && str_contains($request['text'], 'Автотесты amoCRM'));
+        $this->assertSame(['ok' => true, 'channel' => 'email', 'message_id' => $receipt->getMessageId(), 'error' => null], $result);
+        Http::assertNothingSent();
     }
 
-    #[DataProvider('telegramFailures')]
-    public function test_api_failure_is_returned_not_silently_ignored(int $status, array $body): void
+    public function test_missing_transport_receipt_is_not_reported_as_delivery(): void
     {
-        Http::fake(['api.telegram.org/*' => Http::response($body, $status)]);
+        $this->mailer->shouldReceive('raw')->once()->andReturnNull();
 
         $result = $this->reporter->notify($this->report(), 'report.json');
 
         $this->assertFalse($result['ok']);
         $this->assertNull($result['message_id']);
-        $this->assertStringContainsString('не подтвердил доставку', $result['error']);
-        $this->assertStringNotContainsString('SECRET', $result['error']);
-        Http::assertSentCount(1);
+        $this->assertStringContainsString('не подтвердил приём', $result['error']);
+        Http::assertNothingSent();
     }
 
-    public static function telegramFailures(): array
+    public function test_transport_error_is_not_retried_or_exposed(): void
+    {
+        $secret = 'synthetic-smtp-password';
+        $this->mailer->shouldReceive('raw')->once()->andThrow(new \RuntimeException('SMTP auth failed: '.$secret));
+
+        $result = $this->reporter->notify($this->report(), 'report.json');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringNotContainsString($secret, $result['error']);
+        $this->assertStringContainsString('ошибка почтового транспорта', $result['error']);
+        Http::assertNothingSent();
+    }
+
+    #[DataProvider('invalidMailSettings')]
+    public function test_invalid_settings_do_not_send_or_fall_back_to_telegram(string $recipient, string $transport): void
+    {
+        config()->set('workflow_acceptance.email.to', $recipient);
+        config()->set('mail.mailers.smtp.transport', $transport);
+        $this->mailer->shouldNotReceive('raw');
+
+        $result = $this->reporter->notify($this->report(), 'report.json');
+
+        $this->assertFalse($result['ok']);
+        $this->assertNotEmpty($result['error']);
+        Http::assertNothingSent();
+    }
+
+    public static function invalidMailSettings(): array
     {
         return [
-            'forbidden' => [403, ['ok' => false, 'description' => 'SECRET']],
-            'error with http 200' => [200, ['ok' => false, 'description' => 'SECRET']],
-            'missing message id' => [200, ['ok' => true]],
-            'server unavailable' => [503, []],
+            'missing email' => ['', 'smtp'],
+            'invalid email' => ['not-an-address', 'smtp'],
+            'multiple recipients are not implicit' => ['a@example.test,b@example.test', 'smtp'],
+            'header injection' => ["reports@example.test\\r\\nBcc: other@example.test", 'smtp'],
+            'log is not delivery' => ['reports@example.test', 'log'],
+            'array is not delivery' => ['reports@example.test', 'array'],
+            'failover may silently log' => ['reports@example.test', 'failover'],
         ];
-    }
-
-    public function test_connection_error_does_not_leak_token_url_or_retry(): void
-    {
-        $attempts = 0;
-        Http::fake(function () use (&$attempts) {
-            $attempts++;
-            throw new ConnectionException('https://api.telegram.org/bot'.config('workflow_acceptance.telegram.token').'/sendMessage failed');
-        });
-
-        $result = $this->reporter->notify($this->report(), 'report.json');
-
-        $this->assertFalse($result['ok']);
-        $this->assertSame(1, $attempts);
-        $this->assertStringNotContainsString((string) config('workflow_acceptance.telegram.token'), $result['error']);
-        $this->assertStringNotContainsString('api.telegram.org', $result['error']);
-    }
-
-    public function test_missing_settings_are_reported_without_network_call(): void
-    {
-        config()->set('workflow_acceptance.telegram.chat_id', '');
-
-        $result = $this->reporter->notify($this->report(), 'report.json');
-
-        $this->assertFalse($result['ok']);
-        $this->assertStringContainsString('Не настроен Telegram', $result['error']);
-        Http::assertNothingSent();
     }
 }

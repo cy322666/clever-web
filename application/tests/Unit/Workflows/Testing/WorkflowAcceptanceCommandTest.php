@@ -3,11 +3,17 @@
 namespace Tests\Unit\Workflows\Testing;
 
 use App\Console\Commands\Workflows\RunWorkflowAcceptance;
-use App\Services\Workflows\Testing\WorkflowAcceptanceTelegramReporter;
+use App\Services\Workflows\Testing\WorkflowAcceptanceEmailReporter;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Mail\Mailer;
+use Illuminate\Mail\SentMessage;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\SentMessage as TransportSentMessage;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -17,6 +23,7 @@ use Tests\TestCase;
 class WorkflowAcceptanceCommandTest extends TestCase
 {
     private string $directory;
+    private Mailer $mailer;
 
     protected function setUp(): void
     {
@@ -29,15 +36,22 @@ class WorkflowAcceptanceCommandTest extends TestCase
             'workflow_acceptance.report_directory' => $this->directory,
             'workflow_acceptance.telegram.token' => '123:contract-only-secret',
             'workflow_acceptance.telegram.chat_id' => '1',
+            'workflow_acceptance.email.to' => 'reports@example.test',
+            'workflow_acceptance.email.mailer' => 'smtp',
+            'mail.mailers.smtp.transport' => 'smtp',
         ]);
         Http::preventStrayRequests();
-        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 123]])]);
+        $email = (new Email)->from('sender@example.test')->to('reports@example.test')->text('report');
+        $this->mailer = \Mockery::mock(Mailer::class);
+        $this->mailer->shouldReceive('raw')->byDefault()->andReturn(new SentMessage(new TransportSentMessage($email, Envelope::create($email))));
+        Mail::shouldReceive('mailer')->with('smtp')->andReturn($this->mailer);
     }
 
     protected function tearDown(): void
     {
         foreach (glob($this->directory.'/*.json') ?: [] as $file) unlink($file);
         if (is_dir($this->directory)) rmdir($this->directory);
+        Http::assertNothingSent();
         parent::tearDown();
     }
 
@@ -52,10 +66,11 @@ class WorkflowAcceptanceCommandTest extends TestCase
             file_put_contents($path, json_encode($payload));
             return $exit;
         });
-        $this->assertSame($expected, $command->handle(new WorkflowAcceptanceTelegramReporter));
-        Http::assertSentCount(1);
+        $this->assertSame($expected, $command->handle(new WorkflowAcceptanceEmailReporter));
+        $this->mailer->shouldHaveReceived('raw')->once();
         $report = json_decode(file_get_contents(glob($this->directory.'/*.json')[0]), true);
         $this->assertTrue($report['notification']['ok']);
+        $this->assertSame('email', $report['notification']['channel']);
         $this->assertSame(0600, fileperms(glob($this->directory.'/*.json')[0]) & 0777);
     }
 
@@ -81,23 +96,44 @@ class WorkflowAcceptanceCommandTest extends TestCase
         ];
     }
 
-    public function test_disabled_or_missing_telegram_does_not_start_mutations(): void
+    public function test_disabled_or_missing_email_does_not_start_mutations(): void
     {
         $command = $this->command();
         $command->expects($this->never())->method('runProcess');
         config(['workflow_acceptance.enabled' => false]);
-        $this->assertSame(0, $command->handle(new WorkflowAcceptanceTelegramReporter));
-        config(['workflow_acceptance.enabled' => true, 'workflow_acceptance.telegram.token' => '']);
-        $this->assertSame(1, $command->handle(new WorkflowAcceptanceTelegramReporter));
-        Http::assertNothingSent();
+        $this->assertSame(0, $command->handle(new WorkflowAcceptanceEmailReporter));
+        config(['workflow_acceptance.enabled' => true, 'workflow_acceptance.email.to' => '']);
+        $this->assertSame(1, $command->handle(new WorkflowAcceptanceEmailReporter));
+        $this->mailer->shouldNotHaveReceived('raw');
     }
 
-    public function test_process_exception_is_reported_in_telegram_not_silently_lost(): void
+    public function test_process_exception_is_reported_by_email_not_silently_lost(): void
     {
         $command = $this->command();
         $command->method('runProcess')->willThrowException(new \RuntimeException('Test process could not start'));
-        $this->assertSame(1, $command->handle(new WorkflowAcceptanceTelegramReporter));
-        Http::assertSent(fn ($request) => str_contains($request['text'], 'Test process could not start'));
+        $this->assertSame(1, $command->handle(new WorkflowAcceptanceEmailReporter));
+        $this->mailer->shouldHaveReceived('raw')->withArgs(fn ($text, $callback) => str_contains($text, 'Test process could not start'));
+    }
+
+    public function test_failed_email_is_saved_and_returns_failure_without_telegram_fallback(): void
+    {
+        $command = $this->command();
+        $command->method('runProcess')->willReturnCallback(function ($workflow, $domain, $path): int {
+            file_put_contents($path, json_encode([
+                'started_at' => '2026-09-20T01:00:00Z', 'finished_at' => '2026-09-20T01:01:00Z',
+                'cases' => [['id' => 'query_leads', 'status' => 'passed']], 'cleanup' => [],
+            ]));
+            return 0;
+        });
+        $this->mailer->shouldReceive('raw')->once()->andThrow(new \RuntimeException('private-smtp-password'));
+
+        $this->assertSame(1, $command->handle(new WorkflowAcceptanceEmailReporter));
+
+        $report = json_decode(file_get_contents(glob($this->directory.'/*.json')[0]), true);
+        $this->assertFalse($report['notification']['ok']);
+        $this->assertSame('email', $report['notification']['channel']);
+        $this->assertStringNotContainsString('private-smtp-password', $report['notification']['error']);
+        Http::assertNothingSent();
     }
 
     #[DataProvider('cacheFailureStages')]
@@ -115,12 +151,12 @@ class WorkflowAcceptanceCommandTest extends TestCase
             $lockCall->andReturn($lock);
         }
 
-        $this->assertSame(1, $command->handle(new WorkflowAcceptanceTelegramReporter));
+        $this->assertSame(1, $command->handle(new WorkflowAcceptanceEmailReporter));
 
-        Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => str_starts_with($request['text'], '🔴')
-            && str_contains($request['text'], 'Redis недоступен. Не удалось проверить блокировку запуска автотестов.')
-            && !str_contains($request['text'], 'Redis connection unavailable'));
+        $this->mailer->shouldHaveReceived('raw')->once();
+        $this->mailer->shouldHaveReceived('raw')->withArgs(fn ($text, $callback) => str_starts_with($text, '🔴')
+            && str_contains($text, 'Redis недоступен. Не удалось проверить блокировку запуска автотестов.')
+            && !str_contains($text, 'Redis connection unavailable'));
         $files = glob($this->directory.'/*.json');
         $this->assertCount(1, $files);
         $report = json_decode(file_get_contents($files[0]), true, flags: JSON_THROW_ON_ERROR);
@@ -144,8 +180,8 @@ class WorkflowAcceptanceCommandTest extends TestCase
         $lock->shouldNotReceive('release');
         Cache::shouldReceive('lock')->once()->andReturn($lock);
 
-        $this->assertSame(0, $command->handle(new WorkflowAcceptanceTelegramReporter));
-        Http::assertNothingSent();
+        $this->assertSame(0, $command->handle(new WorkflowAcceptanceEmailReporter));
+        $this->mailer->shouldNotHaveReceived('raw');
     }
 
     #[DataProvider('releaseOutcomes')]
@@ -165,8 +201,8 @@ class WorkflowAcceptanceCommandTest extends TestCase
             return $exitCode;
         });
 
-        $this->assertSame($exitCode, $command->handle(new WorkflowAcceptanceTelegramReporter));
-        Http::assertSentCount(1);
+        $this->assertSame($exitCode, $command->handle(new WorkflowAcceptanceEmailReporter));
+        $this->mailer->shouldHaveReceived('raw')->once();
         Log::shouldHaveReceived('error')->once()->with('workflow.acceptance.lock_release_failed', \Mockery::on(
             fn ($context) => $context['exception'] === \RuntimeException::class
                 && !str_contains(json_encode($context), 'secret must not be logged')

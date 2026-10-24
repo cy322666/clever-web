@@ -12,6 +12,11 @@ return [
     'timezone' => env('WORKFLOW_ACCEPTANCE_TIMEZONE', 'Europe/Kaliningrad'),
     'timeout_seconds' => 900,
     'report_directory' => storage_path('app/private/workflow-acceptance'),
+    'email' => [
+        'to' => env('WORKFLOW_ACCEPTANCE_EMAIL_TO', env('MAIL_ADMIN')),
+        'mailer' => env('WORKFLOW_ACCEPTANCE_MAILER', 'smtp'),
+    ],
+    // Retained only for redacting credentials from historical reports, not for delivery.
     'telegram' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_CHAT_ID'),

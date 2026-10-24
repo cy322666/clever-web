@@ -7,50 +7,53 @@ namespace App\Services\Workflows\Testing;
 use App\Services\Workflows\WorkflowAmoReadCatalog;
 use DateTimeImmutable;
 use DateTimeZone;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Mail\Message;
+use Illuminate\Mail\SentMessage;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /** Sends a small diagnostic summary, never the account's raw data or historical runs. */
-final class WorkflowAcceptanceTelegramReporter
+final class WorkflowAcceptanceEmailReporter
 {
     private const MAX_LENGTH = 3900;
 
-    /** @return array{ok: bool, message_id: int|null, error: string|null} */
+    public function configurationError(): ?string
+    {
+        $recipient = trim((string) config('workflow_acceptance.email.to', ''));
+        if (strlen($recipient) > 254 || !filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+            return 'Не настроен корректный email для результатов автотестов.';
+        }
+        $mailer = (string) config('workflow_acceptance.email.mailer', 'smtp');
+        $transport = config('mail.mailers.'.$mailer.'.transport');
+        if (!in_array($transport, ['smtp', 'sendmail', 'ses', 'ses-v2', 'postmark', 'resend', 'mailgun'], true)) {
+            return 'Для отчётов автотестов нужен почтовый транспорт с реальной отправкой.';
+        }
+
+        return null;
+    }
+
+    /** @return array{ok: bool, channel: string, message_id: string|null, error: string|null} */
     public function notify(array $report, string $reportPath): array
     {
-        $token = trim((string) config('workflow_acceptance.telegram.token', ''));
-        $chatId = trim((string) config('workflow_acceptance.telegram.chat_id', ''));
-        if ($token === '' || $chatId === '') {
-            return ['ok' => false, 'message_id' => null, 'error' => 'Не настроен Telegram для результатов автотестов.'];
+        $failure = ['ok' => false, 'channel' => 'email', 'message_id' => null, 'error' => null];
+        if (($error = $this->configurationError()) !== null) {
+            return array_replace($failure, ['error' => $error]);
         }
-
-        $body = [
-            'chat_id' => $chatId,
-            'text' => $this->format($report, $reportPath),
-            'disable_web_page_preview' => true,
-        ];
-        $threadId = trim((string) config('workflow_acceptance.telegram.message_thread_id', ''));
-        if ($threadId !== '') {
-            $body['message_thread_id'] = $threadId;
-        }
-
         try {
-            // No implicit retries: a timeout may mean Telegram already accepted this message.
-            $response = Http::asForm()->connectTimeout(5)->timeout(15)
-                ->post('https://api.telegram.org/bot'.$token.'/sendMessage', $body);
-            $messageId = $response->json('result.message_id');
-            if (! $response->successful() || $response->json('ok') !== true || ! is_numeric($messageId)) {
-                return [
-                    'ok' => false,
-                    'message_id' => null,
-                    'error' => 'Telegram не подтвердил доставку отчёта (HTTP '.$response->status().').',
-                ];
+            $recipient = trim((string) config('workflow_acceptance.email.to'));
+            // Send synchronously, without a log fallback or retries that could duplicate the email.
+            $sent = Mail::mailer((string) config('workflow_acceptance.email.mailer', 'smtp'))
+                ->raw($this->format($report, $reportPath), static function (Message $message) use ($recipient): void {
+                    $message->to($recipient)->subject('CleverCRM: отчёт автотестов «Потоков»');
+                });
+            if (!$sent instanceof SentMessage) {
+                return array_replace($failure, ['error' => 'Почтовый сервер не подтвердил приём отчёта автотестов.']);
             }
 
-            return ['ok' => true, 'message_id' => (int) $messageId, 'error' => null];
+            return ['ok' => true, 'channel' => 'email', 'message_id' => $sent->getMessageId(), 'error' => null];
         } catch (Throwable) {
-            // Request exception messages contain the token-bearing URL. Do not log or return them.
-            return ['ok' => false, 'message_id' => null, 'error' => 'Не удалось подтвердить доставку отчёта в Telegram: ошибка соединения.'];
+            // SMTP exceptions can contain credentials; never forward or log their raw text.
+            return array_replace($failure, ['error' => 'Не удалось отправить отчёт автотестов по email: ошибка почтового транспорта.']);
         }
     }
 
