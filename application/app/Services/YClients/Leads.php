@@ -67,6 +67,59 @@ abstract class Leads
         return null;
     }
 
+    public static function ensureContactLinked(
+        \App\Services\amoCRM\Client $amoApi,
+        int $leadId,
+        int $contactId,
+    ): void {
+        if ($leadId <= 0 || $contactId <= 0) {
+            throw new InvalidArgumentException('Existing amoCRM lead and contact IDs are required for linking.');
+        }
+
+        AmoTransportRetry::run(function () use ($amoApi, $leadId, $contactId): void {
+            // Re-read on every attempt: a timed-out link request may already have succeeded.
+            $contactIds = self::currentContactIds($amoApi, $leadId);
+            if (in_array($contactId, $contactIds, true)) {
+                return;
+            }
+
+            $link = ['to_entity_id' => $contactId, 'to_entity_type' => 'contacts'];
+            if ($contactIds === []) {
+                $link['metadata'] = ['is_main' => true];
+            }
+
+            // Add only this relationship; never replace other contacts or their main flag.
+            $amoApi->requestV4('POST', '/api/v4/leads/'.$leadId.'/link', [$link]);
+
+            if (!in_array($contactId, self::currentContactIds($amoApi, $leadId), true)) {
+                throw new \RuntimeException("amoCRM contact {$contactId} link to lead {$leadId} was not confirmed.");
+            }
+        }, ['operation' => 'lead_contact_link', 'lead_id' => $leadId, 'contact_id' => $contactId]);
+    }
+
+    private static function currentContactIds(\App\Services\amoCRM\Client $amoApi, int $leadId): array
+    {
+        $lead = $amoApi->requestV4('GET', '/api/v4/leads/'.$leadId, [], ['with' => 'contacts']);
+        if ((int) ($lead['id'] ?? 0) !== $leadId || !empty($lead['is_deleted'])) {
+            throw new \RuntimeException('Existing amoCRM lead was not found while checking contact links.');
+        }
+
+        $contacts = data_get($lead, '_embedded.contacts', []);
+        if (!is_array($contacts)) {
+            throw new \RuntimeException('Invalid amoCRM lead contacts response.');
+        }
+
+        $ids = [];
+        foreach ($contacts as $contact) {
+            if (!is_array($contact) || (int) ($contact['id'] ?? 0) <= 0) {
+                throw new \RuntimeException('Invalid amoCRM lead contact ID.');
+            }
+            $ids[] = (int) $contact['id'];
+        }
+
+        return $ids;
+    }
+
     public static function recoverCreated(
         \App\Services\amoCRM\Client $amoApi,
         Record $record,

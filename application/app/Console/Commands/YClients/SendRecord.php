@@ -181,8 +181,14 @@ class SendRecord extends Command
             return $this->completeRecordWithoutLead($record);
         }
 
+        $creatingLead = empty($lead);
+
         try {
-            if (!empty($lead)) {
+            if (!$creatingLead) {
+                if ($contact) {
+                    ServiceLead::ensureContactLinked($amoApi, (int) $lead->id, (int) $contact->id);
+                }
+
                 $lead = ServiceLead::update(
                     $lead,
                     $objectStatus,
@@ -191,6 +197,14 @@ class SendRecord extends Command
                 );
             } else {
                 $lead = ServiceLead::create($contact, $objectStatus, $record, $responsibleUserId, $amoApi, $createGuard);
+            }
+
+            // Persist the acknowledged ID before link verification or optional notes can fail.
+            $record->lead_id = $lead->id;
+            $record->save();
+
+            if ($creatingLead && $contact) {
+                ServiceLead::ensureContactLinked($amoApi, (int) $lead->id, (int) $contact->id);
             }
         } catch (Throwable $e) {
             Log::error('YClients lead sync failed during save()', [
@@ -214,11 +228,6 @@ class SendRecord extends Command
 
             throw $e;
         }
-
-        // Persist the acknowledged CRM ID before any subsequent API call (including notes).
-        // A note timeout must never turn a successful create into another create attempt.
-        $record->lead_id = $lead->id;
-        $record->save();
 
         // Reserve the optional note durably: Laravel release() reuses the original job
         // payload, so an in-memory "note attempted" flag cannot prevent duplicate POSTs.

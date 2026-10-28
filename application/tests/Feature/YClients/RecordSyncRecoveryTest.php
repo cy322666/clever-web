@@ -54,6 +54,7 @@ class RecordSyncRecoveryTest extends TestCase
         Schema::create('yclients_clients', function (Blueprint $table): void {
             $table->id();
             foreach (['client_id', 'user_id', 'account_id', 'setting_id', 'company_id'] as $key) { $table->integer($key); }
+            $table->integer('contact_id')->nullable(); $table->string('name')->nullable(); $table->timestamps();
         });
         Schema::create('yclients_responsible_mappings', function (Blueprint $table): void {
             $table->id(); $table->integer('setting_id'); $table->boolean('active');
@@ -148,6 +149,108 @@ class RecordSyncRecoveryTest extends TestCase
         }
     }
 
+    public function test_existing_lead_contact_is_checked_before_status_update_on_every_run(): void
+    {
+        $record = $this->record();
+        $record->update(['lead_id' => 42]);
+        $linked = false;
+        $lead = $this->lead(42, function () use (&$linked): void {
+            $this->assertTrue($linked, 'Contact must be linked before changing the lead status.');
+        });
+        $api = $this->apiWithContact($record, $lead);
+        $requests = [];
+        $api->expects($this->exactly(4))->method('requestV4')->willReturnCallback(
+            function ($method, $path) use (&$linked, &$requests): array {
+                $requests[] = $method;
+                if ($method === 'POST') {
+                    $this->assertSame('/api/v4/leads/42/link', $path);
+                    $linked = true;
+                    return [];
+                }
+                return ['id' => 42, '_embedded' => ['contacts' => $linked ? [['id' => 77]] : []]];
+            },
+        );
+        $this->app->bind(AmoClient::class, fn () => $api);
+
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+                'setting_id' => 1, '--skip-note' => true])->assertSuccessful();
+        }
+
+        $this->assertSame(['GET', 'POST', 'GET', 'GET'], $requests);
+        $this->assertSame(Record::STATUS_SUCCESS, $record->fresh()->status);
+        $this->assertSame(42, (int) $record->fresh()->lead_id);
+    }
+
+    public function test_new_lead_id_is_saved_before_link_check_and_retry_reuses_it(): void
+    {
+        $record = $this->record();
+        $record->update(['status' => Record::STATUS_SUCCESS]);
+        $lead = $this->lead(0);
+        $api = $this->apiWithContact($record, $lead);
+        $linked = false;
+        $posts = 0;
+        $api->expects($this->exactly(5))->method('requestV4')->willReturnCallback(
+            function ($method) use ($record, &$linked, &$posts): array {
+                $this->assertSame(42, (int) $record->fresh()->lead_id);
+                if ($method === 'POST') {
+                    if (++$posts === 1) {
+                        throw new \RuntimeException('Link forbidden', 403);
+                    }
+                    $linked = true;
+                    return [];
+                }
+                return ['id' => 42, '_embedded' => ['contacts' => $linked ? [['id' => 77]] : []]];
+            },
+        );
+        $this->app->bind(AmoClient::class, fn () => $api);
+
+        try {
+            $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+                'setting_id' => 1, '--skip-note' => true])->run();
+            $this->fail('Unconfirmed link must not be marked successful.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Link forbidden', $exception->getMessage());
+        }
+
+        $this->assertSame(Record::STATUS_FAILED, $record->fresh()->status);
+        $this->assertStringContainsString('Link forbidden', $record->fresh()->error_message);
+        $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+            'setting_id' => 1, '--skip-note' => true])->assertSuccessful();
+        $this->assertSame(Record::STATUS_SUCCESS, $record->fresh()->status);
+        $this->assertSame(42, (int) $record->fresh()->lead_id);
+    }
+
+    private function apiWithContact(Record $record, Lead $lead): AmoClient
+    {
+        \App\Models\Integrations\YClients\Client::query()->forceCreate([
+            'user_id' => 1, 'account_id' => 1, 'setting_id' => 1, 'company_id' => 10,
+            'client_id' => 123, 'contact_id' => 77, 'name' => 'Test client',
+        ]);
+        $record->update(['client_id' => 123]);
+        $contact = $this->createMock(\Ufee\Amo\Models\Contact::class);
+        $contact->method('__get')->willReturnCallback(fn ($name) => match ($name) {
+            'id' => 77,
+            'leads' => new \Ufee\Amo\Base\Collections\Collection(),
+            default => null,
+        });
+        $contact->method('save')->willReturn(true);
+        $contact->expects((int) $lead->id > 0 ? $this->never() : $this->once())
+            ->method('createLead')->willReturn($lead);
+        $contacts = new class($contact) {
+            public function __construct(public object $contact) {}
+            public function find(int $id): object { return $this->contact; }
+        };
+        $leads = new class($lead) {
+            public function __construct(public Lead $lead) {}
+            public function find(int $id): Lead { return $this->lead; }
+        };
+        $api = $this->api();
+        $api->service->method('__call')->willReturnCallback(fn ($method) => $method === 'contacts' ? $contacts : $leads);
+
+        return $api;
+    }
+
     private function record(): Record
     {
         Account::query()->forceCreate(['id' => 1, 'user_id' => 1]);
@@ -165,13 +268,17 @@ class RecordSyncRecoveryTest extends TestCase
         return $api;
     }
 
-    private function lead(int $id): Lead
+    private function lead(int $id, ?callable $onSave = null): Lead
     {
         $data = ['id' => $id];
         $lead = $this->createMock(Lead::class);
         $lead->method('__get')->willReturnCallback(function ($name) use (&$data) { return $data[$name] ?? null; });
         $lead->method('__set')->willReturnCallback(function ($name, $value) use (&$data) { $data[$name] = $value; });
-        $lead->method('save')->willReturnCallback(function () use (&$data) { $data['id'] = 42; return true; });
+        $lead->method('save')->willReturnCallback(function () use (&$data, $onSave) {
+            $onSave && $onSave();
+            $data['id'] = 42;
+            return true;
+        });
         return $lead;
     }
 }
