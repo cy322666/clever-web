@@ -1,217 +1,63 @@
-# Workflow editor QA — 2026-09-12
-
-## Scope and visual sources
-
-Implemented in the existing Laravel/Filament editor, not a replacement app. Source references are the user's n8n screenshots dated 2026-09-11 at 23:23:15 (vertical fields), 23:26:17 (amoCRM logo), and 23:33:23 (plain catalog rows). Existing Clever light/dark tokens and icon library are retained.
-
-The amoCRM asset is the matching transparent blue “a”, obtained from:
-https://raw.githubusercontent.com/yatolstoy/n8n-node-amocrm/master/nodes/Amocrm/amocrm_logo.svg
-
-## Combined visual comparison
-
-- Reference and live form were viewed together at /compare-form in the isolated preview. Reference displayed at 50% for density normalization; live iframe 1280 × 820, focused middle-pane crop.
-- Reference and live catalog were viewed together at /compare-catalog. Plain rows, icon/title/subtitle hierarchy, one search field and no card frames confirmed.
-- This is a scoped adaptation: Clever's catalog remains narrower and its controls taller than the cropped reference. No pixel-identical clone is claimed.
-- An initial compressed-column bug was fixed by applying the three-column grid to Filament's inner schema container.
-- A Blade interpolation collision rendered raw label fragments; initial expression mode and placeholder are now computed before rendering. Browser readback and a regression assertion confirm clean labels.
-- Field gaps were reduced after the combined comparison. No extra field-map cards surround the standard entity fields.
-
-## Browser checks
-
-Passed against actual editor classes with isolated SQLite fixtures and blocked external requests:
-
-- Desktop 1280 × 720, dark and light theme toggle.
-- Fixed three-pane node modal; 800 × 700 narrow viewport retains input/parameters/output and reachable footer. Viewport override reset after QA.
-- Independent schedule start: added a second rule, saved, reopened, verified daily 09:00 plus Friday 18:30.
-- Reconnected condition No output to a different node by clicking the node body; Yes/No direct merge is rejected.
-- Telegram catalog drilldown and node form. No auto-open when adding from catalog; no implicit graph connection.
-- Detached nodes now start below the preceding output stub to avoid appearing connected.
-- Single-node safe execution displays output without closing its modal or running descendants.
-- Compact note opens, accepts text, and collapses.
-- Condition form: vertical value/operator/value with variable mode; previous-step column has neither heading nor search.
-- JavaScript field's visible label/helper removed; modal heading retained.
-- Delay appears under Actions → Logic. Runtime accepts only integer 1–30 seconds, resolves variables, preserves input, and skips real waiting in safe tests.
-- Workflow history no longer uses a viewport-covering fixed overlay. Account history retains Scenarios / Account history / Analytics navigation, without duplicating its header.
-- Step history is visual, with selected input/output and recorded sequence.
-
-## Automated verification
-
-- Final focused isolated PHP suite: 94 tests, 626 assertions passed, including webhook-start synchronization and lookup regressions.
-- JavaScript canvas tests: 7 passed. Delay also rejects unresolved/null values.
-- Build passed. Existing Browserslist data-age warning remains.
-- git diff --check passed.
-- Tests cover multiple starts, per-start schedule dispatch/deduplication, manual/webhook routing, branch guards, delay, encrypted Telegram token preservation, dry-run safety, typed entity updates including zero, expressions, JavaScript isolation, history, folders and analytics.
-
-## Boundaries
-
-Preview: http://127.0.0.1:8091/preview — isolated test data, not the user's live account. Temporary comparison pages are QA-only and not shipped application routes. No production deployment, real amoCRM mutation, webhook installation, or real Telegram message was performed. Authenticated real-account E2E remains outside this verified scope.
-
-Array transformation remains available in the JavaScript node; automatic downstream execution once per array item is not implemented.
-
-Final result: passed for the local implementation scope; live integrations not verified.
-
-## 2026-09-12 compact panels follow-up
-
-Further input-panel simplification: collapsed object/array tree with short field labels, 28px rows, no repeated full paths or instructional footer. Container counts replace expanded JSON previews. Exact expression paths preserved including quoted keys. Browser verified nested expansion and inserting items[0].id into a condition. Focused tree tests: 6 PHP / 36 assertions and 4 JavaScript tests passed; build passed.
-
-- Editor/debug icons moved beside history; workflow history editor link is in the same right-hand action group.
-- Condition form removes redundant visible select labels and tightens field spacing, preserving accessible names and saved condition semantics.
-- Input panel selects one upstream step, defaults to the latest available result, and lists compact fields. Verified insertion into a condition value switches it to variable mode.
-- Reference list uses single-line copy targets, separate option drilldown, and 20-row pages instead of nested expanded lists; long expressions remain in tooltips.
-- Fixed dark list hover specificity. Browser confirmed actual hovered row background rgb(62, 64, 72), not the legacy near-white background.
-- Browser checked light/dark appearance, condition modal at 800×700, source selection, insertion, reference category selection, and toolbar grouping. Viewport restored afterwards.
-- Focused PHP suite: 19 tests / 110 assertions passed. JavaScript suite: 10 tests passed. Build and git diff --check passed.
-- QA uses a single inactive fixture row in isolated temporary SQLite; no account data or external integrations changed.
-
-## 2026-09-12 original amoCRM entity icons
-
-- Scope: deals, customers, tasks and catalogs. Original amoCRM navigation SVG geometry, not approximated icons. Contacts/companies and unrelated controls remain unchanged.
-- Visual reference: user-provided sidebar screenshot `NSIRD_screencaptureui_uqkdBz/Снимок экрана — 2026-09-12 в 14.12.32.png` (visible in conversation). macOS denied direct file access, including elevated read; comparison instead used the matching original official assets from `https://cfcdn.kommo.com/frontend/build/67501.292ee90daf672369.css`.
-- Combined comparison captured in-browser at `http://127.0.0.1:8091/compare-amo-icons`, 1280×720: official source assets beside application-rendered Blade icons, identical 64×70 slots. All four geometries match, with no cropping or stretching. Initial QA-only source-image parser truncated SVG transform parentheses; corrected and recaptured successfully.
-- Actual editor checked at `http://127.0.0.1:8091/preview`, 1280×720: action catalog, query catalog, deal canvas node, light and dark themes. Icon color inherits the existing theme; no new backgrounds, typography, spacing, layout or copy changes. Icons remain legible in compact catalog rows and canvas nodes.
-- Shared action/trigger cards also provide the icons for history. Read operations for catalog items and fields use the catalog icon. Non-amo nodes retain their existing icons.
-- Automated result: 13 focused tests / 86 assertions passed, including mapping, fallback, SVG registration/rendering and existing node-library/canvas tests.
-- Final result: passed for local icon implementation. No production deployment or real-account actions in this pass. Temporary comparison route is outside the repository and is not shipped.
-
-## 2026-09-12 field layout, webhook listener and reconnection fixes
-
-- Shared value input now remounts when dependent option sets change, preventing a stale Alpine visibility expression from showing both text and select controls. Native selects align vertically and no longer show an inner focus frame. Browser verified pipeline → status options with exactly one visible control; light/dark modal at approximately 860×836.
-- Removed parameters heading and its subtitle; hidden legacy output-mask field removed while its stored context key remains compatible. Process-launch node types are excluded from creation without deleting saved scenario data.
-- Inline variable suggestions appear after `{{`, filter actual upstream fields, accept click/keyboard and replace only the current token. Verified insertion with surrounding text preserved and suggestions from newly captured webhook body.id. Left panel remains collapsed by default.
-- Root cause of noninteractive arrows: the main canvas hit area covered the SVG edge hit paths. Canvas background now passes pointer events through, cards stay interactive. Actual browser pointer drags verified condition No → JavaScript and an existing trigger connection moved from the fetch input to the No-node body. Backend replacement preserves unrelated branches and still rejects cycles / direct Yes-No merges.
-- Generic webhook node opens its own settings. Separate test/working URL, start/stop waiting and received data. Tested a real HTTP POST of synthetic fixture data to the isolated local test URL: returned started=false, queued=false; polling displayed body/query/headers and stopped waiting. Signed test capture cannot invoke the workflow executor even when the workflow is active. Invalid signatures remain rejected. Latest captured data is available in downstream variable suggestions.
-- Theme toggle moved from overview navigation to Filament USER_MENU_BEFORE, next to the profile and notifications. Route-scoped registration verified for the real workflow overview routes; editor keeps its own theme control. Full authenticated production header was not exercised.
-- Temporary webhook QA record is inactive and exists only in `/private/tmp/workflow-editor-v3.gHxGYd/qa.sqlite`. No production data, live amoCRM writes or real Telegram messages touched. Preview is local only.
-- Final result: passed for the local implementation; production deployment not performed.
-- Final verification: 50 focused PHP tests / 432 assertions, 14 JavaScript tests, production asset build and git diff --check passed. Existing Browserslist age warning only.
-
-## 2026-09-14 amoCRM widget row and automatic entity context
-
-- Source references: user screenshots `NSIRD_screencaptureui_hXR7SQ/Снимок экрана — 2026-09-14 в 10.01.54.png` and `NSIRD_screencaptureui_7FK7uy/Снимок экрана — 2026-09-14 в 10.02.53.png`. The target is the compact native amoCRM widget row: logo, title and disclosure arrow on one line.
-- Actual widget script was executed in a local amoCRM DOM harness at `http://127.0.0.1:8091/`. With one button workflow the compact row and button rendered; with an empty response the owning widget container had computed `display: none`. Browser console had no warnings or errors.
-- New amoCRM actions default to context entity mode. Existing actions with a stored ID reopen in manual mode. The form shows the entity type and the last available context ID; without runtime data it states that the ID will come from the node input. Fixed-type actions cannot silently switch to a different trigger type.
-- Focused verification: 32 PHP tests / 355 assertions initially; after safety additions, 24 targeted tests / 317 assertions and the expanded focused set passed. Vite production build passed. The full 340-test local run reached completion but had 10 pre-existing environment errors: five attempted the configured external PostgreSQL host and five lacked the integration fixture required by current workflow activation guards.
-- Live amoCRM visual verification is blocked because native Safari computer-control permission is unavailable. Production deployment is also pending explicit approval for uploading the prepared 14-file release archive.
-- Final result: passed for the local widget/runtime implementation; blocked for live-account visual QA and production installation.
-
-## 2026-09-14 compact «Потоки» widget follow-up
-
-- Source visual truth: `/var/folders/zc/wb0mv7rs3rx8d0kgzjsg6r000000gn/T/TemporaryItems/NSIRD_screencaptureui_B82dDM/Снимок экрана — 2026-09-14 в 10.41.52.png` (668 × 446 px). Requested deltas: rename the caption to «Потоки», use regular weight, and reduce the widget height.
-- Rendered implementation: actual `manual-buttons/script.js` in the amoCRM DOM harness at `http://127.0.0.1:8091/index.html`; combined before/after view at `http://127.0.0.1:8091/compare.html`. Captured in the Codex in-app browser at 504 × 854 px. The browser capture is retained in the QA tool output; this browser surface does not expose a local screenshot path.
-- State: light theme, one enabled button workflow. Source and implementation were shown together in one browser view. A focused direct view confirmed the caption and button at readable scale; no additional focused crop was needed.
-- Typography: caption is «Потоки», 14 px, weight 400. Button text remains 14 px, weight 400.
-- Spacing/layout: caption height 44 px, 14 px horizontal padding, 9 px gap, 28 px logo. Button height 34 px. Complete one-button widget height is 96 px.
-- Colors/assets: existing Clever logo and amoCRM-compatible orange/light tokens are unchanged; no placeholder or substitute asset was introduced.
-- Interaction: the button remained enabled and clickable after the density changes. Browser console reported no warnings or errors.
-- Comparison history: the source showed the heavier «Сценарии» heading and taller spacing. The implementation replaced the caption, reduced weight and tightened header/list/button spacing. The combined post-fix capture showed no remaining P0/P1/P2 mismatch against the requested deltas.
-- Automated verification: widget archive integrity passed; focused PHPUnit suite passed with 6 tests / 21 assertions; production archive readback matched the local SHA-256.
-- Final result: passed
-
-## 2026-10-13 saturated square nodes with duotone icons
-
-**Superseded, rejected by the user on 2026-10-13.** The pass below incorrectly
-accepted different Phosphor contours as an intentional adaptation. That was not
-authorized by the selected image. See the corrective comparison below.
-
-Source visual truth: `/Users/integrator/.codex/generated_images/01a08aaa-871f-7a11-b7b6-caf11ffbba04/exec-ba7fb147-32df-49b9-9a64-c19f6c2a4900.png` (1487 x 1058 px), the user's selected third icon option. Scope: saturated tiles, rounded squares and duotone glyphs. Connector arrows, paths, grid, coordinates, ports and execution behavior are explicitly outside the change.
-
-Browser-rendered evidence (local, ignored QA artifacts):
-
-- Full-view combined reference/implementation: `backups/canvas-controls-20261012/node-appearance-comparison.png`, 1280 x 720 px, captured at `http://127.0.0.1:8098/compare` in the Codex in-app browser.
-- Focused readable-scale states: `backups/canvas-controls-20261012/node-appearance-states-dark.png` and `node-appearance-states-light.png`, 1280 x 720 px.
-- Actual editor, unchanged connections: `backups/canvas-controls-20261012/node-appearance-editor.png`, 1280 x 720 px.
-- CSS viewport 1280 x 720, screenshot density 1. The source is displayed at 616 px width. The comparison gallery scales real 96 px tiles to 81.6 px, matching the source tile scale; state screenshots enlarge tiles to 113.3 px for glyph inspection. Editor evidence uses actual 96 x 96 px geometry, 16 px radius. Gallery-only layout differences are not product layout changes.
-
-Required fidelity surfaces:
-
-- Typography: production caption font, 14 px title / 12 px subtitle, weights and wrapping unchanged. Reference board captions are explanatory; editor keeps real node names and categories.
-- Spacing/layout: verified computed 96 x 96 px cards and 16 px radius for trigger, CRM, condition, loop and assignment. Only glyph footprint grows from 36 to 48 px. No node or port offset changes. Existing selection, hover tools and keyboard menu remain usable.
-- Colors/tokens: blue CRM, violet control flow, amber data/start, teal HTTP, cyan Telegram. Same family palette in both themes. Disabled cards remain neutral and dashed. Success/error borders and check/cross badges are independently legible on colored tiles; loading has its existing spinner on a neutral backing.
-- Assets: original locally vendored Phosphor 2.1.1 MIT SVGs, not generated or handcrafted paths. Entity silhouettes are translucent, action cues white. Search, create and update are distinct. Library-specific glyph contours are an intentional production adaptation of the selected concept.
-- Copy/content: existing node names, subtitles, actions and settings unchanged. No design-board headings or mock content enter production.
-
-Comparison history:
-
-1. P2: fill-weight plus and braces introduced boxed negative-space glyphs instead of the requested open signs. Replaced action cues and assignment braces with original bold-weight assets, used a filled Telegram mark. Fixed the QA gallery's inherited minimum width so all four columns are visible.
-2. Re-captured the combined reference and real components after these fixes. No actionable P0/P1/P2 visual differences remain within the approved scope. Light/dark success, error, running and disabled states were then checked at readable scale.
-
-Interaction/runtime checks: settings opened and fully loaded, closed without a stale panel, local disable/re-enable changed color immediately, keyboard overflow menu opened/closed, fit-to-view retained all connections. Preview asset-origin and checksum issues were fixed in the ignored harness, then the same form lifecycle completed without new browser errors. No real CRM calls, workflow runs or persisted changes were made by QA.
-
-Automated verification: 37 focused PHP tests / 816 assertions; 95 canvas, loading and inspector JavaScript tests; production build; rendering probe for all 81 registered action/trigger icons. Full unrelated application suites are not claimed clean.
-
-Implementation checklist at that time was incomplete: exact selected artwork was not installed.
-
-final result: blocked
-
-## 2026-10-13 selected artwork correction and JavaScript editor
-
-Source visual truth: `/Users/integrator/.codex/generated_images/01a08aaa-871f-7a11-b7b6-caf11ffbba04/exec-ba7fb147-32df-49b9-9a64-c19f6c2a4900.png`, 1487 x 1058 px. The user reattached this exact third option. The original PNG is now the actual source asset, unchanged, with twelve measured 194 x 194 square windows. No replacement library is used for those twelve icons; node types absent from the source retain their existing fallback.
-
-Rendered evidence, all 1280 x 720 px, CSS viewport 1280 x 720, density 1:
-
-- `backups/canvas-controls-20261012/approved-icons-comparison.png`: combined source and real card components at matching approximately 82px tile scale, same order and dark idle state, captured at `http://127.0.0.1:8098/compare`.
-- `backups/canvas-controls-20261012/approved-icons-states-dark.png` and `approved-icons-states-light.png`: readable 113px tiles, including disabled, running, success and error states. These also provide focused glyph evidence.
-- `backups/canvas-controls-20261012/javascript-editor-dark.png` and `javascript-editor-light.png`: actual inspector, syntax highlighting, line numbers and formatted code. Canvas nodes remain 96 x 96px.
-
-Findings and comparison history:
-
-1. P1, previous implementation: thin library glyphs did not match selected solid silhouettes and thick action signs. Replaced the twelve selected glyphs with the actual approved artwork. Uniform atlas scaling avoids distortion and excludes board captions/background.
-2. P2, first light-theme capture: artwork inherited zero radius from its intermediate wrapper, exposing dark corner pixels. Explicit 15px inner clipping now follows the unchanged 16px card border. Re-captured light/dark and combined reference views with no exposed corners.
-3. P2, state capture: success/error badges overlapped the enlarged action sign. Moved only the badge to the inner corner and reduced it to 17px. Re-captured both themes; signs remain readable.
-4. Editor runtime check caught an Alpine lazy-loader name mismatch. Kept the original CodeEditor component identity and attached formatting methods after initialization. Re-tested opening, formatting, undo, applying, reopening and syntax errors. No new console errors or warnings after this correction.
-
-Required fidelity surfaces:
-
-- Typography: canvas captions and controls retain existing fonts/sizes; code uses 12px monospace, 20px line height with horizontal scrolling instead of oversized prose wrapping.
-- Spacing/layout: existing node size, shape, ports, coordinates, edge paths and grid are unchanged. Inspector retains compact shared form dimensions. Code editor is bounded to 65vh and scrolls internally.
-- Colors/tokens: selected source colors and two-tone opacity preserved in both themes. Disabled artwork is grayscale; execution indicators are separate live elements.
-- Image quality: exact source contours, not substitute vectors. Source provides about 2x pixels at normal 96px node size. At extreme zoom raster artwork can soften; this is an explicit P3 limitation, not a claim of vector sharpness. A future vector master must preserve the selected contours and be compared again.
-- Copy/content: node names and categories unchanged. Added only JavaScript, Format action and actionable syntax/load messages. No mock board labels appear in node art.
-
-Functional checks: formatting stays in-browser, never executes code; a syntax error preserves the document; concurrent edits/close cannot be overwritten by delayed formatting; one CodeMirror transaction supports undo; Apply and main Save preserve code across reopen. No live CRM or workflow actions were executed. The runtime remains JavaScript only.
-
-Automated checks: 100 focused JS tests; 41 focused PHP tests / 850 assertions; production build; inspector rendering/draft probe; all 81 registered node renderings. This does not claim full CI is green. Prettier is lazy-loaded on demand; existing dependency audit findings were not changed with an unrelated upgrade.
-
-Implementation checklist: approved artwork restored; themes/statuses checked; compact code editor and formatter verified; no remaining P0/P1/P2 findings.
+# Workflow debugger implementation QA
 
 final result: passed
 
-## 2026-10-13 stage area appearance
+## Scope and source
 
-Source visual truth: user screenshot `NSIRD_screencaptureui_lwoFYc/Снимок экрана — 2026-10-13 в 20.52.18.png` (1026 x 456). Scope is the area container only, with the numeric prefix explicitly excluded. Node artwork, captions, arrows and stored area geometry are unchanged.
+Implemented the approved debugger in the existing Blade / Livewire / Alpine editor. No new frontend framework, icon system, runtime engine or production workflow definition was introduced.
 
-Evidence: `backups/canvas-controls-20261012/stage-style-dark.png`, `stage-style-dark-detail.png` and `stage-style-light.png`. The actual Laravel/Livewire editor ran at `http://127.0.0.1:8098/editor`, in an isolated fixture with external requests blocked. Full screenshots are 1280 x 720 at CSS viewport 1280 x 720, density 1; the focused dark crop is 510 x 395. Source and focused implementation were opened together in one comparison input. Source nodes measure approximately 156px, implementation nodes 96px; typography and radii were compared in node-relative units (ratio 1.625), not mistaken for pixel-identical scale. Fixture node content and manually chosen area dimensions intentionally differ from the user's live flow.
+Reference: `/Users/integrator/.codex/generated_images/01a13132-ac49-7fe1-a440-d1d4a8136e38/exec-2231a1d8-ecd5-4649-b362-b8a947eae626.png`.
 
-Fidelity checks: 16px semibold title and 24px line height match the reference's title hierarchy at normal canvas scale; 26px heading inset and 16px corner radius preserve the spacing rhythm. Opaque dark `#2b2e35`, border `#454851`, and a matching light-theme surface hide the grid inside the area. The separate heading strip and divider are removed. No imagery was replaced or generated. Copy is only the editable title, without numbering; controls appear on hover or keyboard focus rather than permanently beside the title.
+Browser preview: `http://127.0.0.1:8874/panel/workflows/history/1842/editor`.
+This is the real application page with a separate SQLite fixture and a fake CRM executor. It contains no production credentials and performs no external CRM writes.
 
-Comparison history: the original implementation had a translucent grid-filled body, a separate header strip, small text and permanent controls. These reported differences were fixed before the combined comparison. No remaining actionable P0/P1/P2 differences were found in the scoped comparison. The complete canvas was also reviewed in both themes; the focused crop supplies readable title, border and surface evidence.
+## Visual comparison
 
-Interactions verified: create, rename, keyboard move/resize, pointer move, save response and deletion of the area while all six fixture nodes remain. Keyboard focus exposes accessible controls; idle view hides them. Browser console has no warnings/errors. Production CRM execution was not part of these checks.
+Compared the reference and the rendered implementation together in the same multi-image review at 1484 x 1060, light theme, record 3 of 12, error state. Repeated the comparison after corrections.
 
-Automated checks: 85 focused JavaScript tests passed; production build and whitespace validation passed. This is targeted verification, not a claim that full application CI is green.
+Preserved the real application's Manrope font, Clever logo, node artwork, Heroicons, field controls and both themes. Differences in the global header, node palette, node subtitles and JSON syntax colors are deliberate reuse of the existing application styles requested by the user.
 
-Implementation checklist: opaque surface; no header strip; unnumbered editable title; contextual controls; light/dark appearance and existing editing lifecycle checked.
+The right inspector occupies 44% of the workspace. History is a closed dropdown, followed by the node name, status, duration, exactly three tabs, record navigation, an inline error and a numbered JSON viewer. No table selector, request-details section, technical-events section, bottom log trail or repeat button remains in this panel.
 
-final result: passed
+Corrections during comparison:
 
-## 2026-10-14 debugger workspace
+- Removed whitespace-created blank lines above JSON and increased code text to 16px / 28px.
+- Kept the heading, status and duration together instead of separating them across the panel.
+- Made existing node controls visible during debugging, with 24px targets independent of canvas zoom. At very small zoom only the selected node's controls stay visible, avoiding overlapping toolbars.
+- Restored a visible selected-node outline despite the existing global hover styles.
+- Moved mobile canvas controls into one row so the fit button remains reachable.
 
-Scope: implement the first approved debugger layout inside the existing Laravel/Livewire editor. The user explicitly excluded redesigning the settings card and node visuals. The original node artwork, colors, sizes, connections, grid and settings markup are retained. Only debugger layout, selection and result presentation changed.
+Evidence directory: `/Users/integrator/.codex/visualizations/2026/10/12/01a13132-ac49-7fe1-a440-d1d4a8136e38/workflow-debugger-implementation/`.
 
-Reference: `workflow-debugger-first/qa/desktop-1280-final.png` in the task visualization directory. Evidence: `backups/debugger-20261014/dark-loop-final.png`, `light-loop-final.png`, `desktop-condition.png`, and `mobile-final.png`. Desktop source and both final implementations were opened together in one comparison input at 1280 x 720, CSS density 1. The right-hand result column and its text are readable in these full-size captures. Mobile evidence is 390 x 844. The real Blade views and built assets were exercised at loopback port 8104 using an isolated SQLite fixture with HTTP requests blocked and the queue faked. No customer scenario or CRM action was executed.
+- `desktop-light.jpg`: final reference comparison.
+- `desktop-dark.jpg`: dark theme, JSON and error state.
+- `mobile-light.jpg`: 390 x 844 stacked canvas and inspector.
+- 1024 x 900 was also checked interactively with the two-column layout.
 
-Fidelity checks: top debugger control bar, canvas on the left, 420px result column on the right, bottom execution trail, pass selector and fixed settings footer follow the approved composition. Existing editor typography is preserved; scoped 12px controls and 15px result heading use the established compact scale. Light and dark surfaces, orange primary controls, gray separators and state indicators match the existing design tokens. No bitmap or node icon was replaced. Actual recorded node names, values and statuses replace the prototype's sample content. The result selector supports nodes with no result as well as recorded passes. The narrow layout stacks the result panel under the canvas with internal scrolling.
+## Interaction and accessibility checks
 
-Comparison and repair history:
+Verified in the browser:
 
-1. P1: Livewire morphing Alpine-generated result rows produced stale indexes and console errors after execution. Result rows and the trail now use `wire:ignore`; repeat runs and pass selection have no console errors or warnings.
-2. P1: inspecting an earlier loop pass initially left the latest pass's branch highlighted. Inspection now projects the recorded prefix to the canvas without changing the actual execution session. The second of three passes correctly shows the empty value and the No branch, while the third contains an email and follows Yes.
-3. Lifecycle verification: opening settings leaves the existing settings interface unchanged and closes only the debug layout. Closing settings and reopening debugging restores the recorded results without a blank reserved column. Node/pass/tab selection stays local and does not issue a server request.
+- Settings uses the actual existing node form in the tab.
+- Switching history preserves an unsaved field value and the current browser definition.
+- Input/output tabs and record navigation update locally.
+- The node play icon produces a new test result; all 12 historical records remain available.
+- New results are labelled as a new test, with real-action mode distinguished from saved historical data.
+- Copying all JSON writes the complete value and displays “Скопировано”.
+- Closing debug and returning to ordinary settings releases the extra column.
+- Escape from an embedded field returns to the data tab without losing the draft.
+- History search, selected-run indication, loading/error/empty states and disabled record boundaries are implemented.
+- Tabs have keyboard navigation, focus indicators and labelled controls. Existing reduced-motion styles are preserved.
+- Browser console had no warnings or errors in the verified session.
 
-Functional checks: single-step and continuous execution, visible request state, completion, selecting all three loop passes, condition operands/operator/types, input/output JSON, reset and settings round trip. Unit checks cover in-flight pause, request serialization, network errors without automatic retries, historical/stale sessions and preserving a selected pass during continuous execution. Pause stops subsequent requests after the current action or cycle finishes; this UI change does not rewrite the execution engine or promise cancellation inside an ongoing cycle. The existing main header at phone width remains outside this scoped change.
+## Automated checks and limits
 
-Validation: 105 focused JavaScript tests, 34 focused PHP tests / 195 assertions, production asset build and whitespace checks. Broader pre-existing failures in the widget JavaScript suite and the debug-input SQLite fixture are tracked separately; this is not a claim that full CI passed. Deployment status is reported separately from local visual acceptance.
+- All 299 JavaScript tests passed.
+- Eight relevant PHP suites passed: 81 tests, 604 assertions, including history ownership, original-run immutability, open-form execution, selected loop items, expired/missing data and ordinary editor behavior.
+- Production asset build and `git diff --check` passed.
+- Build retains the pre-existing Browserslist age and large-chunk warnings.
+- An attempted full workflow PHP directory run stopped in an unrelated database-dependent test because the empty SQLite environment has no `users` table. This is not a full-suite or production-runtime pass.
+- Historical records lacking their saved schema cannot be loaded as editable replays. Missing loop items are rejected rather than substituted with a later item. Legacy lookup object bodies are not reconstructed from a future final context; only recorded IDs and existence flags are restored.
+- No production deployment or live CRM execution was performed.
 
-Implementation checklist: approved debugger structure; actual pass data and matching route; original settings and node design retained; both themes checked; close/reopen lifecycle checked; no remaining scoped P0/P1/P2 findings.
-
-final result: passed
+No open P0, P1 or P2 findings in the implemented debugger scope.

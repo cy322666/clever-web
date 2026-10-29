@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 
 function fixture() {
     const events = [];
-    const window = {addEventListener() {}, dispatchEvent: event => events.push(event)};
+    const window = {innerHeight:1060, addEventListener() {}, dispatchEvent: event => events.push(event)};
     const attributes = new Set();
     const editorPage = {
         toggleAttribute: (name, enabled) => enabled ? attributes.add(name) : attributes.delete(name),
@@ -13,7 +13,8 @@ function fixture() {
         hasAttribute: name => attributes.has(name),
     };
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
-        window, document: {addEventListener() {}, querySelector: selector => selector === '.workflow-editor-page' ? editorPage : null}, CustomEvent: class {constructor(type, props) {this.type=type;Object.assign(this,props);}},
+        window, document: {addEventListener() {}, querySelector: selector => selector === '.workflow-editor-page' ? editorPage : null,
+            getElementById: id => id === 'debug-slot' ? {getBoundingClientRect:()=>({top:280,left:840,width:600,bottom:1060})} : null}, CustomEvent: class {constructor(type, props) {this.type=type;Object.assign(this,props);}},
     });
     const panel = window.workflowInspector();
     panel.$wire = {$id:'flow',mountedActions:[]};
@@ -258,4 +259,27 @@ test('a stale catalog-close event does not hide settings mounted in the same res
     assert.equal(panel.opened,false);assert.equal(panel.currentId,null);
     const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
     assert.match(view,/x-on:sync-action-modals.window="syncInspectorActions\(\$event.detail\)"/);
+});
+
+test('debug settings reuse the same form and do not reserve another canvas column', async () => {
+    const {panel,editorPage}=fixture();
+    panel.$wire.debugOpen=true;
+    panel.$wire.mountedActions=[{name:'configureWorkflowAction',data:{text:'Unsaved'}}];
+    panel.currentId='action:a';
+    panel.$wire.openWorkflowInspector=()=>assert.fail('The same form must not reload');
+    await panel.syncDebugSettings({componentId:'flow',open:true,nodeId:'action:a',name:'Нода',slotId:'debug-slot'});
+    assert.equal(panel.opened,true);assert.equal(panel.embedded,true);assert.equal(panel.tab,'settings');
+    assert.equal(panel.position.top,'280px');assert.equal(panel.position.left,'840px');assert.equal(panel.position.width,'600px');
+    assert.equal(editorPage.hasAttribute('data-workflow-inspector-open'),false);
+    panel.dismissInspector({target:{}});assert.equal(panel.opened,true,'Canvas clicks do not hide the embedded tab');
+    await panel.syncDebugSettings({componentId:'flow',open:false});
+    assert.equal(panel.opened,false);assert.equal(panel.$wire.mountedActions[0].data.text,'Unsaved');
+});
+
+test('Escape from embedded settings returns to data instead of leaving a blank settings tab', async () => {
+    const {panel,events}=fixture();panel.embedded=true;panel.opened=true;
+    panel.hideInspector();
+    assert.ok(events.some(event=>event.type==='workflow-debug-settings-dismissed' && event.detail.componentId==='flow'));
+    const count=events.length;panel.hideInspector();
+    assert.equal(events.length,count + 1,'A hidden form must not emit another dismiss event');
 });

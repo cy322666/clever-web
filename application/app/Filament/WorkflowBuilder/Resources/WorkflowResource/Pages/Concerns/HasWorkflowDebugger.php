@@ -40,9 +40,60 @@ trait HasWorkflowDebugger
     #[Locked]
     public array $nodePreviewProgress = [];
 
+    public ?int $debugSelectedResultIndex = null;
+
+    #[Locked]
+    public ?string $debugHistoryContextId = null;
+
+    protected ?string $debugExecutingNodeId = null;
+
+    public function inspectWorkflowDebugRun(int $runId): bool
+    {
+        if ($this->workflowPreviewBusy()) return false;
+        $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
+        abort_unless($record?->exists && Auth::id(), 404);
+        // Check both identities before loading any saved context or replacing UI data.
+        $replay = \App\Services\Workflows\WorkflowRunReplay::load($runId, (int) Auth::id(), (int) $record->getKey());
+        $this->cacheWorkflowDebugHistory($replay);
+        $this->debugSessionId = $this->nodePreviewSessionId = null;
+        $this->debugSelectedResultIndex = null;
+        $this->nodeRunResults = [];
+        $this->debugInputMode = 'json';
+        $this->debugRunId = $runId;
+        $this->debugInput = json_encode($replay['input'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+        $this->debugStartNodeId = $replay['input']['_workflow_start_node_id'] ?? 'trigger';
+        $this->debugReal = $this->debugRealConfirmed = false;
+        $this->debugOpen = true;
+        // Switching data never loads the historical definition into the browser draft.
+        $this->debugState = ['status' => 'historical', 'real' => false, 'run_id' => $runId,
+            'results' => $this->explainDebugResults($replay['results']), 'next_id' => null, 'error' => null,
+            'start_node_id' => $this->debugStartNodeId,
+            'display_trigger_data' => \App\Services\Workflows\WorkflowOutputView::trigger($replay['input'])];
+        $this->dispatch('workflow-debug-updated', state: $this->debugState);
+        return true;
+    }
+
+    protected function cacheWorkflowDebugHistory(array $replay): void
+    {
+        if ($this->debugHistoryContextId) Cache::forget($this->debugHistoryCacheKey());
+        $this->debugHistoryContextId = (string) Str::uuid();
+        Cache::put($this->debugHistoryCacheKey(), ['context' => $replay['context'], 'results' => $replay['results']], now()->addHour());
+    }
+
+    private function debugHistoryCacheKey(): string
+    {
+        return 'workflow-debug-history:'.(Auth::id() ?? 'guest').':'.$this->debugHistoryContextId;
+    }
+
     public function runWorkflowCanvasNode(string $actionId): void
     {
         if ($this->workflowPreviewBusy()) return;
+        $this->debugExecutingNodeId = $actionId;
+        // The play icon uses an open form's draft, without requiring Apply or Save.
+        if (($this->mountedActions[0]['name'] ?? '') === 'configureWorkflowAction' && $this->editingActionId === $actionId) {
+            $this->runEditingWorkflowNode();
+            return;
+        }
         $node = \App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)['action:'.$actionId] ?? null;
         abort_unless($node, 404);
         Cache::lock('workflow-node-run:'.(Auth::id() ?? 'guest').':'.$this->getId(), 120)->get(function () use ($actionId, $node): void {
@@ -53,7 +104,7 @@ trait HasWorkflowDebugger
                 $this->executeWorkflowNodePreview($node['step'], $this->workflowNodeRunInput());
             } catch (Throwable $exception) {
                 $this->nodeRunResults[$actionId] = ['id' => $actionId, 'status' => 'error', 'error' => $exception->getMessage()];
-                $this->publishNodePreviewResults();
+                $this->publishNodePreviewResults($actionId);
             }
             $result = $this->nodeRunResults[$actionId] ?? [];
             if (in_array($result['status'] ?? '', ['error', 'failed', 'validation_error'], true)) {
@@ -67,13 +118,14 @@ trait HasWorkflowDebugger
     public function runEditingWorkflowNode(): void
     {
         if ($this->workflowPreviewBusy()) return;
+        $this->debugExecutingNodeId = $this->editingActionId;
         try {
             $data = $this->getMountedActionSchema(0)?->getState() ?? [];
             $input = $this->workflowNodeRunInput();
             if (($this->mountedActions[0]['name'] ?? '') === 'configureTrigger') {
                 $this->saveTriggerNodeConfig($data);
                 $this->nodeRunResults[$this->editingTriggerNodeId] = ['id' => $this->editingTriggerNodeId, 'status' => 'success', 'display_count' => 1, 'output' => $input + ['_workflow_start_node_id' => $this->editingTriggerNodeId]];
-                $this->publishNodePreviewResults();
+                $this->publishNodePreviewResults($this->editingTriggerNodeId);
                 return;
             }
             $id = $this->editingActionId;
@@ -87,7 +139,7 @@ trait HasWorkflowDebugger
         } catch (Throwable $exception) {
             $id = $this->editingActionId ?? $this->editingTriggerNodeId;
             $this->nodeRunResults[$id] = ['id' => $id, 'status' => 'error', 'display_count' => 0, 'error' => $exception->getMessage()];
-            $this->publishNodePreviewResults();
+            $this->publishNodePreviewResults($id);
         }
     }
 
@@ -147,11 +199,13 @@ trait HasWorkflowDebugger
 
     private function applyWorkflowNodePreview(string $nodeId, array $session): void
     {
-        foreach (\App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']) as $result) $this->nodeRunResults[$result['id']] = $result;
+        foreach (\App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']) as $result) {
+            $this->nodeRunResults[$result['id']] = array_replace($result, $this->explainDebugResults([$result])[0], ['real' => $session['real'] ?? true]);
+        }
         if ($session['error'] ?? null) $this->nodeRunResults[$nodeId] = array_replace($this->nodeRunResults[$nodeId] ?? [], ['id' => $nodeId, 'status' => 'error', 'error' => $session['error']]);
         $this->nodePreviewSessionId ??= (string) Str::uuid();
         Cache::put($this->nodePreviewCacheKey(), $session['context'], now()->addHour());
-        $this->publishNodePreviewResults();
+        $this->publishNodePreviewResults($nodeId);
     }
 
     public function pollWorkflowNodePreview(): void
@@ -171,7 +225,7 @@ trait HasWorkflowDebugger
         if (!$state || !empty($state['error'])) {
             $this->nodeRunResults[$nodeId] = array_replace($this->nodeRunResults[$nodeId] ?? [], ['id' => $nodeId, 'status' => 'error',
                 'error' => $state['error'] ?? 'Данные пробного запуска истекли. Проверьте результат перед повторным запуском.']);
-            $this->publishNodePreviewResults();
+            $this->publishNodePreviewResults($nodeId);
         }
         $previews->acknowledge((int) Auth::id(), $id);
         $this->nodePreviewTaskId = null;
@@ -194,13 +248,13 @@ trait HasWorkflowDebugger
         return true;
     }
 
-    private function publishNodePreviewResults(): void
+    private function publishNodePreviewResults(string $previewNodeId): void
     {
         $results = collect($this->debugState['results'] ?? [])->keyBy('id')->all();
         foreach ($this->nodeRunResults as $nodeId => $result) {
             if (isset($result['id'])) $results[$nodeId] = $result;
         }
-        $this->dispatch('workflow-debug-updated', state: ['results' => array_values($results)]);
+        $this->dispatch('workflow-debug-updated', state: ['results' => array_values($results), 'preview_node_id' => $previewNodeId]);
     }
 
     public function editingNodeResult(): array
@@ -212,7 +266,6 @@ trait HasWorkflowDebugger
     public function openWorkflowDebugger(): void
     {
         $this->debugOpen = true;
-        $this->unmountAction();
     }
 
     public function closeWorkflowDebugger(): void
@@ -225,6 +278,9 @@ trait HasWorkflowDebugger
         if ($this->workflowPreviewBusy()) return;
         if ($this->debugSessionId) Cache::forget($this->debugCacheKey());
         if ($this->nodePreviewSessionId) Cache::forget($this->nodePreviewCacheKey());
+        if ($this->debugHistoryContextId) Cache::forget($this->debugHistoryCacheKey());
+        $this->debugHistoryContextId = null;
+        $this->debugSelectedResultIndex = null;
         $this->debugSessionId = $this->nodePreviewSessionId = null;
         $this->nodeRunResults = $this->debugState = [];
         $this->debugReal = $this->debugRealConfirmed = false;
@@ -259,6 +315,8 @@ trait HasWorkflowDebugger
             $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
             $session = app(WorkflowDebugger::class)->start($this->definition, $input, $record?->exists ? $record->getKey() : null, Auth::id(), $this->debugReal);
             $this->debugSessionId = (string) Str::uuid();
+            $this->debugHistoryContextId = null;
+            $this->debugSelectedResultIndex = null;
             $this->nodePreviewSessionId = null;
             $this->nodeRunResults = [];
             Cache::put($this->debugCacheKey(), $session, now()->addHour());
@@ -301,7 +359,20 @@ trait HasWorkflowDebugger
 
     protected function workflowDebugContext(): array
     {
+        if ($this->debugSelectedResultIndex !== null) {
+            $saved = $this->debugHistoryContextId ? Cache::get($this->debugHistoryCacheKey())
+                : ($this->debugSessionId ? Cache::get($this->debugCacheKey()) : null);
+            if (!is_array($saved)) throw new \InvalidArgumentException('Данные отладки истекли. Выберите запуск заново.');
+            $context = $saved['context'];
+            $context['variables']['_definition_snapshot'] ??= $saved['definition'] ?? [];
+            return \App\Services\Workflows\WorkflowRunReplay::contextAt($context, $saved['results'], $this->debugSelectedResultIndex, $this->debugExecutingNodeId);
+        }
         if ($this->nodePreviewSessionId) return Cache::get($this->nodePreviewCacheKey(), []);
+        if ($this->debugHistoryContextId) {
+            $saved = Cache::get($this->debugHistoryCacheKey());
+            if (!is_array($saved)) throw new \InvalidArgumentException('Данные запуска истекли. Выберите запуск заново.');
+            return $saved['context'];
+        }
         return $this->debugSessionId ? (Cache::get($this->debugCacheKey())['context'] ?? []) : [];
     }
 

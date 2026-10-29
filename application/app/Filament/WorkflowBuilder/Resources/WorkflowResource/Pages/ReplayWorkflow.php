@@ -42,6 +42,7 @@ class ReplayWorkflow extends EditWorkflow
         $this->replayWorkflowId = $replay['workflow_id'];
         $this->replayStartedAt = $replay['started_at'];
         $this->replayContext = $replay['context'];
+        $this->cacheWorkflowDebugHistory($replay);
         $this->definition = $replay['definition'];
         $this->loadFromDefinition();
         $this->debugInputMode = 'json';
@@ -49,7 +50,7 @@ class ReplayWorkflow extends EditWorkflow
         $this->debugStartNodeId = $replay['input']['_workflow_start_node_id'] ?? 'trigger';
         $this->debugOpen = true;
         $this->debugReal = $this->debugRealConfirmed = false;
-        $this->debugState = ['status' => 'historical', 'real' => false, 'results' => $this->explainDebugResults($replay['results']),
+        $this->debugState = ['status' => 'historical', 'real' => false, 'run_id' => $replay['run_id'], 'results' => $this->explainDebugResults($replay['results']),
             'start_node_id' => $this->debugStartNodeId,
             'display_trigger_data' => \App\Services\Workflows\WorkflowOutputView::trigger($replay['input']),
             'next_id' => null, 'error' => null];

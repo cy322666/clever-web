@@ -87,26 +87,72 @@ test('validation does not run steps; historical and stale sessions cannot contin
     for (const status of ['historical','stale','expired','failed']) {panel.$wire.debugState.status=status;await panel.runDebug();await panel.nextDebug();}
 });
 
-test('opening the unchanged settings card closes only the debug layout and keeps results', async () => {
+test('settings mount the existing form inside the debug tab without closing history', async () => {
     const {panel,events}=fixture();
     panel.$wire.debugState.results=[{id:'a',output:{count:1}}];panel.selectDebugNode('a');
-    panel.$wire.closeWorkflowDebugger=async()=>{panel.$wire.debugOpen=false;};
+    panel.$wire.closeWorkflowDebugger=()=>assert.fail('Settings must keep the debugger open');
     await panel.openDebugSettings();
-    const opened=events.find(event=>event.type==='workflow-inspector-open');
+    const opened=events.find(event=>event.type==='workflow-debug-settings' && event.detail.open);
     assert.equal(opened.detail.nodeId,'action:a');
+    assert.equal(opened.detail.slotId,'workflow-debug-settings-flow');
+    assert.equal(panel.debugTab,'settings');
+    assert.equal(panel.$wire.debugOpen,true);
     assert.equal(panel.debugResults().length,1);
 });
 
-test('debug layout is independent of the settings card and hides without leaving a reserved column', () => {
+test('the debugger has three tabs, a compact history dropdown and no bottom trail', () => {
     const css=readFileSync(new URL('../../resources/css/workflow-debugger.css',import.meta.url),'utf8');
     assert.match(css,/\.workflow-debug-ui\[hidden\] \{ display: none !important;/);
-    assert.doesNotMatch(css,/\.workflow-node-card|\.workflow-inspector/);
+    assert.match(css,/\.workflow-node-editor:has\(> \.workflow-debug-toolbar:not\(\[hidden\]\)\) \.workflow-node-card__tools/);
+    assert.match(css,/\.workflow-inspector\[data-debug-embedded\]/);
     const view=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
-    assert.match(view,/workflow-debug-trail'\)\s*<\/section>\s*@include\('filament.workflow-builder.workflow-debugger/);
+    assert.doesNotMatch(view,/@include\('filament.workflow-builder.workflow-debug-trail/);
     const panel=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debugger.blade.php',import.meta.url),'utf8');
-    const trail=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debug-trail.blade.php',import.meta.url),'utf8');
-    assert.match(panel,/<section wire:ignore x-show="debugConfigured\(\)">/);
-    assert.match(trail,/<nav wire:ignore/);
+    assert.match(panel,/<details x-ref="debugHistory"/);
+    assert.match(panel,/\['settings' => 'Настройки', 'input' => 'Вход', 'output' => 'Выход'\]/);
+    assert.match(panel,/'numbered' => true/);
+    assert.doesNotMatch(panel,/summary'|Детали запроса|Технические события|Повторить|Таблица/);
+});
+
+test('history is fetched once on demand, search and record navigation stay local', async () => {
+    const {panel}=fixture(); let calls=0;
+    panel.$wire.recentDebugRuns=async()=>{calls++;return {'10':'Вчера · Выполнено','11':'Сегодня · Ошибка'};};
+    assert.equal(calls,0);
+    await panel.loadDebugHistory();await panel.loadDebugHistory();assert.equal(calls,1);
+    assert.equal(panel.filteredDebugHistory()[0].id,11);
+    panel.historyQuery='вчера';assert.equal(panel.filteredDebugHistory()[0].id,10);
+    await panel.loadDebugHistory(true);assert.equal(calls,2);
+    const writes=[];
+    panel.$wire.$set=(key,value,live)=>writes.push({key,value,live});
+    panel.$wire.debugState.results=[{id:'a',display_output:0},{id:'a',display_output:false}];
+    panel.selectDebugNode('a');panel.moveDebugOccurrence(-1);
+    assert.equal(panel.debugRecordLabel(),'Запись 1 из 2');
+    assert.equal(writes.at(-1).value,0);assert.equal(writes.at(-1).live,false);
+    assert.equal(calls,2);
+});
+
+test('switching history keeps the browser draft, mounted settings and selection', async () => {
+    const {panel}=fixture();
+    const draft={trigger:{type:'manual'},description:'Unsaved edits'}, form={data:{text:'Unsaved settings'}};
+    panel.$wire.definition=draft;panel.$wire.mountedActions=[form];
+    panel.selectDebugNode('a');panel.$refs={debugHistory:{open:true}};
+    panel.$wire.inspectWorkflowDebugRun=async id=>{assert.equal(id,41);panel.$wire.debugState={status:'historical',run_id:id,results:[{id:'a',display_output:{id:41}}]};return true;};
+    await panel.inspectDebugRun(41);
+    assert.equal(panel.$wire.definition,draft);assert.equal(panel.$wire.mountedActions[0],form);
+    assert.equal(panel.selectedDebugId,'a');assert.equal(panel.debugOutputValue().id,41);
+    assert.equal(panel.$refs.debugHistory.open,false);assert.equal(panel.debugHistoryLabel(),'История · #41');
+});
+
+test('a node test adds a fresh result while every recorded loop pass remains inspectable', () => {
+    const {panel}=fixture();
+    const history=[{id:'a',display_output:1},{id:'a',display_output:2}];
+    panel.$wire.debugState={status:'historical',run_id:5,results:history};
+    panel.selectDebugResult(0);
+    panel.$wire.nodeRunResults={a:{id:'a',status:'completed',display_output:3}};
+    panel.updateDebugSelection({preview_node_id:'a'});
+    assert.equal(panel.debugResults().length,3);assert.equal(panel.debugOutputValue(),3);
+    assert.equal(panel.debugTab,'output');assert.equal(panel.$wire.debugState.results,history);
+    panel.moveDebugOccurrence(-1);assert.equal(panel.debugOutputValue(),2);
 });
 
 test('automatic execution preserves the pass selected by the user while explicit next follows execution', async () => {

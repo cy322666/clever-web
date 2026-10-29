@@ -216,6 +216,7 @@ window.workflowSortableList = (path) => ({
 window.workflowInspector = () => ({
     opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
     desired: undefined, processing: false, currentId: null, opener: null, dismissed: false,
+    embedded: false, debugSlotId: null,
     init() {
         this.syncCanvasSpace();
         this.releaseMorphHook = window.Livewire?.hook('morphed', ({component}) => {
@@ -234,9 +235,14 @@ window.workflowInspector = () => ({
         // The dock owns its canvas space. Synchronize before Alpine's next tick
         // so closing during a Livewire morph cannot leave an empty column.
         this.$el.hidden = !this.opened;
-        this.editorPage()?.toggleAttribute('data-workflow-inspector-open', this.opened);
+        this.editorPage()?.toggleAttribute('data-workflow-inspector-open', this.opened && !this.embedded);
     },
     positionInspector() {
+        if (this.embedded) {
+            const slot = document.getElementById(this.debugSlotId)?.getBoundingClientRect();
+            if (slot) this.position = {top: slot.top + 'px', left: slot.left + 'px', width: slot.width + 'px', bottom: Math.max(0, window.innerHeight - slot.bottom) + 'px'};
+            return;
+        }
         const canvas = document.querySelector('.workflow-workbench__main') || document.querySelector('.workflow-node-editor');
         const top = canvas?.getBoundingClientRect().top ?? 100;
         this.position = {top: `${Math.max(0, top)}px`, bottom: '0'};
@@ -271,6 +277,13 @@ window.workflowInspector = () => ({
         this.$nextTick(() => this.$el.querySelector('[role=tab][aria-selected=true]')?.focus());
     },
     openInspector(detail) {
+        if (this.$wire.debugOpen && !detail.embedded) {
+            window.dispatchEvent(new CustomEvent('workflow-debug-settings-request', {detail: {...detail, componentId:this.$wire.$id}}));
+            return;
+        }
+        this.embedded = Boolean(detail.embedded);
+        this.debugSlotId = detail.slotId || null;
+        if (this.embedded) this.tab = 'settings';
         if (detail.nodeId === this.currentId && this.opened && !this.processing) return;
         this.opener = document.activeElement;
         this.dismissed = false;
@@ -286,12 +299,14 @@ window.workflowInspector = () => ({
         return this.flushInspector();
     },
     dismissInspector(event) {
+        if (this.embedded) return;
         if (!this.opened || this.$el.contains(event.target)) return;
         // Filament widgets may teleport their options or a nested dialog.
         if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box, [data-workflow-reference-toggle], [data-workflow-reference-panel]')) return;
         this.hideInspector();
     },
     hideInspector() {
+        if (this.embedded && this.opened) window.dispatchEvent(new CustomEvent('workflow-debug-settings-dismissed', {detail:{componentId:this.$wire.$id}}));
         this.opened = false;
         this.dismissed = true;
         this.desired = undefined;
@@ -304,6 +319,12 @@ window.workflowInspector = () => ({
         this.opened = true;
         this.positionInspector();
         this.announce();
+        if (this.embedded) window.dispatchEvent(new CustomEvent('workflow-debug-settings-request', {detail:{componentId:this.$wire.$id, nodeId:this.currentId}}));
+    },
+    syncDebugSettings(detail) {
+        if (detail.componentId !== this.$wire.$id) return;
+        if (!detail.open) { if (this.embedded || this.$wire.debugOpen) this.hideInspector(); return; }
+        return this.openInspector({...detail, embedded:true});
     },
     closeInspector(save = true) {
         this.desired = {close: true, save};
@@ -2398,13 +2419,22 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
 
 window.workflowDebugPanel = () => ({
     selectedIndex: -1, selectedDebugId: null, playing: false, busy: false,
-    debugTab: 'summary', debugError: '', debugRequestName: null, followDebug: true,
+    debugTab: 'output', debugError: '', debugRequestName: null, followDebug: true,
+    historyOptions: null, historyQuery: '', historyLoading: false, historyError: '',
     initDebugPanel() {
         this.updateDebugSelection();
-        this.$watch('$wire.debugOpen', open => { if (!open) this.playing = false; this.publishDebugInspection(); });
+        this.$watch('$wire.debugOpen', open => {
+            if (!open) this.playing = false;
+            this.publishDebugInspection(); this.syncDebugSettings();
+        });
     },
     destroy() { this.playing = false; },
-    debugResults() { return this.$wire.debugState.results || []; },
+    debugResults() {
+        const recorded = this.$wire.debugState.results || [];
+        const previews = Object.values(this.$wire.nodeRunResults || {}).filter(result => result?.id && !result.historical);
+        // Keep every recorded loop pass. A new test is an additional local result.
+        return [...recorded, ...previews.map(result => ({...result, preview:true}))];
+    },
     debugConfigured() { return Boolean(this.$wire.debugState.status); },
     debugSelectedTrigger() { return typeof this.selectedDebugId === 'string' && (this.selectedDebugId === 'trigger' || this.selectedDebugId.startsWith('trigger:')); },
     debugCurrent() {
@@ -2426,7 +2456,7 @@ window.workflowDebugPanel = () => ({
             visit(action.config?.true_actions); visit(action.config?.false_actions);
         });
         visit(this.$wire.workflowActions);
-        for (const result of this.debugResults()) if (!nodes.some(node => node.id === result.id)) nodes.push({id: result.id, name: result.name || result.id});
+        for (const result of this.debugResults()) if (!nodes.some(node => node.id === result.id)) nodes.push({id: result.id, name: result.name || result.id, historical:true});
         return nodes;
     },
     debugNodeName(id) { return this.debugNodes().find(node => node.id === id)?.name || id || ''; },
@@ -2439,13 +2469,15 @@ window.workflowDebugPanel = () => ({
         this.followDebug = false;
         this.selectedDebugId = id;
         this.selectedIndex = this.debugResults().findLastIndex(result => result.id === id);
-        this.debugTab = 'summary';
+        this.deferDebugRecord();
         this.publishDebugInspection();
+        if (this.debugTab === 'settings') this.openDebugSettings();
     },
     selectDebugResult(index) {
         this.followDebug = false;
         this.selectedIndex = Number(index);
         this.selectedDebugId = this.debugCurrent().id || null;
+        this.deferDebugRecord();
         this.publishDebugInspection();
     },
     moveDebugOccurrence(direction) {
@@ -2453,12 +2485,62 @@ window.workflowDebugPanel = () => ({
         const index = results.findIndex(result => result.index === this.selectedIndex) + direction;
         if (results[index]) this.selectDebugResult(results[index].index);
     },
-    updateDebugSelection() {
+    updateDebugSelection(update = null) {
+        if (update?.preview_node_id) {
+            this.selectedDebugId = update.preview_node_id;
+            this.selectedIndex = this.debugResults().findLastIndex(result => result.id === this.selectedDebugId);
+            this.followDebug = false;
+            this.setDebugTab('output');
+        }
         if (this.followDebug) {
             this.selectedIndex = this.debugResults().length - 1;
             this.selectedDebugId = this.debugCurrent().id || this.$wire.debugState.next_id || null;
         }
+        this.deferDebugRecord();
         this.publishDebugInspection();
+    },
+    deferDebugRecord() {
+        const current = this.debugCurrent();
+        this.$wire.$set?.('debugSelectedResultIndex', this.selectedIndex >= 0 && !current.preview ? this.selectedIndex : null, false);
+    },
+    debugOccurrencePosition() { return this.debugOccurrences().findIndex(result => result.index === this.selectedIndex); },
+    debugRecordLabel() {
+        if (this.debugCurrent().preview) return 'Новая проверка';
+        return this.debugSelectedTrigger() ? 'Данные запуска' : this.debugOccurrences().length ? 'Запись ' + (this.debugOccurrencePosition() + 1) + ' из ' + this.debugOccurrences().filter(result => !result.preview).length : 'Нет записей';
+    },
+    canMoveDebugNode(direction) { const index = this.debugNodes().findIndex(node => node.id === this.selectedDebugId) + direction; return index >= 0 && index < this.debugNodes().length; },
+    moveDebugNode(direction) { if (this.canMoveDebugNode(direction)) this.selectDebugNode(this.debugNodes()[this.debugNodes().findIndex(node => node.id === this.selectedDebugId) + direction].id); },
+    setDebugTab(tab) { this.debugTab = tab; this.syncDebugSettings(); },
+    nextDebugTab(direction) {
+        const tabs = ['settings', 'input', 'output'];
+        this.setDebugTab(tabs[(tabs.indexOf(this.debugTab) + direction + tabs.length) % tabs.length]);
+        this.$nextTick(() => this.$el.querySelector('.workflow-debug-tabs [aria-selected=true]')?.focus());
+    },
+    debugSettingsAvailable() {
+        return this.debugSelectedTrigger() ? ['schedule', 'generic-webhook'].includes(this.selectedDebugId === 'trigger' ? this.$wire.trigger?.type : this.$wire.definition?.additional_triggers?.find(node => node.id === this.selectedDebugId)?.type)
+            : Boolean(this.selectedDebugId && this.debugNodes().some(node => node.id === this.selectedDebugId && !node.historical));
+    },
+    syncDebugSettings() {
+        const open = Boolean(this.$wire.debugOpen && this.debugTab === 'settings' && this.debugSettingsAvailable());
+        const detail = {componentId:this.$wire.$id, open, nodeId:this.debugSelectedTrigger() ? this.selectedDebugId : 'action:' + this.selectedDebugId, name:this.debugNodeName(this.selectedDebugId), slotId:'workflow-debug-settings-' + this.$wire.$id};
+        const announce = () => window.dispatchEvent(new CustomEvent('workflow-debug-settings', {detail}));
+        if (this.$nextTick) this.$nextTick(announce); else announce();
+    },
+    debugHistoryLabel() { return this.$wire.debugState.run_id ? 'История · #' + this.$wire.debugState.run_id : 'История'; },
+    filteredDebugHistory() { return (this.historyOptions || []).filter(run => ('#' + run.id + ' ' + run.label).toLocaleLowerCase('ru').includes(this.historyQuery.toLocaleLowerCase('ru'))); },
+    async loadDebugHistory(refresh = false) {
+        if (this.historyLoading || (!refresh && this.historyOptions !== null)) return;
+        this.historyLoading = true; this.historyError = '';
+        try { const runs = await this.$wire.recentDebugRuns(); this.historyOptions = Object.entries(runs || {}).map(([id,label]) => ({id:Number(id), label})).sort((a,b) => b.id - a.id); }
+        catch { this.historyError = 'Не удалось загрузить историю. Попробуйте обновить список.'; }
+        finally { this.historyLoading = false; }
+    },
+    async inspectDebugRun(id) {
+        if (this.busy || this.playing) return;
+        const selected = this.selectedDebugId;
+        if (await this.debugRequest('inspectWorkflowDebugRun', Number(id)) === false) return;
+        this.$refs.debugHistory.open = false;
+        this.selectDebugNode(this.debugNodes().some(node => node.id === selected) ? selected : this.debugResults().at(-1)?.id || this.$wire.debugState.start_node_id || 'trigger');
     },
     debugCanvasState() {
         const state = this.$wire.debugState;
@@ -2477,16 +2559,22 @@ window.workflowDebugPanel = () => ({
     debugRunLabel() {
         if (this.busy && this.debugRequestName !== 'nextWorkflowDebugStep') return {startWorkflowDebug:'Подготовка запуска',editWorkflowDebugInput:'Подготовка данных',closeWorkflowDebugger:'Закрытие'}[this.debugRequestName] || 'Загрузка';
         if (this.busy) return this.playing ? 'Выполняется' : 'Ожидаем завершения шага';
+        if (this.debugCurrent().preview) return 'Проверка ноды';
         return {ready:'Пауза', completed:'Завершено', failed:'Ошибка', stale:'Схема изменена', expired:'Сессия истекла', historical:'История'}[this.$wire.debugState.status] || 'Подготовка';
+    },
+    debugModeLabel() {
+        if (this.debugCurrent().preview) return this.debugCurrent().real === false ? 'Без записи в CRM' : 'Реальные действия';
+        if (this.$wire.debugState.status === 'historical') return 'Сохранённые данные';
+        return (this.debugConfigured() ? this.$wire.debugState.real : this.$wire.debugReal) ? 'Реальные действия' : 'Без записи в CRM';
     },
     debugInputValue() { return this.debugCurrent().display_input ?? {message:'Входные данные этого шага не записаны.'}; },
     debugOutputValue() { return this.debugCurrent().display_output ?? {message:'Выходные данные этого шага не записаны.'}; },
     debugOutputEmpty() { const value = this.debugOutputValue(); return Array.isArray(value) ? value.length === 0 : value !== null && typeof value === 'object' && Object.keys(value).length === 0; },
     debugExplanation() { return this.debugCurrent().explanation || {title:this.debugStatusLabel(this.debugCurrent().status), details:[], note:this.debugCurrent().error || ''}; },
-    async debugRequest(method) {
+    async debugRequest(method, ...params) {
         if (this.busy) return false;
         this.busy = true; this.debugError = ''; this.debugRequestName = method;
-        try { return await this.$wire[method](); }
+        try { return await this.$wire[method](...params); }
         catch {
             this.playing = false;
             this.debugError = method === 'nextWorkflowDebugStep'
@@ -2518,6 +2606,7 @@ window.workflowDebugPanel = () => ({
         if (this.busy || this.playing) return;
         if (await this.debugRequest('editWorkflowDebugInput') === false) return;
         this.selectedIndex = -1; this.selectedDebugId = null; this.followDebug = true;
+        this.setDebugTab('output');
     },
     async closeDebug() {
         this.playing = false;
@@ -2526,10 +2615,7 @@ window.workflowDebugPanel = () => ({
     },
     async openDebugSettings() {
         if (this.busy || this.playing || !this.selectedDebugId) return;
-        const nodeId = this.debugSelectedTrigger() ? this.selectedDebugId : 'action:' + this.selectedDebugId;
-        await this.closeDebug();
-        if (this.$wire.debugOpen) return;
-        window.dispatchEvent(new CustomEvent('workflow-inspector-open', {detail: {componentId:this.$wire.$id, nodeId, name:this.debugNodeName(this.selectedDebugId)}}));
+        this.setDebugTab('settings');
     },
 });
 

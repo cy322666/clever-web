@@ -24,6 +24,7 @@ trait HasWorkflowDebugInput
         $this->resetValidation('debugInput');
     }
 
+    #[\Livewire\Attributes\Renderless]
     public function recentDebugRuns(): array
     {
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;

@@ -85,12 +85,14 @@ class WorkflowDebugPanelTest extends TestCase
         $this->assertArrayNotHasKey('headers', $page->get('debugState.display_trigger_data'));
     }
 
-    public function test_workspace_renders_dedicated_toolbar_side_inspector_and_path_without_changing_node_settings(): void
+    public function test_workspace_renders_tabbed_inspector_and_compact_history_without_bottom_logs(): void
     {
         Livewire::test(WorkflowDebugFixture::class)->call('openWorkflowDebugger')
-            ->assertSee('Результаты отладки')->assertSee('Управление отладкой')
-            ->assertSee('Выполненные шаги')->assertSee('Проход ноды')
-            ->assertSee('Открыть настройки ноды')->assertDontSee('workflow-debugger__stepbar', false)
+            ->assertSee('Отладка ноды')->assertSee('Управление отладкой')
+            ->assertSee('История')->assertSee('Настройки')->assertSee('Вход')->assertSee('Выход')
+            ->assertSee('Предыдущая запись')->assertSee('Скопировать JSON')
+            ->assertDontSee('Выполненные шаги')->assertDontSee('Детали запроса')->assertDontSee('Технические события')
+            ->assertDontSee('workflow-debug-trail', false)
             ->call('startWorkflowDebug')->call('closeWorkflowDebugger')->assertSet('debugOpen', false)
             ->call('openWorkflowDebugger')->assertSet('debugState.status', 'ready');
     }

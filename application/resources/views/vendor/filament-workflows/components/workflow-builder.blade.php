@@ -50,8 +50,10 @@
          The expression sends no request while there is no active preview. --}}
     <span wire:poll.2s="$wire.nodePreviewTaskId && $wire.pollWorkflowNodePreview()" aria-hidden="true"></span>
     <div class="workflow-workbench__shell" x-data="workflowDebugPanel()" x-init="initDebugPanel()"
-        x-on:workflow-debug-updated.window="$nextTick(() => updateDebugSelection())"
-        x-on:workflow-debug-select.window="selectDebugNode($event.detail.id)">
+        x-on:workflow-debug-updated.window="$nextTick(() => updateDebugSelection($event.detail.state))"
+        x-on:workflow-debug-select.window="selectDebugNode($event.detail.id)"
+        x-on:workflow-debug-settings-dismissed.window="if ($event.detail.componentId === $wire.$id && debugTab === 'settings') setDebugTab('output')"
+        x-on:workflow-debug-settings-request.window="if ($event.detail.componentId === $wire.$id) { selectDebugNode($event.detail.nodeId.replace(/^action:/, '')); setDebugTab('settings'); }">
         <div class="workflow-workbench__toolbar">
             <div class="workflow-workbench__toolbar-layout">
                 <div class="workflow-workbench__identity">
@@ -134,7 +136,6 @@
             </div>
         </div>
 
-        @include('filament.workflow-builder.workflow-debug-toolbar')
         <div class="workflow-workbench__main">
             <x-filament-workflows::workflows.node-library
                 :triggers="$workflowTriggerOptions"
@@ -149,7 +150,7 @@
             <section
                 wire:key="workflow-canvas-{{ $workflowLayoutKey }}"
                 x-data="workflowNodeCanvas(@js($workflowLayoutKey), $wire.definition.canvas_layout ?? null, $wire.definition.canvas_edge_routes ?? null)"
-                x-init="$nextTick(() => { initializeCanvas(); setExecutionState(debugCanvasState()); }); $watch('selectedDebugId', id => { if ($wire.debugOpen) { selectedNodeIds = id ? ['action:' + id] : []; applyNodeSelection(); } })"
+                x-init="$nextTick(() => { initializeCanvas(); setExecutionState(debugCanvasState()); if ($wire.debugOpen && selectedDebugId) { selectedNodeIds = [selectedDebugId.startsWith('trigger') ? selectedDebugId : 'action:' + selectedDebugId]; applyNodeSelection(); } }); $watch('selectedDebugId', id => { if ($wire.debugOpen) { selectedNodeIds = id ? [id.startsWith('trigger') ? id : 'action:' + id] : []; applyNodeSelection(); } })"
                 x-on:pointermove.window="moveCanvas($event)"
                 x-on:pointerup.window="stopCanvasInteraction($event)"
                 x-on:pointercancel.window="stopCanvasInteraction($event)"
@@ -169,7 +170,10 @@
                 x-on:workflow-node-library-closed.window="pendingDropPosition = null; pendingInsertion = null; pendingTriggerPosition = null"
                 x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
                 class="workflow-node-editor"
+                x-bind:style="{ '--workflow-debug-scale': 1 / scale }"
+                x-bind:data-debug-controls-compact="scale < .5"
             >
+            @include('filament.workflow-builder.workflow-debug-toolbar')
             <div
                 x-ref="viewport"
                 x-on:pointerdown="startCanvasInteraction($event)"
@@ -295,7 +299,6 @@
                     @endif
                 </div>
             </div>
-            @include('filament.workflow-builder.workflow-debug-trail')
             </section>
             @include('filament.workflow-builder.workflow-debugger')
         </div>
