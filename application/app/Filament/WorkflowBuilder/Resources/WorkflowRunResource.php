@@ -280,7 +280,7 @@ class WorkflowRunResource extends Resource
 
         return $date
             ->timezone('Europe/Moscow')
-            ->format('Y-m-d H:i:s');
+            ->format('m.d H:i');
     }
 
     public static function initiatorHtml(WorkflowRun $run): HtmlString
