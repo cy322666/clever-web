@@ -10,6 +10,59 @@ use Livewire\Attributes\Locked;
 
 trait HasCompactWorkflowConfigurationPanels
 {
+    public array $workflowLocalInspectorDirty = [];
+
+    private ?array $localInspectorBootstrap = null;
+
+    public function workflowInspectorCacheKey(): string
+    {
+        return 'workflow-inspector:'.auth()->id().':'.$this->getId();
+    }
+
+    #[\Livewire\Attributes\Renderless]
+    public function pollWorkflowWebhookPreview(): ?array
+    {
+        $record = method_exists($this,'getRecord') ? $this->getRecord() : null;
+        if (!$record?->exists) return null;
+        abort_unless((int)$record->user_id === (int)auth()->id(),403);
+        return app(\App\Services\Workflows\WorkflowGenericWebhookService::class)->latestPreview($record);
+    }
+
+    public function workflowInspectorBootstrap(): array
+    {
+        if ($this->localInspectorBootstrap !== null) return $this->localInspectorBootstrap;
+        $cached=\Illuminate\Support\Facades\Cache::get($this->workflowInspectorCacheKey());
+        if (is_array($cached)) return $this->localInspectorBootstrap=$cached;
+        $registry = app(\Leek\FilamentWorkflows\Actions\ActionRegistry::class);
+        $compiler = app(\App\Services\Workflows\WorkflowInspectorSchema::class);
+        $schemas = [];
+        $catalog = $this->workflowDraftCatalog();
+        foreach ($catalog['actions'] as $type => $item) {
+            $schemas['action:'.$type] = $compiler->describe($this, $registry->getConfigSchema($type), $item['defaults']);
+        }
+        foreach (\App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions) as $entry) {
+            $type = $entry['step']['type'];
+            if (!isset($schemas['action:'.$type]) && $registry->has($type)) $schemas['action:'.$type] = $compiler->describe($this, $registry->getConfigSchema($type), $registry->getDefaultConfig($type));
+        }
+        $schemas['trigger:schedule'] = $compiler->describe($this, \App\Workflows\Triggers\ScheduleTrigger::configSchema(), \App\Workflows\Triggers\ScheduleTrigger::defaultConfig());
+        $schemas['trigger:generic-webhook'] = $compiler->describe($this, \App\Workflows\Triggers\GenericWebhookTrigger::configSchema(), ['source'=>'webhook']);
+        try { $context = $this->workflowActions!==[] || $this->debugState!==[] ? $this->workflowNodeInputContext() : []; } catch (\JsonException|\InvalidArgumentException) { $context=[]; }
+        $sources = \App\Services\Workflows\WorkflowExpressionCatalog::sources([...$this->workflowActions,['id'=>'__inspector_end__','type'=>'workflow_delay','config'=>[]]], '__inspector_end__', $context, null, $this->definition);
+        $with = [];
+        foreach (\App\Services\Workflows\WorkflowAmoReadCatalog::operations() as $key=>$operation) $with[$key] = \App\Services\Workflows\WorkflowAmoReadCatalog::withOptions($key);
+        $conditionFields = auth()->id() ? \App\Services\Workflows\WorkflowEditorReferenceQuery::for(\App\Models\amoCRM\Field::class)->where('user_id', auth()->id())->where('active',true)->get()->map(fn($field)=>['id'=>$field->field_id,'entity'=>$field->entity_type,'type'=>$field->type,'enums'=>$field->enums])->all() : [];
+        $this->localInspectorBootstrap = ['schemas'=>$schemas,
+            'sources'=>\App\Services\Workflows\WorkflowExpressionCatalog::forPicker($sources),
+            'customFields'=>\App\Services\Workflows\WorkflowExpressionCatalog::customFieldSuggestions(),
+            'conditionFields'=>$conditionFields,
+            'queryOperations'=>['leads.list','contacts.list','companies.list','customers.list','tasks.list'], 'withOptions'=>$with,
+            'timezone'=>config('app.timezone'),
+            'selectUrl'=>\Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('select','filament/forms'),
+            'codeEditorUrl'=>\Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('code-editor','filament/forms')];
+        \Illuminate\Support\Facades\Cache::put($this->workflowInspectorCacheKey(),$this->localInspectorBootstrap,now()->addMinutes(15));
+        return $this->localInspectorBootstrap;
+    }
+
     public ?array $workflowInspectorInitialData = null;
 
     #[Locked]
@@ -22,6 +75,7 @@ trait HasCompactWorkflowConfigurationPanels
 
     protected function applyWorkflowInspectorDraft(bool $allowInvalid = false): bool
     {
+        if (!$allowInvalid && !$this->applyLocalWorkflowInspectorDrafts()) return false;
         if ($this->mountedActions !== [] && $this->isWorkflowInspectorAction($this->getMountedAction())) {
             $nodeId = $this->currentWorkflowInspectorNodeId();
             $deferred = false;
@@ -63,6 +117,64 @@ trait HasCompactWorkflowConfigurationPanels
         }
 
         return true;
+    }
+
+    protected function applyLocalWorkflowInspectorDrafts(?array $ids = null): bool
+    {
+        foreach ($ids ?? array_keys($this->workflowLocalInspectorDirty) as $nodeId) {
+            if (!isset($this->workflowLocalInspectorDirty[$nodeId])) continue;
+            $entry = \App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)[$nodeId] ?? null;
+            $start = \App\Services\Workflows\WorkflowStartNodes::all(array_merge($this->definition,['trigger'=>$this->trigger]))[$nodeId] ?? null;
+            if (!$entry && !in_array($start['type'] ?? null,['schedule','generic-webhook'],true)) { unset($this->workflowLocalInspectorDirty[$nodeId]); continue; }
+            if ($this->mountedActions !== []) $this->unmountAction();
+            $this->resetWorkflowInspectorSchema();
+            if ($entry) $this->openWorkflowActionEditor(substr($nodeId,7));
+            else $this->editTriggerNode($nodeId);
+            $original = $entry['step']['config'] ?? $start['config'] ?? [];
+            try { $this->callMountedAction(); }
+            catch (ValidationException $exception) {
+                $errors=[];
+                foreach ($exception->errors() as $path=>$messages) {
+                    $parts=explode('.',preg_replace('/^mountedActions\.0\.data\./','',$path));
+                    $cursor=$this->mountedActions[0]['data'] ?? [];
+                    foreach ($parts as &$part) {
+                        $value=$cursor[$part] ?? null;
+                        if (is_array($cursor) && preg_match('/^[a-f0-9-]{36}$/i',$part)) $part=(string)array_search($part,array_keys($cursor),true);
+                        $cursor=$value;
+                    }
+                    unset($part);
+                    $errors[implode('.',$parts)]=$messages;
+                }
+                $this->dispatch('workflow-local-inspector-validation',componentId:$this->getId(),nodeId:$nodeId,errors:$errors);
+                $this->unmountAction();
+                throw $exception;
+            }
+            if ($this->mountedActions !== []) return false;
+            // Keep unrecognized settings and credentials in imported flows.
+            if ($entry) {
+                $saved=\App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)[$nodeId];
+                data_set($this->workflowActions,$saved['path'].'.config',array_replace($original,$saved['step']['config']));
+            } elseif ($nodeId==='trigger') {
+                $this->trigger['config']=array_replace($original,$this->trigger['config']);
+            } else {
+                foreach ($this->definition['additional_triggers'] as &$item) if ($item['id']===$nodeId) $item['config']=array_replace($original,$item['config']);
+                unset($item);
+            }
+            unset($this->workflowLocalInspectorDirty[$nodeId]);
+        }
+        $this->syncDefinition();
+        return true;
+    }
+
+    public function openWorkflowInspectorCreateOption(string $nodeId): void
+    {
+        $step=\App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)[$nodeId]['step'] ?? null;
+        abort_unless(($step['type'] ?? null)==='telegram_send_message',422);
+        $this->openWorkflowInspector($nodeId);
+        $schema=$this->getMountedActionSchema(mountedAction:$this->getMountedAction());
+        $field=$schema->getComponentByStatePath('mountedActions.0.data.credential_id',withHidden:true,withAbsoluteStatePath:true);
+        abort_unless($field instanceof \Filament\Forms\Components\Select && $field->hasCreateOptionActionFormSchema(),422);
+        $this->mountAction('createOption',[],['schemaComponent'=>$field->getKey()]);
     }
 
     private function currentWorkflowInspectorNodeId(): string

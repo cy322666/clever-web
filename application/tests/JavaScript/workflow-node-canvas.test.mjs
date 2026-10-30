@@ -91,7 +91,7 @@ test('canvas chrome has a centered debug start and compact top-right controls', 
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
     const inspectorCss = readFileSync(new URL('../../resources/css/workflow-inspector.css', import.meta.url), 'utf8');
     assert.match(view, /class="workflow-canvas-run" x-cloak/);
-    assert.match(view, /if \(playing\) playing = false; else if \(!\$wire\.debugOpen\) \$wire\.openWorkflowDebugger\(\); else if \(\$wire\.debugState\.status === 'ready'\) runDebug\(\); else startDebug\(true\)/);
+    assert.match(view, /if \(playing\) playing = false; else if \(!\$wire\.debugOpen\) openDebug\(\); else if \(\$wire\.debugState\.status === 'ready'\) runDebug\(\); else startDebug\(true\)/);
     assert.match(view, /x-bind:disabled="busy && !playing"/);
     assert.doesNotMatch(view, /@include\('filament.workflow-builder.workflow-debug-toolbar/);
     assert.match(css, /\.workflow-canvas-execution-controls \{[^}]*left: 50%; bottom: 20px;/);

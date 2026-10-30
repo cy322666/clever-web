@@ -61,7 +61,7 @@ export function validateDraftGraph(document) {
 
 // Data adapter for the EXISTING editor. No new forms, cards, CSS or debugger.
 // Every write uses Livewire's deferred local state; only explicit server actions
-// (Save, Run, settings HTML or reference refresh) send a request.
+// (Save, Run or reference refresh) send a request.
 export class WorkflowEditorDraft {
     constructor(wire, catalog, render = () => {}, announce = () => {}) {
         this.wire = wire;
@@ -122,6 +122,7 @@ export class WorkflowEditorDraft {
         this.wire.$set('workflowActions', next.actions, false);
         this.wire.$set('trigger', next.trigger, false);
         this.render();
+        this.announce('workflow-local-document-changed',{componentId:this.wire.$id});
         return result;
     }
     selectActionType(type, openInspector = true, operation = null) {
@@ -130,7 +131,7 @@ export class WorkflowEditorDraft {
         const item = operation ? this.catalog.operations[operation] : null;
         if (operation && !item) throw new Error('Запрос пока недоступен.');
         const connection = this.wire.insertConnection;
-        const hadInspector = (this.wire.mountedActions || []).some(action => ['configureWorkflowAction', 'configureTrigger'].includes(action.name));
+        const hadInspector = this.inspectorOpened || (this.wire.mountedActions || []).some(action => ['configureWorkflowAction', 'configureTrigger'].includes(action.name));
         const id = this.mutate(document => {
             const id = document.add({...metadata, name: item?.node_name || metadata.name}, {operation, connection});
             const node = document.node(id);
@@ -145,7 +146,7 @@ export class WorkflowEditorDraft {
         }, true);
         for (const key of ['insertConnection', 'insertActionPath', 'insertActionIndex', 'targetPath']) this.wire.$set(key, null, false);
         this.announce(connection ? 'workflow-node-inserted' : 'workflow-node-created', {nodeId: id, ...connection});
-        if (hadInspector && openInspector) return this.wire.openWorkflowInspector(id);
+        if (hadInspector && openInspector) this.announce('workflow-inspector-open',{componentId:this.wire.$id,nodeId:id,name:item?.node_name || metadata.name});
         return id;
     }
     selectReadOperation(operation) { return this.selectActionType('amocrm_read', true, operation); }
@@ -165,7 +166,7 @@ export class WorkflowEditorDraft {
         }, true);
         this.replacing = null;
         this.announce(replacing ? 'workflow-node-replaced' : 'workflow-node-created', {nodeId: id});
-        if (type === 'schedule') return this.wire.openWorkflowInspector(id);
+        if (type === 'schedule') this.announce('workflow-inspector-open',{componentId:this.wire.$id,nodeId:id,name:metadata.name});
         return id;
     }
     removeTriggerNode(id) {
@@ -186,10 +187,6 @@ export class WorkflowEditorDraft {
         this.announce('workflow-connections-updated');
     }
     renameWorkflowNode(id, name, inline = false) {
-        // Parked invalid forms remain server-validated with their existing logic.
-        // This fallback also remaps the mounted form, without persisting anything.
-        if (this.wire.mountedActions?.length || Object.keys(this.wire.workflowInspectorDrafts || {}).length)
-            return this.wire.renameWorkflowNode(id, name, inline);
         this.mutate(document => document.rename(id.startsWith('trigger') ? id : 'action:' + id, name));
         return name.trim();
     }

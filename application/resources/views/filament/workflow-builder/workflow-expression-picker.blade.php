@@ -1,9 +1,13 @@
 @php($customFieldSuggestions = \App\Services\Workflows\WorkflowExpressionCatalog::customFieldSuggestions())
-<div class="workflow-expression-picker" wire:key="workflow-expression-sources-{{ md5(json_encode([$sources, $customFieldSuggestions])) }}" x-data="workflowExpressionPicker(@js($sources), @js($customFieldSuggestions))"
+<div class="workflow-expression-picker" wire:key="workflow-expression-sources-{{ md5(json_encode([$sources, $customFieldSuggestions])) }}" x-data="workflowExpressionPicker({!! $sourcesExpression ?? \Illuminate\Support\Js::from($sources)->toHtml() !!}, @js($customFieldSuggestions))"
     x-on:focusin.window="rememberField($event)" x-on:input.window="updatePreview($event)">
     <div class="workflow-expression-picker__row">
     <select class="workflow-expression-picker__select" style="flex: 1 1 auto; width: 0" x-model="selectedId" x-on:change="limit = 30; expanded = []; collapsedJson = []; preview = null" aria-label="Шаг с данными">
-        @foreach($sources as $source)<option value="{{ $source['id'] }}">{{ $source['name'] }}</option>@endforeach
+        @isset($sourcesExpression)
+            <template x-for="source in sources" :key="source.id"><option :value="source.id" x-text="source.name"></option></template>
+        @else
+            @foreach($sources as $source)<option value="{{ $source['id'] }}">{{ $source['name'] }}</option>@endforeach
+        @endisset
     </select>
     <button class="workflow-expression-picker__insert" type="button" x-show="selectedSource?.fields.length" x-on:mousedown.prevent x-on:click="insert(selectedSource.fields[0])" aria-label="Подставить весь результат шага" title="Подставить весь результат шага"><x-filament::icon icon="heroicon-m-plus" class="h-3 w-3"/></button>
     </div>

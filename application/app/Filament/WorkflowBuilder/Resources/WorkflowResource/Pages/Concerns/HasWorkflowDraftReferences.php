@@ -29,6 +29,13 @@ trait HasWorkflowDraftReferences
         if (in_array($methodName, ['refreshWorkflowReference', 'refreshEditingNodeReferences'], true)) {
             $this->workflowReferenceRows = [];
         }
+        if (method_exists($this,'workflowInspectorCacheKey') && (
+            in_array($methodName,['refreshWorkflowReference','refreshEditingNodeReferences','saveWorkflowCredential','deleteWorkflowCredential'],true)
+            || ($methodName==='callMountedAction' && ($this->mountedActions[array_key_last($this->mountedActions)]['name'] ?? '')==='createOption')
+        )) {
+            \Illuminate\Support\Facades\Cache::forget($this->workflowInspectorCacheKey());
+            $this->localInspectorBootstrap=null;
+        }
     }
 
     public function workflowEditorFolderOptions(): array

@@ -45,7 +45,8 @@ class WorkflowCompactControlsTest extends TestCase
             $page = $this->editor('control-condition', ['logic' => $logic, 'conditions' => [['left' => 1, 'operator' => 'equals', 'right' => 1]]]);
             $html = $this->form($page);
             $this->assertStringContainsString('fi-fo-toggle-buttons', $html);
-            $this->assertSame(2, substr_count($html, 'fi-fo-toggle-buttons-btn-ctn'));
+            // Count bound controls in the mounted PHP form, excluding inert local templates.
+            $this->assertSame(2, preg_match_all('/<input\b(?=[^>]*fi-fo-toggle-buttons-input)(?=[^>]*wire:model)[^>]*>/s', $html));
             $this->assertDoesNotMatchRegularExpression('/class="[^"]*fi-fo-toggle-buttons[^\"]*fi-btn-group/', $html);
             $this->assertStringNotContainsString('Все условия (И)', $html);
             $this->assertStringContainsString('workflow-value-field__header--unlabeled', $html);
@@ -81,7 +82,7 @@ class WorkflowCompactControlsTest extends TestCase
             $page = $this->editor('amocrm_contact_leads', ['source' => $source, $id => '{{ $json.id }}']);
             $html = $this->form($page);
             $this->assertStringContainsString('fi-fo-toggle-buttons', $html);
-            $this->assertSame(2, substr_count($html, 'fi-fo-toggle-buttons-btn-ctn'));
+            $this->assertSame(2, preg_match_all('/<input\b(?=[^>]*fi-fo-toggle-buttons-input)(?=[^>]*wire:model)[^>]*>/s', $html));
             $this->assertDoesNotMatchRegularExpression('/class="[^"]*fi-fo-toggle-buttons[^"]*fi-btn-group/', $html);
             $this->assertStringContainsString('Контакт сделки', $html);
             $this->assertStringNotContainsString('Указать ID контакта', $html);

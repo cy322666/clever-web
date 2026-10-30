@@ -73,16 +73,17 @@ test('the branch picker cannot insert a trigger, even with a stale menu selectio
     assert.deepEqual(events.at(-1), {name: 'workflow-node-library-open', detail: {mode: 'trigger'}});
     assert.equal(draft.selectTriggerType('manual', true).startsWith('trigger:'), true);
 });
-test('invalid local rename preserves the document; open form still uses existing server validation', async () => {
+test('rename remains local with an open form and still rejects duplicate names', async () => {
     const {draft, wire} = fixture();
     const before = clone(wire.definition);
     assert.throws(() => draft.renameWorkflowNode('a', 'Следующий'), /названием/);
     assert.deepEqual(wire.definition, before);
     wire.mountedActions = [{name: 'configureWorkflowAction'}];
     let calls = 0;
-    wire.renameWorkflowNode = async (...args) => {calls++; assert.deepEqual(args, ['a', 'Новое', true]); return 'Новое';};
+    wire.renameWorkflowNode = async () => {calls++; assert.fail('Opening a form must not make renaming remote');};
     assert.equal(await draft.renameWorkflowNode('a', 'Новое', true), 'Новое');
-    assert.equal(calls, 1);
+    assert.equal(calls, 0);
+    assert.equal(wire.workflowActions[0].config.true_actions[0].name,'Новое');
 });
 test('copy is not an edit and keeps the complete document byte-for-byte unchanged', () => {
     const {draft, wire, writes} = fixture();

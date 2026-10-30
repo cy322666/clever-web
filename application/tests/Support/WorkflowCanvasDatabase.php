@@ -52,5 +52,11 @@ class WorkflowCanvasDatabase
             $table->boolean('active')->default(true);
             $table->boolean('is_archive')->default(false);
         });
+        Schema::create('distribution_settings', function (Blueprint $table): void {
+            $table->id();
+            $table->integer('user_id');
+            $table->json('settings')->nullable();
+        });
+        (require database_path('migrations/2026_09_14_210000_create_workflow_credentials_table.php'))->up();
     }
 }

@@ -23,7 +23,7 @@ class WorkflowEditorRunRemovalTest extends TestCase
         $builder = file_get_contents(resource_path('views/vendor/filament-workflows/components/workflow-builder.blade.php'));
         $this->assertStringNotContainsString('workflow-manual-run', $builder);
         $this->assertStringNotContainsString('runWorkflowManually', $builder);
-        $this->assertStringContainsString('openWorkflowDebugger', $builder);
+        $this->assertStringContainsString('openDebug()', $builder);
     }
 
     public function test_debugger_node_execution_and_external_manual_trigger_remain_available(): void

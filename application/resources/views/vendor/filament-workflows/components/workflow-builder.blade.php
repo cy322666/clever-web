@@ -43,9 +43,7 @@
         'workflow-workbench--page' => $pageMode,
     ])
 >
-    @unless($isReplay)
-        @include('filament.workflow-builder.workflow-draft-templates')
-    @endunless
+    @include('filament.workflow-builder.workflow-draft-templates')
     {{-- Keep the poll directive mounted: Filament may update only the node modal.
          The expression sends no request while there is no active preview. --}}
     <span wire:poll.2s="$wire.nodePreviewTaskId && $wire.pollWorkflowNodePreview()" aria-hidden="true"></span>
@@ -211,17 +209,17 @@
                         </button>
                     @endif
                     <button type="button" class="workflow-canvas-run" x-cloak
-                        x-on:pointerdown.stop x-on:click.stop="if (playing) playing = false; else if (!$wire.debugOpen) $wire.openWorkflowDebugger(); else if ($wire.debugState.status === 'ready') runDebug(); else startDebug(true)"
+                        x-on:pointerdown.stop x-on:click.stop="if (playing) playing = false; else if (!$wire.debugOpen) openDebug(); else if ($wire.debugState.status === 'ready') runDebug(); else startDebug(true)"
                         x-bind:disabled="busy && !playing" x-bind:aria-busy="busy"
                         x-bind:title="playing ? 'Остановиться после текущего шага' : ($wire.debugOpen ? 'Запустить отладку' : 'Настроить отладку')" aria-label="Запустить отладку"
                         x-bind:aria-label="playing ? 'Пауза' : 'Запустить отладку'">
                         <x-filament::icon x-show="!playing" icon="heroicon-s-play" class="h-4 w-4"/><x-filament::icon x-show="playing" icon="heroicon-s-pause" class="h-4 w-4"/><span x-text="playing ? 'Пауза' : 'Запустить'">Запустить</span>
                     </button>
                     @if($isReplay)
-                        <button class="workflow-canvas-execution-action" type="button" wire:click="openWorkflowDebugger" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
+                        <button class="workflow-canvas-execution-action" type="button" x-on:click="openDebug()" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         <a href="{{ $this->getReplayBackUrl() }}" class="workflow-canvas-execution-action" aria-label="Вернуться к истории" title="История запусков"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
                     @else
-                        <button class="workflow-canvas-execution-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
+                        <button class="workflow-canvas-execution-action" type="button" x-on:click="openDebug()" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         @if($workflowRecord)
                             <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::getUrl('index', ['workflow_id' => $workflowRecord->getKey()]) }}" class="workflow-canvas-execution-action" aria-label="История" title="История"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
                         @endif

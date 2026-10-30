@@ -31,6 +31,13 @@ class WorkflowNodePreviewTest extends TestCase
             $table->string('email');
             $table->boolean('active');
         });
+        Schema::create('accounts', function (Blueprint $table): void {
+            $table->id();
+            $table->integer('user_id');
+            $table->string('widget')->nullable();
+            $table->string('client_id')->nullable();
+            $table->boolean('active')->default(false);
+        });
         DB::table('users')->insert(['id' => 7, 'name' => 'Test', 'email' => 'test@example.invalid', 'active' => true]);
         Schema::create('amocrm_fields', function (Blueprint $table): void {
             $table->id();

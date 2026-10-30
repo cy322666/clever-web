@@ -26,7 +26,6 @@ class WorkflowCredentialsTest extends TestCase
     {
         parent::setUp();
         WorkflowListDatabase::prepare();
-        (require database_path('migrations/2026_09_14_210000_create_workflow_credentials_table.php'))->up();
         (require database_path('migrations/2023_09_01_120654_create_fields_table.php'))->up();
         \Illuminate\Support\Facades\Schema::table('amocrm_fields', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->boolean('active')->default(true));
         $this->actingAs(User::findOrFail(1));

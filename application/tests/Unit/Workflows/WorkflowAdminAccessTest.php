@@ -33,7 +33,6 @@ class WorkflowAdminAccessTest extends TestCase
             $table->boolean('is_root')->default(false);
             $table->boolean('active')->default(true);
         });
-        (require database_path('migrations/2026_09_14_210000_create_workflow_credentials_table.php'))->up();
 
         DB::table('users')->where('id', 1)->update(['is_root' => true]);
         DB::table('accounts')->insert([

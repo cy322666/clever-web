@@ -32,6 +32,16 @@ test('local node and occurrence selection shows the latest pass then moves throu
     assert.equal(panel.debugOccurrences().length,0);
 });
 
+test('opening and closing loaded debug data is local and does not call the backend',async()=>{
+    const {panel}=fixture(),writes=[];
+    panel.$wire.openWorkflowDebugger=()=>assert.fail('Opening loaded data is not an RPC');
+    panel.$wire.closeWorkflowDebugger=()=>assert.fail('Closing loaded data is not an RPC');
+    panel.$wire.$set=(key,value,live)=>{assert.equal(live,false);panel.$wire[key]=value;writes.push(key);};
+    panel.openDebug();assert.equal(panel.$wire.debugOpen,true);
+    await panel.closeDebug();assert.equal(panel.$wire.debugOpen,false);
+    assert.deepEqual(writes,['debugOpen','debugOpen']);
+});
+
 test('debug input and output never fall back to internal node settings', () => {
     const {panel} = fixture();
     panel.$wire.debugState.results = [{id:'a',input:{logic:'and',conditions:[{left:null}]},resolved_input:{logic:'and'},output:{condition_results:[]}}];

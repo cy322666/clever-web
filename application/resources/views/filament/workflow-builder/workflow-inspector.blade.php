@@ -2,12 +2,17 @@
     x-on:workflow-inspector-open.window="if ($event.detail.componentId === $wire.$id) openInspector($event.detail)"
     x-on:workflow-inspector-close.window="if ($event.detail.componentId === $wire.$id) hideInspector()"
     x-on:workflow-debug-settings.window="syncDebugSettings($event.detail)"
+    x-on:workflow-local-inspector-validation.window="showLocalValidation($event.detail)"
+    x-on:workflow-local-document-changed.window="if (typeof local !== 'undefined' && $event.detail.componentId === $wire.$id) local?.synchronize()"
+    x-on:workflow-debug-inspection.window="if (typeof local !== 'undefined' && local && $event.detail.componentId === $wire.$id) { local.sourceCache=null; if (local.id) local.renderInput(); }"
     x-on:sync-action-modals.window="syncInspectorActions($event.detail)"
     x-on:pointerdown.window.capture="dismissInspector($event)"
     x-on:form-validation-error.window="if ($event.detail.livewireId === $wire.$id) showValidationErrors()"
     x-on:keydown.escape.stop="if (!$event.defaultPrevented) hideInspector()"
     x-on:resize.window="positionInspector()" x-bind:hidden="!opened" hidden
     x-bind:style="position" x-bind:data-debug-embedded="embedded ? '' : null" x-bind:aria-busy="loading" aria-label="Настройки ноды">
+    @php($inspectorBootstrap = $this->workflowInspectorBootstrap())
+    <script type="application/json" data-local-inspector-boot>{!! json_encode($inspectorBootstrap, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) !!}</script>
     <header class="workflow-inspector__header">
         <strong x-text="title || 'Нода'"></strong>
         <button type="button" x-on:click="hideInspector()" aria-label="Закрыть настройки" title="Закрыть настройки"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
@@ -20,10 +25,13 @@
     <div class="workflow-inspector__loading" role="status" x-show="loading"><span class="workflow-run-spinner" aria-hidden="true"></span> Загружаем настройки…</div>
     <p class="workflow-inspector__error" role="alert" x-show="error" x-text="error"></p>
     <div class="workflow-inspector__content" x-show="!loading">
+        @include('filament.workflow-builder.workflow-local-inspector')
+        <div x-show="typeof local === 'undefined' || !local">
         @foreach ($this->getMountedActions() as $action)
             @if ($this->isWorkflowInspectorAction($action))
                 {{ $action->toModalHtmlable() }}
             @endif
         @endforeach
+        </div>
     </div>
 </aside>

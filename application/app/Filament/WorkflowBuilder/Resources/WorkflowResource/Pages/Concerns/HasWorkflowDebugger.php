@@ -88,6 +88,7 @@ trait HasWorkflowDebugger
     public function runWorkflowCanvasNode(string $actionId): void
     {
         if ($this->workflowPreviewBusy()) return;
+        if (!$this->applyLocalWorkflowInspectorDrafts(['action:'.$actionId])) return;
         $this->debugExecutingNodeId = $actionId;
         // The play icon uses an open form's draft, without requiring Apply or Save.
         if (($this->mountedActions[0]['name'] ?? '') === 'configureWorkflowAction' && $this->editingActionId === $actionId) {
@@ -302,6 +303,7 @@ trait HasWorkflowDebugger
     {
         if ($this->workflowPreviewBusy()) return false;
         try {
+            if (!$this->applyLocalWorkflowInspectorDrafts()) return false;
             $this->prepareWorkflowDebugInput();
             if ($this->debugReal && ! $this->debugRealConfirmed) {
                 throw new \InvalidArgumentException('Подтвердите, что действия будут реально изменять данные.');

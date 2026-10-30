@@ -10,8 +10,14 @@
         receive(preview) {
             this.latest = preview;
             if (this.listening && preview && preview.id !== this.baseline) { this.displayed = preview; this.listening = false; }
+        },
+        async poll() {
+            if (!this.listening || !$el.isConnected) return;
+            try { this.receive(await $wire.pollWorkflowWebhookPreview()); }
+            finally { if (this.listening && $el.isConnected) window.setTimeout(() => this.poll(), 3000); }
         }
     }"
+    x-on:workflow-inspector-state.window="if (!$event.detail.open) listening = false"
     x-on:workflow-webhook-received="receive($event.detail.preview)">
     <span hidden wire:key="webhook-preview-{{ $preview['id'] ?? 'empty' }}" x-init="$dispatch('workflow-webhook-received', {preview: @js($preview)})"></span>
     <section>
@@ -31,7 +37,7 @@
             </div>
             <p x-text="test ? 'Тестовый запрос только принимает данные — действия не запускаются.' : 'Рабочий URL запускает активный сценарий.'"></p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button type="button" class="workflow-node-run__button" x-on:click="if (listening) { listening = false; } else { test = true; baseline = latest?.id; displayed = null; listening = true; }" x-text="listening ? 'Остановить ожидание' : 'Слушать тестовый запрос'"></button>
+                <button type="button" class="workflow-node-run__button" x-on:click="if (listening) { listening = false; } else { test = true; baseline = latest?.id; displayed = null; listening = true; poll(); }" x-text="listening ? 'Остановить ожидание' : 'Слушать тестовый запрос'"></button>
             </div>
             <p role="status" x-show="listening">Ожидание запроса…</p>
             <p role="status" x-show="copied" x-cloak>URL скопирован</p>

@@ -33,7 +33,7 @@
             <p>Выберите прошлый запуск в истории или подготовьте новые входные данные.</p>
             <fieldset x-bind:disabled="busy">
                 @include('filament.workflow-builder.workflow-debug-input')
-                <label class="workflow-debug-check"><input type="checkbox" wire:model.live="debugReal"> Реальные действия</label>
+                <label class="workflow-debug-check"><input type="checkbox" :checked="$wire.debugReal" x-on:change="$wire.$set('debugReal',$event.target.checked,false)"> Реальные действия</label>
                 <label x-show="$wire.debugReal" class="workflow-debug-check"><input type="checkbox" wire:model="debugRealConfirmed"> Подтверждаю изменения и отправку сообщений</label>
                 <p class="workflow-debug-hint" x-text="$wire.debugReal ? 'Запуск изменяет данные и отправляет сообщения.' : 'Изменения отключены. Запросы могут читать amoCRM и внешние сервисы.'"></p>
             </fieldset>

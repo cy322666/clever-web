@@ -164,7 +164,8 @@ class WorkflowInspectorTest extends TestCase
         $page = $this->editor()->call('mountAction','renameWorkflowNode',['id'=>'a']);
         $html = implode('', $page->effects['partials'] ?? []);
         $this->assertStringContainsString('fi-modal-close-overlay',$html);
-        $this->assertStringNotContainsString('workflow-inspector__form',$html);
+        $this->assertStringNotContainsString('data-inspector-node="action:a"',$html);
+        $this->assertStringNotContainsString('data-inspector-node="action:b"',$html);
     }
 
     public function test_inline_rename_also_remaps_unsaved_expressions_in_open_form(): void

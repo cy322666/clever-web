@@ -27,6 +27,5 @@ class WorkflowBrowserDatabase
             $table->integer('sort')->default(0);
             $table->boolean('active')->default(true);
         });
-        (require database_path('migrations/2026_09_14_210000_create_workflow_credentials_table.php'))->up();
     }
 }

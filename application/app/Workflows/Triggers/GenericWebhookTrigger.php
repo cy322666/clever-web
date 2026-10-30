@@ -61,8 +61,7 @@ class GenericWebhookTrigger implements BaseTrigger
                         'preview' => app(WorkflowGenericWebhookService::class)->latestPreview($workflow),
                         'url' => app(WorkflowGenericWebhookService::class)->callbackUrl($workflow),
                     ];
-                })
-                ->poll('3s'),
+                }),
         ];
     }
 

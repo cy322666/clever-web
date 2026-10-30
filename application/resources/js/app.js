@@ -211,16 +211,20 @@ window.workflowSortableList = (path) => ({
     },
 });
 
-// The dock opens before the request. Tabs, canvas and library stay interactive;
-// only the selected node's real Filament form is fetched by its partial renderer.
+// The existing dock edits the loaded schema locally. PHP owns validation only
+// when Save or Run is requested; old clients retain their mounted form fallback.
 window.workflowInspector = () => ({
     opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
     desired: undefined, processing: false, currentId: null, opener: null, dismissed: false,
-    embedded: false, debugSlotId: null,
+    embedded: false, debugSlotId: null, local: null, localReady: null,
     init() {
+        const boot = this.$el.querySelector('[data-local-inspector-boot]');
+        if (boot) this.localReady = import('./workflow-local-inspector.mjs').then(({installLocalInspector}) => {
+            if (this.$el.isConnected) this.local = installLocalInspector(this,JSON.parse(boot.textContent),this.$el);
+        });
         this.syncCanvasSpace();
         this.releaseMorphHook = window.Livewire?.hook('morphed', ({component}) => {
-            if (component?.id === this.$wire.$id) this.syncCanvasSpace();
+            if (component?.id === this.$wire.$id) {this.syncCanvasSpace();this.local?.serverUpdated();}
         });
     },
     destroy() {
@@ -249,6 +253,8 @@ window.workflowInspector = () => ({
     },
     announce() {
         this.syncCanvasSpace();
+        const draft=window.workflowDraftFor?.(this.$wire);
+        if (draft) draft.inspectorOpened=this.opened;
         window.dispatchEvent(new CustomEvent('workflow-inspector-state', {detail: {componentId: this.$wire.$id, open: this.opened}}));
     },
     inspectorMounted(element) {
@@ -263,6 +269,7 @@ window.workflowInspector = () => ({
         }
     },
     syncInspectorActions(detail) {
+        if (this.local) return;
         if (this.processing || detail.id !== this.$wire.$id || detail.newActionNestingIndex !== null) return;
         // Adding a schedule unmounts the catalog and mounts its settings in one
         // response. Ignore the earlier close event when the final draft is open.
@@ -270,6 +277,14 @@ window.workflowInspector = () => ({
         this.opened = false;
         this.currentId = null;
         this.announce();
+    },
+    showLocalValidation(detail) {
+        if (!this.local || detail.componentId!==this.$wire.$id) return;
+        this.local.errors[detail.nodeId]=detail.errors;
+        const node=this.local.node(detail.nodeId);
+        this.error=Object.values(detail.errors).flat().join(' ');
+        this.openInspector({componentId:this.$wire.$id,nodeId:detail.nodeId,name:node?.name || 'Настройки ноды'});
+        this.local.refresh();
     },
     nextTab(direction) {
         const tabs = ['settings', 'input', 'output'];
@@ -301,11 +316,15 @@ window.workflowInspector = () => ({
     dismissInspector(event) {
         if (this.embedded) return;
         if (!this.opened || this.$el.contains(event.target)) return;
+        // Changing the canvas width on pointerdown moves the next node before
+        // its click arrives. Switching nodes keeps the existing dock in place.
+        if (event.target.closest?.('[data-workflow-node-card], .workflow-canvas-controls, .workflow-canvas-execution-controls')) return;
         // Filament widgets may teleport their options or a nested dialog.
         if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box, [data-workflow-reference-toggle], [data-workflow-reference-panel]')) return;
         this.hideInspector();
     },
     hideInspector() {
+        this.local?.flush();
         if (this.embedded && this.opened) window.dispatchEvent(new CustomEvent('workflow-debug-settings-dismissed', {detail:{componentId:this.$wire.$id}}));
         this.opened = false;
         this.dismissed = true;
@@ -337,6 +356,23 @@ window.workflowInspector = () => ({
             while (this.desired) {
                 const target = this.desired;
                 this.desired = undefined;
+                if (this.localReady) await this.localReady;
+                if (this.local) {
+                    if (target.close) {
+                        if (!target.save) this.local.cancel(); else this.local.flush();
+                        this.opened = false;
+                        this.currentId = null;
+                    } else {
+                        await this.local.widgetsReady;
+                        this.local.begin(target.nodeId);
+                        this.currentId = target.nodeId;
+                        if (target.nodeId.startsWith('action:')) this.$wire.$set('editingActionId',target.nodeId.slice(7),false);
+                        else this.$wire.$set('editingTriggerNodeId',target.nodeId,false);
+                        this.local.render();
+                        this.local.renderInput();
+                    }
+                    continue;
+                }
                 if (target.close) {
                     if (this.$wire.mountedActions?.length) {
                         if (target.save) await this.$wire.callMountedAction();
@@ -366,7 +402,7 @@ window.workflowInspector = () => ({
             this.processing = this.loading = false;
             this.$nextTick(() => {
                 const form = this.$el.querySelector('[data-inspector-node]');
-                if (form) this.title = form.dataset.inspectorTitle;
+                if (form && !this.local) this.title = form.dataset.inspectorTitle;
             });
             this.announce();
         }
@@ -523,8 +559,12 @@ window.workflowInlineWorkflowName = () => ({
 });
 
 const workflowEditorDrafts = new Map();
+const workflowEditorDraftReady = new Map();
 window.workflowDraftFor = wire => workflowEditorDrafts.get(wire?.$id);
 window.workflowEditorCall = (wire, method, ...params) => {
+    if (!window.workflowDraftFor(wire) && workflowEditorDraftReady.has(wire?.$id)) {
+        return workflowEditorDraftReady.get(wire.$id).then(() => window.workflowEditorCall(wire,method,...params));
+    }
     const draft = window.workflowDraftFor(wire);
     try { return Promise.resolve(draft?.[method] ? draft[method](...params) : wire[method](...params)); }
     catch (error) { return Promise.reject(error); }
@@ -563,13 +603,14 @@ window.workflowWorkbench = () => ({
     initWorkbench() {
         this.$nextTick(() => this.syncEditorHeight());
         if (this.$el.querySelector('[data-workflow-draft-catalog]')) {
-            import('./workflow-editor-draft.mjs').then(({installWorkflowEditorDraft}) => {
+            const ready=import('./workflow-editor-draft.mjs').then(({installWorkflowEditorDraft}) => {
                 if (this.$el.isConnected) workflowEditorDrafts.set(this.$wire.$id, installWorkflowEditorDraft(this.$wire, this.$el));
-            });
+            }).finally(()=>workflowEditorDraftReady.delete(this.$wire.$id));
+            workflowEditorDraftReady.set(this.$wire.$id,ready);
         }
     },
 
-    destroy() { workflowEditorDrafts.delete(this.$wire?.$id); },
+    destroy() { workflowEditorDrafts.delete(this.$wire?.$id); workflowEditorDraftReady.delete(this.$wire?.$id); },
 
     syncEditorHeight() {
         const page = this.$el.closest('.workflow-editor-page');
@@ -796,6 +837,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         this.cancelConnection();
         this.saveNodeLayout();
         this.$nextTick(() => this.scheduleGraphRefreshAfterPaint());
+        window.dispatchEvent(new CustomEvent('workflow-local-document-changed',{detail:{componentId:this.$wire.$id}}));
     },
 
     canvasEdges(initialEdges, startIds) {
@@ -2436,6 +2478,7 @@ window.workflowDebugPanel = () => ({
         return [...recorded, ...previews.map(result => ({...result, preview:true}))];
     },
     debugConfigured() { return Boolean(this.$wire.debugState.status); },
+    openDebug() { this.$wire.$set('debugOpen',true,false); this.publishDebugInspection(); this.syncDebugSettings(); },
     debugSelectedTrigger() { return typeof this.selectedDebugId === 'string' && (this.selectedDebugId === 'trigger' || this.selectedDebugId.startsWith('trigger:')); },
     debugCurrent() {
         if (!this.debugSelectedTrigger()) return this.debugResults()[this.selectedIndex] || {};
@@ -2613,7 +2656,7 @@ window.workflowDebugPanel = () => ({
     async closeDebug() {
         this.playing = false;
         // An in-flight real action cannot be cancelled by closing its UI.
-        if (!this.busy) await this.debugRequest('closeWorkflowDebugger');
+        if (!this.busy) { this.$wire.$set('debugOpen',false,false); this.publishDebugInspection(); this.syncDebugSettings(); }
     },
     async openDebugSettings() {
         if (this.busy || this.playing || !this.selectedDebugId) return;
