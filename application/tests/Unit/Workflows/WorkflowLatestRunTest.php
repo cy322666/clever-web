@@ -20,6 +20,7 @@ class WorkflowLatestRunTest extends TestCase
         Schema::table('workflow_runs', function (Blueprint $table): void {
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
+            $table->json('context_data')->nullable();
         });
         $this->actingAs(User::findOrFail(1));
         foreach (['С запуском', 'Без запусков'] as $name) {
@@ -27,18 +28,19 @@ class WorkflowLatestRunTest extends TestCase
             $flow->saveQuietly();
         }
         $id = Workflow::where('name', 'С запуском')->value('id');
+        $snapshot = json_encode(['variables' => ['_definition_snapshot' => ['actions' => []]]]);
         DB::table('workflow_runs')->insert([
-            ['id' => 10, 'user_id' => 1, 'workflow_id' => $id, 'status' => 'completed', 'created_at' => now(), 'started_at' => now(), 'completed_at' => now()],
-            ['id' => 11, 'user_id' => 1, 'workflow_id' => $id, 'status' => 'failed', 'created_at' => now(), 'started_at' => now(), 'completed_at' => now()->addSeconds(2)],
+            ['id' => 10, 'user_id' => 1, 'workflow_id' => $id, 'status' => 'completed', 'created_at' => now(), 'started_at' => now(), 'completed_at' => now(), 'context_data' => $snapshot],
+            ['id' => 11, 'user_id' => 1, 'workflow_id' => $id, 'status' => 'failed', 'created_at' => now(), 'started_at' => now(), 'completed_at' => now()->addSeconds(2), 'context_data' => $snapshot],
         ]);
         $page = Livewire::test(ListWorkflows::class)->assertStatus(200)->assertSee('Последний запуск')->assertSee('Не запускался');
-        $page->assertSee('run=11', false)->assertDontSee('run=10', false);
+        $page->assertSee('/history/11/editor', false)->assertDontSee('/history/10/editor', false);
         $this->assertSame(11, $page->instance()->getTableRecords()->firstWhere('id', $id)->latestRun->id);
         $document = new \DOMDocument();
         @$document->loadHTML('<?xml encoding="UTF-8">'.$page->html());
         $xpath = new \DOMXPath($document);
         // Check the actual latest-run cell, not an unrelated left-aligned column.
-        $runCell = '//td[.//a[contains(@href, "run=11")]]';
+        $runCell = '//td[.//a[contains(@href, "/history/11/editor")]]';
         $this->assertSame(1, $xpath->query($runCell.'//*[contains(@class, "fi-ta-text-description")]')->length);
         $this->assertSame(1, $xpath->query($runCell.'//*[contains(@class, "fi-ta-text-has-descriptions") and contains(@class, "fi-align-start")]')->length);
         $this->assertSame(0, $xpath->query($runCell.'[contains(@class, "fi-ta-cell-name")]')->length);
