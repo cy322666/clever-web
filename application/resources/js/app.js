@@ -2544,15 +2544,17 @@ window.workflowDebugPanel = () => ({
     },
     debugCanvasState() {
         const state = this.$wire.debugState;
-        if (this.$wire.debugOpen && !this.followDebug && this.selectedIndex >= 0 && this.debugConfigured()) {
-            return {...state, results:this.debugResults().slice(0, this.selectedIndex + 1), next_id:null};
-        }
         // Single-node play records results separately from a step-debug session.
         // Keep its badges across form morphs without changing the recorded trail.
         const previews = Object.values(this.$wire.nodeRunResults || {}).filter(result => result?.id);
-        if (!previews.length) return state;
         const ids = new Set(previews.map(result => result.id));
-        return {...state, results:[...this.debugResults().filter(result => !ids.has(result.id)), ...previews]};
+        const results = previews.length ? [...this.debugResults().filter(result => !ids.has(result.id)), ...previews] : (state.results || []);
+        if (this.$wire.debugOpen && !this.followDebug && this.selectedIndex >= 0 && this.debugConfigured()) {
+            const selected = this.debugCurrent();
+            // Keep the selected loop pass while retaining every other node's known status.
+            if (selected.id) return {...state, results:[...results.filter(result => result.id !== selected.id), selected], next_id:state.next_id ?? null};
+        }
+        return previews.length ? {...state, results} : state;
     },
     publishDebugInspection() { window.dispatchEvent(new CustomEvent('workflow-debug-inspection', {detail:{componentId:this.$wire.$id,state:this.debugCanvasState()}})); },
     debugStatusLabel(value) { return {completed:'Выполнено', success:'Выполнено', simulated:'Без изменений', skipped:'Пропущено', failed:'Ошибка', error:'Ошибка', validation_error:'Ошибка настроек'}[value] || 'Ещё не выполнялась'; },

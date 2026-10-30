@@ -164,15 +164,39 @@ test('automatic execution preserves the pass selected by the user while explicit
     panel.$wire.debugState.status='ready';await panel.nextDebug();assert.equal(panel.selectedIndex,3);
 });
 
-test('the canvas shows the inspected pass, not the opposite branch from the latest loop iteration', () => {
+test('inspecting earlier nodes and loop passes preserves other nodes statuses and counts', () => {
+    const {panel,events}=fixture(), writes=[];
+    const results=[{id:'a',status:'completed',display_count:2,display_output:{passed:false}},
+        {id:'later',status:'completed',display_count:7},
+        {id:'a',status:'completed',display_count:3,display_output:{passed:true}},
+        {id:'failed',status:'error',display_count:0}];
+    panel.$wire.$set=(key,value,live)=>writes.push({key,value,live});
+    const badges=state=>Object.fromEntries(state.results.map(result=>[result.id,{status:result.status,count:result.display_count}]));
+    const expected=badges({results});
+    for (const status of ['historical','ready']) {
+        panel.$wire.debugState={status,results,next_id:status==='ready'?'next':null};
+        panel.selectDebugNode('a');panel.moveDebugOccurrence(-1);
+        assert.equal(panel.debugOutputValue().passed,false,'the inspector still shows the selected pass');
+        assert.deepEqual(writes.at(-1),{key:'debugSelectedResultIndex',value:0,live:false});
+        const inspected={...expected,a:{status:'completed',count:2}};
+        assert.deepEqual(badges(panel.debugCanvasState()),inspected);
+        assert.deepEqual(badges(events.at(-1).detail.state),inspected,'canvas events must retain later successes and errors');
+        assert.equal(panel.debugCanvasState().next_id,panel.$wire.debugState.next_id);
+        panel.selectDebugNode('failed');
+        assert.deepEqual(badges(panel.debugCanvasState()),expected);
+        assert.equal(panel.$wire.debugState.results,results);
+    }
+});
+
+test('inspecting an earlier record keeps a later single-node preview visible on the canvas', () => {
     const {panel}=fixture();
-    panel.$wire.debugState.results=[{id:'a',output:{passed:false}},{id:'a',output:{passed:true}}];
+    panel.$wire.debugState={status:'historical',results:[{id:'a',status:'completed'},{id:'later',status:'error'}]};
+    panel.$wire.nodeRunResults={later:{id:'later',status:'completed',display_count:5}};
     panel.selectDebugResult(0);
-    assert.equal(panel.debugCanvasState().results.at(-1).output.passed,false);
-    assert.equal(panel.debugCanvasState().next_id,null);
-    assert.equal(panel.$wire.debugState.results.length,2,'inspection cannot alter the live session');
-    panel.$wire.debugOpen=false;
-    assert.equal(panel.debugCanvasState().results.at(-1).output.passed,true);
+    const later=panel.debugCanvasState().results.find(result=>result.id==='later');
+    assert.equal(later?.status,'completed');
+    assert.equal(later?.display_count,5);
+    assert.equal(panel.$wire.debugState.results[1].status,'error','saved history remains unchanged');
 });
 
 test('failed reset keeps the inspected result and does not claim an action was executed', async () => {
