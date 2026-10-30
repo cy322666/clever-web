@@ -157,11 +157,8 @@ class WorkflowRunResource extends Resource
                     ->modifyFormFieldUsing(fn (Select $field): Select => $field->hiddenLabel())
                     ->options([
                         RunStatus::COMPLETED->value => 'Завершен',
-                        RunStatus::FAILED->value => 'Ошибка',
-                        RunStatus::CANCELLED->value => 'Отменен',
-                        RunStatus::RUNNING->value => 'Выполняется',
                         RunStatus::PENDING->value => 'Ожидает',
-                        RunStatus::PAUSED->value => 'Приостановлен',
+                        RunStatus::FAILED->value => 'Ошибка',
                     ])
                     ->multiple(),
 
