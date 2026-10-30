@@ -125,7 +125,7 @@ class WorkflowFoldersTest extends TestCase
             ->assertHasActionErrors(['name']);
     }
 
-    public function test_list_groups_workflows_by_launch_type_and_hides_empty_groups(): void
+    public function test_list_has_no_sidebar_and_keeps_legacy_launch_type_filtering(): void
     {
         $manual = $this->workflow('Ручной сценарий');
         $button = $this->workflow('Сценарий кнопки', null, 1, 'amo-button');
@@ -134,9 +134,11 @@ class WorkflowFoldersTest extends TestCase
 
         Livewire::test(ListWorkflows::class)
             ->assertStatus(200)
-            ->assertSee('Ручной запуск')
-            ->assertSee('Кнопки')
-            ->assertSee('Webhooks')
+            ->assertDontSee('workflow-folders', false)
+            ->assertDontSee('Группы сценариев')
+            ->assertSee($manual->name)
+            ->assertSee($button->name)
+            ->assertSee($webhook->name)
             ->assertDontSee('Digital Pipeline')
             ->assertDontSee('Расписание')
             ->call('selectLaunchType', 'buttons')
@@ -159,7 +161,7 @@ class WorkflowFoldersTest extends TestCase
         ])])->saveQuietly();
 
         Livewire::test(ListWorkflows::class)
-            ->assertSee('Webhooks')
+            ->assertDontSee('workflow-folders', false)
             ->call('selectLaunchType', 'webhooks')
             ->assertSee('Несколько запусков');
     }

@@ -86,8 +86,8 @@ class WorkflowHistoryFilterTest extends TestCase
     {
         Livewire::test(ListWorkflowRuns::class)
             ->assertStatus(200)
-            ->assertSee('Группы сценариев')
-            ->assertSee('Тип запуска')
+            ->assertDontSee('Группы сценариев')
+            ->assertDontSee('Тип запуска')
             ->assertSee('Поток 1')
             ->assertSee('Поток 2')
             ->assertDontSee('Поток 3')
@@ -99,13 +99,11 @@ class WorkflowHistoryFilterTest extends TestCase
             ->assertRedirect(WorkflowRunResource::debugUrl(WorkflowRun::findOrFail(1)));
     }
 
-    public function test_account_history_keeps_the_workflow_sidebar_and_filters_runs_by_folder_or_start_type(): void
+    public function test_account_history_has_no_sidebar_and_keeps_legacy_folder_and_start_type_links(): void
     {
         $page = Livewire::test(ListWorkflowRuns::class)
-            ->assertSee('workflow-folders', false)
-            ->assertSee('Продажи')
-            ->assertSee('Ручной запуск')
-            ->assertSee('Расписание');
+            ->assertDontSee('workflow-folders', false)
+            ->assertDontSee('Группы сценариев');
 
         $this->assertSame(4, $page->instance()->getTableRecords()->total());
         $page->call('selectFolder', 'Продажи')

@@ -1,10 +1,6 @@
 <x-filament-panels::page class="workflow-list-page">
     @include('filament.workflow-builder.workflow-overview-nav', ['active' => 'workflows', 'folder' => $this->workflowGroupFilter, 'launch' => $this->workflowLaunchFilter])
-    @if((bool) auth()->user()?->is_root)
-        {{ $this->table }}
-    @else
     <div class="workflow-overview">
-        @include('filament.workflow-builder.workflow-sidebar')
         <section class="workflow-overview__content">
             @if($this->workflowGroupFilter !== null || $this->workflowLaunchFilter !== null)
             <header class="workflow-overview__heading">
@@ -17,5 +13,4 @@
             {{ $this->table }}
         </section>
     </div>
-    @endif
 </x-filament-panels::page>

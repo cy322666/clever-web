@@ -2,10 +2,7 @@
     <div class="workflow-history-page">
         @include('filament.workflow-builder.workflow-overview-nav', ['active' => 'history', 'folder' => $this->workflowGroupFilter, 'launch' => $this->workflowLaunchFilter])
 
-        <div @class(['workflow-overview workflow-account-history-overview', 'is-root' => (bool) auth()->user()?->is_root])>
-            @unless((bool) auth()->user()?->is_root)
-                @include('filament.workflow-builder.workflow-sidebar')
-            @endunless
+        <div class="workflow-overview workflow-account-history-overview">
             <main class="workflow-account-history-list" aria-label="Запуски всех сценариев клиента">
                 {{ $this->table }}
             </main>
