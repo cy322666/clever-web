@@ -53,6 +53,28 @@ class SettingFieldsTest extends TestCase
         $this->assertSame('QC  ХОДЫНКА', $value);
     }
 
+    public function test_lead_record_id_fields_use_only_valid_saved_lead_mappings(): void
+    {
+        $rows = [
+            ['field_yc' => 'record_id', 'field_amo' => '901'],
+            ['field_yc' => 'record_id', 'field_amo' => 901],
+            ['field_yc' => 'record_id', 'field_amo' => 902],
+            ['field_yc' => 'client_id', 'field_amo' => 903],
+            ['field_yc' => 'record_id', 'field_amo' => 'system:price'],
+            ['field_yc' => 'record_id', 'field_amo' => null],
+            ['field_yc' => 'record_id', 'field_amo' => -1],
+            ['field_yc' => 'record_id', 'field_amo' => '9e2'],
+        ];
+        foreach ([$rows, json_encode($rows)] as $mapping) {
+            $setting = new Setting(['fields_lead' => $mapping,
+                'fields_contact' => [['field_yc' => 'record_id', 'field_amo' => 904]]]);
+            $this->assertSame([901, 902], $setting->leadFieldIdsFor('record_id'));
+        }
+        foreach ([null, '', 'not-json', '[]'] as $mapping) {
+            $this->assertSame([], (new Setting(['fields_lead' => $mapping]))->leadFieldIdsFor('record_id'));
+        }
+    }
+
     public function test_yc_fields_select_shows_system_keys_in_labels(): void
     {
         $fields = Setting::YCfieldsSelect();

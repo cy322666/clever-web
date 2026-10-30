@@ -56,6 +56,68 @@ abstract class Leads
         return (int)$lead->pipeline_id === (int)$pipelines;
     }
 
+    public static function searchByRecordId(Contact $contact, int|string $recordId, array $fieldIds): ?Lead
+    {
+        if ($fieldIds === []) {
+            return null;
+        }
+
+        return AmoTransportRetry::run(function (int $attempt) use ($contact, $recordId, $fieldIds): ?Lead {
+            $currentContact = $attempt > 1 ? $contact->service->find($contact->id) : $contact;
+            if (!$currentContact instanceof Contact || (int) $currentContact->id !== (int) $contact->id) {
+                throw new \RuntimeException('Existing amoCRM contact not found during YClients record ID search.');
+            }
+
+            $contactLeadIds = array_map('intval', $currentContact->leads_id);
+            $loadedIds = [];
+            $matches = [];
+
+            // The SDK loads linked lead IDs in chunks. Do not filter out closed or other-pipeline leads.
+            foreach ($currentContact->leads as $lead) {
+                if (!$lead instanceof Lead || !in_array((int) $lead->id, $contactLeadIds, true)) {
+                    throw new \RuntimeException('Unexpected amoCRM lead during YClients record ID search.');
+                }
+                $loadedIds[] = (int) $lead->id;
+                if (in_array((string) $recordId, self::mappedRecordIds($lead, $fieldIds), true)) {
+                    $matches[(int) $lead->id] = $lead;
+                }
+            }
+
+            if (array_diff($contactLeadIds, $loadedIds)) {
+                throw new \RuntimeException('Incomplete amoCRM lead list during YClients record ID search.');
+            }
+            if (count($matches) > 1) {
+                throw new \RuntimeException('Multiple amoCRM leads match YClients record '.$recordId.': '.implode(', ', array_keys($matches)));
+            }
+
+            return $matches ? reset($matches) : null;
+        }, ['operation' => 'lead_record_id_search', 'contact_id' => $contact->id, 'record_id' => $recordId]);
+    }
+
+    public static function hasMappedRecordId(Lead $lead, array $fieldIds): bool
+    {
+        return $fieldIds !== [] && self::mappedRecordIds($lead, $fieldIds) !== [];
+    }
+
+    /** @return list<string> */
+    private static function mappedRecordIds(Lead $lead, array $fieldIds): array
+    {
+        $values = [];
+        foreach ($lead->custom_fields as $field) {
+            if (!in_array((int) data_get($field, 'id'), $fieldIds, true)) {
+                continue;
+            }
+            foreach (data_get($field, 'values', []) as $entry) {
+                $value = data_get($entry, 'value');
+                if (is_scalar($value) && !is_bool($value) && trim((string) $value) !== '') {
+                    $values[] = trim((string) $value);
+                }
+            }
+        }
+
+        return $values;
+    }
+
     public static function firstUnlinkedLead(iterable $leads, callable $isLinkedToAnotherRecord): ?object
     {
         foreach ($leads as $lead) {

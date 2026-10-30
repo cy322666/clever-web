@@ -49,6 +49,8 @@ class RecordSyncRecoveryTest extends TestCase
         Schema::create('yclients_settings', function (Blueprint $table): void {
             $table->id(); $table->integer('user_id'); $table->integer('account_id');
             $table->string('status_id_wait'); $table->string('user_token'); $table->string('partner_token');
+            $table->string('status_id_came')->nullable(); $table->string('status_id_delete')->nullable();
+            $table->text('fields_lead')->nullable(); $table->text('pipelines')->nullable();
             $table->timestamps();
         });
         Schema::create('yclients_clients', function (Blueprint $table): void {
@@ -221,7 +223,114 @@ class RecordSyncRecoveryTest extends TestCase
         $this->assertSame(42, (int) $record->fresh()->lead_id);
     }
 
-    private function apiWithContact(Record $record, Lead $lead): AmoClient
+    public function test_mapped_record_match_restores_closed_lead_before_free_active_fallback(): void
+    {
+        $record = $this->record();
+        $this->mapRecordId($record);
+        $record->update(['attendance' => 1]);
+        $saved = 0;
+        $closed = $this->lead(42, function () use (&$saved): void { $saved++; },
+            $this->leadAttributes(142, 999, '1000'));
+        $active = $this->lead(43, fn() => $this->fail('Exact record match must win over a free active lead.'),
+            $this->leadAttributes(101, 10, null));
+        $api = $this->apiWithContact($record, $closed, [$active, $closed]);
+        $api->expects($this->once())->method('requestV4')->with('GET', '/api/v4/leads/42', [], ['with' => 'contacts'])
+            ->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $this->app->bind(AmoClient::class, fn() => $api);
+
+        $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+            'setting_id' => 1, '--skip-note' => true])->assertSuccessful();
+
+        $this->assertSame(1, $saved);
+        $this->assertSame(42, (int) $record->fresh()->lead_id);
+        $this->assertSame(142, (int) $closed->status_id);
+        $this->assertSame(10, (int) $closed->pipeline_id);
+        $this->assertSame(Record::STATUS_SUCCESS, $record->fresh()->status);
+    }
+
+    public function test_no_exact_match_still_reuses_a_free_active_lead(): void
+    {
+        $record = $this->record();
+        $this->mapRecordId($record);
+        $active = $this->lead(42, null, $this->leadAttributes(101, 10, null));
+        $closed = $this->lead(43, fn() => $this->fail('Unrelated closed lead must not be reused.'),
+            $this->leadAttributes(142, 10, '2000'));
+        $api = $this->apiWithContact($record, $active, [$closed, $active]);
+        $api->expects($this->once())->method('requestV4')->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $this->app->bind(AmoClient::class, fn() => $api);
+
+        $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+            'setting_id' => 1, '--skip-note' => true])->assertSuccessful();
+        $this->assertSame(42, (int) $record->fresh()->lead_id);
+    }
+
+    public function test_active_lead_with_another_record_id_is_not_free_when_local_binding_is_missing(): void
+    {
+        $record = $this->record();
+        $this->mapRecordId($record);
+        $new = $this->lead(0);
+        $occupied = $this->lead(43, fn() => $this->fail('Another record ID must not be overwritten.'),
+            $this->leadAttributes(101, 10, '2000'));
+        $api = $this->apiWithContact($record, $new, [$occupied]);
+        $api->expects($this->once())->method('requestV4')->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $this->app->bind(AmoClient::class, fn() => $api);
+
+        $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+            'setting_id' => 1, '--skip-note' => true])->assertSuccessful();
+        $this->assertSame(42, (int) $record->fresh()->lead_id);
+    }
+
+    public function test_exact_match_conflicting_with_another_local_record_stops_without_creating(): void
+    {
+        $record = $this->record();
+        $this->mapRecordId($record);
+        Record::query()->create(['user_id' => 1, 'account_id' => 1, 'setting_id' => 1,
+            'company_id' => 10, 'record_id' => 2000, 'lead_id' => 42, 'status' => Record::STATUS_SUCCESS]);
+        $closed = $this->lead(42, fn() => $this->fail('Conflicting lead must not be updated.'),
+            $this->leadAttributes(142, 10, '1000'));
+        $api = $this->apiWithContact($record, $closed, [$closed]);
+        $api->expects($this->never())->method('requestV4');
+        $this->app->bind(AmoClient::class, fn() => $api);
+
+        try {
+            $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+                'setting_id' => 1, '--skip-note' => true])->run();
+            $this->fail('Conflicting ownership must stop processing.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('linked to another record', $exception->getMessage());
+        }
+        $this->assertNull($record->fresh()->lead_id);
+    }
+
+    public function test_delete_webhook_finds_closed_lead_by_mapped_record_id(): void
+    {
+        $record = $this->record();
+        $this->mapRecordId($record);
+        $record->update(['attendance' => 3]);
+        $closed = $this->lead(42, null, $this->leadAttributes(142, 10, '1000'));
+        $api = $this->apiWithContact($record, $closed, [$closed]);
+        $api->expects($this->once())->method('requestV4')->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $this->app->bind(AmoClient::class, fn() => $api);
+
+        $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
+            'setting_id' => 1, '--skip-note' => true])->assertSuccessful();
+        $this->assertSame(42, (int) $record->fresh()->lead_id);
+        $this->assertSame(143, (int) $closed->status_id);
+    }
+
+    private function mapRecordId(Record $record): void
+    {
+        $record->setting->update(['fields_lead' => json_encode([['field_yc' => 'record_id', 'field_amo' => '901']]),
+            'pipelines' => [10], 'status_id_came' => '10.142', 'status_id_delete' => '10.143']);
+    }
+
+    private function leadAttributes(int $status, int $pipeline, mixed $recordId): array
+    {
+        return ['status_id' => $status, 'pipeline_id' => $pipeline,
+            'custom_fields' => [(object)['id' => 901, 'values' => [(object)['value' => $recordId]]]]];
+    }
+
+    private function apiWithContact(Record $record, Lead $lead, array $linkedLeads = []): AmoClient
     {
         \App\Models\Integrations\YClients\Client::query()->forceCreate([
             'user_id' => 1, 'account_id' => 1, 'setting_id' => 1, 'company_id' => 10,
@@ -231,7 +340,8 @@ class RecordSyncRecoveryTest extends TestCase
         $contact = $this->createMock(\Ufee\Amo\Models\Contact::class);
         $contact->method('__get')->willReturnCallback(fn ($name) => match ($name) {
             'id' => 77,
-            'leads' => new \Ufee\Amo\Base\Collections\Collection(),
+            'leads_id' => array_map(fn($linked) => $linked->id, $linkedLeads),
+            'leads' => new \Ufee\Amo\Base\Collections\Collection($linkedLeads),
             default => null,
         });
         $contact->method('save')->willReturn(true);
@@ -268,9 +378,9 @@ class RecordSyncRecoveryTest extends TestCase
         return $api;
     }
 
-    private function lead(int $id, ?callable $onSave = null): Lead
+    private function lead(int $id, ?callable $onSave = null, array $attributes = []): Lead
     {
-        $data = ['id' => $id];
+        $data = ['id' => $id] + $attributes;
         $lead = $this->createMock(Lead::class);
         $lead->method('__get')->willReturnCallback(function ($name) use (&$data) { return $data[$name] ?? null; });
         $lead->method('__set')->willReturnCallback(function ($name, $value) use (&$data) { $data[$name] = $value; });

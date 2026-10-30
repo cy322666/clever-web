@@ -147,14 +147,31 @@ class SendRecord extends Command
                     ? null
                     : ServiceLead::get($amoApi, $recordDouble->lead_id);
 
-            } elseif ($contact) {
+            }
+
+            $recordIdFieldIds = $setting->leadFieldIdsFor('record_id');
+            if (empty($lead) && $contact) {
+                $lead = ServiceLead::searchByRecordId($contact, $record->record_id, $recordIdFieldIds);
+
+                if ($lead && Record::query()
+                    ->where('account_id', $account->id)
+                    ->where('lead_id', $lead->id)
+                    ->where(fn ($query) => $query->where('record_id', '!=', $record->record_id)
+                        ->orWhere('company_id', '!=', $record->company_id))
+                    ->exists()) {
+                    throw new \RuntimeException('amoCRM lead '.$lead->id.' matches YClients record ID but is linked to another record.');
+                }
+            }
+
+            if (empty($lead) && $contact) {
                 // поиск открытой сделки у контакта в нужной воронке
                 $leadCollection = ServiceLead::searchAll($contact, $amoApi, $amoMapping['pipelines']);
 
                 if ($leadCollection->count() > 0) {
                     $lead = ServiceLead::firstUnlinkedLead(
                         $leadCollection,
-                        fn ($candidateLead): bool => Record::query()
+                        fn ($candidateLead): bool => ServiceLead::hasMappedRecordId($candidateLead, $recordIdFieldIds)
+                            || Record::query()
                             ->where('lead_id', $candidateLead->id)
                             ->where('record_id', '!=', $record->record_id)
                             ->where('account_id', $account->id)
@@ -163,8 +180,6 @@ class SendRecord extends Command
                 } else {
                     $lead = null;
                 }
-            } else {
-                $lead = null;
             }
         }
 

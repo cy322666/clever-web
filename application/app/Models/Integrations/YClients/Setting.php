@@ -611,6 +611,22 @@ class Setting extends Model
         return false;
     }
 
+    /** @return list<int> */
+    public function leadFieldIdsFor(string $fieldYc): array
+    {
+        $ids = [];
+        foreach (self::mappingRows($this->fields_lead) as $field) {
+            $id = $field['field_amo'] ?? null;
+            if (($field['field_yc'] ?? null) === $fieldYc
+                && (is_int($id) || is_string($id))
+                && ctype_digit((string) $id) && (int) $id > 0) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     public function responsibleUserIdForRecord(Record $record): ?int
     {
         $ycUserKey = (string)$record->company_id . ':' . (string)$record->created_user_id;
