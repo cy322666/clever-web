@@ -19,7 +19,10 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Enums\RecordActionsPosition;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
@@ -119,8 +122,38 @@ class WorkflowResource extends BaseWorkflowResource
             ])
             ->recordUrl(fn (Workflow $record): string => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('updated_at', 'desc')
-            ->filters([])
-            ->filtersTriggerAction(fn (Action $action): Action => $action->hidden())
+            ->filters([
+                TernaryFilter::make('is_active')
+                    ->label('Активность')
+                    ->placeholder('Все')
+                    ->trueLabel('Включены')
+                    ->falseLabel('Выключены'),
+
+                SelectFilter::make('last_run_status')
+                    ->label('Последний запуск')
+                    ->options([
+                        'never' => 'Не запускался',
+                        RunStatus::COMPLETED->value => 'Завершен',
+                        RunStatus::FAILED->value => 'Ошибка',
+                        RunStatus::CANCELLED->value => 'Отменен',
+                        RunStatus::RUNNING->value => 'Выполняется',
+                        RunStatus::PENDING->value => 'Ожидает',
+                        RunStatus::PAUSED->value => 'Приостановлен',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $status = $data['value'] ?? null;
+
+                        if (blank($status)) {
+                            return $query;
+                        }
+
+                        return $status === 'never'
+                            ? $query->whereDoesntHave('latestRun')
+                            : $query->whereHas('latestRun', fn (Builder $run): Builder => $run->where('status', $status));
+                    }),
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(['default' => 1, 'md' => 2])
+            ->deferFilters(false)
             ->poll('5s')
             ->paginated(fn (): bool|array => (bool) auth()->user()?->is_root ? [25, 50, 100] : false)
             ->defaultPaginationPageOption(fn (): ?int => (bool) auth()->user()?->is_root ? 50 : null)
