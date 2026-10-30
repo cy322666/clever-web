@@ -10,7 +10,8 @@
 .workflow-debug-ui textarea { padding: 10px; font: 12px/1.6 ui-monospace, monospace; resize: vertical; }
 .workflow-debug-error { padding: 8px 18px; margin: 0; color: #c23d3d; overflow-wrap: anywhere; }
 .dark .workflow-debug-error { color: #ffaba3; }
-.workflow-debug-side { width: 44%; flex: 0 0 44%; max-width: 660px; min-width: 390px; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--debug-line); }
+/* Match the existing settings dock so switching tabs never changes form width. */
+.workflow-debug-side { width: 440px; flex: 0 0 440px; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--debug-line); }
 .workflow-debug-history { display: flex; align-items: center; gap: 12px; padding: 12px 18px; }
 .workflow-debug-history details { position: relative; min-width: 0; }
 .workflow-debug-history summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border: 1px solid var(--debug-line); border-radius: 6px; font-size: 12px; font-weight: 600; list-style: none; }
@@ -66,7 +67,6 @@
 .workflow-inspector[data-debug-embedded] > :is(.workflow-inspector__header, .workflow-inspector__tabs), .workflow-inspector[data-debug-embedded] .workflow-inspector__footer { display: none; }
 .workflow-inspector[data-debug-embedded] .workflow-inspector__pane { padding: 18px !important; }
 @media (max-width: 1150px) {
-    .workflow-debug-side { min-width: 360px; flex-basis: 44%; }
     .workflow-debug-history { padding: 12px; gap: 6px; }
     .workflow-debug-history__navigation { gap: 3px; }
 }
