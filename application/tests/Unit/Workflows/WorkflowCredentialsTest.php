@@ -4,6 +4,8 @@ namespace Tests\Unit\Workflows;
 
 use App\Models\User;
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\ListWorkflows;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\WorkflowConnections;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
 use App\Models\Workflows\Workflow;
 use App\Models\Workflows\WorkflowCredential;
 use App\Services\Workflows\WorkflowCredentials;
@@ -74,8 +76,29 @@ class WorkflowCredentialsTest extends TestCase
         Livewire::test(ListWorkflows::class)
             ->assertStatus(200)
             ->assertSee('Подключения')
-            ->call('mountAction', 'workflowCredentials')
-            ->assertSet('workflowCredentialProvider', 'telegram');
+            ->assertSee(WorkflowResource::getUrl('connections'), false);
+
+        Livewire::test(WorkflowConnections::class)
+            ->assertStatus(200)
+            ->assertSee('Подключений пока нет')
+            ->assertSet('workflowCredentialProvider', 'telegram')
+            ->call('beginCreateWorkflowCredential')
+            ->assertSee('Токен бота')
+            ->assertSet('workflowCredentialMode', 'create');
+    }
+
+    public function test_connections_tab_only_displays_the_owners_connections_without_tokens(): void
+    {
+        $this->saveBot();
+        Livewire::test(WorkflowConnections::class)
+            ->assertSee('@clever_test_bot')
+            ->assertDontSee(self::TOKEN);
+
+        $this->actingAs(User::findOrFail(2));
+        Livewire::test(WorkflowConnections::class)
+            ->assertSee('Подключений пока нет')
+            ->assertDontSee('@clever_test_bot')
+            ->assertDontSee(self::TOKEN);
     }
 
     public function test_connections_are_scoped_and_foreign_tokens_cannot_be_used(): void

@@ -691,6 +691,7 @@ class WorkflowResource extends BaseWorkflowResource
     {
         return [
             'index' => Pages\ListWorkflows::route('/'),
+            'connections' => Pages\WorkflowConnections::route('/connections'),
             'create' => Pages\CreateWorkflow::route('/create'),
             'replay' => Pages\ReplayWorkflow::route('/history/{run}/editor'),
             'history' => Pages\WorkflowHistory::route('/{record}/history'),
