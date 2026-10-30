@@ -72,8 +72,8 @@ abstract class Leads
             $loadedIds = [];
             $matches = [];
 
-            // The SDK loads linked lead IDs in chunks. Do not filter out closed or other-pipeline leads.
-            foreach ($currentContact->leads as $lead) {
+            // The SDK wrapper is not iterable; all() exposes every loaded chunk, including closed leads.
+            foreach ($currentContact->leads->all() as $lead) {
                 if (!$lead instanceof Lead || !in_array((int) $lead->id, $contactLeadIds, true)) {
                     throw new \RuntimeException('Unexpected amoCRM lead during YClients record ID search.');
                 }

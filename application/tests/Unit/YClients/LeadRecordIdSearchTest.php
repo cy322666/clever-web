@@ -6,7 +6,7 @@ use App\Services\YClients\Leads;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Tests\TestCase;
-use Ufee\Amo\Base\Collections\Collection;
+use Ufee\Amo\Collections\LeadCollection;
 use Ufee\Amo\Models\Contact;
 use Ufee\Amo\Models\Lead;
 
@@ -35,6 +35,17 @@ class LeadRecordIdSearchTest extends TestCase
             $this->lead(3, 901, 'prefix 1000'), $this->lead(4, 901, null),
             $this->lead(5, 901, false), $this->lead(6, 901, '1000, 2000')];
         $this->assertNull(Leads::searchByRecordId($this->contact($leads), 1000, [901]));
+    }
+
+    public function test_real_sdk_collection_wrapper_is_not_directly_iterable(): void
+    {
+        $lead = $this->lead(42, 901, '1000');
+        $contact = $this->contact([$lead]);
+
+        $this->assertInstanceOf(LeadCollection::class, $contact->leads);
+        $this->assertNotInstanceOf(\Traversable::class, $contact->leads);
+        $this->assertSame([$lead], $contact->leads->all());
+        $this->assertSame($lead, Leads::searchByRecordId($contact, 1000, [901]));
     }
 
     public function test_match_can_be_after_the_first_sdk_chunk(): void
@@ -114,8 +125,10 @@ class LeadRecordIdSearchTest extends TestCase
     {
         $contact = $this->createMock(Contact::class);
         $ids ??= array_map(fn($lead) => $lead->id, $leads);
+        $service = $this->createMock(\Ufee\Amo\Services\Leads::class);
+        $collection = new LeadCollection($leads, $service);
         $contact->method('__get')->willReturnCallback(fn($key) => match ($key) {
-            'id' => 77, 'leads_id' => $ids, 'leads' => new Collection($leads), default => null,
+            'id' => 77, 'leads_id' => $ids, 'leads' => $collection, default => null,
         });
         return $contact;
     }

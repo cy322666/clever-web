@@ -338,10 +338,12 @@ class RecordSyncRecoveryTest extends TestCase
         ]);
         $record->update(['client_id' => 123]);
         $contact = $this->createMock(\Ufee\Amo\Models\Contact::class);
+        $leadService = $this->createMock(\Ufee\Amo\Services\Leads::class);
+        $collection = new \Ufee\Amo\Collections\LeadCollection($linkedLeads, $leadService);
         $contact->method('__get')->willReturnCallback(fn ($name) => match ($name) {
             'id' => 77,
             'leads_id' => array_map(fn($linked) => $linked->id, $linkedLeads),
-            'leads' => new \Ufee\Amo\Base\Collections\Collection($linkedLeads),
+            'leads' => $collection,
             default => null,
         });
         $contact->method('save')->willReturn(true);
