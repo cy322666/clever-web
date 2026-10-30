@@ -41,7 +41,8 @@ class WorkflowIndexFiltersTest extends TestCase
     {
         $page = Livewire::test(ListWorkflows::class)
             ->assertSee('tableSearch', false)
-            ->set('tableSearch', 'Сценарий 2');
+            ->set('tableSearch', 'Сценарий 2')
+            ->assertDontSee('Активные фильтры');
         $this->assertEqualsCanonicalizing([2], $page->instance()->getTableRecords()->modelKeys());
 
         $page->set('tableSearch', '');

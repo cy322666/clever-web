@@ -120,6 +120,7 @@ class WorkflowResource extends BaseWorkflowResource
             ->recordUrl(fn (Workflow $record): string => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('updated_at', 'desc')
             ->filters([])
+            ->hiddenFilterIndicators()
             ->poll('5s')
             ->paginated(fn (): bool|array => (bool) auth()->user()?->is_root ? [25, 50, 100] : false)
             ->defaultPaginationPageOption(fn (): ?int => (bool) auth()->user()?->is_root ? 50 : null)
