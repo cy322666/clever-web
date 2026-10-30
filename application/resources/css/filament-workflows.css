@@ -5907,6 +5907,32 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-overview__heading { margin-bottom: 0.5rem; }
 .workflow-overview__heading h2 { overflow-wrap: anywhere; font-size: 0.875rem; font-weight: 600; color: #404040; }
 .workflow-overview__heading > div { display: flex; gap: 0.75rem; }
+/* Keep Filament's fields and reset action in one compact table toolbar. */
+.workflow-list-page .fi-ta-header-ctn:has(> .fi-ta-filters-above-content-ctn) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+}
+.workflow-list-page .fi-ta-filters-above-content-ctn {
+    flex: 1 1 28rem;
+    min-width: 0;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 0;
+}
+.workflow-list-page .fi-ta-filters { display: flex; align-items: center; gap: 0.75rem; }
+.workflow-list-page .fi-ta-filters > .fi-sc { flex: 1; min-width: 0; gap: 0.5rem; }
+.workflow-list-page .fi-ta-filters-header { order: 1; flex: 0 0 auto; }
+.workflow-list-page .fi-ta-filters-heading { display: none; }
+.workflow-list-page .fi-ta-filters .fi-select-input-value-ctn { flex-wrap: nowrap; overflow: hidden; }
+.workflow-list-page .fi-ta-header-ctn:has(> .fi-ta-filters-above-content-ctn) > .fi-ta-header-toolbar {
+    flex: 0 1 15rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem 0.5rem 0;
+    border-bottom: 0;
+}
+.workflow-list-page .fi-ta-header-ctn:has(> .fi-ta-filters-above-content-ctn) .fi-ta-search-field { width: 100%; min-width: 0; }
+.dark .workflow-list-page .fi-ta-header-ctn:has(> .fi-ta-filters-above-content-ctn) { border-color: var(--workflow-dark-line); }
 .workflow-list-page .fi-ta-ctn { border-radius: 0; box-shadow: none; --tw-ring-shadow: 0 0 #0000; }
 .workflow-list-page .fi-ta { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
 .workflow-list-page .fi-ta-cell { padding-block: 0.75rem; }

@@ -10,6 +10,7 @@ use App\Workflows\Triggers\AmoCrmWebhookTriggerCatalog;
 use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use BackedEnum;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -152,6 +153,8 @@ class WorkflowRunResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
+                    ->placeholder('Статус')
+                    ->modifyFormFieldUsing(fn (Select $field): Select => $field->hiddenLabel())
                     ->options([
                         RunStatus::COMPLETED->value => 'Завершен',
                         RunStatus::FAILED->value => 'Ошибка',
@@ -164,12 +167,16 @@ class WorkflowRunResource extends Resource
 
                 SelectFilter::make('workflow_id')
                     ->label('Сценарий')
+                    ->placeholder('Сценарий')
+                    ->modifyFormFieldUsing(fn (Select $field): Select => $field->hiddenLabel())
                     ->relationship('workflow', 'name')
                     ->searchable()
                     ->preload(),
 
                 SelectFilter::make('trigger_source')
                     ->label('Источник запуска')
+                    ->placeholder('Источник запуска')
+                    ->modifyFormFieldUsing(fn (Select $field): Select => $field->hiddenLabel())
                     ->options(TriggerType::class)
                     ->multiple(),
 
@@ -178,6 +185,8 @@ class WorkflowRunResource extends Resource
                     ->schema([
                         TextInput::make('value')
                             ->label('ID сущности')
+                            ->hiddenLabel()
+                            ->placeholder('ID сущности')
                             ->numeric(),
                     ])
                     ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
@@ -185,7 +194,8 @@ class WorkflowRunResource extends Resource
                         : $query)
                     ->indicateUsing(fn (): array => []),
             ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(['default' => 1, 'md' => 2, 'xl' => 4])
+            ->filtersFormColumns(['default' => 2, 'lg' => 4])
+            ->hiddenFilterIndicators()
             ->deferFilters(false)
             ->persistFiltersInSession()
             ->toolbarActions([])

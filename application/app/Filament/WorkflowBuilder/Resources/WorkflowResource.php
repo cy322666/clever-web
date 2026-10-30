@@ -125,12 +125,15 @@ class WorkflowResource extends BaseWorkflowResource
             ->filters([
                 TernaryFilter::make('is_active')
                     ->label('Активность')
-                    ->placeholder('Все')
+                    ->placeholder('Активность')
+                    ->modifyFormFieldUsing(fn (Select $field): Select => $field->hiddenLabel())
                     ->trueLabel('Включены')
                     ->falseLabel('Выключены'),
 
                 SelectFilter::make('last_run_status')
                     ->label('Последний запуск')
+                    ->placeholder('Последний запуск')
+                    ->modifyFormFieldUsing(fn (Select $field): Select => $field->hiddenLabel())
                     ->options([
                         'never' => 'Не запускался',
                         RunStatus::COMPLETED->value => 'Завершен',
@@ -152,7 +155,8 @@ class WorkflowResource extends BaseWorkflowResource
                             : $query->whereHas('latestRun', fn (Builder $run): Builder => $run->where('status', $status));
                     }),
             ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(['default' => 1, 'md' => 2])
+            ->filtersFormColumns(2)
+            ->hiddenFilterIndicators()
             ->deferFilters(false)
             ->poll('5s')
             ->paginated(fn (): bool|array => (bool) auth()->user()?->is_root ? [25, 50, 100] : false)
