@@ -17,7 +17,9 @@ class WorkflowNodeAppearanceTest extends TestCase
         foreach (['amocrm_create_contact'=>'contact-create', 'amocrm_update_contact_fields'=>'contact-update', 'amocrm_create_lead'=>'lead-create', 'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_set_variable'=>'assign', 'http_request'=>'http', 'telegram_send_message'=>'telegram'] as $type=>$artwork) {
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance'=>WorkflowNodeAppearance::action($type)]);
             $this->assertStringContainsString('data-node-artwork="'.$artwork.'"', $html);
-            $this->assertStringNotContainsString('<svg', $html);
+            $this->assertStringContainsString('workflow-node-artwork__fallback', $html);
+            $this->assertStringContainsString('data-artwork-ready="false"', $html);
+            $this->assertStringContainsString('x-show="!artworkLoaded"', $html);
         }
     }
 

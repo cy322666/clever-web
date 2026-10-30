@@ -7294,12 +7294,17 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-editor #workflow-canvas .workflow-node-artwork {
     position: absolute; inset: 0; pointer-events: none; border-radius: 15px;
     /* 194px square windows, one uniform scale. Never stretch the source art. */
-    background-image: url('../images/workflow-nodes/duotone-approved.png');
+    --workflow-node-artwork-image: url('../images/workflow-nodes/duotone-approved.png');
+    background-image: var(--workflow-node-artwork-image);
     background-repeat: no-repeat; background-size: 766.494845% 545.360825%;
     background-position: var(--art-x) var(--art-y);
     /* Retain the selected two-tone glyphs and shading, with the operation's hue. */
     background-color: var(--workflow-node-fill);
     background-blend-mode: luminosity;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-artwork[data-artwork-ready="false"] { background-image: none; }
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-artwork > .workflow-node-artwork__fallback {
+    position: absolute; inset: 25%; width: 50%; height: 50%; color: #fff;
 }
 .workflow-node-artwork[data-node-artwork="contact-find"] { --art-x: 13.070379%; --art-y: 20.949074%; }
 .workflow-node-artwork[data-node-artwork="contact-create"] { --art-x: 38.205723%; --art-y: 20.949074%; }

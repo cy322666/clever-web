@@ -1,3 +1,29 @@
+// Keep an inline glyph visible until the shared artwork is fully decoded.
+// Every node reuses one image request; loading never blocks the editor.
+const workflowArtworkImages = new Map();
+window.workflowNodeArtwork = () => ({
+    artworkLoaded: false,
+    async init() {
+        const image = getComputedStyle(this.$el).getPropertyValue('--workflow-node-artwork-image').trim();
+        const match = image.match(/^url\(\s*(?:"([^"]+)"|'([^']+)'|([^)]*?))\s*\)$/);
+        const url = match && (match[1] || match[2] || match[3]);
+        if (!url) return;
+        if (!workflowArtworkImages.has(url)) {
+            const asset = new Image();
+            const loaded = new Promise(resolve => {
+                asset.onload = async () => {
+                    try { await asset.decode?.(); resolve(true); }
+                    catch { resolve(false); }
+                };
+                asset.onerror = () => resolve(false);
+                asset.src = url;
+            });
+            workflowArtworkImages.set(url, {asset, loaded});
+        }
+        this.artworkLoaded = await workflowArtworkImages.get(url).loaded;
+    },
+});
+
 window.workflowJavascriptFormatting = (disabled = false) => ({
     formatDisabled: disabled,
     formatting: false,

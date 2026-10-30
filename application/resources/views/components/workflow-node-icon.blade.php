@@ -19,7 +19,18 @@
 @if($appearance['glyph'] === 'code' && $appearance['modifier'] === null)
     <span class="workflow-node-glyph workflow-node-glyph--language" data-node-language="javascript" aria-hidden="true">JS</span>
 @elseif($artwork)
-    <span class="workflow-node-artwork" data-node-artwork="{{ $artwork }}" aria-hidden="true"></span>
+    <span class="workflow-node-artwork" data-node-artwork="{{ $artwork }}" aria-hidden="true"
+        x-data="typeof workflowNodeArtwork === 'function' ? workflowNodeArtwork() : {artworkLoaded: false}"
+        data-artwork-ready="false" x-bind:data-artwork-ready="artworkLoaded ? 'true' : 'false'">
+        <span class="workflow-node-glyph workflow-node-artwork__fallback {{ $appearance['modifier'] !== null ? 'workflow-node-glyph--action' : '' }} {{ $appearance['modifier'] === 'equals' ? 'workflow-node-glyph--assignment' : '' }}" x-show="!artworkLoaded">
+            @if($appearance['modifier'] !== null)
+                <x-filament::icon :icon="'wficon-'.$appearance['glyph'].($appearance['modifier'] === 'equals' ? '-bold' : '-fill')" class="workflow-node-glyph__entity"/>
+                <x-filament::icon :icon="'wficon-'.$appearance['modifier'].'-bold'" class="workflow-node-glyph__action"/>
+            @else
+                <x-filament::icon :icon="'wficon-'.$appearance['glyph'].($appearance['glyph'] === 'telegram-logo' ? '-fill' : '-duotone')" class="workflow-node-glyph__main"/>
+            @endif
+        </span>
+    </span>
 @else
 <span {{ $attributes->class(['workflow-node-glyph', 'workflow-node-glyph--action' => $appearance['modifier'] !== null, 'workflow-node-glyph--assignment' => $appearance['modifier'] === 'equals']) }} aria-hidden="true">
     @if($appearance['modifier'] !== null)
