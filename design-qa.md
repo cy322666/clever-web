@@ -61,3 +61,11 @@ Verified in the browser:
 - No production deployment or live CRM execution was performed.
 
 No open P0, P1 or P2 findings in the implemented debugger scope.
+
+## Requested cleanup, 2026-10-30
+
+Removed the remaining top debug toolbar and its styles. The node selector, separate settings-opening button and bottom execution trail were already absent from this version; all four are confirmed absent in the rendered DOM. Node controls now depend on the debug state attribute rather than the removed toolbar. The existing bottom launch button remains available and also pauses or resumes a running debug session.
+
+Verified the real page on an isolated local fixture at 1280 x 720: settings still open through their tab, the bottom launch button executes the fixture, and history can be selected again. No browser warnings or errors were recorded. All 299 JavaScript tests, 22 focused PHP tests (217 assertions), the asset build and diff whitespace checks passed. No production deployment was performed.
+
+Screenshot: `/Users/integrator/.codex/visualizations/2026/10/12/01a13132-ac49-7fe1-a440-d1d4a8136e38/workflow-debugger-implementation/cleanup-2026-10-30.jpg`.

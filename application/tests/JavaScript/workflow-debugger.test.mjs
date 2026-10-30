@@ -103,15 +103,16 @@ test('settings mount the existing form inside the debug tab without closing hist
 test('the debugger has three tabs, a compact history dropdown and no bottom trail', () => {
     const css=readFileSync(new URL('../../resources/css/workflow-debugger.css',import.meta.url),'utf8');
     assert.match(css,/\.workflow-debug-ui\[hidden\] \{ display: none !important;/);
-    assert.match(css,/\.workflow-node-editor:has\(> \.workflow-debug-toolbar:not\(\[hidden\]\)\) \.workflow-node-card__tools/);
+    assert.match(css,/\.workflow-node-editor\[data-workflow-debug-open=true\] \.workflow-node-card__tools/);
     assert.match(css,/\.workflow-inspector\[data-debug-embedded\]/);
     const view=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
-    assert.doesNotMatch(view,/@include\('filament.workflow-builder.workflow-debug-trail/);
+    assert.doesNotMatch(view,/@include\('filament.workflow-builder.workflow-debug-(trail|toolbar)/);
+    assert.doesNotMatch(css,/workflow-debug-toolbar/);
     const panel=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debugger.blade.php',import.meta.url),'utf8');
     assert.match(panel,/<details x-ref="debugHistory"/);
     assert.match(panel,/\['settings' => 'Настройки', 'input' => 'Вход', 'output' => 'Выход'\]/);
     assert.match(panel,/'numbered' => true/);
-    assert.doesNotMatch(panel,/summary'|Детали запроса|Технические события|Повторить|Таблица/);
+    assert.doesNotMatch(panel,/summary'|Детали запроса|Технические события|Повторить|Таблица|Открыть настройки ноды|<select/);
 });
 
 test('history is fetched once on demand, search and record navigation stay local', async () => {

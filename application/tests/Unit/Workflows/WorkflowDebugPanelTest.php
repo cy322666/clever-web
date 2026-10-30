@@ -88,11 +88,12 @@ class WorkflowDebugPanelTest extends TestCase
     public function test_workspace_renders_tabbed_inspector_and_compact_history_without_bottom_logs(): void
     {
         Livewire::test(WorkflowDebugFixture::class)->call('openWorkflowDebugger')
-            ->assertSee('Отладка ноды')->assertSee('Управление отладкой')
+            ->assertSee('Отладка ноды')->assertDontSee('Управление отладкой')
             ->assertSee('История')->assertSee('Настройки')->assertSee('Вход')->assertSee('Выход')
             ->assertSee('Предыдущая запись')->assertSee('Скопировать JSON')
             ->assertDontSee('Выполненные шаги')->assertDontSee('Детали запроса')->assertDontSee('Технические события')
             ->assertDontSee('workflow-debug-trail', false)
+            ->assertDontSee('workflow-debug-toolbar', false)->assertDontSee('Открыть настройки ноды')
             ->call('startWorkflowDebug')->call('closeWorkflowDebugger')->assertSet('debugOpen', false)
             ->call('openWorkflowDebugger')->assertSet('debugState.status', 'ready');
     }

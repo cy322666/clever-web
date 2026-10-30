@@ -172,8 +172,8 @@
                 class="workflow-node-editor"
                 x-bind:style="{ '--workflow-debug-scale': 1 / scale }"
                 x-bind:data-debug-controls-compact="scale < .5"
+                x-bind:data-workflow-debug-open="$wire.debugOpen"
             >
-            @include('filament.workflow-builder.workflow-debug-toolbar')
             <div
                 x-ref="viewport"
                 x-on:pointerdown="startCanvasInteraction($event)"
@@ -212,11 +212,12 @@
                             <x-filament::icon icon="heroicon-o-power" class="h-5 w-5"/>
                         </button>
                     @endif
-                    <button type="button" class="workflow-canvas-run" x-show="!$wire.debugOpen || !debugConfigured()" x-cloak
-                        x-on:pointerdown.stop x-on:click.stop="if (!$wire.debugOpen) $wire.openWorkflowDebugger(); else startDebug(true)"
-                        x-bind:disabled="busy || playing" x-bind:aria-busy="busy"
-                        x-bind:title="$wire.debugOpen ? 'Запустить отладку' : 'Настроить отладку'" aria-label="Запустить отладку">
-                        <x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/><span>Запустить</span>
+                    <button type="button" class="workflow-canvas-run" x-cloak
+                        x-on:pointerdown.stop x-on:click.stop="if (playing) playing = false; else if (!$wire.debugOpen) $wire.openWorkflowDebugger(); else if ($wire.debugState.status === 'ready') runDebug(); else startDebug(true)"
+                        x-bind:disabled="busy && !playing" x-bind:aria-busy="busy"
+                        x-bind:title="playing ? 'Остановиться после текущего шага' : ($wire.debugOpen ? 'Запустить отладку' : 'Настроить отладку')" aria-label="Запустить отладку"
+                        x-bind:aria-label="playing ? 'Пауза' : 'Запустить отладку'">
+                        <x-filament::icon x-show="!playing" icon="heroicon-s-play" class="h-4 w-4"/><x-filament::icon x-show="playing" icon="heroicon-s-pause" class="h-4 w-4"/><span x-text="playing ? 'Пауза' : 'Запустить'">Запустить</span>
                     </button>
                     @if($isReplay)
                         <button class="workflow-canvas-execution-action" type="button" wire:click="openWorkflowDebugger" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
