@@ -103,7 +103,6 @@ test('settings mount the existing form inside the debug tab without closing hist
 test('the debugger has three tabs, a compact history dropdown and no bottom trail', () => {
     const css=readFileSync(new URL('../../resources/css/workflow-debugger.css',import.meta.url),'utf8');
     assert.match(css,/\.workflow-debug-ui\[hidden\] \{ display: none !important;/);
-    assert.match(css,/\.workflow-node-editor\[data-workflow-debug-open=true\] \.workflow-node-card__tools/);
     assert.match(css,/\.workflow-inspector\[data-debug-embedded\]/);
     const view=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
     assert.doesNotMatch(view,/@include\('filament.workflow-builder.workflow-debug-(trail|toolbar)/);

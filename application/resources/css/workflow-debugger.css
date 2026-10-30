@@ -63,12 +63,6 @@
 .workflow-debug-empty { padding: 26px 8px; }
 .workflow-debug-settings { flex: 1 1 0; min-height: 160px; }
 .workflow-debug-settings > p { padding: 20px 24px; color: var(--debug-muted); }
-/* In debug mode the existing node controls remain visible without hovering. */
-.workflow-node-editor[data-workflow-debug-open=true] .workflow-node-card__tools { left: 50%; right: auto; gap: 2px; transform: translateX(-50%) scale(var(--workflow-debug-scale, 1)); transform-origin: center bottom; }
-.workflow-node-editor:not([data-debug-controls-compact=true])[data-workflow-debug-open=true] .workflow-node-card__tools,
-.workflow-node-editor[data-workflow-debug-open=true] [data-debug-selected=true] > .workflow-node-card__tools { opacity: 1; pointer-events: auto; }
-.workflow-node-editor[data-workflow-debug-open=true] .workflow-node-card__tools > button { width: 24px; min-width: 24px; height: 24px; flex-basis: 24px; }
-.workflow-node-editor[data-workflow-debug-open=true] .workflow-node-card__tools > button svg { width: 14px; height: 14px; }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family][data-debug-selected=true]:not(.workflow-node-card--disabled) { outline: 2px solid #ee795a; outline-offset: 4px; }
 /* Mount the existing settings form in the tab without duplicating its fields. */
 .workflow-inspector[data-debug-embedded] { right: auto; border: 0; box-shadow: none; animation: none; }

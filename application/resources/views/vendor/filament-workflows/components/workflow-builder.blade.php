@@ -170,8 +170,6 @@
                 x-on:workflow-node-library-closed.window="pendingDropPosition = null; pendingInsertion = null; pendingTriggerPosition = null"
                 x-on:workflow-export.window="$wire.exportCurrentWorkflow(positions)"
                 class="workflow-node-editor"
-                x-bind:style="{ '--workflow-debug-scale': 1 / scale }"
-                x-bind:data-debug-controls-compact="scale < .5"
                 x-bind:data-workflow-debug-open="$wire.debugOpen"
             >
             <div
