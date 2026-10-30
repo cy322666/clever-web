@@ -216,8 +216,9 @@ window.workflowSortableList = (path) => ({
 window.workflowInspector = () => ({
     opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
     desired: undefined, processing: false, currentId: null, opener: null, dismissed: false,
-    embedded: false, debugSlotId: null, local: null, localReady: null,
+    embedded: false, debugSlotId: null, local: null, localReady: null, inspectorRoot: null,
     init() {
+        this.inspectorRoot=this.$el;
         const boot = this.$el.querySelector('[data-local-inspector-boot]');
         if (boot) this.localReady = import('./workflow-local-inspector.mjs').then(({installLocalInspector}) => {
             if (this.$el.isConnected) this.local = installLocalInspector(this,JSON.parse(boot.textContent),this.$el);
@@ -231,14 +232,15 @@ window.workflowInspector = () => ({
         this.releaseMorphHook?.();
         this.editorPage()?.removeAttribute('data-workflow-inspector-open');
     },
+    inspectorElement() { return this.inspectorRoot || this.$el; },
     editorPage() {
-        return this.$el.closest?.('[wire\\:partial="action-modals"]')?.parentElement?.querySelector('.workflow-editor-page')
+        return this.inspectorElement().closest?.('[wire\\:partial="action-modals"]')?.parentElement?.querySelector('.workflow-editor-page')
             || document.querySelector('.workflow-editor-page');
     },
     syncCanvasSpace() {
         // The dock owns its canvas space. Synchronize before Alpine's next tick
         // so closing during a Livewire morph cannot leave an empty column.
-        this.$el.hidden = !this.opened;
+        this.inspectorElement().hidden = !this.opened;
         this.editorPage()?.toggleAttribute('data-workflow-inspector-open', this.opened && !this.embedded);
     },
     positionInspector() {
@@ -289,7 +291,7 @@ window.workflowInspector = () => ({
     nextTab(direction) {
         const tabs = ['settings', 'input', 'output'];
         this.tab = tabs[(tabs.indexOf(this.tab) + direction + tabs.length) % tabs.length];
-        this.$nextTick(() => this.$el.querySelector('[role=tab][aria-selected=true]')?.focus());
+        this.$nextTick(() => this.inspectorElement().querySelector('[role=tab][aria-selected=true]')?.focus());
     },
     openInspector(detail) {
         if (this.$wire.debugOpen && !detail.embedded) {
@@ -315,7 +317,7 @@ window.workflowInspector = () => ({
     },
     dismissInspector(event) {
         if (this.embedded) return;
-        if (!this.opened || this.$el.contains(event.target)) return;
+        if (!this.opened || this.inspectorElement().contains(event.target)) return;
         // Changing the canvas width on pointerdown moves the next node before
         // its click arrives. Switching nodes keeps the existing dock in place.
         if (event.target.closest?.('[data-workflow-node-card], .workflow-canvas-controls, .workflow-canvas-execution-controls')) return;
@@ -401,7 +403,7 @@ window.workflowInspector = () => ({
         } finally {
             this.processing = this.loading = false;
             this.$nextTick(() => {
-                const form = this.$el.querySelector('[data-inspector-node]');
+                const form = this.inspectorElement().querySelector('[data-inspector-node]');
                 if (form && !this.local) this.title = form.dataset.inspectorTitle;
             });
             this.announce();

@@ -51,6 +51,15 @@ test('tabs change locally and do not load or save the form', () => {
     panel.nextTab(-1);assert.equal(panel.tab,'output');
 });
 
+test('closing from a descendant button hides the dock without hiding the button',()=>{
+    const {panel}=fixture();panel.init();panel.opened=true;
+    const root=panel.$el,button={};
+    const scoped=new Proxy(panel,{get(target,key,receiver){return key==='$el'?button:Reflect.get(target,key,receiver);}});
+    scoped.hideInspector();
+    assert.equal(root.hidden,true);assert.equal(button.hidden,undefined);
+    panel.opened=true;panel.announce();assert.equal(root.hidden,false);
+});
+
 test('invalid form stays open on close and failed requests always release loading', async () => {
     const {panel}=fixture();panel.opened=true;
     panel.$wire.mountedActions=[{name:'configureWorkflowAction'}];
