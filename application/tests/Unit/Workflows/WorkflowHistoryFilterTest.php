@@ -185,4 +185,79 @@ class WorkflowHistoryFilterTest extends TestCase
         $run->completed_at = $started->copy()->addSeconds(2);
         $this->assertSame('2 с', WorkflowRunResource::runDuration($run));
     }
+
+    public function test_history_links_to_the_initiating_card_and_keeps_entityless_runs_empty(): void
+    {
+        DB::table('accounts')->insert([
+            ['id' => 11, 'user_id' => 1, 'widget' => 'workflows', 'active' => true, 'subdomain' => 'history-owner'],
+            ['id' => 22, 'user_id' => 2, 'widget' => 'workflows', 'active' => true, 'subdomain' => 'another-owner'],
+        ]);
+        foreach ([1 => ['lead', 123], 2 => ['contact', 456], 3 => ['company', 789]] as $id => [$entity, $entityId]) {
+            DB::table('workflow_runs')->where('id', $id)->update(['context_data' => json_encode([
+                'trigger_data' => ['entity' => $entity, 'item' => ['id' => $entityId], 'account' => ['id' => 11]],
+                'variables' => ['_definition_snapshot' => ['actions' => []]],
+                'step_outputs' => ['created' => ['entity_type' => 'lead', 'entity_id' => 999]],
+            ])]);
+        }
+
+        $page = Livewire::test(ListWorkflowRuns::class)
+            ->assertSee('Сущность')
+            ->assertSee('Сделка #123')
+            ->assertSee('Контакт #456')
+            ->assertSee('Компания #789')
+            ->assertSee('https://history-owner.amocrm.ru/leads/detail/123', false)
+            ->assertSee('https://history-owner.amocrm.ru/contacts/detail/456', false)
+            ->assertSee('https://history-owner.amocrm.ru/companies/detail/789', false)
+            ->assertDontSee('another-owner.amocrm.ru', false)
+            ->assertDontSee('Сделка #999');
+
+        $column = $page->instance()->getTable()->getColumn('trigger_entity');
+        $column->record($page->instance()->getTableRecords()->firstWhere('id', 4));
+        $this->assertNull($column->getState());
+        $this->assertNull($column->getUrl());
+        $this->assertTrue($column->shouldOpenUrlInNewTab());
+        Http::assertNothingSent();
+    }
+
+    public function test_entity_links_use_preloaded_accounts_without_queries_per_row(): void
+    {
+        $owner = User::findOrFail(1);
+        $owner->setRelation('accounts', collect([
+            (new \App\Models\Core\Account)->forceFill(['id' => 11, 'user_id' => 1, 'widget' => 'workflows', 'active' => true, 'subdomain' => 'current']),
+            (new \App\Models\Core\Account)->forceFill(['id' => 12, 'user_id' => 1, 'widget' => 'workflows', 'active' => false, 'subdomain' => 'original']),
+        ]));
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        foreach (range(1, 50) as $id) {
+            $run = (new WorkflowRun)->forceFill(['user_id' => 1, 'context_data' => ['trigger_data' => [
+                'entity' => 'lead', 'lead' => ['id' => $id], 'account' => ['id' => 12],
+            ]]]);
+            $run->setRelation('owner', $owner);
+            $this->assertSame('https://original.amocrm.ru/leads/detail/'.$id, WorkflowRunResource::triggerEntity($run)['url']);
+        }
+
+        $this->assertSame([], DB::getQueryLog());
+        DB::disableQueryLog();
+        Http::assertNothingSent();
+    }
+
+    public function test_retained_trigger_index_is_used_without_confusing_changed_entities(): void
+    {
+        $run = WorkflowRun::findOrFail(1);
+        $owner = User::findOrFail(1);
+        $owner->setRelation('accounts', collect([
+            (new \App\Models\Core\Account)->forceFill(['user_id' => 1, 'widget' => 'workflows', 'subdomain' => 'history-owner']),
+        ]));
+        $run->setRelation('owner', $owner);
+        $run->setRelation('entityLinks', collect([
+            (new \App\Models\Workflows\WorkflowRunEntity)->forceFill(['source' => 'step', 'entity_type' => 'lead', 'entity_id' => 999]),
+            (new \App\Models\Workflows\WorkflowRunEntity)->forceFill(['source' => 'trigger', 'entity_type' => 'lead', 'entity_id' => 123]),
+        ]));
+
+        $this->assertSame(['label' => 'Сделка #123', 'url' => 'https://history-owner.amocrm.ru/leads/detail/123'], WorkflowRunResource::triggerEntity($run));
+        $run->setRelation('entityLinks', collect());
+        $this->assertNull(WorkflowRunResource::triggerEntity($run));
+        Http::assertNothingSent();
+    }
 }

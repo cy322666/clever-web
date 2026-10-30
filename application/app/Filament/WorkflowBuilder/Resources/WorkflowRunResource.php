@@ -79,8 +79,10 @@ class WorkflowRunResource extends Resource
 
         $query = parent::getEloquentQuery()
             ->when(! (bool) Auth::user()?->is_root, fn (Builder $query): Builder => $query->where('user_id', Auth::id()))
-            ->with('workflow')
-            ->when((bool) Auth::user()?->is_root, fn (Builder $query): Builder => $query->with('owner.accounts'));
+            ->with(['workflow', 'owner.accounts'])
+            ->when(static::hasEntityIndexTable(), fn (Builder $query): Builder => $query->with([
+                'entityLinks' => fn ($query) => $query->where('source', 'trigger')->whereNull('workflow_run_step_id'),
+            ]));
 
         if ($workflowId > 0) {
             $query->where('workflow_id', $workflowId);
@@ -127,6 +129,15 @@ class WorkflowRunResource extends Resource
                     ->badge()
                     ->icon(fn (WorkflowRun $record): ?string => $record->status?->getIcon())
                     ->color(fn (WorkflowRun $record): string => $record->status?->getColor() ?: 'gray')
+                    ->extraCellAttributes(static::compactCellAttributes()),
+
+                TextColumn::make('trigger_entity')
+                    ->label('Сущность')
+                    ->state(fn (WorkflowRun $record): ?string => static::triggerEntity($record)['label'] ?? null)
+                    ->url(fn (WorkflowRun $record): ?string => static::triggerEntity($record)['url'] ?? null)
+                    ->openUrlInNewTab()
+                    ->color('primary')
+                    ->inline()
                     ->extraCellAttributes(static::compactCellAttributes()),
 
                 TextColumn::make('started_at')
@@ -283,6 +294,30 @@ class WorkflowRunResource extends Resource
             ->format('m.d H:i');
     }
 
+    /** @return array{label: string, url: string}|null */
+    public static function triggerEntity(WorkflowRun $run): ?array
+    {
+        // Only the initiating entity belongs here, never an entity changed by a later step.
+        $indexed = static::firstEntityLink($run, 'trigger');
+        $trigger = (array) data_get($run->context_data, 'trigger_data', []);
+        $type = (string) ($indexed?->entity_type ?: ($trigger['entity'] ?? ''));
+        $item = (array) ($trigger[$type] ?? $trigger['item'] ?? []);
+        $id = (int) ($indexed?->entity_id ?: (($trigger['action'] ?? '') === 'note'
+            ? ($item['element_id'] ?? null)
+            : ($item['id'] ?? null)));
+
+        if ($id <= 0) {
+            return null;
+        }
+
+        $url = static::amoEntityUrl($type, $id, (int) $run->user_id, $run);
+
+        return $url === null ? null : [
+            'label' => static::entityLabel($type).' #'.$id,
+            'url' => $url,
+        ];
+    }
+
     public static function initiatorHtml(WorkflowRun $run): HtmlString
     {
         $triggerEntity = static::firstEntityLink($run, 'trigger');
@@ -380,10 +415,6 @@ class WorkflowRunResource extends Resource
 
     private static function entityLinks(WorkflowRun $run)
     {
-        if (! static::hasEntityIndexTable()) {
-            return collect();
-        }
-
         if ($run->relationLoaded('entityLinks')) {
             return collect($run->entityLinks ?? []);
         }
@@ -410,7 +441,7 @@ class WorkflowRunResource extends Resource
         return sprintf('<span class="workflow-run-history-strong">%s</span>', e($text));
     }
 
-    private static function amoEntityUrl(string $entity, int $entityId, int $userId): ?string
+    private static function amoEntityUrl(string $entity, int $entityId, int $userId, ?WorkflowRun $run = null): ?string
     {
         if ($entityId <= 0 || $userId <= 0) {
             return null;
@@ -427,7 +458,7 @@ class WorkflowRunResource extends Resource
             return null;
         }
 
-        $account = static::amoAccountForWorkflowUser($userId);
+        $account = static::amoAccountForWorkflowUser($userId, $run);
         $subdomain = trim((string) ($account?->subdomain ?? ''));
 
         if ($subdomain === '') {
@@ -451,9 +482,24 @@ class WorkflowRunResource extends Resource
         return sprintf('https://%s.%s/%s/%d', $subdomain, $domain, $path, $entityId);
     }
 
-    private static function amoAccountForWorkflowUser(int $userId): ?Account
+    private static function amoAccountForWorkflowUser(int $userId, ?WorkflowRun $run = null): ?Account
     {
         static $accounts = [];
+
+        if ($run?->relationLoaded('owner') && $run->owner?->relationLoaded('accounts')) {
+            $connected = $run->owner->accounts;
+            $accountId = (int) data_get($run->context_data, 'trigger_data.account.id');
+
+            if ($accountId > 0 && ($account = $connected->firstWhere('id', $accountId))) {
+                return $account;
+            }
+
+            return $connected->filter(fn (Account $account): bool => filled($account->subdomain))
+                ->sortBy(fn (Account $account): int => Account::normalizeWidget($account->widget) === 'workflows'
+                    ? ((bool) $account->active ? 0 : 1)
+                    : ((bool) $account->active ? 2 : 3))
+                ->first();
+        }
 
         if (array_key_exists($userId, $accounts)) {
             return $accounts[$userId];
@@ -561,13 +607,7 @@ class WorkflowRunResource extends Resource
 
     private static function hasEntityIndexTable(): bool
     {
-        static $exists = null;
-
-        if ($exists === null) {
-            $exists = SchemaFacade::hasTable('workflow_run_entities');
-        }
-
-        return $exists;
+        return SchemaFacade::hasTable('workflow_run_entities');
     }
 
     public static function restartRun(WorkflowRun $record): void
