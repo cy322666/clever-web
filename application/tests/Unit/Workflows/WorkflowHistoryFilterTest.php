@@ -137,6 +137,15 @@ class WorkflowHistoryFilterTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_status_filter_applies_without_an_apply_button_and_stays_within_the_account(): void
+    {
+        $page = Livewire::test(ListWorkflowRuns::class)
+            ->set('tableFilters.status.values', ['failed']);
+
+        $this->assertSame([4, 1], $page->instance()->getTableRecords()->getCollection()->modelKeys());
+        Http::assertNothingSent();
+    }
+
     public function test_account_history_cannot_open_another_clients_run(): void
     {
         $page = new ListWorkflowRuns;

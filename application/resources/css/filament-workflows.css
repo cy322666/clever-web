@@ -469,94 +469,6 @@ body.fi-body {
     vertical-align: middle;
 }
 
-.fi-resource-workflow-runs .fi-ta-table th {
-    color: rgb(156 163 175);
-    font-size: 0.75rem;
-    letter-spacing: 0;
-    text-transform: uppercase;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.75rem;
-    padding: 0.85rem 1rem !important;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters-header {
-    display: none !important;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters-heading {
-    margin: 0 !important;
-    white-space: nowrap;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters > .fi-sc,
-.fi-resource-workflow-runs .fi-ta-filters > form,
-.fi-resource-workflow-runs .fi-ta-filters > div:not(.fi-ta-filters-header):not(.fi-ta-filters-actions-ctn) {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters > .fi-sc {
-    gap: 0.75rem !important;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters .fi-fo-field-wrp-label,
-.fi-resource-workflow-runs .fi-ta-filters .fi-fo-field-wrp-label span {
-    color: rgb(42 37 32);
-    font-weight: 650;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters .fi-input-wrp {
-    border: 1px solid rgb(216 208 197 / 0.9) !important;
-    border-radius: 0.5rem !important;
-    background: rgb(255 255 255 / 0.96) !important;
-    box-shadow: none !important;
-    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters .fi-input-wrp:hover,
-.fi-resource-workflow-runs .fi-ta-filters .fi-input-wrp:focus-within {
-    border-color: rgb(255 106 0 / 0.5) !important;
-    background: rgb(255 255 255) !important;
-    box-shadow: 0 0 0 1px rgb(255 106 0 / 0.16) !important;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters .fi-input,
-.fi-resource-workflow-runs .fi-ta-filters select {
-    cursor: pointer;
-    color: rgb(31 31 31) !important;
-    font-weight: 650;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters input::placeholder {
-    color: rgb(128 119 109) !important;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters-actions-ctn {
-    flex: 0 0 auto;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-.fi-resource-workflow-runs .fi-ta-filters-actions-ctn .fi-btn {
-    white-space: nowrap;
-}
-
-@media (max-width: 1279px) {
-    .fi-resource-workflow-runs .fi-ta-filters {
-        flex-wrap: wrap;
-    }
-
-    .fi-resource-workflow-runs .fi-ta-filters > .fi-sc,
-    .fi-resource-workflow-runs .fi-ta-filters > form,
-    .fi-resource-workflow-runs .fi-ta-filters > div:not(.fi-ta-filters-header):not(.fi-ta-filters-actions-ctn) {
-        flex-basis: 100%;
-    }
-}
-
 .dark .workflow-run-history-link {
     color: rgb(255 163 87);
 }
@@ -576,33 +488,6 @@ body.fi-body {
 
 .dark .workflow-run-history-error {
     color: rgb(248 113 113);
-}
-
-.dark .fi-resource-workflow-runs .fi-ta-filters .fi-fo-field-wrp-label,
-.dark .fi-resource-workflow-runs .fi-ta-filters .fi-fo-field-wrp-label span {
-    color: rgb(231 229 228);
-}
-
-.dark .fi-resource-workflow-runs .fi-ta-filters .fi-input-wrp {
-    border-color: var(--clever-border) !important;
-    background: #1b1b1b !important;
-    box-shadow: none !important;
-}
-
-.dark .fi-resource-workflow-runs .fi-ta-filters .fi-input-wrp:hover,
-.dark .fi-resource-workflow-runs .fi-ta-filters .fi-input-wrp:focus-within {
-    border-color: rgb(255 106 0 / 0.52) !important;
-    background: #202020 !important;
-    box-shadow: 0 0 0 1px rgb(255 106 0 / 0.18) !important;
-}
-
-.dark .fi-resource-workflow-runs .fi-ta-filters .fi-input,
-.dark .fi-resource-workflow-runs .fi-ta-filters select {
-    color: rgb(245 245 244) !important;
-}
-
-.dark .fi-resource-workflow-runs .fi-ta-filters input::placeholder {
-    color: rgb(168 162 158) !important;
 }
 
 .workflow-workbench__shell {

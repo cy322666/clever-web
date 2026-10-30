@@ -163,7 +163,7 @@ class WorkflowRunResource extends Resource
                     ->multiple(),
 
                 SelectFilter::make('workflow_id')
-                    ->label('Процесс')
+                    ->label('Сценарий')
                     ->relationship('workflow', 'name')
                     ->searchable()
                     ->preload(),
@@ -184,8 +184,9 @@ class WorkflowRunResource extends Resource
                         ? static::applyEntityIdSearch($query, (string) $data['value'])
                         : $query)
                     ->indicateUsing(fn (): array => []),
-            ], layout: FiltersLayout::Dropdown)
-            ->filtersFormColumns(2)
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(['default' => 1, 'md' => 2, 'xl' => 4])
+            ->deferFilters(false)
             ->persistFiltersInSession()
             ->toolbarActions([])
             ->emptyStateIcon('heroicon-o-play-circle')
