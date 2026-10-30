@@ -42,8 +42,6 @@
 .workflow-debug-records { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .workflow-debug-records button { padding: 5px; min-height: 28px; }
 .workflow-debug-records__count { border: 1px solid var(--debug-line); border-radius: 5px; padding: 4px 8px; font-weight: 600; font-size: 12px; text-align: center; }
-.workflow-debug-records__hint { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--debug-muted); }
-.workflow-debug-records__hint svg { flex-shrink: 0; }
 .workflow-debug-error--inline { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 6px; background: #fff0ef; font-weight: 500; font-size: 13px; flex-shrink: 0; }
 .workflow-debug-error--inline svg { width: 16px; height: 16px; flex: 0 0 16px; }
 .dark .workflow-debug-error--inline { background: #482f31; }
@@ -72,8 +70,6 @@
     .workflow-debug-side { min-width: 360px; flex-basis: 44%; }
     .workflow-debug-history { padding: 12px; gap: 6px; }
     .workflow-debug-history__navigation { gap: 3px; }
-    .workflow-debug-records__hint { font-size: 0; }
-    .workflow-debug-records__hint svg { width: 16px; height: 16px; }
 }
 @media (max-width: 760px) {
     .workflow-workbench__main:has(> .workflow-debug-side:not([hidden])) { flex-direction: column; }

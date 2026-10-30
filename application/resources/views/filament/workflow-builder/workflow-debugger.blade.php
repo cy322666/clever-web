@@ -47,7 +47,6 @@
                 <button type="button" aria-label="Предыдущая запись" x-on:click="moveDebugOccurrence(-1)" :disabled="debugOccurrencePosition() <= 0"><x-filament::icon icon="heroicon-o-chevron-left" class="h-4 w-4"/></button>
                 <span class="workflow-debug-records__count" x-text="debugRecordLabel()"></span>
                 <button type="button" aria-label="Следующая запись" x-on:click="moveDebugOccurrence(1)" :disabled="debugOccurrencePosition() >= debugOccurrences().length - 1"><x-filament::icon icon="heroicon-o-chevron-right" class="h-4 w-4"/></button>
-                <span class="workflow-debug-records__hint" title="Кнопка над нодой проверяет только эту ноду"><x-filament::icon icon="heroicon-o-information-circle" class="h-4 w-4"/>Только выбранная нода</span>
             </div>
             <p class="workflow-debug-error workflow-debug-error--inline" x-show="debugCurrent().error" role="alert"><x-filament::icon icon="heroicon-o-exclamation-circle" class="h-5 w-5"/><span x-text="debugCurrent().error"></span></p>
             <div class="workflow-debug-empty" x-show="!selectedDebugId"><strong>Выберите ноду на схеме</strong><p>Здесь появятся входные и выходные данные выбранной записи.</p></div>
