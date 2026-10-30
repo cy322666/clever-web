@@ -42,7 +42,7 @@ class WorkflowThemePlacementTest extends TestCase
         $this->assertStringNotContainsString('Переключить тему', (string) FilamentView::renderHook(PanelsRenderHook::USER_MENU_BEFORE));
         request()->setRouteResolver(fn () => (new Route('GET', '/panel/workflow-runs', fn () => ''))->name('filament.app.resources.workflow-runs.index'));
         $this->assertStringNotContainsString('Переключить тему', (string) FilamentView::renderHook(PanelsRenderHook::USER_MENU_BEFORE));
-        $history = file_get_contents(resource_path('views/filament/workflow-builder/workflow-history-page.blade.php'));
+        $history = file_get_contents(resource_path('views/filament/workflow-builder/workflow-account-history-page.blade.php'));
         $this->assertStringNotContainsString('workflow-theme-toggle', $history);
         $this->assertStringNotContainsString('heroicon-o-pencil', $history);
         $this->assertStringNotContainsString('aria-label="История"', $history);

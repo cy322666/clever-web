@@ -3,6 +3,7 @@
 namespace App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource;
+use App\Filament\WorkflowBuilder\Resources\WorkflowRunResource;
 use App\Models\Workflows\WorkflowRun;
 use App\Services\Workflows\WorkflowRunReplay;
 use Illuminate\Support\Facades\Auth;
@@ -76,7 +77,7 @@ class ReplayWorkflow extends EditWorkflow
 
     public function getReplayBackUrl(): string
     {
-        return WorkflowResource::getUrl('history', ['record' => $this->replayWorkflowId, 'run' => $this->replayRunId]);
+        return WorkflowRunResource::getUrl('index', ['workflow_id' => $this->replayWorkflowId]);
     }
 
     protected function workflowDebugContext(): array

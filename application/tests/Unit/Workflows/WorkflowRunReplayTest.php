@@ -177,12 +177,11 @@ class WorkflowRunReplayTest extends TestCase
 
     public function test_history_links_to_the_saved_schema_editor_only_when_a_snapshot_exists(): void
     {
-        Livewire::test(\Tests\Support\WorkflowHistoryFixture::class)->assertSee('Отладка')
-            ->assertSee('workflow-history-debug-action', false)->assertSee('<svg', false)
-            ->assertDontSee('Открыть в редакторе')
-            ->assertSee('/history/9/editor', false);
+        $this->assertStringEndsWith('/history/9/editor', \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::debugUrl(\Tests\Support\WorkflowHistoryFixture::sampleRun()));
+        $this->assertNull(\App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::debugUrl(\Tests\Support\WorkflowHistoryFixture::sampleRun(false)));
         $page = Livewire::test(ReplayWorkflow::class, ['run' => 1]);
         $this->assertSame(3, count($page->get('debugState.results')));
+        $this->assertStringEndsWith('/panel/workflow-runs?workflow_id=1', $page->instance()->getReplayBackUrl());
         $page->call('renameWorkflow', 'Отлаженный поток')->assertSet('data.name', 'Отлаженный поток');
         $this->assertSame('Рабочий поток', Workflow::findOrFail(1)->name);
         $page->call('save')->assertHasNoErrors();

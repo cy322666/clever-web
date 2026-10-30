@@ -43,6 +43,24 @@ class ListWorkflowRuns extends ListRecords
 
     protected string $view = 'filament.workflow-builder.workflow-account-history-page';
 
+    public function mount(): void
+    {
+        parent::mount();
+        $this->redirectSelectedRun();
+    }
+
+    public function updatedHistoryRunId(): void
+    {
+        $this->redirectSelectedRun();
+    }
+
+    private function redirectSelectedRun(): void
+    {
+        if ($run = $this->getSelectedRun()) {
+            $this->redirect(WorkflowRunResource::debugUrl($run) ?? $this->getHistoryIndexUrl());
+        }
+    }
+
     public function getHeading(): string|Htmlable|null
     {
         return 'История';
@@ -146,11 +164,7 @@ class ListWorkflowRuns extends ListRecords
             return null;
         }
 
-        return WorkflowRunResource::getEloquentQuery()
-            ->with('steps')
-            ->withCount('steps')
-            ->whereKey($selectedId)
-            ->firstOrFail();
+        return WorkflowRunResource::getEloquentQuery()->whereKey($selectedId)->firstOrFail();
     }
 
     public function getHistoryIndexUrl(): string
@@ -158,9 +172,9 @@ class ListWorkflowRuns extends ListRecords
         return WorkflowRunResource::getUrl('index', $this->historyUrlParameters());
     }
 
-    public function getHistoryRunUrl(WorkflowRun $run): string
+    public function getHistoryRunUrl(WorkflowRun $run): ?string
     {
-        return WorkflowRunResource::getUrl('index', ['run' => $run->getKey()] + $this->historyUrlParameters());
+        return WorkflowRunResource::debugUrl($run);
     }
 
     private function historyUrlParameters(): array
@@ -184,12 +198,4 @@ class ListWorkflowRuns extends ListRecords
         return $parameters;
     }
 
-    public function restartSelectedRun(): void
-    {
-        $run = $this->getSelectedRun();
-
-        if ($run !== null) {
-            WorkflowRunResource::restartRun($run);
-        }
-    }
 }

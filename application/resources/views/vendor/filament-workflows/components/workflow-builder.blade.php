@@ -219,11 +219,11 @@
                     </button>
                     @if($isReplay)
                         <button class="workflow-canvas-execution-action" type="button" wire:click="openWorkflowDebugger" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
-                        <a href="{{ $this->getReplayBackUrl() }}" class="workflow-canvas-execution-action" aria-label="Вернуться к запуску" title="Вернуться к запуску"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
+                        <a href="{{ $this->getReplayBackUrl() }}" class="workflow-canvas-execution-action" aria-label="Вернуться к истории" title="История запусков"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
                     @else
                         <button class="workflow-canvas-execution-action" type="button" wire:click="openWorkflowDebugger" aria-label="Отладка" title="Отладка"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         @if($workflowRecord)
-                            <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('history', ['record' => $workflowRecord]) }}" class="workflow-canvas-execution-action" aria-label="История" title="История"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
+                            <a href="{{ \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::getUrl('index', ['workflow_id' => $workflowRecord->getKey()]) }}" class="workflow-canvas-execution-action" aria-label="История" title="История"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
                         @endif
                     @endif
                 </div>

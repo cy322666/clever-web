@@ -88,6 +88,15 @@ class WorkflowRunResource extends Resource
         return $query;
     }
 
+    public static function debugUrl(WorkflowRun $run): ?string
+    {
+        if (! $run->workflow_id || ! is_array(data_get($run->context_data, 'variables._definition_snapshot.actions'))) {
+            return null;
+        }
+
+        return WorkflowResource::getUrl('replay', ['run' => $run->getKey()]);
+    }
+
     public static function getNavigationBadgeColor(): ?string
     {
         return 'info';
@@ -139,23 +148,7 @@ class WorkflowRunResource extends Resource
                     ->extraCellAttributes(static::compactCellAttributes())
                     ->alignEnd(),
             ])
-            ->recordUrl(function (WorkflowRun $record, $livewire): string {
-                if ($livewire instanceof Pages\ListWorkflowRuns) {
-                    return $livewire->getHistoryRunUrl($record);
-                }
-
-                $parameters = ['run' => $record->getKey()];
-
-                if (request()->boolean('errors')) {
-                    $parameters['errors'] = 1;
-                }
-
-                if (($workflowId = request()->integer('workflow_id')) > 0) {
-                    $parameters['workflow_id'] = $workflowId;
-                }
-
-                return static::getUrl('index', $parameters);
-            })
+            ->recordUrl(fn (WorkflowRun $record): ?string => static::debugUrl($record))
             ->recordAction(null)
             ->recordActions([])
             ->defaultSort('created_at', 'desc')

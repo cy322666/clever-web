@@ -139,7 +139,7 @@ trait HasWorkflowPageActions
                 $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
 
                 return $record
-                    ? WorkflowResource::getUrl('history', ['record' => $record])
+                    ? WorkflowRunResource::getUrl('index', ['workflow_id' => $record->getKey()])
                     : WorkflowRunResource::getUrl('index');
             });
     }

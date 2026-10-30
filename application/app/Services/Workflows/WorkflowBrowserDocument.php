@@ -59,7 +59,7 @@ final class WorkflowBrowserDocument
             'folders' => WorkflowFolders::options(), 'csrf' => csrf_token(),
             'codeEditorUrl' => \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('code-editor', 'filament/forms'),
             'baseUrl' => url('/workflow-editor'), 'listUrl' => \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index'),
-            'historyUrl' => $workflow ? \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('history', ['record' => $workflow]) : null,
+            'historyUrl' => $workflow ? \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::getUrl('index', ['workflow_id' => $workflow->getKey()]) : null,
             'webhookUrl' => $workflow ? app(WorkflowGenericWebhookService::class)->callbackUrl($workflow) : null];
     }
 
@@ -127,7 +127,7 @@ final class WorkflowBrowserDocument
 
             return ['document' => $this->document($model), 'version' => $this->version($model),
                 'editUrl' => \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('edit', ['record' => $model]),
-                'historyUrl' => \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('history', ['record' => $model]),
+                'historyUrl' => \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::getUrl('index', ['workflow_id' => $model->getKey()]),
                 'webhookUrl' => app(WorkflowGenericWebhookService::class)->callbackUrl($model)];
         });
     }

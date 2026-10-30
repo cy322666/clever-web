@@ -3,22 +3,12 @@
 namespace Tests\Unit\Workflows;
 
 use App\Services\Workflows\WorkflowExecutionGraph;
-use Livewire\Livewire;
 use Tests\Support\WorkflowCanvasDatabase;
 use Tests\Support\WorkflowHistoryFixture;
 use Tests\TestCase;
 
 class WorkflowExecutionGraphTest extends TestCase
 {
-    public function test_history_polls_even_when_completed_and_keeps_the_viewer_key_stable(): void
-    {
-        $view = file_get_contents(resource_path('views/filament/workflow-builder/workflow-history-page.blade.php'));
-        $this->assertStringContainsString('class="workflow-history-page" wire:poll.5s.visible',$view);
-        $this->assertSame(1,substr_count($view,'wire:poll'));
-        $canvas = file_get_contents(resource_path('views/filament/workflow-builder/workflow-execution-canvas.blade.php'));
-        $this->assertStringContainsString('wire:key="execution-{{ $runId }}"',$canvas);
-        $this->assertStringContainsString('Запрос в amoCRM',$canvas);
-    }
     protected function setUp(): void
     {
         parent::setUp();
@@ -115,13 +105,4 @@ class WorkflowExecutionGraphTest extends TestCase
         $this->assertStringContainsString('workflow-execution-inspector" wire:ignore',file_get_contents(resource_path('views/filament/workflow-builder/workflow-execution-canvas.blade.php')));
     }
 
-    public function test_the_history_page_renders_a_canvas_and_node_data_instead_of_row_modals(): void
-    {
-        Livewire::test(WorkflowHistoryFixture::class)->assertStatus(200)
-            ->assertSee('workflow-execution-viewer', false)->assertSee('Показать весь запуск')
-            ->assertSeeHtml('class="workflow-canvas-grid"')
-            ->assertSeeHtml('x-bind:pattern-transform.camel="gridTransform()"')
-            ->assertSee('Данные ноды: Запрос сделок')->assertSee('Следующий шаг')
-            ->assertDontSee('workflow-run-steps');
-    }
 }

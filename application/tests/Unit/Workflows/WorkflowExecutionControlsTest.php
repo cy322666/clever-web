@@ -35,7 +35,7 @@ class WorkflowExecutionControlsTest extends TestCase
         $this->assertCount(1, $debug);
         $this->assertCount(1, $history);
         $this->assertSame('openWorkflowDebugger', $debug[0]->getAttribute('wire:click'));
-        $this->assertStringEndsWith('/panel/workflows/1/history', $history[0]->getAttribute('href'));
+        $this->assertStringEndsWith('/panel/workflow-runs?workflow_id=1', $history[0]->getAttribute('href'));
         $this->assertCount(0, $xpath->query($footer.'//*[@type="submit"]'));
         $this->assertCount(1, $xpath->query($footer.'/ancestor::*[@x-ref="viewport"]'));
         $this->assertCount(0, $xpath->query($footer.'/ancestor::*[@x-ref="stage"]'));

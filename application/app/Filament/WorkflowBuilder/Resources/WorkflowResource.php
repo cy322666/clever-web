@@ -104,9 +104,9 @@ class WorkflowResource extends BaseWorkflowResource
 
                         return $date.$duration;
                     })
-                    ->tooltip(fn (Workflow $record): ?string => $record->latestRun ? 'Открыть этот запуск в истории' : null)
+                    ->tooltip(fn (Workflow $record): ?string => $record->latestRun ? 'Открыть этот запуск в отладке' : null)
                     ->url(fn (Workflow $record): ?string => $record->latestRun
-                        ? static::getUrl('history', ['record' => $record, 'run' => $record->latestRun->getKey()]) : null),
+                        ? WorkflowRunResource::debugUrl($record->latestRun) : null),
 
                 ToggleColumn::make('is_active')
                     ->label('Активен')
@@ -153,7 +153,7 @@ class WorkflowResource extends BaseWorkflowResource
 
                     Action::make('workflow_history')
                         ->label('История запусков')->icon('heroicon-o-clock')
-                        ->url(fn (Workflow $record): string => static::getUrl('history', ['record' => $record])),
+                        ->url(fn (Workflow $record): string => WorkflowRunResource::getUrl('index', ['workflow_id' => $record->getKey()])),
 
                     Action::make('duplicate_workflow')
                         ->label('Дублировать сценарий')

@@ -2,39 +2,12 @@
 
 namespace Tests\Support;
 
-use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\WorkflowHistory;
 use App\Models\Workflows\Workflow;
 use App\Models\Workflows\WorkflowRun;
-use Illuminate\Support\Collection;
 use Leek\FilamentWorkflows\Models\WorkflowRunStep;
 
-class WorkflowHistoryFixture extends WorkflowHistory
+class WorkflowHistoryFixture
 {
-    public function mount($record = null): void
-    {
-        $this->record = (new Workflow)->forceFill(['id' => 13, 'name' => 'Основная воронка']);
-    }
-
-    public function getHistoryBackUrl(): string
-    {
-        return '/';
-    }
-
-    public function getHistoryActionUrl(): string
-    {
-        return '/';
-    }
-
-    public function getHistoryRunUrl(WorkflowRun $run): string
-    {
-        return '/history?run='.$run->id;
-    }
-
-    public function getWorkflowRuns(): Collection
-    {
-        return collect([self::sampleRun()]);
-    }
-
     public static function sampleRun(bool $snapshot = true): WorkflowRun
     {
         $run = (new WorkflowRun)->forceFill(['id' => 9, 'workflow_id' => 13, 'ulid' => 'TEST-EXECUTION', 'status' => 'completed',
