@@ -162,14 +162,25 @@ class WorkflowHistoryFilterTest extends TestCase
         Livewire::withQueryParams(['run' => 4])->test(WorkflowHistory::class, ['record' => 1]);
     }
 
-    public function test_runs_without_a_saved_schema_stay_in_the_shared_list(): void
+    public function test_runs_without_a_saved_schema_still_open_the_debugger(): void
     {
         DB::table('workflow_runs')->where('id', 1)->update(['context_data' => null]);
-        $this->assertNull(WorkflowRunResource::debugUrl(WorkflowRun::findOrFail(1)));
+        $url = WorkflowRunResource::debugUrl(WorkflowRun::findOrFail(1));
+        $this->assertStringEndsWith('/history/1/editor', $url);
         Livewire::withQueryParams(['run' => 1])->test(WorkflowHistory::class, ['record' => 1])
-            ->assertRedirect(WorkflowRunResource::getUrl('index', ['workflow_id' => 1]));
+            ->assertRedirect($url);
         Livewire::withQueryParams(['run' => 1])->test(ListWorkflowRuns::class)
-            ->assertRedirect(WorkflowRunResource::getUrl('index'));
+            ->assertRedirect($url);
+    }
+
+    public function test_filtered_history_keeps_old_manual_runs_clickable(): void
+    {
+        Schema::table('workflow_runs', fn ($table) => $table->string('trigger_source')->nullable());
+        DB::table('workflow_runs')->where('id', 1)->update(['trigger_source' => 'manual', 'context_data' => null]);
+        $page = Livewire::test(ListWorkflowRuns::class)->set('tableFilters.trigger_source.values', ['manual'])
+            ->assertSee('/history/1/editor', false);
+        $this->assertSame([1], $page->instance()->getTableRecords()->getCollection()->modelKeys());
+        Http::assertNothingSent();
     }
 
     public function test_account_history_does_not_show_false_millisecond_precision(): void

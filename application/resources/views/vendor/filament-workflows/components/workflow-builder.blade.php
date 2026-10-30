@@ -19,6 +19,10 @@
     }
 
     $isReplay = method_exists($this, 'isWorkflowReplay') && $this->isWorkflowReplay();
+    $isRecordedOnly = (bool) ($this->replayRecordedOnly ?? false);
+    $recordedNodes = $isRecordedOnly
+        ? array_column(\App\Services\Workflows\WorkflowExecutionGraph::build($this->definition, $this->debugState['results'] ?? [])['nodes'], null, 'id')
+        : [];
     $workflowActionItems = collect($this->workflowActions)->values();
     $workflowStarts = \App\Services\Workflows\WorkflowStartNodes::all(array_merge($this->definition, ['trigger' => $this->trigger]));
     $workflowActionsCount = $workflowActionItems->count();
@@ -60,7 +64,7 @@
                         x-on:pointerdown.outside.capture="commitRename()"
                         x-on:focusout="if (editing && !$el.contains($event.relatedTarget)) commitRename()"
                         x-on:submit.window.capture="if ($event.target.contains($el)) finishBeforeSave($event)">
-                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button x-ref="title" type="button" title="Переименовать поток" x-text="workflowName" x-on:click="startRename()">{{ $workflowTitle }}</button></h1>
+                        <h1 class="workflow-workbench__identity-title" x-show="!editing"><button x-ref="title" type="button" @disabled($isRecordedOnly) title="Переименовать поток" x-text="workflowName" x-on:click="startRename()">{{ $workflowTitle }}</button></h1>
                         <input x-ref="name" x-model="nameDraft" x-show="editing" x-cloak maxlength="255" aria-label="Название потока"
                             x-bind:aria-invalid="!!renameError" x-bind:aria-describedby="renameError ? $id('workflow-name-error') : null"
                             x-on:input="updateRename($event.target.value)"
@@ -70,6 +74,7 @@
                         @error('name')<small>{{ $message }}</small>@enderror
                         <div class="workflow-identity-tags" x-show="($wire.definition.tags || []).length" x-cloak><template x-for="tag in ($wire.definition.tags || []).slice(0,3)" :key="tag"><span x-text="tag"></span></template><span x-show="($wire.definition.tags || []).length > 3" x-text="'+' + (($wire.definition.tags || []).length - 3)"></span></div>
                     </div>
+                    @unless($isRecordedOnly)
                     <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
                         <summary title="Теги потока" aria-label="Теги потока"><x-filament::icon icon="heroicon-o-tag" class="h-4 w-4"/></summary>
                         <div x-data="{ tag: '' }">
@@ -87,9 +92,11 @@
                             @endforeach
                         </select></div>
                     </details>
+                    @endunless
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
+                    @unless($isRecordedOnly)
                     @if(($this->nodePreviewTaskId ?? null) && empty($this->mountedActions))
                         @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])
                     @endif
@@ -130,6 +137,7 @@
                             @endif
                         </div>
                     </details>
+                    @endunless
                 </div>
             </div>
         </div>
@@ -189,9 +197,10 @@
                 <div class="workflow-selection-box" x-show="selectionBox" x-bind:style="selectionStyle()" x-cloak></div>
                 <div class="workflow-canvas-note" x-data="{ open: false, note: @js($this->definition['description'] ?? '') }" x-on:pointerdown.stop>
                     <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-label="Описание сценария" title="Описание сценария"><x-filament::icon icon="heroicon-o-document-text" class="h-4 w-4"/></button>
-                    <textarea x-show="open" x-cloak x-model="note" x-on:change="workflowEditorCall($wire, 'updateWorkflowDescription', note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
+                    <textarea x-show="open" x-cloak x-model="note" @readonly($isRecordedOnly) x-on:change="workflowEditorCall($wire, 'updateWorkflowDescription', note)" maxlength="10000" aria-label="Описание сценария" placeholder="Описание сценария…"></textarea>
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
+                    @unless($isRecordedOnly)
                     <button type="button" class="workflow-canvas-fit workflow-canvas-add-trigger" x-show="Boolean($wire.trigger)" x-cloak
                         x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall($wire, 'beginTriggerAdd')"
                         aria-label="Добавить способ запуска" title="Добавить способ запуска">
@@ -199,6 +208,7 @@
                     </button>
                     <button type="button" class="workflow-canvas-fit workflow-canvas-add-node" x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; preparePalette(null, {x: $event.currentTarget.getBoundingClientRect().left - 330, y: $event.currentTarget.getBoundingClientRect().top})" aria-label="Добавить ноду" title="Добавить ноду"><x-filament::icon icon="heroicon-o-plus" class="h-4 w-4"/></button>
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="addCanvasArea()" x-bind:disabled="canvasAreas().length >= 100" aria-label="Создать область этапа" title="Создать область этапа"><x-filament::icon icon="heroicon-o-rectangle-group" class="h-4 w-4"/></button>
+                    @endunless
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
                 <div class="workflow-canvas-execution-controls" role="toolbar" aria-label="Запуск и отладка" x-on:pointerdown.stop x-on:click.stop>
@@ -208,6 +218,7 @@
                             <x-filament::icon icon="heroicon-o-power" class="h-5 w-5"/>
                         </button>
                     @endif
+                    @unless($isRecordedOnly)
                     <button type="button" class="workflow-canvas-run" x-cloak
                         x-on:pointerdown.stop x-on:click.stop="if (playing) playing = false; else if (!$wire.debugOpen) openDebug(); else if ($wire.debugState.status === 'ready') runDebug(); else startDebug(true)"
                         x-bind:disabled="busy && !playing" x-bind:aria-busy="busy"
@@ -215,6 +226,7 @@
                         x-bind:aria-label="playing ? 'Пауза' : 'Запустить отладку'">
                         <x-filament::icon x-show="!playing" icon="heroicon-s-play" class="h-4 w-4"/><x-filament::icon x-show="playing" icon="heroicon-s-pause" class="h-4 w-4"/><span x-text="playing ? 'Пауза' : 'Запустить'">Запустить</span>
                     </button>
+                    @endunless
                     @if($isReplay)
                         <button class="workflow-canvas-execution-action" type="button" x-on:click="openDebug()" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         <a href="{{ $this->getReplayBackUrl() }}" class="workflow-canvas-execution-action" aria-label="Вернуться к истории" title="История запусков"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
@@ -234,7 +246,7 @@
                     x-bind:style="stageStyle()"
                     class="workflow-node-editor__stage"
                 >
-                    @include('filament.workflow-builder.workflow-canvas-areas')
+                    @include('filament.workflow-builder.workflow-canvas-areas', ['readOnlyAreas' => $isRecordedOnly])
                     <svg
                         x-ref="edgeLayer"
                         class="workflow-node-edge-layer"
@@ -245,7 +257,7 @@
                     <main id="workflow-canvas" class="workflow-builder workflow-node-flow">
                         <div class="workflow-node-starts">
                         @foreach($workflowStarts as $startId => $start)
-                        @php($startMetadata = $this->getTriggerMetadata($start['type'], $start['config'] ?? []))
+                        @php($startMetadata = $isRecordedOnly ? ['name' => 'Запуск', 'icon' => 'heroicon-o-play'] : $this->getTriggerMetadata($start['type'], $start['config'] ?? []))
                         <div
                             class="workflow-node-shell workflow-node-shell--trigger"
                             data-workflow-node-id="{{ $startId }}"
@@ -253,14 +265,16 @@
                             wire:key="workflow-start-{{ $startId }}"
                         >
                             @if($startMetadata)
+                                @if($isRecordedOnly)<div tabindex="0" x-on:click="selectDebugNode(@js($startId))" x-on:keydown.enter="selectDebugNode(@js($startId))">@endif
                                 <x-filament-workflows::workflows.trigger-card
                                     :node-id="$startId"
                                     :node-name="$start['name'] ?? null"
                                     :type="$start['type']"
                                     :config="$start['config'] ?? []"
                                     :metadata="$startMetadata"
-                                    :read-only="false"
+                                    :read-only="$isRecordedOnly"
                                 />
+                                @if($isRecordedOnly)</div>@endif
                             @endif
                         </div>
                         @endforeach
@@ -287,11 +301,20 @@
                         @if($workflowActionItems->isNotEmpty())
                                 <x-filament-workflows::workflows.action-list
                                     :actions="$workflowActionItems->all()"
+                                    :read-only="$isRecordedOnly"
+                                    :debug-inspection="$isRecordedOnly"
+                                    :execution-nodes="$recordedNodes"
                                 />
                         @endif
                     </main>
 
-                    @if(!$isReplay || $this->trigger || $workflowActionItems->isNotEmpty())
+                    @if($isRecordedOnly)
+                        <div x-ref="edgeControls" hidden>
+                            @foreach($this->definition['connections'] ?? [] as $edge)
+                                <span data-workflow-edge-source="{{ $edge['sourceId'] }}" data-workflow-edge-port="{{ $edge['sourcePort'] }}" data-workflow-edge-target="{{ $edge['targetId'] }}" data-workflow-edge-active="true"></span>
+                            @endforeach
+                        </div>
+                    @elseif(!$isReplay || $this->trigger || $workflowActionItems->isNotEmpty())
                         <x-filament-workflows::workflows.edge-controls :actions="$workflowActionItems->all()" :connections="$this->definition['connections'] ?? null" :start-ids="array_keys($workflowStarts)"/>
                     @endif
                 </div>

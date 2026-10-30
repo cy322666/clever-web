@@ -43,6 +43,7 @@ class ReplayWorkflow extends EditWorkflow
         $this->replayWorkflowId = $replay['workflow_id'];
         $this->replayStartedAt = $replay['started_at'];
         $this->replayContext = $replay['context'];
+        $this->replayRecordedOnly = $replay['historical_fallback'] ?? false;
         $this->cacheWorkflowDebugHistory($replay);
         $this->definition = $replay['definition'];
         $this->loadFromDefinition();
@@ -68,6 +69,18 @@ class ReplayWorkflow extends EditWorkflow
     public function isWorkflowReplay(): bool
     {
         return true;
+    }
+
+    protected function refreshWorkflowRecordForSave(): void
+    {
+        abort_if($this->replayRecordedOnly, 409, 'Исходная схема запуска не сохранена. Доступен только просмотр записанных шагов.');
+        parent::refreshWorkflowRecordForSave();
+    }
+
+    protected function refreshWorkflowRecordForRuntime(): void
+    {
+        abort_if($this->replayRecordedOnly, 409, 'Исходная схема запуска не сохранена. Доступен только просмотр записанных шагов.');
+        parent::refreshWorkflowRecordForRuntime();
     }
 
     public function getTitle(): string

@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\WorkflowDebugFixture;
 use Tests\Support\WorkflowListDatabase;
 use Tests\TestCase;
@@ -86,11 +85,40 @@ class WorkflowRunReplayTest extends TestCase
         }
     }
 
-    public function test_missing_snapshot_is_rejected_without_using_current_schema(): void
+    public function test_missing_snapshot_opens_recorded_steps_without_using_current_schema(): void
     {
-        DB::table('workflow_runs')->where('id', 1)->update(['context_data' => '{"trigger_data":{"lead":{"id":77}}}']);
-        try { WorkflowRunReplay::load(1, 1); $this->fail('Missing snapshot loaded.'); }
-        catch (HttpException $exception) { $this->assertSame(409, $exception->getStatusCode()); }
+        DB::table('workflow_runs')->where('id', 1)->update(['context_data' => null]);
+        DB::table('workflows')->where('id', 1)->update(['definition' => json_encode(['actions' => [['id' => 'today', 'type' => 'workflow_javascript', 'config' => []]]])]);
+        $before = DB::table('workflows')->where('id', 1)->first();
+        $replay = WorkflowRunReplay::load(1, 1);
+        $this->assertTrue($replay['historical_fallback']);
+        $this->assertSame(['fetch', 'yes'], array_column($replay['definition']['actions'], 'id'));
+        $this->assertSame(['fetch', 'yes', 'yes'], array_column($replay['results'], 'id'));
+        $this->assertSame([], $replay['input']);
+        $this->assertSame([], $replay['context']);
+
+        $page = Livewire::test(ReplayWorkflow::class, ['run' => 1])
+            ->assertStatus(200)->assertSet('replayRecordedOnly', true)
+            ->assertSet('debugState.status', 'historical')
+            ->assertSet('nodeRunResults.yes.output.id', 99)
+            ->assertSee('Исходная схема запуска не сохранена.')
+            ->assertDontSee('aria-label="Сохранить"', false);
+        preg_match('/<main id="workflow-canvas".*?<\/main>/s', $page->html(), $canvas);
+        $this->assertStringNotContainsString('runWorkflowCanvasNode', $canvas[0]);
+        $this->assertEquals($before, DB::table('workflows')->where('id', 1)->first());
+        Http::assertNothingSent();
+    }
+
+    public function test_recorded_steps_only_cannot_replace_or_execute_the_current_workflow(): void
+    {
+        DB::table('workflow_runs')->where('id', 1)->update(['context_data' => null]);
+        $before = DB::table('workflows')->get()->toJson();
+        $beforeRuns = DB::table('workflow_runs')->get()->toJson();
+        Livewire::test(ReplayWorkflow::class, ['run' => 1])->call('save')->assertStatus(409);
+        Livewire::test(ReplayWorkflow::class, ['run' => 1])->call('runWorkflowCanvasNode', 'fetch')->assertStatus(409);
+        $this->assertSame($before, DB::table('workflows')->get()->toJson());
+        $this->assertSame($beforeRuns, DB::table('workflow_runs')->get()->toJson());
+        Http::assertNothingSent();
     }
 
     public function test_editor_opens_without_executing_or_modifying_the_original(): void
@@ -175,10 +203,10 @@ class WorkflowRunReplayTest extends TestCase
         Livewire::test(ReplayWorkflow::class, ['run' => 2]);
     }
 
-    public function test_history_links_to_the_saved_schema_editor_only_when_a_snapshot_exists(): void
+    public function test_history_links_to_the_debugger_with_or_without_a_saved_schema(): void
     {
         $this->assertStringEndsWith('/history/9/editor', \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::debugUrl(\Tests\Support\WorkflowHistoryFixture::sampleRun()));
-        $this->assertNull(\App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::debugUrl(\Tests\Support\WorkflowHistoryFixture::sampleRun(false)));
+        $this->assertStringEndsWith('/history/9/editor', \App\Filament\WorkflowBuilder\Resources\WorkflowRunResource::debugUrl(\Tests\Support\WorkflowHistoryFixture::sampleRun(false)));
         $page = Livewire::test(ReplayWorkflow::class, ['run' => 1]);
         $this->assertSame(3, count($page->get('debugState.results')));
         $this->assertStringEndsWith('/panel/workflow-runs?workflow_id=1', $page->instance()->getReplayBackUrl());

@@ -67,6 +67,7 @@ class WorkflowExecutionGraphTest extends TestCase
         $this->assertSame('Запуск', $graph['nodes'][0]['name']);
         $this->assertSame(['trigger', 'action:fetch', 'action:if', 'action:yes'], array_column($graph['nodes'], 'id'));
         $this->assertSame('yes', $graph['edges'][2]['sourcePort']);
+        $this->assertSame($graph['edges'], $graph['definition']['connections']);
     }
 
     public function test_condition_highlights_its_decision_before_the_target_starts(): void

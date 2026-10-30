@@ -71,10 +71,6 @@ final class WorkflowRunReplay
     {
         $run = self::ownedRuns($userId)->when($workflowId !== null, fn (Builder $query) => $query->where('workflow_id', $workflowId))
             ->with(['workflow', 'steps'])->findOrFail($runId);
-        $definition = data_get($run->context_data, 'variables._definition_snapshot');
-        abort_unless(is_array($definition) && is_array($definition['actions'] ?? null), 409,
-            'У этого запуска нет сохранённой схемы. Открыть его в редакторе без подмены текущей схемой нельзя.');
-
         $graph = WorkflowExecutionGraph::fromRun($run);
         $results = array_map(fn (array $result) => array_merge($result, [
             'historical' => true,
@@ -86,7 +82,8 @@ final class WorkflowRunReplay
             'workflow_id' => $run->workflow_id,
             'name' => $run->workflow->name.' · запуск #'.$run->getKey(),
             'started_at' => ($run->started_at ?? $run->created_at)?->timezone('Europe/Moscow')->format('d.m.Y H:i:s'),
-            'definition' => $definition,
+            'definition' => $graph['definition'],
+            'historical_fallback' => $graph['historical_fallback'],
             'input' => $graph['trigger_data'],
             'results' => $results,
             // For the inspector and explicit single-node execution. A new full-flow run starts clean.

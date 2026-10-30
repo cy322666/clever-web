@@ -39,7 +39,11 @@
             </fieldset>
         </section>
         <section id="workflow-debug-settings-{{ $this->getId() }}" role="tabpanel" aria-labelledby="debug-settings-{{ $this->getId() }}" :aria-owns="debugTab === 'settings' && debugSettingsAvailable() ? 'workflow-node-inspector-{{ $this->getId() }}' : null" class="workflow-debug-settings" x-show="debugTab === 'settings' && selectedDebugId" aria-label="Настройки выбранной ноды">
+            @if($this->replayRecordedOnly ?? false)
+            <p>Исходные настройки ноды не сохранены. Записанные данные доступны во вкладках «Вход» и «Выход».</p>
+            @else
             <p x-show="!debugSettingsAvailable()">У этой ноды нет параметров. Выберите «Вход» или «Выход», чтобы посмотреть данные.</p>
+            @endif
         </section>
         {{-- Livewire updates the state, Alpine owns the JSON rows and record selection. --}}
         <section wire:ignore id="debug-data-{{ $this->getId() }}" role="tabpanel" :aria-labelledby="'debug-' + debugTab + '-{{ $this->getId() }}'" class="workflow-debug-data" x-show="debugTab !== 'settings' && (debugConfigured() || selectedDebugId)">

@@ -36,7 +36,7 @@ class WorkflowLocalInspectorSaveTest extends TestCase
     public function test_save_validates_the_browser_draft_and_keeps_unknown_keys_and_credentials(): void
     {
         $flow=$this->flow();
-        $page=Livewire::test(EditWorkflow::class,['record'=>$flow->id]);
+        $page=Livewire::test(EditWorkflow::class,['record'=>$flow->id])->assertSet('replayRecordedOnly',false);
         $actions=$page->get('workflowActions');$actions[0]['config']['url']='https://updated.test';
         $page->set('workflowActions',$actions)->set('workflowLocalInspectorDirty',['action:a'=>true])->call('save')->assertHasNoErrors()->assertSet('workflowLocalInspectorDirty',[]);
         $definition=$flow->fresh()->definition;

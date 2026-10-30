@@ -93,7 +93,7 @@ class WorkflowRunResource extends Resource
 
     public static function debugUrl(WorkflowRun $run): ?string
     {
-        if (! $run->workflow_id || ! is_array(data_get($run->context_data, 'variables._definition_snapshot.actions'))) {
+        if (! $run->workflow_id) {
             return null;
         }
 

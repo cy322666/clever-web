@@ -4,6 +4,7 @@
     'total' => 1,
     'metadata' => [],
     'readOnly' => false,
+    'debugInspection' => false,
     'executionCount' => null,
 ])
 
@@ -34,7 +35,11 @@
     data-node-tone="{{ $appearance['tone'] }}"
     data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
     @if($readOnly && $executionCount !== null)
+        @if($debugInspection)
+        x-bind:class="{ 'workflow-node-card--selected': selectedDebugId === @js($actionId) }"
+        @else
         x-bind:class="{ 'workflow-node-card--selected': selectedNodeId() === 'action:' + @js($actionId) }"
+        @endif
     @endif
     @unless($readOnly)
         x-bind:style="canvasAction(@js($actionId)) ? '' : 'visibility: hidden; pointer-events: none'"
@@ -84,7 +89,7 @@
     </span>
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
     @include('filament.workflow-builder.workflow-node-status')
-    @if($readOnly && $executionCount !== null)
+    @if($readOnly && !$debugInspection && $executionCount !== null)
         <span class="workflow-execution-order" title="{{ $isLoop ? 'Итераций цикла' : 'Сущностей' }}">{{ $executionCount }}</span>
     @endif
     <div class="workflow-node-card__body workflow-node-card__caption">

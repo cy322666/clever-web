@@ -2584,6 +2584,7 @@ window.workflowDebugPanel = () => ({
         this.$nextTick(() => this.$el.querySelector('.workflow-debug-tabs [aria-selected=true]')?.focus());
     },
     debugSettingsAvailable() {
+        if (this.$wire.replayRecordedOnly) return false;
         return this.debugSelectedTrigger() ? ['schedule', 'generic-webhook'].includes(this.selectedDebugId === 'trigger' ? this.$wire.trigger?.type : this.$wire.definition?.additional_triggers?.find(node => node.id === this.selectedDebugId)?.type)
             : Boolean(this.selectedDebugId && this.debugNodes().some(node => node.id === this.selectedDebugId && !node.historical));
     },

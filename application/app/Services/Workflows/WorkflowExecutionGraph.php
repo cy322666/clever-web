@@ -24,9 +24,15 @@ final class WorkflowExecutionGraph
             'started_at' => $step->started_at?->toIso8601String(),
         ])->all();
         $definition = data_get($run->context_data, 'variables._definition_snapshot');
-        $fallback = ! is_array($definition);
+        $fallback = ! is_array($definition) || ! is_array($definition['actions'] ?? null);
         if ($fallback) {
-            $definition = ['trigger' => ['type' => 'execution'], 'actions' => []];
+            $triggerType = match ($run->trigger_source?->value) {
+                'manual' => 'manual',
+                'schedule' => 'schedule',
+                'webhook' => 'generic-webhook',
+                default => 'execution',
+            };
+            $definition = ['trigger' => ['type' => $triggerType, 'name' => 'Запуск'], 'actions' => []];
             foreach ($results as $result) {
                 $definition['actions'][$result['id']] = ['id' => $result['id'], 'type' => $result['type'], 'config' => []];
             }
@@ -52,6 +58,12 @@ final class WorkflowExecutionGraph
                 $previous = $node['result'];
             }
             unset($node);
+            $graph['definition']['connections'] = $graph['edges'];
+            $names = array_column($graph['nodes'], 'name', 'id');
+            foreach ($graph['definition']['actions'] as &$action) {
+                $action['name'] = $names['action:'.$action['id']];
+            }
+            unset($action);
         }
         $graph['trigger_data'] = data_get($run->context_data, 'trigger_data', []);
         $graph['display_trigger_data'] = WorkflowOutputView::trigger($graph['trigger_data']);

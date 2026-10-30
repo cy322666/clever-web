@@ -2,6 +2,7 @@
     'actions',
     'parentPath' => null,
     'readOnly' => false,
+    'debugInspection' => false,
     'executionNodes' => [],
 ])
 
@@ -20,12 +21,13 @@
             data-workflow-node-id="{{ $nodeId }}"
             data-workflow-detached="{{ array_key_exists('connections', $this->definition ?? []) && ! collect($this->definition['connections'])->contains('targetId', $nodeId) ? 'true' : 'false' }}"
             wire:key="workflow-sortable-{{ $actionId }}"
-            @if($readOnly) x-on:click.stop="selectNode(@js($nodeId))" x-on:keydown.enter="selectNode(@js($nodeId))" @endif
+            @if($readOnly) x-on:click.stop="{{ $debugInspection ? 'selectDebugNode' : 'selectNode' }}(@js($debugInspection ? $actionId : $nodeId))" x-on:keydown.enter="{{ $debugInspection ? 'selectDebugNode' : 'selectNode' }}(@js($debugInspection ? $actionId : $nodeId))" @endif
         >
             <x-filament-workflows::workflows.action-card
                 :action="$action"
                 :metadata="$readOnly ? ['name' => $executionNodes[$nodeId]['name'] ?? '', 'icon' => $executionNodes[$nodeId]['icon'] ?? 'heroicon-o-cube', 'category' => ''] : $this->getWorkflowActionMetadata($action['type'], $config)"
                 :read-only="$readOnly"
+                :debug-inspection="$debugInspection"
                 :execution-count="$readOnly && ($executionNodes[$nodeId]['result'] ?? null) ? $executionNodes[$nodeId]['item_count'] : null"
                 :data-execution-status="$readOnly ? ($executionNodes[$nodeId]['status'] ?? 'pending') : null"
                 :tabindex="$readOnly ? 0 : null"
@@ -40,6 +42,7 @@
                             :actions="$config['true_actions'] ?? []"
                             :parent-path="$currentPath . '.config.true_actions'"
                             :read-only="$readOnly"
+                            :debug-inspection="$debugInspection"
                             :execution-nodes="$executionNodes"
                         />
                     </section>
@@ -51,6 +54,7 @@
                             :actions="$config['false_actions'] ?? []"
                             :parent-path="$currentPath . '.config.false_actions'"
                             :read-only="$readOnly"
+                            :debug-inspection="$debugInspection"
                             :execution-nodes="$executionNodes"
                         />
                     </section>

@@ -15,6 +15,9 @@ trait HasWorkflowDebugger
     use HasWorkflowDebugInput;
     public bool $debugOpen = false;
 
+    #[Locked]
+    public bool $replayRecordedOnly = false;
+
     public bool $debugReal = false;
 
     public bool $debugRealConfirmed = false;

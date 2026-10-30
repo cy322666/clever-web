@@ -16,6 +16,15 @@ function fixture() {
     return {panel, events};
 }
 
+test('old executions without saved settings expose data without opening an editable form', () => {
+    const {panel, events} = fixture();
+    panel.$wire.replayRecordedOnly = true;
+    panel.selectDebugNode('a');
+    panel.setDebugTab('settings');
+    assert.equal(panel.debugSettingsAvailable(), false);
+    assert.equal(events.filter(event => event.type === 'workflow-debug-settings').at(-1).detail.open, false);
+});
+
 test('local node and occurrence selection shows the latest pass then moves through recorded passes', () => {
     const {panel} = fixture();
     panel.$wire.debugState.results = [{id:'a',display_output:{passed:true},iteration:[{node:'loop',index:0}]},{id:'other'},{id:'a',display_output:{passed:false},iteration:[{node:'loop',index:2}]}];
