@@ -92,7 +92,7 @@ class WorkflowHistoryFilterTest extends TestCase
             ->assertSee('Поток 2')
             ->assertDontSee('Поток 3')
             ->assertSee('Длительность')
-            ->assertSee('ID запуска')
+            ->assertDontSee('ID запуска')
             ->assertSee('/history/1/editor', false)
             ->assertDontSee('workflow-execution-viewer', false)
             ->set('historyRunId', 1)

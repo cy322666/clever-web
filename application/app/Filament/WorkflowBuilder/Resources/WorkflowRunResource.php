@@ -141,12 +141,6 @@ class WorkflowRunResource extends Resource
                     ->inline()
                     ->extraCellAttributes(static::compactCellAttributes()),
 
-                TextColumn::make('id')
-                    ->label('ID запуска')
-                    ->state(fn (WorkflowRun $record): string => '#'.$record->getKey())
-                    ->sortable()
-                    ->extraCellAttributes(static::compactCellAttributes())
-                    ->alignEnd(),
             ])
             ->recordUrl(fn (WorkflowRun $record): ?string => static::debugUrl($record))
             ->recordAction(null)
