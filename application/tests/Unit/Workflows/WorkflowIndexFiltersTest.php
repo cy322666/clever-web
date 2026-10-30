@@ -37,37 +37,30 @@ class WorkflowIndexFiltersTest extends TestCase
         }
     }
 
-    public function test_activity_filter_applies_without_submission_and_preserves_activation(): void
+    public function test_native_search_finds_scenarios_and_preserves_activation(): void
     {
         $page = Livewire::test(ListWorkflows::class)
-            ->set('tableFilters.is_active.value', '0');
+            ->assertSee('tableSearch', false)
+            ->set('tableSearch', 'Сценарий 2');
         $this->assertEqualsCanonicalizing([2], $page->instance()->getTableRecords()->modelKeys());
 
-        $page->set('tableFilters.is_active.value', '1');
-        $this->assertEqualsCanonicalizing([1, 3], $page->instance()->getTableRecords()->modelKeys());
-
-        $page->call('resetTableFiltersForm');
+        $page->set('tableSearch', '');
         $this->assertEqualsCanonicalizing([1, 2, 3], $page->instance()->getTableRecords()->modelKeys());
+        $this->assertSame([], $page->instance()->getTable()->getFilters());
         $this->assertSame([true, false, true, false], array_map('boolval', DB::table('workflows')->orderBy('id')->pluck('is_active')->all()));
         Http::assertNothingSent();
     }
 
-    public function test_last_run_filter_uses_the_latest_run_and_respects_account_and_folder(): void
+    public function test_removed_filter_state_is_ignored_and_search_respects_account_and_folder(): void
     {
         $page = Livewire::test(ListWorkflows::class)
-            ->set('tableFilters.last_run_status.value', 'failed');
-        $this->assertSame([2], $page->instance()->getTableRecords()->modelKeys());
-
-        $page->set('tableFilters.last_run_status.value', 'completed');
-        $this->assertSame([1], $page->instance()->getTableRecords()->modelKeys());
-
-        $page->set('tableFilters.last_run_status.value', 'never');
-        $this->assertSame([3], $page->instance()->getTableRecords()->modelKeys());
+            ->set('tableFilters', ['is_active' => ['value' => '0'], 'last_run_status' => ['value' => 'failed']]);
+        $this->assertEqualsCanonicalizing([1, 2, 3], $page->instance()->getTableRecords()->modelKeys());
 
         $page->call('selectFolder', 'Продажи');
-        $this->assertSame([], $page->instance()->getTableRecords()->modelKeys());
-        $page->set('tableFilters.last_run_status.value', 'failed');
         $this->assertSame([2], $page->instance()->getTableRecords()->modelKeys());
+        $page->set('tableSearch', 'Сценарий 1');
+        $this->assertSame([], $page->instance()->getTableRecords()->modelKeys());
         Http::assertNothingSent();
     }
 }
