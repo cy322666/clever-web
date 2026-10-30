@@ -8,6 +8,14 @@ charset utf-8;
 server_tokens off;
 client_max_body_size 200m;
 
+# Livewire returns table HTML inside JSON; compress it before sending it to the browser.
+gzip on;
+gzip_types application/json;
+gzip_min_length 1024;
+gzip_comp_level 5;
+gzip_vary on;
+gzip_proxied no-cache no-store private;
+
 location / {
     try_files $uri $uri/ /index.php?$query_string;
 }
