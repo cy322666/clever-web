@@ -45,7 +45,6 @@
         <section wire:ignore id="debug-data-{{ $this->getId() }}" role="tabpanel" :aria-labelledby="'debug-' + debugTab + '-{{ $this->getId() }}'" class="workflow-debug-data" x-show="debugTab !== 'settings' && (debugConfigured() || selectedDebugId)">
             <div class="workflow-debug-records">
                 <button type="button" aria-label="Предыдущая запись" x-on:click="moveDebugOccurrence(-1)" :disabled="debugOccurrencePosition() <= 0"><x-filament::icon icon="heroicon-o-chevron-left" class="h-4 w-4"/></button>
-                <span class="workflow-debug-records__count" x-text="debugRecordLabel()"></span>
                 <button type="button" aria-label="Следующая запись" x-on:click="moveDebugOccurrence(1)" :disabled="debugOccurrencePosition() >= debugOccurrences().length - 1"><x-filament::icon icon="heroicon-o-chevron-right" class="h-4 w-4"/></button>
             </div>
             <p class="workflow-debug-error workflow-debug-error--inline" x-show="debugCurrent().error" role="alert"><x-filament::icon icon="heroicon-o-exclamation-circle" class="h-5 w-5"/><span x-text="debugCurrent().error"></span></p>

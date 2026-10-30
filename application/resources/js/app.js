@@ -2549,10 +2549,6 @@ window.workflowDebugPanel = () => ({
         this.$wire.$set?.('debugSelectedResultIndex', this.selectedIndex >= 0 && !current.preview ? this.selectedIndex : null, false);
     },
     debugOccurrencePosition() { return this.debugOccurrences().findIndex(result => result.index === this.selectedIndex); },
-    debugRecordLabel() {
-        if (this.debugCurrent().preview) return 'Новая проверка';
-        return this.debugSelectedTrigger() ? 'Данные запуска' : this.debugOccurrences().length ? 'Запись ' + (this.debugOccurrencePosition() + 1) + ' из ' + this.debugOccurrences().filter(result => !result.preview).length : 'Нет записей';
-    },
     canMoveDebugNode(direction) { const index = this.debugNodes().findIndex(node => node.id === this.selectedDebugId) + direction; return index >= 0 && index < this.debugNodes().length; },
     moveDebugNode(direction) { if (this.canMoveDebugNode(direction)) this.selectDebugNode(this.debugNodes()[this.debugNodes().findIndex(node => node.id === this.selectedDebugId) + direction].id); },
     setDebugTab(tab) { this.debugTab = tab; this.syncDebugSettings(); },

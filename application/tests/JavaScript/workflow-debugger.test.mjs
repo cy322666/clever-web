@@ -136,7 +136,7 @@ test('history is fetched once on demand, search and record navigation stay local
     panel.$wire.$set=(key,value,live)=>writes.push({key,value,live});
     panel.$wire.debugState.results=[{id:'a',display_output:0},{id:'a',display_output:false}];
     panel.selectDebugNode('a');panel.moveDebugOccurrence(-1);
-    assert.equal(panel.debugRecordLabel(),'Запись 1 из 2');
+    assert.equal(panel.debugOccurrencePosition(),0);
     assert.equal(writes.at(-1).value,0);assert.equal(writes.at(-1).live,false);
     assert.equal(calls,2);
 });
