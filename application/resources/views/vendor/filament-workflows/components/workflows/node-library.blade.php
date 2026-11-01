@@ -270,7 +270,7 @@
          x-bind:aria-label="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : 'Добавить ноду'">
         <header class="workflow-node-library__header">
             <div class="workflow-node-library__heading">
-                <h2 x-show="!workflowNodeIsAdding($wire)" x-text="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : mode === 'action' ? 'Добавить действие' : 'Добавить ноду'"></h2>
+                <h2 x-show="!workflowNodeIsAdding($wire) && mode !== 'action'" x-text="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : 'Добавить ноду'"></h2>
                 <div x-cloak x-show="workflowNodeIsAdding($wire)" class="workflow-node-library__pending" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span>Добавляю…</div>
             </div>
             <button x-cloak x-show="mode === 'variables'" type="button" wire:click="refreshWorkflowReference" wire:loading.attr="disabled"

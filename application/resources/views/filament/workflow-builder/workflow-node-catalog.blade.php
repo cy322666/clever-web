@@ -35,7 +35,6 @@
         @foreach($triggerGroups as $groupKey => $group)
             <div x-cloak x-show="(mode === 'trigger' || mode === 'all') && (query === '' ? view === @js('trigger:'.$groupKey) : matchesAny(@js(array_column($group['items'], 'search_text'))))"
                  class="workflow-node-library__list">
-                <div class="workflow-node-library__result-heading"><strong>{{ $group['title'] }}</strong></div>
                 @foreach($group['items'] as $trigger)
                     <button x-show="query === '' || matches(@js($trigger['search_text']))" type="button"
                             x-on:click="workflowEditorCall($wire, 'selectTriggerType', @js($trigger['type']), !replaceTrigger)"
@@ -48,7 +47,6 @@
         @endforeach
 
         <div x-cloak x-show="mode !== 'trigger' && (query === '' ? view === 'logic' : matchesAny(@js(array_column($logicActions, 'search_text'))))" class="workflow-node-library__list">
-            <div class="workflow-node-library__result-heading"><strong>Инструменты</strong></div>
             @foreach($logicActions as $action)
                 <button x-show="query === '' || matches(@js($action['search_text']))" type="button"
                         x-on:click="workflowEditorCall($wire, 'selectActionType', @js($action['type']))"
@@ -72,9 +70,8 @@
 
         @foreach($actionEntities as $key => $entity)
             <div x-cloak x-show="mode !== 'trigger' && (query === '' ? view === @js('amocrm:'.$key) : matchesAny(@js($entity['search_texts'])))" class="workflow-node-library__list">
-                <div class="workflow-node-library__result-heading workflow-node-library__entity-heading">
-                    <button x-show="query === ''" type="button" x-on:click="selectCategory('amocrm')" class="workflow-node-library__back" aria-label="Назад к сущностям amoCRM"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4"/>amoCRM</button>
-                    <strong>{{ $entity['title'] }}</strong>
+                <div x-show="query === ''" class="workflow-node-library__result-heading workflow-node-library__entity-heading">
+                    <button type="button" x-on:click="selectCategory('amocrm')" class="workflow-node-library__back" aria-label="Назад к сущностям amoCRM"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4"/>amoCRM</button>
                 </div>
                 @foreach($entity['items'] as $action)
                     <button x-show="query === '' || matches(@js($action['search_text']))" type="button"
@@ -104,7 +101,6 @@
         @endforeach
 
         <div x-cloak x-show="mode !== 'trigger' && (query === '' ? view === 'service' : matches('telegram телеграм отправить сообщение'))" class="workflow-node-library__list">
-            <div class="workflow-node-library__result-heading"><strong>Сервисы</strong></div>
             <button x-show="query === '' || matches('telegram телеграм отправить сообщение')" type="button"
                     x-on:click="workflowEditorCall($wire, 'selectActionType', 'telegram_send_message')"
                     x-bind:disabled="workflowNodeIsAdding($wire)" wire:loading.attr="disabled" class="workflow-node-library__item">
