@@ -23,7 +23,7 @@ use Throwable;
 class ControlConditionAction extends ConditionAction
 {
     /** Validate what was configured separately from what the expression returned. */
-    public function validateResolvedConfig(array $raw, array $resolved): array
+    public function validateResolvedConfig(array $raw, array $resolved, ?WorkflowContext $context = null): array
     {
         $validation = $this->validateWorkflowConfig($raw);
         foreach (array_values($raw['conditions'] ?? []) as $index => $condition) {
@@ -32,6 +32,13 @@ class ControlConditionAction extends ConditionAction
                 $expression = $condition[$field] ?? null;
                 $value = array_values($resolved['conditions'] ?? [])[$index][$field] ?? null;
                 if (is_string($expression) && str_contains($expression, '{{') && $value === null) {
+                    // A present JSON field may legitimately contain null, including in comparisons.
+                    $missing = new \stdClass;
+                    if ($context instanceof \App\Workflows\Context\WorkflowContext
+                        && preg_match('/^\s*\{\{\s*(\$[^{}]+?)\s*\}\}\s*$/u', $expression, $match)
+                        && $context->get(trim($match[1]), $missing) !== $missing) {
+                        continue;
+                    }
                     $validation['errors'][] = 'Условие '.($index + 1).': нет данных для переменной '.$expression.'. Загрузите данные запуска или выполните предыдущую ноду.';
                 }
             }
@@ -228,9 +235,9 @@ class ControlConditionAction extends ConditionAction
      */
     protected function evaluateConditionWithDetails(array $condition, ?WorkflowContext $context): array
     {
-        $leftRaw = $condition['left'] ?? '';
+        $leftRaw = array_key_exists('left', $condition) ? $condition['left'] : '';
         $operator = (string)($condition['operator'] ?? 'equals');
-        $rightRaw = $condition['right'] ?? '';
+        $rightRaw = array_key_exists('right', $condition) ? $condition['right'] : '';
 
         $left = $context ? $context->resolve($leftRaw) : $leftRaw;
         $right = $context ? $context->resolve($rightRaw) : $rightRaw;

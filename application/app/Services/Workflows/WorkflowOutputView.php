@@ -80,7 +80,7 @@ final class WorkflowOutputView
         return self::entity(count($items) === 1 ? $items[0] : $items);
     }
 
-    public static function triggerPath(array $input, string $path): mixed
+    public static function triggerPath(array $input, string $path, mixed $default = null): mixed
     {
         $visible = self::trigger($input);
         if ($path === '') return $visible;
@@ -92,7 +92,7 @@ final class WorkflowOutputView
             $found = WorkflowValuePath::get($legacy, $path, $missing);
             if ($found !== $missing) return $found;
         }
-        return null;
+        return $default;
     }
 
     public static function value(mixed $output): mixed
@@ -140,7 +140,7 @@ final class WorkflowOutputView
         return $output !== [] ? $output : $value;
     }
 
-    public static function actionPath(mixed $output, string $path): mixed
+    public static function actionPath(mixed $output, string $path, mixed $default = null): mixed
     {
         // A list is shown as its items, but its public counters remain addressable.
         // Otherwise $("Фильтр списка").count resolves to null after projection.
@@ -154,7 +154,7 @@ final class WorkflowOutputView
         if (self::isSingleEntityCreation($output) && ($path === '0' || str_starts_with($path, '0.'))) {
             $path = $path === '0' ? '' : substr($path, 2);
         }
-        return WorkflowValuePath::get($value, $path);
+        return WorkflowValuePath::get($value, $path, $default);
     }
 
     /** The data arriving at a node, without a previous node's transport journal. */

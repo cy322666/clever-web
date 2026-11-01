@@ -330,7 +330,7 @@ class WorkflowExecutor extends BaseWorkflowExecutor
         }
 
         $validation = $action instanceof \App\Workflows\Actions\ControlConditionAction
-            ? $action->validateResolvedConfig($rawConfig, $config)
+            ? $action->validateResolvedConfig($rawConfig, $config, $context)
             : $this->validateActionConfig($action, $config);
         if (!$validation['valid']) {
             return [

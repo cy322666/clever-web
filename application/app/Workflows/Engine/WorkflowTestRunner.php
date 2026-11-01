@@ -164,7 +164,7 @@ class WorkflowTestRunner extends BaseWorkflowTestRunner
             $raw = $step['config'] ?? $step['properties'] ?? [];
             $resolved = $context->resolve($raw);
             $action = new \App\Workflows\Actions\ControlConditionAction;
-            $validation = $action->validateResolvedConfig($raw, $resolved);
+            $validation = $action->validateResolvedConfig($raw, $resolved, $context);
             $result = ['id' => $step['id'] ?? 'step_'.$path, 'type' => $step['type'], 'path' => $path,
                 'name' => $step['name'] ?? $this->getActionName($step['type']), 'is_side_effect' => false,
                 'input' => $raw, 'resolved_input' => $resolved, 'display_input' => $displayInput, 'output' => [], 'description' => ''];

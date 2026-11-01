@@ -55,6 +55,22 @@ class WorkflowExpressionsTest extends TestCase
         $this->assertNull($context->resolve('{{ $("Фильтр списка").amo_exchange }}'));
     }
 
+    public function test_expression_path_defaults_distinguish_null_from_absent_fields(): void
+    {
+        $context = (new WorkflowContext(['source' => 'amocrm', 'entity' => 'message', 'item' => ['text' => null]]))
+            ->setStepOutput('fetch', ['items' => [['text' => null]], 'has_more' => false])
+            ->setVariable('_node_names', ['Сообщение' => ['trigger'], 'Список' => ['fetch'], 'Другой запуск' => ['trigger:other']])
+            ->setVariable('_workflow_values', ['text' => null]);
+        $missing = new \stdClass;
+        foreach (['$("Сообщение").text', '$("Список").first().text', '$node["fetch"].json.items[0].text', '$json.items[0].text', '$vars.text'] as $path) {
+            $this->assertNull($context->get($path, $missing), $path);
+            $this->assertSame($missing, $context->get(str_replace('.text', '.missing', $path), $missing), $path);
+            $this->assertNull($context->get(str_replace('.text', '.missing', $path)), $path);
+        }
+        $this->assertSame($missing, $context->get('$("Не выполнена").text', $missing));
+        $this->assertSame($missing, $context->get('$("Другой запуск").text', $missing));
+    }
+
     public function test_open_deal_counters_ignore_closed_statuses_and_flags(): void
     {
         $context = new WorkflowContext([

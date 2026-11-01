@@ -131,6 +131,68 @@ class WorkflowDebuggerTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_nullable_message_text_selects_the_false_branch_in_production_and_debugger(): void
+    {
+        $executor = new class(app(ActionRegistry::class)) extends WorkflowExecutor {
+            public function one(array $step, \Leek\FilamentWorkflows\Context\WorkflowContext $context): array
+            { return $this->runActionStep($step, $context); }
+        };
+        $step = ['id' => 'if', 'type' => 'control-condition', 'config' => [
+            'logic' => 'and', 'conditions' => [
+                ['left' => '{{ $("amoCRM: входящее сообщение").text }}', 'operator' => 'is_not_empty'],
+                ['left' => '{{ $("amoCRM: входящее сообщение").element_type }}', 'operator' => 'equals', 'right' => '2'],
+                ['left' => '{{ $("amoCRM: входящее сообщение").text }}', 'operator' => 'contains', 'right' => 'You mentioned in the story'],
+            ],
+        ]];
+        $definition = ['trigger' => ['type' => 'manual', 'name' => 'amoCRM: входящее сообщение'], 'actions' => [$step]];
+
+        foreach ([null, '', 'Другое сообщение', 'You mentioned in the story'] as $text) {
+            $input = ['source' => 'amocrm', 'entity' => 'message', 'item' => ['text' => $text, 'element_type' => 2]];
+            $context = (new \App\Workflows\Context\WorkflowContext($input))
+                ->setVariable('_node_names', ['amoCRM: входящее сообщение' => ['trigger']]);
+            $result = $executor->one($step, $context);
+            $this->assertTrue($result['success'], $result['error'] ?? 'Condition failed');
+            $this->assertSame($text === 'You mentioned in the story', $result['output']['passed']);
+            $this->assertSame($text === 'You mentioned in the story' ? 'true' : 'false', $result['output']['branch']);
+            $this->assertSame($text, $result['output']['condition_results'][2]['left_value']);
+
+            $session = app(WorkflowDebugger::class)->executeNode($step, [], $input, null, null, false, $definition);
+            $this->assertSame('completed', $session['status'], $session['error'] ?? 'Condition failed');
+            $this->assertSame($result['output']['passed'], $session['results'][0]['output']['passed']);
+            $this->assertSame($text, $session['results'][0]['output']['condition_results'][2]['left_value']);
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_null_comparison_operands_are_valid_but_absent_paths_still_fail_validation(): void
+    {
+        $action = new ControlConditionAction;
+        $context = (new \App\Workflows\Context\WorkflowContext(['text' => null]))
+            ->setStepOutput('message', ['success' => true, 'status' => 200, 'body' => ['text' => null]])
+            ->setVariable('_node_names', ['Сообщение' => ['message']])
+            ->setVariable('_workflow_values', ['text' => null]);
+
+        foreach (['left', 'right'] as $side) {
+            foreach (['$("Сообщение").text', '$node["message"].json.body.text', '$json.body.text', '$vars.text'] as $path) {
+                $raw = ['conditions' => [[
+                    'left' => 'Текст', 'operator' => 'equals', 'right' => 'Текст', $side => '{{ '.$path.' }}',
+                ]]];
+                $resolved = $context->resolve($raw);
+                $this->assertTrue($action->validateResolvedConfig($raw, $resolved, $context)['valid'], $path);
+                $result = $action->handle($resolved, $context);
+                $this->assertTrue($result['success']);
+                $this->assertFalse($result['output']['passed']);
+                $this->assertNull($result['output']['condition_results'][0][$side.'_value']);
+
+                $raw['conditions'][0][$side] = '{{ '.str_replace('.text', '.missing', $path).' }}';
+                $validation = $action->validateResolvedConfig($raw, $context->resolve($raw), $context);
+                $this->assertFalse($validation['valid'], $path);
+                $this->assertStringContainsString('нет данных для переменной', implode(', ', $validation['errors']));
+            }
+        }
+        Http::assertNothingSent();
+    }
+
     public function test_safe_mode_does_not_send_write_requests_to_amo(): void
     {
         $runner = app(WorkflowDebugger::class);

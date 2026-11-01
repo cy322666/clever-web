@@ -102,18 +102,20 @@ class WorkflowContext extends BaseWorkflowContext
         return $outputs === [] ? $this->getTriggerData() : end($outputs);
     }
 
-    public function get(string $path): mixed
+    /** Keep an explicit null distinct from a missing expression path. */
+    public function get(string $path, mixed $default = null): mixed
     {
         if ($path === '$vars' || str_starts_with($path, '$vars.')) {
-            return \App\Services\Workflows\WorkflowValuePath::get($this->getVariable('_workflow_values', []), $path === '$vars' ? '' : $this->expressionPath(substr($path, 6)));
+            return \App\Services\Workflows\WorkflowValuePath::get($this->getVariable('_workflow_values', []), $path === '$vars' ? '' : $this->expressionPath(substr($path, 6)), $default);
         }
         // Resolve the node first, then find the field by ID, never by its array position.
         if (preg_match('/^(?<source>\$\(.+\).*)\.cf\(\s*(?<field>\d+)\s*\)$/u', $path, $field)) {
-            return $this->customFieldFromEntity($this->get($field['source']), $field['field']);
+            $source = $this->get($field['source'], $default);
+            return $source === $default ? $default : $this->customFieldFromEntity($source, $field['field']);
         }
         if ($path === '$json' || str_starts_with($path, '$json.')) {
             $value = $this->getNodeInput();
-            return $path === '$json' ? $value : \App\Services\Workflows\WorkflowValuePath::get($value, $this->expressionPath(substr($path, 6)));
+            return $path === '$json' ? $value : \App\Services\Workflows\WorkflowValuePath::get($value, $this->expressionPath(substr($path, 6)), $default);
         }
         $quoted = '("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
         $shortReference = false;
@@ -121,24 +123,26 @@ class WorkflowContext extends BaseWorkflowContext
             || preg_match('/^\$\('.$quoted.'\)\.(?:item|first\(\))\.json(.*)$/u', $path, $match)
             || ($shortReference = (bool) preg_match('/^\$\('.$quoted.'\)((?:[.\[].*)?)$/u', $path, $match))) {
             $key = $match[1][0] === '"' ? json_decode($match[1], true) : str_replace(["\\'", '\\\\'], ["'", '\\'], substr($match[1], 1, -1));
-            if (!is_string($key)) return null;
+            if (!is_string($key)) return $default;
             $legacyTrigger = $key === 'trigger';
             if (!$this->hasStepOutput($key)) {
                 $ids = $this->getVariable('_node_names', [])[$key] ?? [];
                 $key = count($ids) === 1 ? $ids[0] : $key;
             }
             if ($key === 'trigger' || str_starts_with($key, 'trigger:')) {
-                if (!$legacyTrigger && $key !== ($this->getTriggerData()['_workflow_start_node_id'] ?? 'trigger')) return null;
+                if (!$legacyTrigger && $key !== ($this->getTriggerData()['_workflow_start_node_id'] ?? 'trigger')) return $default;
                 $nested = $this->expressionPath($match[2]);
-                if ($shortReference) return \App\Services\Workflows\WorkflowOutputView::triggerPath($this->getTriggerData(), $nested);
+                if ($shortReference) return \App\Services\Workflows\WorkflowOutputView::triggerPath($this->getTriggerData(), $nested, $default);
                 $value = $this->getTriggerData();
-                return \App\Services\Workflows\WorkflowValuePath::get($value, $nested);
+                return \App\Services\Workflows\WorkflowValuePath::get($value, $nested, $default);
             }
+            if (!$this->hasStepOutput($key)) return $default;
             $value = $this->getStepOutput($key);
             $nested = $this->expressionPath($match[2]);
-            if ($shortReference) return WorkflowOutputView::actionPath($value, $nested);
-            return \App\Services\Workflows\WorkflowValuePath::get($value, $nested);
+            if ($shortReference) return WorkflowOutputView::actionPath($value, $nested, $default);
+            return \App\Services\Workflows\WorkflowValuePath::get($value, $nested, $default);
         }
+        if (str_starts_with($path, '$')) return $default;
         if (preg_match('/^step\.([^.]+)$/', $path, $match)) return $this->getStepOutput($match[1]);
         if (str_starts_with($path, 'current.')) {
             return $this->getCurrentValue(substr($path, strlen('current.')));
