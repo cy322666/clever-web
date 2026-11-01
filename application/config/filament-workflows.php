@@ -96,10 +96,12 @@ return [
         'loop_guard_ttl_seconds' => env('WORKFLOWS_LOOP_GUARD_TTL_SECONDS', 900),
 
         // Heavy raw JSON is scrubbed nightly after this many days, aggregates stay monthly.
-        'raw_retention_days' => env('WORKFLOWS_RAW_RETENTION_DAYS', 3),
+        'raw_retention_days' => env('WORKFLOWS_RAW_RETENTION_DAYS', 14),
 
         // Detailed run/step rows are kept for support/debug, monthly usage stays longer.
-        'run_retention_days' => env('WORKFLOWS_RUN_RETENTION_DAYS', 31),
+        'run_retention_days' => env('WORKFLOWS_RUN_RETENTION_DAYS', 14),
+
+        'maintenance_time' => env('WORKFLOWS_DB_MAINTENANCE_TIME', '03:45'),
     ],
 
     /*

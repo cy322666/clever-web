@@ -90,10 +90,10 @@ class Kernel extends ConsoleKernel
         $schedule->command(sprintf(
             'workflows:db-maintenance --days=%d --raw-days=%d --run-days=%d',
             (int)env('WORKFLOWS_DB_MAINTENANCE_DAYS', 45),
-            (int)env('WORKFLOWS_RAW_RETENTION_DAYS', 7),
-            (int)env('WORKFLOWS_RUN_RETENTION_DAYS', 31),
+            (int)config('filament-workflows.execution.raw_retention_days', 14),
+            (int)config('filament-workflows.execution.run_retention_days', 14),
         ))
-            ->dailyAt(env('WORKFLOWS_DB_MAINTENANCE_TIME', '03:45'))
+            ->dailyAt(config('filament-workflows.execution.maintenance_time', '03:45'))
             ->withoutOverlapping();
 
         $schedule->command('app:backup-db')

@@ -13,6 +13,8 @@ use Throwable;
 
 class WorkflowDatabaseMaintenance extends Command
 {
+    private const ACTIVE_STATUSES = ['running', 'pending', 'paused'];
+
     protected $signature = 'workflows:db-maintenance
         {--days=45 : За сколько последних дней обновлять служебные индексы}
         {--raw-days= : Сколько дней хранить тяжелые JSON-данные запусков}
@@ -31,8 +33,8 @@ class WorkflowDatabaseMaintenance extends Command
         }
 
         $days = max(1, (int)$this->option('days'));
-        $rawDays = max(1, (int)($this->option('raw-days') ?: config('filament-workflows.execution.raw_retention_days', 7)));
-        $runDays = max($rawDays, (int)($this->option('run-days') ?: config('filament-workflows.execution.run_retention_days', 31)));
+        $rawDays = max(1, (int)($this->option('raw-days') ?: config('filament-workflows.execution.raw_retention_days', 14)));
+        $runDays = max($rawDays, (int)($this->option('run-days') ?: config('filament-workflows.execution.run_retention_days', 14)));
         $chunk = max(50, (int)$this->option('chunk'));
 
         [$runsIndexed, $stepsIndexed] = $this->refreshEntityIndex($entityIndexer, $days, $chunk);
@@ -77,6 +79,7 @@ class WorkflowDatabaseMaintenance extends Command
             ->select(['id', 'workflow_id', 'status', 'created_at', $tenantColumn])
             ->whereNull('usage_recorded_at')
             ->where('created_at', '<', $cutoff)
+            ->whereNotIn('status', self::ACTIVE_STATUSES)
             ->chunkById($chunk, function ($runs) use (&$aggregated, $tenantColumn): void {
                 $ids = $runs->pluck('id')->map(fn($id): int => (int)$id)->all();
 
@@ -196,6 +199,7 @@ class WorkflowDatabaseMaintenance extends Command
         DB::table('workflow_runs')
             ->select('id')
             ->where('created_at', '<', $cutoff)
+            ->whereNotIn('status', self::ACTIVE_STATUSES)
             ->whereNotNull('context_data')
             ->orderBy('id')
             ->chunkById($chunk, function ($runs) use (&$runsScrubbed): void {
@@ -207,6 +211,7 @@ class WorkflowDatabaseMaintenance extends Command
 
                 $runsScrubbed += DB::table('workflow_runs')
                     ->whereIn('id', $ids)
+                    ->whereNotIn('status', self::ACTIVE_STATUSES)
                     ->update([
                         'context_data' => null,
                         'updated_at' => now(),
@@ -217,6 +222,7 @@ class WorkflowDatabaseMaintenance extends Command
             DB::table('workflow_run_steps')
                 ->select('id')
                 ->where('created_at', '<', $cutoff)
+                ->whereIn('workflow_run_id', DB::table('workflow_runs')->select('id')->whereNotIn('status', self::ACTIVE_STATUSES))
                 ->where(fn($query) => $query
                     ->whereNotNull('input_data')
                     ->orWhereNotNull('output_data'))
@@ -230,6 +236,7 @@ class WorkflowDatabaseMaintenance extends Command
 
                     $stepsScrubbed += DB::table('workflow_run_steps')
                         ->whereIn('id', $ids)
+                        ->whereIn('workflow_run_id', DB::table('workflow_runs')->select('id')->whereNotIn('status', self::ACTIVE_STATUSES))
                         ->update([
                             'input_data' => null,
                             'output_data' => null,
@@ -254,7 +261,7 @@ class WorkflowDatabaseMaintenance extends Command
             ->select('id')
             ->where('created_at', '<', $cutoff)
             ->whereNotNull('usage_recorded_at')
-            ->whereNotIn('status', ['running', 'pending', 'paused'])
+            ->whereNotIn('status', self::ACTIVE_STATUSES)
             ->orderBy('id')
             ->chunkById($chunk, function ($runs) use (&$pruned): void {
                 $ids = $runs->pluck('id')->map(fn($id): int => (int)$id)->all();
@@ -265,6 +272,7 @@ class WorkflowDatabaseMaintenance extends Command
 
                 $pruned += DB::table('workflow_runs')
                     ->whereIn('id', $ids)
+                    ->whereNotIn('status', self::ACTIVE_STATUSES)
                     ->delete();
             });
 
