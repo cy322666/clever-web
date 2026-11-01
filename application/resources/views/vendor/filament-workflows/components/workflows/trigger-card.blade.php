@@ -65,6 +65,7 @@
 
     @unless($readOnly)
         <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop>
+            <x-filament::icon-button tag="a" :href="\App\Services\Workflows\WorkflowDocumentationLinks::forNode($type, $config)" target="_blank" rel="noopener noreferrer" color="gray" size="sm" icon="heroicon-o-question-mark-circle" label="Справка о запуске" title="Справка о запуске" x-on:click.stop />
             @if($hasSettings)
                 <button type="button" x-on:click.stop="window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } }))" aria-label="Настроить запуск: {{ $name }}" title="Настроить запуск"><x-filament::icon icon="heroicon-o-cog-6-tooth" class="h-4 w-4"/></button>
             @endif

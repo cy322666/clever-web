@@ -15,6 +15,20 @@
     <script type="application/json" data-local-inspector-boot>{!! json_encode($inspectorBootstrap, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) !!}</script>
     <header class="workflow-inspector__header">
         <strong x-text="title || 'Нода'"></strong>
+        <x-filament::icon-button tag="a" :href="\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/blocks'" target="_blank" rel="noopener noreferrer" color="gray" size="sm" icon="heroicon-o-question-mark-circle" label="Справка о ноде" title="Справка о ноде"
+            x-data="{ pages: {{ \Illuminate\Support\Js::from(['types' => \App\Services\Workflows\WorkflowDocumentationLinks::typePages(), 'reads' => \App\Services\Workflows\WorkflowDocumentationLinks::readPages()]) }} }"
+            x-show="typeof local !== 'undefined' && local && local.id"
+            x-bind:href="(() => {
+                const inspector = typeof local !== 'undefined' ? local : null;
+                if (!inspector?.id) return {{ \Illuminate\Support\Js::from(\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/blocks') }};
+                void inspector.revision;
+                const type = inspector.type;
+                const operation = inspector.config?.operation;
+                const page = type === 'amocrm_read'
+                    ? (Object.hasOwn(pages.reads, operation) ? pages.reads[operation] : 'query')
+                    : (Object.hasOwn(pages.types, type) ? pages.types[type] : 'blocks');
+                return {{ \Illuminate\Support\Js::from(\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/') }} + page;
+            })()" />
         <button type="button" x-on:click="hideInspector()" aria-label="Закрыть настройки" title="Закрыть настройки"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
     </header>
     <nav class="workflow-inspector__tabs" role="tablist" aria-label="Данные ноды">

@@ -96,6 +96,7 @@
                 </div>
 
                 <div class="workflow-workbench__quick-actions">
+                    <a href="{{ \App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL }}" target="_blank" rel="noopener noreferrer" class="workflow-workbench__quick-action" aria-label="Документация Потоков" title="Документация Потоков"><x-filament::icon icon="heroicon-o-question-mark-circle" class="h-5 w-5"/></a>
                     @unless($isRecordedOnly)
                     @if(($this->nodePreviewTaskId ?? null) && empty($this->mountedActions))
                         @include('filament.workflow-builder.workflow-preview-progress', ['progress' => $this->nodePreviewProgress])

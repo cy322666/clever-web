@@ -50,6 +50,7 @@
     $reference = array_map('array_values', $reference);
 @endphp
 <div class="workflow-variable-browser" x-data="workflowVariableBrowser(@js($reference))">
+    <x-filament::link :href="\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/data'" target="_blank" rel="noopener noreferrer" size="sm" icon="heroicon-o-question-mark-circle">Переменные и маски</x-filament::link>
     <label class="workflow-variable-browser__label">Тип переменной
         <select x-model="type" x-on:change="reset()" aria-label="Тип переменной">
             <option value="">Выберите тип…</option>
