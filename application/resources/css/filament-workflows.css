@@ -7558,13 +7558,12 @@ svg.workflow-control-icon { color: #248548 !important; }
     box-shadow: 0 0 0 3px rgb(237 120 88 / 0.18);
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled) {
-    transition: outline-color 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+    transition: outline-color 140ms ease, box-shadow 140ms ease;
     outline: 3px solid transparent;
     outline-offset: 3px;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is(:hover, :focus-visible) {
     outline-color: color-mix(in srgb, var(--workflow-node-fill) 60%, white);
-    filter: brightness(1.1) saturate(1.08);
     box-shadow: 0 9px 22px rgb(30 41 59 / 0.28) !important;
 }
 .dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is(:hover, :focus-visible) {
