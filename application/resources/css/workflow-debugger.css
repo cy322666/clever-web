@@ -46,12 +46,11 @@
 .workflow-debug-error--inline svg { width: 16px; height: 16px; flex: 0 0 16px; }
 .dark .workflow-debug-error--inline { background: #482f31; }
 .workflow-debug-json { display: flex; flex: 1 1 0; min-height: 190px; }
-.workflow-debug-side .workflow-json-tree--numbered { position: relative; width: 100%; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; border: 1px solid var(--debug-line); border-radius: 6px; background: var(--debug-bg); overflow: hidden; }
-.workflow-debug-side .workflow-json-tree__viewport { padding: 12px 12px 12px 44px; max-height: none; flex: 1 1 0; min-height: 0; overflow: auto; }
+.workflow-debug-side .workflow-json-tree--framed { position: relative; width: 100%; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; border: 1px solid var(--debug-line); border-radius: 6px; background: var(--debug-bg); overflow: hidden; }
+.workflow-debug-side .workflow-json-tree__viewport { padding: 12px; max-height: none; flex: 1 1 0; min-height: 0; overflow: auto; }
 .workflow-debug-side .workflow-json-tree .workflow-input-json { padding: 0; font: 12px/22px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: normal; }
 .workflow-debug-side .workflow-input-json__line { min-height: 22px; position: relative; width: max-content; min-width: 100%; white-space: normal; }
 .workflow-debug-side button.workflow-input-json__value { min-height: 22px; border: 0; border-radius: 2px; padding: 0; font: inherit; display: inline; white-space: pre; text-align: left; }
-.workflow-debug-line-number { position: absolute; left: -32px; color: #8c98aa; width: 20px; text-align: right; user-select: none; font-size: 11px; }
 .workflow-debug-side button.workflow-debug-copy { position: absolute; right: 10px; top: 10px; z-index: 1; background: var(--debug-bg); border-color: transparent; padding: 5px; min-height: 28px; color: var(--debug-muted); }
 .workflow-debug-start { padding: 4px 18px 18px; }
 .workflow-debug-start p, .workflow-debug-empty p { color: var(--debug-muted); margin: 8px 0 16px; }

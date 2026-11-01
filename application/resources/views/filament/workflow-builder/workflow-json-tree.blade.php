@@ -3,7 +3,7 @@
 @endphp
 
 <div
-    @class(['workflow-json-tree', 'workflow-json-tree--numbered' => $numbered ?? false])
+    @class(['workflow-json-tree', 'workflow-json-tree--framed' => $framed ?? false])
     @if($usesExpression)
         x-data="workflowJsonViewer(null)"
         x-effect="setValue({!! $expression !!})"
@@ -11,7 +11,7 @@
         x-data="workflowJsonViewer(@js($value ?? null))"
     @endif
 >
-    @if($numbered ?? false)
+    @if($framed ?? false)
         <button type="button" class="workflow-debug-copy" x-on:click="copyValue(value, 'all', $event.currentTarget)" :aria-label="copiedRow === 'all' ? 'JSON скопирован' : 'Скопировать JSON'" :title="copiedRow === 'all' ? 'Скопировано' : 'Скопировать JSON'"><x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/></button>
     @endif
     @if(!empty($titleExpression) || !empty($title))
@@ -25,9 +25,8 @@
     @endif
     <div class="workflow-json-tree__viewport" tabindex="0" role="region" aria-label="Данные JSON">
         <div class="workflow-input-json" aria-label="JSON">
-            <template x-for="(row, rowIndex) in rows" :key="row.id">
+            <template x-for="row in rows" :key="row.id">
                 <div class="workflow-input-json__line" :style="'padding-left:' + row.depth * 16 + 'px'">
-                    @if($numbered ?? false)<span class="workflow-debug-line-number" aria-hidden="true" x-text="rowIndex + 1"></span>@endif
                     <button type="button" class="workflow-input-json__value" x-show="!row.closing"
                         x-on:click="row.branch ? toggle(row.path) : copyValue(row.value, row.id, $event.currentTarget)"
                         :aria-expanded="row.branch ? !row.collapsed : null" :class="{ 'is-copied': copiedRow === row.id }"

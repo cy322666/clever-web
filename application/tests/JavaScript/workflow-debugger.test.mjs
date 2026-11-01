@@ -129,7 +129,7 @@ test('the debugger has three tabs, a compact history dropdown and no bottom trai
     const panel=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-debugger.blade.php',import.meta.url),'utf8');
     assert.match(panel,/<details x-ref="debugHistory"/);
     assert.match(panel,/\['settings' => 'Настройки', 'input' => 'Вход', 'output' => 'Выход'\]/);
-    assert.match(panel,/'numbered' => true/);
+    assert.match(panel,/'framed' => true/);
     assert.doesNotMatch(panel,/summary'|Детали запроса|Технические события|Повторить|Таблица|Открыть настройки ноды|<select/);
 });
 

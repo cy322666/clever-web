@@ -55,7 +55,7 @@
             <div class="workflow-debug-empty" x-show="!selectedDebugId"><strong>Выберите ноду на схеме</strong><p>Здесь появятся входные и выходные данные выбранной записи.</p></div>
             <div class="workflow-debug-empty" x-show="selectedDebugId && selectedIndex < 0 && !debugSelectedTrigger()"><strong>Нода ещё не выполнялась</strong><p>Нажмите значок запуска над нодой, чтобы проверить её на текущих данных.</p></div>
             <div class="workflow-debug-json" x-show="selectedIndex >= 0 || debugSelectedTrigger()">
-                @include('filament.workflow-builder.workflow-json-tree', ['expression' => "debugTab === 'input' ? debugInputValue() : debugOutputValue()", 'numbered' => true])
+                @include('filament.workflow-builder.workflow-json-tree', ['expression' => "debugTab === 'input' ? debugInputValue() : debugOutputValue()", 'framed' => true])
             </div>
         </section>
         <p class="workflow-debug-error" x-show="debugError || historyError" x-text="debugError || historyError" role="alert"></p>
