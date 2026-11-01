@@ -5883,7 +5883,7 @@ body:has(.workflow-list-page) .fi-main {
 .workflow-list-page .fi-ta-filters > .fi-sc { flex: 1; min-width: 0; gap: 0.5rem; }
 .workflow-list-page .fi-ta-filters-header { order: 1; flex: 0 0 auto; }
 .workflow-list-page .fi-ta-filters-heading { display: none; }
-.workflow-list-page .fi-ta-filters .fi-select-input-value-ctn { flex-wrap: nowrap; overflow: hidden; }
+.workflow-list-page .fi-ta-filters .fi-select-input-value-ctn:not(:has(> .fi-select-input-value-badges-ctn)) { flex-wrap: nowrap; overflow: hidden; }
 .workflow-list-page .fi-ta-header-ctn:has(> .fi-ta-filters-above-content-ctn) > .fi-ta-header-toolbar {
     flex: 0 1 15rem;
     gap: 0.5rem;

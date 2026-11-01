@@ -26,6 +26,18 @@
     line-height: 18px;
     padding: 6px 10px !important;
 }
+/* Selected badges can wrap onto several rows; the control must grow with them. */
+.workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-select-input-btn:has(.fi-select-input-value-badges-ctn) {
+    height: auto;
+    padding-inline-end: 32px !important;
+}
+.workflow-node-settings .fi-select-input-value-badges-ctn {
+    min-width: 0;
+    max-width: 100%;
+}
+.workflow-node-settings .fi-select-input-value-badges-ctn > .fi-badge {
+    max-width: 100%;
+}
 .workflow-inspector.workflow-node-settings .workflow-node-settings__parameters .fi-select-input {
     padding-block: 0;
     font-size: 12px;

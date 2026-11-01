@@ -46,7 +46,7 @@
 .workflow-inspector .workflow-value-field__modes button { font-size: 10px; padding: 2px 5px; }
 .workflow-inspector .workflow-node-settings__parameters :is(input.fi-input, select.fi-input, .fi-select-input) { font-size: 12px; min-height: 34px; }
 .workflow-inspector .workflow-node-settings__parameters :is(input.fi-input, textarea.fi-input) { padding: 6px 10px !important; }
-.workflow-inspector .workflow-node-settings__parameters .fi-select-input-value-ctn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.workflow-inspector .workflow-node-settings__parameters .fi-select-input-value-ctn:not(:has(> .fi-select-input-value-badges-ctn)) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .workflow-inspector .workflow-node-settings__parameters .fi-fo-repeater-item { position: relative; padding-top: 10px; }
 .workflow-inspector .workflow-node-settings__parameters .fi-fo-repeater-item-header { position: absolute; right: 0; top: 7px; z-index: 1; border: 0 !important; padding: 0 !important; overflow: visible; }
 .workflow-inspector .workflow-node-settings__parameters .fi-fo-repeater-item-header button { width: 22px; height: 22px; margin: 0; padding: 0; display: grid; place-items: center; }
