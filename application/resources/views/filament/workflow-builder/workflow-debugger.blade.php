@@ -18,11 +18,6 @@
             <button type="button" x-on:click="closeDebug()" :disabled="busy || playing" aria-label="Закрыть отладку" title="Закрыть отладку"><x-filament::icon icon="heroicon-o-x-mark" class="h-4 w-4"/></button>
         </div>
     </header>
-    <header class="workflow-debug-side__heading">
-        <h2 x-text="debugNodeName(selectedDebugId) || 'Данные для отладки'"></h2>
-        <div class="workflow-debug-meta" x-show="selectedDebugId"><span class="workflow-debug-dot" :data-status="debugCurrent().status"></span><span x-text="debugStatusLabel(debugCurrent().status)"></span></div>
-        <span class="workflow-debug-duration" x-show="debugCurrent().duration_ms != null" x-text="debugCurrent().duration_ms + ' мс'"></span>
-    </header>
     <nav class="workflow-debug-tabs" role="tablist" aria-label="Данные ноды" x-show="debugConfigured() || selectedDebugId">
         @foreach(['settings' => 'Настройки', 'input' => 'Вход', 'output' => 'Выход'] as $tab => $label)
             <button type="button" role="tab" id="debug-{{ $tab }}-{{ $this->getId() }}" aria-controls="{{ $tab === 'settings' ? 'workflow-debug-settings-' : 'debug-data-' }}{{ $this->getId() }}" :aria-selected="debugTab === @js($tab)" :tabindex="debugTab === @js($tab) ? 0 : -1" x-on:click="setDebugTab(@js($tab))" x-on:keydown.arrow-right.prevent="nextDebugTab(1)" x-on:keydown.arrow-left.prevent="nextDebugTab(-1)">{{ $label }}</button>

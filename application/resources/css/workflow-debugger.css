@@ -26,15 +26,6 @@
 .workflow-debug-history__run { width: 100%; text-align: left; justify-content: flex-start !important; border-color: transparent !important; padding: 10px !important; }
 .workflow-debug-history__run > span { flex: 1; font-size: 11px; white-space: normal; }
 .workflow-debug-history__run[aria-current=true] { background: var(--debug-surface); color: #cf6044; }
-.workflow-debug-side__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 18px; min-height: 56px; }
-.workflow-debug-side__heading h2 { font-size: 14px; line-height: 1.5; font-weight: 600; max-width: 100%; overflow-wrap: anywhere; }
-.workflow-debug-meta { display: flex; gap: 7px; align-items: center; color: var(--debug-muted); white-space: nowrap; font-size: 12px; }
-.workflow-debug-duration { color: var(--debug-muted); font-size: 12px; white-space: nowrap; }
-.workflow-debug-dot { width: 8px; height: 8px; border-radius: 50%; background: #9ba2af; display: inline-block; flex: 0 0 8px; }
-.workflow-debug-dot:is([data-status=completed], [data-status=success]) { background: #36af73; }
-.workflow-debug-dot:is([data-status=failed], [data-status=error], [data-status=validation_error]) { background: #e25151; }
-.workflow-debug-meta:has(.workflow-debug-dot:is([data-status=error], [data-status=failed], [data-status=validation_error])) { color: #c23d3d; }
-.dark .workflow-debug-meta:has(.workflow-debug-dot:is([data-status=error], [data-status=failed], [data-status=validation_error])) { color: #ffaba3; }
 .workflow-debug-tabs { display: flex; border-bottom: 1px solid var(--debug-line); padding: 0 18px; }
 .workflow-debug-tabs button { flex: 1; border: 0; border-radius: 0; border-bottom: 2px solid transparent; min-height: 38px; padding: 8px 4px; color: var(--debug-muted); font-size: 12px; }
 .workflow-debug-tabs button[aria-selected=true] { border-bottom-color: #ee795a; color: var(--debug-text); font-weight: 600; }
@@ -73,7 +64,6 @@
     .workflow-workbench__main:has(> .workflow-debug-side:not([hidden])) { flex-direction: column; }
     .workflow-workbench__main:has(> .workflow-debug-side:not([hidden])) > .workflow-node-editor { flex: 0 0 34%; min-height: 160px; }
     .workflow-debug-side { width: 100%; min-width: 0; max-width: none; flex: 1 1 0; border-left: 0; border-top: 1px solid var(--debug-line); }
-    .workflow-debug-side__heading { min-height: 52px; padding: 8px 12px; }
     .workflow-debug-data { padding: 12px; }
     .workflow-debug-history { padding: 8px 12px; }
     .workflow-debug-tabs button { min-height: 40px; }
