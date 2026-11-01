@@ -9,7 +9,7 @@
         <meta http-equiv="refresh" content="2;url={{ $refreshUrl }}">
     @endif
     <title>Подключение amoCRM | Clever</title>
-    <link rel="icon" href="/favicon-clevercrm-20260922.ico" sizes="any">
+    <link rel="icon" href="/favicon-clevercrm-20261101.ico" sizes="64x64">
     <link rel="stylesheet" href="/fonts/clevercrm/clevercrm-v1.css">
     <script>
         try {

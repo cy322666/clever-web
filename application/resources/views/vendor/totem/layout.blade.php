@@ -8,8 +8,8 @@
         <!-- CSRF Token -->
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <link rel="icon" href="{{ asset('favicon-clevercrm-20260922.ico') }}" sizes="any">
-        <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon-clevercrm-20260922.png') }}">
+        <link rel="icon" href="{{ asset('favicon-clevercrm-20261101.ico') }}" sizes="64x64">
+        @include('components.favicon-touch')
 
         <title>
             Totem
