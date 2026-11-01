@@ -149,6 +149,7 @@
                 :has-trigger="(bool) $this->trigger"
                 :mask-groups="$maskGroups"
                 :system-id-groups="$systemIdGroups"
+                :trigger-definition="array_merge($this->definition, ['trigger' => $this->trigger, 'actions' => $this->workflowActions])"
             />
 
             {{-- Keep Alpine directives stable across Livewire morphs. Replacing x-data

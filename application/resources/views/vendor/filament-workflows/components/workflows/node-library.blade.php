@@ -4,6 +4,7 @@
     'hasTrigger' => false,
     'maskGroups' => [],
     'systemIdGroups' => [],
+    'triggerDefinition' => [],
 ])
 
 @php
