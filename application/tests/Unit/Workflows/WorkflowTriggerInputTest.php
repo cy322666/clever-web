@@ -75,7 +75,8 @@ class WorkflowTriggerInputTest extends TestCase
             $this->assertSame($this->item[$field], $context->resolve('{{ $node["Событие"].json.item.'.$field.' }}'));
         }
         $fields = WorkflowExpressionCatalog::sources([], null, $context->toArray(), null, $this->definition())[0]['fields'];
-        $this->assertSame(['Результат', 'id', 'pipeline_id', 'status_id', 'price'], array_column($fields, 'label'));
+        $this->assertSame(['Результат', 'id', 'name', 'price', 'pipeline_id', 'status_id', 'responsible_user_id', 'old_status_id', 'old_pipeline_id'], array_column($fields, 'label'));
+        $this->assertFalse(collect($fields)->firstWhere('key', '.name')['available']);
         foreach ($fields as $field) $this->assertSame($field['value'], $context->resolve($field['expression']));
         $this->assertSame($input, $context->getTriggerData());
     }

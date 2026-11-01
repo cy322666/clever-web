@@ -89,6 +89,23 @@ test('JSON input renders compact nested values while insertion keeps the origina
     assert.equal(picker.jsonRows.some(row=>row.item?.label==='id'),true);
 });
 
+test('trigger schema offers expressions before a run without showing invented values', () => {
+    const fields = [
+        {key:'', parent:null, label:'Результат', type:'object', available:false, expression:'{{ $("Событие") }}'},
+        {key:'.element_id', parent:'', label:'element_id', type:'null', available:false,
+            expression:'{{ $("Событие").element_id }}'},
+    ];
+    const picker = components().workflowExpressionPicker([{id:'trigger', name:'Событие', available:false, fields}]);
+    const row = picker.jsonRows.find(row => row.item?.key === '.element_id');
+    assert.equal(row.insertable, true);
+    assert.equal(row.copyable, false);
+    assert.match(row.text, /—/);
+    const field = components().workflowValueField('');
+    field.sources = picker.sources;
+    field.suggest({target:{value:'{{ $("Событие").ele', selectionStart:20, hasAttribute:()=>true}});
+    assert.equal(field.suggestions[0].expression, '{{ $("Событие").element_id }}');
+});
+
 test('history preserves exact attempts, trigger selection and HTTP selection during polling', () => {
     const a={id:'a',execution_id:10}, b={id:'b',execution_id:11};
     const viewer=components().workflowExecutionViewer({results:[a,b],nodes:[]});

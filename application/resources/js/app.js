@@ -2893,8 +2893,9 @@ window.workflowExpressionPicker = (sources, customFields = []) => ({
             rows.push({id: item.key + ':value', item, depth, label, type: container ? 'punctuation' : item.type,
                 value: container ? (item.type === 'array' ? [] : {}) : item.value,
                 copyable: item.available && (!container || item.count === 0),
+                insertable: !item.available && !!item.expression,
                 branch: container && nested.length > 0, collapsed,
-                text: container ? (arrayPreview ? arrayPreview + comma : open + (collapsed ? ' … ' + close + comma : nested.length ? '' : close + comma)) : value + comma});
+                text: container ? (arrayPreview ? arrayPreview + comma : open + (collapsed ? ' … ' + close + comma : nested.length ? '' : close + comma)) : (item.available ? value : '—') + comma});
             if (container && nested.length && !collapsed) {
                 nested.forEach((child, index) => visit(child, depth + 1, index < nested.length - 1 ? ',' : '', item.type));
                 rows.push({id: item.key + ':close', depth, label: '', type: 'punctuation', text: close + comma});

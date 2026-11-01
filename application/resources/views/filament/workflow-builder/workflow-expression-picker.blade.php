@@ -16,9 +16,9 @@
             <template x-for="row in jsonRows" :key="row.id">
                 <div class="workflow-input-json__line" :style="'padding-left:' + row.depth * 14 + 'px'">
                     <button type="button" class="workflow-input-json__value" x-show="row.item" x-on:mousedown.prevent
-                        x-on:click="if (row.branch) toggleJson(row.item); else if (row.copyable) copyValue(row.value, row.id, $event.currentTarget)"
+                        x-on:click="if (row.branch) toggleJson(row.item); else if (row.copyable) copyValue(row.value, row.id, $event.currentTarget); else if (row.insertable) insert(row.item)"
                         :aria-expanded="row.branch ? !row.collapsed : null" :class="{ 'is-copied': copiedRow === row.id }"
-                        :disabled="!row.branch && !row.copyable" :title="row.branch ? (row.collapsed ? 'Развернуть' : 'Свернуть') : (copiedRow === row.id ? 'Скопировано' : 'Скопировать значение')"
+                        :disabled="!row.branch && !row.copyable && !row.insertable" :title="row.branch ? (row.collapsed ? 'Развернуть' : 'Свернуть') : row.insertable ? 'Подставить переменную' : (copiedRow === row.id ? 'Скопировано' : 'Скопировать значение')"
                         x-bind:draggable="!!row.item?.expression" x-on:dragstart="if(row.item?.expression) $event.dataTransfer.setData('application/workflow-expression', JSON.stringify(row.item))"><span class="workflow-json-tree__caret" aria-hidden="true" x-show="row.branch" x-text="row.collapsed ? '›' : '⌄'"></span><span class="workflow-input-json__key" x-text="row.label"></span><span :class="'workflow-input-json__' + row.type" x-text="row.text"></span></button>
                     <span class="workflow-input-json__closing" x-show="!row.item" x-text="row.text"></span>
                 </div>

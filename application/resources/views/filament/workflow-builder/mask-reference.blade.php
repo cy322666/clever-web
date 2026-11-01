@@ -10,7 +10,7 @@
     }
     $maskEntities = ['lead' => 'Сделка', 'contact' => 'Контакт', 'company' => 'Компания', 'customer' => 'Покупатель'];
     foreach ($groups as $group => $items) {
-        if (str_contains($group, 'Воронк')) continue;
+        if (str_contains($group, 'Воронк') && ! str_starts_with($group, 'Событие: ')) continue;
         foreach ($items as $expression => $label) {
             $id = null;
             $options = [];

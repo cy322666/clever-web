@@ -82,7 +82,14 @@ final class WorkflowExpressionCatalog
         $startId = $context['trigger_data']['_workflow_start_node_id'] ?? 'trigger';
         if (!isset($names[$startId])) $startId = 'trigger';
         $input = $context['trigger_data'] ?? [];
-        $sources = [self::source($startId, $names[$startId] ?? 'Данные запуска', WorkflowOutputView::trigger($input), array_key_exists('trigger_data', $context))];
+        $actualTriggerValue = WorkflowOutputView::trigger($input);
+        $hasTriggerValue = $actualTriggerValue !== [];
+        $start = WorkflowStartNodes::all($definition)[$startId] ?? [];
+        $triggerShape = WorkflowTriggerReferenceCatalog::shape((string) ($start['type'] ?? ''));
+        $triggerValue = is_array($actualTriggerValue)
+            ? self::mergeShape($triggerShape, $actualTriggerValue)
+            : $actualTriggerValue;
+        $sources = [self::source($startId, $names[$startId] ?? 'Данные запуска', $triggerValue, $hasTriggerValue, $triggerShape, $actualTriggerValue)];
         $upstream = $connections !== null && $editingId !== null
             ? array_map(fn ($id) => substr($id, 7), WorkflowGraph::ancestors(['actions' => $actions, 'connections' => $connections], 'action:'.$editingId))
             : (self::before($actions, $editingId) ?? []);
@@ -163,25 +170,44 @@ final class WorkflowExpressionCatalog
         return $sources;
     }
 
-    private static function source(string $id, string $name, mixed $output, bool $available, string $rootPath = ''): array
+    /** Keep known nested fields even when this delivery omits or nulls their parent. */
+    private static function mergeShape(array $shape, array $actual): array
+    {
+        if ($actual !== [] && array_is_list($actual)) return $actual;
+        foreach ($actual as $key => $value) {
+            if (is_array($shape[$key] ?? null) && ! is_array($value)) continue;
+            $shape[$key] = is_array($shape[$key] ?? null) && is_array($value) && ! array_is_list($value)
+                ? self::mergeShape($shape[$key], $value)
+                : $value;
+        }
+        return $shape;
+    }
+
+    private static function source(string $id, string $name, mixed $output, bool $available, array $shape = [], mixed $actual = null): array
     {
         $fields = [];
         $truncated = false;
-        $visit = function (mixed $value, string $path = '', int $depth = 0, ?string $parent = null, string $label = 'Результат', bool $addressable = true) use (&$visit, &$fields, &$truncated, $name, $available): void {
+        $missing = new \stdClass;
+        $visit = function (mixed $value, string $path = '', int $depth = 0, ?string $parent = null, string $label = 'Результат', bool $addressable = true) use (&$visit, &$fields, &$truncated, $name, $available, $shape, $actual, $missing): void {
             if (count($fields) >= 150 || $depth > 6) {
                 $truncated = true;
                 return;
             }
+            $relativePath = ltrim($path, '.');
+            $inShape = $shape !== [] && ($path === '' || WorkflowValuePath::get($shape, $relativePath, $missing) !== $missing);
+            $actualValue = $inShape ? WorkflowValuePath::get($actual, $relativePath, $missing) : $missing;
+            $fieldAvailable = $available && (! $inShape || ($actualValue !== $missing && (! is_array($value) || is_array($actualValue))));
+            $displayValue = $actualValue !== $missing ? $actualValue : $value;
             $fields[] = [
                 'path' => $path ?: 'Весь результат',
                 'key' => $path, 'parent' => $parent, 'label' => $label, 'depth' => $depth,
                 'type' => is_array($value) ? (array_is_list($value) ? 'array' : 'object') : get_debug_type($value),
-                'count' => is_array($value) && $available ? count($value) : null,
+                'count' => is_array($displayValue) && $fieldAvailable ? count($displayValue) : null,
                 // An array can be inserted as a whole. Its [n] children are
                 // preview data, not stable collection variables.
                 'expression' => $addressable ? '{{ $('.json_encode($name, JSON_UNESCAPED_UNICODE).')'.$path.' }}' : null,
                 'item_fields' => is_array($value) && array_is_list($value) ? self::listItemFields($value) : [],
-                'value' => $available ? $value : null, 'available' => $available,
+                'value' => $fieldAvailable ? $displayValue : null, 'available' => $fieldAvailable,
             ];
             if (! is_array($value) || array_is_list($value)) {
                 return;
@@ -196,7 +222,7 @@ final class WorkflowExpressionCatalog
                     $addressable && ! array_is_list($value));
             }
         };
-        $visit($output, $rootPath);
+        $visit($output);
 
         return ['id' => $id, 'name' => $name, 'available' => $available, 'fields' => $fields, 'truncated' => $truncated];
     }

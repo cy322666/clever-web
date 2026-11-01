@@ -119,7 +119,10 @@
 
 <div x-cloak x-show="mode === 'variables'" class="workflow-node-library__variables workflow-node-library__body">
     @include('filament.workflow-builder.mask-reference', [
-        'groups' => $maskGroups,
+        'groups' => \App\Services\Workflows\WorkflowTriggerReferenceCatalog::maskGroups(array_merge($this->definition, [
+            'trigger' => $this->trigger,
+            'actions' => $this->workflowActions,
+        ])) + $maskGroups,
         'systemIdGroups' => $systemIdGroups,
     ])
 </div>

@@ -32,7 +32,7 @@ final class WorkflowOutputView
     {
         if (!is_array($input)) return $input;
         // Normalized CRM events already identify the entity for this individual run.
-        if (is_array($input['item'] ?? null) && in_array($input['entity'] ?? null, ['lead', 'contact', 'company', 'customer', 'task', 'talk', 'message', 'note', 'unsorted'], true)) {
+        if (is_array($input['item'] ?? null) && in_array($input['entity'] ?? null, ['lead', 'contact', 'company', 'customer', 'task', 'talk', 'message', 'outgoing_message', 'chat_template_review', 'note', 'unsorted'], true)) {
             return self::entity($input['item']);
         }
         $envelope = array_key_exists('_workflow_start_node_id', $input) || isset($input['source'])
