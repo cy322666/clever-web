@@ -28,14 +28,13 @@ class WorkflowExecutionControlsTest extends TestCase
         $run = $footer.'//button[@class="workflow-canvas-run"]';
         $this->assertCount(1, $xpath->query($run.'/preceding-sibling::button[@data-workflow-reference-toggle]'));
         $this->assertCount(1, $xpath->query($run.'/preceding-sibling::button[@data-workflow-activation-toggle]'));
-        $this->assertCount(1, $xpath->query($run.'/following-sibling::button[@aria-label="Отладка"]'));
+        $this->assertCount(0, $xpath->query($run.'/following-sibling::button[@aria-label="Отладка"]'));
         $this->assertCount(1, $xpath->query($run.'/following-sibling::a[@aria-label="История"]'));
         $debug = $xpath->query($footer.'//button[@aria-label="Отладка"]');
         $history = $xpath->query($footer.'//a[@aria-label="История"]');
-        $this->assertCount(1, $debug);
+        $this->assertCount(0, $debug);
         $this->assertCount(1, $history);
-        $this->assertSame('openDebug()', $debug[0]->getAttribute('x-on:click'));
-        $this->assertSame('', $debug[0]->getAttribute('wire:click'));
+        $this->assertStringContainsString('openDebug()', $xpath->query($run)[0]->getAttribute('x-on:click.stop'));
         $this->assertStringEndsWith('/panel/workflow-runs?workflow_id=1', $history[0]->getAttribute('href'));
         $this->assertCount(0, $xpath->query($footer.'//*[@type="submit"]'));
         $this->assertCount(1, $xpath->query($footer.'/ancestor::*[@x-ref="viewport"]'));
