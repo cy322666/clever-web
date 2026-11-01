@@ -230,11 +230,6 @@ export class WorkflowEditorDraft {
         if (!name || [...name].length > 255) throw new Error('Введите название от 1 до 255 символов.');
         this.wire.$set('data.name', name, false);
     }
-    setWorkflowTags(tags) {
-        tags = [...new Set(tags.map(tag => tag.trim()).filter(Boolean))];
-        if (tags.length > 20 || tags.some(tag => [...tag].length > 50)) throw new Error('До 20 тегов по 50 символов.');
-        this.wire.$set('definition.tags', tags, false);
-    }
     setWorkflowFolder(folder) {
         this.wire.$set('data.group_name', folder || null, false);
         if (this.wire.folder !== undefined) this.wire.$set('folder', folder || null, false);

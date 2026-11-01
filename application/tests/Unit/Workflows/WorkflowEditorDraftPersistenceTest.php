@@ -45,7 +45,7 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id]);
         DB::enableQueryLog();
         DB::flushQueryLog();
-        $page->call('renameWorkflow', 'Черновик')->call('setWorkflowTags', ['тег'])
+        $page->call('renameWorkflow', 'Черновик')
             ->call('renameWorkflowNode', 'a', 'Ожидание', true)
             ->call('selectActionType', 'workflow_delay')->assertHasNoErrors();
         $this->assertSame([], $this->queries('workflows'), 'Ordinary editor requests must not restore or autosave an Eloquent workflow.');
@@ -53,7 +53,7 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         $page->call('save')->assertHasNoErrors();
         $saved = $flow->fresh();
         $this->assertSame('Черновик', $saved->name);
-        $this->assertSame(['тег'], $saved->definition['tags']);
+        $this->assertArrayNotHasKey('tags', $saved->definition);
         $this->assertSame('Ожидание', $saved->definition['actions'][0]['name']);
         $this->assertCount(2, $saved->definition['actions']);
         $this->assertSame(['keep' => true], $saved->definition['vendor_key']);

@@ -5713,8 +5713,6 @@ body:has(.workflow-editor-page) .fi-page-content {
 }
 
 .workflow-identity-inline { min-width: 0; flex: 1 1 auto; }
-.workflow-identity-tags { display: flex; gap: .3rem; font-size: .65rem; color: #7b8797; overflow: hidden; }
-.workflow-identity-tags span { white-space: nowrap; max-width: 8rem; overflow: hidden; text-overflow: ellipsis; }
 .workflow-identity-inline h1 button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; cursor: text; }
 .workflow-identity-inline input { width: 100%; min-width: 8rem; max-width: 28rem; padding: .25rem .5rem; border: 1px solid #b7c1cf; border-radius: .375rem; background: transparent; color: inherit; font: inherit; }
 .workflow-identity-popover { position: relative; flex: 0 0 auto; color: #637083; font-size: .75rem; }
@@ -5723,10 +5721,8 @@ body:has(.workflow-editor-page) .fi-page-content {
 .workflow-identity-popover summary span { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workflow-identity-popover > div { position: absolute; top: 100%; left: 0; z-index: 60; width: 15rem; max-width: 80vw; padding: .65rem; background: #fff; border: 1px solid #d0d6df; border-radius: .5rem; box-shadow: 0 6px 20px #0002; }
 .workflow-identity-popover input, .workflow-identity-popover select { width: 100%; padding: .45rem; border: 1px solid #c7ced9; border-radius: .3rem; background: transparent; color: inherit; }
-.workflow-tag-chip { margin: 0 .25rem .4rem 0; padding: .2rem .4rem; background: #edf0f4; border-radius: .25rem; }
 .dark .workflow-identity-popover { color: #c1c8d2; }
 .dark .workflow-identity-popover > div { background: #303236; border-color: #565a61; }
-.dark .workflow-tag-chip { background: #45494f; }
 .workflow-node-card__tools button svg { width: 0.875rem; height: 0.875rem; flex: none; }
 .workflow-node-card__tools > button svg { width: 0.6875rem; height: 0.6875rem; }
 .workflow-node-edge-add svg { width: 0.625rem; height: 0.625rem; flex: none; }

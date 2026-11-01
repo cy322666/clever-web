@@ -12,6 +12,7 @@ final class WorkflowTransfer
 {
     public static function encode(string $name, array $definition, array $layout = []): string
     {
+        unset($definition['tags']);
         if (array_key_exists('canvas_areas', $definition)) {
             $definition['canvas_areas'] = WorkflowCanvasAreas::normalize($definition['canvas_areas']);
         }
@@ -34,9 +35,9 @@ final class WorkflowTransfer
             throw new \InvalidArgumentException('Нужен JSON-файл экспорта «Потоков» версии 1.');
         }
         Validator::make($file, ['name'=>'required|string|max:255','definition'=>'required|array','definition.actions'=>'present|array',
-            'definition.tags'=>'sometimes|array|max:20','definition.tags.*'=>'string|max:50','definition.description'=>'sometimes|nullable|string|max:10000',
+            'definition.description'=>'sometimes|nullable|string|max:10000',
         ])->validate();
-        $definition = array_intersect_key($file['definition'], array_flip(['version','trigger','actions','additional_triggers','connections','description','tags','canvas_edge_routes','canvas_positions','canvas_areas']));
+        $definition = array_intersect_key($file['definition'], array_flip(['version','trigger','actions','additional_triggers','connections','description','canvas_edge_routes','canvas_positions','canvas_areas']));
         if (array_key_exists('canvas_areas', $definition)) {
             $definition['canvas_areas'] = WorkflowCanvasAreas::normalize($definition['canvas_areas']);
         }

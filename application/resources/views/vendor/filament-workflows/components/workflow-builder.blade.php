@@ -72,17 +72,8 @@
                             x-on:keydown.escape.prevent.stop="cancelRename()" />
                         <small x-show="renameError" x-cloak x-text="renameError" x-bind:id="$id('workflow-name-error')" role="alert"></small>
                         @error('name')<small>{{ $message }}</small>@enderror
-                        <div class="workflow-identity-tags" x-show="($wire.definition.tags || []).length" x-cloak><template x-for="tag in ($wire.definition.tags || []).slice(0,3)" :key="tag"><span x-text="tag"></span></template><span x-show="($wire.definition.tags || []).length > 3" x-text="'+' + (($wire.definition.tags || []).length - 3)"></span></div>
                     </div>
                     @unless($isRecordedOnly)
-                    <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
-                        <summary title="Теги потока" aria-label="Теги потока"><x-filament::icon icon="heroicon-o-tag" class="h-4 w-4"/></summary>
-                        <div x-data="{ tag: '' }">
-                            <template x-for="existingTag in ($wire.definition.tags || [])" :key="existingTag"><button type="button" class="workflow-tag-chip" x-on:click="workflowEditorCall($wire, 'setWorkflowTags', ($wire.definition.tags || []).filter(value => value !== existingTag))" title="Удалить тег" x-text="existingTag + ' ×'"></button></template>
-                            <input x-model="tag" aria-label="Новый тег" placeholder="Добавить тег · Enter" maxlength="50" x-on:keydown.enter.prevent.stop="if(tag.trim()) { workflowEditorCall($wire, 'setWorkflowTags', [...($wire.definition.tags || []),tag.trim()]); tag=''; }" />
-                            @error('tags')<small>{{ $message }}</small>@enderror
-                        </div>
-                    </details>
                     <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
                         <summary title="Папка потока" aria-label="Папка потока"><x-filament::icon icon="heroicon-o-folder" class="h-4 w-4"/><span x-text="$wire.data.group_name || ''">{{ $this->data['group_name'] ?? $workflowRecord?->group_name ?? '' }}</span></summary>
                         <div><select aria-label="Папка потока" x-on:change="workflowEditorCall($wire, 'setWorkflowFolder', $event.target.value)">

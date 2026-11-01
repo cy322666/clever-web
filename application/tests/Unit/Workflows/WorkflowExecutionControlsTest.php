@@ -20,6 +20,8 @@ class WorkflowExecutionControlsTest extends TestCase
         $header = '//div[@class="workflow-workbench__quick-actions"]';
         $footer = '//div[@class="workflow-canvas-execution-controls"]';
 
+        $this->assertCount(0, $xpath->query('//*[@aria-label="Теги потока"]'));
+        $this->assertCount(1, $xpath->query('//summary[@aria-label="Папка потока"]'));
         $this->assertCount(0, $xpath->query($header.'//*[@data-workflow-reference-toggle or @data-workflow-activation-toggle]'));
         $this->assertCount(1, $xpath->query($header.'//button[@type="submit" and contains(@class,"workflow-save-button")]'));
         $this->assertCount(0, $xpath->query($header.'//*[@aria-label="Отладка" or @aria-label="История"]'));

@@ -51,7 +51,6 @@
                 <div class="workflow-browser-error" role="alert" x-show="error" x-cloak><span x-text="error"></span><button type="button" aria-label="Закрыть ошибку" x-on:click="error=''">×</button></div>
                 <div class="workflow-browser-settings" x-show="settingsOpen" x-cloak>
                     <label>При ошибке<select class="workflow-browser-input" :value="doc.failure_strategy" x-on:change="setDocument('failure_strategy',$el.value)"><option value="stop">Остановить сценарий</option><option value="continue">Продолжить</option><option value="telegram_report">Отчёт в Telegram</option></select></label>
-                    <label>Теги<input class="workflow-browser-input" :value="(doc.definition.tags || []).join(', ')" x-on:change="setDocument('definition.tags',$el.value.split(',').map(tag=>tag.trim()).filter(Boolean))" /></label>
                 </div>
                 <div class="workflow-workbench__main">
                     <section class="workflow-node-editor">

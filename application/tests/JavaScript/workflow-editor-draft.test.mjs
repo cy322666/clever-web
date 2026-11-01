@@ -27,7 +27,7 @@ function fixture() {
 }
 test('local editing never requests persistence and preserves nested branches and unknown keys', () => {
     const {draft, wire, definition} = fixture();
-    draft.renameWorkflow('Переименован'); draft.setWorkflowTags([' тег ', 'тег']); draft.setWorkflowFolder('Папка');
+    draft.renameWorkflow('Переименован'); draft.setWorkflowFolder('Папка');
     draft.renameWorkflowNode('a', 'Ожидание');
     assert.equal(wire.workflowActions[0].config.true_actions[0].name, 'Ожидание');
     assert.equal(wire.workflowActions[1].config.seconds, '{{ $("Ожидание").seconds }}');
@@ -35,7 +35,7 @@ test('local editing never requests persistence and preserves nested branches and
     assert.deepEqual(wire.definition.vendor_metadata, definition.vendor_metadata);
     assert.deepEqual(wire.definition.canvas_areas, definition.canvas_areas);
     assert.equal('connections' in wire.definition, false, 'A rename must not convert a legacy tree');
-    assert.deepEqual(wire.definition.tags, ['тег']);
+    assert.equal(wire.data.group_name, 'Папка');
 });
 test('insertion splits the chosen edge locally without flattening existing nodes', () => {
     const {draft, wire, events} = fixture();

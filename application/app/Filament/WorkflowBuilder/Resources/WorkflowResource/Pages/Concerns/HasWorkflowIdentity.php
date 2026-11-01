@@ -16,14 +16,6 @@ trait HasWorkflowIdentity
         $this->data['name'] = $name;
     }
 
-    public function setWorkflowTags(array $tags): void
-    {
-        Validator::make(['tags'=>$tags],['tags'=>'array|max:20','tags.*'=>'required|string|max:50'])->validate();
-        $tags = array_values(array_unique(array_filter(array_map('trim',$tags))));
-        $this->identityRecord();
-        $this->definition['tags'] = $tags;
-    }
-
     public function setWorkflowFolder(?string $folder): void
     {
         $folder = filled($folder) ? $folder : null;

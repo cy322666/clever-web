@@ -20,7 +20,7 @@ class WorkflowTransferTest extends TestCase
             'actions'=>[['id'=>'http','type'=>'http_request','config'=>['url'=>'https://example.test','method'=>'GET','headers'=>'{"Authorization":"Bearer secret"}']]],
             'connections'=>[['sourceId'=>'trigger','sourcePort'=>'output','targetId'=>'action:http']]];
     }
-    public function test_roundtrip_creates_a_new_draft_with_graph_tags_layout_and_one_owned_folder(): void
+    public function test_roundtrip_creates_a_new_draft_with_graph_layout_and_one_owned_folder(): void
     {
         WorkflowFolders::create('Продажи');
         $json = WorkflowTransfer::encode('Мой поток',$this->definition(),['action:http'=>['x'=>12,'y'=>25]]);
@@ -33,7 +33,7 @@ class WorkflowTransferTest extends TestCase
         $this->assertSame('Продажи',$first->group_name);
         $this->assertNull($second->group_name);
         $this->assertEquals(['action:http'=>['x'=>12,'y'=>25]],$first->definition['canvas_layout']);
-        $this->assertSame(['Продажи'],$first->definition['tags']);
+        $this->assertArrayNotHasKey('tags',$first->definition);
         $this->assertSame($this->definition()['connections'],$first->definition['connections']);
         Http::assertNothingSent();
     }
@@ -46,6 +46,21 @@ class WorkflowTransferTest extends TestCase
         $this->assertSame(1,$flow->user_id);
         $this->assertFalse($flow->is_active);
         $this->assertArrayNotHasKey('bot_token_encrypted',$flow->definition['actions'][0]['config']);
+    }
+
+    public function test_retired_workflow_tags_are_ignored_without_removing_tags_from_node_data(): void
+    {
+        $definition = $this->definition();
+        $definition['actions'][0]['config']['body'] = ['tags' => ['VIP']];
+        $file = json_decode(WorkflowTransfer::encode('Поток', $definition), true);
+        $this->assertArrayNotHasKey('tags', $file['definition']);
+        $this->assertSame(['VIP'], $file['definition']['actions'][0]['config']['body']['tags']);
+
+        $file['definition']['tags'] = ['Старый тег сценария'];
+        $decoded = WorkflowTransfer::decode(json_encode($file));
+        $this->assertArrayNotHasKey('tags', $decoded['definition']);
+        $this->assertSame(['VIP'], $decoded['definition']['actions'][0]['config']['body']['tags']);
+        Http::assertNothingSent();
     }
     public function test_absolute_coordinates_roundtrip_and_invalid_coordinates_are_rejected(): void
     {
@@ -107,15 +122,12 @@ class WorkflowTransferTest extends TestCase
         };
         $editor->definition['actions'][0]['config']['url']='https://unsaved.test';
         $editor->renameWorkflow('Новое');
-        $editor->setWorkflowTags(['Тест','Тест','Продажи']);
         WorkflowFolders::create('Папка A'); WorkflowFolders::create('Папка B');
         $editor->setWorkflowFolder('Папка A'); $editor->setWorkflowFolder('Папка B');
         $fresh = $flow->fresh();
         $this->assertSame('Новое',$editor->data['name']);
-        $this->assertSame(['Тест','Продажи'],$editor->definition['tags']);
         $this->assertSame('Папка B',$editor->data['group_name']);
         $this->assertSame('Старое',$fresh->name);
-        $this->assertSame(['Продажи'],$fresh->definition['tags']);
         $this->assertNull($fresh->group_name);
         $this->assertFalse($fresh->is_active);
         $this->assertSame('https://example.test',$fresh->definition['actions'][0]['config']['url']);
