@@ -18,6 +18,8 @@
 @endphp
 @if($appearance['glyph'] === 'code' && $appearance['modifier'] === null)
     <span class="workflow-node-glyph workflow-node-glyph--language" data-node-language="javascript" aria-hidden="true">JS</span>
+@elseif($artwork === 'condition')
+    <span class="workflow-node-artwork" data-node-artwork="condition" data-artwork-ready="true" aria-hidden="true"></span>
 @elseif($artwork)
     <span class="workflow-node-artwork" data-node-artwork="{{ $artwork }}" aria-hidden="true"
         x-data="typeof workflowNodeArtwork === 'function' ? workflowNodeArtwork() : {artworkLoaded: false}"

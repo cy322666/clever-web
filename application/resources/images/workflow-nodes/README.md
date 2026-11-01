@@ -13,3 +13,7 @@ sheet retain their existing library fallback, with distinct entity/action cues.
 
 The JavaScript node uses an explicit `JS` lettermark instead of its atlas tile,
 as requested by the user. The other selected icons are unchanged.
+
+The condition tile is also embedded losslessly in `workflow-condition-artwork.css`
+(194 x 194 pixels at x=494, y=444). It paints from the loaded stylesheet and never
+switches from a different SVG while waiting for the shared atlas to download.

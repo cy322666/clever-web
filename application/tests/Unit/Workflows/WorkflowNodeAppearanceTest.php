@@ -14,13 +14,38 @@ class WorkflowNodeAppearanceTest extends TestCase
     public function test_selected_icons_use_the_approved_original_not_a_library_substitution(): void
     {
         $this->assertSame('828411cf0c58e17fbdbe8cbe6e2278aab5fd3575d8d3ad47ffda150c511b9bad', hash_file('sha256', resource_path('images/workflow-nodes/duotone-approved.png')));
-        foreach (['amocrm_create_contact'=>'contact-create', 'amocrm_update_contact_fields'=>'contact-update', 'amocrm_create_lead'=>'lead-create', 'control-condition'=>'condition', 'workflow_loop'=>'loop', 'workflow_set_variable'=>'assign', 'http_request'=>'http', 'telegram_send_message'=>'telegram'] as $type=>$artwork) {
+        foreach (['amocrm_create_contact'=>'contact-create', 'amocrm_update_contact_fields'=>'contact-update', 'amocrm_create_lead'=>'lead-create', 'workflow_loop'=>'loop', 'workflow_set_variable'=>'assign', 'http_request'=>'http', 'telegram_send_message'=>'telegram'] as $type=>$artwork) {
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance'=>WorkflowNodeAppearance::action($type)]);
             $this->assertStringContainsString('data-node-artwork="'.$artwork.'"', $html);
             $this->assertStringContainsString('workflow-node-artwork__fallback', $html);
             $this->assertStringContainsString('data-artwork-ready="false"', $html);
             $this->assertStringContainsString('x-show="!artworkLoaded"', $html);
         }
+    }
+
+    public function test_condition_shows_the_approved_tile_without_an_async_icon_replacement(): void
+    {
+        foreach (['condition', 'control-condition'] as $type) {
+            $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance'=>WorkflowNodeAppearance::action($type)]);
+            $this->assertStringContainsString('data-node-artwork="condition" data-artwork-ready="true"', $html);
+            $this->assertStringNotContainsString('workflowNodeArtwork', $html);
+            $this->assertStringNotContainsString('<svg', $html);
+        }
+
+        $css = file_get_contents(resource_path('css/workflow-condition-artwork.css'));
+        $this->assertSame(1, preg_match('~data:image/png;base64,([A-Za-z0-9+/=]+)~', $css, $matches));
+        $tile = imagecreatefromstring(base64_decode($matches[1], true));
+        $original = imagecreatefrompng(resource_path('images/workflow-nodes/duotone-approved.png'));
+        $this->assertSame([194, 194], [imagesx($tile), imagesy($tile)]);
+        $actual = hash_init('sha256');
+        $expected = hash_init('sha256');
+        for ($y = 0; $y < 194; $y++) {
+            for ($x = 0; $x < 194; $x++) {
+                hash_update($actual, pack('N', imagecolorat($tile, $x, $y)));
+                hash_update($expected, pack('N', imagecolorat($original, $x + 494, $y + 444)));
+            }
+        }
+        $this->assertSame(hash_final($expected), hash_final($actual), 'The inline tile must retain the approved original pixels.');
     }
 
     public function test_javascript_node_shows_its_language_instead_of_a_generic_code_symbol(): void

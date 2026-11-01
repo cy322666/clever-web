@@ -1,6 +1,7 @@
 @import './workflow-inspector.css';
 @import './workflow-debugger.css';
 @import './workflow-node-fields.css';
+@import './workflow-condition-artwork.css';
 @tailwind utilities;
 
 /* Both labels share a grid cell so saving never shifts the toolbar. */
@@ -7142,7 +7143,6 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-artwork[data-node-artwork="contact-update"] { --art-x: 61.948956%; --art-y: 20.949074%; }
 .workflow-node-artwork[data-node-artwork="lead-create"] { --art-x: 86.929621%; --art-y: 20.949074%; }
 .workflow-node-artwork[data-node-artwork="lead-update"] { --art-x: 13.070379%; --art-y: 51.388889%; }
-.workflow-node-artwork[data-node-artwork="condition"] { --art-x: 38.205723%; --art-y: 51.388889%; }
 .workflow-node-artwork[data-node-artwork="loop"] { --art-x: 61.948956%; --art-y: 51.388889%; }
 .workflow-node-artwork[data-node-artwork="assign"] { --art-x: 86.929621%; --art-y: 51.388889%; }
 .workflow-node-artwork[data-node-artwork="http"] { --art-x: 13.070379%; --art-y: 81.944444%; }
