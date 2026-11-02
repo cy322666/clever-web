@@ -276,8 +276,13 @@ jobs:
             }
 
             HOST_NGINX_HELPER=""
+            FRAMEWORK_CACHE_HELPER=""
             REBUILD_IMAGES=false
             RELEASE_BACKUP=""
+
+            cache_framework() {
+              compose_cmd exec -T --user www-data app php /dev/stdin < "$FRAMEWORK_CACHE_HELPER"
+            }
 
             start_application() {
               # Retain the helper across git checkout when rolling back old revisions.
@@ -344,7 +349,7 @@ jobs:
               HOST_NGINX_HELPER="$(mktemp /tmp/clever-web-nginx.XXXXXX)"
               cp ops/nginx/configure-host.py "$HOST_NGINX_HELPER"
             fi
-            trap '[ -z "$HOST_NGINX_HELPER" ] || rm -f "$HOST_NGINX_HELPER"' EXIT
+            trap 'rm -f -- "$HOST_NGINX_HELPER" "$FRAMEWORK_CACHE_HELPER"' EXIT
 
             CURRENT_COMMIT=""
 
@@ -382,8 +387,6 @@ jobs:
               # Rollback reuses the images that were running before deployment.
               REBUILD_IMAGES=false
               start_application
-              compose_cmd exec -T app php artisan optimize:clear || true
-              compose_cmd exec -T app php artisan optimize || true
 
               # Older Alpine app images chown these shared paths to UID 82.
               # Wait until their startup chown has finished before restoring the queue user's ownership.
@@ -406,6 +409,7 @@ jobs:
               compose_cmd exec -T --user "$supervisor_uid:$supervisor_gid" supervisor sh -c \
                 'test -w /var/www/html/storage && test -w /var/www/html/bootstrap/cache'
 
+              cache_framework
               compose_cmd exec -T --user www-data supervisor php artisan horizon:terminate || true
 
               external_healthcheck >/dev/null || true
@@ -420,6 +424,9 @@ jobs:
             if ! git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null; then
               git fetch origin "$DEPLOY_SHA"
             fi
+
+            FRAMEWORK_CACHE_HELPER="$(mktemp /tmp/clever-web-cache.XXXXXX.php)"
+            git show "${DEPLOY_SHA}:ops/deploy/cache-framework.php" > "$FRAMEWORK_CACHE_HELPER"
 
             CURRENT_COMMIT="$(git rev-parse HEAD)"
             echo "Current commit: $CURRENT_COMMIT"
@@ -456,23 +463,22 @@ jobs:
 
             start_application
 
-            compose_cmd exec -T --user www-data app php artisan optimize:clear
-
             if [ "$AUTO_MIGRATE" = "true" ]; then
-              compose_cmd exec -T --user www-data app php artisan migrate --force
+              # Migrations need this release's configuration, without deleting the
+              # cached configuration currently used by HTTP and scheduler workers.
+              compose_cmd exec -T --user www-data \
+                -e APP_CONFIG_CACHE=/tmp/clever-web-migration-config-uncached.php app php artisan migrate --force
             else
               echo "AUTO_MIGRATE=false, skipping migrations."
             fi
 
-            compose_cmd exec -T --user www-data app php artisan optimize
+            cache_framework
 
             # Horizon is long-lived; let current jobs finish and respawn with this release.
             # Run inside its own container so Horizon targets the correct master hostname.
             compose_cmd exec -T --user www-data supervisor php artisan horizon:terminate
             sleep 5
 
-            # optimize:clear removes the scheduler heartbeat from the shared cache.
-            # Give schedule:work enough time to write the next one before failing deploy.
             smoke_ready=false
             for ((attempt = 1; attempt <= 15; attempt++)); do
               if compose_cmd exec -T --user www-data app php artisan app:smoke --strict && \
