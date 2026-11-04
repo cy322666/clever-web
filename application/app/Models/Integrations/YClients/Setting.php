@@ -1232,6 +1232,13 @@ class Setting extends Model
             }
 
             $value = self::valueForAmoField($fieldYc, $amoField, $value, $ycFields);
+            if ($fieldYc === 'services' && (string)$amoField->type === 'text' && is_string($value)) {
+                // Preserve full services in the source for notes; amoCRM TEXT accepts 256 characters.
+                $value = trim(str_replace(["\r\n", "\r", "\n"], ' ', $value));
+                if (mb_strlen($value, 'UTF-8') > 256) {
+                    $value = mb_substr($value, 0, 253, 'UTF-8') . '...';
+                }
+            }
             self::setAmoFieldById($lead, $amoField, $value, $amoApi, 'leads');
         }
         $lead->save();
