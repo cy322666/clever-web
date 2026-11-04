@@ -25,7 +25,7 @@ class CreatedUserFailurePreservationTest extends TestCase
     private const ACTOR_METHODS = ['getUserPermissions', 'getUserRoles', 'getStaff', 'findStaffByUserId', 'findCompanyUserById', 'findPositionTitle'];
 
     #[DataProvider('actorFailures')]
-    public function test_any_actor_http_failure_defers_all_three_actor_fields(string $method, int $status): void
+    public function test_any_actor_http_failure_defers_fields_and_skips_later_actor_requests(string $method, int $status): void
     {
         $fields = Setting::YCGetFields($this->client($method, $status), $this->record());
 
@@ -75,6 +75,31 @@ class CreatedUserFailurePreservationTest extends TestCase
         $this->assertSame('Не сотрудник', $fields['created_user_name']);
         $this->assertSame('Внешний источник', $fields['created_user_role_name']);
         $this->assertSame('Не сотрудник', $fields['created_user_department']);
+    }
+
+    #[DataProvider('unknownCreators')]
+    public function test_unknown_creator_and_failed_record_request_preserve_actor_fields_without_actor_requests(int|string|null $actor, int $status): void
+    {
+        $fields = Setting::YCGetFields($this->client('getRecord', $status, unknownActor: true), $this->record($actor));
+
+        $this->assertNull($fields['created_user_name']);
+        $this->assertNull($fields['created_user_role_name']);
+        $this->assertNull($fields['created_user_department']);
+        $this->assertSame('Known branch', $fields['branch']);
+        $this->assertSame(777, $fields['record_id']);
+        $this->assertSame('Current staff', $fields['staff']);
+        $this->assertSame('Full services', $fields['services']);
+        $this->assertSame(5000, $fields['paid']);
+        $this->assertNull($fields['record_paid']);
+    }
+
+    public static function unknownCreators(): iterable
+    {
+        foreach ([null, ''] as $actor) {
+            foreach ([503, 429] as $status) {
+                yield ($actor === null ? 'null' : 'empty') . " creator HTTP $status" => [$actor, $status];
+            }
+        }
     }
 
     public function test_successful_empty_actor_responses_keep_legacy_fallback_labels(): void
@@ -152,12 +177,12 @@ class CreatedUserFailurePreservationTest extends TestCase
         $this->assertSame('Known department', $fields['created_user_department']);
     }
 
-    private function record(int $actor = 55): Record
+    private function record(int|string|null $actor = 55): Record
     {
         return new Record(['company_id' => 10, 'record_id' => 777, 'client_id' => 555, 'created_user_id' => $actor, 'record_from' => 'CRM', 'staff_name' => 'Current staff', 'title' => 'Full services', 'cost' => 100]);
     }
 
-    private function client(?string $failed = null, int $status = 403, bool $external = false, bool $emptyActor = false): YClients
+    private function client(?string $failed = null, int $status = 403, bool $external = false, bool $emptyActor = false, bool $unknownActor = false): YClients
     {
         $methods = array_merge(['getClient', 'getRecord', 'getBranchTitle'], self::ACTOR_METHODS);
         $client = $this->getMockBuilder(YClients::class)->disableOriginalConstructor()->onlyMethods($methods)->getMock();
@@ -165,7 +190,7 @@ class CreatedUserFailurePreservationTest extends TestCase
         $withoutDirectStaff = in_array($failed, ['findStaffByUserId', 'findCompanyUserById', 'findPositionTitle'], true);
         $values = [
             'getClient' => (object)['data' => (object)['paid' => 5000]],
-            'getRecord' => (object)['data' => (object)['id' => 777, 'created_user_id' => $external ? 0 : 55, 'finance_transactions' => []]],
+            'getRecord' => (object)['data' => (object)['id' => 777, 'created_user_id' => $external ? 0 : ($unknownActor ? null : 55), 'finance_transactions' => []]],
             'getBranchTitle' => 'Known branch',
             'getUserPermissions' => (object)['data' => (object)['staff_id' => $withoutDirectStaff ? 0 : 3, 'user_role' => 'worker', 'user_permissions' => [(object)['slug' => 'timetable_position_id', 'value' => 99]]]],
             'getUserRoles' => (object)['data' => []],
@@ -174,12 +199,17 @@ class CreatedUserFailurePreservationTest extends TestCase
             'findCompanyUserById' => (object)['name' => 'Known actor'],
             'findPositionTitle' => 'Known department',
         ];
+        $failedActorIndex = array_search($failed, self::ACTOR_METHODS, true);
         foreach ($methods as $method) {
-            if ($external && in_array($method, self::ACTOR_METHODS, true)) {
+            if (($external || $unknownActor) && in_array($method, self::ACTOR_METHODS, true)) {
                 $client->expects($this->never())->method($method);
             } elseif ($method === $failed) {
                 $exception = new RequestException(new Response(new PsrResponse($status, [], '{"success":false}')));
                 $client->expects($this->atLeastOnce())->method($method)->willThrowException($exception);
+            } elseif ($failedActorIndex !== false
+                && ($actorIndex = array_search($method, self::ACTOR_METHODS, true)) !== false
+                && $actorIndex > $failedActorIndex) {
+                $client->expects($this->never())->method($method);
             } else {
                 $client->method($method)->willReturn($emptyActor && in_array($method, self::ACTOR_METHODS, true) ? null : $values[$method]);
             }

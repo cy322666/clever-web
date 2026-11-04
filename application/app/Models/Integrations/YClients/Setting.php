@@ -119,6 +119,9 @@ class Setting extends Model
 
     private static function optionalYClientsRequest(callable $request, string $requestName, Record $record, ?bool &$failed = null): mixed
     {
+        if ($failed === true) {
+            return null;
+        }
         try {
             return $request();
         } catch (Throwable $e) {
@@ -852,11 +855,12 @@ class Setting extends Model
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
 
-        if (empty($createdUserId)) {
+        $createdUserKnown = $createdUserId !== null && $createdUserId !== '';
+        if ($createdUserKnown && empty($createdUserId)) {
             $fields['created_user_name'] = 'Не сотрудник';
             $fields['created_user_role_name'] = 'Внешний источник';
             $fields['created_user_department'] = 'Не сотрудник';
-        } else {
+        } elseif ($createdUserKnown) {
             $actorRequestFailed = false;
             $createdUser = self::optionalYClientsRequest(
                 fn() => $client->getUserPermissions($record->company_id, $createdUserId),
