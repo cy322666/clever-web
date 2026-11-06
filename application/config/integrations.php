@@ -26,6 +26,7 @@ return [
             'category' => 'universal',
             'logo' => 'logo/integrations/20260928/tilda.svg',
             'resource' => TildaResource::class,
+            'amo_widget' => \App\Models\Core\Account::DEFAULT_WIDGET,
             'public' => true,
             'crm_providers' => ['amocrm'],
         ],

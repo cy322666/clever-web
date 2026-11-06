@@ -127,7 +127,13 @@ class Account extends Model
 
     public function usesSharedConnectorForWidget(string $widget): bool
     {
-        return static::normalizeWidget($widget) === 'yclients'
+        $widget = static::normalizeWidget($widget);
+
+        if ($widget === 'tilda') {
+            return true;
+        }
+
+        return $widget === 'yclients'
             && $this->oauth_connector !== self::CONNECTOR_WIDGET
             && (bool) config('services.amocrm.widgets.yclients.use_shared_connector', true);
     }

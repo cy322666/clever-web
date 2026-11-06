@@ -14,7 +14,7 @@ class TildaController extends Controller
     public function hook(User $user, string $site, Request $request)
     {
         $setting = $user->tilda_settings;
-        $account = $setting?->amoAccount(false, 'tilda');
+        $account = $setting?->amoAccount(false);
 
         $bodies  = json_decode($setting->bodies, true);
         $data    = $request->toArray();

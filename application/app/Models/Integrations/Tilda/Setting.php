@@ -5,6 +5,7 @@ namespace App\Models\Integrations\Tilda;
 use App\Filament\Resources\Integrations\TildaResource;
 use App\Helpers\Traits\SettingRelation;
 use App\Models\App;
+use App\Models\Core\Account;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Setting extends Model
 {
-    use HasFactory, SettingRelation;
+    use HasFactory, SettingRelation {
+        SettingRelation::amoAccount as private resolveSharedAmoAccount;
+    }
 
     protected $table = 'tilda_settings';
 
@@ -46,5 +49,15 @@ class Setting extends Model
         'phone',
         'utms',
     ];
+
+    public function amoWidget(): string
+    {
+        return Account::DEFAULT_WIDGET;
+    }
+
+    public function amoAccount(bool $createIfMissing = false, ?string $fallbackWidget = null): ?Account
+    {
+        return $this->resolveSharedAmoAccount($createIfMissing);
+    }
 
 }

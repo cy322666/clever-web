@@ -16,7 +16,7 @@ class AmoCrmSharedConnectorTest extends TestCase
 
         $this->assertTrue((bool) config('services.amocrm.widgets.yclients.use_shared_connector'));
         $this->assertTrue($reflection->invoke(new AuthController, 'yclients'));
-        $this->assertFalse($reflection->invoke(new AuthController, 'tilda'));
+        $this->assertTrue($reflection->invoke(new AuthController, 'tilda'));
     }
 
     public function test_yclients_uses_the_shared_client_id_on_the_authorization_page(): void
@@ -38,6 +38,6 @@ class AmoCrmSharedConnectorTest extends TestCase
         };
 
         $this->assertSame('shared-client-id', $page->clientId('yclients', new Account));
-        $this->assertSame('widget-client-id', $page->clientId('tilda', new Account));
+        $this->assertSame('shared-client-id', $page->clientId('tilda', new Account));
     }
 }

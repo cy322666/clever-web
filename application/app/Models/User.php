@@ -190,6 +190,14 @@ class User extends Authenticatable implements FilamentUser
     {
         $widget = Account::normalizeWidget($widget);
 
+        if ($widget === Account::DEFAULT_WIDGET) {
+            return $this->resolveDefaultAmoAccount();
+        }
+
+        if ($widget === 'tilda') {
+            return $this->resolveDefaultAmoAccount();
+        }
+
         $specific = $this->accounts()
             ->where('widget', $widget)
             ->latest('id')
@@ -258,15 +266,9 @@ class User extends Authenticatable implements FilamentUser
             return $specific;
         }
 
-        $default = $this->accounts()
-            ->where(function ($query) {
-                $query->where('widget', Account::DEFAULT_WIDGET)
-                    ->orWhereNull('widget');
-            })
-            ->latest('id')
-            ->first();
+        $default = $this->resolveDefaultAmoAccount();
 
-        if (! $createIfMissing || $widget === Account::DEFAULT_WIDGET) {
+        if (! $createIfMissing) {
             return $default;
         }
 
@@ -283,6 +285,17 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return Account::query()->create($payload);
+    }
+
+    private function resolveDefaultAmoAccount(): ?Account
+    {
+        return $this->accounts()
+            ->where(function ($query) {
+                $query->where('widget', Account::DEFAULT_WIDGET)
+                    ->orWhereNull('widget');
+            })
+            ->latest('id')
+            ->first();
     }
 
     public function usesSharedAmoConnectionAcrossWidgets(): bool

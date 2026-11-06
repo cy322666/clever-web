@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Integrations\Tilda;
 use App\Helpers\Traits\TenantResource;
 use App\Filament\Resources\Integrations\Tilda\FormResource\Pages;
 use App\Jobs\Tilda\FormSend;
+use App\Models\Core\Account;
 use App\Models\Integrations\Tilda\Form;
 use Filament\Actions\BulkAction;
 use Filament\Forms;
@@ -46,7 +47,7 @@ class FormResource extends Resource
                         static $subdomains = [];
 
                         $user = Auth::user()?->is_root ? $form->user : Auth::user();
-                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('tilda')?->subdomain;
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET)?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/leads/detail/' . $form->lead_id
@@ -59,7 +60,7 @@ class FormResource extends Resource
                         static $subdomains = [];
 
                         $user = Auth::user()?->is_root ? $form->user : Auth::user();
-                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget('tilda')?->subdomain;
+                        $subdomain = $subdomains[$user?->id ?? 0] ??= $user?->resolveAmoAccountForWidget(Account::DEFAULT_WIDGET)?->subdomain;
 
                         return $subdomain
                             ? 'https://' . $subdomain . '.amocrm.ru/contacts/detail/' . $form->contact_id
@@ -99,7 +100,7 @@ class FormResource extends Resource
 
                             $user    = $form->user;
                             $setting = $user->tilda_settings;
-                            $account = $setting?->amoAccount(false, 'tilda');
+                            $account = $setting?->amoAccount(false);
 
                             sleep(2);
 
