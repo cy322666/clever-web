@@ -8,6 +8,7 @@
         <meta http-equiv="refresh" content="2">
     @endif
     <title>Подключение amoCRM | Потоки</title>
+    @include('components.favicon')
     <style>
         :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f5f3; color: #202020; }

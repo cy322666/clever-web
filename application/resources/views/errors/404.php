@@ -36,7 +36,7 @@ if (str_starts_with($previous, $origin.'/') && !str_contains($previous, '\\')
     <meta name="robots" content="noindex, nofollow">
     <meta name="referrer" content="no-referrer">
     <title>404 · <?= $copy['title'] ?> | Clever</title>
-    <link rel="icon" href="/favicon-clevercrm-20261101.ico" sizes="64x64">
+    <?= view('components.favicon')->render() ?>
     <link rel="stylesheet" href="/fonts/clevercrm/clevercrm-v1.css">
     <script>
         try {
