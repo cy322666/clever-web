@@ -668,9 +668,9 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('1114763', $fields['branch']);
         $this->assertSame('CRM', $fields['record_from']);
-        $this->assertSame('Пользователь YClients', $fields['created_user_name']);
-        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
-        $this->assertSame('Сотрудник', $fields['created_user_department']);
+        $this->assertNull($fields['created_user_name']);
+        $this->assertNull($fields['created_user_role_name']);
+        $this->assertNull($fields['created_user_department']);
         $this->assertSame(1500, $fields['paid']);
     }
 }

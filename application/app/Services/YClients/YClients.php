@@ -6,7 +6,9 @@ use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Setting;
 use App\Models\Integrations\YClients\YClients as YC;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class YClients
@@ -214,7 +216,21 @@ class YClients
      */
     private function get(string $path): ?object
     {
+        $throttle = app(YClientsRequestThrottle::class);
+
         return Http::withHeaders($this->getHeaders())
+            ->beforeSending(fn () => $throttle->acquire())
+            ->afterResponse(function (Response $response) use ($throttle): void {
+                if ($response->status() === 429) {
+                    try {
+                        $throttle->cooldown($response->header('Retry-After'));
+                    } catch (Throwable $error) {
+                        // Preserve the original 429 and existing retry policy. Future GETs
+                        // must still pass mandatory Redis admission before reaching HTTP.
+                        Log::warning('YCLIENTS shared cooldown could not be stored.', ['exception' => get_class($error)]);
+                    }
+                }
+            })
             ->connectTimeout(10)
             ->timeout(30)
             ->retry(

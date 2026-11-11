@@ -6,6 +6,7 @@ use App\Models\amoCRM\Field;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
 use App\Services\YClients\YClients;
+use App\Services\YClients\YClientsRequestThrottle;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -101,6 +102,9 @@ class SettingRecordPaymentTest extends TestCase
         mixed $contactMapping,
         bool $expected,
     ): void {
+        $throttle = $this->createMock(YClientsRequestThrottle::class);
+        $throttle->expects($this->once())->method('acquire');
+        $this->app->instance(YClientsRequestThrottle::class, $throttle);
         config(['services.yclients.api_url' => 'https://yclients.test/api/v1']);
         Http::preventStrayRequests();
         Http::fake(['yclients.test/*' => Http::response(['success' => true, 'data' => ['id' => 777]])]);
@@ -142,6 +146,9 @@ class SettingRecordPaymentTest extends TestCase
 
     public function test_other_api_requests_keep_their_existing_parameters(): void
     {
+        $throttle = $this->createMock(YClientsRequestThrottle::class);
+        $throttle->expects($this->exactly(2))->method('acquire');
+        $this->app->instance(YClientsRequestThrottle::class, $throttle);
         config(['services.yclients.api_url' => 'https://yclients.test/api/v1']);
         Http::preventStrayRequests();
         Http::fake(['yclients.test/*' => Http::response(['success' => true, 'data' => []])]);
