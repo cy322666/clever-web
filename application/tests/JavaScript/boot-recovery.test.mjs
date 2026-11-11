@@ -57,5 +57,6 @@ test('boot recovery leaves a healthy stack untouched', () => {
 test('boot recovery starts an unhealthy stack through docker compose', () => {
     const { result, commands } = runRecovery(false);
     assert.equal(result.status, 0, result.stderr);
-    assert.match(commands, /compose -f docker-compose\.yml -f monitoring\/docker-compose\.monitoring\.prod\.yml up -d --no-build postgresql redis supervisor app/);
+    assert.match(commands, /compose --env-file application\/\.env -f docker-compose\.yml -f monitoring\/docker-compose\.monitoring\.prod\.yml up -d --no-build postgresql redis supervisor app/);
+    assert.match(commands, /compose --env-file application\/\.env -f docker-compose\.yml -f monitoring\/docker-compose\.monitoring\.prod\.yml up -d --no-build --remove-orphans alertmanager prometheus grafana/);
 });
