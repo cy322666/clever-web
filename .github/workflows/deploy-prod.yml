@@ -235,6 +235,7 @@ jobs:
           key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          timeout: 120s
           source: application/public/build,application/bootstrap/workflow-runtime
           target: /tmp/clever-web-deploy-${{ github.sha }}
           overwrite: true
@@ -257,6 +258,7 @@ jobs:
           key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
           port: ${{ secrets.PROD_SSH_PORT || '22' }}
           fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          timeout: 120s
           command_timeout: 30m
           envs: DEPLOY_SHA,DEPLOY_BRANCH,PROJECT_PATH,COMPOSE_FILES,APP_HEALTHCHECK_URL,AUTO_MIGRATE,ASSET_PATH
           script: |
