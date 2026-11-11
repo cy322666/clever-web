@@ -272,7 +272,7 @@ jobs:
 
             compose_cmd() {
               # shellcheck disable=SC2086
-              docker compose ${COMPOSE_FILES} "$@"
+              docker compose --env-file application/.env ${COMPOSE_FILES} "$@"
             }
 
             HOST_NGINX_HELPER=""
@@ -304,17 +304,17 @@ jobs:
                 python3 "$HOST_NGINX_HELPER" --project-path "$PWD"
               fi
 
-              # Apply host-gateway mappings and re-render Prometheus' target template.
+              # Monitoring is part of the production stack, not an optional add-on.
+              local monitoring_services=()
               local service
-              for service in blackbox prometheus; do
-                if compose_cmd config --services | grep -qx "$service" && \
-                  [ -n "$(compose_cmd ps --status running --quiet "$service")" ]; then
-                  compose_cmd up -d --no-deps --no-build "$service"
-                  if [ "$service" = prometheus ]; then
-                    compose_cmd restart prometheus
-                  fi
+              for service in alertmanager prometheus grafana; do
+                if compose_cmd config --services | grep -qx "$service"; then
+                  monitoring_services+=("$service")
                 fi
               done
+              if [ "${#monitoring_services[@]}" -gt 0 ]; then
+                compose_cmd up -d --no-build --force-recreate --remove-orphans "${monitoring_services[@]}"
+              fi
             }
 
             runtime_healthcheck() {

@@ -1,211 +1,71 @@
-# Monitoring
+# Мониторинг
 
-## Что добавлено
+Минимальный production-стек:
 
-- Единый стек мониторинга в `monitoring/docker-compose.monitoring.yml`:
-    - Prometheus
-    - Alertmanager
-    - Grafana
-    - Loki + Promtail
-    - Postgres Exporter
-    - Blackbox Exporter
-- Health endpoint: `GET /up`
-- Metrics endpoint (Prometheus): `GET /metrics`
-- Heartbeat планировщика: команда `app:monitor-heartbeat` в `schedule()->everyMinute()`
+- Prometheus собирает `/metrics` раз в 30 секунд.
+- Alertmanager отправляет тревоги и восстановления в Telegram.
+- Grafana показывает один русский дашборд.
 
-## Быстрый запуск
+Loki, Promtail, Blackbox, cAdvisor и postgres-exporter не используются.
 
-1. Скопируйте env для мониторинга:
+## Переменные
 
-```bash
-cp monitoring/.env.monitoring.example monitoring/.env.monitoring
+Стек читает `application/.env`:
+
+```dotenv
+METRICS_TOKEN=...
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+TELEGRAM_MESSAGE_THREAD_ID=
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=...
 ```
 
-2. Поднимите основной стек + мониторинг:
+`TELEGRAM_MESSAGE_THREAD_ID` необязателен. Если пароль Grafana не задан, при первом запуске используется `METRICS_TOKEN`. Отдельный `monitoring/.env.monitoring` больше не нужен.
 
-```bash
-docker compose --env-file monitoring/.env.monitoring -f docker-compose.yml -f monitoring/docker-compose.monitoring.yml up -d --build
-```
-
-3. Откройте интерфейсы:
-
-- Grafana: `http://localhost:3000`
-- Prometheus: `http://localhost:9090`
-- Alertmanager: `http://localhost:9093`
-
-## Ключевые метрики приложения
-
-- `clever_queue_jobs_total`
-- `clever_queue_failed_jobs_total`
-- `clever_queue_jobs_by_queue{queue="..."}`
-- `clever_queue_oldest_job_age_seconds`
-- `clever_scheduler_last_heartbeat_unixtime`
-- `clever_scheduler_heartbeat_age_seconds`
-- `clever_db_slow_queries_total`
-- `clever_db_last_slow_query_ms`
-- `clever_db_last_slow_query_unixtime`
-- `clever_metrics_up`
-
-## Базовые алерты
-
-Правила находятся в `monitoring/prometheus/alert.rules.yml`:
-
-- AppUnavailable
-- AppMetricsScrapeFailed
-- SchedulerHeartbeatStale
-- FailedJobsDetected
-- QueueBacklogHigh
-- QueueOldestJobTooOld
-- MetricsCollectionError
-- PostgresUnavailable (PostgreSQL не принимает подключение более 1 минуты)
-- PostgresExporterDown
-- DbSlowQueriesBurst
-
-## Медленные запросы к БД
-
-- В приложении включён listener запросов и счетчик медленных SQL.
-- Порог задается через `DB_SLOW_QUERY_THRESHOLD_MS` (по умолчанию `1000` мс).
-- Для приватности SQL-текст в лог не пишется; включить можно через `DB_SLOW_QUERY_SAMPLE_SQL=true`.
-- Alert `DbSlowQueriesBurst` срабатывает, если больше 10 медленных запросов за 10 минут.
-
-## Важно по безопасности
-
-- `/metrics` защищён токеном `METRICS_TOKEN`.
-- Prometheus шлёт токен как query-параметр `token`.
-- Токен автоматически подставляется в конфиг Prometheus из `METRICS_TOKEN` при старте контейнера.
-
-## Уведомления (Telegram / Slack)
-
-Alertmanager теперь автоматически собирает конфиг из env-переменных при старте.
-
-Заполните в `monitoring/.env.monitoring`:
-
-- Telegram:
-    - `ALERTMANAGER_TELEGRAM_BOT_TOKEN`
-    - `ALERTMANAGER_TELEGRAM_CHAT_ID`
-- Slack:
-    - `ALERTMANAGER_SLACK_WEBHOOK_URL`
-    - `ALERTMANAGER_SLACK_CHANNEL` (опционально)
-
-Можно включить сразу оба канала.
-
-На production эти две Telegram-переменные должны также находиться в корневом
-`.env`: его автоматически читает Docker Compose, в том числе при деплое без
-`--env-file`. Используйте тот же чат, что у системных уведомлений платформы, и
-действующий токен бота с доступом к этому чату. Секреты не коммитятся.
-Единый получатель production: «Clever x Админский чат». Приложение использует
-`TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` для ошибок, сводок, уведомлений виджетов
-и отчётов проверок. Значения `ALERTMANAGER_TELEGRAM_*` должны совпадать с ними.
-
-Alertmanager отправляет инфраструктурные тревоги и сообщения о восстановлении.
-`FailedJobsDetected` остаётся видимым в мониторинге, но направляется в получатель
-без уведомлений: ошибки задач уже отправляет приложение. Остальные алерты
-попадают в Telegram, повтор нерешённой тревоги происходит раз в 3 часа.
-
-Применить изменения:
-
-```bash
-docker compose --env-file monitoring/.env.monitoring -f docker-compose.yml -f monitoring/docker-compose.monitoring.yml up -d alertmanager
-```
-
-## Telescope в production
-
-- Telescope выключен в production по умолчанию.
-- При необходимости разово включается переменной `TELESCOPE_ENABLED=true`.
-
-## Production: Нормальная схема (subdomains + Nginx)
-
-В репозитории есть:
-
-- `monitoring/docker-compose.monitoring.prod.yml` — публикует сервисы только на `127.0.0.1`.
-- `monitoring/nginx/clevercrm.pro.conf.example` — готовый шаблон reverse proxy под:
-    - `app.clevercrm.pro`
-    - `grafana.clevercrm.pro`
-    - `prometheus.clevercrm.pro` (Basic Auth)
-    - `alerts.clevercrm.pro` (Basic Auth)
-
-### 1) DNS
-
-Создайте A-записи на IP прод-сервера:
-
-- `app.clevercrm.pro`
-- `grafana.clevercrm.pro`
-- `prometheus.clevercrm.pro`
-- `alerts.clevercrm.pro`
-
-### 2) Запуск compose в production-режиме
+## Запуск
 
 ```bash
 docker compose \
-  --env-file monitoring/.env.monitoring \
+  --env-file application/.env \
   -f docker-compose.yml \
   -f monitoring/docker-compose.monitoring.prod.yml \
-  up -d --build
+  up -d --remove-orphans alertmanager prometheus grafana
 ```
 
-### 3) Nginx + Basic Auth для monitoring
+Проверка:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y nginx apache2-utils certbot python3-certbot-nginx
-
-sudo cp monitoring/nginx/clevercrm.pro.conf.example /etc/nginx/sites-available/clevercrm.pro
-sudo ln -s /etc/nginx/sites-available/clevercrm.pro /etc/nginx/sites-enabled/clevercrm.pro
-
-sudo htpasswd -c /etc/nginx/.htpasswd-monitoring monitoring
-
-sudo nginx -t
-sudo systemctl reload nginx
+curl -fsS http://127.0.0.1:9090/-/ready
+curl -fsS http://127.0.0.1:9093/-/ready
+curl -fsS http://127.0.0.1:3000/api/health
 ```
 
-### 4) TLS сертификаты
+На обычном деплое и после перезагрузки сервера стек запускается автоматически.
+
+## Что контролируется
+
+- доступность `/metrics`;
+- внутреннее состояние метрик;
+- heartbeat scheduler;
+- новые failed jobs;
+- размер и возраст очереди;
+- всплески медленных SQL.
+
+Пороги находятся в `monitoring/prometheus/alert.rules.yml`.
+
+## Grafana
+
+Открывается только Grafana. Prometheus и Alertmanager доступны лишь на `127.0.0.1`.
+
+Для `grafana.clevercrm.pro` нужны:
+
+1. A-запись на IP production-сервера.
+2. Nginx-конфиг из `monitoring/nginx/clevercrm.pro.conf.example`.
+3. Сертификат:
 
 ```bash
-sudo certbot --nginx \
-  -d app.clevercrm.pro \
-  -d grafana.clevercrm.pro \
-  -d prometheus.clevercrm.pro \
-  -d alerts.clevercrm.pro
+sudo certbot --nginx -d grafana.clevercrm.pro
 ```
 
-После этого рабочие URL:
-
-- `https://app.clevercrm.pro`
-- `https://grafana.clevercrm.pro`
-- `https://prometheus.clevercrm.pro` (Basic Auth)
-- `https://alerts.clevercrm.pro` (Basic Auth)
-
-### 5) Закрыть прямой доступ к служебным портам (рекомендуется)
-
-Если на сервере включен UFW:
-
-```bash
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw deny 3000/tcp
-sudo ufw deny 9090/tcp
-sudo ufw deny 9093/tcp
-sudo ufw deny 3100/tcp
-sudo ufw deny 9115/tcp
-sudo ufw deny 9187/tcp
-```
-
-## Мониторинг очередей в приложении
-
-Добавлены команды:
-
-- `app:monitor-queue-health` — проверка новых `failed_jobs` и зависших jobs c отправкой алертов (TG/mail).
-- `app:queue-backfill-failed` — backfill `failed_jobs` -> `queue_monitors`, чтобы UI очередей показывал исторические
-  падения.
-- `app:smoke` — post-deploy smoke checks (БД, таблицы очередей, роуты, heartbeat).
-
-Планировщик (`app/Console/Kernel.php`):
-
-- `app:monitor-queue-health` — каждую минуту
-- `app:queue-backfill-failed --limit=1000` — каждую минуту
-
-UI для операторов:
-
-- `/panel/queue-monitors` — монитор `queue_monitors`
-- `/panel/api-requests` — список входящих API запросов (по умолчанию за 24 часа)
-- `/panel/app-stats` — дополнительно виджет метрик очередей, которые не дублируются в Grafana
+Дашборд `Clever Web: мониторинг` загружается автоматически.

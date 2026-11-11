@@ -63,10 +63,10 @@ The production host must have its app server include provisioned first.
 GitHub Actions retains the helper during a code rollback and restores proxying
 to port 8080 for revisions predating native FPM.
 
-Prometheus and Blackbox probe `https://app.clevercrm.pro` through the Docker host
-gateway, with certificate verification. After changing monitoring Compose
-settings, recreate only those two services and restart Prometheus to regenerate
-its target template. GitHub Actions refreshes them only if already running.
+Production monitoring is a small Prometheus, Alertmanager and Grafana stack.
+Prometheus reads Laravel metrics from `https://app.clevercrm.pro/metrics`, and
+Alertmanager sends firing and resolved alerts to Telegram. Deployment recreates
+the monitoring services and removes containers left by the previous stack.
 
 ## Front-end tooling
 Vite + Tailwind is used for assets. Use the scripts defined in `application/package.json`:

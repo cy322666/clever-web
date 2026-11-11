@@ -11,7 +11,7 @@ DELAY=${CLEVER_BOOT_DELAY:-10}
 cd "$PROJECT_DIR"
 
 compose() {
-    "$DOCKER" compose -f docker-compose.yml -f monitoring/docker-compose.monitoring.prod.yml "$@"
+    "$DOCKER" compose --env-file application/.env -f docker-compose.yml -f monitoring/docker-compose.monitoring.prod.yml "$@"
 }
 
 healthy() {
@@ -25,6 +25,10 @@ healthy() {
         [ -n "$container" ] || return 1
         [ "$("$DOCKER" inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" = true ] || return 1
     done
+
+    "$CURL" --noproxy '*' -fsS --connect-timeout 2 --max-time 5 http://127.0.0.1:9090/-/ready >/dev/null || return 1
+    "$CURL" --noproxy '*' -fsS --connect-timeout 2 --max-time 5 http://127.0.0.1:9093/-/ready >/dev/null || return 1
+    "$CURL" --noproxy '*' -fsS --connect-timeout 2 --max-time 5 http://127.0.0.1:3000/api/health >/dev/null || return 1
 }
 
 if healthy; then
@@ -32,8 +36,9 @@ if healthy; then
     exit 0
 fi
 
-echo 'Clever stack is unavailable; starting application services.'
+echo 'Clever stack is unavailable; starting application and monitoring services.'
 compose up -d --no-build postgresql redis supervisor app
+compose up -d --no-build --remove-orphans alertmanager prometheus grafana
 
 attempt=0
 while [ "$attempt" -lt "$CHECKS" ]; do
