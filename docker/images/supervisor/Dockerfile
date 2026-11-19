@@ -1,22 +1,13 @@
-FROM php:8.2-fpm-bullseye
+FROM php:8.2.35-fpm-bookworm
 
-COPY --from=node:22-bullseye-slim /usr/local/bin/node /usr/local/bin/node
-
-# Bullseye security updates were archived after LTS ended. Pin Debian packages
-# to one official snapshot so package indexes and payloads always match.
-RUN set -eux; \
-    printf '%s\n' \
-        'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20260831T000000Z bullseye main' \
-        'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20260831T000000Z bullseye-security main' \
-        > /etc/apt/sources.list; \
-    rm -f /etc/apt/sources.list.d/debian.sources
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
         | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg; \
-    echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
         > /etc/apt/sources.list.d/pgdg.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -38,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN docker-php-ext-install opcache
 RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
- && docker-php-ext-install -j"$(nproc)" \
+ && docker-php-ext-install -j2 \
     pdo_pgsql \
     gd \
     imap \
@@ -53,3 +44,8 @@ RUN docker-php-ext-install snmp
 COPY files/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 EXPOSE 8008
 CMD ["/usr/bin/supervisord","-n"]
+
+# Filament support packages require intl in the queue runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends libicu-dev \
+    && docker-php-ext-install intl \
+    && rm -rf /var/lib/apt/lists/*
