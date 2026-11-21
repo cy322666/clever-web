@@ -74,7 +74,8 @@ class Kernel extends ConsoleKernel
         }
 
         $schedule->command('app:clear-month-log --days=14')
-            ->dailyAt('02:00');
+            ->dailyAt('02:00')
+            ->withoutOverlapping(180);
 
         //архив
 //        $schedule->command('app:api-requests-prune --days=' . (int)env('API_REQUESTS_RETENTION_DAYS', 30))
