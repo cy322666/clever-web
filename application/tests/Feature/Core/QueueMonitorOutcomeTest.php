@@ -109,6 +109,15 @@ class QueueMonitorOutcomeTest extends TestCase
         Bus::assertNothingDispatched();
     }
 
+    public function test_backfill_uses_the_original_failure_time_when_finish_time_is_missing(): void
+    {
+        $failedAt = now()->subDays(3)->startOfSecond();
+        $monitor = $this->monitor('missing-finish', 1, ['started_at' => $failedAt->copy()->subMinute(), 'finished_at' => null]);
+        $this->failedRow('missing-finish', $failedAt);
+        $this->artisan('app:queue-backfill-failed')->assertSuccessful();
+        $this->assertSame($failedAt->toDateTimeString(), $monitor->fresh()->finished_at->toDateTimeString());
+    }
+
     public function test_repeated_backfill_does_not_rewrite_a_correct_status(): void
     {
         $monitor = $this->monitor('existing', 1);

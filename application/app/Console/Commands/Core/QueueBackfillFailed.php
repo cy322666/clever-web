@@ -97,7 +97,7 @@ class QueueBackfillFailed extends Command
                     if (!(bool) $monitor->failed || $monitor->finished_at === null
                         || $monitor->exception_message !== $exception) {
                         $repairRows[] = ['id' => $monitor->id, 'job_id' => $jobId, 'source_id' => $row->id,
-                            'failed_at' => $failedAt, 'exception' => $exception];
+                            'finished_at' => $monitor->finished_at ?? $failedAt, 'exception' => $exception];
                     }
                 }
                 continue;
@@ -141,8 +141,8 @@ class QueueBackfillFailed extends Command
             }
             $repaired += DB::connection($monitorConnection)->table('queue_monitors')
                 ->where('id', $repair['id'])->where('job_id', $repair['job_id'])
-                ->update(['failed' => true, 'progress' => 100, 'finished_at' => DB::connection($monitorConnection)
-                    ->raw('COALESCE(finished_at, CURRENT_TIMESTAMP)'), 'exception_message' => $repair['exception'],
+                ->update(['failed' => true, 'progress' => 100, 'finished_at' => $repair['finished_at'],
+                    'exception_message' => $repair['exception'],
                     'updated_at' => now()]);
         }
 

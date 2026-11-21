@@ -12,11 +12,11 @@ final class QueueMonitorLifecycle
     {
         $model = resolve(QueueMonitor::class);
         $connection = $model->getConnection();
+        $finishedAt = now();
         $attributes = [
             'failed' => true,
             'progress' => 100,
-            'finished_at' => $connection->raw('COALESCE(finished_at, CURRENT_TIMESTAMP)'),
-            'updated_at' => now(),
+            'updated_at' => $finishedAt,
         ];
         if ($exception !== null) {
             $attributes['exception_message'] = mb_strcut($exception->getMessage(), 0, 65535);
@@ -24,9 +24,10 @@ final class QueueMonitorLifecycle
 
         // A terminal failure applies to every unsuccessful attempt of this UUID.
         // A later successful retry is a new monitor row and remains successful.
-        $connection->table($model->getTable())
+        $monitors = $connection->table($model->getTable())
             ->where('job_id', $model::getJobId($job))
-            ->where('attempt', '<=', $job->attempts())
-            ->update($attributes);
+            ->where('attempt', '<=', $job->attempts());
+        $monitors->update($attributes);
+        $monitors->whereNull('finished_at')->update(['finished_at' => $finishedAt]);
     }
 }
