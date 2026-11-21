@@ -81,4 +81,3 @@ Route::get('/metrics', MetricsController::class)->name('metrics');
 
 //это че за форма?
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
-
