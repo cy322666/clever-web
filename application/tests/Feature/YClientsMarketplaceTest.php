@@ -492,6 +492,7 @@ class YClientsMarketplaceTest extends TestCase
         Schema::create('yclients_marketplace_installations', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('webhook_user_id')->nullable();
             $table->unsignedBigInteger('setting_id')->nullable();
             $table->unsignedBigInteger('salon_id');
             $table->unsignedBigInteger('application_id');

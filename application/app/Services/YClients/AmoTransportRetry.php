@@ -3,6 +3,7 @@
 namespace App\Services\YClients;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
 use Throwable;
@@ -42,6 +43,7 @@ final class AmoTransportRetry
     public static function isTransportError(Throwable $exception): bool
     {
         return $exception instanceof ConnectionException
+            || ($exception instanceof RequestException && in_array($exception->response->status(), [408, 500, 502, 503, 504], true))
             || self::isTransportMessage($exception->getMessage());
     }
 

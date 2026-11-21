@@ -47,10 +47,7 @@ class VetmanagerResource extends Resource
 
     public static function clearTransactions(int $days = 7): bool
     {
-        Visit::query()
-            ->where('user_id', Auth::id())
-            ->where('created_at', '<', now()->subDays($days))
-            ->delete();
+        app(\App\Services\Core\IntegrationHistoryPruner::class)->prune('vetmanager', $days);
 
         return true;
     }

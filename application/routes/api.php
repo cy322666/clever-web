@@ -20,6 +20,13 @@ Route::post('yclients/marketplace/callback', [YClientsMarketplaceController::cla
     ->middleware('throttle:60,1')
     ->name('yclients.marketplace.callback');
 
+Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
+    ->middleware([
+        \App\Http\Middleware\Api\ResolveYClientsWebhookOwner::class,
+        'user.active', 'user.inputs', 'integration.active:yclients',
+    ])
+    ->name('yclients.hook');
+
 Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
     Route::group(['prefix' => 'tilda', 'middleware' => ['integration.active:tilda']], function () {
@@ -31,10 +38,6 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
 
         Route::post('hook/{user:uuid}/{template}', [DistributionController::class, 'hook'])->name('distribution.hook');
     });
-
-    Route::post('yclients/hook/{user:uuid}', [YClientsController::class, 'hook'])
-        ->middleware(['integration.active:yclients'])
-        ->name('yclients.hook');
 
     Route::post('sqns/hook/{user:uuid}/{key}', [SqnsController::class, 'hook'])
         ->middleware(['integration.active:sqns', 'throttle:120,1'])

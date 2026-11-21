@@ -192,8 +192,11 @@ class RecordSyncRecoveryTest extends TestCase
         $api = $this->apiWithContact($record, $lead);
         $linked = false;
         $posts = 0;
-        $api->expects($this->exactly(5))->method('requestV4')->willReturnCallback(
-            function ($method) use ($record, &$linked, &$posts): array {
+        $api->expects($this->exactly(6))->method('requestV4')->willReturnCallback(
+            function ($method, $path) use ($record, &$linked, &$posts): array {
+                if (($response = $this->leadSearchResponse($path, [])) !== null) {
+                    return $response;
+                }
                 $this->assertSame(42, (int) $record->fresh()->lead_id);
                 if ($method === 'POST') {
                     if (++$posts === 1) {
@@ -234,8 +237,10 @@ class RecordSyncRecoveryTest extends TestCase
         $active = $this->lead(43, fn() => $this->fail('Exact record match must win over a free active lead.'),
             $this->leadAttributes(101, 10, null));
         $api = $this->apiWithContact($record, $closed, [$active, $closed]);
-        $api->expects($this->once())->method('requestV4')->with('GET', '/api/v4/leads/42', [], ['with' => 'contacts'])
-            ->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $api->expects($this->exactly(3))->method('requestV4')->willReturnCallback(
+            fn ($method, $path) => $this->leadSearchResponse($path, [$active, $closed])
+                ?? ['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]],
+        );
         $this->app->bind(AmoClient::class, fn() => $api);
 
         $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
@@ -256,7 +261,10 @@ class RecordSyncRecoveryTest extends TestCase
         $closed = $this->lead(43, fn() => $this->fail('Unrelated closed lead must not be reused.'),
             $this->leadAttributes(142, 10, '2000'));
         $api = $this->apiWithContact($record, $active, [$closed, $active]);
-        $api->expects($this->once())->method('requestV4')->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $api->expects($this->exactly(3))->method('requestV4')->willReturnCallback(
+            fn ($method, $path) => $this->leadSearchResponse($path, [$closed, $active])
+                ?? ['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]],
+        );
         $this->app->bind(AmoClient::class, fn() => $api);
 
         $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
@@ -272,7 +280,10 @@ class RecordSyncRecoveryTest extends TestCase
         $occupied = $this->lead(43, fn() => $this->fail('Another record ID must not be overwritten.'),
             $this->leadAttributes(101, 10, '2000'));
         $api = $this->apiWithContact($record, $new, [$occupied]);
-        $api->expects($this->once())->method('requestV4')->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $api->expects($this->exactly(3))->method('requestV4')->willReturnCallback(
+            fn ($method, $path) => $this->leadSearchResponse($path, [$occupied])
+                ?? ['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]],
+        );
         $this->app->bind(AmoClient::class, fn() => $api);
 
         $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
@@ -289,7 +300,10 @@ class RecordSyncRecoveryTest extends TestCase
         $closed = $this->lead(42, fn() => $this->fail('Conflicting lead must not be updated.'),
             $this->leadAttributes(142, 10, '1000'));
         $api = $this->apiWithContact($record, $closed, [$closed]);
-        $api->expects($this->never())->method('requestV4');
+        $api->expects($this->exactly(2))->method('requestV4')->willReturnCallback(
+            fn ($method, $path) => $this->leadSearchResponse($path, [$closed])
+                ?? throw new \LogicException('Conflicting ownership must stop before a lead write.'),
+        );
         $this->app->bind(AmoClient::class, fn() => $api);
 
         try {
@@ -309,7 +323,10 @@ class RecordSyncRecoveryTest extends TestCase
         $record->update(['attendance' => 3]);
         $closed = $this->lead(42, null, $this->leadAttributes(142, 10, '1000'));
         $api = $this->apiWithContact($record, $closed, [$closed]);
-        $api->expects($this->once())->method('requestV4')->willReturn(['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]]);
+        $api->expects($this->exactly(3))->method('requestV4')->willReturnCallback(
+            fn ($method, $path) => $this->leadSearchResponse($path, [$closed])
+                ?? ['id' => 42, '_embedded' => ['contacts' => [['id' => 77]]]],
+        );
         $this->app->bind(AmoClient::class, fn() => $api);
 
         $this->artisan('yc:send-record', ['record_id' => $record->id, 'account_id' => 1,
@@ -322,6 +339,28 @@ class RecordSyncRecoveryTest extends TestCase
     {
         $record->setting->update(['fields_lead' => json_encode([['field_yc' => 'record_id', 'field_amo' => '901']]),
             'pipelines' => [10], 'status_id_came' => '10.142', 'status_id_delete' => '10.143']);
+    }
+
+    private function leadSearchResponse(string $path, array $leads): ?array
+    {
+        if ($path === '/api/v4/contacts/77') {
+            return ['id' => 77, 'account_id' => 1, '_embedded' => ['leads' => array_map(
+                fn (Lead $lead) => ['id' => (int) $lead->id], $leads,
+            )]];
+        }
+        if ($path === '/api/v4/leads') {
+            return ['_embedded' => ['leads' => array_map(fn (Lead $lead) => [
+                'id' => (int) $lead->id, 'account_id' => 1,
+                'status_id' => (int) $lead->status_id, 'pipeline_id' => (int) $lead->pipeline_id,
+                'custom_fields_values' => array_map(fn ($field) => [
+                    'field_id' => $field->id,
+                    'values' => array_map(fn ($entry) => ['value' => $entry->value], $field->values),
+                ], $lead->custom_fields ?? []),
+                '_embedded' => ['contacts' => [['id' => 77]]],
+            ], $leads)]];
+        }
+
+        return null;
     }
 
     private function leadAttributes(int $status, int $pipeline, mixed $recordId): array
@@ -377,6 +416,7 @@ class RecordSyncRecoveryTest extends TestCase
         $api = $this->createMock(AmoClient::class);
         $api->method('init')->willReturnSelf();
         $api->service = $this->createMock(Oauthapi::class);
+        $api->account = Account::query()->findOrFail(1);
         return $api;
     }
 

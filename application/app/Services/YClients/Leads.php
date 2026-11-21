@@ -56,6 +56,116 @@ abstract class Leads
         return (int)$lead->pipeline_id === (int)$pipelines;
     }
 
+    public static function searchForRecord(
+        \App\Services\amoCRM\Client $amoApi,
+        int $contactId,
+        Record $record,
+        array $fieldIds,
+        int|array|null $pipelines = null,
+    ): ?Lead {
+        if ($contactId <= 0 || (int) $amoApi->account->id !== (int) $record->account_id) {
+            throw new InvalidArgumentException('YClients lead search account/contact scope mismatch.');
+        }
+
+        return AmoTransportRetry::run(function () use ($amoApi, $contactId, $record, $fieldIds, $pipelines): ?Lead {
+            $rows = self::contactLeadsV4($amoApi, $contactId);
+            $fieldIds = array_map('intval', $fieldIds);
+            $matches = array_filter($rows, fn ($row) => in_array((string) $record->record_id, self::mappedRecordIdsV4($row, $fieldIds), true));
+            if (count($matches) > 1) {
+                throw new \RuntimeException('Multiple amoCRM leads match YClients record '.$record->record_id.': '.implode(', ', array_keys($matches)));
+            }
+            $ownedElsewhere = fn (int $id): bool => Record::query()->where('account_id', $record->account_id)
+                ->where('lead_id', $id)
+                ->where(fn ($query) => $query->where('record_id', '!=', $record->record_id)->orWhere('company_id', '!=', $record->company_id))
+                ->exists();
+            $id = $matches ? (int) array_key_first($matches) : null;
+            if ($id && $ownedElsewhere($id)) {
+                throw new \RuntimeException('amoCRM lead '.$id.' matches YClients record ID but is linked to another record.');
+            }
+            if (!$id) {
+                foreach ($rows as $candidateId => $row) {
+                    if (self::isLeadAllowedForSync((object) $row, $pipelines)
+                        && self::mappedRecordIdsV4($row, $fieldIds) === [] && !$ownedElsewhere($candidateId)) {
+                        $id = $candidateId;
+                        break;
+                    }
+                }
+            }
+            if (!$id) {
+                return null;
+            }
+
+            // Only hydrate the selected entity for the existing write path; never
+            // use the legacy SDK relationship list to decide whether to create.
+            $lead = static::get($amoApi, $id);
+            if (!$lead instanceof Lead || (int) $lead->id !== $id) {
+                throw new \RuntimeException('Selected amoCRM lead disappeared during YClients search.');
+            }
+            return $lead;
+        }, ['operation' => 'lead_record_search_v4', 'contact_id' => $contactId, 'record_id' => $record->record_id]);
+    }
+
+    private static function contactLeadsV4(\App\Services\amoCRM\Client $amoApi, int $contactId): array
+    {
+        $contact = $amoApi->requestV4('GET', '/api/v4/contacts/'.$contactId, [], ['with' => 'leads']);
+        if ((int) ($contact['id'] ?? 0) !== $contactId || (int) ($contact['account_id'] ?? 0) <= 0
+            || !is_array($contact['_embedded'] ?? null) || !is_array($contact['_embedded']['leads'] ?? [])) {
+            throw new \RuntimeException('Invalid amoCRM v4 contact lead relationships.');
+        }
+        $ids = [];
+        foreach ($contact['_embedded']['leads'] ?? [] as $link) {
+            if (!is_array($link) || (int) ($link['id'] ?? 0) <= 0) {
+                throw new \RuntimeException('Invalid amoCRM v4 contact lead ID.');
+            }
+            $ids[] = (int) $link['id'];
+        }
+        $rows = [];
+        foreach (array_chunk(array_values(array_unique($ids)), 100) as $chunk) {
+            for ($page = 1; $page <= 10; $page++) {
+                $response = $amoApi->requestV4('GET', '/api/v4/leads', [], [
+                    'filter' => ['id' => $chunk], 'with' => 'contacts', 'limit' => 250, 'page' => $page, 'order' => ['id' => 'asc'],
+                ]);
+                foreach ($response['_embedded']['leads'] ?? [] as $row) {
+                    $id = (int) ($row['id'] ?? 0);
+                    if (!in_array($id, $chunk, true) || (int) ($row['account_id'] ?? 0) !== (int) $contact['account_id']
+                        || ($row['is_deleted'] ?? false) || (int) ($row['status_id'] ?? 0) <= 0 || (int) ($row['pipeline_id'] ?? 0) <= 0
+                        || !is_array($row['custom_fields_values'] ?? [])
+                        || !in_array($contactId, array_map('intval', array_column($row['_embedded']['contacts'] ?? [], 'id')), true)) {
+                        throw new \RuntimeException('Unexpected amoCRM v4 lead during YClients search.');
+                    }
+                    $rows[$id] = $row;
+                }
+                if (empty($response['_links']['next'])) {
+                    break;
+                }
+                if ($page === 10) {
+                    throw new \RuntimeException('Incomplete amoCRM v4 lead pagination during YClients search.');
+                }
+            }
+        }
+        if (array_diff($ids, array_keys($rows))) {
+            throw new \RuntimeException('Incomplete amoCRM v4 lead list during YClients search.');
+        }
+        return $rows;
+    }
+
+    private static function mappedRecordIdsV4(array $lead, array $fieldIds): array
+    {
+        $values = [];
+        foreach ($lead['custom_fields_values'] ?? [] as $field) {
+            if (!in_array((int) ($field['field_id'] ?? 0), $fieldIds, true)) {
+                continue;
+            }
+            foreach ($field['values'] ?? [] as $entry) {
+                $value = $entry['value'] ?? null;
+                if (is_scalar($value) && !is_bool($value) && trim((string) $value) !== '') {
+                    $values[] = trim((string) $value);
+                }
+            }
+        }
+        return $values;
+    }
+
     public static function searchByRecordId(Contact $contact, int|string $recordId, array $fieldIds): ?Lead
     {
         if ($fieldIds === []) {

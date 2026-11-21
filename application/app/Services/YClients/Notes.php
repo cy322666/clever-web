@@ -30,7 +30,12 @@ class Notes
             ' Комментарий : ' . $record->comment,
         ]);
         if ($guard === null || $guard->claim()) {
-            $note->save();
+            try {
+                $note->save();
+            } catch (\Throwable $exception) {
+                $guard?->rejectIfConfirmed($exception);
+                throw $exception;
+            }
         }
     }
 }

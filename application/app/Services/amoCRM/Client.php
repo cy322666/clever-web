@@ -147,7 +147,8 @@ class Client
                     $path,
                     $response->status(),
                     $response->body(),
-                )
+                ),
+                $response->status(),
             );
         }
 

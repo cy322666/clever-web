@@ -219,11 +219,7 @@ class DistributionResource extends Resource
 
     public static function clearTransactions(int $days = 7): bool
     {
-        Distribution\Transaction::query()
-            ->where('created_at', '<', Carbon::now()
-                ->subDays($days)
-                ->format('Y-m-d')
-            )->delete();
+        app(\App\Services\Core\IntegrationHistoryPruner::class)->prune('distribution', $days);
 
         return true;
     }

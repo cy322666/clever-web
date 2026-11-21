@@ -17,6 +17,7 @@ class MarketplaceInstallation extends Model
     protected $fillable = [
         'user_id',
         'setting_id',
+        'webhook_user_id',
         'salon_id',
         'application_id',
         'status',
