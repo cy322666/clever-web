@@ -100,19 +100,25 @@ final class EntityCreateGuard
             $this->acknowledge((int) $entity->id);
             return $entity;
         } catch (Throwable $exception) {
-            // Only an explicit rejection permits a new POST after configuration/auth is fixed.
-            // Never infer rejection from a timeout, 5xx, missing JSON or missing search result.
-            if (in_array((int) $exception->getCode(), [400, 401, 403, 404, 422, 429], true)
-                || preg_match('/Invalid API response \(non JSON\), code: (?:400|401|403|404|422|429)(?=\s|$)/', $exception->getMessage())) {
-                DB::table('yclients_create_receipts')->where('key', $this->key)->whereNull('remote_id')
-                    ->update(['rejected' => true]);
-            }
+            $this->rejectIfConfirmed($exception);
             if (AmoTransportRetry::isTransportError($exception)) {
                 throw new UnconfirmedCreateException($this->entity, $exception);
             }
 
             // Keep the receipt even for an unexpected failure after the remote write.
             throw $exception;
+        }
+    }
+
+    public function rejectIfConfirmed(Throwable $exception): void
+    {
+        // Timeouts, 5xx and an empty reconciliation never prove that creation was rejected.
+        if ($exception instanceof \App\Services\amoCRM\RequestDeferredException
+            || ($exception instanceof \Illuminate\Http\Client\RequestException && in_array($exception->response->status(), [400, 401, 403, 404, 422, 429], true))
+            || in_array((int) $exception->getCode(), [400, 401, 403, 404, 422, 429], true)
+            || preg_match('/Invalid API response \(non JSON\), code: (?:400|401|403|404|422|429)(?=\s|$)/', $exception->getMessage())) {
+            DB::table('yclients_create_receipts')->where('key', $this->key)->whereNull('remote_id')
+                ->update(['rejected' => true]);
         }
     }
 

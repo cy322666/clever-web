@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Record;
 use App\Models\User;
+use App\Services\YClients\RecordEventQueue;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class YClientsController extends Controller
 {
@@ -75,43 +76,61 @@ class YClientsController extends Controller
             ], 422);
         }
 
-        $data = $request->input('data', []);
-        $isDeleted = static::isDeletedRecordWebhook($request);
-        $clientId = data_get($data, 'client.id');
-
-        if ($clientId) {
-            Client::query()
-                ->updateOrCreate([
-                    'client_id' => $clientId,
-                    'company_id' => $request->input('company_id'),
-                    'user_id' => $user->id,
-                    'setting_id' => $setting->id,
-                    'account_id' => $account->id,
-                ], [
-                    'name' => data_get($data, 'client.name')
-                        ?: data_get($data, 'client.display_name'),
-                    'phone' => data_get($data, 'client.phone'),
-                    'email' => data_get($data, 'client.email'),
-                    'visits' => data_get($data, 'client.success_visits_count', 0),
-                ]);
+        if (!RecordEventQueue::ready()) {
+            return response()->json(['ok' => false, 'message' => 'YClients event storage is not ready'], 503);
         }
 
-        $record = Record::query()->firstOrNew([
-            'user_id' => $user->id,
-            'record_id' => $request->input('resource_id'),
-            'company_id' => $request->input('company_id'),
-            'setting_id' => $setting->id,
-            'account_id' => $account->id,
-        ]);
+        $record = DB::transaction(function () use ($user, $setting, $account, $request): Record {
+            // Serialize intake for this setting, including the first hook for a new appointment.
+            $lockedSetting = $setting->newQuery()->whereKey($setting->id)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $lockedSetting->user_id === (int) $user->id
+                && (int) $lockedSetting->account_id === (int) $account->id, 409, 'YClients binding changed during webhook intake.');
+            $data = $request->input('data', []);
+            $isDeleted = static::isDeletedRecordWebhook($request);
+            $clientId = data_get($data, 'client.id');
+            $client = null;
 
-        $record->fill([
-            'status' => Record::STATUS_PENDING,
-        ]);
+            if ($clientId) {
+                $clientData = data_get($data, 'client', []);
+                $clientAttributes = [];
+                foreach (['phone' => 'phone', 'email' => 'email', 'success_visits_count' => 'visits'] as $source => $target) {
+                    if (array_key_exists($source, $clientData)) {
+                        $clientAttributes[$target] = $clientData[$source];
+                    }
+                }
+                if (array_key_exists('name', $clientData) || array_key_exists('display_name', $clientData)) {
+                    $clientAttributes['name'] = ($clientData['name'] ?? null) ?: ($clientData['display_name'] ?? null);
+                }
+                $client = Client::query()
+                    ->updateOrCreate([
+                        'client_id' => $clientId,
+                        'company_id' => $request->input('company_id'),
+                        'user_id' => $user->id,
+                        'setting_id' => $setting->id,
+                        'account_id' => $account->id,
+                    ], $clientAttributes);
+            }
 
-        $record->fill(static::recordAttributes($data, $isDeleted));
-        $record->save();
+            $record = Record::query()->orderBy('id')->firstOrNew([
+                'user_id' => $user->id,
+                'record_id' => $request->input('resource_id'),
+                'company_id' => $request->input('company_id'),
+                'setting_id' => $setting->id,
+                'account_id' => $account->id,
+            ]);
 
-        RecordSend::dispatch($record, $account, $setting, $record->wasRecentlyCreated);
+            $record->fill([
+                'status' => Record::STATUS_PENDING,
+            ]);
+
+            $record->fill(static::recordAttributes($data, $isDeleted));
+            $record->save();
+            RecordEventQueue::append($record, $client ?? $record->scopedClient(), $request->only([
+                'company_id', 'resource', 'resource_id', 'status', 'data',
+            ]), $record->wasRecentlyCreated);
+            return $record;
+        });
+        RecordEventQueue::dispatchHead((int) $record->id);
 
         return response()->json([
             'ok' => true,

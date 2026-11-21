@@ -2,37 +2,50 @@
 
 namespace Tests\Feature\Core;
 
+use App\Providers\Filament\CatalogPanelProvider;
+use DOMDocument;
+use DOMXPath;
+use Filament\Panel;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Tests\TestCase;
 
 class FaviconAssetTest extends TestCase
 {
-    public function test_filament_login_uses_immutable_clevercrm_favicon(): void
+    public function test_filament_login_uses_the_clever_favicon(): void
     {
-        $response = $this->get('/panel/login');
+        $this->withoutVite();
 
-        $response->assertOk();
-        $response->assertSee(asset('favicon-clevercrm-20261101.ico'), false);
-        $response->assertSee(asset('apple-touch-icon-clevercrm-20261101.png'), false);
-        $response->assertDontSee('favicon-clevercrm-20260922.ico', false);
-        $this->assertFileExists(public_path('favicon-clevercrm-20261101.ico'));
-        $this->assertGreaterThan(0, filesize(public_path('favicon-clevercrm-20261101.ico')));
+        $response = $this->get('/panel/login')->assertOk();
+
+        $this->assertCleverIcons($response->getContent());
     }
 
-    public function test_both_panel_providers_use_the_same_versioned_favicon(): void
+    public function test_catalog_uses_the_same_favicon(): void
     {
-        foreach ([\App\Providers\Filament\AppPanelProvider::class, \App\Providers\Filament\CatalogPanelProvider::class] as $providerClass) {
-            $provider = new $providerClass($this->app);
-            $panel = $provider->panel(\Filament\Panel::make());
+        $panel = (new CatalogPanelProvider($this->app))->panel(Panel::make());
+        $panel->boot();
 
-            $this->assertSame(
-                asset('favicon-clevercrm-20261101.ico'),
-                $panel->getFavicon(),
-            );
-        }
+        $head = FilamentView::renderHook(PanelsRenderHook::HEAD_START)->toHtml();
+        $this->assertCleverIcons('<html><head>'.$head.'</head><body></body></html>');
+    }
+
+    public function test_installation_and_error_pages_use_the_same_favicon(): void
+    {
+        config(['widget_lifecycle.install_status_store' => 'array']);
+
+        $installation = $this->get('/amocrm/installation/00000000-0000-4000-8000-000000000000')->assertOk();
+        $this->assertCleverIcons($installation->getContent());
+
+        $missing = $this->get('/_tests/missing-favicon-page')->assertNotFound();
+        $this->assertCleverIcons($missing->getContent());
     }
 
     public function test_default_icons_match_versioned_assets(): void
     {
+        $size = getimagesize(public_path('favicon-clevercrm-20261111.png'));
+        $this->assertSame([64, 64, IMAGETYPE_PNG], array_slice($size, 0, 3));
+
         $favicon = file_get_contents(public_path('favicon-clevercrm-20261101.ico'));
         $this->assertSame("\x00\x00\x01\x00", substr($favicon, 0, 4));
         $imageOffset = unpack('Voffset', $favicon, 18)['offset'];
@@ -40,5 +53,22 @@ class FaviconAssetTest extends TestCase
         $this->assertSame($favicon, file_get_contents(public_path('favicon.ico')));
         $appleIcon = public_path('apple-touch-icon-clevercrm-20261101.png');
         $this->assertSame(file_get_contents($appleIcon), file_get_contents(public_path('apple-touch-icon.png')));
+    }
+
+    private function assertCleverIcons(string $html): void
+    {
+        $document = new DOMDocument;
+        @$document->loadHTML($html, LIBXML_NONET);
+        $xpath = new DOMXPath($document);
+
+        $icons = $xpath->query('//head/link[@rel="icon" or @rel="shortcut icon"]');
+        $this->assertCount(1, $icons);
+        $this->assertSame(asset('favicon-clevercrm-20261111.png'), $icons->item(0)->getAttribute('href'));
+        $this->assertSame('image/png', $icons->item(0)->getAttribute('type'));
+        $this->assertSame('64x64', $icons->item(0)->getAttribute('sizes'));
+
+        $touchIcons = $xpath->query('//head/link[@rel="apple-touch-icon"]');
+        $this->assertCount(1, $touchIcons);
+        $this->assertSame(asset('apple-touch-icon-clevercrm-20261101.png'), $touchIcons->item(0)->getAttribute('href'));
     }
 }

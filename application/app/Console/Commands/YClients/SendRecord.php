@@ -10,6 +10,7 @@ use App\Services\YClients\Notes;
 use App\Services\YClients\EntityCreateGuard;
 use App\Services\YClients\RecordSyncLock;
 use App\Services\YClients\YClients;
+use App\Services\YClients\YClientsRequestThrottle;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
@@ -43,7 +44,9 @@ class SendRecord extends Command
     {
         $recordId = $this->argument('record_id');
 
-        return RecordSyncLock::run((int) $recordId, fn () => $this->handleLocked(), $this->option('lock-owner'));
+        return \App\Services\YClients\RecordSyncContext::run(fn () => RecordSyncLock::run(
+            (int) $recordId, fn () => $this->handleLocked(), $this->option('lock-owner')
+        ));
     }
 
     /**
@@ -53,7 +56,7 @@ class SendRecord extends Command
     private function handleLocked(): int
     {
         /** @var Record $record */
-        $record  = Record::query()->findOrFail($this->argument('record_id'));
+        $record = \App\Services\YClients\RecordSyncContext::record((int) $this->argument('record_id'));
         /** @var Account $account */
         $account = Account::query()->findOrFail($this->argument('account_id'));
         /** @var Setting $setting */
@@ -151,35 +154,7 @@ class SendRecord extends Command
 
             $recordIdFieldIds = $setting->leadFieldIdsFor('record_id');
             if (empty($lead) && $contact) {
-                $lead = ServiceLead::searchByRecordId($contact, $record->record_id, $recordIdFieldIds);
-
-                if ($lead && Record::query()
-                    ->where('account_id', $account->id)
-                    ->where('lead_id', $lead->id)
-                    ->where(fn ($query) => $query->where('record_id', '!=', $record->record_id)
-                        ->orWhere('company_id', '!=', $record->company_id))
-                    ->exists()) {
-                    throw new \RuntimeException('amoCRM lead '.$lead->id.' matches YClients record ID but is linked to another record.');
-                }
-            }
-
-            if (empty($lead) && $contact) {
-                // поиск открытой сделки у контакта в нужной воронке
-                $leadCollection = ServiceLead::searchAll($contact, $amoApi, $amoMapping['pipelines']);
-
-                if ($leadCollection->count() > 0) {
-                    $lead = ServiceLead::firstUnlinkedLead(
-                        $leadCollection,
-                        fn ($candidateLead): bool => ServiceLead::hasMappedRecordId($candidateLead, $recordIdFieldIds)
-                            || Record::query()
-                            ->where('lead_id', $candidateLead->id)
-                            ->where('record_id', '!=', $record->record_id)
-                            ->where('account_id', $account->id)
-                            ->exists()
-                    );
-                } else {
-                    $lead = null;
-                }
+                $lead = ServiceLead::searchForRecord($amoApi, (int) $contact->id, $record, $recordIdFieldIds, $amoMapping['pipelines']);
             }
         }
 
@@ -222,6 +197,11 @@ class SendRecord extends Command
                 ServiceLead::ensureContactLinked($amoApi, (int) $lead->id, (int) $contact->id);
             }
         } catch (Throwable $e) {
+            if (YClientsRequestThrottle::shouldDefer($e)) {
+                $record->refresh()->forceFill(['status' => Record::STATUS_PENDING, 'error_message' => null])->save();
+                throw $e;
+            }
+
             Log::error('YClients lead sync failed during save()', [
                 'record_db_id' => $record->id,
                 'record_id' => $record->record_id,

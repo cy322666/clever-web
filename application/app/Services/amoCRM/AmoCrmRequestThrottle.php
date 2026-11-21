@@ -41,20 +41,37 @@ LUA;
         $deadline = $this->monotonicMilliseconds() + $this->maxWaitMilliseconds();
 
         do {
-            $wait = $this->evaluate(self::ACQUIRE_SCRIPT, $keys, [
-                max(200, (int) config('amocrm-throttle.integration_interval_ms', 200)),
-                max(25, (int) config('amocrm-throttle.account_interval_ms', 25)),
-            ]);
+            try {
+                $wait = $this->evaluate(self::ACQUIRE_SCRIPT, $keys, [
+                    max(200, (int) config('amocrm-throttle.integration_interval_ms', 200)),
+                    max(25, (int) config('amocrm-throttle.account_interval_ms', 25)),
+                ]);
+            } catch (Throwable $error) {
+                if (\App\Services\YClients\RecordSyncContext::active()) {
+                    throw new RequestDeferredException('amoCRM admission unavailable; request not sent.', 30, false, $error);
+                }
+                throw $error;
+            }
 
             if (! is_numeric($wait) || (int) $wait < 0) {
+                if (\App\Services\YClients\RecordSyncContext::active()) {
+                    throw new RequestDeferredException('amoCRM admission invalid; request not sent.');
+                }
                 throw new RuntimeException('Не удалось проверить общий лимит запросов amoCRM. Запрос не отправлен.');
             }
             if ((int) $wait === 0) {
                 return;
             }
 
+            if (\App\Services\YClients\RecordSyncContext::active() && (int) $wait > 500) {
+                throw new RequestDeferredException('amoCRM cooldown active; request not sent.', (int) ceil((int) $wait / 1000));
+            }
+
             $remaining = $deadline - $this->monotonicMilliseconds();
             if ((int) $wait >= $remaining) {
+                if (\App\Services\YClients\RecordSyncContext::active()) {
+                    throw new RequestDeferredException('amoCRM admission expired; request not sent.', (int) ceil((int) $wait / 1000));
+                }
                 throw new RuntimeException('amoCRM временно ограничивает запросы. Время безопасного ожидания истекло; запрос не отправлен.');
             }
 
@@ -62,6 +79,9 @@ LUA;
             // No future reservations: a 429 in another worker must be observed after sleep.
         } while ($this->monotonicMilliseconds() < $deadline);
 
+        if (\App\Services\YClients\RecordSyncContext::active()) {
+            throw new RequestDeferredException('amoCRM admission expired; request not sent.');
+        }
         throw new RuntimeException('Истекло время ожидания очереди запросов amoCRM. Запрос не отправлен.');
     }
 

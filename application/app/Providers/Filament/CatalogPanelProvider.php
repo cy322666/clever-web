@@ -33,8 +33,7 @@ class CatalogPanelProvider extends PanelProvider
             ->brandName('CleverCRM')
             ->brandLogo(asset('logo/full_logo.png'))
             ->brandLogoHeight('2rem')
-            ->favicon(asset('favicon-clevercrm-20261101.ico'))
-            ->renderHook(\Filament\View\PanelsRenderHook::HEAD_END, fn () => view('components.favicon-touch'))
+            ->renderHook(\Filament\View\PanelsRenderHook::HEAD_START, fn () => view('components.favicon'))
             ->font(
                 'Manrope',
                 asset('fonts/clevercrm/clevercrm-v1.css'),

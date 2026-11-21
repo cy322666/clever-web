@@ -4,6 +4,7 @@ namespace App\Console\Commands\YClients;
 
 use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
+use App\Services\YClients\YClientsRequestThrottle;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -110,6 +111,7 @@ class ReexportFailedRecords extends Command
             }
 
             try {
+                \App\Services\YClients\RecordEventQueue::retryFailed((int) $record->id);
                 if ($this->option('sync')) {
                     $this->runNormalFlowNow($record);
                     $stats['synced']++;
@@ -123,7 +125,7 @@ class ReexportFailedRecords extends Command
                     $record->account,
                     $record->setting,
                     (bool)$this->option('with-notes'),
-                );
+                )->delay(now()->addSeconds(app(YClientsRequestThrottle::class)->retryDelay(null, 1)));
 
                 $stats['queued']++;
                 $this->line($this->recordLine($record, 'queued'));
@@ -131,6 +133,15 @@ class ReexportFailedRecords extends Command
                 $stats['skipped']++;
                 $this->line($this->recordLine($record->fresh(), 'skipped-already-processing'));
             } catch (Throwable $e) {
+                if (YClientsRequestThrottle::shouldDefer($e)) {
+                    $this->markPending($record);
+                    RecordSend::dispatch($record->fresh(), $record->account, $record->setting, (bool) $this->option('with-notes'))
+                        ->delay(now()->addSeconds(app(YClientsRequestThrottle::class)->retryDelay($e)));
+                    $stats['queued']++;
+                    $this->line($this->recordLine($record, 'queued-rate-limit-retry'));
+                    continue;
+                }
+
                 $stats['failed']++;
                 $this->markFailed($record, 'YClients re-export failed before dispatch.', [
                     'error' => $e->getMessage(),

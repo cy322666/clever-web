@@ -10,10 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Vgrish\Yclients\Yclients;
 
 class Record extends Model
 {
+    public ?array $syncSourceSnapshot = null;
+
     public const STATUS_PENDING = '0';
     public const STATUS_SUCCESS = '1';
     public const STATUS_FAILED = 'failed';
@@ -123,13 +126,14 @@ class Record extends Model
 
     public function scopedClient(): ?Client
     {
-        return Client::query()
+        $client = Client::query()
             ->where('client_id', $this->client_id)
             ->where('company_id', $this->company_id)
             ->where('account_id', $this->account_id)
             ->where('setting_id', $this->setting_id)
             ->where('user_id', $this->user_id)
             ->first();
+        return \App\Services\YClients\RecordSyncContext::client($this, $client);
     }
 
     public function scopeFailedExport(Builder $query, bool $includePending = false): Builder
@@ -156,7 +160,13 @@ class Record extends Model
 
     public function scopePrunableOlderThan(Builder $query, \DateTimeInterface $threshold): Builder
     {
-        return $query
+        $query
+            ->where('status', self::STATUS_SUCCESS)
+            ->whereNull('error_message')
+            ->whereNull('lead_fields_replay_error')
+            ->whereNull('mapped_fields_update_error')
+            ->where(fn (Builder $query) => $query->whereNull('lead_fields_replay_status')
+                ->orWhereIn('lead_fields_replay_status', ['success', 'skipped']))
             ->where('created_at', '<', $threshold)
             ->where(function (Builder $query) use ($threshold): void {
                 $query
@@ -168,6 +178,18 @@ class Record extends Model
                     ->whereNull('datetime')
                     ->orWhere('datetime', '<', $threshold);
             });
+
+        if (Schema::hasTable('yclients_record_events')) {
+            $query->whereNotExists(function (\Illuminate\Database\Query\Builder $events): void {
+                $events->selectRaw('1')
+                    ->from('yclients_record_events')
+                    ->whereColumn('yclients_record_events.record_id', 'yclients_records.id')
+                    ->where(fn ($events) => $events->where('yclients_record_events.status', '!=', self::STATUS_SUCCESS)
+                        ->orWhereNull('yclients_record_events.status'));
+            });
+        }
+
+        return $query;
     }
 
     public function leadOwnerRecord(): ?self

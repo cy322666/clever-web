@@ -4,8 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" href="{{ asset('favicon-clevercrm-20261101.ico') }}" sizes="64x64">
-    @include('components.favicon-touch')
+    @include('components.favicon')
 
     <title>Очереди{{ config('horizon.name') ? ' - ' . config('horizon.name') : '' }}</title>
 

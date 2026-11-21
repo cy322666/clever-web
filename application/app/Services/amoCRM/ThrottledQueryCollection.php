@@ -61,7 +61,18 @@ final class ThrottledQueryCollection extends QueryCollection
 
         if ((int) $code === 429) {
             // Ufee does not expose response headers; use the shared fallback cooldown.
-            app(AmoCrmRequestThrottle::class)->cooldown($this->account, null, $query->getRetries());
+            try {
+                app(AmoCrmRequestThrottle::class)->cooldown($this->account, null, $query->getRetries());
+            } catch (\Throwable $error) {
+                if (!\App\Services\YClients\RecordSyncContext::active()) {
+                    throw $error;
+                }
+                throw new RequestDeferredException('amoCRM rate limit; cooldown unavailable.', 30, true, $error);
+            }
+            if (\App\Services\YClients\RecordSyncContext::active()) {
+                $query->setRetry(false);
+                throw new RequestDeferredException('amoCRM rate limit; retry through the YClients queue.', 30, true);
+            }
         }
 
         parent::pushByCode($code, $query);

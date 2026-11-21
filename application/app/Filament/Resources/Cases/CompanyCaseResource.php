@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Cases;
 
+use App\Helpers\Traits\RootOnlyResource;
 use App\Filament\Resources\Cases\CompanyCaseResource\Pages;
 use App\Models\Cases\CompanyCase;
 use Filament\Actions\Action;
@@ -17,6 +18,8 @@ use Filament\Tables\Table;
 
 class CompanyCaseResource extends Resource
 {
+    use RootOnlyResource;
+
     protected static ?string $model = CompanyCase::class;
 
     protected static ?string $slug = 'company-cases';
