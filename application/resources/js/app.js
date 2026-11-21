@@ -287,7 +287,7 @@ window.workflowCompactMissingInput = (sources, config) => {
 };
 
 window.workflowInspector = () => ({
-    opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
+    opened: false, loading: false, title: '', tab: 'settings', error: '', position: {}, placement: null,
     desired: undefined, processing: false, currentId: null, opener: null, dismissed: false,
     embedded: false, debugSlotId: null, local: null, localReady: null, inspectorRoot: null,
     expanded: false, anchorId: null, panelFrame: null, runningTest: null, testResults: {},
@@ -1088,6 +1088,12 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         return Math.round(value / step) * step;
     },
 
+    snapEdgeCoordinate(value) {
+        // Route handles land on the actual visible dots. Leave the existing
+        // half-cell node and area placement grid unchanged.
+        return Math.max(-100000, Math.min(100000, Math.round(value / this.gridSpacing) * this.gridSpacing)) || 0;
+    },
+
     gridTransform() {
         const scale = this.scale || 1;
         const x = (this.$refs.stage?.offsetLeft || 0) + this.translateX;
@@ -1505,7 +1511,7 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         }
         this.selectedEdge = edge;
         this.routeDrag = {key, route:{...route}, previous:this.edgeRoutes[key] ? {...this.edgeRoutes[key]} : null,
-            part:part || 'lane', x:event.clientX, y:event.clientY, pointerId:event.pointerId, moved:false};
+            part:part || 'lane', axis:null, x:event.clientX, y:event.clientY, pointerId:event.pointerId, changed:false};
         this.$refs.viewport?.setPointerCapture?.(event.pointerId);
         this.scheduleGraphRefresh();
     },
@@ -2128,16 +2134,35 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         if (this.routeDrag && this.routeDrag.pointerId === event.pointerId) {
             const drag = this.routeDrag;
             const dx = (event.clientX-drag.x)/this.scale, dy = (event.clientY-drag.y)/this.scale;
-            if (!drag.moved && Math.hypot(event.clientX-drag.x,event.clientY-drag.y) < 4) return;
-            drag.moved = true;
-            const route = {...drag.route};
-            const bounded = value => Math.max(-100000, Math.min(100000, this.snapCoordinate(value)));
-            if (route.kind === 'curve') { route.x = bounded(route.x+dx); route.y = bounded(route.y+dy); }
-            else if (drag.part === 'exit') route.exitX = bounded(route.exitX+dx);
-            else if (drag.part === 'entry') route.entryX = bounded(route.entryX+dx);
-            else route.y = bounded(route.y+dy);
-            this.edgeRoutes[drag.key] = route;
+            if (!drag.axis) {
+                if (Math.hypot(event.clientX-drag.x,event.clientY-drag.y) < 4) return;
+                // Pick the intended axis once. Diagonal pointer drift during a
+                // gesture cannot bend the edge in a second direction.
+                drag.axis = drag.route.kind === 'curve' ? (Math.abs(dx) > Math.abs(dy) ? 'x' : 'y')
+                    : (drag.part === 'exit' || drag.part === 'entry' ? 'x' : 'y');
+            }
             event.preventDefault();
+            const field = drag.route.kind === 'curve' ? drag.axis
+                : drag.axis === 'y' ? 'y' : drag.part === 'exit' ? 'exitX' : 'entryX';
+            const delta = drag.axis === 'x' ? dx : dy;
+            if (Math.abs(delta * this.scale) < 4) {
+                if (!drag.changed) return;
+                if (drag.previous) this.edgeRoutes[drag.key] = drag.previous;
+                else delete this.edgeRoutes[drag.key];
+                drag.changed = false;
+            } else {
+                const coordinate = this.snapEdgeCoordinate(drag.route[field] + delta);
+                const changed = coordinate !== drag.route[field];
+                if (!changed) {
+                    if (!drag.changed) return;
+                    if (drag.previous) this.edgeRoutes[drag.key] = drag.previous;
+                    else delete this.edgeRoutes[drag.key];
+                } else {
+                    if (drag.changed && this.edgeRoutes[drag.key]?.[field] === coordinate) return;
+                    this.edgeRoutes[drag.key] = {...drag.route,[field]:coordinate};
+                }
+                drag.changed = changed;
+            }
             this.scheduleGraphRefresh();
             return;
         }
@@ -2211,10 +2236,10 @@ window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', init
         if (this.routeDrag?.pointerId === event.pointerId) {
             if (event.type === 'pointercancel') this.cancelEdgeRouteDrag();
             else {
-                const moved = this.routeDrag.moved;
+                const changed = this.routeDrag.changed;
                 this.routeDrag = null;
                 this.$refs.viewport?.releasePointerCapture?.(event.pointerId);
-                if (moved) this.saveNodeLayout();
+                if (changed) this.saveNodeLayout();
             }
             this.scheduleGraphRefresh();
             return;

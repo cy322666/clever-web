@@ -6785,7 +6785,7 @@ body:has(.workflow-history-page) :is(.fi-main, .fi-page, .fi-page-main, .fi-page
 .dark .workflow-value-field__modes button { color: var(--workflow-dark-muted); }
 .dark .workflow-expression-picker__hint { color: var(--workflow-dark-muted); }
 .workflow-node-editor #workflow-canvas .workflow-node-card__caption { pointer-events: none; }
-.workflow-node-editor #workflow-canvas button.workflow-node-port { display: block; min-width: 0 !important; min-height: 0 !important; width: 0.625rem !important; height: 0.625rem !important; padding: 0 !important; border-radius: 50% !important; cursor: crosshair; }
+.workflow-node-editor #workflow-canvas button.workflow-node-port { display: block; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; cursor: crosshair; --workflow-port-overhang: 9px; }
 .workflow-node-edge-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: grab; }
 .workflow-edge-route-handle { fill: #fff; stroke: #339dc7; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: all; cursor: move; }
 .workflow-edge-route-handle[data-route-part="lane"] { cursor: ns-resize; }
@@ -6944,9 +6944,11 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-canvas-run[aria-busy="true"] { opacity: 1; }
 .dark .workflow-canvas-run { box-shadow: 0 5px 18px rgb(0 0 0 / .3); }
 .workflow-canvas-note textarea { width: min(320px, 50vw); height: 100px; min-height: 64px; padding: 10px 12px; border: 1px solid #cfd5dd; border-radius: 5px; background: #fff; color: #465262; font-size: 13px; resize: vertical; }
-.workflow-node-editor #workflow-canvas .workflow-node-port--output { right: -7px !important; background: transparent !important; box-shadow: none !important; outline: 0 !important; border: 0 !important; width: 14px !important; height: 20px !important; border-radius: 0 !important; }
+/* Buttons had a 10px box at -7px. Expand around its old center; read-only
+   spans already have a 14px box and retain their own offset. */
+.workflow-node-editor #workflow-canvas .workflow-node-port--output { right: calc(-1 * var(--workflow-port-overhang, 7px)) !important; background: transparent !important; box-shadow: none !important; outline: 0 !important; border: 0 !important; width: 14px !important; height: 20px !important; border-radius: 0 !important; }
 .workflow-node-editor #workflow-canvas .workflow-node-port--input {
-    left: -7px !important;
+    left: calc(-1 * var(--workflow-port-overhang, 7px)) !important;
     width: 14px !important;
     height: 20px !important;
     border: 0 !important;
@@ -6954,27 +6956,32 @@ svg.workflow-control-icon { color: #248548 !important; }
     background: transparent !important;
     box-shadow: none !important;
 }
+/* Visible marks are independent of the 14×20 click targets and exact edge anchors. */
 .workflow-node-editor #workflow-canvas .workflow-node-port--output::before,
 .workflow-node-editor #workflow-canvas .workflow-node-port--input::before {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 9px;
-    height: 9px;
-    border: 1px solid #939eae;
+    width: 5px;
+    height: 5px;
+    border: 0;
     border-radius: 50%;
-    background: #fff;
+    background: #8893a2;
     transform: translate(-50%, -50%);
+    pointer-events: none;
 }
-.dark .workflow-node-editor #workflow-canvas .workflow-node-port::before { background: var(--workflow-dark-panel); border-color: #9299a6; }
+.dark .workflow-node-editor #workflow-canvas .workflow-node-port::before { background: #8f99aa; }
 .workflow-node-editor #workflow-canvas [data-connection-target="true"] .workflow-node-port--input::before,
+.workflow-node-editor #workflow-canvas [data-connection-source="true"].workflow-node-port--output::before,
 .workflow-node-editor #workflow-canvas button.workflow-node-port--output:hover::before,
 .workflow-node-editor #workflow-canvas button.workflow-node-port--output:focus-visible::before,
 .workflow-node-editor #workflow-canvas button.workflow-node-port--input:hover::before,
 .workflow-node-editor #workflow-canvas button.workflow-node-port--input:focus-visible::before {
     background: #2fa7d2;
-    box-shadow: 0 0 0 5px rgb(47 167 210 / 0.15);
+    width: 7px;
+    height: 7px;
+    box-shadow: 0 0 0 4px rgb(47 167 210 / 0.20);
 }
 .workflow-node-editor #workflow-canvas [data-connection-target="true"] { outline: 2px solid #2fa7d2; outline-offset: 3px; }
 .workflow-node-starts { display: flex; flex-direction: column; gap: 112px; flex-shrink: 0; width: 96px; }

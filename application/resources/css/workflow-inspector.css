@@ -236,7 +236,7 @@
 .workflow-inspector__test-result[data-error] { color: var(--inspector-danger, #b74141); }
 .workflow-inspector--lead-fields > .workflow-inspector__lead-primary {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.7fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.65fr);
     gap: 7px 10px;
 }
 .workflow-inspector__lead-primary > :is([data-compact-slot="name"], [data-compact-slot="contact_id"]) { grid-column: 1 / -1; }
@@ -259,3 +259,7 @@
 @media (max-width: 440px) {
     .workflow-inspector .workflow-inspector--lead-fields > .workflow-inspector__lead-primary > [data-compact-slot="price"] { grid-column: 1 / -1; }
 }
+
+/* Leave room for dictionary labels even with the expression button attached. */
+.workflow-inspector__lead-primary :is([data-compact-slot="pipeline_id"], [data-compact-slot="status_id"]) .workflow-compact-field-toggle { flex-basis: 27px; min-width: 27px; }
+.workflow-inspector__lead-primary :is([data-compact-slot="pipeline_id"], [data-compact-slot="status_id"]) select.fi-input { padding-inline: 5px 15px !important; }

@@ -49,7 +49,7 @@ export function compactPickerPosition(panel, anchor, viewport, size) {
 }
 
 export const workflowCompactFieldPicker = () => ({
-    pickerOpen: false, pickerSources: [], pickerSourceId: '', pickerQuery: '',
+    pickerOpen: false, pickerEditExpression: null, pickerSources: [], pickerSourceId: '', pickerQuery: '',
     pickerIndex: 0, pickerCollectionOnly: false, pickerPosition: {left: '8px', top: '8px'},
     get pickerFields() {
         return compactPickerFields(this.pickerSources.find(source => source.id === this.pickerSourceId), this.pickerQuery, this.pickerCollectionOnly);

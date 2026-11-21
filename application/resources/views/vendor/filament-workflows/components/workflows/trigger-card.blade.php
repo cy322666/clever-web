@@ -47,7 +47,7 @@
     @if($readOnly)
         <span class="workflow-node-port workflow-node-port--output" aria-hidden="true"></span>
     @else
-        <button type="button" class="workflow-node-port workflow-node-port--output" x-on:pointerdown.stop="startConnection(@js($nodeId), 'output', $event)" x-on:keydown.enter.prevent.stop="startConnection(@js($nodeId), 'output', $event)" x-on:click.stop aria-label="Выход запуска"></button>
+        <button type="button" class="workflow-node-port workflow-node-port--output" x-on:pointerdown.stop="startConnection(@js($nodeId), 'output', $event)" x-on:keydown.enter.prevent.stop="startConnection(@js($nodeId), 'output', $event)" x-on:click.stop x-bind:data-connection-source="connecting?.sourceId === @js($nodeId) && connecting?.sourcePort === 'output'" aria-label="Выход запуска"></button>
     @endif
     <span class="workflow-node-card__icon">
         <x-workflow-node-icon :appearance="$appearance"/>

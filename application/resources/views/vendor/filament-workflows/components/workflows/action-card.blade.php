@@ -77,10 +77,10 @@
     <button type="button" class="workflow-node-port workflow-node-port--input" x-on:pointerdown.stop="startIncomingConnection('action:' + @js($actionId), $event)" x-on:pointerup.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) finishConnection('action:' + @js($actionId), $event)" x-on:click.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) completeConnection('action:' + @js($actionId))" aria-label="Вход: {{ $actionName }}" x-bind:aria-label="'Вход: ' + nodeName"></button>
     @if($isCondition || $isLoop)
         @foreach($branchPorts as $port => $label)
-            <button type="button" class="workflow-node-port workflow-node-port--output workflow-node-port--output-{{ $port }}" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), @js($port), $event)" x-on:click.stop @endunless aria-label="Выход {{ $label }}: {{ $actionName }}" x-bind:aria-label="@js('Выход '.$label.': ') + nodeName"><span class="workflow-node-port__label">{{ $label }}</span></button>
+            <button type="button" class="workflow-node-port workflow-node-port--output workflow-node-port--output-{{ $port }}" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), @js($port), $event)" x-bind:data-connection-source="connecting?.sourceId === 'action:' + @js($actionId) && connecting?.sourcePort === @js($port)" x-on:click.stop @endunless aria-label="Выход {{ $label }}: {{ $actionName }}" x-bind:aria-label="@js('Выход '.$label.': ') + nodeName"><span class="workflow-node-port__label">{{ $label }}</span></button>
         @endforeach
     @else
-        <button type="button" class="workflow-node-port workflow-node-port--output" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), 'output', $event)" x-on:click.stop @endunless aria-label="Выход: {{ $actionName }}" x-bind:aria-label="'Выход: ' + nodeName"></button>
+        <button type="button" class="workflow-node-port workflow-node-port--output" @unless($readOnly) x-on:pointerdown.stop="startConnection('action:' + @js($actionId), 'output', $event)" x-bind:data-connection-source="connecting?.sourceId === 'action:' + @js($actionId) && connecting?.sourcePort === 'output'" x-on:click.stop @endunless aria-label="Выход: {{ $actionName }}" x-bind:aria-label="'Выход: ' + nodeName"></button>
     @endif
     @endif
 

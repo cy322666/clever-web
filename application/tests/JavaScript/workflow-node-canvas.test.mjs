@@ -225,7 +225,7 @@ test('condition edges are neutral until evaluated and only the selected route is
     assert.match(source,/const completed = !preview && this\.edgeCompleted/);
 });
 
-test('canvas keeps its dotted grid and uses round input ports like the prototype', () => {
+test('canvas keeps its dotted grid and separates neutral port dots from the hit area', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     const grid = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-canvas-grid.blade.php',import.meta.url),'utf8');
     assert.doesNotMatch(css,/radial-gradient\(circle/,'Do not reintroduce fractionally rounded CSS background tiles');
@@ -238,7 +238,18 @@ test('canvas keeps its dotted grid and uses round input ports like the prototype
     assert.match(grid,/x-bind:cx="gridSpacing \/ 2" x-bind:cy="gridSpacing \/ 2"/);
     assert.match(grid,/x-bind:fill="`url\(#\$\{\$id\('workflow-grid'\)\}\)`"/);
     assert.match(grid,/x-bind:opacity="gridOpacity\(\)"/);
-    assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*9px;[^}]*height:\s*9px;[^}]*border-radius:\s*50%;/s);
+    assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*5px;[^}]*height:\s*5px;[^}]*border-radius:\s*50%;/s);
+    assert.match(css,/\.workflow-node-port--input\s*\{[^}]*width:\s*14px !important;[^}]*height:\s*20px !important;/s);
+    assert.match(css,/\.workflow-node-port--output\s*\{[^}]*width:\s*14px !important;[^}]*height:\s*20px !important;/s);
+    assert.match(css,/\.dark [^{]+\.workflow-node-port::before\s*\{ background: #8f99aa; \}/);
+    assert.match(css,/\[data-connection-source="true"\]\.workflow-node-port--output::before/);
+    const buttonRule=css.match(/button\.workflow-node-port\s*\{([^}]+)\}/)?.[1];
+    assert.ok(buttonRule);
+    assert.doesNotMatch(buttonRule,/(?:^|;)\s*(?:width|height):/);
+    assert.match(buttonRule,/--workflow-port-overhang:\s*9px/);
+    assert.match(css,/right:\s*calc\(-1 \* var\(--workflow-port-overhang, 7px\)\)/);
+    assert.match(css,/left:\s*calc\(-1 \* var\(--workflow-port-overhang, 7px\)\)/);
+    assert.equal(10 / 2 - 7, 14 / 2 - 9, 'larger clickable rectangles retain their old horizontal center');
 });
 
 test('interaction effects preserve node geometry and respect reduced motion', () => {
@@ -364,10 +375,10 @@ test('curve and loop bend handles snap independently without moving endpoints or
         const key = f.canvas.edgeRouteKey(edge);
         f.canvas.edgeRoutes.untouched = {kind:'curve',x:33,y:57};
         const cases = [
-            ['curve', {kind:'curve',x:133,y:-117}, {x:160,y:-130}],
+            ['curve', {kind:'curve',x:133,y:-117}, {x:160,y:-117}],
             ['exit', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:160,entryX:17,y:-117}],
             ['entry', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:133,entryX:40,y:-117}],
-            ['lane', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:133,entryX:17,y:-130}],
+            ['lane', {kind:'loop',exitX:133,entryX:17,y:-117}, {exitX:133,entryX:17,y:-140}],
         ];
         for (const [part,route,expected] of cases) {
             f.canvas.startEdgeRouteDrag(edge,route,f.event(100,100),part);
@@ -390,7 +401,7 @@ test('connections are heavier without changing node borders or edge hit targets'
     assert.match(css, /\.workflow-node-edge-hit\s*\{[^}]*stroke-width:\s*16;[^}]*pointer-events:\s*stroke;/s);
 });
 
-test('new branches start from white output handles while existing edges keep hover controls', () => {
+test('new branches start from output markers while existing edges keep hover controls', () => {
     const card = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/action-card.blade.php', import.meta.url), 'utf8');
     const edges = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
@@ -1028,7 +1039,7 @@ test('dragging routes is zoom-correct, does not reconnect or move nodes, and per
     }
 });
 
-test('loop side handles can be fixed independently and curve handles move freely', () => {
+test('loop side handles and normal curves move on the selected axis in full grid cells', () => {
     const f = fixture(), edge = {sourceId:'action:source',sourcePort:'output',targetId:'action:test'};
     const key = f.canvas.edgeRouteKey(edge);
     const original = {kind:'loop',exitX:600,entryX:100,y:320};
@@ -1036,17 +1047,42 @@ test('loop side handles can be fixed independently and curve handles move freely
         f.canvas.startEdgeRouteDrag(edge,original,f.event(100,100),part);
         f.canvas.moveCanvas(f.event(150,180));
         f.canvas.stopCanvasInteraction(f.event(150,180));
-        assert.equal(f.canvas.edgeRoutes[key][field],original[field]+50);
+        assert.equal(f.canvas.edgeRoutes[key][field],original[field]+60);
         assert.equal(f.canvas.edgeRoutes[key].y,320);
     }
     f.canvas.startEdgeRouteDrag(edge,{kind:'curve',x:350,y:120},f.event(100,100));
     f.canvas.moveCanvas(f.event(150,180));
     f.canvas.stopCanvasInteraction(f.event(150,180));
-    assert.equal(f.canvas.edgeRoutes[key].x,400);
+    assert.equal(f.canvas.edgeRoutes[key].x,350);
     assert.equal(f.canvas.edgeRoutes[key].y,200);
     const curve = f.canvas.connectionRoute({x:100,y:50},{x:700,y:50},false,f.canvas.edgeRoutes[key]);
-    assert.match(curve.d,/, 400 200 C/);
+    assert.match(curve.d,/, 350 200 C/);
     assert.doesNotMatch(curve.d,/[LQ]/);
+});
+
+test('curve axis locks for a gesture and abandoned or irrelevant movement does not rewrite legacy paths', () => {
+    const f=fixture(), edge={sourceId:'trigger',sourcePort:'output',targetId:'action:test'};
+    const key=f.canvas.edgeRouteKey(edge);
+    const legacy={kind:'curve',x:133,y:117};
+    f.canvas.edgeRoutes[key]=legacy;
+    f.canvas.startEdgeRouteDrag(edge,legacy,f.event(100,100));
+    f.canvas.moveCanvas(f.event(128,105));
+    f.canvas.moveCanvas(f.event(164,204));
+    assert.equal(f.canvas.edgeRoutes[key].x,200);
+    assert.equal(f.canvas.edgeRoutes[key].y,117);
+    f.canvas.moveCanvas(f.event(100,225));
+    f.canvas.stopCanvasInteraction(f.event(100,225));
+    assert.equal(f.canvas.edgeRoutes[key].x,133);
+    assert.equal(f.canvas.edgeRoutes[key].y,117);
+    assert.equal(f.saves(),0);
+
+    const loop={kind:'loop',exitX:133,entryX:17,y:117};
+    f.canvas.edgeRoutes[key]=loop;
+    f.canvas.startEdgeRouteDrag(edge,loop,f.event(100,100),'exit');
+    f.canvas.moveCanvas(f.event(100,190));
+    f.canvas.stopCanvasInteraction(f.event(100,190));
+    assert.equal(f.canvas.edgeRoutes[key].exitX,133);
+    assert.equal(f.saves(),0);
 });
 
 test('edge selection has no floating menu while direct manipulation remains available', () => {
