@@ -341,6 +341,7 @@ class RecordClientRelationTest extends TestCase
     {
         $oldRecord = Record::query()->create([
             'record_id' => 1001,
+            'status' => Record::STATUS_SUCCESS,
             'client_id' => 100500,
             'company_id' => 10,
             'user_id' => 1,
@@ -354,6 +355,7 @@ class RecordClientRelationTest extends TestCase
 
         $freshRecord = Record::query()->create([
             'record_id' => 1002,
+            'status' => Record::STATUS_SUCCESS,
             'client_id' => 100500,
             'company_id' => 10,
             'user_id' => 1,
@@ -367,6 +369,7 @@ class RecordClientRelationTest extends TestCase
 
         $recentlyUpdatedOldRecord = Record::query()->create([
             'record_id' => 1003,
+            'status' => Record::STATUS_SUCCESS,
             'client_id' => 100500,
             'company_id' => 10,
             'user_id' => 1,
@@ -380,6 +383,7 @@ class RecordClientRelationTest extends TestCase
 
         $futureAppointmentOldRecord = Record::query()->create([
             'record_id' => 1004,
+            'status' => Record::STATUS_SUCCESS,
             'client_id' => 100500,
             'company_id' => 10,
             'user_id' => 1,

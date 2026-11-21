@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands\Core;
 
-use App\Models\App;
+use App\Services\Core\IntegrationHistoryPruner;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -13,7 +13,10 @@ class ClearMonthLog extends Command
      *
      * @var string
      */
-    protected $signature = 'app:clear-month-log {--days=14 : Delete logs older than N days}';
+    protected $signature = 'app:clear-month-log
+        {--days=14 : Keep successful history for N days}
+        {--chunk=500 : Maximum rows per delete}
+        {--dry-run : Count eligible rows without deleting}';
 
     /**
      * The console command description.
@@ -25,31 +28,25 @@ class ClearMonthLog extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(IntegrationHistoryPruner $pruner): int
     {
         $days = max(1, (int)$this->option('days'));
 
-        $resourceClasses = App::query()
-            ->whereIn('name', App::definitionNames())
-            ->select('resource_name')
-            ->distinct()
-            ->pluck('resource_name');
+        $errors = 0;
+        $dryRun = (bool) $this->option('dry-run');
 
-        $resourceClasses->each(function (string $resourceClass) use ($days): void {
-            if (!class_exists($resourceClass) || !method_exists($resourceClass, 'clearTransactions')) {
-                $this->warn("Skipped [{$resourceClass}]: clearTransactions() method not found.");
-
-                return;
-            }
-
+        foreach (IntegrationHistoryPruner::INTEGRATIONS as $integration) {
             try {
-                $resourceClass::clearTransactions($days);
-                $this->line("Cleaned [{$resourceClass}] logs older than {$days} days.");
+                $rows = $dryRun
+                    ? $pruner->count($integration, $days)
+                    : $pruner->prune($integration, $days, (int) $this->option('chunk'));
+                $this->line(sprintf('%s [%s]: %d successful rows older than %d days.', $dryRun ? 'Dry-run' : 'Deleted', $integration, $rows, $days));
             } catch (Throwable $e) {
-                $this->error("Failed for [{$resourceClass}]: {$e->getMessage()}");
+                $errors++;
+                $this->error("Failed for [{$integration}]: {$e->getMessage()}");
             }
-        });
+        }
 
-        return self::SUCCESS;
+        return $errors > 0 ? self::FAILURE : self::SUCCESS;
     }
 }

@@ -223,11 +223,7 @@ class TildaResource extends Resource
 
     public static function clearTransactions(int $days = 7): bool
     {
-        Tilda\Form::query()
-            ->where('created_at', '<', Carbon::now()
-                ->subDays($days)
-                ->format('Y-m-d')
-            )->delete();
+        app(\App\Services\Core\IntegrationHistoryPruner::class)->prune('tilda', $days);
 
         return true;
     }
