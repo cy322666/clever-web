@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\System\IntegrationOpenController;
 use App\Http\Controllers\System\MetricsController;
-//use App\Http\Controllers\WorkflowDocumentationController;
 use App\Http\Controllers\YClientsMarketplaceController;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -83,11 +82,3 @@ Route::get('/metrics', MetricsController::class)->name('metrics');
 //это че за форма?
 Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);
 
-//че за документация? сносим?
-//Route::middleware(
-//    'auth')->group(function (): void {
-//    Route::get('/workflow-builder/documentation.pdf', [WorkflowDocumentationController::class, 'account'])
-//        ->name('workflow-builder.documentation.account');
-//    Route::get('/workflow-builder/workflows/{workflow}/documentation.pdf', [WorkflowDocumentationController::class, 'workflow'])
-//        ->name('workflow-builder.documentation.workflow');
-//});
