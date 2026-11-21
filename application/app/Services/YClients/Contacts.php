@@ -19,10 +19,19 @@ abstract class Contacts
         $contact = $client->contact_id ? static::get($amoApi, $client->contact_id) : null;
 
         if (!$contact && $guard->exists()) {
-            $contact = $guard->recover(
-                fn (int $id) => static::get($amoApi, $id),
-                fn (int $startedAt) => static::recoverCreated($client, $amoApi, $startedAt),
-            );
+            try {
+                $contact = $guard->recover(
+                    fn (int $id) => static::get($amoApi, $id),
+                    fn (int $startedAt) => static::recoverCreated($client, $amoApi, $startedAt),
+                );
+            } catch (UnconfirmedCreateException $exception) {
+                // Contacts may have been merged after a successful creation.
+                // Reuse one verified existing contact; never turn uncertainty into a POST.
+                $contact = static::reconcileExisting($client, $amoApi);
+                if (!$contact) {
+                    throw $exception;
+                }
+            }
         }
 
         $contact = $contact ?: static::resolveExistingContact($client, $amoApi);
@@ -39,6 +48,71 @@ abstract class Contacts
         $client->save();
 
         return  $contact;
+    }
+
+    private static function reconcileExisting(Client $client, \App\Services\amoCRM\Client $amoApi): ?ContactModel
+    {
+        if ((int) $client->account_id !== (int) $amoApi->account->id
+            || (int) $client->user_id !== (int) $amoApi->account->user_id) {
+            throw new RuntimeException('YClients contact reconciliation account scope mismatch.');
+        }
+        $identity = $amoApi->requestV4('GET', '/api/v4/account');
+        $accountId = (int) ($identity['id'] ?? 0);
+        if ($accountId <= 0 || ((int) $amoApi->account->amo_account_id > 0
+            && $accountId !== (int) $amoApi->account->amo_account_id)) {
+            throw new RuntimeException('YClients contact reconciliation destination mismatch.');
+        }
+
+        $phone = self::phoneSearchKey($client->phone);
+        $email = self::normalizeEmail($client->email);
+        $candidates = [];
+        foreach (array_unique(array_filter([$phone, $email])) as $query) {
+            for ($page = 1; $page <= 20; $page++) {
+                $response = $amoApi->requestV4('GET', '/api/v4/contacts', [], [
+                    'query' => $query, 'limit' => 250, 'page' => $page,
+                ]);
+                foreach ($response['_embedded']['contacts'] ?? [] as $row) {
+                    if ((int) ($row['account_id'] ?? 0) !== $accountId || (int) ($row['id'] ?? 0) <= 0) {
+                        throw new RuntimeException('Unexpected contact account during YClients reconciliation.');
+                    }
+                    if ($row['is_deleted'] ?? false) {
+                        continue;
+                    }
+                    $phoneMatch = false;
+                    $emailMatch = false;
+                    foreach ($row['custom_fields_values'] ?? [] as $field) {
+                        foreach ($field['values'] ?? [] as $value) {
+                            $phoneMatch = $phoneMatch || (($field['field_code'] ?? null) === 'PHONE'
+                                && $phone !== null && self::phoneSearchKey($value['value'] ?? null) === $phone);
+                            $emailMatch = $emailMatch || (($field['field_code'] ?? null) === 'EMAIL'
+                                && $email !== null && self::normalizeEmail($value['value'] ?? null) === $email);
+                        }
+                    }
+                    if ($phoneMatch || $emailMatch) {
+                        $candidates[(int) $row['id']] = ['phone' => $phoneMatch, 'email' => $emailMatch];
+                    }
+                }
+                if (empty($response['_links']['next'])) {
+                    break;
+                }
+                if ($page === 20) {
+                    throw new RuntimeException('Incomplete contact pagination during YClients reconciliation.');
+                }
+            }
+        }
+
+        $both = array_filter($candidates, fn (array $candidate) => $candidate['phone'] && $candidate['email']);
+        $matches = $both ?: $candidates;
+        if (count($matches) !== 1) {
+            return null;
+        }
+        $id = (int) array_key_first($matches);
+        $contact = static::get($amoApi, $id);
+        if (!$contact instanceof ContactModel || (int) $contact->id !== $id) {
+            throw new RuntimeException('Reconciled amoCRM contact disappeared before YClients update.');
+        }
+
+        return $contact;
     }
 
     private static function recoverCreated(Client $client, \App\Services\amoCRM\Client $amoApi, int $startedAt): ?ContactModel
