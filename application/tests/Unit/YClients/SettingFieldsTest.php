@@ -649,11 +649,10 @@ class SettingFieldsTest extends TestCase
         );
         $yc->method('getRecord')->willThrowException(new \RuntimeException('YClients 403'));
         $yc->method('getBranchTitle')->willThrowException(new \RuntimeException('YClients 403'));
-        $yc->method('getUserPermissions')->willThrowException(new \RuntimeException('YClients 403'));
-        $yc->method('getUserRoles')->willThrowException(new \RuntimeException('YClients 403'));
-        $yc->method('findStaffByUserId')->willThrowException(new \RuntimeException('YClients 403'));
-        $yc->method('findCompanyUserById')->willThrowException(new \RuntimeException('YClients 403'));
-        $yc->method('findPositionTitle')->willThrowException(new \RuntimeException('YClients 403'));
+        $yc->expects($this->once())->method('getUserPermissions')->willThrowException(new \RuntimeException('YClients 403'));
+        foreach (['getUserRoles', 'findStaffByUserId', 'findCompanyUserById', 'findPositionTitle'] as $method) {
+            $yc->expects($this->never())->method($method);
+        }
 
         $record = new Record([
             'company_id' => 1114763,
@@ -668,9 +667,10 @@ class SettingFieldsTest extends TestCase
 
         $this->assertSame('1114763', $fields['branch']);
         $this->assertSame('CRM', $fields['record_from']);
-        $this->assertSame('Пользователь YClients', $fields['created_user_name']);
-        $this->assertSame('Сотрудник', $fields['created_user_role_name']);
-        $this->assertSame('Сотрудник', $fields['created_user_department']);
+        // Unknown actor metadata must preserve mapped CRM values after a denied lookup.
+        $this->assertNull($fields['created_user_name']);
+        $this->assertNull($fields['created_user_role_name']);
+        $this->assertNull($fields['created_user_department']);
         $this->assertSame(1500, $fields['paid']);
     }
 }

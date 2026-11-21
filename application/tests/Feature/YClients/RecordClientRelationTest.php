@@ -467,11 +467,17 @@ class RecordClientRelationTest extends TestCase
         $this->assertSame('Дашкова Екатерина Вадимовна', $record->staff_name);
         $this->assertSame(Record::STATUS_PENDING, $record->status);
 
+        $event = \App\Models\Integrations\YClients\RecordEvent::query()->sole();
+        $this->assertSame((int) $record->id, (int) $event->record_id);
+        $this->assertSame(3, (int) $event->record_snapshot['attendance']);
+        $this->assertSame('delete', $event->payload['status']);
+
         Queue::assertPushed(
             RecordSend::class,
             fn(RecordSend $job): bool => $job->record->id === $record->id
                 && $job->account->id === $account->id
                 && $job->setting->id === 1
+                && $job->eventId === (int) $event->id
         );
     }
 
@@ -484,6 +490,8 @@ class RecordClientRelationTest extends TestCase
 
         DB::purge('sqlite');
         DB::reconnect('sqlite');
+
+        (require database_path('migrations/2026_11_11_210000_create_yclients_record_events_table.php'))->up();
 
         Schema::create('users', function (Blueprint $table) {
             $table->increments('id');
