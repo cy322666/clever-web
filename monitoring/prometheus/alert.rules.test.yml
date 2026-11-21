@@ -1,28 +1,25 @@
 rule_files:
   - alert.rules.yml
 
-evaluation_interval: 15s
+evaluation_interval: 1m
 
 tests:
-  - name: PostgreSQL connection failure must persist for one minute
-    interval: 30s
+  - interval: 1m
     input_series:
-      - series: 'pg_up{job="postgres_exporter", instance="postgres-exporter:9187"}'
-        values: '1 0 0 0 0 0 1 1'
+      - series: 'up{job="clever_app",instance="app.clevercrm.pro:443"}'
+        values: '0x5'
     alert_rule_test:
       - eval_time: 1m
-        alertname: PostgresUnavailable
+        alertname: AppUnavailable
         exp_alerts: []
-      - eval_time: 2m
-        alertname: PostgresUnavailable
+      - eval_time: 3m
+        alertname: AppUnavailable
         exp_alerts:
           - exp_labels:
-              job: postgres_exporter
-              instance: postgres-exporter:9187
+              alertname: AppUnavailable
+              instance: app.clevercrm.pro:443
+              job: clever_app
               severity: critical
             exp_annotations:
-              summary: "База данных недоступна"
-              description: "Postgres exporter не может подключиться к PostgreSQL более 1 минуты."
-      - eval_time: 3m
-        alertname: PostgresUnavailable
-        exp_alerts: []
+              summary: "Приложение или метрики недоступны"
+              description: "Prometheus не получает метрики приложения более 2 минут."

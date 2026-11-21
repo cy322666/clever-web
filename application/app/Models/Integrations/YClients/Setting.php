@@ -117,11 +117,20 @@ class Setting extends Model
         }
     }
 
-    private static function optionalYClientsRequest(callable $request, string $requestName, Record $record): mixed
+    private static function optionalYClientsRequest(callable $request, string $requestName, Record $record, ?bool &$failed = null): mixed
     {
+        if ($failed === true) {
+            return null;
+        }
         try {
             return $request();
         } catch (Throwable $e) {
+            if (\App\Services\YClients\RecordSyncContext::active()
+                && (\App\Services\YClients\YClientsRequestThrottle::shouldDefer($e)
+                    || \App\Services\YClients\AmoTransportRetry::isTransportError($e))) {
+                throw $e;
+            }
+            $failed = true;
             self::debugLog('Optional YClients request skipped.', [
                 'request' => $requestName,
                 'record_db_id' => $record->id,
@@ -815,6 +824,12 @@ class Setting extends Model
             'record',
             $record
         )?->data ?? null;
+        if ($record->syncSourceSnapshot !== null) {
+            $recordYC = array_replace((array) $recordYC, $record->syncSourceSnapshot);
+            if (is_array($record->syncSourceSnapshot['client'] ?? null)) {
+                $clientYC = array_replace((array) $clientYC, $record->syncSourceSnapshot['client']);
+            }
+        }
         $createdUserId = $record->created_user_id;
         $recordFrom = $record->record_from ?: data_get($recordYC, 'record_from');
         $createDate = $record->create_date ?: data_get($recordYC, 'create_date');
@@ -826,7 +841,7 @@ class Setting extends Model
         if (($record->record_from !== $recordFrom
                 || (string)$record->created_user_id !== (string)$createdUserId
                 || (string)$record->create_date !== (string)$createDate)
-            && $record->exists) {
+            && $record->exists && $record->syncSourceSnapshot === null) {
             $record->forceFill([
                 'created_user_id' => $createdUserId,
                 'record_from' => $recordFrom,
@@ -851,20 +866,24 @@ class Setting extends Model
         $fields['created_user_role_name'] = null;
         $fields['created_user_department'] = null;
 
-        if (empty($createdUserId)) {
+        $createdUserKnown = $createdUserId !== null && $createdUserId !== '';
+        if ($createdUserKnown && empty($createdUserId)) {
             $fields['created_user_name'] = 'Не сотрудник';
             $fields['created_user_role_name'] = 'Внешний источник';
             $fields['created_user_department'] = 'Не сотрудник';
-        } else {
+        } elseif ($createdUserKnown) {
+            $actorRequestFailed = false;
             $createdUser = self::optionalYClientsRequest(
                 fn() => $client->getUserPermissions($record->company_id, $createdUserId),
                 'created-user-permissions',
-                $record
+                $record,
+                $actorRequestFailed
             );
             $createdUserRoles = self::optionalYClientsRequest(
                 fn() => $client->getUserRoles($record->company_id, $createdUserId),
                 'created-user-roles',
-                $record
+                $record,
+                $actorRequestFailed
             );
 
             $role = data_get($createdUser, 'data.user_role');
@@ -886,7 +905,8 @@ class Setting extends Model
                 $staff = self::optionalYClientsRequest(
                     fn() => $client->getStaff($record->company_id, $staffId),
                     'created-user-staff',
-                    $record
+                    $record,
+                    $actorRequestFailed
                 );
             }
 
@@ -894,7 +914,8 @@ class Setting extends Model
                 $staff = self::optionalYClientsRequest(
                     fn() => $client->findStaffByUserId($record->company_id, $createdUserId),
                     'created-user-staff-list',
-                    $record
+                    $record,
+                    $actorRequestFailed
                 );
             }
 
@@ -902,7 +923,8 @@ class Setting extends Model
                 $companyUser = self::optionalYClientsRequest(
                     fn() => $client->findCompanyUserById($record->company_id, $createdUserId),
                     'created-user-company-user',
-                    $record
+                    $record,
+                    $actorRequestFailed
                 );
             }
 
@@ -924,10 +946,18 @@ class Setting extends Model
                                     ?: self::optionalYClientsRequest(
                                         fn() => $client->findPositionTitle($record->company_id, $positionId),
                                         'created-user-position',
-                                        $record
+                                        $record,
+                                        $actorRequestFailed
                                     )
                                         ?: $roleTitle
                                             ?: 'Сотрудник';
+
+            if ($actorRequestFailed) {
+                // Unavailable actor metadata is unknown, so mapped CRM values must be preserved.
+                $fields['created_user_name'] = null;
+                $fields['created_user_role_name'] = null;
+                $fields['created_user_department'] = null;
+            }
 
 //            self::debugLog('YClients created user fields resolved.', [
 //                'record_db_id' => $record->id,
@@ -1232,6 +1262,13 @@ class Setting extends Model
             }
 
             $value = self::valueForAmoField($fieldYc, $amoField, $value, $ycFields);
+            if ($fieldYc === 'services' && (string)$amoField->type === 'text' && is_string($value)) {
+                // Preserve full services in the source for notes; amoCRM TEXT accepts 256 characters.
+                $value = trim(str_replace(["\r\n", "\r", "\n"], ' ', $value));
+                if (mb_strlen($value, 'UTF-8') > 256) {
+                    $value = mb_substr($value, 0, 253, 'UTF-8') . '...';
+                }
+            }
             self::setAmoFieldById($lead, $amoField, $value, $amoApi, 'leads');
         }
         $lead->save();

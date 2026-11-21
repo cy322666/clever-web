@@ -5,12 +5,18 @@ namespace App\Services\YClients;
 use App\Models\Integrations\YClients\Client;
 use App\Models\Integrations\YClients\Setting;
 use App\Models\Integrations\YClients\YClients as YC;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class YClients
 {
+    private const BRANCH_CACHE_SECONDS = 300;
+
     private string $partnerToken;
 
     private string $userToken;
@@ -42,6 +48,7 @@ class YClients
     public function setUserToken(string $userToken): static
     {
         $this->userToken = $userToken;
+        $this->branches = null;
 
         return $this;
     }
@@ -167,9 +174,40 @@ class YClients
             return $this->branches;
         }
 
-        $branches = data_get($this->get('companies?my=1'), 'data', []);
+        $cache = Cache::store(config('cache.yclients_lock_store', 'database'));
+        $key = $this->branchesCacheKey();
+        if (is_array($branches = $cache->get($key))) {
+            return $this->branches = $branches;
+        }
 
-        return $this->branches = is_array($branches) ? $branches : [];
+        try {
+            // One loader across workers; the lock outlives the bounded HTTP connection retries.
+            return $this->branches = $cache->lock($key.':lock', 360)->block(2, function () use ($cache, $key): array {
+                if (is_array($branches = $cache->get($key))) {
+                    return $branches;
+                }
+
+                $response = $this->get('companies?my=1');
+                $branches = data_get($response, 'data');
+                if (!is_array($branches) || data_get($response, 'success') === false) {
+                    throw new RequestDeferredException('YCLIENTS branch directory returned an invalid response.');
+                }
+                $cache->put($key, $branches, self::BRANCH_CACHE_SECONDS);
+
+                return $branches;
+            });
+        } catch (LockTimeoutException $exception) {
+            throw new RequestDeferredException('YCLIENTS branch directory is being refreshed.', 5, $exception);
+        }
+    }
+
+    private function branchesCacheKey(): string
+    {
+        return 'yclients:branches:v1:'.hash('sha256', json_encode([
+            config('services.yclients.api_url', 'https://api.yclients.ru/api/v1'),
+            $this->partnerToken,
+            $this->userToken,
+        ], JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -214,7 +252,21 @@ class YClients
      */
     private function get(string $path): ?object
     {
+        $throttle = app(YClientsRequestThrottle::class);
+
         return Http::withHeaders($this->getHeaders())
+            ->beforeSending(fn () => $throttle->acquire())
+            ->afterResponse(function (Response $response) use ($throttle): void {
+                if ($response->status() === 429) {
+                    try {
+                        $throttle->cooldown($throttle->responseRetryAfter($response));
+                    } catch (Throwable $error) {
+                        // Preserve the original 429 and existing retry policy. Future GETs
+                        // must still pass mandatory Redis admission before reaching HTTP.
+                        Log::warning('YCLIENTS shared cooldown could not be stored.', ['exception' => get_class($error)]);
+                    }
+                }
+            })
             ->connectTimeout(10)
             ->timeout(30)
             ->retry(
@@ -247,6 +299,7 @@ class YClients
     public function setPartnerToken(string $partnerToken): static
     {
         $this->partnerToken = $partnerToken;
+        $this->branches = null;
 
         return $this;
     }

@@ -334,6 +334,7 @@ class YClientsMarketplaceService
             $applicationId,
             $partnerToken,
             $userToken,
+            !$alreadyActive,
         );
     }
 
@@ -371,7 +372,8 @@ class YClientsMarketplaceService
         int $salonId,
         int $applicationId,
         string $partnerToken,
-        string $userToken
+        string $userToken,
+        bool $webhookRegistered
     ): MarketplaceInstallation {
         $provisioning = app(IntegrationProvisioningService::class);
         $provisioning->syncCatalogForUser($user);
@@ -407,7 +409,7 @@ class YClientsMarketplaceService
         $setting->active = app(WidgetSubscriptionAccessService::class)->canUse($user, 'yclients');
         $setting->save();
 
-        return DB::transaction(function () use ($app, $applicationId, $salonId, $setting, $user): MarketplaceInstallation {
+        return DB::transaction(function () use ($app, $applicationId, $salonId, $setting, $user, $webhookRegistered): MarketplaceInstallation {
             $installation = MarketplaceInstallation::query()
                 ->where('salon_id', $salonId)
                 ->where('application_id', $applicationId)
@@ -426,6 +428,10 @@ class YClientsMarketplaceService
                 'disconnected_at' => null,
                 'last_error' => null,
             ]);
+
+            if ($webhookRegistered) {
+                $installation->webhook_user_id = null;
+            }
 
             if (!$installation->connected_at || $installation->isDirty('status')) {
                 $installation->connected_at = now();

@@ -21,6 +21,8 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping();
 
+        $schedule->command('yc:dispatch-record-events')->everyMinute()->withoutOverlapping();
+
         $schedule->command('app:check-amo-ownership')//зачем вообще проверять?
             ->everyFifteenMinutes()
             ->withoutOverlapping();

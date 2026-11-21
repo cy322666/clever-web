@@ -21,7 +21,18 @@ class AmoCrmHttpTransport
             }
 
             // A confirmed rejection may be retried. Ambiguous transport failures may not.
-            $this->throttle->cooldown($account, $response->header('Retry-After'), $attempt);
+            try {
+                $this->throttle->cooldown($account, $response->header('Retry-After'), $attempt);
+            } catch (\Throwable $error) {
+                if (!\App\Services\YClients\RecordSyncContext::active()) {
+                    throw $error;
+                }
+                $response->throw();
+            }
+
+            if (\App\Services\YClients\RecordSyncContext::active()) {
+                $response->throw();
+            }
 
             if ($attempt >= 3) {
                 return $response;

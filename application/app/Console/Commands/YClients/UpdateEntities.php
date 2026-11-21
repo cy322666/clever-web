@@ -11,6 +11,7 @@ use App\Services\amoCRM\Models\Leads;
 use App\Services\YClients\AmoTransportRetry;
 use App\Services\YClients\RecordSyncLock;
 use App\Services\YClients\YClients;
+use App\Services\YClients\YClientsRequestThrottle;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -58,7 +59,9 @@ class UpdateEntities extends Command
      */
     public function handle()
     {
-        return RecordSyncLock::run((int) $this->argument('record_id'), fn () => $this->handleLocked(), $this->option('lock-owner'));
+        return \App\Services\YClients\RecordSyncContext::run(fn () => RecordSyncLock::run(
+            (int) $this->argument('record_id'), fn () => $this->handleLocked(), $this->option('lock-owner')
+        ));
     }
 
     private function handleLocked(): int
@@ -67,7 +70,7 @@ class UpdateEntities extends Command
         $accountId = $this->argument('account_id');
         $settingId = $this->argument('setting_id');
 
-        $record  = Record::query()->findOrFail($recordId);
+        $record = \App\Services\YClients\RecordSyncContext::record((int) $recordId);
         $account = Account::query()->findOrFail($accountId);
         $setting = Setting::query()->findOrFail($settingId);
         if ((int) $record->account_id !== (int) $account->id || (int) $record->setting_id !== (int) $setting->id) {
@@ -86,6 +89,11 @@ class UpdateEntities extends Command
                 $this->updateAmoEntitiesWithRetry($amoApi, $setting, $record, $client?->contact_id, $arrayFields);
             }
         } catch (Throwable $e) {
+            if (YClientsRequestThrottle::shouldDefer($e)) {
+                $record->refresh()->forceFill(['status' => Record::STATUS_PENDING, 'error_message' => null])->save();
+                throw $e;
+            }
+
             $this->failRecord($record, 'yc:update-entities failed.', [
                 'error' => $e->getMessage(),
                 'exception' => $e::class,

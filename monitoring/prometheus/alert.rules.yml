@@ -2,40 +2,40 @@ groups:
   - name: clever-web
     rules:
       - alert: AppUnavailable
-        expr: probe_success{job="blackbox_http"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Приложение недоступно"
-          description: "Проверка Blackbox endpoint /up не проходит более 1 минуты."
-
-      - alert: AppMetricsScrapeFailed
-        expr: up{job="app_metrics"} == 0
+        expr: up{job="clever_app"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Метрики приложения недоступны"
-          description: "Prometheus не может собрать /metrics более 2 минут."
+          summary: "Приложение или метрики недоступны"
+          description: "Prometheus не получает метрики приложения более 2 минут."
+
+      - alert: MetricsCollectionError
+        expr: clever_metrics_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ошибка сбора метрик приложения"
+          description: "Приложение отвечает, но не может собрать внутренние метрики."
 
       - alert: SchedulerHeartbeatStale
-        expr: clever_scheduler_heartbeat_age_seconds > 180
-        for: 3m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Задержка heartbeat планировщика"
-          description: "Heartbeat планировщика не обновлялся более 3 минут."
-
-      - alert: FailedJobsDetected
-        expr: clever_queue_failed_jobs_recent_total > 0
+        expr: clever_scheduler_heartbeat_age_seconds > 180 or clever_scheduler_heartbeat_age_seconds < 0
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "Обнаружены упавшие задачи"
-          description: "За последние 10 минут появились failed jobs."
+          summary: "Планировщик не работает"
+          description: "Heartbeat планировщика не обновлялся более 3 минут."
+
+      - alert: FailedJobsDetected
+        expr: clever_queue_failed_jobs_recent_total > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Появились упавшие задачи"
+          description: "За последние 10 минут появились новые failed jobs."
 
       - alert: QueueBacklogHigh
         expr: clever_queue_jobs_total > 200
@@ -43,8 +43,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Переполнена очередь задач"
-          description: "Количество задач в очереди превышает 200 более 10 минут."
+          summary: "Большая очередь задач"
+          description: "В очереди больше 200 задач в течение 10 минут."
 
       - alert: QueueOldestJobTooOld
         expr: clever_queue_oldest_job_age_seconds > 900
@@ -52,80 +52,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Слишком старые задачи в очереди"
-          description: "Возраст самой старой ожидающей задачи превышает 15 минут."
-
-      - alert: MetricsCollectionError
-        expr: clever_metrics_up == 0
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Ошибка сбора метрик приложения"
-          description: "Endpoint /metrics сообщает об ошибках сбора метрик."
-
-      - alert: PostgresUnavailable
-        expr: pg_up{job="postgres_exporter"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "База данных недоступна"
-          description: "Postgres exporter не может подключиться к PostgreSQL более 1 минуты."
-
-      - alert: PostgresExporterDown
-        expr: up{job="postgres_exporter"} == 0
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Недоступен Postgres exporter"
-          description: "Prometheus не может собрать метрики postgres-exporter более 2 минут."
-
-      - alert: ContainerExporterDown
-        expr: up{job="cadvisor"} == 0
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Недоступен cAdvisor"
-          description: "Prometheus не может собрать docker/container метрики более 2 минут."
-
-      - alert: AppStackContainerNotSeen
-        expr: time() - max by (container_label_com_docker_compose_service) (container_last_seen{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}) > 120
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Контейнер app-стека не виден"
-          description: "cAdvisor не видел контейнер {{ $labels.container_label_com_docker_compose_service }} более 2 минут."
-
-      - alert: AppStackContainerRestarted
-        expr: changes(container_start_time_seconds{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}[15m]) > 0
-        for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Рестарт контейнера app-стека"
-          description: "Контейнер {{ $labels.container_label_com_docker_compose_service }} перезапускался за последние 15 минут."
-
-      - alert: AppStackContainerHighCpu
-        expr: sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}[5m])) > 1.5
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Высокая CPU-нагрузка контейнера"
-          description: "Контейнер {{ $labels.container_label_com_docker_compose_service }} использует больше 1.5 CPU cores более 10 минут."
-
-      - alert: AppStackContainerHighMemory
-        expr: sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{job="cadvisor", container_label_com_docker_compose_project="clever-web", container_label_com_docker_compose_service=~"app|supervisor|postgresql|redis"}) > 1.5e9
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Высокое потребление памяти контейнера"
-          description: "Контейнер {{ $labels.container_label_com_docker_compose_service }} использует больше 1.5 ГБ RAM более 10 минут."
+          summary: "Задача долго стоит в очереди"
+          description: "Самая старая задача ожидает больше 15 минут."
 
       - alert: DbSlowQueriesBurst
         expr: (sum(increase(clever_db_slow_queries_by_context_total[10m])) or increase(clever_db_slow_queries_total[10m])) > 10
@@ -133,5 +61,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Всплеск медленных запросов к БД"
-          description: "За последние 10 минут обнаружено более 10 медленных SQL-запросов."
+          summary: "Много медленных запросов к БД"
+          description: "За 10 минут обнаружено больше 10 медленных SQL-запросов."

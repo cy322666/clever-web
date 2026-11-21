@@ -6,6 +6,7 @@ use App\Filament\Resources\Integrations\YClients\YClientsResource;
 use App\Jobs\YClients\RecordSend;
 use App\Models\Integrations\YClients\Record;
 use App\Models\Integrations\YClients\Setting;
+use App\Services\YClients\YClientsRequestThrottle;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -15,7 +16,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -205,14 +205,25 @@ class ListYClients extends ListRecords
                     ->label('Событие')
                     ->state(fn(Record $record): string => $record->getEvent()),
 
-                IconColumn::make('status')
-                    ->label('Выгружен')
-                    ->state(fn(Record $record): bool => (string)$record->status === Record::STATUS_SUCCESS)
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger')
+                TextColumn::make('status')
+                    ->label('Статус')
+                    ->state(fn(Record $record): string => (string) ($record->status ?? Record::STATUS_PENDING))
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        Record::STATUS_SUCCESS => 'Выгружено',
+                        Record::STATUS_FAILED => 'Ошибка',
+                        default => 'В очереди',
+                    })
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        Record::STATUS_SUCCESS => 'success',
+                        Record::STATUS_FAILED => 'danger',
+                        default => 'gray',
+                    })
+                    ->icon(fn(string $state): string => match ($state) {
+                        Record::STATUS_SUCCESS => 'heroicon-o-check-circle',
+                        Record::STATUS_FAILED => 'heroicon-o-x-circle',
+                        default => 'heroicon-o-clock',
+                    })
                     ->alignCenter(),
 
                 TextColumn::make('error_message')
@@ -236,12 +247,14 @@ class ListYClients extends ListRecords
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when(
-                            $data['value'] ?? null,
-                            function (Builder $query, string $value): Builder {
+                            filled($data['value'] ?? null),
+                            function (Builder $query) use ($data): Builder {
+                                $value = (string) $data['value'];
                                 return match ($value) {
                                     Record::STATUS_SUCCESS => $query->where('status', Record::STATUS_SUCCESS),
                                     Record::STATUS_FAILED => $query->where('status', Record::STATUS_FAILED),
-                                    Record::STATUS_PENDING => $query->where('status', Record::STATUS_PENDING),
+                                    Record::STATUS_PENDING => $query->where(fn (Builder $query) => $query
+                                        ->where('status', Record::STATUS_PENDING)->orWhereNull('status')),
                                     'with_error_message' => $query->whereNotNull('error_message'),
                                     default => $query->where(function (Builder $query): Builder {
                                         return $query
@@ -259,7 +272,13 @@ class ListYClients extends ListRecords
                     ->action(function (Collection $collection) {
 
                         $collection->each(function (Record $form) {
-                            RecordSend::dispatch($form, $form->account, $form->setting, false);
+                            \App\Services\YClients\RecordEventQueue::retryFailed((int) $form->id);
+                            $form->forceFill([
+                                'status' => Record::STATUS_PENDING,
+                                'error_message' => null,
+                            ])->save();
+                            RecordSend::dispatch($form, $form->account, $form->setting, false)
+                                ->delay(now()->addSeconds(app(YClientsRequestThrottle::class)->retryDelay(null, 1)));
                         });
                     })
                     ->label('Выгрузить')
@@ -310,6 +329,7 @@ class ListYClients extends ListRecords
                 continue;
             }
 
+            \App\Services\YClients\RecordEventQueue::retryFailed((int) $record->id);
             $record->forceFill([
                 'status' => Record::STATUS_PENDING,
                 'error_message' => null,
@@ -320,7 +340,7 @@ class ListYClients extends ListRecords
                 $record->account,
                 $record->setting,
                 (bool)($data['with_notes'] ?? false),
-            );
+            )->delay(now()->addSeconds(app(YClientsRequestThrottle::class)->retryDelay(null, 1)));
 
             $queued++;
         }
