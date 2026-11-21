@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Schema;
 
 class QueueBackfillFailed extends Command
 {
-    //архив
     protected $signature = 'app:queue-backfill-failed {--limit=5000} {--dry-run}';
 
     protected $description = 'Backfill failed_jobs into queue_monitors for Filament queue monitor UI';
@@ -61,18 +60,16 @@ class QueueBackfillFailed extends Command
         $existing = DB::connection($monitorConnection)
             ->table('queue_monitors')
             ->whereIn('job_id', $jobIds)
-            ->pluck('job_id')
-            ->map(fn($id): string => (string)$id)
-            ->all();
-
-        $existingMap = array_fill_keys($existing, true);
+            ->get(['id', 'job_id', 'failed', 'started_at', 'finished_at', 'exception_message'])
+            ->groupBy('job_id');
 
         $insertRows = [];
+        $repairRows = [];
 
         foreach ($failedRows as $row) {
             $jobId = (string)($row->uuid ?? $row->id ?? '');
 
-            if ($jobId === '' || isset($existingMap[$jobId])) {
+            if ($jobId === '') {
                 continue;
             }
 
@@ -89,6 +86,22 @@ class QueueBackfillFailed extends Command
             $failedAt = filled($row->failed_at ?? null)
                 ? Carbon::parse($row->failed_at)
                 : now();
+
+            $exception = is_string($row->exception ?? null) ? mb_strcut($row->exception, 0, 65535) : null;
+            if (isset($existing[$jobId])) {
+                foreach ($existing[$jobId] as $monitor) {
+                    if ($monitor->started_at !== null && Carbon::parse($monitor->started_at)
+                        ->greaterThan($failedAt->copy()->endOfSecond())) {
+                        continue; // A newer retry owns its own outcome.
+                    }
+                    if (!(bool) $monitor->failed || $monitor->finished_at === null
+                        || $monitor->exception_message !== $exception) {
+                        $repairRows[] = ['id' => $monitor->id, 'job_id' => $jobId, 'source_id' => $row->id,
+                            'failed_at' => $failedAt, 'exception' => $exception];
+                    }
+                }
+                continue;
+            }
 
             $insertRows[] = [
                 'job_id' => $jobId,
@@ -110,12 +123,27 @@ class QueueBackfillFailed extends Command
 
         $this->info('Failed rows scanned: ' . $failedRows->count());
         $this->info('Rows to backfill: ' . count($insertRows));
+        $this->info('Existing monitor rows to repair: ' . count($repairRows));
 
-        if ($dryRun || count($insertRows) === 0) {
+        if ($dryRun || (count($insertRows) === 0 && count($repairRows) === 0)) {
             $this->line($dryRun ? 'Dry-run mode: nothing was written.' : 'Nothing to write.');
             $this->storeTelemetry($startedAt, $failedRows->count(), 0);
 
             return self::SUCCESS;
+        }
+
+        $repaired = 0;
+        foreach ($repairRows as $repair) {
+            // A manual retry may already have removed this failed_jobs entry.
+            if (!DB::connection($failedConnection)->table($failedTable)->where('id', $repair['source_id'])
+                ->where('uuid', $repair['job_id'])->exists()) {
+                continue;
+            }
+            $repaired += DB::connection($monitorConnection)->table('queue_monitors')
+                ->where('id', $repair['id'])->where('job_id', $repair['job_id'])
+                ->update(['failed' => true, 'progress' => 100, 'finished_at' => DB::connection($monitorConnection)
+                    ->raw('COALESCE(finished_at, CURRENT_TIMESTAMP)'), 'exception_message' => $repair['exception'],
+                    'updated_at' => now()]);
         }
 
         foreach (array_chunk($insertRows, 500) as $chunk) {
@@ -125,6 +153,8 @@ class QueueBackfillFailed extends Command
         }
 
         $this->info('Backfill completed. Inserted: ' . count($insertRows));
+        $this->info('Existing monitor rows repaired: ' . $repaired);
+        MonitoringCache::forever('monitoring:queue:backfill:last_repaired', $repaired);
         $this->storeTelemetry($startedAt, $failedRows->count(), count($insertRows));
 
         return self::SUCCESS;
