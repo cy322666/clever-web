@@ -57,6 +57,28 @@ class RetiredPlatformDataCleanupTest extends TestCase
         $this->assertGuard('still referenced by current_settings');
     }
 
+    public function test_shared_logs_without_module_columns_are_kept_and_only_retired_webhooks_are_deleted(): void
+    {
+        Schema::create('logs', function (Blueprint $table): void {
+            $table->id(); $table->unsignedBigInteger('user_id'); $table->text('data');
+        });
+        Schema::create('webhooks', function (Blueprint $table): void {
+            $table->id(); $table->string('app_name'); $table->foreignId('app_id')->constrained('apps');
+        });
+        $retired = DB::table('apps')->where('name', 'assistant')->value('id');
+        $current = DB::table('apps')->where('name', 'tilda')->value('id');
+        DB::table('logs')->insert(['user_id' => 1, 'data' => 'Shared API diagnostics']);
+        DB::table('webhooks')->insert([
+            ['app_name' => 'assistant', 'app_id' => $retired],
+            ['app_name' => 'tilda', 'app_id' => $current],
+        ]);
+        app(RetiredPlatformDataCleanup::class)->apply();
+        $this->assertSame(['tilda'], DB::table('webhooks')->pluck('app_name')->all());
+        $this->assertSame(['Shared API diagnostics'], DB::table('logs')->pluck('data')->all());
+        app(RetiredPlatformDataCleanup::class)->apply();
+        $this->assertSame(1, DB::table('logs')->count());
+    }
+
     public function test_active_or_recent_retired_data_blocks_cleanup(): void
     {
         DB::table('assistant_settings')->update(['active' => true]);

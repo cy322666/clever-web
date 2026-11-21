@@ -43,9 +43,8 @@ final class ApiRequestRetention
                     ->orWhereNotNull('unresolved.lead_fields_replay_error')
                     ->orWhereNotNull('unresolved.mapped_fields_update_error');
                 if ($hasOutbox) {
-                    $query->orWhereExists(fn (QueryBuilder $events) => $events->selectRaw('1')
+                    $query->orWhereIn('unresolved.id', fn (QueryBuilder $events) => $events->select('unfinished.record_id')
                         ->from('yclients_record_events as unfinished')
-                        ->whereColumn('unfinished.record_id', 'unresolved.id')
                         ->where(fn (QueryBuilder $events) => $events->where('unfinished.status', '!=', Record::STATUS_SUCCESS)
                             ->orWhereNull('unfinished.status')));
                 }

@@ -85,11 +85,20 @@ final class RetiredPlatformDataCleanup
                 if (!Schema::hasTable($table)) {
                     continue;
                 }
-                $query = DB::table($table)->whereIn('app_name', self::MODULES);
-                if (Schema::hasColumn($table, 'app_id')) {
-                    $query->orWhereIn('app_id', $plan['app_ids']);
+                $query = DB::table($table);
+                $owned = false;
+                if (Schema::hasColumn($table, 'app_name')) {
+                    $query->whereIn('app_name', self::MODULES);
+                    $owned = true;
                 }
-                $query->delete();
+                if ($plan['app_ids'] !== [] && Schema::hasColumn($table, 'app_id')) {
+                    $owned ? $query->orWhereIn('app_id', $plan['app_ids'])
+                        : $query->whereIn('app_id', $plan['app_ids']);
+                    $owned = true;
+                }
+                if ($owned) {
+                    $query->delete();
+                }
             }
             if ($plan['app_ids'] !== []) {
                 DB::table('apps')->whereIn('id', $plan['app_ids'])->whereIn('name', self::MODULES)->delete();
