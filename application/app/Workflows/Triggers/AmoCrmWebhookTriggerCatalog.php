@@ -359,6 +359,12 @@ abstract class AmoCrmWebhookTrigger implements BaseTrigger
         return null;
     }
 
+    /** @return array{0: string, 1: string} Path to the canonical event items. */
+    public static function payloadItemPath(): array
+    {
+        return [static::payloadEntityKey(), static::payloadActionKey()];
+    }
+
     protected static function payloadEntityKey(): string
     {
         return match (static::entity()) {

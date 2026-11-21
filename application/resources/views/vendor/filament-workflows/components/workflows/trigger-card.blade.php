@@ -12,7 +12,7 @@
     $icon = $metadata['icon'] ?? 'heroicon-o-bolt';
     $icon = \App\Services\Workflows\WorkflowAmoIcons::trigger($type, $icon);
     $appearance = \App\Services\Workflows\WorkflowNodeAppearance::trigger($type, $icon);
-    $hasSettings = in_array($type, ['schedule', 'generic-webhook'], true);
+    $hasSettings = in_array($type, ['schedule', 'generic-webhook'], true) || \App\Services\Workflows\WorkflowTriggerReferenceCatalog::fields($type) !== [];
     $subtitle = match ($type) {
         'manual' => 'Запуск вручную',
         'amo-button' => 'amoCRM · Кнопка в сделке',

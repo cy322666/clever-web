@@ -11,6 +11,22 @@ use Tests\TestCase;
 
 class WorkflowTriggerReferenceCatalogTest extends TestCase
 {
+    public function test_editor_reference_matches_canonical_webhook_body_without_sample_values(): void
+    {
+        $references = WorkflowTriggerReferenceCatalog::editorReferences();
+        foreach (AmoCrmWebhookTriggerCatalog::classes() as $class) {
+            [$entity, $action] = $class::payloadItemPath();
+            $reference = $references[$class::type()];
+            $this->assertSame([$reference['shape']], $reference['body'][$entity][$action]);
+            array_walk_recursive($reference['body'], fn ($value) => $this->assertNull($value));
+        }
+
+        $this->assertArrayHasKey('old_status_id', $references['amocrm-status-lead']['body']['leads']['status'][0]);
+        $this->assertArrayNotHasKey('old_status_id', $references['amocrm-add-lead']['body']['leads']['add'][0]);
+        $this->assertSame([['value' => null]], $references['amocrm-add-lead']['shape']['custom_fields'][0]['values']);
+        $this->assertArrayNotHasKey('generic-webhook', $references);
+    }
+
     public function test_every_amo_event_has_a_business_field_reference_without_a_recorded_run(): void
     {
         foreach (AmoCrmWebhookTriggerCatalog::eventCodes() as $event) {

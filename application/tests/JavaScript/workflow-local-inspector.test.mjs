@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WorkflowLocalInspector, inspectorRule, inspectorSource} from '../../resources/js/workflow-local-inspector.mjs';
+import {WorkflowLocalInspector, compactLeadSections, inspectorRule, inspectorSource, withKnownInspectorPaths} from '../../resources/js/workflow-local-inspector.mjs';
 import {clone,setPath} from '../../resources/js/workflow-browser-document.mjs';
 
 function fixture() {
@@ -119,4 +119,33 @@ test('data suggestions omit sensitive keys and inspect a bounded collection samp
     assert.equal(source.fields.length,2);
     assert.deepEqual(source.fields[1].item_fields,['id','nested','nested.name']);
     assert.equal(JSON.stringify(source).includes('never-show'),false);
+});
+
+
+test('compact lead settings put existing fields in approved order and retain advanced mappings', () => {
+    const scalar = path => ({kind:'value',path});
+    const extras = {kind:'section',label:'Поля сделки',children:[{kind:'repeater',path:'fields',children:[scalar('fields.*.value')]}]};
+    const schema = [
+        {kind:'section',children:[scalar('name'),scalar('price'),{kind:'group',children:[scalar('pipeline_id'),scalar('status_id')]},scalar('responsible_user_id'),scalar('tags'),scalar('contact_id'),scalar('company_id')]},
+        extras,
+        {kind:'hidden',path:'internal'},
+    ];
+    const before=JSON.stringify(schema);
+    const {primary,secondary}=compactLeadSections(schema);
+    assert.deepEqual(primary.map(field=>field.compactSlot),['name','price','pipeline_id','status_id','contact_id']);
+    assert.deepEqual(secondary[0].children.map(field=>field.path),['responsible_user_id','tags','company_id']);
+    assert.deepEqual(secondary[1],extras);
+    assert.equal(JSON.stringify(schema),before);
+});
+
+
+test('known action output paths stay selectable after a partial output without stale values', () => {
+    const actual=inspectorSource('read','Получить контакт',{id:41},true);
+    const known=inspectorSource('read','Получить контакт',{id:7,last_name:'Old'},true);
+    const source=withKnownInspectorPaths(actual,known);
+    assert.equal(source.fields.find(field=>field.key==='.id').value,41);
+    const missed=source.fields.find(field=>field.key==='.last_name');
+    assert.equal(missed.value,null);
+    assert.equal(missed.available,false);
+    assert.equal(missed.expression,'{{ $("Получить контакт").last_name }}');
 });

@@ -125,13 +125,76 @@ test('filter fields come from the selected collection, never indexed rows', () =
     assert.ok(field.suggestions.every(item=>!item.expression.includes('[0]')));
 });
 
-test('dock positioning cannot override panel visibility', () => {
-    const {panel}=fixture();panel.positionInspector();
-    assert.equal(typeof panel.position,'object');assert.equal(panel.position.top,'100px');
+test('floating positioning leaves a closed panel hidden and puts open panels above the node when possible', () => {
+    const {window,panel}=fixture();panel.positionInspector();
+    assert.equal(Object.keys(panel.position).length,0);
+    const bounds={left:72,right:1280,top:110,bottom:1000};
+    const above=window.workflowInspectorPlacement({left:700,right:770,top:625,bottom:695},bounds,428,300);
+    assert.equal(above.top,310); assert.equal(above.left,521); assert.equal(above.arrow,'above'); assert.equal(above.offset,214);
+    const below=window.workflowInspectorPlacement({left:78,right:144,top:135,bottom:201},bounds,428,300);
+    assert.equal(below.left,82); assert.equal(below.top,216); assert.equal(below.arrow,'below');
+    const expanded=window.workflowInspectorPlacement({left:78,right:144,top:135,bottom:201},bounds,820,300,true);
+    assert.equal(expanded.arrow,null); assert.equal(expanded.left,266);
+    panel.opened=true;panel.positionInspector();
     assert.equal('display' in panel.position,false);
 });
 
-test('closing node settings immediately releases canvas space', () => {
+test('an inline test handles missing data and keeps simulation separate from real execution', async () => {
+    const {window,panel}=fixture();
+    const calls=[];
+    window.confirm=()=>false;
+    panel.$wire.nodeRunResults={};
+    panel.$wire.runWorkflowCanvasNode=async (id,real)=>{
+        calls.push([id,real]);return {status:'success',real,display_count:1};
+    };
+    const expression='{{ $("Контакты").id }}';
+    panel.local={id:'action:a',node:()=>({}),config:{contact_id:expression},sources:()=>[{id:'upstream',available:false,fields:[{expression}]}],flush(){},renderInput(){}};
+    await panel.runInspectorTest(false);
+    assert.equal(panel.testSummary().text,'Нет данных из предыдущей ноды');
+    assert.deepEqual(calls,[]);
+    panel.local.sources=()=>[{id:'upstream',available:true,fields:[{expression}]}];
+    await panel.runInspectorTest(false);
+    assert.deepEqual(calls,[['a',false]]);
+    assert.equal(panel.testSummary().text,'Симуляция завершена · Строк: 1');
+    await panel.runInspectorTest(true);
+    assert.equal(calls.length,1);
+    window.confirm=()=>true;
+    await panel.runInspectorTest(true);
+    assert.deepEqual(calls,[['a',false],['a',true]]);
+    panel.$wire.nodeRunResults.a={status:'success',real:true,display_count:42};
+    panel.$wire.runWorkflowCanvasNode=async()=>null;
+    await panel.runInspectorTest(true);
+    assert.match(panel.testSummary().text,/недоступен/);
+});
+
+test('missing-data check covers interpolated tokens, optional paths and first or last list items', () => {
+    const {window}=fixture();
+    const sources=[
+        {id:'step',available:true,fields:[
+            {expression:'{{ $("Сделка").id }}', available:true},
+            {expression:'{{ $("Сделка").contact_id }}', available:false},
+        ]},
+        {id:'empty',available:true,fields:[{type:'array',count:0,expression:'{{ $("Контакты") }}',available:true}]},
+        {id:'not-run',available:false,fields:[{type:'array',count:null,expression:'{{ $("Список").items }}',available:false}]},
+    ];
+    for (const value of ['Копия {{ $("Сделка").contact_id }}','{{ $("Контакты").first().id }}','{{ $("Список").items.last()["имя"] }}']) {
+        assert.equal(window.workflowCompactMissingInput(sources,{name:value}),true,value);
+    }
+    for (const value of ['{{ $("Сделка").id }}','{{ $("Сделка").contact_id || 0 }}','{{ $("Контакты") }}','Просто текст']) {
+        assert.equal(window.workflowCompactMissingInput(sources,{name:value}),false,value);
+    }
+    assert.equal(window.workflowCompactMissingInput(sources,{javascript_code:'{{ $("Список").items }}'}),false);
+});
+
+test('real nested-workflow test explicitly warns that the child workflow will run', async () => {
+    const {window,panel}=fixture();
+    panel.local={id:'action:a',type:'run_workflow',node:()=>({}),config:{},sources:()=>[]};
+    window.confirm=message=>{assert.match(message,/дочерний сценарий со всеми его действиями/);return false;};
+    panel.$wire.runWorkflowCanvasNode=()=>assert.fail('Cancelled real test must not run');
+    await panel.runInspectorTest(true);
+});
+
+test('closing node settings immediately clears the visibility marker', () => {
     const {panel,editorPage}=fixture();
     panel.opened=true;
     panel.announce();
@@ -168,14 +231,14 @@ test('a late Livewire redraw cannot restore the empty inspector column', () => {
     assert.equal(morphed,null);
 });
 
-test('canvas space follows inspector visibility without a stale sibling selector', () => {
+test('floating inspector does not reserve canvas space', () => {
     const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
     const canvas=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
     const css=readFileSync(new URL('../../resources/css/workflow-inspector.css',import.meta.url),'utf8');
     assert.match(view,/x-bind:hidden="!opened" hidden/);
     assert.doesNotMatch(canvas,/inspectorOpen|has-inspector/);
     assert.match(css,/\.workflow-inspector\[hidden\]\s*\{\s*display: none !important;/);
-    assert.match(css,/\.workflow-editor-page\[data-workflow-inspector-open\] \.workflow-workbench__main \{ padding-right: 440px; \}/);
+    assert.doesNotMatch(css,/\.workflow-editor-page\[data-workflow-inspector-open\]/);
     assert.doesNotMatch(css,/\.workflow-editor-page:has\(~ .*\.workflow-inspector/);
 });
 

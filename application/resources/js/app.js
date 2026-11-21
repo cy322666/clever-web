@@ -239,10 +239,58 @@ window.workflowSortableList = (path) => ({
 
 // The existing dock edits the loaded schema locally. PHP owns validation only
 // when Save or Run is requested; old clients retain their mounted form fallback.
+// Work in viewport coordinates so graph zoom never scales the form or its controls.
+window.workflowInspectorPlacement = (anchor, bounds, width, height, expanded = false) => {
+    const gap = 15, margin = 10;
+    const leftEdge = bounds.left + margin, topEdge = bounds.top + margin;
+    const rightEdge = bounds.right - margin, bottomEdge = bounds.bottom - margin;
+    const pin = (value, min, max) => Math.max(min, Math.min(value, Math.max(min, max)));
+    const center = anchor ? (anchor.left + anchor.right) / 2 : (leftEdge + rightEdge) / 2;
+    const left = pin(expanded ? (leftEdge + rightEdge - width) / 2 : center - width / 2, leftEdge, rightEdge - width);
+    if (!anchor || expanded || anchor.bottom < topEdge || anchor.top > bottomEdge
+        || anchor.right < leftEdge || anchor.left > rightEdge) {
+        return {left, top: pin((topEdge + bottomEdge - height) / 2, topEdge, bottomEdge - height), arrow: null};
+    }
+    const above = anchor.top - gap - topEdge;
+    const below = bottomEdge - anchor.bottom - gap;
+    const placement = above >= height || above >= below ? 'above' : 'below';
+    const top = pin(placement === 'above' ? anchor.top - gap - height : anchor.bottom + gap, topEdge, bottomEdge - height);
+    const arrow = placement === 'above' ? top + height <= anchor.top : top >= anchor.bottom;
+    return {left, top, arrow: arrow ? placement : null, offset: pin(center - left, 18, width - 18)};
+};
+
+// This is a UI preflight, not an expression evaluator. Only simple generated
+// references are checked; modifiers with defaults, calculations and raw code stay executable.
+window.workflowCompactMissingInput = (sources, config) => {
+    const token = expression => typeof expression === 'string' && expression.match(/^\{\{([\s\S]*?)\}\}$/)?.[1].trim();
+    const unavailable = new Set();
+    const emptyLists = new Set();
+    for (const source of sources) {
+        if (source.id === '$vars') continue;
+        for (const field of source.fields) {
+            const reference = token(field.expression);
+            if (!reference) continue;
+            if (!source.available || field.available === false) unavailable.add(reference);
+            if (field.type === 'array' && (!source.available || field.available === false || field.count === 0)) emptyLists.add(reference);
+        }
+    }
+    const missing = reference => {
+        if (unavailable.has(reference)) return true;
+        const list = reference.match(/^(.*?)\.(?:first|last)\(\)(?:(?:\.[\p{L}_][\p{L}\p{N}_]*|\["(?:[^"\\]|\\.)*"\]))*$/u);
+        return Boolean(list && emptyLists.has(list[1]));
+    };
+    const visit = value => typeof value === 'string'
+        ? [...value.matchAll(/\{\{([\s\S]*?)\}\}/g)].some(match => missing(match[1].trim()))
+        : Boolean(value && typeof value === 'object' && Object.entries(value).some(([key, child]) =>
+            !['javascript_code','true_actions','false_actions'].includes(key) && visit(child)));
+    return visit(config);
+};
+
 window.workflowInspector = () => ({
     opened: false, loading: false, title: '', tab: 'settings', error: '', position: {},
     desired: undefined, processing: false, currentId: null, opener: null, dismissed: false,
     embedded: false, debugSlotId: null, local: null, localReady: null, inspectorRoot: null,
+    expanded: false, anchorId: null, panelFrame: null, runningTest: null, testResults: {},
     init() {
         this.inspectorRoot=this.$el;
         const boot = this.$el.querySelector('[data-local-inspector-boot]');
@@ -250,12 +298,30 @@ window.workflowInspector = () => ({
             if (this.$el.isConnected) this.local = installLocalInspector(this,JSON.parse(boot.textContent),this.$el);
         });
         this.syncCanvasSpace();
+        this.positionFrame = () => this.queueInspectorPosition();
+        window.addEventListener('scroll', this.positionFrame, true);
+        if (typeof ResizeObserver !== 'undefined') {
+            this.inspectorResize = new ResizeObserver(this.positionFrame);
+            this.inspectorResize.observe(this.inspectorElement());
+        }
+        if (typeof MutationObserver !== 'undefined') {
+            const canvas = this.editorPage()?.querySelector?.('#workflow-canvas');
+            if (canvas) {
+                this.inspectorCanvasObserver = new MutationObserver(this.positionFrame);
+                this.inspectorCanvasObserver.observe(canvas, {subtree:true, attributes:true, attributeFilter:['style'], childList:true});
+            }
+        }
         this.releaseMorphHook = window.Livewire?.hook('morphed', ({component}) => {
-            if (component?.id === this.$wire.$id) {this.syncCanvasSpace();this.local?.serverUpdated();}
+            if (component?.id === this.$wire.$id) {this.syncCanvasSpace();this.local?.serverUpdated();this.queueInspectorPosition();}
         });
     },
     destroy() {
         this.releaseMorphHook?.();
+        this.inspectorResize?.disconnect();
+        this.inspectorCanvasObserver?.disconnect();
+        window.removeEventListener?.('scroll', this.positionFrame, true);
+        if (this.panelFrame !== null) window.cancelAnimationFrame?.(this.panelFrame);
+        this.paintInspectorAnchor(null);
         this.editorPage()?.removeAttribute('data-workflow-inspector-open');
     },
     inspectorElement() { return this.inspectorRoot || this.$el; },
@@ -264,10 +330,31 @@ window.workflowInspector = () => ({
             || document.querySelector('.workflow-editor-page');
     },
     syncCanvasSpace() {
-        // The dock owns its canvas space. Synchronize before Alpine's next tick
-        // so closing during a Livewire morph cannot leave an empty column.
         this.inspectorElement().hidden = !this.opened;
+        // Keep the component's visibility marker. The floating form reserves no canvas space.
         this.editorPage()?.toggleAttribute('data-workflow-inspector-open', this.opened && !this.embedded);
+        if (!this.opened || this.embedded) this.paintInspectorAnchor(null);
+    },
+    inspectorAnchor() {
+        const canvas = this.editorPage()?.querySelector?.('#workflow-canvas');
+        for (const node of canvas?.querySelectorAll('[data-workflow-node-id]') || []) {
+            if (node.dataset.workflowNodeId === this.anchorId) return node.querySelector('[data-workflow-node-card]');
+        }
+        return null;
+    },
+    paintInspectorAnchor(card) {
+        if (this.selectedCard === card) return;
+        this.selectedCard?.removeAttribute?.('data-workflow-inspector-selected');
+        this.selectedCard = card;
+        card?.setAttribute('data-workflow-inspector-selected', 'true');
+        const slot = this.inspectorElement().querySelector?.('[data-inspector-icon]');
+        const icon = card?.querySelector('.workflow-node-card__icon svg');
+        if (slot) slot.replaceChildren(...(icon ? [icon.cloneNode(true)] : []));
+    },
+    queueInspectorPosition() {
+        if (!this.opened || this.panelFrame !== null) return;
+        if (!window.requestAnimationFrame) return this.positionInspector();
+        this.panelFrame = window.requestAnimationFrame(() => { this.panelFrame = null; this.positionInspector(); });
     },
     positionInspector() {
         if (this.embedded) {
@@ -275,9 +362,77 @@ window.workflowInspector = () => ({
             if (slot) this.position = {top: slot.top + 'px', left: slot.left + 'px', width: slot.width + 'px', bottom: Math.max(0, window.innerHeight - slot.bottom) + 'px'};
             return;
         }
-        const canvas = document.querySelector('.workflow-workbench__main') || document.querySelector('.workflow-node-editor');
-        const top = canvas?.getBoundingClientRect().top ?? 100;
-        this.position = {top: `${Math.max(0, top)}px`, bottom: '0'};
+        if (!this.opened) return;
+        const panel = this.inspectorElement();
+        const canvas = this.editorPage()?.querySelector?.('.workflow-workbench__main') || document.querySelector('.workflow-node-editor');
+        const area = canvas?.getBoundingClientRect();
+        const viewportWidth = window.innerWidth || 1280;
+        const bounds = {left:Math.max(0, area?.left ?? 0), right:Math.min(viewportWidth, area?.right ?? viewportWidth),
+            top:Math.max(0, area?.top ?? 0), bottom:Math.min(window.innerHeight, area?.bottom ?? window.innerHeight)};
+        const preferredWidth = this.expanded ? 820 : this.local?.triggerReference?.() ? 392 : 428;
+        const width = Math.max(1, Math.min(preferredWidth, bounds.right - bounds.left - 20));
+        const maxHeight = Math.max(1, Math.min(window.innerHeight * (this.expanded ? .88 : .70), bounds.bottom - bounds.top - 20));
+        const height = Math.min(maxHeight, panel.getBoundingClientRect?.().height || 290);
+        const card = this.inspectorAnchor();
+        this.paintInspectorAnchor(card);
+        const placed = window.workflowInspectorPlacement(card?.getBoundingClientRect(), bounds, width, height, this.expanded);
+        this.placement = placed.arrow;
+        this.position = {left:placed.left+'px',top:placed.top+'px',width:width+'px',maxHeight:maxHeight+'px','--inspector-arrow-offset':(placed.offset || width / 2)+'px'};
+        this.$nextTick(() => this.inspectorElement().dispatchEvent?.(new CustomEvent('workflow-compact-picker-position',{bubbles:true})));
+    },
+    toggleExpanded() {
+        this.expanded = !this.expanded;
+        if (!this.expanded) this.tab = 'settings';
+        this.$nextTick(() => this.queueInspectorPosition());
+    },
+    testAvailable() {
+        return Boolean(this.local?.id?.startsWith('action:') && !this.local.node()?.disabled && !this.embedded);
+    },
+    testSummary() {
+        const id = this.local?.id;
+        if (!id) return null;
+        if (this.runningTest === id || window.workflowNodeIsRunning(this.$wire,id.slice(7))) return {text:'Тест выполняется…', error:false};
+        const state = this.testResults[id];
+        if (!state) return null;
+        if (state.error) return {text:state.error,error:true};
+        const result = state.result;
+        if (!result) return null;
+        if (['error','failed','validation_error'].includes(result.status)) return {text:result.error || 'Не удалось выполнить ноду.', error:true};
+        const prefix = result.real === false || result.status === 'simulated' ? 'Симуляция завершена' : 'Тест выполнен';
+        const detail = typeof result.condition_result === 'boolean' ? (result.condition_result ? 'Да' : 'Нет')
+            : Number.isInteger(result.display_count) ? 'Строк: ' + result.display_count : '';
+        return {text:detail ? prefix + ' · ' + detail : prefix, error:false};
+    },
+    async runInspectorTest(real = false) {
+        if (!this.testAvailable() || this.runningTest || window.workflowNodeIsRunning(this.$wire)) return;
+        const id = this.local.id;
+        this.local.sourceCache = null;
+        if (window.workflowCompactMissingInput(this.local.sources(), this.local.config)) {
+            this.testResults[id] = {error:'Нет данных из предыдущей ноды'};
+            return;
+        }
+        if (real) {
+            const warning = this.local.type === 'run_workflow'
+                ? 'Этот тест запустит дочерний сценарий со всеми его действиями. Продолжить?'
+                : this.local.type === 'workflow_loop'
+                    ? 'Этот тест может выполнить вложенные ноды цикла и изменить внешние данные. Продолжить?'
+                    : 'Выполнить ноду реально? Тест может изменить CRM или отправить запрос во внешний сервис.';
+            if (!window.confirm(warning)) return;
+        }
+        this.local.flush();
+        this.runningTest = id;
+        this.testResults[id] = {};
+        try {
+            const result = await this.$wire.runWorkflowCanvasNode(id.slice(7), real);
+            this.testResults[id] = result ? {result}
+                : {error:'Результат теста недоступен. Проверьте настройки ноды.'};
+        } catch {
+            this.testResults[id] = {error:'Не удалось выполнить тест. Проверьте настройки ноды.'};
+        } finally {
+            this.runningTest = null;
+            this.local.sourceCache = null;
+            if (this.local.id) this.local.renderInput();
+        }
     },
     announce() {
         this.syncCanvasSpace();
@@ -287,7 +442,7 @@ window.workflowInspector = () => ({
     },
     inspectorMounted(element) {
         const changed = this.currentId !== element.dataset.inspectorNode;
-        this.currentId = element.dataset.inspectorNode;
+        this.currentId = this.anchorId = element.dataset.inspectorNode;
         if (!this.processing && (!this.dismissed || changed)) {
             this.dismissed = false;
             this.title = element.dataset.inspectorTitle;
@@ -326,16 +481,22 @@ window.workflowInspector = () => ({
         }
         this.embedded = Boolean(detail.embedded);
         this.debugSlotId = detail.slotId || null;
-        if (this.embedded) this.tab = 'settings';
-        if (detail.nodeId === this.currentId && this.opened && !this.processing) return;
+        if (this.embedded || detail.nodeId !== this.anchorId) {
+            this.tab = 'settings'; this.expanded = false;
+            this.inspectorElement().dispatchEvent?.(new CustomEvent('workflow-compact-picker-dismiss',{bubbles:true}));
+        }
+        this.anchorId = detail.nodeId;
+        if (detail.nodeId === this.currentId && this.opened && !this.processing &&
+            (!this.local || this.local.type === this.local.node(detail.nodeId)?.type)) return;
         this.opener = document.activeElement;
         this.dismissed = false;
         this.opened = true;
         this.title = detail.name;
         this.error = '';
-        this.positionInspector();
         this.announce();
-        // Outside clicks only hide the dock. Reuse its mounted draft, even if
+        this.positionInspector();
+        this.queueInspectorPosition();
+        // Outside clicks only hide the panel. Reuse its mounted draft, even if
         // incomplete, without validation, a request or a flash of loading.
         if (detail.nodeId === this.currentId && !this.processing && this.$wire.mountedActions?.length) return;
         this.desired = detail;
@@ -344,15 +505,15 @@ window.workflowInspector = () => ({
     dismissInspector(event) {
         if (this.embedded) return;
         if (!this.opened || this.inspectorElement().contains(event.target)) return;
-        // Changing the canvas width on pointerdown moves the next node before
-        // its click arrives. Switching nodes keeps the existing dock in place.
+        // Let node clicks switch the active floating form without discarding its draft.
         if (event.target.closest?.('[data-workflow-node-card], .workflow-canvas-controls, .workflow-canvas-execution-controls')) return;
         // Filament widgets may teleport their options or a nested dialog.
-        if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box, [data-workflow-reference-toggle], [data-workflow-reference-panel]')) return;
+        if (event.target.closest?.('.fi-modal, .fi-dropdown-panel, .fi-select-input-options-ctn, [role="listbox"], .tippy-box, [data-workflow-reference-toggle], [data-workflow-reference-panel], .workflow-compact-picker')) return;
         this.hideInspector();
     },
     hideInspector() {
         this.local?.flush();
+        this.inspectorElement().dispatchEvent?.(new CustomEvent('workflow-compact-picker-dismiss',{bubbles:true}));
         if (this.embedded && this.opened) window.dispatchEvent(new CustomEvent('workflow-debug-settings-dismissed', {detail:{componentId:this.$wire.$id}}));
         this.opened = false;
         this.dismissed = true;
@@ -433,6 +594,7 @@ window.workflowInspector = () => ({
                 if (form && !this.local) this.title = form.dataset.inspectorTitle;
             });
             this.announce();
+            this.queueInspectorPosition();
         }
     },
 });

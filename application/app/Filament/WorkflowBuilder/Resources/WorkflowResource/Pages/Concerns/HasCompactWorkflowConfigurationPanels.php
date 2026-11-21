@@ -46,6 +46,8 @@ trait HasCompactWorkflowConfigurationPanels
         }
         $schemas['trigger:schedule'] = $compiler->describe($this, \App\Workflows\Triggers\ScheduleTrigger::configSchema(), \App\Workflows\Triggers\ScheduleTrigger::defaultConfig());
         $schemas['trigger:generic-webhook'] = $compiler->describe($this, \App\Workflows\Triggers\GenericWebhookTrigger::configSchema(), ['source'=>'webhook']);
+        $triggerReferences = \App\Services\Workflows\WorkflowTriggerReferenceCatalog::editorReferences();
+        foreach ($triggerReferences as $type => $reference) $schemas['trigger:'.$type] ??= [];
         try { $context = $this->workflowActions!==[] || $this->debugState!==[] ? $this->workflowNodeInputContext() : []; } catch (\JsonException|\InvalidArgumentException) { $context=[]; }
         $sources = \App\Services\Workflows\WorkflowExpressionCatalog::sources([...$this->workflowActions,['id'=>'__inspector_end__','type'=>'workflow_delay','config'=>[]]], '__inspector_end__', $context, null, $this->definition);
         $with = [];
@@ -53,6 +55,7 @@ trait HasCompactWorkflowConfigurationPanels
         $conditionFields = auth()->id() ? \App\Services\Workflows\WorkflowEditorReferenceQuery::for(\App\Models\amoCRM\Field::class)->where('user_id', auth()->id())->where('active',true)->get()->map(fn($field)=>['id'=>$field->field_id,'entity'=>$field->entity_type,'type'=>$field->type,'enums'=>$field->enums])->all() : [];
         $this->localInspectorBootstrap = ['schemas'=>$schemas,
             'sources'=>\App\Services\Workflows\WorkflowExpressionCatalog::forPicker($sources),
+            'triggerReferences'=>$triggerReferences,
             'customFields'=>\App\Services\Workflows\WorkflowExpressionCatalog::customFieldSuggestions(),
             'conditionFields'=>$conditionFields,
             'queryOperations'=>['leads.list','contacts.list','companies.list','customers.list','tasks.list'], 'withOptions'=>$with,

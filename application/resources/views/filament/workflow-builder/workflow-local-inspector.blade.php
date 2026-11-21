@@ -3,47 +3,76 @@
 <div data-local-inspector wire:ignore x-show="typeof local !== 'undefined' && local" x-cloak>
     <form class="workflow-inspector__form" x-on:submit.prevent="closeInspector()">
         <div class="workflow-inspector__fields workflow-inspector__workspace">
-            <div class="workflow-inspector__pane workflow-node-settings__parameters fi-sc fi-grid" role="tabpanel" aria-label="Настройки" x-show="tab === 'settings'" data-local-inspector-fields></div>
+            <div class="workflow-inspector__pane workflow-node-settings__parameters fi-sc fi-grid" role="tabpanel" aria-label="Настройки" x-show="tab === 'settings'">
+                @include('filament.workflow-builder.workflow-trigger-reference')
+                <div data-local-inspector-fields></div>
+            </div>
             <div class="workflow-inspector__pane" role="tabpanel" aria-label="Вход" x-show="tab === 'input'" data-local-inspector-input></div>
             <div class="workflow-inspector__pane" role="tabpanel" aria-label="Выход" x-show="tab === 'output'">
                 @include('filament.workflow-builder.workflow-json-tree', ['expression'=>"typeof local !== 'undefined' ? local?.output() ?? null : null"])
             </div>
         </div>
         <footer class="workflow-inspector__footer">
-            <button type="button" x-on:click="closeInspector(false)">Отменить</button>
-            <button type="button" x-on:click="closeInspector()">Применить</button>
+            <button type="button" x-show="expanded || embedded" x-on:click="closeInspector(false)">Отменить</button>
+            <div class="workflow-inspector__test-menu" x-data="{ menu: false }" x-show="testAvailable()"
+                x-on:click.outside="menu = false" x-on:keydown.escape.prevent.stop="if (menu) { menu = false; $refs.testButton.focus() } else hideInspector()">
+                <button type="button" x-ref="testButton" x-on:click="menu = !menu; if (menu) $nextTick(() => $refs.simulateButton.focus())" aria-controls="workflow-test-options-{{ $this->getId() }}"
+                    x-bind:aria-expanded="menu" x-bind:disabled="Boolean(runningTest) || workflowNodeIsRunning($wire)">Тест</button>
+                <div id="workflow-test-options-{{ $this->getId() }}" x-show="menu" x-cloak aria-label="Режим теста">
+                    <button type="button" x-ref="simulateButton" x-on:click="menu = false; $refs.testButton.focus(); runInspectorTest(false)"
+                        title="Не меняет CRM; Read-ноды могут читать данные">Симуляция</button>
+                    <button type="button" x-on:click="menu = false; $refs.testButton.focus(); runInspectorTest(true)">Реальный тест…</button>
+                </div>
+            </div>
+            <span x-show="testAvailable() && testSummary()" class="workflow-inspector__test-result" role="status"
+                x-bind:data-error="testSummary()?.error ? '' : null" x-bind:title="testSummary()?.text" x-text="testSummary()?.text"></span>
+            <span x-show="local?.triggerReference() && !local.triggerHasInput()" class="workflow-inspector__test-result">Событие ещё не получено</span>
+            <button type="button" class="workflow-inspector__apply" x-on:click="closeInspector()">Применить</button>
         </footer>
     </form>
 
+    <div data-local-compact-picker-mount></div>
+    <template data-local-inspector-template="compact-picker">
+        @include('filament.workflow-builder.workflow-compact-field-picker')
+    </template>
+
     <template data-local-inspector-template="value">
         <div class="workflow-value-field fi-fo-field" x-id="['local-value']" x-on:workflow-local-field-refresh="refreshField()"
-            x-on:workflow-expression-field="if (!field.relativePath) { mode='expression'; $nextTick(()=>$refs.value.focus()); }"
+            x-on:workflow-expression-field="if (!field.relativePath) editPickedExpression()"
             x-on:workflow-expression-suggestions="sources=$event.detail.sources; customFields=$event.detail.customFields || []; suggest({target:$refs.value})"
             x-on:input="suggest($event)" x-on:keydown="suggestionKey($event)" x-on:click="if ($event.target === $refs.value) suggest($event)"
             x-on:keyup="if (['ArrowLeft','ArrowRight','Home','End'].includes($event.key)) suggest($event)" x-on:click.outside="suggestions=[]">
             <div class="workflow-value-field__header" :class="{'workflow-value-field__header--unlabeled':labelHidden}">
-                <label x-show="!labelHidden" :for="$id('local-value')"><span x-text="label"></span><span x-show="required" aria-hidden="true"> *</span></label>
-                <div class="workflow-value-field__modes" role="group" aria-label="Способ задания значения" x-show="!field.relativePath">
-                    <button type="button" :aria-pressed="mode === 'value'" x-on:click="mode='value'; if (String(state ?? '').includes('{'+'{')) state=''">Вручную</button>
-                    <button type="button" :aria-pressed="mode === 'expression'" x-on:click="mode='expression'; $nextTick(()=>$refs.value.focus())">Переменная</button>
-                </div>
+                <label x-show="!labelHidden" :for="pickedExpression ? $id('local-value') + '-chip' : $id('local-value') + (mode === 'expression' || (!hasOptions && !crmControl) ? '-text' : '')"><span x-text="label"></span><span x-show="required" aria-hidden="true"> *</span></label>
+                <button type="button" class="workflow-compact-field-manual" x-show="!field.relativePath && mode === 'expression' && !pickedExpression"
+                    x-on:click="mode='value'; editingPickedExpression=false; if (String(state ?? '').includes('{'+'{')) state=''">Вручную</button>
             </div>
-            <x-filament::input.wrapper x-show.important="mode === 'value' && hasOptions">
-                <select class="fi-input workflow-value-field__select" x-model="state" :id="$id('local-value')" :aria-label="label">
-                    <option value="" x-text="placeholder || (Object.keys(options).length ? 'Выберите значение' : 'Нет доступных вариантов, обновите справочник')"></option>
-                    <template x-if="state !== null && state !== '' && !String(state).includes('{'+'{') && !Object.hasOwn(options,state)"><option :value="state" x-text="state"></option></template>
-                    <template x-for="(option, value) in options" :key="value"><option :value="value" :selected="String(state) === String(value)" x-text="option"></option></template>
-                </select>
-            </x-filament::input.wrapper>
-            <x-filament::input.wrapper x-show.important="mode === 'expression' || !hasOptions">
-                <template x-if="!field.rows"><input x-ref="value" x-model="state" class="fi-input" data-workflow-value-input
-                    :data-workflow-filter-item-field="field.relativePath ? '' : null" :id="$id('local-value')+'-text'"
-                    :type="mode === 'expression' ? 'text' : field.type || 'text'" :aria-label="label" :placeholder="placeholder"
-                    x-on:dragover.prevent x-on:drop.prevent="const raw=$event.dataTransfer.getData('application/workflow-expression'); if(raw && !field.relativePath) {state=JSON.parse(raw).expression;mode='expression';}" /></template>
-                <template x-if="field.rows"><textarea x-ref="value" x-model="state" class="fi-input" data-workflow-value-input :rows="field.rows"
-                    :id="$id('local-value')+'-text'" :aria-label="label" :placeholder="placeholder"
-                    x-on:dragover.prevent x-on:drop.prevent="const raw=$event.dataTransfer.getData('application/workflow-expression'); if(raw) {state=JSON.parse(raw).expression;mode='expression';}"></textarea></template>
-            </x-filament::input.wrapper>
+            <div class="workflow-compact-field-control">
+                <div class="workflow-compact-field-control__value">
+                    @include('filament.workflow-builder.workflow-crm-typed-value')
+                    <button type="button" class="workflow-compact-field-chip" :id="$id('local-value') + '-chip'" x-show="pickedExpression" x-text="pickedExpression" :title="state"
+                        x-on:click="editPickedExpression()" aria-label="Редактировать выражение"></button>
+                    <x-filament::input.wrapper x-show.important="mode === 'value' && hasOptions && !crmControl">
+                        <select class="fi-input workflow-value-field__select" x-model="state" :id="$id('local-value')" :aria-label="label">
+                            <option value="" x-text="placeholder || (Object.keys(options).length ? 'Выберите значение' : 'Нет доступных вариантов, обновите справочник')"></option>
+                            <template x-if="state !== null && state !== '' && !String(state).includes('{'+'{') && !Object.hasOwn(options,state)"><option :value="state" x-text="state"></option></template>
+                            <template x-for="(option, value) in options" :key="value"><option :value="value" :selected="String(state) === String(value)" x-text="option"></option></template>
+                        </select>
+                    </x-filament::input.wrapper>
+                    <x-filament::input.wrapper x-show.important="(mode === 'expression' || (!hasOptions && !crmControl)) && !pickedExpression">
+                        <template x-if="!field.rows"><input x-ref="value" x-model="state" class="fi-input" data-workflow-value-input
+                            :data-workflow-filter-item-field="field.relativePath ? '' : null" :id="$id('local-value')+'-text'"
+                            :type="mode === 'expression' ? 'text' : field.type || 'text'" :aria-label="label" :placeholder="placeholder"
+                            x-on:dragover.prevent x-on:drop.prevent="const raw=$event.dataTransfer.getData('application/workflow-expression'); if(raw && !field.relativePath) {state=JSON.parse(raw).expression;mode='expression';editingPickedExpression=false;}" /></template>
+                        <template x-if="field.rows"><textarea x-ref="value" x-model="state" class="fi-input" data-workflow-value-input :rows="field.rows"
+                            :id="$id('local-value')+'-text'" :aria-label="label" :placeholder="placeholder"
+                            x-on:dragover.prevent x-on:drop.prevent="const raw=$event.dataTransfer.getData('application/workflow-expression'); if(raw) {state=JSON.parse(raw).expression;mode='expression';editingPickedExpression=false;}"></textarea></template>
+                    </x-filament::input.wrapper>
+                </div>
+                <button type="button" class="workflow-compact-field-toggle" data-workflow-compact-field-toggle
+                    x-show="!field.relativePath" x-on:click="togglePickedExpression($el)" aria-label="Вставить поле"
+                    title="Вставить поле" aria-expanded="false" aria-haspopup="dialog">{}</button>
+            </div>
             <div class="workflow-value-suggestions" x-show="suggestions.length" x-cloak role="listbox" aria-label="Подсказки переменных">
                 <template x-for="(item,index) in suggestions" :key="item.expression"><button type="button" role="option" :aria-selected="index === suggestionIndex" x-on:mousedown.prevent x-on:click="chooseSuggestion(item)"><span x-text="item.source+' · '+(item.label || item.path)"></span><code x-text="item.expression"></code></button></template>
             </div>

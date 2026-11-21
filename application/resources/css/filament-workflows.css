@@ -1,7 +1,8 @@
 @import './workflow-inspector.css';
+@import './workflow-compact-field-picker.css';
+@import './workflow-trigger-reference.css';
 @import './workflow-debugger.css';
 @import './workflow-node-fields.css';
-@import './workflow-condition-artwork.css';
 @tailwind utilities;
 
 /* Both labels share a grid cell so saving never shifts the toolbar. */
@@ -6976,11 +6977,6 @@ svg.workflow-control-icon { color: #248548 !important; }
     box-shadow: 0 0 0 5px rgb(47 167 210 / 0.15);
 }
 .workflow-node-editor #workflow-canvas [data-connection-target="true"] { outline: 2px solid #2fa7d2; outline-offset: 3px; }
-/* Identify starts without hiding execution success/error colors or selection rings. */
-.workflow-node-editor #workflow-canvas .workflow-node-card--trigger:where(:not([data-execution-status]), [data-execution-status=""], [data-execution-status="pending"]),
-.dark .workflow-node-editor #workflow-canvas .workflow-node-card--trigger:where(:not([data-execution-status]), [data-execution-status=""], [data-execution-status="pending"]) {
-    border-color: #ff6a00 !important;
-}
 .workflow-node-starts { display: flex; flex-direction: column; gap: 112px; flex-shrink: 0; width: 96px; }
 .workflow-node-starts .workflow-node-shell--trigger { margin: 0 !important; }
 
@@ -7122,59 +7118,36 @@ svg.workflow-control-icon { color: #248548 !important; }
 }
 .workflow-node-settings__parameters .workflow-entity-link-section { padding-top: 16px; border-top: 1px solid #d9dde3 !important; }
 .dark .workflow-node-settings__parameters .workflow-entity-link-section { border-top-color: var(--workflow-dark-line) !important; }
-/* Node identity. Tile geometry, ports, captions and connection paths stay unchanged. */
-.workflow-node-editor #workflow-canvas .workflow-node-artwork {
-    position: absolute; inset: 0; pointer-events: none; border-radius: 15px;
-    /* 194px square windows, one uniform scale. Never stretch the source art. */
-    --workflow-node-artwork-image: url('../images/workflow-nodes/duotone-approved.png');
-    background-image: var(--workflow-node-artwork-image);
-    background-repeat: no-repeat; background-size: 766.494845% 545.360825%;
-    background-position: var(--art-x) var(--art-y);
-    /* Retain the selected two-tone glyphs and shading, with the operation's hue. */
-    background-color: var(--workflow-node-fill);
-    background-blend-mode: luminosity;
-}
-.workflow-node-editor #workflow-canvas .workflow-node-artwork[data-artwork-ready="false"] { background-image: none; }
-.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-artwork > .workflow-node-artwork__fallback {
-    position: absolute; inset: 25%; width: 50%; height: 50%; color: #fff;
-}
-.workflow-node-artwork[data-node-artwork="contact-find"] { --art-x: 13.070379%; --art-y: 20.949074%; }
-.workflow-node-artwork[data-node-artwork="contact-create"] { --art-x: 38.205723%; --art-y: 20.949074%; }
-.workflow-node-artwork[data-node-artwork="contact-update"] { --art-x: 61.948956%; --art-y: 20.949074%; }
-.workflow-node-artwork[data-node-artwork="lead-create"] { --art-x: 86.929621%; --art-y: 20.949074%; }
-.workflow-node-artwork[data-node-artwork="lead-update"] { --art-x: 13.070379%; --art-y: 51.388889%; }
-.workflow-node-artwork[data-node-artwork="loop"] { --art-x: 61.948956%; --art-y: 51.388889%; }
-.workflow-node-artwork[data-node-artwork="assign"] { --art-x: 86.929621%; --art-y: 51.388889%; }
-.workflow-node-artwork[data-node-artwork="http"] { --art-x: 13.070379%; --art-y: 81.944444%; }
-.workflow-node-artwork[data-node-artwork="telegram"] { --art-x: 61.948956%; --art-y: 81.944444%; }
-.workflow-node-artwork[data-node-artwork="manual"] { --art-x: 86.929621%; --art-y: 81.944444%; }
-.workflow-node-editor #workflow-canvas .workflow-node-card:has(.workflow-node-artwork) > .workflow-node-card__icon { position: static; }
-.workflow-node-editor #workflow-canvas .workflow-node-card--disabled .workflow-node-artwork { filter: grayscale(1); opacity: .3; }
-.workflow-node-card[data-node-family] { --workflow-node-fill: #657287; }
-.workflow-node-card[data-node-tone="query"] { --workflow-node-fill: #2878df; }
-.workflow-node-card[data-node-tone="create"] { --workflow-node-fill: #2878df; }
-.workflow-node-card[data-node-tone="update"] { --workflow-node-fill: #2878df; }
-.workflow-node-card[data-node-tone="copy"] { --workflow-node-fill: #3f9787; }
-.workflow-node-card[data-node-tone="link"] { --workflow-node-fill: #2878df; }
-.workflow-node-card[data-node-tone="remove"] { --workflow-node-fill: #ce586e; }
-.workflow-node-card[data-node-tone="condition"] { --workflow-node-fill: #9450d5; }
-.workflow-node-card[data-node-tone="loop"] { --workflow-node-fill: #5366d9; }
-.workflow-node-card[data-node-tone="filter"] { --workflow-node-fill: #879638; }
-.workflow-node-card[data-node-tone="delay"] { --workflow-node-fill: #738799; }
-.workflow-node-card[data-node-tone="variable"] { --workflow-node-fill: #c64e9b; }
-.workflow-node-card[data-node-tone="javascript"] { --workflow-node-fill: #daa51f; }
-.workflow-node-card[data-node-tone="http"] { --workflow-node-fill: #00a399; }
-.workflow-node-card[data-node-tone="telegram"] { --workflow-node-fill: #06a9dd; }
-.workflow-node-card[data-node-tone="trigger"] { --workflow-node-fill: #ef8799; }
-.workflow-node-card[data-node-tone="automation"] { --workflow-node-fill: #a75eb9; }
-.workflow-node-card[data-node-tone="subscription"] { --workflow-node-fill: #9d8160; }
-.workflow-node-card[data-node-tone="neutral"] { --workflow-node-fill: #657287; }
+/* Node family color is reserved for the glyph. Card geometry, ports and captions stay unchanged. */
+.workflow-node-card[data-node-family] { --workflow-node-ink: #657287; --workflow-node-bright: #aebbd0; }
+.workflow-node-card:is([data-node-tone="query"], [data-node-tone="create"], [data-node-tone="update"], [data-node-tone="link"]) { --workflow-node-ink: #2665b7; --workflow-node-bright: #80b9fa; }
+.workflow-node-card[data-node-tone="copy"] { --workflow-node-ink: #287b6c; --workflow-node-bright: #76c8b6; }
+.workflow-node-card[data-node-tone="remove"] { --workflow-node-ink: #ad3c58; --workflow-node-bright: #f58fa7; }
+.workflow-node-card[data-node-tone="condition"] { --workflow-node-ink: #7649be; --workflow-node-bright: #c5a3ff; }
+.workflow-node-card[data-node-tone="loop"] { --workflow-node-ink: #4959bc; --workflow-node-bright: #a7b0ff; }
+.workflow-node-card[data-node-tone="filter"] { --workflow-node-ink: #647525; --workflow-node-bright: #bdd377; }
+.workflow-node-card[data-node-tone="delay"] { --workflow-node-ink: #536c80; --workflow-node-bright: #9ebad2; }
+.workflow-node-card[data-node-tone="variable"] { --workflow-node-ink: #a3387c; --workflow-node-bright: #f394d0; }
+.workflow-node-card[data-node-tone="javascript"] { --workflow-node-ink: #8b600c; --workflow-node-bright: #ffcc61; }
+.workflow-node-card[data-node-tone="http"] { --workflow-node-ink: #087e6c; --workflow-node-bright: #62d2bb; }
+.workflow-node-card[data-node-tone="telegram"] { --workflow-node-ink: #11749a; --workflow-node-bright: #6bc8ef; }
+.workflow-node-card[data-node-tone="trigger"] { --workflow-node-ink: #c34a31; --workflow-node-bright: #f49a86; }
+.workflow-node-card[data-node-tone="automation"] { --workflow-node-ink: #873e9b; --workflow-node-bright: #e3a1f1; }
+.workflow-node-card[data-node-tone="subscription"] { --workflow-node-ink: #856544; --workflow-node-bright: #dcb78e; }
+.workflow-node-card[data-node-tone="neutral"] { --workflow-node-ink: #657287; --workflow-node-bright: #aebbd0; }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled) {
-    background: var(--workflow-node-fill) !important;
-    border-color: rgb(255 255 255 / 22%) !important;
+    background: #fff !important;
+    border-color: #bcc5d0 !important;
+}
+.dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled) {
+    background: #32343b !important;
+    border-color: #555963 !important;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-card__icon {
-    width: 3rem; height: 3rem; flex-basis: 3rem; color: #fff !important;
+    width: 3rem; height: 3rem; flex-basis: 3rem; color: var(--workflow-node-ink) !important;
+}
+.dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-card__icon {
+    color: var(--workflow-node-bright) !important;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph {
     display: block; position: relative; width: 3rem; height: 3rem;
@@ -7186,9 +7159,9 @@ svg.workflow-control-icon { color: #248548 !important; }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > svg {
     position: absolute; inset: 0; width: 100%; height: 100%; color: inherit;
 }
-.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph__main [opacity] { opacity: .4; }
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] :is(.workflow-node-glyph__main, .workflow-node-glyph__entity) [opacity] { display: none; }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > .workflow-node-glyph__entity {
-    width: 88%; height: 88%; top: 0; left: -7%; opacity: .48;
+    width: 88%; height: 88%; top: 0; left: -7%;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] .workflow-node-glyph > .workflow-node-glyph__action {
     width: 57%; height: 57%; inset: auto -8% 0 auto;
@@ -7208,9 +7181,6 @@ svg.workflow-control-icon { color: #248548 !important; }
 /* Execution is a separate signal, never confused with the node's family color. */
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-status {
     width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #fff;
-}
-.workflow-node-editor #workflow-canvas .workflow-node-card:has(.workflow-node-artwork) > .workflow-node-status {
-    right: 3px; bottom: 3px; width: 17px; height: 17px;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is([data-execution-status="completed"], [data-execution-status="success"]) {
     border-color: #269b51 !important; box-shadow: 0 0 0 1px #269b51 !important;
@@ -7563,12 +7533,17 @@ svg.workflow-control-icon { color: #248548 !important; }
     outline-offset: 3px;
 }
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is(:hover, :focus-visible) {
-    outline-color: color-mix(in srgb, var(--workflow-node-fill) 60%, white);
+    outline-color: #8d98a7;
     box-shadow: 0 9px 22px rgb(30 41 59 / 0.28) !important;
 }
 .dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family]:not(.workflow-node-card--disabled):is(:hover, :focus-visible) {
-    outline-color: color-mix(in srgb, var(--workflow-node-fill) 55%, white);
+    outline-color: #a2a9b6;
     box-shadow: 0 10px 24px rgb(0 0 0 / 0.44) !important;
+}
+.workflow-node-editor #workflow-canvas .workflow-node-card[data-workflow-inspector-selected="true"][data-node-family]:not(.workflow-node-card--disabled),
+.dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-workflow-inspector-selected="true"][data-node-family]:not(.workflow-node-card--disabled) {
+    outline: 2px solid #f17b5d;
+    outline-offset: -1px;
 }
 @media (prefers-reduced-motion: reduce) {
     .workflow-node-edge-add:not(.workflow-loop-replace):not([data-workflow-edge-delete]),

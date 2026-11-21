@@ -106,6 +106,34 @@ final class WorkflowTriggerReferenceCatalog
         return $shape;
     }
 
+    /** Editor-only shape: use the same envelope as the webhook trigger, without sample values. */
+    public static function editorReferences(): array
+    {
+        $references = [];
+        foreach (AmoCrmWebhookTriggerCatalog::classes() as $class) {
+            $type = $class::type();
+            [$entityKey, $actionKey] = $class::payloadItemPath();
+            $fields = self::fields($type);
+            $shape = self::shape($type);
+            if ($entityKey === 'leads' && !in_array($actionKey, ['note', 'delete'], true)) {
+                $fields['custom_fields'] = 'Пользовательские поля';
+                $shape['custom_fields'] = [['id' => null, 'name' => null, 'values' => [['value' => null]]]];
+            }
+            $references[$type] = [
+                'label' => $class::name(),
+                'fields' => $fields,
+                'shape' => $shape,
+                'body' => [$entityKey => [$actionKey => [$shape]]],
+            ];
+        }
+        foreach (['amo-button', 'amo-bulk', 'digital-pipeline'] as $type) {
+            $shape = self::shape($type);
+            $references[$type] = ['fields' => self::fields($type), 'shape' => $shape, 'body' => $shape];
+        }
+
+        return $references;
+    }
+
     /** @return array<string, array<string, string>> */
     public static function maskGroups(array $definition): array
     {

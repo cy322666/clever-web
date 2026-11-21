@@ -87,6 +87,20 @@ class WorkflowCanvasRunTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_explicit_node_simulation_does_not_send_a_message(): void
+    {
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+        $step = ['id' => 'telegram', 'type' => 'telegram_send_message', 'config' => TelegramSendMessageAction::protectConfig([
+            'bot_token' => '12345:test-token', 'chat_id' => '-1001', 'text' => 'Тест', 'parse_mode' => 'plain',
+        ])];
+
+        Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [$step]])
+            ->call('runWorkflowCanvasNode', 'telegram', false)->assertHasNoErrors()
+            ->assertSet('nodeRunResults', [])
+            ->assertSet('nodePreviewSessionId', null);
+        Http::assertNothingSent();
+    }
+
     public function test_both_node_buttons_send_real_requests_even_with_whole_flow_dry_run_selected(): void
     {
         Http::fake(['api.telegram.org/*' => Http::response(['ok'=>true, 'result'=>['message_id'=>7]])]);

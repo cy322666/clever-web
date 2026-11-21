@@ -88,35 +88,45 @@ trait HasWorkflowDebugger
         return 'workflow-debug-history:'.(Auth::id() ?? 'guest').':'.$this->debugHistoryContextId;
     }
 
-    public function runWorkflowCanvasNode(string $actionId): void
+    public function runWorkflowCanvasNode(string $actionId, bool $real = true): ?array
     {
-        if ($this->workflowPreviewBusy()) return;
-        if (!$this->applyLocalWorkflowInspectorDrafts(['action:'.$actionId])) return;
+        if ($this->workflowPreviewBusy()) return null;
+        if (!$this->applyLocalWorkflowInspectorDrafts(['action:'.$actionId])) return null;
         $this->debugExecutingNodeId = $actionId;
-        // The play icon uses an open form's draft, without requiring Apply or Save.
-        if (($this->mountedActions[0]['name'] ?? '') === 'configureWorkflowAction' && $this->editingActionId === $actionId) {
+        // The legacy play icon uses an open form's draft, without requiring Apply or Save.
+        if ($real && ($this->mountedActions[0]['name'] ?? '') === 'configureWorkflowAction' && $this->editingActionId === $actionId) {
             $this->runEditingWorkflowNode();
-            return;
+            return $this->workflowNodeTestSummary($this->nodeRunResults[$actionId] ?? [], true);
         }
         $node = \App\Services\Workflows\WorkflowGraph::nodes($this->workflowActions)['action:'.$actionId] ?? null;
         abort_unless($node, 404);
-        Cache::lock('workflow-node-run:'.(Auth::id() ?? 'guest').':'.$this->getId(), 120)->get(function () use ($actionId, $node): void {
+        $summary = Cache::lock('workflow-node-run:'.(Auth::id() ?? 'guest').':'.$this->getId(), 120)->get(function () use ($actionId, $node, $real): array {
             try {
                 if ($this->debugOpen) $this->prepareWorkflowDebugInput();
                 $this->syncDefinition();
                 // Canvas play must not mount a form, change selection or discard a draft.
-                $this->executeWorkflowNodePreview($node['step'], $this->workflowNodeRunInput());
+                $result = $this->executeWorkflowNodePreview($node['step'], $this->workflowNodeRunInput(), $real);
             } catch (Throwable $exception) {
-                $this->nodeRunResults[$actionId] = ['id' => $actionId, 'status' => 'error', 'error' => $exception->getMessage()];
-                $this->publishNodePreviewResults($actionId);
+                $result = ['id' => $actionId, 'status' => 'error', 'error' => $exception->getMessage()];
+                if ($real) {
+                    $this->nodeRunResults[$actionId] = $result;
+                    $this->publishNodePreviewResults($actionId);
+                }
             }
-            $result = $this->nodeRunResults[$actionId] ?? [];
-            if (in_array($result['status'] ?? '', ['error', 'failed', 'validation_error'], true)) {
+            if ($real && in_array($result['status'] ?? '', ['error', 'failed', 'validation_error'], true)) {
                 $names = \App\Services\Workflows\WorkflowExpressionCatalog::referenceNames($this->workflowActions, $this->definition);
                 Notification::make()->danger()->title($names[$actionId] ?? 'Нода')
                     ->body($result['error'] ?? 'Не удалось выполнить ноду.')->send();
             }
+            return $this->workflowNodeTestSummary($result, $real);
         });
+        return is_array($summary) ? $summary : null;
+    }
+
+    private function workflowNodeTestSummary(array $result, bool $real): array
+    {
+        return array_intersect_key($result, array_flip(['status', 'error', 'display_count', 'condition_result']))
+            + ['status' => 'error', 'real' => $real];
     }
 
     public function runEditingWorkflowNode(): void
@@ -193,12 +203,20 @@ trait HasWorkflowDebugger
         return ['trigger_data' => ['_workflow_start_node_id' => $startId]];
     }
 
-    private function executeWorkflowNodePreview(array $step, array $input): void
+    private function executeWorkflowNodePreview(array $step, array $input, bool $real = true): array
     {
         $record = method_exists($this, 'getRecord') ? $this->getRecord() : null;
-        // Every node button executes only that node. A loop just exposes its first item.
-        $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), true, $this->definition);
-        $this->applyWorkflowNodePreview($step['id'], $session);
+        $session = app(WorkflowDebugger::class)->executeNode($step, $this->workflowDebugContext(), $input, $record?->exists ? $record->getKey() : null, Auth::id(), $real, $this->definition);
+        if ($real) {
+            $this->applyWorkflowNodePreview($step['id'], $session);
+            if (empty($session['error']) && !collect($session['results'])->contains('id', $step['id'])) return [];
+            return $this->nodeRunResults[$step['id']] ?? [];
+        }
+        // A dry run may return a descriptor instead of CRM IDs. Never replace
+        // real picker data, canvas badges, or the context of a later real run.
+        if ($session['error'] ?? null) return ['status' => 'error', 'error' => $session['error']];
+        $results = \App\Services\Workflows\WorkflowExecutionStats::annotate($session['results']);
+        return collect($results)->last(fn (array $result): bool => $result['id'] === $step['id']) ?? [];
     }
 
     private function applyWorkflowNodePreview(string $nodeId, array $session): void

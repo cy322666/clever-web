@@ -89,7 +89,7 @@ final class WorkflowExpressionCatalog
         $triggerValue = is_array($actualTriggerValue)
             ? self::mergeShape($triggerShape, $actualTriggerValue)
             : $actualTriggerValue;
-        $sources = [self::source($startId, $names[$startId] ?? 'Данные запуска', $triggerValue, $hasTriggerValue, $triggerShape, $actualTriggerValue)];
+        $sources = [self::source($startId, $names[$startId] ?? 'Данные запуска', $triggerValue, $hasTriggerValue, $triggerShape, $actualTriggerValue) + ['trigger_type' => $start['type'] ?? null]];
         $upstream = $connections !== null && $editingId !== null
             ? array_map(fn ($id) => substr($id, 7), WorkflowGraph::ancestors(['actions' => $actions, 'connections' => $connections], 'action:'.$editingId))
             : (self::before($actions, $editingId) ?? []);
