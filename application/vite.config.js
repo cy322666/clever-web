@@ -2,6 +2,10 @@ import { defineConfig } from 'vite'
 import laravel, { refreshPaths } from 'laravel-vite-plugin'
 
 export default defineConfig({
+    build: {
+        manifest: 'manifest.json',
+        target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+    },
     plugins: [
         laravel({
             input: [

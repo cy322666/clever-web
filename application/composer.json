@@ -9,7 +9,6 @@
     "license": "MIT",
     "require": {
         "croustibat/filament-jobs-monitor": "^4.2",
-        "doctrine/dbal": "3.6.6",
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "filament/actions": "^5.8.3",
@@ -20,7 +19,7 @@
         "filament/tables": "^5.8.3",
         "filament/widgets": "^5.8.3",
         "guava/calendar": "^3.1",
-        "guzzlehttp/guzzle": "^7.2",
+        "guzzlehttp/guzzle": "^7.16.5",
         "laravel/framework": "^12.73",
         "laravel/horizon": "^5.47",
         "laravel/sanctum": "4.x-dev",
@@ -33,7 +32,7 @@
         "rappasoft/laravel-authentication-log": "^5.0",
         "spatie/laravel-backup": "^9.0",
         "stechstudio/filament-impersonate": "^5.0",
-        "symfony/html-sanitizer": "^7.4",
+        "symfony/html-sanitizer": "^7.4.23",
         "ufee/amoapi": "0.9.3.5",
         "vgrish/yclients-sdk-php": "^1.0"
     },
@@ -95,7 +94,7 @@
             "php-http/discovery": true
         },
         "audit": {
-            "block-insecure": false
+            "block-insecure": true
         },
         "platform": {
             "php": "8.2.31"
