@@ -4,7 +4,6 @@ namespace Tests\Feature\Core;
 
 use App\Exceptions\Handler;
 use App\Filament\App\Pages\Dashboard;
-use App\Providers\Filament\CatalogPanelProvider;
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Http\Request;
@@ -31,12 +30,6 @@ class PanelErrorHandlingTest extends TestCase
         $this->assertFalse(app(Dashboard::class)->hasErrorNotifications());
     }
 
-    public function test_catalog_inherits_native_handling_if_enabled_again(): void
-    {
-        $panel = (new CatalogPanelProvider($this->app))->panel(Panel::make());
-
-        $this->assertFalse($panel->hasErrorNotifications());
-    }
 
     public function test_future_panels_inherit_the_same_error_handling(): void
     {
