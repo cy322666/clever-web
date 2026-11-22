@@ -7,16 +7,21 @@ use App\Models\Core\Account;
 use App\Models\Integrations\Tilda\Form;
 use App\Models\Integrations\Tilda\Setting;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
+use RuntimeException;
+use Throwable;
 
 class FormSend implements ShouldQueue
 {
     use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 1;
+
+    public bool $failOnTimeout = true;
 
     /**
      * Create a new job instance.
@@ -45,10 +50,27 @@ class FormSend implements ShouldQueue
      */
     public function handle(): void
     {
-        Artisan::call('app:tilda-form-send', [
-            'form'    => $this->form->id,
-            'account' => $this->account->id,
-            'setting' => $this->setting->id,
-        ]);
+        try {
+            $exitCode = Artisan::call('app:tilda-form-send', [
+                'form' => $this->form->id,
+                'account' => $this->account->id,
+                'setting' => $this->setting->id,
+            ]);
+        } catch (Throwable $exception) {
+            $this->fail($exception);
+
+            return;
+        }
+
+        if ($exitCode !== 0) {
+            $reason = trim(Artisan::output());
+            $this->fail(new RuntimeException($reason !== ''
+                ? $reason
+                : 'Команда отправки Tilda завершилась с кодом ошибки '.$exitCode.'.'));
+        }
+    }
+    public function failed(?Throwable $exception): void
+    {
+        $this->form->fresh()?->markFailed($exception?->getMessage() ?? 'Ошибка выгрузки Tilda.');
     }
 }

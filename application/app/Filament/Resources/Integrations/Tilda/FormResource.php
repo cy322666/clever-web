@@ -68,12 +68,17 @@ class FormResource extends Resource
                     }, true)
                     ->label('Контакт'),
 
-                Tables\Columns\ToggleColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
+                    ->state(fn (Form $record): string => $record->deliveryStatus())
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Ошибка' => 'danger',
+                        'Выгружен' => 'success',
+                        default => 'gray',
+                    })
+                    ->tooltip(fn (Form $record): ?string => $record->last_error)
                     ->sortable()
-                    ->onColor('primary')
-                    ->offColor('gray')
-                    ->disabled()
-                    ->label('Выгружен'),
+                    ->label('Статус'),
 
                 Tables\Columns\TextColumn::make('site')
                     ->label('Форма'),
