@@ -124,6 +124,20 @@ class WorkflowExpressionsTest extends TestCase
         $this->assertSame(['Имя.поле'], $fields[1]['item_fields']);
     }
 
+    public function test_filter_item_suggestions_include_collection_body_keys_without_positions(): void
+    {
+        $actions = [
+            ['id' => 'deals', 'type' => 'amocrm_query_leads', 'name' => 'Получить сделки'],
+            ['id' => 'filter', 'type' => 'workflow_filter_list', 'name' => 'Фильтр списка'],
+        ];
+        $sources = WorkflowExpressionCatalog::sources($actions, 'filter', ['step_outputs' => [
+            'deals' => ['items' => [['id' => 1, 'name' => 'Первый', 'tags' => [['id' => 2]], 'contact' => ['name' => 'Иван']]], 'has_more' => false],
+        ]]);
+        $this->assertSame(['id', 'name', 'tags', 'contact', 'contact.name'], $sources[1]['fields'][0]['item_fields']);
+        $this->assertCount(1, $sources[1]['fields']);
+        $this->assertStringNotContainsString('[0]', json_encode($sources[1]));
+    }
+
     public function test_picker_does_not_ship_copies_of_full_arrays_but_expressions_still_resolve_them(): void
     {
         $items = array_map(fn ($id) => ['id'=>$id, 'text'=>str_repeat('x', 100)], range(1, 1000));

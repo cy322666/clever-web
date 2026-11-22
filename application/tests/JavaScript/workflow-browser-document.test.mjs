@@ -228,3 +228,16 @@ test('read operation modes and with presets retain one shared config value', () 
     assert(fields.some((field) => field.path === 'id'));
     assert.equal(fields.find((field) => field.path === 'with_preset').options.contacts, 'Контакты');
 });
+
+
+test('named fields in empty PHP groups survive cloning while repeater indexes remain arrays',()=>{
+    const config={standard_fields:[],filters:[]};
+    setPath(config,'standard_fields.first_name','Иван');
+    setPath(config,'standard_fields.last_name','Петров');
+    setPath(config,'standard_fields.responsible_user_id',9);
+    setPath(config,'filters.0.value','42');
+    assert.deepEqual(JSON.parse(JSON.stringify(config)),{
+        standard_fields:{first_name:'Иван',last_name:'Петров',responsible_user_id:9},
+        filters:[{value:'42'}],
+    });
+});

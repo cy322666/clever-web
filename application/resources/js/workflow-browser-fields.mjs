@@ -1,3 +1,4 @@
+import {linkedEntityOptions} from './workflow-entity-links.mjs';
 import { getPath } from './workflow-browser-document.mjs';
 
 const field = (path, label, options = {}) => ({ path, label, ...options });
@@ -39,6 +40,7 @@ export function nodeFields(node, refs = {}, operations = {}) {
         choice(prefix + 'status_id', 'Этап', status(getPath(c, prefix + 'pipeline_id'))),
     ];
     const entity =
+        ({amocrm_create_lead:'lead',amocrm_create_contact:'contact',amocrm_create_company:'company'}[type]) ||
         c.target_entity ||
         c.entity ||
         (type.includes('contact') ? 'contact' : type.includes('company') ? 'company' : 'lead');
@@ -68,8 +70,16 @@ export function nodeFields(node, refs = {}, operations = {}) {
             : {}),
         ...(entity === 'contact' ? { first_name: 'Имя', last_name: 'Фамилия' } : {}),
     };
+    const dedicated = {
+        amocrm_create_lead: ['name','price','responsible_user_id','pipeline_id','status_id'],
+        amocrm_create_contact: ['name','responsible_user_id'],
+        amocrm_create_company: ['name','responsible_user_id'],
+        amocrm_update_lead_fields: ['name','price','responsible_user_id','pipeline_id','status_id'],
+        amocrm_update_contact_fields: Object.keys(system),
+        amocrm_update_company_fields: Object.keys(system),
+    }[type] || [];
     const customOptions = {
-        ...Object.fromEntries(Object.entries(system).map(([key, label]) => ['system:' + key, label])),
+        ...Object.fromEntries(Object.entries(system).filter(([key]) => !dedicated.includes(key)).map(([key, label]) => ['system:' + key, label])),
         ...Object.fromEntries(
             (refs.fields || [])
                 .filter(
@@ -136,13 +146,15 @@ export function nodeFields(node, refs = {}, operations = {}) {
             })),
             choice('pipeline_id', 'Воронка', pipelines, { visible: (row) => row.field === 'statuses' }),
             choice('value', 'Значение', (row) =>
-                row.field === 'responsible_user_id'
+                ['responsible_user_id', 'created_by', 'updated_by'].includes(row.field)
                     ? users
                     : row.field === 'pipeline_id'
                       ? pipelines
                       : row.field === 'statuses'
-                        ? status(row.pipeline_id)
-                        : filterFields[row.field]?.options || {},
+                        ? (/^\d+$/.test(String(row.pipeline_id || '')) ? status(row.pipeline_id) : {})
+                        : row.field === 'task_type'
+                          ? (Object.keys(refs.task_types || {}).length ? refs.task_types : {1:'Звонок',2:'Встреча'})
+                          : filterFields[row.field]?.options || {},
             ),
         ],
         { field: '', operator: 'eq', value: '' },
@@ -318,21 +330,7 @@ export function nodeFields(node, refs = {}, operations = {}) {
                     ),
                 ),
             ...(c.operation === 'custom' ? [field('request_path', 'Путь запроса')] : []),
-            ...(builder
-                ? [
-                      choice(
-                          'body_mode',
-                          '',
-                          {
-                              builder: 'Конструктор',
-                              fields: 'Параметры',
-                              ...(c.body_mode === 'json' ? { json: 'Сохранённый запрос' } : {}),
-                          },
-                          { buttons: true },
-                      ),
-                  ]
-                : []),
-            ...(builder && c.body_mode === 'builder'
+            ...(builder && c.body_mode !== 'json'
                 ? [
                       field('query', 'Поиск'),
                       filters,
@@ -363,9 +361,9 @@ export function nodeFields(node, refs = {}, operations = {}) {
     if (type === 'amocrm_create_lead')
         return body([
             field('name', 'Название сделки'),
+            choice('responsible_user_id', 'Ответственный', users),
             field('price', 'Бюджет'),
             ...pipelineFields(),
-            choice('responsible_user_id', 'Ответственный', users),
             field('tags', 'Теги'),
             field('contact_id', 'ID контакта'),
             field('company_id', 'ID компании'),
@@ -376,7 +374,9 @@ export function nodeFields(node, refs = {}, operations = {}) {
             field('name', type.includes('contact') ? 'Имя контакта' : 'Название компании'),
             choice('responsible_user_id', 'Ответственный', users),
             field('tags', 'Теги'),
-            ...target(true),
+            choice('target_entity', 'Привязать к', type === 'amocrm_create_contact'
+                ? {lead:'Сделка',company:'Компания'} : {lead:'Сделка',contact:'Контакт'}, {placeholder:'Не привязывать'}),
+            field('target_entity_id', 'ID сущности', {visible: () => Boolean(c.target_entity)}),
             mappings,
         ]);
     if (
@@ -387,7 +387,10 @@ export function nodeFields(node, refs = {}, operations = {}) {
         return [
             ...target(type !== 'amocrm_update_entity_fields'),
             ...body([
-                field('standard_fields.name', 'Название'),
+                field('standard_fields.name', entity === 'contact' ? 'Полное имя' : 'Название'),
+                ...(entity === 'contact'
+                    ? [field('standard_fields.first_name', 'Имя'), field('standard_fields.last_name', 'Фамилия')]
+                    : []),
                 ...(entity === 'lead'
                     ? [field('standard_fields.price', 'Бюджет'), ...pipelineFields('standard_fields.')]
                     : []),
@@ -420,7 +423,7 @@ export function nodeFields(node, refs = {}, operations = {}) {
     if (['amocrm_link_entity', 'amocrm_unlink_entity'].includes(type))
         return [
             ...target(),
-            choice('linked_entity', 'Связать с', entities),
+            choice('linked_entity', 'Связать с', linkedEntityOptions(c.target_entity, entities)),
             field('linked_entity_id', 'ID связанной записи'),
         ];
     if (type === 'amocrm_start_salesbot')

@@ -227,10 +227,12 @@ final class WorkflowAmoReadCatalog
         }, $path);
         // No host, credentials, encoded traversal, query string, redirects or mutating verbs.
         if (!preg_match('~^/api/v4/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$~D', $path)) throw new InvalidArgumentException('Укажите путь /api/v4/… без домена и строки запроса.');
-        if (($config['body_mode'] ?? '') === 'builder') {
-            return ['path' => $path, 'query' => WorkflowEntityQuery::build($config, $userId)];
-        }
-        $query = ($config['body_mode'] ?? '') === 'json' ? WorkflowJsonBody::parse($config['json_body'] ?? '{}') : [];
+        $query = match ($config['body_mode'] ?? '') {
+            'builder' => WorkflowEntityQuery::build($config, $userId),
+            'json' => WorkflowJsonBody::parse($config['json_body'] ?? '{}'),
+            default => [],
+        };
+        // Explicit parameters extend the filters and may override generated defaults.
         if (($config['body_mode'] ?? '') !== 'json') {
             foreach ($config['parameters'] ?? [] as $row) {
                 $name = (string)($row['name'] ?? '');

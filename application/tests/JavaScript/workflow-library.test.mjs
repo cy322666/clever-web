@@ -24,7 +24,7 @@ test('catalog browsing is entirely client side and insertion state is reset only
     state.openFor({mode:'trigger', replace:true}); assert.equal(state.replaceTrigger,true);
     state.openFor({mode:'trigger'}); assert.equal(state.replaceTrigger,false);
     state.openFor({anchor:{x:1400,y:880}});
-    assert.equal(state.floatingStyle().left,'898px');assert.equal(state.floatingStyle().top,'308px');
+    assert.equal(state.floatingStyle().left,'898px');assert.equal(state.floatingStyle().top,'528px');
     assert.equal('display' in state.floatingStyle(),false);
     state.closeLibrary(); assert.equal(state.open,false);
     assert.equal(state.floatingStyle().position,'fixed');
@@ -96,7 +96,7 @@ test('floating catalog stays within narrow viewports and replacement stays in tr
     const {state}=fixture();state.openFor({mode:'trigger',replace:true,anchor:{x:1400,y:880}});
     state.selectCategory('trigger:lead');assert.equal(state.mode,'trigger');assert.equal(state.replaceTrigger,true);
     state.viewport={width:375,height:400};
-    assert.equal(state.floatingStyle().left,'12px');assert.equal(state.floatingStyle().top,'12px');
+    assert.equal(state.floatingStyle().left,'12px');assert.equal(state.floatingStyle().top,'28px');
     assert.equal('display' in state.floatingStyle(),false);
 });
 
@@ -132,9 +132,9 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     assert.match(catalog, /<span>amoCRM<\/span><small>/);
     assert.match(catalog, /<span>Сервисы<\/span><small>1<\/small>/);
     assert.doesNotMatch(catalog, /workflow-node-library__item-add/);
-    assert.match(css,/\.workflow-node-edge-add:not\(\.workflow-loop-replace\):not\(\[data-workflow-edge-delete\]\):is\(:hover, :focus-visible\)\s*\{[^}]*scale\(1\.3\)/s);
+    assert.match(css,/\.workflow-node-edge-add:not\(\[data-workflow-edge-delete\]\):is\(:hover, :focus-visible\)\s*\{[^}]*scale\(1\.3\)/s);
     assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-fit \{[^}]*width: 34px; height: 34px/s);
     assert.match(css,/\.workflow-canvas-controls \.workflow-canvas-add-trigger \{[^}]*position: relative; inset: 0; flex: 0 0 34px/s);
-    assert.match(css,/\.workflow-node-card\[data-node-family\]:not\(\.workflow-node-card--disabled\):is\(:hover, :focus-visible\)\s*\{[^}]*outline-color/s);
+    assert.match(css,/\.workflow-node-card\[data-node-family\]:not\(\.workflow-node-card--disabled\):is\(:hover, :focus-visible\)\s*\{[^}]*--workflow-node-highlight-color/s);
     assert.match(css,/\.workflow-workbench--page \.workflow-workbench__toolbar,[^{]*\{\s*min-height: 2\.75rem/s);
 });

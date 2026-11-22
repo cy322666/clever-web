@@ -41,7 +41,6 @@ final class WorkflowNodeSamples
             if ($entity === 'lead') $config['status_id'] = 143;
             $requests = $entity === 'contact' ? [$request('GET', '/api/v4/contacts', query: ['query' => 'QA contact', 'limit' => 10])] : [];
             $requests[] = $request('POST', '/api/v4/'.$plural, [$config]);
-            if ($entity !== 'lead') $requests[] = $request('POST', '/api/v4/leads/101/link', [['to_entity_id' => $id, 'to_entity_type' => $plural, 'metadata' => $entity === 'contact' ? ['is_main' => true] : null]]);
             $add('amocrm_create_'.$entity, $config, $success('created', $entity, $id), 'createEntity:'.$entity, $requests);
             $update = $target($entity, $id) + ['body_mode' => 'json', 'json_body' => '{"name":"QA updated"}'];
             $add('amocrm_update_'.$entity.'_fields', $update, $success('updated', $entity, $id), 'updateFields', [$request('PATCH', '/api/v4/'.$plural.'/'.$id, ['name' => 'QA updated'])]);

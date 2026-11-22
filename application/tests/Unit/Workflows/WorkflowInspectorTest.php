@@ -141,9 +141,9 @@ class WorkflowInspectorTest extends TestCase
             ->call('commitInspectorDrafts')->assertHasErrors()
             ->assertSet('editingActionId','a')->assertSet('mountedActions.0.data.seconds','')
             ->assertSet('workflowActions.1.config.seconds',12)
-            ->set('mountedActions.0.data.seconds',19)
+            ->set('mountedActions.0.data.seconds',14)
             ->call('commitInspectorDrafts')->assertHasNoErrors()
-            ->assertSet('workflowActions.0.config.seconds',19)
+            ->assertSet('workflowActions.0.config.seconds',14)
             ->assertSet('workflowInspectorDrafts',[]);
     }
 

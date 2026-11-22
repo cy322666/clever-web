@@ -4,10 +4,10 @@ import {runInNewContext} from 'node:vm';
 import test from 'node:test';
 
 const plain = value => JSON.parse(JSON.stringify(value));
-function components(writeText = async () => {}, windowOverrides = {}) {
+function components(writeText = async () => {}, windowOverrides = {}, documentOverrides = {}) {
     const window = {addEventListener() {}, setTimeout() {}, clearTimeout() {}, ...windowOverrides};
     runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
-        window, document:{addEventListener() {}}, navigator:{clipboard:{writeText}},
+        window, document:{addEventListener() {},...documentOverrides}, navigator:{clipboard:{writeText}},
     });
     return window;
 }
@@ -17,6 +17,20 @@ function headers(state) {
     field.init();
     return field;
 }
+
+test('bounded numeric inputs clamp typed and pasted values while preserving expressions and empty input', () => {
+    for (const [value,expected] of [['-2','0'],['16','15'],['99','15'],['0','0'],['15','15'],['8','8'],['','']]) {
+        const field=components().workflowValueField(value);
+        const input={type:'number',value,min:'0',max:'15'};
+        field.clampNumber({target:input});
+        assert.equal(input.value,expected);
+        assert.equal(field.state,expected);
+    }
+    const field=components().workflowValueField('{{ $json.seconds }}');
+    field.mode='expression';
+    field.clampNumber({target:{type:'text',value:field.state,min:'0',max:'15'}});
+    assert.equal(field.state,'{{ $json.seconds }}');
+});
 
 test('headers open saved JSON or objects as name/value rows without changing the saved value', () => {
     for (const state of ['{"ACCESS_TOKEN":"test","X-Zero":0,"X-Bool":false}', {ACCESS_TOKEN:'test','X-Zero':0,'X-Bool':false}]) {
@@ -184,4 +198,51 @@ test('picker copies empty collections but never copies stripped container data a
         assert.equal(row.copyable,expected !== null);
         if (row.copyable) assert.deepEqual(plain(row.value),expected);
     }
+});
+
+test('native multiple choice preserves saved IDs, prevents duplicates and removes only the chosen employee', () => {
+    const original=[9, '17', '999'];
+    const field=components().workflowValueField(original,null,null,{9:'Яна',17:'Support',21:'Лера'});
+    field.init();
+    assert.equal(field.state,original,'Opening the dropdown must not rewrite saved IDs');
+    field.addSelectedOption('9');field.addSelectedOption('');
+    assert.equal(field.state,original);
+    field.addSelectedOption('21');
+    assert.deepEqual(plain(field.state),[9,'17','999','21']);
+    field.removeSelectedOption(17);
+    assert.deepEqual(plain(field.state),[9,'999','21']);
+    assert.deepEqual(original,[9,'17','999']);
+    const empty=components().workflowValueField(null);
+    empty.addSelectedOption('9');
+    assert.deepEqual(plain(empty.state),['9']);
+});
+
+
+test('autocomplete placement uses viewport space and flips above near the bottom',()=>{
+    const place=components().workflowSuggestionPlacement;
+    assert.deepEqual(plain(place({left:100,top:120,bottom:152,width:300},{width:800,height:600},180)),{left:100,top:156,width:300,maxHeight:180});
+    const bottom=place({left:730,top:540,bottom:572,width:200},{width:800,height:600},230);
+    assert.equal(bottom.left,592);
+    assert.equal(bottom.top,306);
+    assert.equal(bottom.maxHeight,230);
+    const small=place({left:40,top:80,bottom:112,width:320},{width:200,height:160},230);
+    assert.equal(small.width,184);
+    assert.equal(small.left,8);
+    assert.equal(small.top,8);
+    assert.equal(small.maxHeight,68);
+});
+
+test('suggestions extend outside a short form and close when their input scrolls out',()=>{
+    const field=components(undefined,{}, {documentElement:{clientWidth:800,clientHeight:600}}).workflowValueField('');
+    let bounds={left:100,top:150,bottom:182,width:300,height:32};
+    field.suggestions=[{expression:'{{ $json.id }}'}];
+    field.$refs={value:{isConnected:true,getBoundingClientRect:()=>bounds,closest:()=>({getBoundingClientRect:()=>({top:100,bottom:200})})},suggestionList:{scrollHeight:140}};
+    field.positionSuggestions();
+    assert.equal(field.suggestionPosition.top,'186px');
+    assert.equal(field.suggestionPosition.maxHeight,'140px');
+    assert.equal(field.suggestionPosition.visibility,'visible');
+    bounds={...bounds,top:40,bottom:72};
+    field.positionSuggestions();
+    assert.equal(field.suggestions.length,0);
+    assert.equal(field.suggestionPosition.visibility,'hidden');
 });

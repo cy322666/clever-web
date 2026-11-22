@@ -1,5 +1,7 @@
+import {clearConflictingLink} from './workflow-entity-links.mjs';
 import { BrowserWorkflowDocument, clone, getPath, setPath, ports, collectionItemFields, filterItemFields, applyTriggerDisplayInput } from './workflow-browser-document.mjs';
 import { nodeFields } from './workflow-browser-fields.mjs';
+import { compactInspectorSections, createInspectorExtras } from './workflow-inspector-sections.mjs';
 import '../css/workflow-browser-editor.css';
 
 const element = (tag, className = '', text = '') => {
@@ -34,7 +36,10 @@ export function createBrowserEditor(boot) {
             historyUrl: boot.historyUrl,
             webhookUrl: boot.webhookUrl,
             selectedId: null,
+            nodeActionsPosition: {visibility:'hidden'},
+            autocompleteCleanup: [],
             inspectorTab: 'settings',
+            inspectorSections: new Map(),
             libraryOpen: false,
             librarySearch: '',
             libraryMode: 'all',
@@ -139,6 +144,7 @@ export function createBrowserEditor(boot) {
                 window.addEventListener('beforeunload', this.beforeLeave);
             },
             destroy() {
+                this.clearAutocompletePopups();
                 this.destroyed = true;
                 this.debugPlaying = false;
                 geometry.destroy.call(this);
@@ -204,6 +210,7 @@ export function createBrowserEditor(boot) {
             openNode(id) {
                 if (this.connecting) return;
                 this.error = '';
+                if (this.selectedId !== id) this.inspectorSections.delete(id);
                 this.selectedId = id;
                 if (id.startsWith('trigger') && this.debugStartNodeId !== id) {
                     this.debugStartNodeId = id;
@@ -215,9 +222,11 @@ export function createBrowserEditor(boot) {
                 // Alpine's $el can be the clicked card; reserve space on the stable editor root.
                 this.$refs.browserEditor.toggleAttribute('data-workflow-inspector-open', true);
                 this.applyNodeSelection();
-                this.$nextTick(() => this.renderInspector());
+                this.$nextTick(() => { this.renderInspector(); this.positionNodeActions(); });
             },
             closeInspector() {
+                this.clearAutocompletePopups();
+                this.inspectorSections.delete(this.selectedId);
                 this.codeEditorCleanup?.();
                 this.codeEditorCleanup = null;
                 this.selectedId = null;
@@ -311,6 +320,23 @@ export function createBrowserEditor(boot) {
                     this.openNode(next);
                 });
             },
+            drawConnections() {
+                geometry.drawConnections?.call(this);
+                this.positionNodeActions();
+            },
+            positionNodeActions() {
+                if (!this.selectedId || !this.$refs?.nodeActions) return;
+                const card = this.nodeElements().find(node => node.dataset.workflowNodeId === this.selectedId)
+                    ?.querySelector('[data-workflow-node-card]');
+                if (!card) { this.nodeActionsPosition = {visibility:'hidden'}; return; }
+                const area = this.$refs.viewport.getBoundingClientRect();
+                const row = this.$refs.nodeActions.getBoundingClientRect();
+                const placed = window.workflowNodeActionsPlacement(card.getBoundingClientRect(), {
+                    left:Math.max(0,area.left),right:Math.min(window.innerWidth,area.right),
+                    top:Math.max(0,area.top),bottom:Math.min(window.innerHeight,area.bottom),
+                },row.width || (this.selectedId.startsWith('trigger') ? 28 : 62),row.height || 28);
+                this.nodeActionsPosition = {left:placed.left+'px',top:placed.top+'px',visibility:'visible'};
+            },
             graphChanged() {
                 this.$nextTick(() => {
                     this.applyNodePositions();
@@ -322,16 +348,17 @@ export function createBrowserEditor(boot) {
                 const items = [];
                 if (this.libraryMode !== 'actions' && !this.pendingAdapter.insertConnection)
                     Object.values(this.triggers)
-                        .filter((item) => !['date-condition', 'workflow-completed'].includes(item.type))
+                        .filter((item) => item.catalog_visible !== false && !['date-condition', 'workflow-completed'].includes(item.type))
                         .forEach((item) => items.push({ ...item, trigger: true }));
                 if (this.libraryMode !== 'trigger') {
                     Object.values(this.catalog)
-                        .filter((item) => item.type !== 'amocrm_read')
+                        .filter((item) => item.catalog_visible !== false && item.type !== 'amocrm_read')
                         .forEach((item) => items.push(item));
                     Object.entries(this.readLibrary).forEach(([operation, item]) =>
                         items.push({
                             ...this.catalog.amocrm_read,
                             name: item.node_name || item.name,
+                            display_name: item.name,
                             category: item.group,
                             operation,
                         }),
@@ -339,7 +366,7 @@ export function createBrowserEditor(boot) {
                 }
                 const query = this.librarySearch.toLocaleLowerCase('ru');
                 return items.filter((item) =>
-                    (item.name + ' ' + item.category).toLocaleLowerCase('ru').includes(query),
+                    (item.name + ' ' + (item.display_name || '') + ' ' + item.category).toLocaleLowerCase('ru').includes(query),
                 );
             },
             openLibrary(mode = 'all') {
@@ -685,6 +712,7 @@ export function createBrowserEditor(boot) {
             },
 
             renderInspector() {
+                this.clearAutocompletePopups();
                 const host = this.$refs.nodeFields;
                 if (!host || !this.currentNode) return;
                 this.codeEditorCleanup?.();
@@ -734,28 +762,18 @@ export function createBrowserEditor(boot) {
                     host.append(button);
                 }
                 const fields = nodeFields(node, this.references, this.operations);
-                fields.forEach((spec) => this.renderField(host, node.config, spec, ''));
-                // An explicit advanced editor retains every custom/legacy key, including expressions.
-                const advanced = element('details', 'workflow-browser-advanced'),
-                    summary = element('summary', '', 'Все настройки JSON');
-                const editor = element('textarea', 'workflow-browser-input workflow-browser-code');
-                editor.rows = 12;
-                editor.value = JSON.stringify(node.config, null, 2);
-                editor.setAttribute('aria-label', 'Все настройки ноды JSON');
-                editor.addEventListener('change', () => {
-                    try {
-                        const config = JSON.parse(editor.value);
-                        if (!config || Array.isArray(config) || typeof config !== 'object')
-                            throw new Error('Нужен объект JSON.');
-                        this.machine.checkpoint();
-                        this.currentNode.config = config;
-                        this.renderInspector();
-                    } catch (error) {
-                        this.error = error.message;
-                    }
-                });
-                advanced.append(summary, editor);
-                host.append(advanced);
+                const {primary, secondary} = compactInspectorSections(fields, node.type);
+                primary.forEach((spec) => this.renderField(host, node.config, spec, ''));
+                const extras = element('div');
+                secondary.forEach((spec) => this.renderField(extras, node.config, spec, ''));
+                if (extras.childElementCount) {
+                    const sectionKey = this.selectedId;
+                    const advanced = createInspectorExtras(extras, {
+                        open: Boolean(this.inspectorSections.get(sectionKey)),
+                        onToggle: open => this.inspectorSections.set(sectionKey, open),
+                    });
+                    host.append(advanced.element);
+                }
             },
             renderField(host, scope, spec, prefix) {
                 if (spec.visible && !spec.visible(scope)) return;
@@ -826,11 +844,32 @@ export function createBrowserEditor(boot) {
                     }
                     this.machine.checkpoint(redraw ? null : this.selectedId + ':' + path);
                     setPath(this.currentNode.config, path, value);
+                    if (this.currentNode.type === 'amocrm_read') {
+                        const sibling = key => path.replace(/\.[^.]+$/,'.'+key);
+                        if (/^filters\.\d+\.field$/.test(path))
+                            for (const [key,next] of Object.entries({operator:'eq',value:null,pipeline_id:null})) setPath(this.currentNode.config,sibling(key),next);
+                        if (/^filters\.\d+\.pipeline_id$/.test(path)) setPath(this.currentNode.config,sibling('value'),null);
+                    }
+                    if (['amocrm_create_contact', 'amocrm_create_company'].includes(this.currentNode.type)
+                        && ['target_entity','target_entity_id'].includes(path)) {
+                        this.currentNode.config.entity_source = 'manual';
+                        if (path === 'target_entity') this.currentNode.config.target_entity_id = null;
+                    }
+                    if (['amocrm_link_entity', 'amocrm_unlink_entity'].includes(this.currentNode.type)) {
+                        if (path === 'target_entity') {
+                            this.currentNode.config.target_entity_id = null;
+                            clearConflictingLink(this.currentNode.config);
+                        }
+                        if (path === 'linked_entity') this.currentNode.config.linked_entity_id = null;
+                    }
                     if (spec.path === 'operation')
                         this.currentNode.config.body_mode = this.references.query[value]
                             ? 'builder'
                             : 'fields';
-                    if (spec.path === 'body_mode' && value === 'builder')
+                    if (this.currentNode.type === 'amocrm_read' && this.references.query[this.currentNode.config.operation]
+                        && /^(query|filters|limit|page|sort|direction)(\.|$)/.test(path))
+                        this.currentNode.config.body_mode = 'builder';
+                    if (this.currentNode.config.body_mode === 'builder')
                         for (const [key, fallback] of Object.entries({
                             limit: 50,
                             page: 1,
@@ -954,7 +993,7 @@ export function createBrowserEditor(boot) {
                 if (Object.keys(options).length) {
                     const select = element('select', 'workflow-browser-input');
                     select.setAttribute('aria-label', spec.label || 'Выбрать значение');
-                    const empty = element('option', '', 'Выбрать…');
+                    const empty = element('option', '', spec.placeholder || 'Выбрать…');
                     empty.value = '';
                     select.append(empty);
                     Object.entries(options).forEach(([key, label]) => {
@@ -1188,9 +1227,39 @@ export function createBrowserEditor(boot) {
                     return { id: node.id, name: node.name, fields };
                 });
             },
+            clearAutocompletePopups() {
+                this.autocompleteCleanup.splice(0).forEach(cleanup => cleanup());
+            },
+            mountAutocompletePopup(input, popup) {
+                popup.setAttribute('role','listbox');
+                popup.setAttribute('aria-label','Подсказки переменных');
+                document.body.append(popup);
+                const position = () => {
+                    if (popup.hidden) return;
+                    const anchor = input.getBoundingClientRect();
+                    const area = input.closest('.workflow-browser-fields')?.getBoundingClientRect();
+                    if (!input.isConnected || !anchor.width || !anchor.height
+                        || anchor.bottom <= Math.max(0,area?.top ?? 0)
+                        || anchor.top >= Math.min(window.innerHeight,area?.bottom ?? window.innerHeight)) {
+                        popup.hidden = true; return;
+                    }
+                    const placed = window.workflowSuggestionPlacement(anchor,
+                        {width:window.innerWidth,height:window.innerHeight}, popup.scrollHeight || 230);
+                    Object.assign(popup.style,{left:placed.left+'px',top:placed.top+'px',width:placed.width+'px',maxHeight:placed.maxHeight+'px'});
+                };
+                window.addEventListener('resize',position);
+                document.addEventListener('scroll',position,true);
+                this.autocompleteCleanup.push(() => {
+                    window.removeEventListener('resize',position);
+                    document.removeEventListener('scroll',position,true);
+                    popup.remove();
+                });
+                return position;
+            },
             attachFilterAutocomplete(wrapper, input, commit) {
                 const popup = element('div', 'workflow-browser-autocomplete');
                 popup.hidden = true;
+                const position = this.mountAutocompletePopup(input,popup);
                 let suggestions = [], active = 0;
                 const choose = (item) => {
                     input.value = item;
@@ -1207,6 +1276,7 @@ export function createBrowserEditor(boot) {
                     suggestions.forEach((key, index) => {
                         const button = element('button', '', key);
                         button.type = 'button';
+                        button.setAttribute('role','option');
                         button.classList.toggle('is-active', index === active);
                         button.addEventListener('pointerdown', (event) => {
                             event.preventDefault();
@@ -1214,6 +1284,7 @@ export function createBrowserEditor(boot) {
                         });
                         popup.append(button);
                     });
+                    position();
                 };
                 input.addEventListener('focus', paint);
                 input.addEventListener('input', () => { active = 0; paint(); });
@@ -1230,7 +1301,7 @@ export function createBrowserEditor(boot) {
                     }
                 });
                 input.addEventListener('blur', () => { popup.hidden = true; });
-                wrapper.append(popup);
+
             },
             attachAutocomplete(wrapper, input, commit) {
                 if (!window.workflowValueField) return;
@@ -1238,6 +1309,7 @@ export function createBrowserEditor(boot) {
                 const helper = window.workflowValueField(input.value),
                     popup = element('div', 'workflow-browser-autocomplete');
                 popup.hidden = true;
+                const position = this.mountAutocompletePopup(input,popup);
                 Object.defineProperty(helper, 'state', {
                     get: () => input.value,
                     set: (value) => {
@@ -1259,6 +1331,7 @@ export function createBrowserEditor(boot) {
                     helper.suggestions.forEach((item, index) => {
                         const button = element('button', '', item.label + ' · ' + item.source);
                         button.type = 'button';
+                        button.setAttribute('role','option');
                         button.classList.toggle('is-active', index === helper.suggestionIndex);
                         button.addEventListener('pointerdown', (event) => {
                             event.preventDefault();
@@ -1267,6 +1340,7 @@ export function createBrowserEditor(boot) {
                         });
                         popup.append(button);
                     });
+                    position();
                 };
                 input.addEventListener('focus', () => {
                     helper.sources = this.expressionSources();
@@ -1282,7 +1356,7 @@ export function createBrowserEditor(boot) {
                 input.addEventListener('blur', () => {
                     popup.hidden = true;
                 });
-                wrapper.append(popup);
+
             },
             insertExpression(expression) {
                 const target = this.lastFocusedField;

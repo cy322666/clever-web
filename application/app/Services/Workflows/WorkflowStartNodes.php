@@ -24,16 +24,26 @@ final class WorkflowStartNodes
         return $starts;
     }
 
+    public static function enabled(array $definition): array
+    {
+        return array_filter(self::all($definition), fn ($start) => ! ($start['disabled'] ?? false));
+    }
+
     public static function ofType(array $definition, string $type): array
     {
-        return array_filter(self::all($definition), fn ($start) => ($start['type'] ?? '') === $type);
+        return array_filter(self::enabled($definition), fn ($start) => ($start['type'] ?? '') === $type);
     }
 
     public static function selected(array $definition, array $input = []): string
     {
         $id = $input['_workflow_start_node_id'] ?? 'trigger';
-        if (! is_string($id) || ! isset(self::all($definition)[$id])) {
+        $starts = self::all($definition);
+        if (! is_string($id) || ! isset($starts[$id])) {
             throw new InvalidArgumentException('Выбранный запуск отсутствует в сценарии.');
+        }
+
+        if ($starts[$id]['disabled'] ?? false) {
+            throw new InvalidArgumentException('Выбранная нода запуска выключена.');
         }
 
         return $id;
@@ -41,6 +51,6 @@ final class WorkflowStartNodes
 
     public static function events(array $definition): array
     {
-        return array_filter(array_map(fn ($start) => str_starts_with($start['type'] ?? '', 'amocrm-') && ($start['config']['source'] ?? '') === 'amocrm' ? ($start['config']['event'] ?? null) : null, self::all($definition)));
+        return array_filter(array_map(fn ($start) => str_starts_with($start['type'] ?? '', 'amocrm-') && ($start['config']['source'] ?? '') === 'amocrm' ? ($start['config']['event'] ?? null) : null, self::enabled($definition)));
     }
 }

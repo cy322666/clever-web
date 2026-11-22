@@ -107,6 +107,7 @@ class AmoCrmFinderLifecycleRoutesTest extends TestCase
     public function test_unsigned_off_cannot_disconnect_or_notify(): void
     {
         DB::shouldReceive('connection')->never();
+        DB::shouldReceive('getConnections')->andReturn([]);
         $this->mock(AmoCrmWidgetLifecycleTelegramNotifier::class)->shouldNotReceive('notify');
         foreach (['GET', 'POST'] as $method) {
             $this->json($method, '/api/amocrm/off/finder', [

@@ -5,6 +5,7 @@
     'readOnly' => false,
     'nodeId' => 'trigger',
     'nodeName' => null,
+    'disabled' => false,
 ])
 
 @php
@@ -12,7 +13,6 @@
     $icon = $metadata['icon'] ?? 'heroicon-o-bolt';
     $icon = \App\Services\Workflows\WorkflowAmoIcons::trigger($type, $icon);
     $appearance = \App\Services\Workflows\WorkflowNodeAppearance::trigger($type, $icon);
-    $hasSettings = in_array($type, ['schedule', 'generic-webhook'], true) || \App\Services\Workflows\WorkflowTriggerReferenceCatalog::fields($type) !== [];
     $subtitle = match ($type) {
         'manual' => 'Запуск вручную',
         'amo-button' => 'amoCRM · Кнопка в сделке',
@@ -29,20 +29,19 @@
     data-workflow-node-card
     data-node-family="{{ $appearance['family'] }}"
     data-node-tone="{{ $appearance['tone'] }}"
+    data-workflow-node-disabled="{{ $disabled ? 'true' : 'false' }}"
     @if(! $readOnly)
+        x-bind:data-workflow-node-disabled="canvasTrigger(@js($nodeId))?.disabled ? 'true' : 'false'"
+        x-bind:class="{ 'workflow-node-card--disabled': !!canvasTrigger(@js($nodeId))?.disabled }"
         x-data="workflowInlineNodeName(@js($nodeId), @js($name))"
-        @if($hasSettings)
-            x-on:click="if (!renaming) { if ($wire.debugOpen) selectDebugNode(@js($nodeId)); else window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } })); }"
-        @else
-            x-on:click="if (!renaming) { if ($wire.debugOpen) selectDebugNode(@js($nodeId)); else workflowEditorCall($wire, 'beginTriggerReplace', @js($nodeId)); }"
-        @endif
+        x-on:click="if (!renaming) { if ($wire.debugOpen) selectDebugNode(@js($nodeId)); else window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } })); }"
         tabindex="0"
         x-on:keydown.enter.self.prevent="$el.click()"
         aria-label="Событие: {{ $name }}"
     @else
         aria-label="{{ $name }}"
     @endif
-    {{ $attributes->class(['workflow-card workflow-node-card workflow-node-card--compact workflow-node-card--trigger workflow-trigger-card']) }}
+    {{ $attributes->class(['workflow-card workflow-node-card workflow-node-card--compact workflow-node-card--trigger workflow-trigger-card', 'workflow-node-card--disabled' => $readOnly && $disabled]) }}
 >
     @if($readOnly)
         <span class="workflow-node-port workflow-node-port--output" aria-hidden="true"></span>
@@ -60,24 +59,14 @@
         @else
             @include('filament.workflow-builder.workflow-inline-node-name')
         @endif
-        <p class="workflow-node-card__subtitle">{{ $subtitle }}</p>
     </div>
 
     @unless($readOnly)
         <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop>
-            <x-filament::icon-button tag="a" :href="\App\Services\Workflows\WorkflowDocumentationLinks::forNode($type, $config)" target="_blank" rel="noopener noreferrer" color="gray" size="sm" icon="heroicon-o-question-mark-circle" label="Справка о запуске" title="Справка о запуске" x-on:click.stop />
-            @if($hasSettings)
-                <button type="button" x-on:click.stop="window.dispatchEvent(new CustomEvent('workflow-inspector-open', { detail: { componentId: $wire.$id, nodeId: @js($nodeId), name: nodeName } }))" aria-label="Настроить запуск: {{ $name }}" title="Настроить запуск"><x-filament::icon icon="heroicon-o-cog-6-tooth" class="h-4 w-4"/></button>
-            @endif
-            <button type="button" x-on:click.stop="startRename()" aria-label="Переименовать ноду: {{ $name }}" title="Переименовать ноду"><x-filament::icon icon="heroicon-o-pencil" class="h-4 w-4"/></button>
-            <button
-                type="button"
-                x-on:click.stop="workflowEditorCall($wire, 'beginTriggerReplace', @js($nodeId))"
-                aria-label="Заменить событие запуска"
-                title="Заменить событие запуска"
-            >
-                <x-filament::icon icon="heroicon-o-arrows-right-left" class="h-4 w-4"/>
-            </button>
+            <button type="button" x-on:click.stop="toggleCanvasTrigger(@js($nodeId))"
+                x-bind:aria-label="(canvasTrigger(@js($nodeId))?.disabled ? 'Включить' : 'Выключить') + ' ноду: ' + nodeName"
+                x-bind:title="(canvasTrigger(@js($nodeId))?.disabled ? 'Включить' : 'Выключить') + ' ноду'"
+                x-bind:aria-pressed="!!canvasTrigger(@js($nodeId))?.disabled"><x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/></button>
             <button type="button" x-on:click.stop="workflowEditorCall($wire, 'removeTriggerNode', @js($nodeId))" aria-label="Удалить запуск" title="Удалить запуск"><x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/></button>
         </div>
     @endunless

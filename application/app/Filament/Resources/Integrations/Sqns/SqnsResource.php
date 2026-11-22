@@ -46,7 +46,7 @@ class SqnsResource extends Resource
 
     public static function clearTransactions(int $days = 7): bool
     {
-        Visit::query()->where('created_at', '<', now()->subDays($days))->delete();
+        app(\App\Services\Core\IntegrationHistoryPruner::class)->prune('sqns', $days);
 
         return true;
     }

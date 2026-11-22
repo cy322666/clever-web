@@ -61,6 +61,7 @@
         'workflow-card workflow-node-card workflow-node-card--compact',
         'workflow-action-card' => ! $isCondition,
         'workflow-condition-node workflow-node-card--condition' => $isCondition,
+        'workflow-node-card--loop' => $isLoop,
         'workflow-node-card--disabled' => $readOnly && $disabled,
     ]) }}
 >
@@ -84,6 +85,18 @@
     @endif
     @endif
 
+    @if($isLoop)
+        @if($readOnly)
+            <span class="workflow-node-port workflow-node-port--input workflow-node-port--loop-return" aria-hidden="true"></span>
+        @else
+            <button type="button" class="workflow-node-port workflow-node-port--input workflow-node-port--loop-return"
+                x-on:pointerdown.stop="startIncomingConnection('action:' + @js($actionId), $event, true)"
+                x-on:pointerup.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) finishConnection('action:' + @js($actionId), $event)"
+                x-on:click.stop="if (connecting?.replaceTarget !== 'action:' + @js($actionId)) completeConnection('action:' + @js($actionId))"
+                aria-label="Возврат цикла: {{ $actionName }}" x-bind:aria-label="'Возврат цикла: ' + nodeName"></button>
+        @endif
+    @endif
+
     <span class="workflow-node-card__icon">
         <x-workflow-node-icon :appearance="$appearance"/>
     </span>
@@ -98,19 +111,10 @@
         @else
             @include('filament.workflow-builder.workflow-inline-node-name')
         @endif
-        <p class="workflow-node-card__subtitle" @unless($readOnly) x-text="canvasAction(@js($actionId))?.disabled ? @js($isCondition ? 'Выключено → «Да»' : 'Выключено') : @js($enabledSubtitle)" @endunless>{{ $subtitle }}</p>
     </div>
 
     @unless($readOnly)
         <div class="workflow-node-card__tools" x-on:click.stop x-on:pointerdown.stop x-on:keydown.stop>
-            <button type="button" wire:click.stop="runWorkflowCanvasNode(@js($actionId))" x-bind:disabled="!!canvasAction(@js($actionId))?.disabled || workflowNodeIsRunning($wire)"
-                @disabled($disabled) aria-label="Выполнить ноду: {{ $actionName }}" x-bind:aria-label="'Выполнить ноду: ' + nodeName" title="{{ $isLoop ? 'Взять первый элемент, не выполняя следующие ноды' : 'Реально выполнить ноду в текущем контексте' }}">
-                <x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/>
-            </button>
-            <button type="button" x-on:click.stop="removeCanvasAction(@js($actionId))"
-                aria-label="Удалить ноду: {{ $actionName }}" x-bind:aria-label="'Удалить ноду: ' + nodeName" title="Удалить ноду">
-                <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
-            </button>
             <button
                 type="button"
                 x-on:click.stop="toggleCanvasAction(@js($actionId))"
@@ -120,9 +124,9 @@
             >
                 <x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/>
             </button>
-            <button type="button" x-on:click.stop="workflowEditorCall($wire, 'duplicateWorkflowActionStep', @js($actionId))"
-                aria-label="Скопировать ноду: {{ $actionName }}" x-bind:aria-label="'Скопировать ноду: ' + nodeName" title="Скопировать ноду">
-                <x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/>
+            <button type="button" x-on:click.stop="removeCanvasAction(@js($actionId))"
+                aria-label="Удалить ноду: {{ $actionName }}" x-bind:aria-label="'Удалить ноду: ' + nodeName" title="Удалить ноду">
+                <x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/>
             </button>
         </div>
     @endunless

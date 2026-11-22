@@ -13,8 +13,10 @@ export function setPath(object, path, value) {
     if (keys.some((key) => unsafe.has(key))) throw new Error('Недопустимое имя поля.');
     let cursor = object;
     keys.slice(0, -1).forEach((key, index) => {
-        if (!cursor[key] || typeof cursor[key] !== 'object')
-            cursor[key] = /^\d+$/.test(keys[index + 1]) ? [] : {};
+        const list = /^\d+$/.test(keys[index + 1]);
+        if (!cursor[key] || typeof cursor[key] !== 'object') cursor[key] = list ? [] : {};
+        // PHP serializes empty associative groups as []; named fields must survive JSON cloning.
+        else if (Array.isArray(cursor[key]) && !list) cursor[key] = {...cursor[key]};
         cursor = cursor[key];
     });
     cursor[keys.at(-1)] = value;

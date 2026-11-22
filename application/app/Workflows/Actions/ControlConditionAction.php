@@ -47,6 +47,14 @@ class ControlConditionAction extends ConditionAction
         return $validation;
     }
 
+    public static function workflowDefaultConfig(): array
+    {
+        return [
+            ...parent::workflowDefaultConfig(),
+            'conditions' => [['left' => '', 'operator' => 'equals', 'right' => '']],
+        ];
+    }
+
     public static function workflowIcon(): string { return 'heroicon-o-share'; }
     public static function workflowCategory(): string { return 'Управление потоком'; }
     /**
@@ -68,13 +76,18 @@ class ControlConditionAction extends ConditionAction
                         ->default('and')
                         ->afterStateHydrated(fn(ToggleButtons $component, ?string $state) => $component->state($state ?: 'and'))
                         ->required()
-                        ->inline(),
+                        ->inline()
+                        ->hidden()
+                        ->dehydratedWhenHidden(),
 
                     Repeater::make('conditions')
                         ->label(static::workflowTrans('fields.conditions.label'))
                         ->hiddenLabel()
                         ->reorderable(false)
                         ->schema([
+                            \Filament\Schemas\Components\View::make('filament.workflow-builder.workflow-condition-connector')
+                                ->extraAttributes(['data-workflow-native-condition-connector' => true])
+                                ->visible(fn (Component $component): bool => $component->getParentRepeaterItemIndex() > 0),
                             Grid::make(1)
                                 ->schema([
                                     WorkflowValueInput::make('left')->label('Значение 1')->hiddenLabel()->live(debounce: 400),

@@ -46,9 +46,7 @@ class YClientsResource extends Resource
 
     public static function clearTransactions(int $days = 7): bool
     {
-        YClients\Record::query()
-            ->prunableOlderThan(Carbon::now()->subDays($days))
-            ->delete();
+        app(\App\Services\Core\IntegrationHistoryPruner::class)->prune('yclients', $days);
 
         return true;
     }

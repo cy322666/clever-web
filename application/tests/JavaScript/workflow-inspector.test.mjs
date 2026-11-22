@@ -106,6 +106,16 @@ test('inline rename commits on outside pointer press even if the canvas prevents
     assert.match(markup,/x-on:pointerdown\.window="if \(renaming && !\$el\.contains\(\$event\.target\)\) commitRename\(\)"/);
 });
 
+test('rename stays editable when the server does not confirm it', async () => {
+    const {window}=fixture();const state=window.workflowInlineNodeName('a','Нода');
+    state.$wire={workflowActions:[{id:'a',name:'Нода'}],renameWorkflowNode:async()=>undefined};
+    state.$nextTick=fn=>fn();state.$refs={nodeNameInput:{focus(){},select(){}}};
+    state.startRename();state.nameDraft='Новое имя';await state.commitRename();
+    assert.equal(state.nodeName,'Нода');
+    assert.equal(state.renaming,true);
+    assert.match(state.renameError,/не подтверждено/);
+});
+
 test('filter fields come from the selected collection, never indexed rows', () => {
     const {window}=fixture();
     const sources=[{id:'a',name:'Сделки',fields:[
@@ -123,6 +133,12 @@ test('filter fields come from the selected collection, never indexed rows', () =
     field.suggest({target:{value:'sta',hasAttribute:()=>true}});
     assert.deepEqual(Array.from(field.suggestions,item=>item.expression),['status_id']);
     assert.ok(field.suggestions.every(item=>!item.expression.includes('[0]')));
+    assert.equal(window.workflowFilterItemPath('{{ $("Сделки").status_id }}','{{ $("Сделки") }}'),'status_id');
+    assert.equal(window.workflowFilterItemPath('{{ $("Контакты").phone }}','{{ $("Сделки") }}'),'{{ $("Контакты").phone }}');
+    field.state='{{ $("Сделки").status_id }}';
+    field.init();
+    assert.equal(field.state,'status_id');
+    assert.equal(field.mode,'value');
 });
 
 test('floating positioning leaves a closed panel hidden and puts open panels above the node when possible', () => {
@@ -137,6 +153,12 @@ test('floating positioning leaves a closed panel hidden and puts open panels abo
     assert.equal(expanded.arrow,null); assert.equal(expanded.left,266);
     panel.opened=true;panel.positionInspector();
     assert.equal('display' in panel.position,false);
+    window.innerWidth=320;
+    panel.inspectorAnchor=()=>({setAttribute(){},removeAttribute(){},getBoundingClientRect:()=>({left:0,right:96,top:300,bottom:396})});
+    panel.positionInspector();
+    const left=parseFloat(panel.position.left),width=parseFloat(panel.position.width);
+    assert.ok(left>=10,'The settings fields must fit at the left viewport edge');
+    assert.ok(left+width<=310,'The settings fields must fit at the right viewport edge');
 });
 
 test('an inline test handles missing data and keeps simulation separate from real execution', async () => {
@@ -283,13 +305,65 @@ test('opening and copying from references preserves the mounted unsaved settings
     assert.match(builder,/data-workflow-reference-toggle/);
 });
 
-test('close button and Escape hide without a roundtrip; explicit Apply retains validation', () => {
+test('Escape hides without a roundtrip and the side controls have Apply with no close button', () => {
     const {panel}=fixture();panel.opened=true;panel.currentId='action:a';panel.$wire.mountedActions=[{name:'configureWorkflowAction'}];
     panel.$wire.callMountedAction=()=>assert.fail('Close must be immediate');
     panel.hideInspector();assert.equal(panel.opened,false);assert.equal(panel.currentId,'action:a');
     const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
-    assert.match(view,/x-on:click="hideInspector\(\)" aria-label="Закрыть настройки"/);
+    assert.doesNotMatch(view,/aria-label="Закрыть настройки"/);
+    assert.match(view,/x-on:click="closeInspector\(\)" aria-label="Применить"/);
     assert.match(view,/keydown.escape.stop="if \(!\$event.defaultPrevented\) hideInspector\(\)"/);
+});
+
+test('editing controls offer play and apply while closed cards offer power and delete', () => {
+    const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
+    assert.match(view,/heroicon-s-play/);
+    assert.doesNotMatch(view,/heroicon-o-beaker|heroicon-o-arrows-pointing-out|x-on:click="toggleExpanded\(\)"/);
+    assert.match(view,/x-on:click="closeInspector\(\)"/);
+    assert.doesNotMatch(view,/toggleInspectorNode\(\)|deleteInspectorNode\(\)|heroicon-o-power|heroicon-o-trash/);
+    const browser=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-browser-page.blade.php',import.meta.url),'utf8');
+    const closed=browser.match(/<div class="workflow-node-card__tools"[\s\S]*?<\/div>/)[0];
+    const editing=browser.match(/<div class="workflow-settings-actions workflow-browser-node-actions"[\s\S]*?<\/div>/)[0];
+    assert.equal((closed.match(/<button /g)||[]).length,2);
+    assert.match(closed,/toggleNode\(node\.id\)/);
+    assert.match(closed,/removeNode\(node\.id\)/);
+    assert.doesNotMatch(closed,/runDebug|duplicateNode|x-show="!node.id.startsWith/);
+    assert.equal((editing.match(/<button /g)||[]).length,2);
+    assert.match(editing,/runDebug\('node',selectedId\)/);
+    assert.match(editing,/closeInspector\(\)/);
+    assert.doesNotMatch(editing,/toggleNode|removeNode/);
+    assert.match(view,/class="workflow-settings-actions" role="toolbar"/);
+    assert.doesNotMatch(view,/<header|data-inspector-icon|workflow-inspector__header/);
+});
+
+test('inspector deletion removes actions and starts without validating or saving their form', async () => {
+    for (const id of ['action:a','trigger','trigger:timer']) {
+        const {panel,window}=fixture();
+        panel.opened=true;panel.currentId=panel.anchorId=id;
+        const calls=[],flushes=[];
+        panel.local={id,flush(){if(this.id) flushes.push(this.id);},node(){return {};}};
+        panel.$wire.callMountedAction=()=>assert.fail('Deleting must not apply an invalid form');
+        window.workflowEditorCall=async(wire,method,nodeId)=>{
+            calls.push([method,nodeId]);
+            assert.equal(panel.local.id,null,'A promoted start must never receive the old draft');
+        };
+        await panel.deleteInspectorNode();
+        assert.deepEqual(calls,[[id.startsWith('trigger')?'removeTriggerNode':'removeWorkflowAction',id.startsWith('trigger')?id:'a']]);
+        assert.deepEqual(flushes,[id]);
+        assert.equal(panel.opened,false);assert.equal(panel.currentId,null);assert.equal(panel.deleting,false);
+    }
+});
+
+test('failed inspector deletion keeps the draft editable and read-only inspection cannot delete', async () => {
+    const {panel,window}=fixture();panel.opened=true;panel.currentId='action:a';
+    panel.local={id:'action:a',flush(){},node(){return {};}};
+    window.workflowEditorCall=async()=>{throw new Error('delete failed');};
+    await panel.deleteInspectorNode();
+    assert.equal(panel.local.id,'action:a');assert.equal(panel.opened,true);assert.equal(panel.deleting,false);
+    assert.match(panel.error,/Не удалось удалить/);
+    window.workflowEditorCall=()=>assert.fail('Read-only embedded inspection must not delete');
+    panel.embedded=true;
+    await panel.deleteInspectorNode();
 });
 
 test('outside click during loading leaves the completed draft hidden and reusable', async () => {
@@ -354,4 +428,41 @@ test('Escape from embedded settings returns to data instead of leaving a blank s
     assert.ok(events.some(event=>event.type==='workflow-debug-settings-dismissed' && event.detail.componentId==='flow'));
     const count=events.length;panel.hideInspector();
     assert.equal(events.length,count + 1,'A hidden form must not emit another dismiss event');
+});
+
+test('node controls follow the card and leave room between an upper form and the node', () => {
+    const {window}=fixture();
+    const bounds={left:0,right:1200,top:100,bottom:900};
+    for (const anchor of [{left:400,right:496,top:500,bottom:596},{left:550,right:622,top:600,bottom:672}]) {
+        const actions=window.workflowNodeActionsPlacement(anchor,bounds,130,28);
+        assert.equal(actions.left+130,anchor.right);
+        assert.equal(actions.top+28+8,anchor.top);
+        const form=window.workflowInspectorPlacement(anchor,bounds,428,150,false,36);
+        assert.equal(form.arrow,'above');
+        assert.ok(form.top+150+8<=actions.top,'The form must not cover the node controls');
+    }
+    for (const anchor of [{left:-40,right:56,top:105,bottom:201},{left:1160,right:1256,top:820,bottom:916}]) {
+        const actions=window.workflowNodeActionsPlacement(anchor,bounds,130,28);
+        assert.ok(actions.left>=10 && actions.left+130<=1190);
+        assert.ok(actions.top>=108 && actions.top+28<=892);
+    }
+});
+
+test('inspector power flushes the selected draft and targets the matching canvas component', () => {
+    for (const id of ['action:a','trigger','trigger:timer']) {
+        const {panel,events}=fixture();let flushed=0;
+        panel.opened=true;panel.currentId=panel.anchorId=id;
+        panel.local={flush(){flushed++;},synchronize(){},node(){return {disabled:true};}};
+        assert.equal(panel.inspectorNodeDisabled(),true);
+        panel.toggleInspectorNode();
+        assert.equal(flushed,1);
+        const event=events.find(event=>event.type==='workflow-node-toggle');
+        assert.equal(event.detail.componentId,'flow');assert.equal(event.detail.nodeId,id);
+        for (const key of ['loading','processing','deleting','runningTest','embedded']) {
+            events.length=0;panel[key]=true;panel.toggleInspectorNode();
+            assert.equal(events.length,0);panel[key]=false;
+        }
+        events.length=0;panel.anchorId='action:different';panel.toggleInspectorNode();
+        assert.equal(events.length,0);
+    }
 });

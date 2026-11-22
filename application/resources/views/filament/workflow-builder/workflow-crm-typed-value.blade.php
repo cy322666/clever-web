@@ -1,14 +1,14 @@
 <template x-if="mode === 'value' && crmControl">
     <x-filament::input.wrapper>
         <template x-if="crmControl.kind === 'boolean'">
-            <select class="fi-input" :id="$id('local-value')" :aria-label="label" :value="crmLiteral" x-on:change="writeCrmLiteral($event.target.value)">
+            <select class="fi-input workflow-value-field__select" :id="$id('local-value')" :aria-label="label" :value="crmLiteral" x-on:change="writeCrmLiteral($event.target.value)">
                 <option value="">Не задано</option>
                 <option value="no" :selected="crmLiteral === 'no'">Нет</option>
                 <option value="yes" :selected="crmLiteral === 'yes'">Да</option>
             </select>
         </template>
         <template x-if="crmControl.kind === 'choice'">
-            <select class="fi-input" :id="$id('local-value')" :aria-label="label" :value="crmLiteral" x-on:change="writeCrmLiteral($event.target.value)">
+            <select class="fi-input workflow-value-field__select" :id="$id('local-value')" :aria-label="label" :value="crmLiteral" x-on:change="writeCrmLiteral($event.target.value)">
                 <option value="">Выберите значение</option>
                 <template x-if="crmLiteral !== '' && !crmControl.options.includes(crmLiteral)">
                     <option :value="crmLiteral" x-text="crmLiteral" selected></option>
@@ -19,7 +19,7 @@
             </select>
         </template>
         <template x-if="crmControl.kind === 'dictionary'">
-            <select class="fi-input" :id="$id('local-value')" :aria-label="label" :value="crmLiteral" x-on:change="writeCrmLiteral($event.target.value)">
+            <select class="fi-input workflow-value-field__select" :id="$id('local-value')" :aria-label="label" :value="crmLiteral" x-on:change="writeCrmLiteral($event.target.value)">
                 <option value="">Выберите значение</option>
                 <template x-if="crmLiteral !== '' && !Object.hasOwn(crmControl.options, crmLiteral)">
                     <option :value="crmLiteral" x-text="crmLiteral" selected></option>

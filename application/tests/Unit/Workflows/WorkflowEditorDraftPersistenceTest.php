@@ -108,12 +108,8 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         $flow = $this->workflow();
         $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id]);
         DB::table('workflows')->where('id', $flow->id)->update(['user_id' => 1]);
-        try {
-            $page->set('data.name', 'Нельзя записать')->call('save');
-            $this->fail('A transferred workflow must not be writable by its old owner.');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
-            $this->assertSame('Исходный', DB::table('workflows')->where('id', $flow->id)->value('name'));
-        }
+        $page->set('data.name', 'Нельзя записать')->call('save')->assertNotFound();
+        $this->assertSame('Исходный', DB::table('workflows')->where('id', $flow->id)->value('name'));
     }
 
     public function test_concurrent_saved_changes_are_not_overwritten_and_local_draft_is_retained(): void

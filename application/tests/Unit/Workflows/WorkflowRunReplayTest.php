@@ -170,7 +170,9 @@ class WorkflowRunReplayTest extends TestCase
             ->assertDispatched('workflow-debug-updated', fn ($event, $params) => ($params['state']['preview_node_id'] ?? null) === 'yes')
             ->call('unmountAction')->call('runWorkflowCanvasNode', 'fetch')->assertHasNoErrors()
             ->assertSet('nodeRunResults.fetch.output.count', 2)
-            ->call('unmountAction')->call('openWorkflowActionEditor', 'yes')->call('runEditingWorkflowNode')->assertHasNoErrors();
+            ->call('unmountAction')->call('openWorkflowActionEditor', 'yes')
+            ->set('mountedActions.0.data.target_entity_id', '{{lead.id}}')
+            ->call('runEditingWorkflowNode')->assertHasNoErrors();
         $this->assertSame('Найдено: 1', $calls[0][1]['text']);
         $this->assertSame('Найдено: 2', $calls[2][1]['text']);
         $this->assertSame($beforeRuns, DB::table('workflow_runs')->get()->toJson());
@@ -199,8 +201,7 @@ class WorkflowRunReplayTest extends TestCase
 
     public function test_foreign_run_page_is_not_available_even_for_an_authenticated_user(): void
     {
-        $this->expectException(ModelNotFoundException::class);
-        Livewire::test(ReplayWorkflow::class, ['run' => 2]);
+        Livewire::test(ReplayWorkflow::class, ['run' => 2])->assertNotFound();
     }
 
     public function test_history_links_to_the_debugger_with_or_without_a_saved_schema(): void
@@ -238,12 +239,8 @@ class WorkflowRunReplayTest extends TestCase
     public function test_debug_history_selection_cannot_load_another_workflow_or_user(): void
     {
         foreach ([2, 3, 999] as $id) {
-            try {
-                Livewire::test(\Tests\Support\WorkflowSavedDebugFixture::class)->call('inspectWorkflowDebugRun', $id);
-                $this->fail('Another workflow or user was loaded.');
-            } catch (ModelNotFoundException) {
-                $this->assertTrue(true);
-            }
+            Livewire::test(\Tests\Support\WorkflowSavedDebugFixture::class)
+                ->call('inspectWorkflowDebugRun', $id)->assertNotFound();
         }
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Core;
 
+use App\Helpers\Traits\RootOnlyResource;
 use App\Filament\Resources\Core\AuthenticationLogResource\Pages\ListAuthenticationLogs;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -20,6 +21,8 @@ use Rappasoft\LaravelAuthenticationLog\Models\AuthenticationLog;
 
 class AuthenticationLogResource extends Resource
 {
+    use RootOnlyResource;
+
     protected static ?string $model = AuthenticationLog::class;
 
     protected static ?string $slug = 'authentication-logs';

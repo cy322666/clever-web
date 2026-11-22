@@ -62,7 +62,7 @@ class WorkflowConditionFieldOptionsTest extends TestCase
         $this->assertTrue($field('right')->hasValueOptions());
         $this->assertSame(['VIP' => 'VIP', 'Обычный' => 'Обычный'], $field('right')->getValueOptions());
         $this->assertStringContainsString('<option value="VIP">VIP</option>', $this->fieldHtml($field('right'), $page));
-        $this->assertStringContainsString('>Переменная</button>', $this->fieldHtml($field('right'), $page));
+        $this->assertStringContainsString('aria-label="Вставить поле"', $this->fieldHtml($field('right'), $page));
 
         $page->set("mountedActions.0.data.conditions.$key.right", '{{var.expected}}')
             ->set("mountedActions.0.data.conditions.$key.left", '{{contact.cf(100)}}');

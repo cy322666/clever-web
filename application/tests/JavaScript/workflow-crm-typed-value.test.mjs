@@ -37,3 +37,12 @@ test('typed literals retain booleans, clearing, numeric precision, and determini
     assert.equal(crmLiteralValue('datetime-local', timestamp), '2026-11-21T09:30');
     assert.equal(crmLiteralValue('date', timestamp), '2026-11-21');
 });
+
+test('responsible mappings keep the same native dictionary even when the account has no available employees', () => {
+    const config={fields:[{field:'system:responsible_user_id',value:'999'}]};
+    for (const type of ['amocrm_create_lead','amocrm_create_contact','amocrm_update_company_fields','amocrm_update_fields']) {
+        assert.deepEqual(crmTypedControl(type,'fields.0.value',config,fields),{kind:'dictionary',options:{}});
+        assert.deepEqual(crmTypedControl(type,'fields.0.value',config,fields,()=>({9:'Яна'})),{kind:'dictionary',options:{9:'Яна'}});
+        assert.equal(config.fields[0].value,'999');
+    }
+});

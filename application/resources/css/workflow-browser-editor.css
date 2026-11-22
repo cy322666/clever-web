@@ -10,9 +10,9 @@
     display: none !important;
 }
 .dark .workflow-browser {
-    --wb-bg: #292b31;
-    --wb-field: #22242a;
-    --wb-border: #4a4e59;
+    --wb-bg: var(--workflow-dark-panel);
+    --wb-field: var(--workflow-dark-input);
+    --wb-border: var(--workflow-dark-line);
     --wb-text: #e5e7eb;
     --wb-muted: #a6acb7;
 }
@@ -78,7 +78,9 @@
     right: 0;
     top: 65px;
     bottom: 0;
-    width: 440px;
+    width: min(440px, calc(100% - 48px));
+    min-height: 116px;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     background: var(--wb-bg);
@@ -96,15 +98,8 @@
     min-height: 52px;
     padding: 12px 18px;
 }
-.workflow-browser-inspector > header input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    background: transparent;
-    font-size: 15px;
-    font-weight: 600;
-    color: inherit;
-}
+.workflow-browser-node-name { width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; font-weight: 600; text-align: inherit; }
+.workflow-browser-node-name:focus-visible { outline: 2px solid #a7bfcc; outline-offset: 3px; }
 .workflow-browser
     :is(.workflow-browser-inspector, .workflow-browser-library, .workflow-browser-debug)
     > header
@@ -154,17 +149,24 @@
     position: relative;
 }
 .workflow-browser-autocomplete {
-    position: absolute;
-    z-index: 3;
-    top: 100%;
+    position: fixed;
+    z-index: 90;
+    top: 0;
     left: 0;
-    right: 0;
-    border: 1px solid var(--wb-border);
-    background: var(--wb-bg);
+    right: auto;
+    border: 1px solid var(--wb-border, #d5dbe3);
+    background: var(--wb-bg, #fff);
+    color: var(--wb-text, #394452);
     box-shadow: 0 6px 20px #0002;
     border-radius: 6px;
     max-height: 240px;
     overflow: auto;
+}
+.workflow-browser-autocomplete[hidden] { display: none !important; }
+.dark .workflow-browser-autocomplete {
+    border-color: var(--workflow-dark-line);
+    background: var(--workflow-dark-panel);
+    color: var(--workflow-dark-text);
 }
 .workflow-browser-autocomplete > button {
     display: block;
@@ -317,6 +319,15 @@
     background: var(--wb-bg);
     color: var(--wb-text);
     box-shadow: 0 12px 38px #0002;
+}
+.workflow-browser-library.workflow-browser-references {
+    top: auto;
+    left: 16px;
+    bottom: 68px;
+    width: 350px;
+    max-width: calc(100% - 32px);
+    max-height: min(470px, calc(100% - 80px));
+    overflow-y: auto;
 }
 .workflow-browser-library > header {
     padding-left: 0 !important;
@@ -567,7 +578,7 @@
 }
 @media (max-width: 850px) {
     .workflow-browser-inspector {
-        width: min(440px, 100%);
+        width: min(440px, calc(100% - 48px));
     }
     .workflow-browser[data-workflow-inspector-open] .workflow-workbench__main {
         padding-right: 0;
@@ -578,4 +589,22 @@
     .workflow-browser-title {
         width: 140px;
     }
+}
+
+.workflow-browser-library:not(.workflow-browser-references) {
+    bottom: auto;
+    height: 360px;
+    max-height: calc(100% - 104px);
+    padding: 8px;
+}
+.workflow-browser-library:not(.workflow-browser-references) > nav {
+    padding: 6px 0;
+}
+.workflow-browser-library:not(.workflow-browser-references) .workflow-browser-library__items > button {
+    padding: 6px 8px;
+}
+
+.workflow-browser-node-actions {
+    position: fixed;
+    z-index: 45;
 }

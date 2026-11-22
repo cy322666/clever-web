@@ -12,6 +12,10 @@ class WorkflowValueInput extends TextInput
 
     protected array|Closure $valueOptions = [];
     protected bool|Closure $hasValueOptions = false;
+    protected bool $multipleValues = false;
+
+    public function multiple(bool $condition = true): static { $this->multipleValues = $condition; return $this; }
+    public function isMultiple(): bool { return $this->multipleValues; }
 
     public function hasValueOptions(): bool { return (bool) $this->evaluate($this->hasValueOptions); }
     protected int $textareaRows = 0;

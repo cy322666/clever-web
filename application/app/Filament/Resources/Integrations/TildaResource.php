@@ -9,7 +9,6 @@ use App\Models\amoCRM\Field;
 use App\Models\amoCRM\Staff;
 use App\Models\amoCRM\Status;
 use App\Models\Integrations\Tilda;
-use App\Models\Log;
 use App\Models\User;
 use App\Support\Integrations\PricingView;
 use Carbon\Carbon;
@@ -223,11 +222,7 @@ class TildaResource extends Resource
 
     public static function clearTransactions(int $days = 7): bool
     {
-        Tilda\Form::query()
-            ->where('created_at', '<', Carbon::now()
-                ->subDays($days)
-                ->format('Y-m-d')
-            )->delete();
+        app(\App\Services\Core\IntegrationHistoryPruner::class)->prune('tilda', $days);
 
         return true;
     }

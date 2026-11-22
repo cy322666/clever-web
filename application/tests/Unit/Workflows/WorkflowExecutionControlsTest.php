@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class WorkflowExecutionControlsTest extends TestCase
 {
-    public function test_references_and_activation_are_left_of_run_while_save_stays_in_the_header(): void
+    public function test_references_precede_run_and_activation_follows_it_while_save_stays_in_the_header(): void
     {
         WorkflowCanvasDatabase::prepare();
         $html = Livewire::test(WorkflowCanvasFixture::class)->assertStatus(200)->html();
@@ -29,7 +29,7 @@ class WorkflowExecutionControlsTest extends TestCase
         $this->assertCount(1, $xpath->query($footer.'//button[@class="workflow-canvas-run"]'));
         $run = $footer.'//button[@class="workflow-canvas-run"]';
         $this->assertCount(1, $xpath->query($run.'/preceding-sibling::button[@data-workflow-reference-toggle]'));
-        $this->assertCount(1, $xpath->query($run.'/preceding-sibling::button[@data-workflow-activation-toggle]'));
+        $this->assertCount(1, $xpath->query($run.'/following-sibling::button[@data-workflow-activation-toggle]'));
         $this->assertCount(0, $xpath->query($run.'/following-sibling::button[@aria-label="Отладка"]'));
         $this->assertCount(1, $xpath->query($run.'/following-sibling::a[@aria-label="История"]'));
         $debug = $xpath->query($footer.'//button[@aria-label="Отладка"]');

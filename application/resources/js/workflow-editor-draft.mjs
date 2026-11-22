@@ -169,6 +169,10 @@ export class WorkflowEditorDraft {
         if (type === 'schedule') this.announce('workflow-inspector-open',{componentId:this.wire.$id,nodeId:id,name:metadata.name});
         return id;
     }
+    removeWorkflowAction(id) {
+        this.mutate(document => document.remove('action:' + id), true);
+        this.announce('workflow-connections-updated');
+    }
     removeTriggerNode(id) {
         this.mutate(document => {
             document.remove(id);
