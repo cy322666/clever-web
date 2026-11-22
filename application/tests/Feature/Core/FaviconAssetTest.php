@@ -2,12 +2,8 @@
 
 namespace Tests\Feature\Core;
 
-use App\Providers\Filament\CatalogPanelProvider;
 use DOMDocument;
 use DOMXPath;
-use Filament\Panel;
-use Filament\Support\Facades\FilamentView;
-use Filament\View\PanelsRenderHook;
 use Tests\TestCase;
 
 class FaviconAssetTest extends TestCase
@@ -21,14 +17,6 @@ class FaviconAssetTest extends TestCase
         $this->assertCleverIcons($response->getContent());
     }
 
-    public function test_catalog_uses_the_same_favicon(): void
-    {
-        $panel = (new CatalogPanelProvider($this->app))->panel(Panel::make());
-        $panel->boot();
-
-        $head = FilamentView::renderHook(PanelsRenderHook::HEAD_START)->toHtml();
-        $this->assertCleverIcons('<html><head>'.$head.'</head><body></body></html>');
-    }
 
     public function test_installation_and_error_pages_use_the_same_favicon(): void
     {

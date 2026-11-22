@@ -3,7 +3,6 @@
 namespace App\Support\AppStats;
 
 use App\Models\App;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -13,38 +12,6 @@ class AppStatsAggregator
 
     private static ?Collection $rows = null;
 
-    public static function totals(): array
-    {
-        $today = now()->startOfDay();
-        $allApps = self::apps();
-        $rows = self::perApp();
-
-        $installedApps = $allApps->filter(fn(App $app): bool => (int)$app->status !== App::STATE_CREATED);
-        $activeApps = $allApps->filter(fn(App $app): bool => self::isActiveNow($app, $today));
-        $expiredApps = $allApps->filter(fn(App $app): bool => self::isExpired($app, $today));
-
-        $expiringSoon = $activeApps->filter(function (App $app) use ($today): bool {
-            if (blank($app->expires_tariff_at)) {
-                return false;
-            }
-
-            $expiresAt = Carbon::parse($app->expires_tariff_at)->startOfDay();
-
-            return $expiresAt->betweenIncluded($today, $today->copy()->addDays(7));
-        });
-
-        return [
-            'apps_total' => $rows->count(),
-            'integrations_installed' => $installedApps->count(),
-            'integrations_active' => $activeApps->count(),
-            'integrations_expired' => $expiredApps->count(),
-            'integrations_expiring_soon' => $expiringSoon->count(),
-            'clients_with_installed' => $installedApps->pluck('user_id')->unique()->count(),
-            'clients_with_active' => $activeApps->pluck('user_id')->unique()->count(),
-            'transactions_total' => (int)$rows->sum('count_transactions'),
-            'installs_trend_14' => self::installsTrend(14)['data'],
-        ];
-    }
 
     private static function apps(): Collection
     {
@@ -178,68 +145,6 @@ class AppStatsAggregator
         return (int)preg_replace('/[^0-9]/', '', (string)$transactions);
     }
 
-    public static function installsTrend(int $days = 30): array
-    {
-        $from = now()->startOfDay()->subDays($days - 1);
-        $to = now()->endOfDay();
 
-        $dateCounters = self::apps()
-            ->filter(fn(App $app): bool => (int)$app->status !== App::STATE_CREATED)
-            ->map(fn(App $app): ?Carbon => self::resolveInstallDate($app))
-            ->filter(fn(?CarbonInterface $date): bool => $date !== null)
-            ->filter(fn(Carbon $date): bool => $date->between($from, $to))
-            ->countBy(fn(Carbon $date): string => $date->toDateString());
 
-        $labels = [];
-        $data = [];
-
-        for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
-            $labels[] = $day->format('d.m');
-            $data[] = (int)($dateCounters[$day->toDateString()] ?? 0);
-        }
-
-        return [
-            'labels' => $labels,
-            'data' => $data,
-        ];
-    }
-
-    public static function statusDistribution(): array
-    {
-        $today = now()->startOfDay();
-
-        $active = 0;
-        $inactive = 0;
-        $created = 0;
-        $expired = 0;
-
-        foreach (self::apps() as $app) {
-            if (self::isExpired($app, $today)) {
-                $expired++;
-
-                continue;
-            }
-
-            if ((int)$app->status === App::STATE_ACTIVE) {
-                $active++;
-
-                continue;
-            }
-
-            if ((int)$app->status === App::STATE_INACTIVE) {
-                $inactive++;
-
-                continue;
-            }
-
-            $created++;
-        }
-
-        return [
-            'active' => $active,
-            'inactive' => $inactive,
-            'expired' => $expired,
-            'created' => $created,
-        ];
-    }
 }

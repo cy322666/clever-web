@@ -2,10 +2,6 @@
 
 namespace App\Filament\App\Pages;
 
-use App\Filament\App\Widgets\AppStatsInstallTrendChart;
-use App\Filament\App\Widgets\AppStatsOverview;
-use App\Filament\App\Widgets\AppStatsStatusChart;
-use App\Filament\App\Widgets\QueueOpsOverview;
 use Filament\Pages\Page;
 
 class AppStats extends Page
@@ -22,11 +18,7 @@ class AppStats extends Page
     protected function getHeaderWidgets(): array
     {
         return [
-//            AppStatsOverview::class,
-//            AppStatsInstallTrendChart::class,
-//            AppStatsStatusChart::class,
             \App\Filament\App\Widgets\AppStats::class,
-//            QueueOpsOverview::class,
         ];
     }
 
