@@ -25,7 +25,6 @@
                             </select>
                         </div>
                         <div class="workflow-workbench__quick-actions">
-                            <button type="button" class="workflow-workbench__quick-action" x-on:click="referencesOpen=!referencesOpen" title="Справочники" aria-label="Справочники"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
                             <button type="button" class="workflow-workbench__quick-action workflow-workbench__quick-action--labeled" :aria-pressed="doc.is_active" :disabled="saving" x-on:click="saveDocument(!doc.is_active)"><x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/><span x-text="doc.is_active ? 'Выключить' : 'Включить'"></span></button>
                             <button type="button" class="workflow-workbench__quick-action" title="Подключения" aria-label="Подключения" x-on:click="$wire.mountAction('workflowCredentials')"><x-filament::icon icon="heroicon-o-key" class="h-5 w-5"/></button>
                             <button type="button" class="workflow-workbench__quick-action" title="Отладка" aria-label="Отладка" x-on:click="debugOpen=!debugOpen"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
@@ -70,7 +69,16 @@
                                 <button type="button" class="workflow-canvas-fit" x-on:click="addCanvasArea()" aria-label="Создать область" title="Создать область"><x-filament::icon icon="heroicon-o-rectangle-group" class="h-4 w-4"/></button>
                                 <button type="button" class="workflow-canvas-fit" x-on:click="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                             </div>
-                            <button type="button" class="workflow-canvas-run" x-on:pointerdown.stop x-on:click="debugOpen=true" aria-label="Открыть отладку"><x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/> Запустить</button>
+                            <div class="workflow-canvas-execution-controls" role="toolbar" aria-label="Запуск и отладка" x-on:pointerdown.stop x-on:click.stop>
+                                <button type="button" class="workflow-canvas-execution-action" x-on:click="referencesOpen=!referencesOpen" :aria-expanded="referencesOpen" aria-haspopup="dialog" title="Справочники и переменные" aria-label="Справочники"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
+                                <button type="button" class="workflow-canvas-run" x-on:click="debugOpen=true" aria-label="Открыть отладку"><x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/> Запустить</button>
+                            </div>
+                            <section class="workflow-browser-library workflow-browser-references" x-show="referencesOpen" x-cloak x-on:pointerdown.stop x-on:wheel.stop aria-label="Справочники">
+                                <header><strong>Справочники</strong><button type="button" x-on:click="referencesOpen=false" aria-label="Закрыть справочники">×</button></header>
+                                <select class="workflow-browser-input" x-model="referenceEntity" aria-label="Тип записи справочника"><option value="leads">Поля сделки</option><option value="contacts">Поля контакта</option><option value="companies">Поля компании</option><option value="customers">Поля покупателя</option></select>
+                                <input class="workflow-browser-input" x-model="referenceSearch" aria-label="Поиск поля" placeholder="Название или ID поля" />
+                                <div class="workflow-browser-library__items"><template x-for="field in referenceFields()" :key="field.id"><button type="button" x-on:click="copyValue(referenceExpression(field))"><span><strong x-text="field.name"></strong><small x-text="'ID '+field.id"></small></span></button></template></div>
+                            </section>
                             <div class="workflow-connection-hint" x-show="connecting || connectionError" x-on:pointerdown.stop><span x-text="connectionError || 'Выберите другую ноду'"></span><button type="button" x-on:click="cancelConnection()">Закрыть</button></div>
                             <div x-ref="stage" :style="stageStyle()" class="workflow-node-editor__stage">
                                 @include('filament.workflow-builder.workflow-canvas-areas')
@@ -79,23 +87,25 @@
                                     <template x-for="node in visibleNodes" :key="node.id">
                                         <div class="workflow-node-shell" :data-workflow-node-id="node.id" :style="nodeStyle(node.id)">
                                             <div data-workflow-node-card class="workflow-card workflow-node-card workflow-node-card--compact" tabindex="0" role="button"
-                                                 :data-node-family="metadata(node).appearance.family" :data-node-tone="metadata(node).appearance.tone"
+                                                 :data-node-family="metadata(node).appearance.family" :data-node-tone="metadata(node).appearance.tone" :data-workflow-inspector-selected="selectedId === node.id ? 'true' : null"
                                                  :data-workflow-node-disabled="node.disabled?'true':'false'" :data-node-running="runningId===node.id" :data-connection-target="connectionTargetId===node.id"
-                                                 :class="{'workflow-node-card--disabled':node.disabled,'workflow-node-card--selected':selectedNodeIds.includes(node.id)}"
+                                                 :class="{'workflow-node-card--disabled':node.disabled,'workflow-node-card--loop':node.type==='workflow_loop','workflow-node-card--selected':selectedNodeIds.includes(node.id)}"
                                                  :aria-label="'Настроить: '+nodeName(node)" x-on:keydown.enter.self.prevent="openNode(node.id)"
                                                  x-on:pointerup.capture="if (connecting && !node.id.startsWith('trigger') && !$event.target.closest('.workflow-node-port')) finishConnection(node.id,$event)"
                                                  x-on:click="if(connecting && !node.id.startsWith('trigger')) completeConnection(node.id); else openNode(node.id)">
                                                 <template x-if="!node.id.startsWith('trigger')"><button type="button" class="workflow-node-port workflow-node-port--input" x-on:pointerdown.stop="startIncomingConnection(node.id,$event)" x-on:pointerup.stop="if(connecting?.replaceTarget!==node.id) finishConnection(node.id,$event)" x-on:click.stop="if(connecting?.replaceTarget!==node.id) completeConnection(node.id)" aria-label="Вход"></button></template>
                                                 <template x-for="port in nodePorts(node)" :key="port"><button type="button" class="workflow-node-port workflow-node-port--output" :class="'workflow-node-port--output-'+port" x-on:pointerdown.stop="startConnection(node.id,port,$event)" x-bind:data-connection-source="connecting?.sourceId === node.id && connecting?.sourcePort === port" x-on:click.stop :aria-label="'Выход '+portLabel(port)"><span class="workflow-node-port__label" x-text="portLabel(port)"></span></button></template>
+                                                <template x-if="node.type==='workflow_loop'"><button type="button" class="workflow-node-port workflow-node-port--input workflow-node-port--loop-return" x-on:pointerdown.stop="startIncomingConnection(node.id,$event,true)" x-on:pointerup.stop="if(connecting?.replaceTarget!==node.id) finishConnection(node.id,$event)" x-on:click.stop="if(connecting?.replaceTarget!==node.id) completeConnection(node.id)" aria-label="Возврат цикла"></button></template>
                                                 <span class="workflow-node-card__icon" x-html="metadata(node).icon"></span>
                                                 <span class="workflow-node-result" data-workflow-node-result hidden></span>
                                                 <span data-workflow-node-status hidden></span>
-                                                <div class="workflow-node-card__caption"><h4 class="workflow-node-card__title" x-text="nodeName(node)"></h4><p class="workflow-node-card__subtitle" x-text="subtitle(node)"></p></div>
+                                                <div class="workflow-node-card__caption" x-on:pointerdown.stop x-on:click.stop>
+                                                    <h4 class="workflow-node-card__title" x-show="selectedId !== node.id" x-text="nodeName(node)"></h4>
+                                                    <input class="workflow-browser-node-name" x-show="selectedId === node.id" aria-label="Название ноды" :value="node.name || nodeName(node)" x-on:input="renameCurrent($el.value)" x-on:keydown.enter.prevent="$el.blur()" x-on:blur="finishRename($el)" maxlength="100" />
+                                                </div>
                                                 <div class="workflow-node-card__tools" x-on:pointerdown.stop x-on:click.stop>
-                                                    <button type="button" x-show="!node.id.startsWith('trigger')" :disabled="running || !!node.disabled" x-on:click="runDebug('node',node.id)" aria-label="Выполнить ноду" title="Выполнить только эту ноду"><x-filament::icon icon="heroicon-o-play" class="h-4 w-4"/></button>
-                                                    <button type="button" x-on:click="removeNode(node.id)" aria-label="Удалить ноду"><x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/></button>
-                                                    <button type="button" x-show="!node.id.startsWith('trigger')" x-on:click="toggleNode(node.id)" :aria-pressed="!!node.disabled" aria-label="Выключить ноду"><x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/></button>
-                                                    <button type="button" x-on:click="duplicateNode(node.id)" aria-label="Скопировать ноду"><x-filament::icon icon="heroicon-o-document-duplicate" class="h-4 w-4"/></button>
+                                                    <button type="button" :disabled="running" x-on:click="toggleNode(node.id)" :aria-pressed="!!node.disabled" :aria-label="node.disabled ? 'Включить ноду' : 'Выключить ноду'" :title="node.disabled ? 'Включить ноду' : 'Выключить ноду'"><x-filament::icon icon="heroicon-o-power" class="h-4 w-4"/></button>
+                                                    <button type="button" :disabled="running" x-on:click="removeNode(node.id)" aria-label="Удалить ноду" title="Удалить ноду"><x-filament::icon icon="heroicon-o-trash" class="h-4 w-4"/></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -104,10 +114,9 @@
                                 <div x-ref="edgeControls" class="workflow-node-edge-controls">
                                     <template x-for="edge in canvasEdges([],startIds())" :key="edgeRouteKey(edge)">
                                         <div style="display:contents">
-                                            <button type="button" class="workflow-node-edge-add" :class="{'workflow-loop-replace':edge.sourcePort==='each'&&!edge.targetId}" :data-workflow-edge-source="edge.sourceId" :data-workflow-edge-port="edge.sourcePort" :data-workflow-edge-target="edge.targetId" :data-workflow-loop-return="edge.loopReturn?'true':'false'" :data-workflow-loop-feedback="edge.loopFeedback?'true':'false'" :data-workflow-loop-placeholder="edge.sourcePort==='each'&&!edge.targetId?'true':null"
-                                                    x-on:pointerdown.stop="startEdgeControlDrag(edge.sourceId,edge.sourcePort,edge.targetId,$event)" x-on:click.stop="openEdgePalette(edge.sourceId,edge.sourcePort,edge.targetId)" x-on:pointerenter="if(edge.targetId) showEdgeControls($el)" x-on:pointerleave="if(edge.targetId) hideEdgeControls($el)" :aria-label="edge.sourcePort==='each'&&!edge.targetId?'Заменить заглушку действием цикла':'Добавить действие'"><template x-if="edge.sourcePort==='each'&&!edge.targetId"><span class="workflow-loop-replace__content"><x-filament::icon icon="heroicon-o-plus" class="h-5 w-5"/><strong>Замените меня</strong><small>Действие цикла</small></span></template><template x-if="edge.sourcePort!=='each'||edge.targetId"><x-filament::icon icon="heroicon-o-plus" class="h-3.5 w-3.5"/></template></button>
+                                            <button type="button" class="workflow-node-edge-add" :class="{'workflow-loop-replace':edge.sourcePort==='each'&&!edge.targetId}" :data-workflow-edge-source="edge.sourceId" :data-workflow-edge-port="edge.sourcePort" :data-workflow-edge-target="edge.targetId" :data-workflow-loop-return="edge.loopReturn?'true':'false'" :data-workflow-loop-feedback="edge.loopFeedback?'true':'false'"
+                                                    x-on:pointerdown.stop="startEdgeControlDrag(edge.sourceId,edge.sourcePort,edge.targetId,$event)" x-on:click.stop="openEdgePalette(edge.sourceId,edge.sourcePort,edge.targetId)" x-on:pointerenter="if(edge.targetId) showEdgeControls($el)" x-on:pointerleave="if(edge.targetId) hideEdgeControls($el)" :aria-label="edge.sourcePort==='each'&&!edge.targetId?'Добавить действие в цикл':'Добавить действие'"><x-filament::icon icon="heroicon-o-plus" class="h-3.5 w-3.5"/><span class="workflow-loop-replace__caption">Заменить</span><span class="workflow-loop-replace__port workflow-loop-replace__port--input" aria-hidden="true"></span><span class="workflow-loop-replace__port workflow-loop-replace__port--output" aria-hidden="true"></span></button>
                                             <button type="button" class="workflow-node-edge-add" x-show="edge.targetId" :data-workflow-edge-delete="edge.targetId?'':null" x-on:pointerdown.stop x-on:click.stop="selectedEdge=edge; removeSelectedEdge()" x-on:pointerenter="showEdgeControls($el.previousElementSibling)" x-on:pointerleave="hideEdgeControls($el.previousElementSibling)" aria-label="Удалить связь"><x-filament::icon icon="heroicon-o-trash" class="h-3.5 w-3.5"/></button>
-                                            <div class="workflow-loop-frame" x-show="edge.sourcePort==='each'&&!edge.targetId" aria-hidden="true"><span>Каждый элемент</span></div>
                                         </div>
                                     </template>
                                 </div>
@@ -116,12 +125,15 @@
                         </div>
                     </section>
                 </div>
+                    <div class="workflow-settings-actions workflow-browser-node-actions" x-ref="nodeActions" x-show="selectedId" :style="nodeActionsPosition" role="toolbar" aria-label="Действия ноды" aria-orientation="horizontal">
+                        <button type="button" class="workflow-inspector__action" x-show="selectedId?.startsWith('action:')" :disabled="running || !!currentNode?.disabled" x-on:click="runDebug('node',selectedId)" aria-label="Запустить ноду" title="Запустить ноду"><x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/></button>
+                        <button type="button" class="workflow-inspector__action workflow-inspector__apply" x-on:click="closeInspector()" aria-label="Применить" title="Применить"><x-filament::icon icon="heroicon-o-check" class="h-4 w-4"/></button>
+                    </div>
                 <aside class="workflow-browser-inspector" x-show="selectedId" x-cloak :aria-label="'Настройки '+nodeName(currentNode)" x-on:keydown.escape.stop="closeInspector()">
-                    <header><input aria-label="Название ноды" :value="currentNode?.name || ''" x-on:input="renameCurrent($el.value)" x-on:blur="finishRename($el)" maxlength="100" /><button type="button" x-on:click="closeInspector()" aria-label="Закрыть настройки">×</button></header>
+
                     <nav role="tablist" aria-label="Данные ноды">
                         <template x-for="tab in [{id:'settings',label:'Настройки'},{id:'input',label:'Вход'},{id:'output',label:'Выход'}]" :key="tab.id"><button type="button" role="tab" :aria-selected="inspectorTab===tab.id" x-on:click="switchTab(tab.id)" x-text="tab.label"></button></template>
                         <button type="button" x-show="currentNode?.type.startsWith('amocrm_')" x-on:click="refreshReferences()" :disabled="running" title="Обновить справочники" aria-label="Обновить справочники"><x-filament::icon icon="heroicon-o-arrow-path" class="h-4 w-4"/></button>
-                        <button type="button" x-show="selectedId?.startsWith('action:')" :disabled="running || !!currentNode?.disabled" x-on:click="runDebug('node',selectedId)" class="workflow-browser-run"><span x-show="running" class="workflow-run-spinner"></span><span x-text="running ? 'Выполняю…' : 'Запустить'"></span></button>
                     </nav>
                     <div x-ref="nodeFields" class="workflow-browser-fields"></div>
                     <div class="workflow-browser-expressions" x-show="expressionOpen" x-cloak><header>Переменные<button type="button" aria-label="Закрыть переменные" x-on:click="expressionOpen=false">×</button></header><div x-ref="expressions"></div></div>
@@ -137,17 +149,10 @@
                         <template x-for="(result,index) in debugState.results" :key="index"><button type="button" class="workflow-browser-debug-result" x-on:click="openNode('action:'+result.id); switchTab('output')"><span x-text="result.name || result.type"></span><small x-text="result.duration_ms+' мс'"></small></button></template>
                     </div></div>
                 </section>
-                <section class="workflow-browser-library" x-show="libraryOpen" x-cloak aria-label="Добавить ноду" x-on:keydown.escape.stop="libraryOpen=false">
-                    <header><strong>Добавить ноду</strong><button type="button" x-on:click="libraryOpen=false; pendingAdapter.insertConnection=null" aria-label="Закрыть список нод">×</button></header>
+                <section class="workflow-browser-library" x-show="libraryOpen" x-cloak aria-label="Добавить ноду" x-on:keydown.escape.stop="libraryOpen=false" x-on:pointerdown.outside="if (libraryOpen) { libraryOpen=false; pendingAdapter.insertConnection=null; }">
                     <input x-ref="librarySearch" x-model="librarySearch" class="workflow-browser-input" placeholder="Поиск нод…" aria-label="Поиск нод" />
                     <nav><button type="button" :aria-pressed="libraryMode==='all'" x-on:click="libraryMode='all'">Все</button><button type="button" :aria-pressed="libraryMode==='trigger'" x-on:click="libraryMode='trigger'">Запуски</button><button type="button" :aria-pressed="libraryMode==='actions'" x-on:click="libraryMode='actions'">Действия</button></nav>
-                    <div class="workflow-browser-library__items"><template x-for="item in libraryItems()" :key="(item.trigger?'trigger:':'action:')+(item.operation || item.type)"><button type="button" x-on:click="insertNode(item)"><span x-html="item.icon"></span><span><strong x-text="item.name"></strong><small x-text="item.category"></small></span></button></template></div>
-                </section>
-                <section class="workflow-browser-library" x-show="referencesOpen" x-cloak aria-label="Справочники">
-                    <header><strong>Справочники</strong><button type="button" x-on:click="referencesOpen=false" aria-label="Закрыть справочники">×</button></header>
-                    <select class="workflow-browser-input" x-model="referenceEntity" aria-label="Тип записи справочника"><option value="leads">Поля сделки</option><option value="contacts">Поля контакта</option><option value="companies">Поля компании</option><option value="customers">Поля покупателя</option></select>
-                    <input class="workflow-browser-input" x-model="referenceSearch" aria-label="Поиск поля" placeholder="Название или ID поля" />
-                    <div class="workflow-browser-library__items"><template x-for="field in referenceFields()" :key="field.id"><button type="button" x-on:click="copyValue(referenceExpression(field))"><span><strong x-text="field.name"></strong><small x-text="'ID '+field.id"></small></span></button></template></div>
+                    <div class="workflow-browser-library__items"><template x-for="item in libraryItems()" :key="(item.trigger?'trigger:':'action:')+(item.operation || item.type)"><button type="button" :aria-label="item.name" x-on:click="insertNode(item)"><span x-html="item.icon"></span><span><strong x-text="item.display_name || item.name"></strong><small x-text="item.category"></small></span></button></template></div>
                 </section>
                 <div class="workflow-browser-toast" role="status" aria-live="polite" x-show="notice" x-text="notice" x-cloak></div>
               </div>

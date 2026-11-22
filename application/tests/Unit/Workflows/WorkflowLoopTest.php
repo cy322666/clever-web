@@ -337,7 +337,7 @@ class WorkflowLoopTest extends TestCase
         $node = $page->get('workflowActions')[0];
         $this->assertSame('workflow_loop', $node['type']);
         $this->assertArrayHasKey('connections', $page->get('definition'));
-        $page->assertSee('Каждый элемент')->assertSee('Готово');
+        $page->assertSee('Элемент')->assertSee('Готово')->assertDontSee('Замените меня')->assertDontSee('workflow-loop-frame', false);
         $page->call('openWorkflowActionEditor', $node['id']);
         $schema = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance());
         view()->share('errors', new \Illuminate\Support\ViewErrorBag);

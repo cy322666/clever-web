@@ -234,7 +234,7 @@ final class WorkflowExpressionCatalog
         $visit = function (array $object, string $prefix = '', int $depth = 0) use (&$visit, &$paths): void {
             if ($depth > 4 || count($paths) >= 100) return;
             foreach ($object as $key => $value) {
-                if (!is_string($key) || !preg_match('/^[\pL\pN_.-]+$/uD', $key)
+                if (!is_string($key) || !preg_match('/^[\pL_][\pL\pN_.-]*$/uD', $key)
                     || preg_match('/token|password|authorization|secret/i', $key)) continue;
                 $path = $prefix === '' ? $key : $prefix.'.'.$key;
                 $paths[$path] = true;

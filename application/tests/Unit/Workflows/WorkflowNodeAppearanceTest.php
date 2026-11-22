@@ -11,20 +11,41 @@ use Tests\TestCase;
 
 class WorkflowNodeAppearanceTest extends TestCase
 {
-    public function test_compact_canvas_icons_render_as_synchronous_outlines(): void
+    public function test_node_icons_use_the_existing_svg_set_without_image_tiles(): void
     {
-        $appearances = [
-            'branch' => WorkflowNodeAppearance::action('control-condition'),
-            'lead-find' => WorkflowNodeAppearance::action('amocrm_read', ['operation' => 'leads.list']),
-            'lead-create' => WorkflowNodeAppearance::action('amocrm_create_lead'),
-            'contact-find' => WorkflowNodeAppearance::action('amocrm_read', ['operation' => 'contacts.list']),
-            'event' => WorkflowNodeAppearance::trigger('amocrm-status-lead'),
-            'webhook' => WorkflowNodeAppearance::trigger('generic-webhook'),
-        ];
-        foreach ($appearances as $outline => $appearance) {
+        foreach (['amocrm_create_contact', 'amocrm_update_contact_fields', 'amocrm_create_lead', 'workflow_loop', 'workflow_set_variable', 'http_request', 'telegram_send_message'] as $type) {
+            $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance' => WorkflowNodeAppearance::action($type)]);
+            $this->assertStringContainsString('<svg', $html);
+            $this->assertStringContainsString('currentColor', $html);
+            $this->assertStringContainsString('workflow-node-glyph--minimal', $html);
+            $this->assertStringNotContainsString('data-node-artwork=', $html);
+            $this->assertStringNotContainsString('workflowNodeArtwork', $html);
+        }
+    }
+
+    public function test_node_icons_are_inline_and_need_no_image_or_sprite_request(): void
+    {
+        $appearances = [WorkflowNodeAppearance::trigger('manual')];
+        foreach (['amocrm_find_entity', 'amocrm_create_contact', 'amocrm_update_contact_fields', 'workflow_loop', 'workflow_set_variable', 'http_request', 'telegram_send_message'] as $type) {
+            $appearances[] = WorkflowNodeAppearance::action($type);
+        }
+        foreach ($appearances as $appearance) {
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
-            $this->assertStringContainsString('data-node-outline="'.$outline.'"', $html);
-            $this->assertStringContainsString('fill="none" stroke="currentColor"', $html);
+            $document = new \DOMDocument;
+            @$document->loadHTML($html);
+            $this->assertGreaterThan(0, $document->getElementsByTagName('path')->length);
+            $this->assertDoesNotMatchRegularExpression('/<(?:use|image|mask|filter|linearGradient|radialGradient)\b|(?:href|fill-opacity)=/i', $html);
+            $this->assertStringContainsString('currentColor', $html);
+        }
+    }
+
+    public function test_condition_keeps_its_existing_branch_glyph_without_a_background_tile(): void
+    {
+        foreach (['condition', 'control-condition'] as $type) {
+            $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', ['appearance' => WorkflowNodeAppearance::action($type)]);
+            $this->assertStringContainsString('<svg', $html);
+            $this->assertStringContainsString('workflow-node-glyph__main', $html);
+            $this->assertStringNotContainsString('data-node-artwork=', $html);
             $this->assertStringNotContainsString('workflowNodeArtwork', $html);
         }
     }
@@ -42,7 +63,7 @@ class WorkflowNodeAppearanceTest extends TestCase
         }
     }
 
-    public function test_crm_operations_have_distinct_action_cues_and_keep_the_entity(): void
+    public function test_crm_operations_keep_the_entity_and_operation_color_metadata(): void
     {
         foreach (['contact' => 'user', 'lead' => 'briefcase', 'company' => 'buildings'] as $entity => $glyph) {
             foreach (['amocrm_find_entity' => 'magnifying-glass', 'amocrm_create_'.$entity => 'plus', 'amocrm_update_'.$entity.'_fields' => 'pencil-simple'] as $type => $modifier) {
@@ -61,22 +82,21 @@ class WorkflowNodeAppearanceTest extends TestCase
             $this->assertSame($family, WorkflowNodeAppearance::action($type)['family']);
         }
         foreach (['manual'=>'play', 'schedule'=>'clock', 'generic-webhook'=>'webhooks-logo'] as $type=>$glyph) {
-            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null,'tone'=>$type === 'generic-webhook' ? 'http' : 'trigger'], WorkflowNodeAppearance::trigger($type));
+            $this->assertSame(['family'=>'trigger','glyph'=>$glyph,'modifier'=>null,'tone'=>'trigger'], WorkflowNodeAppearance::trigger($type));
         }
     }
 
-    public function test_webhook_is_distinct_from_other_starts_in_both_card_modes(): void
+    public function test_all_start_methods_share_one_color_without_replacing_their_icons(): void
     {
         $types = array_column(app(TriggerRegistry::class)->getAllWithMetadata(), 'type');
         $this->assertContains('manual', $types);
         $this->assertContains('schedule', $types);
         $this->assertContains('generic-webhook', $types);
         foreach ([...$types, 'future-trigger'] as $type) {
-            $tone = $type === 'generic-webhook' ? 'http' : 'trigger';
-            $this->assertSame($tone, WorkflowNodeAppearance::trigger($type)['tone']);
+            $this->assertSame('trigger', WorkflowNodeAppearance::trigger($type)['tone']);
             foreach ([false, true] as $readOnly) {
                 $html = Blade::render('<x-filament-workflows::workflows.trigger-card :type="$type" :read-only="$readOnly"/>', compact('type', 'readOnly'));
-                $this->assertStringContainsString('data-node-tone="'.$tone.'"', $html, $type);
+                $this->assertStringContainsString('data-node-tone="trigger"', $html, $type);
             }
         }
     }
@@ -94,11 +114,16 @@ class WorkflowNodeAppearanceTest extends TestCase
         foreach ($appearances as $appearance) {
             $this->assertStringContainsString('[data-node-tone="'.$appearance['tone'].'"]', file_get_contents(resource_path('css/filament-workflows.css')));
             $html = Blade::render('<x-workflow-node-icon :appearance="$appearance"/>', compact('appearance'));
-            $this->assertTrue(str_contains($html, '<svg') || str_contains($html, 'data-node-language="javascript"'));
+            $this->assertTrue(str_contains($html, '<svg') || str_contains($html, 'data-node-artwork=') || str_contains($html, 'data-node-language="javascript"'));
             $this->assertStringContainsString('aria-hidden="true"', $html);
             $this->assertStringNotContainsString('<script', $html);
-            if (!str_contains($html, 'data-node-outline=') && !str_contains($html, 'data-node-language=')) {
-                $this->assertStringContainsString('workflow-node-glyph__'.($appearance['modifier'] ? 'action' : 'main'), $html);
+            if (!str_contains($html, 'data-node-artwork=') && !str_contains($html, 'data-node-approved=') && !str_contains($html, 'data-node-language=')) {
+                $document = new \DOMDocument;
+                @$document->loadHTML($html);
+                $this->assertSame(1, $document->getElementsByTagName('svg')->length);
+                $this->assertStringContainsString('workflow-node-glyph__main', $html);
+                $this->assertStringNotContainsString('workflow-node-glyph__action', $html);
+                $this->assertStringNotContainsString('workflow-node-glyph__entity', $html);
             }
         }
     }
@@ -127,7 +152,7 @@ class WorkflowNodeAppearanceTest extends TestCase
         $this->assertSame($colors['query'], $colors['update']);
         $this->assertSame($colors['query'], $colors['link']);
         $this->assertCount(count($types) - 3, array_unique($colors));
-        $this->assertStringContainsString('background: #32343b !important;', $css);
+        $this->assertStringContainsString('background: var(--workflow-dark-surface) !important;', $css);
         $this->assertStringContainsString('color: var(--workflow-node-ink) !important;', $css);
         $this->assertStringContainsString('color: var(--workflow-node-bright) !important;', $css);
         $this->assertStringNotContainsString('background: var(--workflow-node-ink)', $css);

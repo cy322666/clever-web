@@ -107,9 +107,9 @@ class WorkflowEditorSaveStateTest extends TestCase
             'actions'=>[['id'=>'delay','type'=>'workflow_delay','config'=>['seconds'=>5]]],
         ]]);
         Livewire::test(SaveStateEditor::class,['record'=>$flow->id])
-            ->call('openWorkflowInspector','action:delay')->set('mountedActions.0.data.seconds',19)
+            ->call('openWorkflowInspector','action:delay')->set('mountedActions.0.data.seconds',14)
             ->call('save')->assertHasNoErrors()->assertSet('mountedActions',[]);
-        $this->assertSame(19,$flow->fresh()->definition['actions'][0]['config']['seconds']);
+        $this->assertSame(14,$flow->fresh()->definition['actions'][0]['config']['seconds']);
         Http::assertNothingSent();
         Queue::assertNothingPushed();
     }
@@ -129,7 +129,7 @@ class WorkflowEditorSaveStateTest extends TestCase
         ]]);
         $page = Livewire::test(SaveStateEditor::class, ['record' => $flow->id])
             ->call('openWorkflowInspector', 'action:delay')
-            ->set('mountedActions.0.data.seconds', 19)
+            ->set('mountedActions.0.data.seconds', 14)
             ->set('definition.canvas_layout.action:delay', ['x' => 700, 'y' => 300])
             ->call('renameWorkflowNode', 'delay', 'Ожидание', true)
             ->assertHasNoErrors()
@@ -142,12 +142,12 @@ class WorkflowEditorSaveStateTest extends TestCase
         $this->assertSame('{{ $("Пауза").seconds }}', $stored['actions'][1]['config']['seconds']);
         $this->assertNotSame(['x' => 700, 'y' => 300], $stored['canvas_layout']['action:delay'] ?? null);
         $this->assertSame('Пауза', $page->get('savedWorkflowEditorState')['definition']['actions'][0]['name']);
-        $this->assertSame(19, $page->get('mountedActions.0.data.seconds'));
+        $this->assertSame(14, $page->get('mountedActions.0.data.seconds'));
         $this->assertSame(['x' => 700, 'y' => 300], $page->get('definition.canvas_layout.action:delay'));
         $page->call('save')->assertHasNoErrors();
         $stored = $flow->fresh()->definition;
         $this->assertSame('Ожидание', $stored['actions'][0]['name']);
-        $this->assertSame(19, $stored['actions'][0]['config']['seconds']);
+        $this->assertSame(14, $stored['actions'][0]['config']['seconds']);
         $this->assertSame('{{ $("Ожидание").seconds }}', $stored['actions'][1]['config']['seconds']);
         Http::assertNothingSent();
         Queue::assertNothingPushed();

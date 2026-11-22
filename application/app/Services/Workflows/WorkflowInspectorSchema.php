@@ -52,6 +52,8 @@ final class WorkflowInspectorSchema
         $result = [];
         foreach ($components as $component) {
             if (!$component instanceof Component) continue;
+            // The browser places the same global logic control between rows itself.
+            if ($component->getExtraAttributes()['data-workflow-native-condition-connector'] ?? false) continue;
             $name = $this->raw($component, 'statePath') ?? '';
             $path = trim($parent.'.'.$name, '.');
             $kind = match (true) {
@@ -90,9 +92,12 @@ final class WorkflowInspectorSchema
                 $row['options'] = $this->rule($component, $options, $path);
                 if ($component instanceof WorkflowValueInput) {
                     $row['hasOptions'] = $this->rule($component, $this->raw($component, 'hasValueOptions'), $path);
+                    $row['multiple'] = $component->isMultiple();
                     $row['rows'] = $component->getTextareaRows();
                     $row['relativePath'] = $component->isRelativePath();
                     $row['collectionPath'] = $component->isCollectionPath();
+                    $row['inputAttributes'] = array_intersect_key($component->getExtraInputAttributes(), array_flip(['min', 'max']));
+                    $row['step'] = $component->getStep();
                 } elseif ($component instanceof Select) {
                     $row['multiple'] = $component->isMultiple();
                     $row['searchable'] = $component->isSearchable();
@@ -191,6 +196,7 @@ final class WorkflowInspectorSchema
             if (is_array($options) && !isset($options['dependency'])) $values = [...$values, ...array_keys($options)];
         }
         if ($field instanceof Toggle) $values = [...$values, false, true];
+        if (basename(str_replace('.', '/', $path)) === 'body_mode' && isset($this->fields['operation'])) $values = [...$values, 'fields', 'builder', 'json'];
         if (basename(str_replace('.', '/', $path)) === 'operation') $values = [...$values, ...array_keys(WorkflowAmoReadCatalog::operations())];
         if ($field instanceof Field && !($field instanceof Select || $field instanceof ToggleButtons || $field instanceof WorkflowValueInput)) $values = [...$values, '__present'];
         if (preg_match('/(?:^|\.)(parameters|fields|rules|conditions)$/', $path)) $values = [...$values, [], ['__present'=>true]];

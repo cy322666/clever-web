@@ -12,22 +12,11 @@
                 @include('filament.workflow-builder.workflow-json-tree', ['expression'=>"typeof local !== 'undefined' ? local?.output() ?? null : null"])
             </div>
         </div>
-        <footer class="workflow-inspector__footer">
-            <button type="button" x-show="expanded || embedded" x-on:click="closeInspector(false)">Отменить</button>
-            <div class="workflow-inspector__test-menu" x-data="{ menu: false }" x-show="testAvailable()"
-                x-on:click.outside="menu = false" x-on:keydown.escape.prevent.stop="if (menu) { menu = false; $refs.testButton.focus() } else hideInspector()">
-                <button type="button" x-ref="testButton" x-on:click="menu = !menu; if (menu) $nextTick(() => $refs.simulateButton.focus())" aria-controls="workflow-test-options-{{ $this->getId() }}"
-                    x-bind:aria-expanded="menu" x-bind:disabled="Boolean(runningTest) || workflowNodeIsRunning($wire)">Тест</button>
-                <div id="workflow-test-options-{{ $this->getId() }}" x-show="menu" x-cloak aria-label="Режим теста">
-                    <button type="button" x-ref="simulateButton" x-on:click="menu = false; $refs.testButton.focus(); runInspectorTest(false)"
-                        title="Не меняет CRM; Read-ноды могут читать данные">Симуляция</button>
-                    <button type="button" x-on:click="menu = false; $refs.testButton.focus(); runInspectorTest(true)">Реальный тест…</button>
-                </div>
-            </div>
+        <footer class="workflow-inspector__footer" x-show="expanded || embedded || (testAvailable() && testSummary()) || (local?.triggerReference() && !local.triggerHasInput())">
+            <button type="button" class="workflow-inspector__cancel" x-show="expanded || embedded" x-on:click="closeInspector(false)">Отменить</button>
             <span x-show="testAvailable() && testSummary()" class="workflow-inspector__test-result" role="status"
                 x-bind:data-error="testSummary()?.error ? '' : null" x-bind:title="testSummary()?.text" x-text="testSummary()?.text"></span>
             <span x-show="local?.triggerReference() && !local.triggerHasInput()" class="workflow-inspector__test-result">Событие ещё не получено</span>
-            <button type="button" class="workflow-inspector__apply" x-on:click="closeInspector()">Применить</button>
         </footer>
     </form>
 
@@ -40,29 +29,35 @@
         <div class="workflow-value-field fi-fo-field" x-id="['local-value']" x-on:workflow-local-field-refresh="refreshField()"
             x-on:workflow-expression-field="if (!field.relativePath) editPickedExpression()"
             x-on:workflow-expression-suggestions="sources=$event.detail.sources; customFields=$event.detail.customFields || []; suggest({target:$refs.value})"
+            x-on:resize.window="if (suggestions.length) positionSuggestions()"
+            x-on:scroll.window.capture="if (suggestions.length) positionSuggestions()"
+            x-on:workflow-compact-picker-position.window="if (suggestions.length) positionSuggestions()"
+            x-on:workflow-inspector-state.window="suggestions=[]"
             x-on:input="suggest($event)" x-on:keydown="suggestionKey($event)" x-on:click="if ($event.target === $refs.value) suggest($event)"
             x-on:keyup="if (['ArrowLeft','ArrowRight','Home','End'].includes($event.key)) suggest($event)" x-on:click.outside="suggestions=[]">
             <div class="workflow-value-field__header" :class="{'workflow-value-field__header--unlabeled':labelHidden}">
                 <label x-show="!labelHidden" :for="pickedExpression ? $id('local-value') + '-chip' : $id('local-value') + (mode === 'expression' || (!hasOptions && !crmControl) ? '-text' : '')"><span x-text="label"></span><span x-show="required" aria-hidden="true"> *</span></label>
-                <button type="button" class="workflow-compact-field-manual" x-show="!field.relativePath && mode === 'expression' && !pickedExpression"
-                    x-on:click="mode='value'; editingPickedExpression=false; if (String(state ?? '').includes('{'+'{')) state=''">Вручную</button>
             </div>
             <div class="workflow-compact-field-control">
                 <div class="workflow-compact-field-control__value">
                     @include('filament.workflow-builder.workflow-crm-typed-value')
                     <button type="button" class="workflow-compact-field-chip" :id="$id('local-value') + '-chip'" x-show="pickedExpression" x-text="pickedExpression" :title="state"
                         x-on:click="editPickedExpression()" aria-label="Редактировать выражение"></button>
-                    <x-filament::input.wrapper x-show.important="mode === 'value' && hasOptions && !crmControl">
+                    <template x-if="field.multiple">
+                        @include('forms.components.workflow-multiple-options')
+                    </template>
+                    <x-filament::input.wrapper x-show.important="mode === 'value' && hasOptions && !crmControl && !field.multiple">
                         <select class="fi-input workflow-value-field__select" x-model="state" :id="$id('local-value')" :aria-label="label">
                             <option value="" x-text="placeholder || (Object.keys(options).length ? 'Выберите значение' : 'Нет доступных вариантов, обновите справочник')"></option>
-                            <template x-if="state !== null && state !== '' && !String(state).includes('{'+'{') && !Object.hasOwn(options,state)"><option :value="state" x-text="state"></option></template>
+                            <template x-if="state !== null && state !== '' && !String(state).includes('{'+'{') && !Object.hasOwn(options,state) && unknownOptionAllowed"><option :value="state" x-text="state"></option></template>
                             <template x-for="(option, value) in options" :key="value"><option :value="value" :selected="String(state) === String(value)" x-text="option"></option></template>
                         </select>
                     </x-filament::input.wrapper>
-                    <x-filament::input.wrapper x-show.important="(mode === 'expression' || (!hasOptions && !crmControl)) && !pickedExpression">
+                    <x-filament::input.wrapper x-show.important="(mode === 'expression' || (!hasOptions && !crmControl)) && !pickedExpression && !field.multiple">
                         <template x-if="!field.rows"><input x-ref="value" x-model="state" class="fi-input" data-workflow-value-input
                             :data-workflow-filter-item-field="field.relativePath ? '' : null" :id="$id('local-value')+'-text'"
                             :type="mode === 'expression' ? 'text' : field.type || 'text'" :aria-label="label" :placeholder="placeholder"
+                            :min="field.inputAttributes?.min ?? null" :max="field.inputAttributes?.max ?? null" :step="field.step ?? null" x-on:input="clampNumber($event)"
                             x-on:dragover.prevent x-on:drop.prevent="const raw=$event.dataTransfer.getData('application/workflow-expression'); if(raw && !field.relativePath) {state=JSON.parse(raw).expression;mode='expression';editingPickedExpression=false;}" /></template>
                         <template x-if="field.rows"><textarea x-ref="value" x-model="state" class="fi-input" data-workflow-value-input :rows="field.rows"
                             :id="$id('local-value')+'-text'" :aria-label="label" :placeholder="placeholder"
@@ -70,12 +65,14 @@
                     </x-filament::input.wrapper>
                 </div>
                 <button type="button" class="workflow-compact-field-toggle" data-workflow-compact-field-toggle
-                    x-show="!field.relativePath" x-on:click="togglePickedExpression($el)" aria-label="Вставить поле"
+                    x-show="!field.relativePath && !field.multiple" x-on:click="togglePickedExpression($el)" aria-label="Вставить поле"
                     title="Вставить поле" aria-expanded="false" aria-haspopup="dialog">{}</button>
             </div>
-            <div class="workflow-value-suggestions" x-show="suggestions.length" x-cloak role="listbox" aria-label="Подсказки переменных">
+            <template x-teleport="body">
+            <div class="workflow-value-suggestions" x-ref="suggestionList" :style="suggestionPosition" x-on:pointerdown.stop x-on:click.stop x-on:keydown="suggestionKey($event)" x-show="suggestions.length" x-cloak role="listbox" aria-label="Подсказки переменных">
                 <template x-for="(item,index) in suggestions" :key="item.expression"><button type="button" role="option" :aria-selected="index === suggestionIndex" x-on:mousedown.prevent x-on:click="chooseSuggestion(item)"><span x-text="item.source+' · '+(item.label || item.path)"></span><code x-text="item.expression"></code></button></template>
             </div>
+            </template>
             <small class="fi-fo-field-wrp-helper-text" x-show="helper" x-text="helper"></small>
         </div>
     </template>

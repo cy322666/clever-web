@@ -16,11 +16,11 @@ class WorkflowActionFieldsTest extends TestCase
 {
     protected function setUp(): void { parent::setUp(); WorkflowCanvasDatabase::prepare(); Http::preventStrayRequests(); }
 
-    public function test_all_new_amocrm_nodes_start_in_context_mode_without_a_hardcoded_entity_id(): void
+    public function test_new_amocrm_nodes_have_no_hardcoded_ids_and_creation_has_no_context_link(): void
     {
         foreach (\App\Workflows\Actions\WorkflowAmoCrmActionCatalog::classes() as $class) {
             $config = $class::workflowDefaultConfig();
-            $this->assertSame('context', $config['entity_source'], $class);
+            $this->assertSame(in_array($class::workflowType(), ['amocrm_create_contact','amocrm_create_company'], true) ? 'manual' : 'context', $config['entity_source'], $class);
             $this->assertArrayHasKey('target_entity_id', $config, $class);
             $this->assertNull($config['target_entity_id'], $class);
             foreach (['lead_id', 'contact_id', 'company_id', 'customer_id', 'task_id'] as $key) {
@@ -144,7 +144,7 @@ class WorkflowActionFieldsTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_task_form_accepts_expressions_and_json_without_a_separate_popup(): void
+    public function test_task_form_accepts_expressions_through_fields_and_rejects_json_mode(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class)->call('openWorkflowActionEditor', 'task');
         $page->assertSet('mountedActions.0.name', 'configureWorkflowAction');
@@ -155,12 +155,28 @@ class WorkflowActionFieldsTest extends TestCase
         // The removed run strip must not return to the legacy form workspace.
         $this->assertFalse(str_contains($html, 'Запустить'));
         $this->assertFalse(str_contains($html, 'Запустить ноду'));
-        $this->assertTrue(str_contains($html, 'Переменная'));
+        $this->assertStringContainsString('aria-label="Вставить поле"', $html);
+        $this->assertStringNotContainsString('>Вручную<', $html);
         $this->assertFalse(str_contains($html, '@js'));
         $this->assertFalse(str_contains($html, '$getLabel'));
-        $page->set('mountedActions.0.data.body_mode', 'json')->set('mountedActions.0.data.json_body', '{"entity_id":"{{ $json.id }}","entity_type":"leads","task_type_id":1,"text":"Тест","complete_till":1800000000}')
+        $page->set('mountedActions.0.data.target_entity_id', '{{ $json.id }}')
+            ->set('mountedActions.0.data.body_mode', 'json')
+            ->set('mountedActions.0.data.json_body', '{"entity_id":42,"entity_type":"leads","task_type_id":1,"text":"Тест","complete_till":1800000000}')
+            ->call('callMountedAction')->assertHasErrors(['mountedActions.0.data.body_mode' => 'in']);
+        $page->set('mountedActions.0.data.body_mode', 'fields')
+            ->set('mountedActions.0.data.task_type_id', '1')
+            ->set('mountedActions.0.data.complete_till', '1800000000')
+            ->set('mountedActions.0.data.text', 'Тест {{ $json.name }}')
             ->call('callMountedAction')->assertHasNoErrors()->assertSet('mountedActions', []);
-        $this->assertSame('json', $page->get('workflowActions')[0]['config']['true_actions'][0]['config']['body_mode']);
+        $saved = $page->get('workflowActions')[0]['config']['true_actions'][0]['config'];
+        $this->assertSame('fields', $saved['body_mode']);
+        $this->assertSame('manual', $saved['entity_source']);
+        $this->assertSame('{{ $json.id }}', $saved['target_entity_id']);
+        $this->assertSame('Тест {{ $json.name }}', $saved['text']);
+        $issues = \App\Services\Workflows\WorkflowDefinitionValidator::configIssues('amocrm_create_task', [
+            'body_mode' => 'json', 'json_body' => '{"entity_id":42,"entity_type":"leads","task_type_id":1,"text":"Тест","complete_till":1800000000}',
+        ]);
+        $this->assertContains('Ввод JSON отключён. Заполните параметры ноды через поля.', $issues);
     }
 
     public function test_json_results_use_a_collapsible_tree(): void
@@ -180,6 +196,7 @@ class WorkflowActionFieldsTest extends TestCase
     {
         $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [['id' => 'status', 'type' => 'amocrm_change_lead_status', 'config' => []]]])
             ->call('openWorkflowActionEditor', 'status')
+            ->set('mountedActions.0.data.target_entity_id', '{{ $json.id }}')
             ->set('mountedActions.0.data.pipeline_id', '{{ $json.pipeline_id }}')->set('mountedActions.0.data.status_id', '{{ $json.status_id }}')
             ->call('callMountedAction')->assertHasNoErrors();
         $this->assertSame('{{ $json.status_id }}', $page->get('workflowActions')[0]['config']['status_id']);
@@ -277,6 +294,65 @@ class WorkflowActionFieldsTest extends TestCase
             && $request[0]['responsible_user_id']===9
             && $request[0]['_embedded']['tags']===[['name'=>'Партнёр'], ['name'=>'VIP']]);
         Http::assertSentCount(1);
+    }
+
+    public function test_contact_and_company_creation_forms_save_without_a_link(): void
+    {
+        foreach (['amocrm_create_contact','amocrm_create_company'] as $type) {
+            $config = app(\Leek\FilamentWorkflows\Actions\ActionRegistry::class)->getDefaultConfig($type);
+            $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions'=>[
+                ['id'=>'standalone','type'=>$type,'config'=>$config],
+            ]])->call('openWorkflowActionEditor','standalone')
+                ->set('mountedActions.0.data.name','Без привязки')
+                ->call('callMountedAction')->assertHasNoErrors();
+            $saved = $page->get('workflowActions')[0]['config'];
+            $this->assertEmpty($saved['target_entity'] ?? null);
+            $this->assertEmpty($saved['target_entity_id'] ?? null);
+            $this->assertSame([],\App\Services\Workflows\WorkflowDefinitionValidator::configIssues($type,$saved));
+            $this->assertContains('Укажите ID сущности.',\App\Services\Workflows\WorkflowDefinitionValidator::configIssues($type,
+                ['name'=>'Test','entity_source'=>'manual','target_entity'=>'lead']));
+            $this->assertNotEmpty(\App\Services\Workflows\WorkflowDefinitionValidator::configIssues($type,
+                ['name'=>'Test','entity_source'=>'manual','target_entity_id'=>42]));
+        }
+        Http::assertNothingSent();
+    }
+
+    public static function creationEntities(): array
+    {
+        return [['contact','contacts'],['company','companies']];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('creationEntities')]
+    public function test_standalone_creation_does_not_link_to_the_trigger_entity(string $entity, string $plural): void
+    {
+        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
+        $account = (new Account)->forceFill(['id'=>1,'endpoint'=>'https://workflow-fields.test','access_token'=>'test-only']);
+        $method = new \ReflectionMethod($executor,'createEntity');
+        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
+        $context = (new WorkflowContext)->setTriggerData(['entity'=>'lead','lead'=>['id'=>42]]);
+        Http::fake(['https://workflow-fields.test/*'=>fn($request)=>Http::response(['_embedded'=>[$plural=>$request->method()==='GET'?[]:[['id'=>321]]]])]);
+        $result = $method->invoke($executor,$client,$account,$entity,['name'=>'Без привязки'],$context);
+        $this->assertTrue($result['success']);
+        $this->assertSame(321,$result['output']['entity_id']);
+        Http::assertSentCount($entity === 'contact' ? 2 : 1);
+        Http::assertNotSent(fn($request)=>str_ends_with($request->url(),'/link'));
+        Http::assertSent(fn($request)=>$request->method()==='POST' && $request->url()==='https://workflow-fields.test/api/v4/'.$plural);
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('creationEntities')]
+    public function test_creation_still_links_when_a_target_and_id_are_selected(string $entity, string $plural): void
+    {
+        $executor = new WorkflowAmoCrmActionExecutor($this->createMock(WorkflowAmoCrmLoopGuard::class));
+        $account = (new Account)->forceFill(['id'=>1,'endpoint'=>'https://workflow-fields.test','access_token'=>'test-only']);
+        $method = new \ReflectionMethod($executor,'createEntity');
+        $client = (new \ReflectionClass($method->getParameters()[0]->getType()->getName()))->newInstanceWithoutConstructor();
+        Http::fake(['https://workflow-fields.test/*'=>fn($request)=>Http::response(str_ends_with($request->url(),'/link')?[]:['_embedded'=>[$plural=>$request->method()==='GET'?[]:[['id'=>321]]]])]);
+        $result = $method->invoke($executor,$client,$account,$entity,
+            ['name'=>'С привязкой','entity_source'=>'manual','target_entity'=>'lead','target_entity_id'=>42],null);
+        $this->assertTrue($result['success']);
+        Http::assertSentCount($entity === 'contact' ? 3 : 2);
+        Http::assertSent(fn($request)=>$request->url()==='https://workflow-fields.test/api/v4/leads/42/link'
+            && $request[0]['to_entity_id']===321 && $request[0]['to_entity_type']===$plural);
     }
 
     public function test_link_entities_posts_a_company_link_to_the_selected_lead(): void

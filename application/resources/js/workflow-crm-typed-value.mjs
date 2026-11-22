@@ -34,7 +34,7 @@ export function crmTypedControl(type, path, config, fields = [], dictionary = ()
             const pipeline = config.pipeline_id || config.standard_fields?.pipeline_id
                 || config.fields.find(row => row.field === 'system:pipeline_id')?.value;
             const choices = dictionary(fieldName, pipeline);
-            if (choices && Object.keys(choices).length) return {kind: 'dictionary', options: choices};
+            if (fieldName === 'responsible_user_id' || (choices && Object.keys(choices).length)) return {kind: 'dictionary', options: choices || {}};
         } else {
             const entity = mappingEntities[type] || (entities[config.target_entity] || config.target_entity || 'leads');
             const field = fields.find(row => row.entity === entity && String(row.id) === String(selection));

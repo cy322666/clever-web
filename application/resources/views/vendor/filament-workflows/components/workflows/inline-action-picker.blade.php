@@ -9,9 +9,9 @@
 
     $groups = [
         'flow' => [
-            'title' => 'Логика процесса',
+            'title' => 'Инструменты',
             'icon' => 'heroicon-o-adjustments-horizontal',
-            'types' => ['control-condition', 'workflow_loop', 'workflow_set_variable', 'run_workflow'],
+            'types' => ['control-condition', 'workflow_loop', 'workflow_set_variable', 'workflow_javascript', 'workflow_delay', 'http_request'],
             'items' => [],
         ],
         'communication' => [
@@ -44,7 +44,7 @@
             'items' => [],
         ],
         'automation' => [
-            'title' => 'Автоматизация и подписки',
+            'title' => 'Статус и теги',
             'icon' => 'heroicon-o-bolt',
             'types' => [
                 'amocrm_change_tags',
@@ -95,7 +95,7 @@
     foreach ($actions as $action) {
         $type = (string) ($action['type'] ?? '');
 
-        if ($type === '' || (($action['available'] ?? true) === false)) {
+        if (! \App\Services\Workflows\WorkflowNodeCatalog::includesAction($type) || (($action['available'] ?? true) === false)) {
             continue;
         }
 

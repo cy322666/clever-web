@@ -20,6 +20,24 @@ class WorkflowBrowserDocumentTest extends TestCase
         Http::preventStrayRequests();
     }
 
+    public function test_compact_creation_menu_keeps_hidden_metadata_for_existing_nodes(): void
+    {
+        $boot = app(WorkflowBrowserDocument::class)->boot();
+        $this->assertTrue($boot['triggers']['amocrm-add-lead']['catalog_visible']);
+        $this->assertFalse($boot['triggers']['amocrm-delete-contact']['catalog_visible']);
+        $this->assertFalse($boot['triggers']['amocrm-add-customer']['catalog_visible']);
+        $this->assertTrue($boot['actions']['amocrm_create_contact']['catalog_visible']);
+        $this->assertSame('Создать', $boot['actions']['amocrm_create_contact']['display_name']);
+        $this->assertSame('Обновить', $boot['actions']['amocrm_update_contact_fields']['display_name']);
+        $this->assertSame('Создать контакт', $boot['actions']['amocrm_create_contact']['name']);
+        $this->assertFalse($boot['actions']['amocrm_get_contact']['catalog_visible']);
+        $this->assertFalse($boot['actions']['amocrm_start_salesbot']['catalog_visible']);
+        $this->assertNotEmpty($boot['actions']['amocrm_get_contact']['icon']);
+        $this->assertNotEmpty($boot['triggers']['amocrm-delete-contact']['defaults']);
+        $this->assertArrayHasKey('customers.list', $boot['operations']);
+        $this->assertSame(['leads.list', 'contacts.list', 'companies.list', 'tasks.list'], array_keys($boot['readLibrary']));
+    }
+
     private function workflow(): Workflow
     {
         return Workflow::create(['user_id' => 1, 'name' => 'Браузер', 'is_active' => false, 'failure_strategy' => 'stop',
@@ -146,7 +164,7 @@ class WorkflowBrowserDocumentTest extends TestCase
         $workflow = $this->workflow();
         $page = Livewire::test(\App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\BrowserEditWorkflow::class, ['record' => $workflow->id]);
         $page->assertSeeHtml('workflowBrowserEditor(')->assertSeeHtml('data-browser-boot');
-        $page->assertSeeHtml('data-workflow-loop-placeholder')->assertSee('Замените меня');
+        $page->assertSee('Добавить действие в цикл')->assertDontSee('Замените меня')->assertDontSee('workflow-loop-frame', false);
         $this->assertFalse(property_exists($page->instance(), 'workflowActions'));
         $this->assertFalse(property_exists($page->instance(), 'definition'));
         $this->assertFalse(property_exists($page->instance(), 'savedWorkflowEditorState'));

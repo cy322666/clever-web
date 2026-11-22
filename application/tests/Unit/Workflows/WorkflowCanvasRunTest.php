@@ -31,7 +31,7 @@ class WorkflowCanvasRunTest extends TestCase
         });
         $this->app->instance(WorkflowAmoCrmActionExecutor::class, $executor);
         $page = Livewire::test(WorkflowDebugFixture::class)
-            ->assertSee('Выполнить ноду: Запрос сделок')
+            ->assertSee('Запрос сделок')
             ->call('runWorkflowCanvasNode', 'fetch')->assertHasNoErrors()
             ->assertSet('nodeRunResults.fetch.output.count', 2)
             ->assertSet('editingActionId', null)->assertSet('mountedActions', []);

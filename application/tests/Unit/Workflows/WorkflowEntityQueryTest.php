@@ -181,6 +181,29 @@ class WorkflowEntityQueryTest extends TestCase
         $this->assertSame(['eq','from','to'],array_keys(WorkflowEntityQuery::operators(WorkflowEntityQuery::fields('leads.list')['price'])));
     }
 
+    public function test_one_form_exposes_filters_and_parameters_and_keeps_them_on_save(): void
+    {
+        foreach (['fields','builder'] as $mode) {
+            $form = Livewire::test(EntityQueryEditorFixture::class, ['formData'=>[
+                'operation'=>'contacts.list','body_mode'=>$mode,'parameters'=>[],
+            ]]);
+            $form->assertSee('Добавить фильтр')->assertSee('Добавить параметр');
+            $this->assertDoesNotMatchRegularExpression('/>\s*Конструктор\s*</u',$form->html());
+        }
+        $parameters = [['name'=>'with','value'=>'leads']];
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions'=>[
+            ['id'=>'read','type'=>'amocrm_read','config'=>['operation'=>'contacts.list','body_mode'=>'fields','parameters'=>$parameters]],
+        ]])->call('openWorkflowActionEditor','read')
+            ->set('mountedActions.0.data.query','Иван')
+            ->assertSet('mountedActions.0.data.body_mode','builder')
+            ->call('callMountedAction')->assertHasNoErrors();
+        $config = $page->get('workflowActions')[0]['config'];
+        $this->assertSame($parameters,array_values($config['parameters']));
+        $request = WorkflowAmoReadCatalog::build($config);
+        $this->assertSame('Иван',$request['query']['query']);
+        $this->assertSame('leads',$request['query']['with']);
+    }
+
     public function test_existing_raw_read_is_not_switched_or_emptied_on_save(): void
     {
         $parameters = [['name'=>'filter[is_completed]','value'=>'0']];

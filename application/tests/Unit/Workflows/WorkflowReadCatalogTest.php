@@ -197,6 +197,25 @@ class WorkflowReadCatalogTest extends TestCase
         $this->assertSame(['with' => 'leads'], WorkflowAmoReadCatalog::build($json)['query']);
     }
 
+    public function test_filters_and_explicit_parameters_are_combined_in_one_request(): void
+    {
+        $request = WorkflowAmoReadCatalog::build([
+            'operation'=>'contacts.list', 'body_mode'=>'builder', 'query'=>'Иван',
+            'filters'=>[['field'=>'responsible_user_id','value'=>9]],
+            'parameters'=>[
+                ['name'=>'with','value'=>'leads'],
+                ['name'=>'filter[id][]','value'=>[42,43]],
+                ['name'=>'limit','value'=>25],
+            ],
+        ]);
+        $this->assertSame('/api/v4/contacts',$request['path']);
+        $this->assertSame('Иван',$request['query']['query']);
+        $this->assertSame(['responsible_user_id'=>[9],'id'=>[42,43]],$request['query']['filter']);
+        $this->assertSame('leads',$request['query']['with']);
+        $this->assertSame(25,$request['query']['limit']);
+        $this->assertSame(1,$request['query']['page']);
+    }
+
     public function test_custom_requests_cannot_change_host_or_escape_the_api(): void
     {
         foreach (['https://evil.test/', '//evil.test/', '/api/v4/../oauth2', '/api/v4/%2e%2e/secrets', '/api/v4/leads?limit=1', '/api/v4/leads#bad', '/api/v4/leads/\\evil'] as $path) {

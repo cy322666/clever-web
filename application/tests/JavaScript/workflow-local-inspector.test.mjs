@@ -1,6 +1,7 @@
+import {compactInspectorSections} from '../../resources/js/workflow-inspector-sections.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WorkflowLocalInspector, compactLeadSections, inspectorRule, inspectorSource, withKnownInspectorPaths} from '../../resources/js/workflow-local-inspector.mjs';
+import {WorkflowLocalInspector, inspectorRule, inspectorSource, withKnownInspectorPaths} from '../../resources/js/workflow-local-inspector.mjs';
 import {clone,setPath} from '../../resources/js/workflow-browser-document.mjs';
 
 function fixture() {
@@ -22,6 +23,15 @@ function fixture() {
         queryOperations:['leads.list'],withOptions:{'leads.one':{contacts:'Контакты',tags:'Теги'}},sources:[],conditionFields:[]};
     return {wire,writes,local:new WorkflowLocalInspector(wire,boot)};
 }
+
+test('manual start opens node actions without a settings schema or deferred writes',()=>{
+    const {wire,writes,local}=fixture(),before=clone(wire.definition);
+    local.begin('trigger');
+    assert.equal(local.id,'trigger');
+    assert.deepEqual(local.schema,[]);
+    assert.deepEqual(wire.definition,before);
+    assert.deepEqual(writes,[]);
+});
 
 test('opening and switching node settings does not write or request anything',()=>{
     const {wire,writes,local}=fixture(),before=clone(wire.definition);
@@ -59,6 +69,24 @@ test('Cancel restores only the current node and preserves other draft edits',asy
     local.begin('action:read');local.set('id','123');await Promise.resolve();local.cancel();
     assert.equal(wire.workflowActions[1].config.id,'{{ $json.id }}');
     assert.equal(wire.workflowActions[0].config.url,'changed');
+});
+
+test('a condition with no rows opens with one blank rule and keeps the workflow unchanged until editing',()=>{
+    const {wire,writes,local}=fixture();
+    wire.workflowActions[2].config.conditions=[];
+    const field=local.boot.schemas['action:control-condition'][0];
+    field.minItems=1;
+    field.children[1].default='equals';
+    local.begin('action:end');
+    assert.deepEqual(local.value('conditions'),[{operator:'equals'}]);
+    assert.deepEqual(wire.workflowActions[2].config.conditions,[]);
+    assert.deepEqual(writes,[]);
+    local.set('conditions.0.left','{{ $json.id }}');
+    local.flush();
+    local.begin('action:http');
+    local.begin('action:end');
+    assert.deepEqual(local.value('conditions'),[{operator:'equals',left:'{{ $json.id }}'}]);
+    assert.equal(wire.workflowActions[2].config.conditions.length,1);
 });
 
 test('conditional schema rules support numeric select IDs and repeater parents',()=>{
@@ -122,7 +150,7 @@ test('data suggestions omit sensitive keys and inspect a bounded collection samp
 });
 
 
-test('compact lead settings put existing fields in approved order and retain advanced mappings', () => {
+test('lead settings show core CRM fields and retain optional mappings under extra settings', () => {
     const scalar = path => ({kind:'value',path});
     const extras = {kind:'section',label:'Поля сделки',children:[{kind:'repeater',path:'fields',children:[scalar('fields.*.value')]}]};
     const schema = [
@@ -131,10 +159,11 @@ test('compact lead settings put existing fields in approved order and retain adv
         {kind:'hidden',path:'internal'},
     ];
     const before=JSON.stringify(schema);
-    const {primary,secondary}=compactLeadSections(schema);
-    assert.deepEqual(primary.map(field=>field.compactSlot),['name','price','pipeline_id','status_id','contact_id']);
-    assert.deepEqual(secondary[0].children.map(field=>field.path),['responsible_user_id','tags','company_id']);
-    assert.deepEqual(secondary[1],extras);
+    const {primary,secondary}=compactInspectorSections(schema, 'amocrm_create_lead');
+    assert.deepEqual(primary[0].children.filter(field=>field.path).map(field=>field.path),['name','responsible_user_id','contact_id']);
+    assert.deepEqual(primary[0].children[1].children.map(field=>field.path),['pipeline_id','status_id']);
+    assert.deepEqual(secondary[0].children.filter(field=>field.path).map(field=>field.path),['price','tags','company_id']);
+    assert.deepEqual(secondary[1],{...extras,collapsible:false});
     assert.equal(JSON.stringify(schema),before);
 });
 
@@ -148,4 +177,21 @@ test('known action output paths stay selectable after a partial output without s
     assert.equal(missed.value,null);
     assert.equal(missed.available,false);
     assert.equal(missed.expression,'{{ $("Получить контакт").last_name }}');
+});
+
+
+test('editing a filter in a saved parameter request activates the unified query and retains raw parameters',()=>{
+    const {wire,local}=fixture();
+    local.boot.queryOperations.push('contacts.list');
+    wire.workflowActions[1].config={operation:'contacts.list',body_mode:'fields',parameters:[{name:'with',value:'leads'}]};
+    local.begin('action:read');
+    assert.equal(local.config.body_mode,'fields');
+    local.set('filters',[{field:'responsible_user_id',operator:'eq',value:9}]);
+    local.flush();
+    assert.equal(wire.workflowActions[1].config.body_mode,'builder');
+    assert.deepEqual(wire.workflowActions[1].config.parameters,[{name:'with',value:'leads'}]);
+    assert.equal(wire.workflowActions[1].config.limit,50);
+    assert.equal(wire.workflowActions[1].config.page,1);
+    local.begin('action:http');local.begin('action:read');
+    assert.deepEqual(local.config.filters,[{field:'responsible_user_id',operator:'eq',value:9}]);
 });

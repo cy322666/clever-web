@@ -41,6 +41,7 @@ final class WorkflowDefinitionValidator
                 if (($config['body_format'] ?? 'json') === 'form') unset($config['body']);
                 else unset($config['form_fields']);
             }
+            if (($config['body_mode'] ?? '') !== 'json') unset($config['json_body']);
             unset($config['true_actions'], $config['false_actions'], $config['javascript_code']);
             array_walk_recursive($config, function ($value) use (&$errors, $prefix, $references): void {
                 if (!is_string($value)) return;
@@ -87,6 +88,7 @@ final class WorkflowDefinitionValidator
             default => [],
         };
         if (($config['body_mode'] ?? null) === 'json') {
+            if (str_starts_with($type, 'amocrm_')) $errors[] = 'Ввод JSON отключён. Заполните параметры ноды через поля.';
             try { $body = WorkflowJsonBody::parse($config['json_body'] ?? null); }
             catch (\InvalidArgumentException $error) { $errors[] = $error->getMessage(); $body = []; }
             if ($type === 'amocrm_create_task') {
@@ -96,13 +98,17 @@ final class WorkflowDefinitionValidator
             }
         }
         foreach ($required as $key => $message) if (blank($config[$key] ?? null)) $errors[] = $message;
-        if (($config['entity_source'] ?? null) === 'manual' && blank($config['target_entity_id'] ?? $config['entity_id'] ?? null)) $errors[] = 'Укажите ID сущности для ручного выбора.';
+        $optionalLink = in_array($type, ['amocrm_create_contact','amocrm_create_company'], true);
+        $targetId = $config['target_entity_id'] ?? $config['entity_id'] ?? null;
+        if (($config['entity_source'] ?? null) === 'manual' && blank($targetId)
+            && (!$optionalLink || filled($config['target_entity'] ?? null))) $errors[] = 'Укажите ID сущности.';
+        if ($optionalLink && filled($targetId) && blank($config['target_entity'] ?? null)) $errors[] = 'Выберите сущность для привязки.';
         foreach (['bot_id', 'target_entity_id', 'entity_id', 'pipeline_id', 'status_id', 'responsible_user_id', 'task_type_id', 'workflow_id'] as $key) {
             $value = $config[$key] ?? null;
             if (filled($value) && !self::expression($value) && filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) $errors[] = $key.': нужен положительный целый ID или переменная.';
         }
         if ($type === 'workflow_delay' && isset($config['seconds']) && !self::expression($config['seconds'])
-            && filter_var($config['seconds'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 30]]) === false) $errors[] = 'Задержка должна быть от 1 до 30 секунд.';
+            && !\App\Workflows\Actions\WorkflowDelayAction::validSeconds($config['seconds'])) $errors[] = 'Задержка должна быть целым числом от 0 до 15 секунд.';
         if ($type === 'http_request' && filled($config['url'] ?? null) && !self::expression($config['url'])) {
             $url = parse_url((string) $config['url']);
             if (!$url || empty($url['host']) || !in_array($url['scheme'] ?? '', ['http', 'https'], true) || isset($url['user']) || isset($url['pass'])) $errors[] = 'Нужен корректный HTTP(S) URL без логина и пароля.';
@@ -124,6 +130,10 @@ final class WorkflowDefinitionValidator
                     if (json_last_error() !== JSON_ERROR_NONE) $errors[] = $key.': некорректный JSON.';
                 }
             }
+        }
+        if (in_array($type, ['amocrm_link_entity', 'amocrm_unlink_entity'], true)
+            && WorkflowEntityLinks::sameType($config['target_entity'] ?? null, $config['linked_entity'] ?? null)) {
+            $errors[] = WorkflowEntityLinks::SAME_TYPE_ERROR;
         }
         if (in_array($type, ['condition', 'control-condition'], true) && empty($config['conditions'])) $errors[] = 'Добавьте хотя бы одно условие.';
         if ($type === 'telegram_send_message') {

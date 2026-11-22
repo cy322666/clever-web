@@ -742,13 +742,17 @@ class WorkflowAmoCrmActionExecutor
             $context,
             $config,
         );
+        $entity = WorkflowEntityLinks::type($entity);
+        if ($entity === null) return $this->failure('Выберите тип основной сущности.');
         $entityId = $this->currentEntityId($entity, $context, $config);
-        $linkedEntity = (string)($config['linked_entity'] ?? '');
+        $linkedEntity = WorkflowEntityLinks::type($config['linked_entity'] ?? null);
         $linkedId = (int)($config['linked_entity_id'] ?? 0);
 
-        if ($entityId <= 0 || $linkedEntity === '' || $linkedId <= 0) {
+        if ($entityId <= 0 || $linkedEntity === null || $linkedId <= 0) {
             return $this->failure('Для связи сущностей нужна текущая сущность и ID прикрепляемой сущности.');
         }
+
+        if (WorkflowEntityLinks::sameType($entity, $linkedEntity)) return $this->failure(WorkflowEntityLinks::SAME_TYPE_ERROR);
 
         $this->amoRequest($account, 'POST', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId . '/link', [
             [
@@ -782,13 +786,17 @@ class WorkflowAmoCrmActionExecutor
             $context,
             $config,
         );
+        $entity = WorkflowEntityLinks::type($entity);
+        if ($entity === null) return $this->failure('Выберите тип основной сущности.');
         $entityId = $this->currentEntityId($entity, $context, $config);
-        $linkedEntity = (string)($config['linked_entity'] ?? '');
+        $linkedEntity = WorkflowEntityLinks::type($config['linked_entity'] ?? null);
         $linkedId = (int)($config['linked_entity_id'] ?? 0);
 
-        if ($entityId <= 0 || $linkedEntity === '' || $linkedId <= 0) {
+        if ($entityId <= 0 || $linkedEntity === null || $linkedId <= 0) {
             return $this->failure('Для открепления сущностей нужна текущая сущность и ID прикрепленной сущности.');
         }
+
+        if (WorkflowEntityLinks::sameType($entity, $linkedEntity)) return $this->failure(WorkflowEntityLinks::SAME_TYPE_ERROR);
 
         $this->amoRequest($account, 'POST', '/api/v4/' . $this->entityPlural($entity) . '/' . $entityId . '/unlink', [
             [
@@ -1308,6 +1316,8 @@ class WorkflowAmoCrmActionExecutor
         array $config,
         ?WorkflowContext $context
     ): void {
+        if (in_array($createdEntity, ['contact','company'], true) && blank($config['target_entity'] ?? null)) return;
+
         $target = $this->currentTargetEntity(
             (string)($config['target_entity'] ?? ''),
             ['lead', 'contact', 'company', 'customer'],
