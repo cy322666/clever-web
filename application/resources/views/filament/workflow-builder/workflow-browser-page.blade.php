@@ -97,6 +97,9 @@
                                                 <template x-for="port in nodePorts(node)" :key="port"><button type="button" class="workflow-node-port workflow-node-port--output" :class="'workflow-node-port--output-'+port" x-on:pointerdown.stop="startConnection(node.id,port,$event)" x-bind:data-connection-source="connecting?.sourceId === node.id && connecting?.sourcePort === port" x-on:click.stop :aria-label="'Выход '+portLabel(port)"><span class="workflow-node-port__label" x-text="portLabel(port)"></span></button></template>
                                                 <template x-if="node.type==='workflow_loop'"><button type="button" class="workflow-node-port workflow-node-port--input workflow-node-port--loop-return" x-on:pointerdown.stop="startIncomingConnection(node.id,$event,true)" x-on:pointerup.stop="if(connecting?.replaceTarget!==node.id) finishConnection(node.id,$event)" x-on:click.stop="if(connecting?.replaceTarget!==node.id) completeConnection(node.id)" aria-label="Возврат цикла"></button></template>
                                                 <span class="workflow-node-card__icon" x-html="metadata(node).icon"></span>
+                                                <template x-if="node.id.startsWith('trigger')">
+                                                    @include('filament.workflow-builder.workflow-node-start-marker')
+                                                </template>
                                                 <span class="workflow-node-result" data-workflow-node-result hidden></span>
                                                 <span data-workflow-node-status hidden></span>
                                                 <div class="workflow-node-card__caption" x-on:pointerdown.stop x-on:click.stop>
