@@ -33,7 +33,7 @@ class WorkflowAmoWebhookEventsTest extends TestCase
         Bus::fake();
     }
 
-    public function test_every_documented_event_is_registered_receivable_and_available_in_the_picker(): void
+    public function test_every_documented_event_remains_registered_and_receivable_with_a_curated_picker(): void
     {
         $expected = explode(' ', self::EVENTS);
         $actual = AmoCrmWebhookTriggerCatalog::eventCodes();
@@ -54,9 +54,9 @@ class WorkflowAmoWebhookEventsTest extends TestCase
             $this->assertFalse($trigger->shouldTrigger($config, $payload, ['event'=>'not_this_event']));
             $this->assertSame($event['item'], $trigger->getContextData($config, $payload)['item']);
         }
-        $this->assertStringContainsString('Входящее сообщение', $html);
-        $this->assertStringContainsString('Исходящее сообщение', $html);
-        $this->assertStringContainsString('Неразобранное', $html);
+        foreach (['amocrm-add-message', 'amocrm-add-outgoing-message', 'amocrm-add-unsorted'] as $type) {
+            $this->assertFalse(\App\Services\Workflows\WorkflowNodeCatalog::includesTrigger($type));
+        }
         Http::assertNothingSent();
     }
 

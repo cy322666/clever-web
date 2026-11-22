@@ -129,7 +129,11 @@ class WorkflowExecutor extends BaseWorkflowExecutor
      */
     protected function executeSteps(array $steps, WorkflowContext $context, WorkflowRun $run): void
     {
-        $issues = \App\Services\Workflows\WorkflowDefinitionValidator::issues($run->workflow->definition ?? []);
+        $definition = $run->workflow->definition ?? [];
+        if (\App\Services\Workflows\WorkflowStartNodes::all($definition) !== []) {
+            \App\Services\Workflows\WorkflowStartNodes::selected($definition, $context->getTriggerData());
+        }
+        $issues = \App\Services\Workflows\WorkflowDefinitionValidator::issues($definition);
         if ($issues !== []) throw new \Leek\FilamentWorkflows\Exceptions\NonRetryableWorkflowException(implode("\n", $issues));
         if (array_key_exists('connections', $run->workflow->definition ?? [])) {
             $this->executeGraph($context, $run);

@@ -74,19 +74,11 @@
                     <button type="button" x-on:click="selectCategory('amocrm')" class="workflow-node-library__back" aria-label="Назад к сущностям amoCRM"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4"/>amoCRM</button>
                 </div>
                 @foreach($entity['items'] as $action)
-                    <button x-show="query === '' || matches(@js($action['search_text']))" type="button"
+                    <button x-show="query === '' || matches(@js($action['search_text']))" type="button" aria-label="{{ $action['name'] }}"
                             x-on:click="workflowEditorCall($wire, 'selectActionType', @js($action['type']))"
                             x-bind:disabled="workflowNodeIsAdding($wire)" wire:loading.attr="disabled" class="workflow-node-library__item">
                         <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="$action['icon']" :amo="true" class="h-4 w-4"/></span>
-                        <span><strong>{{ $action['name'] }}</strong></span>
-                    </button>
-                @endforeach
-                @foreach($entity['query_items'] ?? [] as $action)
-                    <button x-show="query === '' || matches(@js($action['search_text']))" type="button"
-                            x-on:click="workflowEditorCall($wire, 'selectActionType', @js($action['type']))"
-                            x-bind:disabled="workflowNodeIsAdding($wire)" wire:loading.attr="disabled" class="workflow-node-library__item">
-                        <span class="workflow-node-library__item-icon"><x-workflow-icon :icon="$action['icon']" :amo="true" class="h-4 w-4"/></span>
-                        <span><strong>{{ $action['name'] }}</strong></span>
+                        <span><strong>{{ $action['display_name'] }}</strong></span>
                     </button>
                 @endforeach
                 @foreach($entity['read_items'] ?? [] as $item)

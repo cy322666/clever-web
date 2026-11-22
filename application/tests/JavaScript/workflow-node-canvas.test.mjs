@@ -3,6 +3,17 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 
+function assertOrthogonal(path, maximumBends = 4) {
+    assert.doesNotMatch(path, /[CQASTHV]/, 'Connections use sharp horizontal and vertical segments');
+    const values=path.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi).map(Number);
+    const points=Array.from({length:values.length/2},(_,index)=>({x:values[index*2],y:values[index*2+1]}));
+    for (let index=1;index<points.length;index++) {
+        assert.ok(Math.abs(points[index].x-points[index-1].x)<0.000001 || Math.abs(points[index].y-points[index-1].y)<0.000001, 'No diagonal segments');
+    }
+    assert.ok(points.length-2<=maximumBends, 'Routing must not add extra bends');
+    return points;
+}
+
 function localDraft(actions, edges) {
     const {canvas} = fixture();
     canvas.$wire = {workflowActions:actions, definition:{actions,connections:edges}, $set(path, value, live) {
@@ -14,6 +25,31 @@ function localDraft(actions, edges) {
     }};
     return canvas;
 }
+
+test('primary and additional starts toggle locally without changing config or connections', () => {
+    const canvas = localDraft([], [{sourceId:'trigger:timer',sourcePort:'output',targetId:'action:work'}]);
+    const primary = {type:'manual',name:'Старт',config:{keep:42}};
+    const additional = {id:'trigger:timer',type:'schedule',config:{timezone:'Europe/Moscow'}};
+    canvas.$wire.trigger = primary;
+    canvas.$wire.definition.trigger = primary;
+    canvas.$wire.definition.additional_triggers = [additional];
+    const edges = JSON.stringify(canvas.$wire.definition.connections);
+    canvas.toggleCanvasTrigger('trigger');
+    assert.equal(canvas.$wire.trigger.disabled,true);
+    assert.equal(canvas.$wire.definition.trigger.disabled,true);
+    assert.equal(primary.disabled,undefined,'Do not mutate the previous snapshot');
+    assert.equal(canvas.$wire.trigger.config.keep,42);
+    canvas.toggleCanvasTrigger('trigger:timer');
+    assert.equal(canvas.$wire.definition.additional_triggers[0].disabled,true);
+    assert.equal(canvas.$wire.definition.additional_triggers[0].config.timezone,'Europe/Moscow');
+    canvas.toggleCanvasTrigger('trigger');
+    canvas.toggleCanvasTrigger('trigger:timer');
+    assert.equal(canvas.$wire.trigger.disabled,false);
+    assert.equal(canvas.$wire.definition.additional_triggers[0].disabled,false);
+    assert.equal(JSON.stringify(canvas.$wire.definition.connections),edges);
+    canvas.toggleCanvasTrigger('missing');
+    assert.equal(canvas.$wire.definition.additional_triggers.length,1);
+});
 
 test('manual areas create at the visible center, edit locally and never mutate the graph', () => {
     const canvas = localDraft([{id:'node',type:'workflow_delay'}], []);
@@ -164,21 +200,20 @@ test('local edge projection recognizes done feedback, multiple starts and empty 
     assert.equal(edges.find(e=>e.sourceId==='trigger:two').targetId,'action:before');
 });
 
-test('an empty loop body has a replace-me action inside its visual loop frame', () => {
+test('an empty loop body offers a replace tile without a frame or stored placeholder action', () => {
     const canvas=localDraft([{id:'loop',type:'workflow_loop'}],[]);
     const each=canvas.canvasEdges([],['trigger']).find(edge=>edge.sourceId==='action:loop'&&edge.sourcePort==='each');
     assert.equal(each.targetId,null);
-    const view=readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php',import.meta.url),'utf8');
-    assert.match(view,/workflow-loop-replace/);
-    assert.match(view,/Замените меня/);
-    assert.match(view,/workflow-loop-frame/);
-    assert.match(view,/data-workflow-loop-placeholder="edge\.sourcePort === 'each' && !edge\.targetId \? 'true' : null"/);
-    assert.match(view,/openEdgePalette\(edge.sourceId, edge.sourcePort, edge.targetId\)/);
-    const browser = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-browser-page.blade.php',import.meta.url),'utf8');
-    assert.match(browser,/:data-workflow-loop-placeholder="edge\.sourcePort==='each'&&!edge\.targetId\?'true':null"/);
+    for (const name of ['vendor/filament-workflows/components/workflows/edge-controls','filament/workflow-builder/workflow-browser-page']) {
+        const view=readFileSync(new URL('../../resources/views/'+name+'.blade.php',import.meta.url),'utf8');
+        assert.doesNotMatch(view,/workflow-loop-frame|Замените меня|Действие цикла/);
+        assert.match(view,/workflow-loop-replace/);assert.match(view,/Заменить/);
+        assert.match(view,/Добавить действие в цикл/);
+        assert.match(view,/openEdgePalette\(edge.sourceId, ?edge.sourcePort, ?edge.targetId\)/);
+    }
 });
 
-test('done continuation through a shared body is smooth while actual nested returns stay angular', () => {
+test('done continuation and nested returns stay orthogonal without changing loop semantics', () => {
     const edge = (source,port,target) => ({sourceId:'action:'+source,sourcePort:port,targetId:'action:'+target});
     const actions = [{id:'outer',type:'workflow_loop'},{id:'inner',type:'workflow_loop'},
         {id:'body',type:'workflow_delay'},{id:'telegram',type:'telegram_send_message'}];
@@ -190,8 +225,8 @@ test('done continuation through a shared body is smooth while actual nested retu
     assert.deepEqual(Array.from(projected,e=>e.loopFeedback),[false,false,false,false,true,false]);
     for (const e of projected) {
         const route = canvas.connectionRoute({x:100,y:300},{x:350,y:80},e.loopReturn);
-        assert.equal(route.d.includes(' Q '),e.loopReturn);
-        assert.equal(route.d.includes(' C '),!e.loopReturn);
+        assertOrthogonal(route.d,e.loopReturn ? 4 : 2);
+        assert.equal(route.route.kind,e.loopReturn ? 'loop' : 'curve');
     }
 });
 
@@ -221,7 +256,7 @@ test('condition edges are neutral until evaluated and only the selected route is
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
     const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
     assert.doesNotMatch(css,/workflow-node-edge--(?:yes|no)/);
-    assert.match(source,/const marker = running \? 'running' : completed \? 'completed' : 'default'/);
+    assert.doesNotMatch(source,/marker-end|workflow-edge-arrow-/);
     assert.match(source,/const completed = !preview && this\.edgeCompleted/);
 });
 
@@ -238,10 +273,10 @@ test('canvas keeps its dotted grid and separates neutral port dots from the hit 
     assert.match(grid,/x-bind:cx="gridSpacing \/ 2" x-bind:cy="gridSpacing \/ 2"/);
     assert.match(grid,/x-bind:fill="`url\(#\$\{\$id\('workflow-grid'\)\}\)`"/);
     assert.match(grid,/x-bind:opacity="gridOpacity\(\)"/);
-    assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*5px;[^}]*height:\s*5px;[^}]*border-radius:\s*50%;/s);
+    assert.match(css,/\.workflow-node-port--input::before\s*\{[^}]*width:\s*10px;[^}]*height:\s*10px;[^}]*border-radius:\s*50%;/s);
     assert.match(css,/\.workflow-node-port--input\s*\{[^}]*width:\s*14px !important;[^}]*height:\s*20px !important;/s);
     assert.match(css,/\.workflow-node-port--output\s*\{[^}]*width:\s*14px !important;[^}]*height:\s*20px !important;/s);
-    assert.match(css,/\.dark [^{]+\.workflow-node-port::before\s*\{ background: #8f99aa; \}/);
+    assert.match(css,/\.dark [^{]+\.workflow-node-port::before\s*\{ border-color: #b4c6d8;[^}]*\}/);
     assert.match(css,/\[data-connection-source="true"\]\.workflow-node-port--output::before/);
     const buttonRule=css.match(/button\.workflow-node-port\s*\{([^}]+)\}/)?.[1];
     assert.ok(buttonRule);
@@ -391,14 +426,16 @@ test('curve and loop bend handles snap independently without moving endpoints or
     }
 });
 
-test('connections are heavier without changing node borders or edge hit targets', () => {
+test('connections are crisp without changing node borders or edge hit targets', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
-    assert.match(css, /\.workflow-node-edge\s*\{[^}]*stroke-width:\s*2\.5;[^}]*vector-effect:\s*non-scaling-stroke;/s);
+    assert.match(css, /\.workflow-node-edge\s*\{[^}]*stroke-width:\s*1;[^}]*vector-effect:\s*non-scaling-stroke;/s);
     assert.match(css, /border:\s*1px solid #9da6b3 !important;/);
     assert.doesNotMatch(css, /border:\s*2px solid #9da6b3/);
     assert.match(css, /\.workflow-node-card--selected\s*\{\s*outline:\s*1px solid #339dc7/);
-    assert.match(css, /\.workflow-node-edge\.is-selected\s*\{\s*stroke-width:\s*3\.5;/);
+    assert.match(css, /\.workflow-node-edge\.is-selected\s*\{\s*stroke-width:\s*2;/);
     assert.match(css, /\.workflow-node-edge-hit\s*\{[^}]*stroke-width:\s*16;[^}]*pointer-events:\s*stroke;/s);
+    assert.match(css,/\.workflow-node-edge\s*\{[^}]*shape-rendering:\s*crispEdges;[^}]*filter:\s*none;/s);
+    assert.doesNotMatch(css,/\.workflow-node-edge(?:\.is-selected)?\s*\{[^}]*drop-shadow/s);
 });
 
 test('new branches start from output markers while existing edges keep hover controls', () => {
@@ -406,7 +443,7 @@ test('new branches start from output markers while existing edges keep hover con
     const edges = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflows/edge-controls.blade.php', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
     assert.match(card, /workflow-node-port--output-\{\{ \$port \}\}.*startConnection\('action:' \+ @js\(\$actionId\), @js\(\$port\), \$event\)/s);
-    assert.match(css, /button\.workflow-node-port--output:hover::before[^{]*\{[^}]*background:\s*#2fa7d2/s);
+    assert.match(css, /button\.workflow-node-port--output:hover::before[^{]*\{[^}]*border-color:\s*#2fa7d2/s);
     assert.match(edges, /x-for="edge in canvasEdges/);
     assert.match(edges, /class="workflow-node-edge-controls" wire:ignore wire:key="workflow-edge-controls-/);
     assert.match(edges, /x-show="edge.targetId"/);
@@ -528,18 +565,20 @@ test('another-branch plus is positioned by the card without inventing an edge', 
     assert.deepEqual(positions, [[112,78]]);
 });
 
-test('loop empty outputs keep done above each without crossing their plus buttons', () => {
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
-    const code = source.slice(source.indexOf('controls.filter((button) => !button.dataset.workflowEdgeTarget)'), source.indexOf('        controls.forEach((button) => {'));
-    for (const scale of [0.25, 1, 2]) {
-        const controls = ['each', 'done'].map(port => ({dataset:{workflowEdgeSource:'loop',workflowEdgePort:port},getBoundingClientRect:()=>({width:22*scale})}));
-        const card = {querySelector:port=>({getBoundingClientRect:()=>({left:100*scale,top:(port==='done'?38:62)*scale,width:0,height:0})})};
-        const positions = {}, paths = [];
-        runInNewContext(code, {controls,nodeById:new Map([['loop',{querySelector:()=>card}]]),sourceSelector:port=>port,stageRect:{left:0,top:0},scale,paths,positionControl:(button,x,y)=>{positions[button.dataset.workflowEdgePort]={x,y};},maxX:0,maxY:0});
-        assert.ok(positions.done.y < 38);
-        assert.ok(positions.each.y > 62);
-        assert.equal(positions.done.x, positions.each.x);
-        assert.equal(paths.length, 2);
+test('an empty loop has completion above and its replace tile on the right', () => {
+    for (const scale of [.25,1,2]) {
+        const f=routingFixture([{id:'action:loop',x:100,y:100}],
+            [{source:'action:loop',port:'done',target:''},{source:'action:loop',port:'each',target:''}],scale);
+        const paths=f.draw();
+        assert.equal(paths.length,3);
+        assert.equal(f.controls[0].style.left,'148px');
+        assert.ok(parseFloat(f.controls[0].style.top)<100);
+        assert.equal(f.controls[1].style.left,'398px');
+        assert.equal(f.controls[1].style.top,'148px');
+        const returnPath=f.elements().find(el=>el.attributes['data-workflow-loop-return']==='true');
+        const points=assertOrthogonal(returnPath.attributes.d,3);
+        assert.deepEqual(points.at(-1),{x:148,y:196});
+        assert.equal(points.at(-2).x,148);assert.ok(points.at(-2).y-196>=112);
     }
 });
 
@@ -774,43 +813,37 @@ test('layout ignores iteration returns but rejects ordinary cycles and puts done
     const layout = canvas.graphLayout(ids,edges);
     assert.ok(layout);
     assert.ok(layout.body.x > layout.loop.x);
+    assert.equal(layout.body.y,layout.loop.y);
     assert.ok(layout.done.y < layout.body.y);
     edges[3].loopReturn = false;
     assert.equal(canvas.graphLayout(ids,edges),null);
 });
 
-test('return path is rounded below the body and ends at the loop input', () => {
+test('return path has sharp corners below the body and ends at the loop input', () => {
     const {canvas} = fixture();
     const route = canvas.connectionRoute({x:600,y:160},{x:100,y:160},true,{kind:'loop',exitX:624,entryX:76,y:360});
     assert.match(route.d,/^M 600 160 L/);
-    assert.match(route.d,/Q/);
-    assert.doesNotMatch(route.d,/C/);
+    assertOrthogonal(route.d,4);
+    assert.equal(route.handles.length,1);
+    assert.equal(route.handles[0].part,'lane');
     assert.match(route.d,/L 100 160$/);
     assert.equal(route.y,360);
     assert.equal(route.right,624);
 });
 
-test('empty loop placeholder visibly returns to the loop input', () => {
+test('the replace tile closes visually without adding a runtime action or saved connection', () => {
     let expected;
     for (const scale of [.5,1,2]) {
         const fixture = routingFixture([{id:'action:loop',x:100,y:100}],
             [{source:'action:loop',target:'',port:'each'}],scale);
-        const control = fixture.controls[0];
-        control.dataset.workflowLoopPlaceholder = 'true';
-        control.getBoundingClientRect = () => ({width:130*scale});
-        const frame = {style:{}};
-        control.parentElement = {querySelector:() => frame};
         const paths = fixture.draw();
         assert.equal(paths.length,2);
-        assert.match(paths[0],/ C /);
-        assert.match(paths[1],/ Q /);
-        assert.match(paths[1],/L 100 148$/);
-        assert.ok(parseFloat(frame.style.height) > 300);
+        assertOrthogonal(paths[0],0);
+        assertOrthogonal(paths[1],3);
+        assert.deepEqual(Object.keys(fixture.canvas.edgeRoutes),[]);
         if (expected) assert.deepEqual(paths,expected);
         expected = paths;
     }
-    assert.ok(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8')
-        .includes("path.classList.add('workflow-node-edge--placeholder-return')"));
 });
 
 test('drawn return controls depend only on endpoints, not intermediate cards', () => {
@@ -826,8 +859,8 @@ test('drawn return controls depend only on endpoints, not intermediate cards', (
     let elements;
     f.canvas.$refs.edgeLayer = {style:{},setAttribute(){},replaceChildren(...items){elements=items;}};
     f.canvas.drawConnections();
-    assert.equal(control.style.top,'292px');
-    assert.ok(elements.some(e => e.attributes.d?.includes('292')));
+    assert.equal(control.style.top,'308px');
+    assert.ok(elements.some(e => e.attributes.d?.includes('308')));
 });
 
 function routingFixture(boxes, edges, scale = 1) {
@@ -840,9 +873,11 @@ function routingFixture(boxes, edges, scale = 1) {
         const card = {getBoundingClientRect:()=>screenRect(rect()),querySelector:selector => {
             if (selector === '.workflow-node-card__caption') return caption;
             const input = selector === '.workflow-node-port--input';
-            const ratio = /-(yes|done)$/.test(selector) ? .3 : /-(no|each)$/.test(selector) ? .7 : .5;
-            const x = box.x+(input?(box.portInset??0):96-(box.portInset??0));
-            return {getBoundingClientRect:()=>screenRect({left:x,right:x,top:box.y+96*ratio,bottom:box.y+96*ratio})};
+            const upper = /-(yes|done)$/.test(selector), lower = /-no$/.test(selector);
+            if (selector === '.workflow-node-port--loop-return') return {getBoundingClientRect:()=>screenRect({left:box.x+48,right:box.x+48,top:box.y+96,bottom:box.y+96})};
+            const x = upper || lower ? box.x+48 : box.x+(input?(box.portInset??0):96-(box.portInset??0));
+            const y = box.y+(upper ? 0 : lower ? 96 : 48);
+            return {getBoundingClientRect:()=>screenRect({left:x,right:x,top:y,bottom:y})};
         }};
         return {dataset:{workflowNodeId:box.id},querySelector:()=>card};
     });
@@ -861,12 +896,28 @@ function routingFixture(boxes, edges, scale = 1) {
 }
 
 
-test('ordinary backward links remain smooth and ignore other cards and captions', () => {
+test('condition empty outputs still depart vertically above and below the card at every zoom', () => {
+    for (const scale of [0.25,0.5,1,2]) for (const ports of [['yes','no']]) {
+        const f=routingFixture([{id:'action:branch',x:100,y:260}],ports.map(port=>({source:'action:branch',port,target:''})),scale);
+        const paths=f.draw();
+        assert.equal(paths.length,2);
+        for (const [index,direction] of [-1,1].entries()) {
+            const startY=260+(direction<0?0:96),controlY=startY+direction*(11+(192-11)*.8);
+            assert.ok(Math.abs(parseFloat(f.controls[index].style.left)-148)<0.000001);
+            assert.ok(Math.abs(parseFloat(f.controls[index].style.top)-controlY)<0.000001);
+            const points=assertOrthogonal(paths[index],0);
+            assert.deepEqual(points[0],{x:148,y:startY});
+            assert.ok(points.every(point=>Math.abs(point.x-148)<0.000001));
+            assert.ok((points.at(-1).y-startY)*direction>0);
+        }
+    }
+});
+
+test('ordinary backward links use one rectangular detour and ignore other cards and captions', () => {
     const boxes = [{id:'loop',x:140,y:350},{id:'http',x:500,y:90},{id:'if',x:780,y:90},{id:'done',x:440,y:580}];
     const f = routingFixture(boxes,[{source:'if',target:'loop',port:'no'}]);
     const [path] = f.draw();
-    assert.match(path,/C/);
-    assert.doesNotMatch(path,/Q/);
+    assertOrthogonal(path,4);
     boxes[1].y = 900;
     boxes[3].x = 650;
     assert.equal(f.draw()[0],path);
@@ -877,8 +928,7 @@ test('loop side legs stay angular with distinct return lanes, ignoring other nod
     const f = routingFixture(boxes,[{source:'body',target:'loop',port:'yes',loopReturn:true},{source:'body',target:'loop',port:'no',loopReturn:true}]);
     const paths = f.draw();
     paths.forEach(path=>{
-        assert.match(path,/Q/);
-        assert.doesNotMatch(path,/C/);
+        assertOrthogonal(path,4);
     });
     assert.ok(parseFloat(f.controls[1].style.top)-parseFloat(f.controls[0].style.top)>=24);
     boxes[2].y = 450;
@@ -890,17 +940,16 @@ test('forward edges pass behind an intervening node and never reroute when it mo
     const boxes = [{id:'source',x:100,y:150},{id:'middle',x:400,y:150},{id:'target',x:720,y:150}];
     const f = routingFixture(boxes,[{source:'source',target:'target'}]);
     const [blocked] = f.draw();
-    assert.match(blocked,/C/);
-    assert.doesNotMatch(blocked,/Q/);
-    assert.match(blocked,/M 196 198 C [\d.]+ 198, [\d.]+ 198, 720 198/);
+    assertOrthogonal(blocked,0);
+    assert.equal(blocked,'M 196 198 L 720 198');
     boxes[1].y = 400;
     const [clear] = f.draw();
-    assert.match(clear,/C/);
+    assertOrthogonal(clear,0);
     assert.equal(clear,blocked);
     assert.deepEqual(Object.keys(f.canvas.positions),[]);
 });
 
-test('parallel start nodes join a long-caption node with flowing cubic connections', () => {
+test('parallel start nodes join a long-caption node with at most two right-angle bends', () => {
     const boxes = [{id:'schedule',x:100,y:100},{id:'manual',x:100,y:300},
         {id:'settings',x:350,y:100,captionLeft:80,captionRight:180}];
     const edges = [{source:'schedule',target:'settings'},{source:'manual',target:'settings'}];
@@ -909,8 +958,7 @@ test('parallel start nodes join a long-caption node with flowing cubic connectio
         const paths = routingFixture(boxes,edges,scale).draw();
         assert.deepEqual(paths,expected);
         paths.forEach(path=>{
-            assert.match(path,/C/);
-            assert.doesNotMatch(path,/[LQ]/);
+            assertOrthogonal(path,2);
         });
     }
 });
@@ -921,8 +969,7 @@ test('real port centres inset into card borders do not force ordinary connection
     const edges = [{source:'schedule',target:'settings'},{source:'manual',target:'settings'}];
     for (const scale of [.5,1,2]) {
         routingFixture(boxes,edges,scale).draw().forEach(path=>{
-            assert.match(path,/C/);
-            assert.doesNotMatch(path,/[LQ]/);
+            assertOrthogonal(path,2);
         });
     }
 });
@@ -937,16 +984,47 @@ test('connection routing uses canvas coordinates at different zoom levels', () =
     }
 });
 
-test('return insertion keeps the loop and existing body in place', () => {
+test('return insertion extends the body to the right without shifting the loop or unrelated nodes', () => {
+    for (const scale of [.5,1,2]) {
+        const f = fixture();
+        f.canvas.scale = scale;
+        let positions = {loop:{x:48,y:100},body:{x:500,y:100},unrelated:{x:100,y:2000}};
+        let source = 'body';
+        f.canvas.cardPositions = () => positions;
+        f.canvas.$refs.stage = {querySelectorAll:()=>[
+            {dataset:{workflowEdgeSource:source,workflowEdgeTarget:'loop',workflowLoopReturn:'true'}},
+        ]};
+        f.canvas.restoreCardPositions = desired => {positions=desired;};
+        for (const nodeId of ['first','second']) {
+            const before = JSON.parse(JSON.stringify(positions));
+            f.canvas.captureInsertion(source,'loop');
+            assert.equal(f.canvas.pendingInsertion.loopReturn,true);
+            assert.equal(f.canvas.pendingInsertion.feedback,true);
+            f.canvas.placeInsertedNode({sourceId:source,targetId:'loop',sourcePort:'output',nodeId});
+            assert.equal(positions[nodeId].x,positions[source].x+250);
+            assert.equal(positions[nodeId].y,positions[source].y);
+            for (const [id,point] of Object.entries(before)) assert.deepEqual({...positions[id]},point);
+            source = nodeId;
+        }
+    }
+});
+
+test('return insertion keeps the row when the next position is occupied and honors an explicit drop', () => {
     const f = fixture();
-    const positions = {loop:{x:48,y:100},body:{x:500,y:100}};
-    f.canvas.pendingInsertion = {sourceId:'body',targetId:'loop',nodes:positions,edges:[],dropPosition:null,feedback:true};
-    let result;
-    f.canvas.restoreCardPositions = desired => {result=desired;};
+    const nodes = {loop:{x:48,y:100},body:{x:500,y:100},occupied:{x:790,y:100}};
+    let placed;
+    f.canvas.restoreCardPositions = desired => {placed=desired;};
+    const pending = {sourceId:'body',targetId:'loop',nodes,edges:[],feedback:true,loopReturn:true};
+    f.canvas.pendingInsertion = {...pending};
     f.canvas.placeInsertedNode({sourceId:'body',targetId:'loop',sourcePort:'output',nodeId:'new'});
-    assert.deepEqual(result.loop,positions.loop);
-    assert.deepEqual(result.body,positions.body);
-    assert.ok(result.new.y > result.body.y);
+    assert.equal(placed.new.x,1000);
+    assert.equal(placed.new.y,100);
+    assert.deepEqual(placed.occupied,nodes.occupied);
+    f.canvas.pendingInsertion = {...pending,dropPosition:{x:400,y:700}};
+    f.canvas.placeInsertedNode({sourceId:'body',targetId:'loop',sourcePort:'output',nodeId:'new'});
+    assert.deepEqual({...placed.new},{x:350,y:650});
+    assert.deepEqual(placed.loop,nodes.loop);
+    assert.deepEqual(placed.body,nodes.body);
 });
 
 test('inserting into smooth done feedback does not shift the earlier node or loop', () => {
@@ -969,7 +1047,7 @@ test('inserting into smooth done feedback does not shift the earlier node or loo
     assert.ok(result.new.y > result.loop.y);
 });
 
-test('legacy pinned angular done routes become smooth without losing the chosen waypoint', () => {
+test('legacy loop branch routes adapt to vertical ports without rewriting saved data', () => {
     const saved = {kind:'loop',exitX:250,entryX:500,y:550};
     const boxes = [{id:'loop',x:100,y:350},{id:'telegram',x:550,y:80}];
     const edge = {source:'loop',target:'telegram',port:'done'};
@@ -978,13 +1056,14 @@ test('legacy pinned angular done routes become smooth without losing the chosen 
         const f = routingFixture(boxes,[edge],scale);
         f.canvas.edgeRoutes[JSON.stringify(['loop','done','telegram'])] = saved;
         const [path] = f.draw();
-        assert.match(path,/ C /);
-        assert.doesNotMatch(path,/ Q | L /);
-        assert.match(path,/, 375 550 C /);
+        const points=assertOrthogonal(path,3);
+        assert.equal(points[0].x,148);
+        assert.equal(points[1].x,148);
+        assert.ok(points[1].y<points[0].y);
         const normalized = path.replace(/-?\d+(?:\.\d+)?/g,value=>Number(value).toFixed(6));
         if (expected) assert.equal(normalized,expected);
         expected = normalized;
-        assert.equal(f.controls[0].style.top,'550px');
+        assert.ok(Math.abs(parseFloat(f.controls[0].style.top)-326)<0.000001);
         assert.deepEqual(saved,{kind:'loop',exitX:250,entryX:500,y:550},'Rendering must not mutate saved workflow data');
     }
 });
@@ -1000,8 +1079,10 @@ test('pinned loop routes can run behind any node and survive endpoint movement a
         f.canvas.edgeRoutes[key] = {...saved};
         const [path] = f.draw();
         assert.equal(f.controls[0].style.top,'360px');
-        assert.match(path,/L 65 360 Q 55 360/);
-        assert.doesNotMatch(path,/C|NaN/);
+        const points=assertOrthogonal(path,4);
+        assert.ok(points.some(point=>point.x===148&&point.y===360));
+        assert.equal(points.at(-1).x,148);assert.equal(points.at(-1).y,196);
+        assert.doesNotMatch(path,/NaN/);
         if (expected) assert.equal(path,expected);
         expected = path;
         boxes[2].x += 10;
@@ -1039,7 +1120,7 @@ test('dragging routes is zoom-correct, does not reconnect or move nodes, and per
     }
 });
 
-test('loop side handles and normal curves move on the selected axis in full grid cells', () => {
+test('legacy loop handles and the ordinary spine move on one fixed axis in full grid cells', () => {
     const f = fixture(), edge = {sourceId:'action:source',sourcePort:'output',targetId:'action:test'};
     const key = f.canvas.edgeRouteKey(edge);
     const original = {kind:'loop',exitX:600,entryX:100,y:320};
@@ -1053,11 +1134,12 @@ test('loop side handles and normal curves move on the selected axis in full grid
     f.canvas.startEdgeRouteDrag(edge,{kind:'curve',x:350,y:120},f.event(100,100));
     f.canvas.moveCanvas(f.event(150,180));
     f.canvas.stopCanvasInteraction(f.event(150,180));
-    assert.equal(f.canvas.edgeRoutes[key].x,350);
-    assert.equal(f.canvas.edgeRoutes[key].y,200);
+    assert.equal(f.canvas.edgeRoutes[key].x,400);
+    assert.equal(f.canvas.edgeRoutes[key].y,120);
     const curve = f.canvas.connectionRoute({x:100,y:50},{x:700,y:50},false,f.canvas.edgeRoutes[key]);
-    assert.match(curve.d,/, 350 200 C/);
-    assert.doesNotMatch(curve.d,/[LQ]/);
+    assertOrthogonal(curve.d,4);
+    assert.equal(curve.handles.length,1);
+    assert.equal(curve.handles[0].part,'lane');
 });
 
 test('curve axis locks for a gesture and abandoned or irrelevant movement does not rewrite legacy paths', () => {
@@ -1091,7 +1173,7 @@ test('edge selection has no floating menu while direct manipulation remains avai
     const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
     assert.doesNotMatch(view + css + source, /workflow-connection-menu|Перетащите линию или точки|Сбросить изгиб|resetSelectedEdgeRoute|reconnectSelectedEdge/);
     assert.match(view, /x-show="connecting \|\| connectionError"/);
-    assert.match(source, /this\.startEdgeRouteDrag\(edge, route, event\)/);
+    assert.match(source, /this\.startEdgeRouteDrag\(edge, route, event, handles\?\.\[0\]\?\.part\)/);
     assert.match(source, /this\.beginEdgeReconnect\(/);
 });
 
@@ -1511,9 +1593,9 @@ test('inserting between nodes creates space downstream while preserving unrelate
     f.canvas.$refs.stage={getBoundingClientRect:()=>({left:0,top:0})};
     f.canvas.pendingInsertion={sourceId:'source',targetId:'target',nodes:{source:boxes.source,target:boxes.target,tail:boxes.tail,unrelated:boxes.unrelated},edges:[{source:'target',target:'tail'}]};
     f.canvas.placeInsertedNode({sourceId:'source',targetId:'target',nodeId:'inserted'});
-    assert.equal(boxes.inserted.x+f.canvas.positions.inserted.x,190);
-    assert.equal(boxes.target.x+f.canvas.positions.target.x,384);
-    assert.equal(boxes.tail.x+f.canvas.positions.tail.x,576);
+    assert.equal(boxes.inserted.x+f.canvas.positions.inserted.x,250);
+    assert.ok(Math.abs(boxes.target.x+f.canvas.positions.target.x-499.2)<1e-6);
+    assert.ok(Math.abs(boxes.tail.x+f.canvas.positions.tail.x-691.2)<1e-6);
     assert.equal(f.canvas.positions.unrelated?.x ?? 0,0);
     assert.equal(f.canvas.positions.unrelated?.y ?? 0,0);
     assert.equal(f.saves(),1);
@@ -1688,4 +1770,323 @@ test('execution badges do not trigger repeated text mutations during canvas refr
     assert.equal(text, '0');
     f.canvas.setExecutionState({results: []});
     assert.equal(badge.hidden, true);
+});
+
+test('orthogonal routing uses one middle handle and never mutates legacy route data', () => {
+    const {canvas}=fixture();
+    const saved={kind:'curve',x:320,y:500};
+    const route=canvas.connectionRoute({x:100,y:60},{x:700,y:260},false,saved);
+    const points=assertOrthogonal(route.d,2);
+    assert.deepEqual(points,[{x:100,y:60},{x:320,y:60},{x:320,y:260},{x:700,y:260}]);
+    assert.equal(route.handles.length,1);
+    assert.equal(route.handles[0].part,'spine');
+    assert.deepEqual(saved,{kind:'curve',x:320,y:500});
+    for (const x of [-1000,2000]) assertOrthogonal(canvas.connectionRoute({x:100,y:60},{x:700,y:260},false,{kind:'curve',x,y:500}).d,2);
+});
+
+test('dragging an aligned middle lane adds only one rectangular detour without moving endpoints', () => {
+    const f=fixture(),edge={sourceId:'trigger',sourcePort:'output',targetId:'action:test'};
+    const start={x:100,y:60},end={x:700,y:60};
+    const initial=f.canvas.connectionRoute(start,end,false);
+    assertOrthogonal(initial.d,0);
+    f.canvas.startEdgeRouteDrag(edge,initial.route,f.event(100,100),initial.handles[0].part);
+    f.canvas.moveCanvas(f.event(135,155));
+    f.canvas.stopCanvasInteraction(f.event(135,155));
+    const saved=f.canvas.edgeRoutes[f.canvas.edgeRouteKey(edge)];
+    assert.equal(saved.x,400);
+    assert.equal(saved.y,120);
+    const points=assertOrthogonal(f.canvas.connectionRoute(start,end,false,saved).d,4);
+    assert.deepEqual(points[0],start);
+    assert.deepEqual(points.at(-1),end);
+    assert.deepEqual(Object.keys(f.canvas.positions),[]);
+});
+
+test('top and bottom source directions remain vertical for connected and dragged routes', () => {
+    const {canvas}=fixture();
+    for (const direction of [-1,1]) for (const end of [{x:700,y:60},{x:700,y:500},{x:50,y:60},{x:50,y:500}]) {
+        const start={x:300,y:280};
+        const route=canvas.connectionRoute(start,end,false,null,{x:0,y:direction});
+        const points=assertOrthogonal(route.d,3);
+        assert.deepEqual(points[0],start);
+        assert.deepEqual(points.at(-1),end);
+        assert.equal(points[1].x,start.x);
+        assert.ok((points[1].y-start.y)*direction>0);
+        assert.equal(points.at(-2).y,end.y);
+        assert.ok(points.at(-2).x<end.x);
+        assert.equal(route.handles.length,1);
+        assert.equal(route.handles[0].part,'lane');
+    }
+});
+
+test('new upper and lower branches use the standard rightward step without shifting existing nodes', () => {
+    for (const [port,direction] of [['yes',-1],['done',-1],['no',1]]) {
+        const f=fixture(),before={branch:{x:200,y:400},other:{x:900,y:100}};
+        f.canvas.pendingInsertion={sourceId:'branch',targetId:null,nodes:before,edges:[]};
+        let placed;f.canvas.restoreCardPositions=points=>{placed=points;};
+        f.canvas.placeInsertedNode({sourceId:'branch',targetId:null,sourcePort:port,nodeId:'new'});
+        assert.deepEqual(placed.branch,before.branch);assert.deepEqual(placed.other,before.other);
+        assert.equal(placed.new.x,450);
+        assert.equal(placed.new.y,Math.round((400+direction*240*.8)/10)*10);
+    }
+});
+
+test('fit view includes upper and lower branch pluses without moving the node', () => {
+    const f=fixture();
+    const card={getBoundingClientRect:()=>({left:100,top:100,right:196,bottom:196})};
+    f.canvas.nodeElements=()=>[{querySelector:selector=>selector==='[data-workflow-node-card]'?card:null}];
+    f.canvas.$refs.stage={getBoundingClientRect:()=>({left:0,top:0}),querySelector:()=>null};
+    f.canvas.$refs.viewport.clientWidth=800;f.canvas.$refs.viewport.clientHeight=600;
+    const bounds=[{left:137,right:159,top:-103,bottom:-81,width:22,height:22},{left:137,right:159,top:377,bottom:399,width:22,height:22}];
+    f.canvas.$refs.edgeControls={querySelectorAll:()=>bounds.map(rect=>({dataset:{workflowEdgeSource:'action:test'},style:{visibility:'visible'},getBoundingClientRect:()=>rect}))};
+    f.canvas.fitView();
+    for (const rect of bounds) {
+        assert.ok(rect.top*f.canvas.scale+f.canvas.translateY>=48-0.000001);
+        assert.ok(rect.bottom*f.canvas.scale+f.canvas.translateY<=552+0.000001);
+    }
+    assert.deepEqual(Object.keys(f.canvas.positions),[]);
+});
+
+test('an occupied upper or lower insertion keeps the new node on its branch side', () => {
+    for (const [port,direction] of [['yes',-1],['no',1]]) {
+        const f=fixture(),before={branch:{x:200,y:400},occupied:{x:450,y:Math.round((400+direction*240*.8)/10)*10}};
+        f.canvas.pendingInsertion={sourceId:'branch',targetId:null,nodes:before,edges:[]};
+        let placed;f.canvas.restoreCardPositions=points=>{placed=points;};
+        f.canvas.placeInsertedNode({sourceId:'branch',targetId:null,sourcePort:port,nodeId:'new'});
+        assert.ok((placed.new.y-before.occupied.y)*direction>0);
+        assert.deepEqual(placed.occupied,before.occupied);
+    }
+});
+
+test('fit view includes connected vertical detours outside the node bounds', () => {
+    const f=fixture(),card={getBoundingClientRect:()=>({left:100,top:100,right:196,bottom:196})};
+    f.canvas.nodeElements=()=>[{querySelector:selector=>selector==='[data-workflow-node-card]'?card:null}];
+    const path={left:148,top:-200,right:430,bottom:148};
+    f.canvas.$refs.stage={getBoundingClientRect:()=>({left:0,top:0}),querySelector:()=>null};
+    f.canvas.$refs.edgeLayer={querySelectorAll:selector=>selector==='.workflow-node-edge'?[{getBoundingClientRect:()=>path}]:[]};
+    f.canvas.$refs.viewport.clientWidth=800;f.canvas.$refs.viewport.clientHeight=600;
+    f.canvas.fitView();
+    assert.ok(path.top*f.canvas.scale+f.canvas.translateY>=48-0.000001);
+    assert.ok(path.right*f.canvas.scale+f.canvas.translateX<=752+0.000001);
+    assert.deepEqual(Object.keys(f.canvas.positions),[]);
+});
+
+
+test('nearly level ports draw a single straight segment without moving endpoints or saved routes', () => {
+    const {canvas}=fixture();
+    for (const delta of [-4,-1,-0.25,0.25,1,4]) {
+        const start={x:100,y:60},end={x:700,y:60+delta};
+        const baseline=60+delta/2;
+        for (const saved of [null,{kind:'curve',x:350,y:baseline+.1}]) {
+            const before=JSON.stringify({start,end,saved});
+            const points=assertOrthogonal(canvas.connectionRoute(start,end,false,saved).d,0);
+            assert.equal(points.length,2);
+            assert.equal(points[0].y,baseline);
+            assert.equal(points[1].y,baseline);
+            assert.ok(Math.abs(points[0].y-start.y)<=2);
+            assert.ok(Math.abs(points[1].y-end.y)<=2);
+            assert.equal(JSON.stringify({start,end,saved}),before);
+        }
+    }
+    for (const delta of [-20,20]) {
+        const points=assertOrthogonal(canvas.connectionRoute({x:100,y:60},{x:700,y:60+delta},false).d,2);
+        assert.equal(points.length,4,'A deliberate node offset keeps its right-angle bends');
+    }
+});
+
+test('a vertical output meets a nearby target lane without a tiny input step', () => {
+    const {canvas}=fixture();
+    for (const direction of [-1,1]) {
+        const start={x:100,y:200},end={x:700,y:200+direction*100};
+        const saved={kind:'curve',x:650,y:end.y+direction};
+        const points=assertOrthogonal(canvas.connectionRoute(start,end,false,saved,{x:0,y:direction}).d,1);
+        assert.deepEqual(points,[start,{x:start.x,y:end.y},end]);
+        assert.equal(saved.y,end.y+direction);
+    }
+});
+
+test('screen-space edge painting stays stable through repeated zoom and pan without changing graph data', () => {
+    const {canvas,window}=fixture();
+    canvas.positions={a:{x:13.25,y:47.75}};canvas.edgeRoutes={kept:{kind:'curve',x:301,y:207}};
+    const before=JSON.stringify({positions:canvas.positions,routes:canvas.edgeRoutes});
+    let scale=1,left=57.25,top=89.375;
+    const layer={style:{},getScreenCTM(){
+        const previous=this.workflowPixelOffset||{x:0,y:0,scale:1};
+        return {a:scale/previous.scale,b:0,c:0,d:scale/previous.scale,e:left+scale*previous.x,f:top+scale*previous.y};
+    }};
+    for(const ratio of [1,2])for(const zoom of [1,.75,1.33,2,.01]) {
+        window.devicePixelRatio=ratio;scale=zoom;left-=13.375;top+=7.125;
+        for(let index=0;index<20;index++) {
+            const matrix=canvas.alignEdgeLayerPixels(layer);
+            assert.ok(Math.abs(matrix.a-1)<1e-9);assert.ok(Math.abs(matrix.d-1)<1e-9);
+            assert.ok(Math.abs(matrix.worldScale-zoom)<1e-9);
+            assert.ok(Math.abs(matrix.e*ratio-Math.round(matrix.e*ratio))<1e-9);
+            assert.ok(Math.abs(matrix.f*ratio-Math.round(matrix.f*ratio))<1e-9);
+            assert.ok(Math.abs(layer.workflowPixelOffset.x*zoom)<=.5/ratio+1e-9);
+            assert.ok(Math.abs(layer.workflowPixelOffset.y*zoom)<=.5/ratio+1e-9);
+        }
+    }
+    assert.equal(JSON.stringify({positions:canvas.positions,routes:canvas.edgeRoutes}),before);
+});
+
+test('ordinary and selected lines land on physical pixel centres at fractional zoom and display densities', () => {
+    const {canvas,window}=fixture();
+    const raw='M 13.25 47.75 L 120.625 47.75 L 120.625 201.375 L 420.5 201.375';
+    const original=assertOrthogonal(raw,2);
+    for(const ratio of [1,1.25,2,3])for(const scale of [.25,.75,1,1.33,2])for(const width of [1,2]) {
+        window.devicePixelRatio=ratio;
+        const matrix={a:1,b:0,c:0,d:1,e:12,f:19,worldScale:scale};
+        const points=assertOrthogonal(canvas.pixelAlignedEdgePath(raw,matrix,width),2);
+        const phase=Math.round(width*ratio)%2?.5:0;
+        points.forEach((point,index)=>{
+            for(const [axis,offset] of [['x',12],['y',19]]) {
+                const physical=(point[axis]+offset)*ratio-phase;
+                assert.ok(Math.abs(physical-Math.round(physical))<1e-8);
+                assert.ok(Math.abs(point[axis]-original[index][axis]*scale)<=.5/ratio+1e-8);
+            }
+        });
+    }
+});
+
+test('screen-space rendering keeps edge drag data in world units and scales the grip and hit area', () => {
+    const scale=.75;
+    const f=routingFixture([{id:'action:a',x:100,y:100},{id:'action:b',x:500,y:100}],
+        [{source:'action:a',target:'action:b'}],scale);
+    f.window.devicePixelRatio=2;
+    const layer=f.canvas.$refs.edgeLayer;
+    layer.getScreenCTM=function(){
+        const previous=this.workflowPixelOffset||{x:0,y:0,scale:1};
+        return {a:scale/previous.scale,b:0,c:0,d:scale/previous.scale,e:57+scale*previous.x,f:89+scale*previous.y};
+    };
+    f.canvas.selectedEdge={sourceId:'action:a',sourcePort:'output',targetId:'action:b'};
+    f.draw();
+    const grip=f.elements().find(el=>el.attributes.class==='workflow-edge-route-handle');
+    const hit=f.elements().find(el=>el.attributes.class==='workflow-node-edge-hit');
+    assert.equal(grip.attributes.cx,348*scale);assert.equal(grip.attributes.cy,148*scale);
+    assert.equal(grip.attributes.r,5);assert.equal(hit.attributes.style,'stroke-width:12px');
+    let dragged;
+    f.canvas.startEdgeRouteDrag=(edge,route,event,part)=>{dragged={edge,route,part};};
+    grip.listeners.pointerdown(f.event(200,200));
+    assert.deepEqual(JSON.parse(JSON.stringify(dragged.route)),{kind:'curve',x:348,y:148});
+    assert.equal(dragged.part,'lane');
+});
+
+
+test('new loop body replaces the right tile without moving existing nodes', () => {
+    const f=fixture(),before={loop:{x:200,y:400},other:{x:900,y:100}};
+    f.canvas.pendingInsertion={sourceId:'loop',targetId:null,nodes:before,edges:[]};
+    let placed;f.canvas.restoreCardPositions=points=>{placed=points;};
+    f.canvas.placeInsertedNode({sourceId:'loop',targetId:null,sourcePort:'each',nodeId:'body'});
+    assert.deepEqual(placed.loop,before.loop);assert.deepEqual(placed.other,before.other);
+    assert.deepEqual(JSON.parse(JSON.stringify(placed.body)),{x:450,y:400});
+});
+
+test('loop returns enter from below while keeping the left input separate', () => {
+    const {canvas}=fixture();
+    for (const sourceVector of [{x:1,y:0},{x:0,y:-1},{x:0,y:1}]) {
+        const start={x:600,y:148},end={x:148,y:196};
+        const route=canvas.connectionRoute(start,end,true,null,sourceVector,{x:0,y:1});
+        const points=assertOrthogonal(route.d,4);
+        assert.deepEqual(points[0],start);assert.deepEqual(points.at(-1),end);
+        assert.equal(points.at(-2).x,end.x);assert.ok(points.at(-2).y>end.y);
+        assert.equal(route.handles.length,1);
+    }
+    const controls=[false,true].map(loopReturn=>({dataset:{workflowEdgeSource:loopReturn?'body':'trigger',workflowEdgeTarget:'loop',workflowEdgePort:'output',workflowLoopReturn:String(loopReturn)}}));
+    canvas.$refs.edgeControls={querySelectorAll:()=>controls};canvas.$refs.stage={querySelector:()=>null};
+    const reconnected=[];canvas.beginEdgeReconnect=edge=>reconnected.push(edge.sourceId);
+    canvas.startIncomingConnection('loop',{button:0});
+    canvas.startIncomingConnection('loop',{button:0},true);
+    assert.deepEqual(reconnected,['trigger','body']);
+});
+
+
+test('the lower loop input keeps its connection tolerance when the graph is zoomed out', () => {
+    const {canvas}=fixture();
+    canvas.connecting={sourceId:'action:body',sourcePort:'output'};
+    const ports=[{left:100,top:140,width:4,height:4},{left:145,top:190,width:4,height:4}]
+        .map(box=>({getBoundingClientRect:()=>box}));
+    canvas.nodeElements=()=>[{dataset:{workflowNodeId:'action:loop'},querySelectorAll:()=>ports}];
+    assert.equal(canvas.connectionTargetAt({clientX:149,clientY:199}),'action:loop');
+    assert.equal(canvas.connectionTargetAt({clientX:149,clientY:230}),null);
+});
+
+test('branches from different columns use one vertical spine before a shared input', () => {
+    const boxes=[{id:'action:upper',x:100,y:100},{id:'action:lower',x:400,y:400},{id:'action:target',x:900,y:250}];
+    const edges=[{source:'action:upper',target:'action:target'},{source:'action:lower',target:'action:target'}];
+    for(const scale of [.25,.5,1,1.33,2])for(const ordered of [edges,[...edges].reverse()]) {
+        const f=routingFixture(boxes,ordered,scale),paths=f.draw();
+        const points=paths.map(path=>assertOrthogonal(path,2));
+        points.forEach(path=>{
+            assert.ok(Math.abs(path[1].x-698)<1e-6);
+            assert.ok(Math.abs(path[2].x-698)<1e-6);
+            assert.ok(Math.abs(path.at(-1).x-900)<1e-6);
+            assert.ok(Math.abs(path.at(-1).y-298)<1e-6);
+        });
+        assert.deepEqual(Object.keys(f.canvas.edgeRoutes),[],'Drawing must not write saved routes');
+        assert.deepEqual(Object.keys(f.canvas.positions),[],'Drawing must not move nodes');
+    }
+});
+
+test('vertical branch outputs share the final input spine and a nearly level branch stays flat', () => {
+    for(const port of ['yes','no']) {
+        const f=routingFixture([{id:'action:condition',x:100,y:200},{id:'action:lower',x:500,y:500},{id:'action:target',x:950,y:200}],
+            [{source:'action:condition',port,target:'action:target'},{source:'action:lower',target:'action:target'}]);
+        f.draw().map(path=>assertOrthogonal(path,3)).forEach(points=>{
+            assert.equal(points.at(-3).x,773);assert.equal(points.at(-2).x,773);
+            assert.deepEqual(points.at(-1),{x:950,y:248});
+        });
+    }
+    const f=routingFixture([{id:'action:upper',x:100,y:100},{id:'action:level',x:400,y:251},{id:'action:target',x:900,y:250}],
+        [{source:'action:upper',target:'action:target'},{source:'action:level',target:'action:target'}]);
+    const [upper,level]=f.draw().map(path=>assertOrthogonal(path,2));
+    assert.equal(upper.at(-1).y,298);assert.equal(level.length,2);assert.equal(level[0].y,298);assert.equal(level[1].y,298);
+});
+
+test('shared input columns preserve saved route data while resolving older mismatched spines', () => {
+    const f=routingFixture([{id:'action:a',x:100,y:100},{id:'action:b',x:400,y:400},{id:'action:c',x:900,y:250}],
+        [{source:'action:a',target:'action:c'},{source:'action:b',target:'action:c'}]);
+    f.canvas.edgeRoutes={
+        [f.canvas.edgeRouteKey({sourceId:'action:a',sourcePort:'output',targetId:'action:c'})]:{kind:'curve',x:650,y:223},
+        [f.canvas.edgeRouteKey({sourceId:'action:b',sourcePort:'output',targetId:'action:c'})]:{kind:'curve',x:730,y:373},
+    };
+    const before=JSON.stringify(f.canvas.edgeRoutes);
+    f.draw().forEach(path=>assert.equal(assertOrthogonal(path,2)[1].x,730));
+    assert.equal(JSON.stringify(f.canvas.edgeRoutes),before);
+});
+
+test('dragging or cancelling a shared spine updates the whole merge and preserves unrelated routes', () => {
+    for(const scale of [.5,1,2]) {
+        const boxes=[{id:'action:a',x:100,y:100},{id:'action:b',x:400,y:400},{id:'action:c',x:900,y:250}];
+        const edges=[{source:'action:a',target:'action:c'},{source:'action:b',target:'action:c'}];
+        const f=routingFixture(boxes,edges,scale),edge={sourceId:'action:a',sourcePort:'output',targetId:'action:c'};
+        f.canvas.edgeRoutes.unrelated={kind:'curve',x:12,y:34};f.draw();
+        const key=f.canvas.edgeRouteKey(edge),group=f.canvas.inputRouteGroups.get(key);
+        const route=group.routes.find(item=>item.key===key).route;
+        f.canvas.startEdgeRouteDrag(edge,route,f.event(100,100),'spine');
+        f.canvas.moveCanvas(f.event(140,100));
+        f.canvas.stopCanvasInteraction(f.event(140,100));
+        const keys=edges.map(item=>f.canvas.edgeRouteKey({sourceId:item.source,sourcePort:'output',targetId:item.target}));
+        assert.equal(f.canvas.edgeRoutes[keys[0]].x,f.canvas.edgeRoutes[keys[1]].x);
+        const x=f.canvas.edgeRoutes[key].x;
+        f.draw().forEach(path=>assert.ok(Math.abs(assertOrthogonal(path,2)[1].x-x)<1e-6));
+        const saved=JSON.stringify(f.canvas.edgeRoutes),saves=f.saves();
+        f.canvas.startEdgeRouteDrag(edge,f.canvas.edgeRoutes[key],f.event(100,100),'spine');
+        f.canvas.moveCanvas(f.event(80,100));
+        f.canvas.stopCanvasInteraction({...f.event(80,100),type:'pointercancel'});
+        assert.equal(JSON.stringify(f.canvas.edgeRoutes),saved);assert.equal(f.saves(),saves);
+        assert.deepEqual(f.canvas.edgeRoutes.unrelated,{kind:'curve',x:12,y:34});
+        assert.deepEqual(Object.keys(f.canvas.positions),[]);
+    }
+});
+
+
+test('old vertical branch lanes cannot collapse the common input spine after direction clamping', () => {
+    const {canvas}=fixture();
+    for(const direction of [-1,1]) {
+        const start={x:148,y:200},end={x:950,y:200+direction*24};
+        const route=canvas.connectionRoute(start,end,false,{kind:'curve',x:773,y:direction>0?-1000:1000},{x:0,y:direction},{x:-1,y:0},0,773);
+        const points=assertOrthogonal(route.d,3);
+        assert.equal(points.at(-3).x,773);assert.equal(points.at(-2).x,773);
+        assert.ok(Math.abs(points.at(-3).y-points.at(-2).y)>=24);
+        assert.deepEqual(points.at(-1),end);
+    }
 });

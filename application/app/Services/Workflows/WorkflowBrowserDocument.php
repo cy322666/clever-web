@@ -31,12 +31,14 @@ final class WorkflowBrowserDocument
     {
         $actions = [];
         foreach (app(ActionRegistry::class)->getAllWithMetadata() as $item) {
-            if (! ($item['available'] ?? true) || in_array($item['type'], [...\App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), 'run_workflow'], true)) {
+            if (! ($item['available'] ?? true) || in_array($item['type'], [...\App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), 'run_workflow', 'workflow_filter_list'], true)) {
                 continue;
             }
             $appearance = WorkflowNodeAppearance::action($item['type'], [], $item['icon']);
             $actions[$item['type']] = ['type' => $item['type'], 'name' => $item['name'], 'category' => $item['category'],
+                'display_name' => WorkflowNodeCatalog::actionLabel($item['type'], $item['name']),
                 'defaults' => app(ActionRegistry::class)->getDefaultConfig($item['type']), 'appearance' => $appearance,
+                'catalog_visible' => WorkflowNodeCatalog::includesAction($item['type']),
                 'icon' => view('components.workflow-node-icon', ['appearance' => $appearance, 'attributes' => new \Illuminate\View\ComponentAttributeBag])->render()];
         }
         $triggers = [];
@@ -44,6 +46,7 @@ final class WorkflowBrowserDocument
             $appearance = WorkflowNodeAppearance::trigger($item['type'], $item['icon']);
             $triggers[$item['type']] = ['type' => $item['type'], 'name' => $item['name'], 'category' => 'Запуски',
                 'defaults' => app(TriggerRegistry::class)->getDefaultConfig($item['type']), 'appearance' => $appearance,
+                'catalog_visible' => WorkflowNodeCatalog::includesTrigger($item['type']),
                 'icon' => view('components.workflow-node-icon', ['appearance' => $appearance, 'attributes' => new \Illuminate\View\ComponentAttributeBag])->render()];
         }
         $operations = WorkflowAmoReadCatalog::operations();
@@ -55,7 +58,7 @@ final class WorkflowBrowserDocument
 
         return ['document' => $this->document($workflow, $folder), 'version' => $workflow ? $this->version($workflow) : null,
             'actions' => $actions, 'triggers' => $triggers, 'operations' => $operations,
-            'readLibrary' => WorkflowAmoReadCatalog::availableOperations(), 'references' => $this->references(),
+            'readLibrary' => WorkflowNodeCatalog::readOperations(), 'references' => $this->references(),
             'folders' => WorkflowFolders::options(), 'csrf' => csrf_token(),
             'codeEditorUrl' => \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('code-editor', 'filament/forms'),
             'baseUrl' => url('/workflow-editor'), 'listUrl' => \App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index'),

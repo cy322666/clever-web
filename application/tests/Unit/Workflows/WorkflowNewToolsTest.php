@@ -17,7 +17,7 @@ class WorkflowNewToolsTest extends TestCase
     }
     public function test_new_tools_are_registered_and_have_working_editor_forms(): void
     {
-        foreach (['workflow_filter_list','http_request','amocrm_contact_leads','amocrm_create_lead'] as $type) {
+        foreach (['http_request','amocrm_contact_leads','amocrm_create_lead'] as $type) {
             $page = Livewire::test(WorkflowCanvasFixture::class)->call('openDetachedActionPalette')->call('selectActionType',$type);
             $nodes = WorkflowGraph::nodes($page->get('workflowActions'));
             $last = end($nodes)['step'];
@@ -25,6 +25,17 @@ class WorkflowNewToolsTest extends TestCase
             $page->call('openWorkflowActionEditor',$last['id'])->assertStatus(200)->assertHasNoErrors();
         }
     }
+    public function test_filter_is_removed_from_creation_but_existing_nodes_still_open(): void
+    {
+        $node = ['id' => 'filter', 'type' => 'workflow_filter_list', 'config' => ['items' => '{{ $json.items }}', 'rules' => []]];
+        $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [$node]])
+            ->call('openDetachedActionPalette')->call('selectActionType', 'workflow_filter_list');
+        $this->assertSame([$node], $page->get('workflowActions'));
+        $this->assertArrayNotHasKey('workflow_filter_list', $page->instance()->workflowDraftCatalog()['actions']);
+        $page->call('openWorkflowActionEditor', 'filter')->assertStatus(200)->assertHasNoErrors();
+        $this->assertArrayHasKey('action:workflow_filter_list', $page->instance()->workflowInspectorBootstrap()['schemas']);
+    }
+
     public function test_filter_feeds_count_to_the_condition_and_runs_only_the_correct_branch(): void
     {
         $definition = ['trigger'=>['type'=>'manual'],'actions'=>[

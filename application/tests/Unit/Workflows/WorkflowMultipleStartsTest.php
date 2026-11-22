@@ -21,6 +21,41 @@ class WorkflowMultipleStartsTest extends TestCase
         Http::preventStrayRequests();
     }
 
+    public function test_disabled_starts_stay_in_the_document_but_are_excluded_from_dispatch(): void
+    {
+        $definition = ['trigger' => ['type' => 'schedule', 'disabled' => true], 'additional_triggers' => [
+            ['id' => 'trigger:on', 'type' => 'schedule', 'config' => []],
+            ['id' => 'trigger:off', 'type' => 'schedule', 'config' => [], 'disabled' => true],
+            ['id' => 'trigger:event', 'type' => 'amocrm-lead', 'config' => ['source' => 'amocrm', 'event' => 'add_lead'], 'disabled' => true],
+        ]];
+        $this->assertCount(4, WorkflowStartNodes::all($definition));
+        $this->assertSame(['trigger:on'], array_keys(WorkflowStartNodes::ofType($definition, 'schedule')));
+        $this->assertSame([], WorkflowStartNodes::events($definition));
+        $definition['additional_triggers'][2]['disabled'] = false;
+        $this->assertSame(['trigger:event' => 'add_lead'], WorkflowStartNodes::events($definition));
+        $this->assertSame('trigger:on', WorkflowStartNodes::selected($definition, ['_workflow_start_node_id' => 'trigger:on']));
+        foreach (['trigger', 'trigger:off'] as $id) {
+            try {
+                WorkflowStartNodes::selected($definition, ['_workflow_start_node_id' => $id]);
+                $this->fail('A disabled start was selected');
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertStringContainsString('выключена', $exception->getMessage());
+            }
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_disabled_primary_start_blocks_execution_for_legacy_definitions(): void
+    {
+        $definition = ['trigger' => ['type' => 'manual', 'disabled' => true], 'actions' => []];
+        $run = new \Leek\FilamentWorkflows\Models\WorkflowRun;
+        $run->setRelation('workflow', (new \App\Models\Workflows\Workflow)->forceFill(['definition' => $definition]));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('нода запуска выключена');
+        (new \ReflectionMethod(\App\Workflows\Engine\WorkflowExecutor::class, 'executeSteps'))
+            ->invoke(app(\App\Workflows\Engine\WorkflowExecutor::class), [], new \App\Workflows\Context\WorkflowContext, $run);
+    }
+
     public function test_new_start_is_independent_and_its_settings_survive_edits(): void
     {
         $page = Livewire::test(WorkflowCanvasFixture::class)->call('beginTriggerAdd')->call('selectTriggerType', 'schedule');

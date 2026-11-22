@@ -40,17 +40,20 @@ function fixture() {
 
 test('only the real incoming edge to a running node animates; finished paths stop', () => {
     const {canvas, nodes, draw} = fixture();
-    assert.doesNotMatch(draw().attributes.class, /--running/);
+    const idle = draw();
+    assert.doesNotMatch(idle.attributes.class, /--running/);
+    assert.equal(idle.attributes['marker-end'], undefined);
     nodes[1].card.dataset.nodeRunning = 'true';
     const running = draw();
     assert.match(running.attributes.class, /workflow-node-edge--running/);
-    assert.equal(running.attributes['marker-end'], 'url(#workflow-edge-arrow-running)');
+    assert.equal(running.attributes['marker-end'], undefined);
     const geometry = running.attributes.d;
     nodes[1].card.dataset.nodeRunning = 'false';
     canvas.executionState = {results: [{id: 'fetch', status: 'completed', display_count: 1}]};
     const completed = draw();
     assert.doesNotMatch(completed.attributes.class, /--running/);
     assert.match(completed.attributes.class, /--completed/);
+    assert.equal(completed.attributes['marker-end'], undefined);
     assert.equal(completed.attributes.d, geometry, 'Animation must never move node ports or routes');
     nodes[2].card.dataset.nodeRunning = 'true';
     assert.doesNotMatch(draw().attributes.class, /--running/, 'An unrelated node must not animate this edge');

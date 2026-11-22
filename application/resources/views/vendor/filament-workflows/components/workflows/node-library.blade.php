@@ -12,7 +12,7 @@
         $action['icon'] = \App\Services\Workflows\WorkflowAmoIcons::action($action['type'] ?? '', [], $action['icon'] ?? 'heroicon-o-cog-6-tooth');
         return $action;
     }, $actions);
-    $triggers = array_values(array_filter($triggers, fn (array $trigger): bool => ! in_array($trigger['type'] ?? '', ['date-condition', 'workflow-completed'], true)));
+    $triggers = array_values(array_filter($triggers, fn (array $trigger): bool => \App\Services\Workflows\WorkflowNodeCatalog::includesTrigger($trigger['type'] ?? '')));
     $triggerGroups = [
         'system' => [
             'title' => 'Способ запуска',
@@ -113,77 +113,14 @@
     foreach ($triggerGroups as $key => &$group) $group['icon'] = \App\Services\Workflows\WorkflowAmoIcons::entity($key, $group['icon']);
     unset($group);
 
-    $mvpActionTypes = [
-        'control-condition',
-        'workflow_javascript',
-        'workflow_delay',
-        'workflow_filter_list',
-        'workflow_loop',
-        'workflow_set_variable',
-        'http_request',
-        'amocrm_create_lead',
-        'amocrm_create_contact',
-        'amocrm_create_company',
-        'amocrm_start_salesbot',
-        'amocrm_update_lead_fields',
-        'amocrm_update_contact_fields',
-        'amocrm_update_company_fields',
-        'amocrm_change_lead_status',
-        'amocrm_create_task',
-        'amocrm_add_note',
-        'amocrm_change_tags',
-        'amocrm_link_entity',
-    ];
+    $mvpActionTypes = \App\Services\Workflows\WorkflowNodeCatalog::actionTypes();
     $unsupportedActionTypes = \App\Workflows\Actions\WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes();
-    $queryActionGroups = [
-        'amocrm_query_leads' => 'lead',
-        'amocrm_contact_leads' => 'lead',
-        'amocrm_get_contact' => 'contact',
-    ];
-    $queryActions = array_values(array_filter($actions, fn (array $action): bool => isset($queryActionGroups[$action['type'] ?? '']) && ($action['available'] ?? true) !== false));
     $actionEntities = [
-        'salesbot' => ['title' => 'Salesbot', 'description' => 'Запуск бота', 'icon' => 'heroicon-o-cpu-chip', 'types' => ['amocrm_start_salesbot'], 'items' => []],
-        'contact' => ['title' => 'Контакт', 'description' => 'Создание и поля контакта', 'icon' => 'heroicon-o-user', 'types' => ['amocrm_create_contact', 'amocrm_update_contact_fields'], 'items' => []],
-        'company' => ['title' => 'Компания', 'description' => 'Создание и поля компании', 'icon' => 'heroicon-o-building-office', 'types' => ['amocrm_create_company', 'amocrm_update_company_fields'], 'items' => []],
-        'lead' => [
-            'title' => 'Сделка',
-            'description' => 'Поля и этап воронки',
-            'icon' => 'heroicon-o-currency-dollar',
-            'types' => ['amocrm_create_lead', 'amocrm_update_lead_fields', 'amocrm_change_lead_status'],
-            'items' => [],
-        ],
-        'task' => [
-            'title' => 'Задача',
-            'description' => 'Создать задачу в amoCRM',
-            'icon' => 'heroicon-o-clipboard-document-check',
-            'types' => ['amocrm_create_task'],
-            'items' => [],
-        ],
-        'note' => [
-            'title' => 'Примечание',
-            'description' => 'Добавить запись в ленту',
-            'icon' => 'heroicon-o-chat-bubble-left-ellipsis',
-            'types' => ['amocrm_add_note'],
-            'items' => [],
-        ],
-        'tags' => [
-            'title' => 'Теги',
-            'description' => 'Добавить, удалить или очистить теги',
-            'icon' => 'heroicon-o-tag',
-            'types' => ['amocrm_change_tags'],
-            'items' => [],
-        ],
-        'links' => [
-            'title' => 'Связи',
-            'description' => 'Связать любые сущности amoCRM',
-            'icon' => 'heroicon-o-link',
-            'types' => ['amocrm_link_entity'],
-            'items' => [],
-        ],
-        'customer' => ['title' => 'Покупатель', 'icon' => 'heroicon-o-users', 'types' => [], 'items' => []],
-        'catalog' => ['title' => 'Списки и товары', 'icon' => 'heroicon-o-squares-2x2', 'types' => [], 'items' => []],
-        'event' => ['title' => 'События', 'icon' => 'heroicon-o-bolt', 'types' => [], 'items' => []],
-        'other' => ['title' => 'Другое', 'icon' => 'heroicon-o-circle-stack', 'types' => [], 'items' => []],
+        'lead' => ['title' => 'Сделка', 'icon' => 'heroicon-o-currency-dollar', 'types' => ['amocrm_create_lead', 'amocrm_update_lead_fields', 'amocrm_change_lead_status'], 'items' => []],
+        'contact' => ['title' => 'Контакт', 'icon' => 'heroicon-o-user', 'types' => ['amocrm_create_contact', 'amocrm_update_contact_fields'], 'items' => []],
+        'company' => ['title' => 'Компания', 'icon' => 'heroicon-o-building-office', 'types' => ['amocrm_create_company', 'amocrm_update_company_fields'], 'items' => []],
+        'task' => ['title' => 'Задача', 'icon' => 'heroicon-o-check-circle', 'types' => ['amocrm_create_task'], 'items' => []],
+        'common' => ['title' => 'Общие', 'icon' => 'heroicon-o-rectangle-stack', 'types' => ['amocrm_add_note', 'amocrm_change_tags', 'amocrm_link_entity'], 'items' => []],
     ];
     $logicActions = [];
     foreach ($actionEntities as $key => &$group) $group['icon'] = \App\Services\Workflows\WorkflowAmoIcons::entity($key, $group['icon']);
@@ -199,14 +136,16 @@
             continue;
         }
 
+        $action['display_name'] = \App\Services\Workflows\WorkflowNodeCatalog::actionLabel($type, (string) ($action['name'] ?? ''));
         $action['search_text'] = mb_strtolower(implode(' ', [
             $action['name'] ?? '',
+            $action['display_name'],
             strip_tags((string) ($action['description'] ?? '')),
             $type,
             'действие узел',
         ]));
 
-        if (in_array($type, ['control-condition', 'workflow_loop', 'workflow_set_variable', 'workflow_javascript', 'workflow_delay', 'workflow_filter_list', 'http_request'], true)) {
+        if (in_array($type, ['control-condition', 'workflow_loop', 'workflow_set_variable', 'workflow_javascript', 'workflow_delay', 'http_request'], true)) {
             $logicActions[] = $action;
             continue;
         }
@@ -221,25 +160,16 @@
         unset($entity);
     }
 
-    $readOperations = \App\Services\Workflows\WorkflowAmoReadCatalog::availableOperations();
-    $readEntityGroups = [
-        'Сделки' => 'lead', 'Контакты' => 'contact', 'Компании' => 'company',
-        'Покупатели' => 'customer', 'Задачи' => 'task', 'Списки и товары' => 'catalog',
-        'События' => 'event', 'Примечания' => 'note', 'Теги' => 'tags', 'Другое' => 'other',
-    ];
-    foreach ($queryActions as $action) {
-        $key = $queryActionGroups[$action['type']];
-        $action['search_text'] = mb_strtolower('amoCRM '.$actionEntities[$key]['title'].' '.$action['name'].' '.strip_tags((string) ($action['description'] ?? '')));
-        $actionEntities[$key]['query_items'][] = $action;
-    }
+    $readOperations = \App\Services\Workflows\WorkflowNodeCatalog::readOperations();
+    $readEntityGroups = ['Сделки' => 'lead', 'Контакты' => 'contact', 'Компании' => 'company', 'Задачи' => 'task'];
     foreach ($readOperations as $operation => $item) {
-        $key = $readEntityGroups[$item['entity_group'] ?? $item['group']] ?? 'other';
+        $key = $readEntityGroups[$item['group']];
         $item['operation'] = $operation;
         $item['search_text'] = mb_strtolower('amoCRM '.$actionEntities[$key]['title'].' '.$item['group'].' '.$item['name'].' '.$item['path'].' '.implode(' ', $item['variants'] ?? []));
         $actionEntities[$key]['read_items'][] = $item;
     }
     $actionEntities = array_filter($actionEntities, static fn (array $entity): bool => $entity['items'] !== [] || ($entity['query_items'] ?? []) !== [] || ($entity['read_items'] ?? []) !== []);
-    $entityOrder = array_flip(['lead', 'contact', 'company', 'customer', 'task', 'note', 'tags', 'links', 'salesbot', 'catalog', 'event', 'other']);
+    $entityOrder = array_flip(['lead', 'contact', 'company', 'task', 'common']);
     uksort($actionEntities, static fn (string $a, string $b): int => $entityOrder[$a] <=> $entityOrder[$b]);
     foreach ($actionEntities as &$entity) {
         $entity['count'] = count($entity['items']) + count($entity['query_items'] ?? []) + count($entity['read_items'] ?? []);
@@ -268,10 +198,9 @@
          class="workflow-node-library__panel" role="dialog"
          x-bind:aria-busy="workflowNodeIsAdding($wire)"
          x-bind:aria-label="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : 'Добавить ноду'">
-        <header class="workflow-node-library__header">
+        <header x-cloak x-show="mode === 'variables'" class="workflow-node-library__header">
             <div class="workflow-node-library__heading">
                 <h2 x-show="!workflowNodeIsAdding($wire) && mode !== 'action'" x-text="mode === 'variables' ? 'Справочники' : mode === 'trigger' ? 'Выбрать событие' : 'Добавить ноду'"></h2>
-                <div x-cloak x-show="workflowNodeIsAdding($wire)" class="workflow-node-library__pending" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span>Добавляю…</div>
             </div>
             <button x-cloak x-show="mode === 'variables'" type="button" wire:click="refreshWorkflowReference" wire:loading.attr="disabled"
                     class="workflow-node-library__close workflow-node-library__refresh" aria-label="Обновить переменные" title="Обновить переменные">
@@ -293,6 +222,7 @@
                 </button>
             </label>
         </div>
+        <div x-cloak x-show="workflowNodeIsAdding($wire)" class="workflow-node-library__pending" role="status" aria-live="polite"><span class="workflow-run-spinner" aria-hidden="true"></span>Добавляю…</div>
         @include('filament.workflow-builder.workflow-node-catalog', compact('triggerGroups', 'logicActions', 'actionEntities', 'triggerSearchTexts', 'amoSearchTexts', 'actionSearchTexts', 'maskGroups', 'systemIdGroups'))
     </div>
 </aside>

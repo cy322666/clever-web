@@ -10,31 +10,28 @@
     x-on:form-validation-error.window="if ($event.detail.livewireId === $wire.$id) showValidationErrors()"
     x-on:keydown.escape.stop="if (!$event.defaultPrevented) hideInspector()"
     x-on:resize.window="queueInspectorPosition()" x-bind:hidden="!opened" hidden
-    x-bind:style="position" x-bind:data-placement="placement" x-bind:data-expanded="expanded && !embedded ? '' : null" x-bind:data-debug-embedded="embedded ? '' : null" x-bind:aria-busy="loading" aria-label="Настройки ноды">
+    x-bind:style="position" x-bind:data-placement="placement" x-bind:data-expanded="expanded && !embedded ? '' : null" x-bind:data-debug-embedded="embedded ? '' : null" x-bind:aria-busy="loading" aria-label="Настройки ноды" x-bind:aria-label="'Настройки: ' + (title || 'Нода')">
     @php($inspectorBootstrap = $this->workflowInspectorBootstrap())
     <script type="application/json" data-local-inspector-boot>{!! json_encode($inspectorBootstrap, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) !!}</script>
-    <header class="workflow-inspector__header">
-        <span data-inspector-icon class="workflow-inspector__icon" aria-hidden="true"></span>
-        <strong x-text="title || 'Нода'"></strong>
-        <x-filament::icon-button tag="a" :href="\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/blocks'" target="_blank" rel="noopener noreferrer" color="gray" size="sm" icon="heroicon-o-question-mark-circle" label="Справка о ноде" title="Справка о ноде"
-            x-data="{ pages: {{ \Illuminate\Support\Js::from(['types' => \App\Services\Workflows\WorkflowDocumentationLinks::typePages(), 'reads' => \App\Services\Workflows\WorkflowDocumentationLinks::readPages()]) }} }"
-            x-show="expanded || embedded"
-            x-bind:href="(() => {
-                const inspector = typeof local !== 'undefined' ? local : null;
-                if (!inspector?.id) return {{ \Illuminate\Support\Js::from(\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/blocks') }};
-                void inspector.revision;
-                const type = inspector.type;
-                const operation = inspector.config?.operation;
-                const page = type === 'amocrm_read'
-                    ? (Object.hasOwn(pages.reads, operation) ? pages.reads[operation] : 'query')
-                    : (Object.hasOwn(pages.types, type) ? pages.types[type] : 'blocks');
-                return {{ \Illuminate\Support\Js::from(\App\Services\Workflows\WorkflowDocumentationLinks::BASE_URL.'/') }} + page;
-            })()" />
-        <button type="button" x-show="!embedded && !local?.triggerReference()" x-on:click="toggleExpanded()"
-            x-bind:aria-label="expanded ? 'Свернуть настройки' : 'Развернуть настройки'" x-bind:aria-expanded="expanded"
-            x-bind:title="expanded ? 'Свернуть настройки' : 'Развернуть настройки'"><x-filament::icon icon="heroicon-o-arrows-pointing-out" class="h-4 w-4"/></button>
-        <button type="button" x-on:click="hideInspector()" aria-label="Закрыть настройки" title="Закрыть настройки"><x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4"/></button>
-    </header>
+    <div class="workflow-settings-actions" role="toolbar" aria-label="Действия ноды" aria-orientation="horizontal" x-bind:style="actionPosition" x-show="!embedded">
+        <div class="workflow-inspector__primary-actions" wire:ignore x-show="!loading" x-cloak>
+            <div class="workflow-inspector__test-menu" x-data="{ menu: false }" x-show="testAvailable()"
+                x-on:click.outside="menu = false" x-on:keydown.escape.prevent.stop="if (menu) { menu = false; $refs.testButton.focus() } else hideInspector()">
+                <button type="button" class="workflow-inspector__action" x-ref="testButton" x-on:click="menu = !menu; if (menu) $nextTick(() => $refs.simulateButton.focus())" aria-controls="workflow-test-options-{{ $this->getId() }}"
+                    aria-label="Тест" title="Тест" x-bind:aria-expanded="menu" x-bind:disabled="Boolean(runningTest) || workflowNodeIsRunning($wire)">
+                    <x-filament::icon icon="heroicon-s-play" class="h-4 w-4"/>
+                </button>
+                <div id="workflow-test-options-{{ $this->getId() }}" x-show="menu" x-cloak aria-label="Режим теста">
+                    <button type="button" x-ref="simulateButton" x-on:click="menu = false; $refs.testButton.focus(); runInspectorTest(false)"
+                        title="Не меняет CRM; Read-ноды могут читать данные">Симуляция</button>
+                    <button type="button" x-on:click="menu = false; $refs.testButton.focus(); runInspectorTest(true)">Реальный тест…</button>
+                </div>
+            </div>
+            <button type="button" class="workflow-inspector__action workflow-inspector__apply" x-on:click="closeInspector()" aria-label="Применить" title="Применить">
+                <x-filament::icon icon="heroicon-o-check" class="h-4 w-4"/>
+            </button>
+        </div>
+    </div>
     <nav x-show="expanded || embedded" class="workflow-inspector__tabs" role="tablist" aria-label="Данные ноды">
         @foreach(['settings' => 'Настройки', 'input' => 'Вход', 'output' => 'Выход'] as $tab => $label)
             <button type="button" role="tab" x-on:click="tab = @js($tab)" x-bind:aria-selected="tab === @js($tab)" x-bind:tabindex="tab === @js($tab) ? 0 : -1" x-on:keydown.arrow-right.prevent="nextTab(1)" x-on:keydown.arrow-left.prevent="nextTab(-1)">{{ $label }}</button>

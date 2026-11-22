@@ -89,7 +89,7 @@ class WorkflowSalesbotTest extends TestCase
         $html = (new \ReflectionMethod($page->instance(), 'getMountedActionSchema'))->invoke($page->instance())->toHtml();
         $this->assertStringContainsString('Нет доступных вариантов', $html);
         $this->assertMatchesRegularExpression('/<select[^>]+aria-label="SalesBot"/', $html);
-        $this->assertStringContainsString('Переменная', $html);
+        $this->assertStringContainsString('aria-label="Вставить поле"', $html);
     }
 
     public function test_launch_passes_each_supported_entity_and_requires_202(): void

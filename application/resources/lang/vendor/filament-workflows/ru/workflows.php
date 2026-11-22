@@ -58,7 +58,7 @@ return array_replace_recursive($fallback, [
         ],
     ],
     'actions' => [
-        'create_workflow' => ['label' => 'Создать процесс'],
+        'create_workflow' => ['label' => 'Создать'],
         'create_from_template' => ['label' => 'Создать из шаблона'],
         'select_trigger' => ['label' => 'Выбрать триггер'],
         'configure' => ['label' => 'Настроить'],

@@ -67,26 +67,26 @@ class WorkflowCanvasTest extends TestCase
             ->assertSee('Добавить действие');
     }
 
-    public function test_action_hover_tools_have_four_direct_icons_without_an_overflow_menu(): void
+    public function test_node_hover_tools_offer_delete_and_toggle_and_cards_open_settings(): void
     {
         $html = Livewire::test(WorkflowCanvasFixture::class)->assertStatus(200)->html();
         $document = new \DOMDocument;
         @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
         $xpath = new \DOMXPath($document);
-        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and not(ancestor::template) and button[starts-with(@aria-label, "Скопировать ноду:")]]');
-        $this->assertCount(3, $toolbars);
+        $toolbars = $xpath->query('//div[@class="workflow-node-card__tools" and not(ancestor::template)]');
+        $this->assertCount(4, $toolbars);
         foreach ($toolbars as $toolbar) {
             $buttons = $xpath->query('./button', $toolbar);
-            $this->assertCount(4, $buttons);
-            $this->assertStringContainsString('runWorkflowCanvasNode', $buttons[0]->getAttribute('wire:click.stop'));
-            $this->assertStringContainsString('workflowNodeIsRunning($wire)', $buttons[0]->getAttribute('x-bind:disabled'));
-            $this->assertStringContainsString('removeCanvasAction', $buttons[1]->getAttribute('x-on:click.stop'));
-            $this->assertStringContainsString('toggleCanvasAction', $buttons[2]->getAttribute('x-on:click.stop'));
-            $this->assertFalse($buttons[1]->hasAttribute('wire:click.stop'));
-            $this->assertFalse($buttons[2]->hasAttribute('wire:click.stop'));
-            $this->assertStringContainsString('duplicateWorkflowActionStep', $buttons[3]->getAttribute('x-on:click.stop'));
-            $this->assertStringContainsString('Скопировать ноду', $buttons[3]->getAttribute('aria-label'));
-            $this->assertCount(0, $xpath->query('./div[@role="menu"]', $toolbar));
+            $isAction = str_contains($buttons[0]->getAttribute('x-on:click.stop'), 'toggleCanvasAction');
+            $this->assertCount(2, $buttons);
+            $this->assertStringContainsString($isAction ? 'toggleCanvasAction' : 'toggleCanvasTrigger', $buttons[0]->getAttribute('x-on:click.stop'));
+            $this->assertTrue($buttons[0]->hasAttribute('x-bind:aria-pressed'));
+            $this->assertStringStartsWith('Удалить', $buttons[1]->getAttribute('aria-label'));
+            $this->assertMatchesRegularExpression('/removeCanvasAction|removeTriggerNode/', $buttons[1]->getAttribute('x-on:click.stop'));
+            $this->assertCount(0, $xpath->query('./a | ./div[@role="menu"]', $toolbar));
+            $click = $toolbar->parentNode->getAttribute('x-on:click');
+            $this->assertStringContainsString('workflow-inspector-open', $click);
+            $this->assertStringNotContainsString('beginTriggerReplace', $click);
         }
     }
 
@@ -122,7 +122,8 @@ class WorkflowCanvasTest extends TestCase
             ->assertSet('definition.actions.0.config.true_actions.0.disabled', true)
             ->assertSet('workflowActions.0.config.true_actions.0.config', $originalConfig)
             ->assertSee('workflow-node-card--disabled', false)
-            ->assertSee('Выключено')
+            ->assertSee('data-workflow-node-disabled="true"', false)
+            ->assertDontSee('workflow-node-card__subtitle', false)
             ->call('toggleWorkflowActionDisabled', 'task')
             ->assertSet('definition.actions.0.config.true_actions.0.disabled', false);
     }
@@ -131,6 +132,7 @@ class WorkflowCanvasTest extends TestCase
     {
         $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [], 'trigger' => null])
             ->call('selectActionType', 'control-condition')
+            ->assertSet('workflowActions.0.config.conditions', [['left' => '', 'operator' => 'equals', 'right' => '']])
             ->assertSet('workflowActions.0.config.has_true_branch', true)
             ->assertSet('workflowActions.0.config.has_false_branch', true)
             ->assertSet('workflowActions.0.config.true_actions', [])
@@ -194,7 +196,7 @@ class WorkflowCanvasTest extends TestCase
         $page->call('beginTriggerReplace', 'trigger')->call('selectTriggerType', 'amo-button')
             ->assertSet('trigger', ['type' => 'amo-button', 'config' => []])
             ->assertSet('mountedActions', [])
-            ->assertSee('Кнопка')->assertSee('amoCRM · Кнопка в сделке');
+            ->assertSee('Кнопка')->assertDontSee('amoCRM · Кнопка в сделке');
         $this->assertTrue($page->instance()->configureTriggerAction()->isHidden());
     }
 

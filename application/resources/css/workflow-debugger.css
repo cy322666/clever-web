@@ -1,6 +1,6 @@
 /* Uses the existing workbench, forms, icons and JSON tree in both themes. */
 .workflow-debug-ui { --debug-bg: #fff; --debug-surface: #f6f8fa; --debug-input: #fff; --debug-line: #dde3eb; --debug-text: #394452; --debug-muted: #748093; background: var(--debug-bg); color: var(--debug-text); font-size: 13px; line-height: 1.5; }
-.dark .workflow-debug-ui { --debug-bg: #292b31; --debug-surface: #24262c; --debug-input: #24262c; --debug-line: #444750; --debug-text: #e4e5e9; --debug-muted: #b0b3be; }
+.dark .workflow-debug-ui { --debug-bg: var(--workflow-dark-panel); --debug-surface: var(--workflow-dark-surface); --debug-input: var(--workflow-dark-input); --debug-line: var(--workflow-dark-line); --debug-text: #e4e5e9; --debug-muted: #b0b3be; }
 .workflow-debug-ui[hidden] { display: none !important; }
 .workflow-debug-ui button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--debug-line); border-radius: 6px; background: transparent; color: inherit; font: inherit; white-space: nowrap; }
 .workflow-debug-ui button:hover:not(:disabled) { background: var(--debug-surface); border-color: #9099a9; }

@@ -161,6 +161,7 @@
                 x-on:submit.window.capture="if ($event.target.contains($el)) saveNodeLayout()"
                 x-on:workflow-node-inserted.window="placeInsertedNode($event.detail)"
                 x-on:workflow-node-created.window="placeCreatedNode($event.detail)"
+                x-on:workflow-node-toggle.window="if ($event.detail.componentId === $wire.$id) { if ($event.detail.nodeId.startsWith('trigger')) toggleCanvasTrigger($event.detail.nodeId); else if ($event.detail.nodeId.startsWith('action:')) toggleCanvasAction($event.detail.nodeId.slice(7)); }"
                 x-on:workflow-nodes-copied.window="placeCopiedNodes($event.detail)"
                 x-on:workflow-canvas-before-update.window="if ($event.detail.componentId === $wire.$id) draftPositions = cardPositions()"
                 x-on:workflow-canvas-after-update.window="if ($event.detail.componentId === $wire.$id) { applyNodePositions(); restoreCardPositions(draftPositions); draftPositions = null }"
@@ -204,12 +205,7 @@
                     <button type="button" class="workflow-canvas-fit" x-on:click.stop="fitView()" aria-label="Показать весь сценарий" title="Показать весь сценарий"><x-filament::icon icon="heroicon-o-arrows-pointing-in" class="h-4 w-4"/></button>
                 </div>
                 <div class="workflow-canvas-execution-controls" role="toolbar" aria-label="Запуск и отладка" x-on:pointerdown.stop x-on:click.stop>
-                    <button type="button" class="workflow-canvas-execution-action" data-workflow-reference-toggle x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left - 280, y: $event.currentTarget.getBoundingClientRect().bottom + 8} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
-                    @if($workflowRecord && !$isReplay)
-                        <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-canvas-execution-action workflow-canvas-activation" data-workflow-activation-toggle aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" aria-label="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Включить поток' }}" title="{{ $workflowRecord->is_active ? 'Поток включён. Выключить' : 'Поток выключен. Сохранить и включить' }}">
-                            <x-filament::icon icon="heroicon-o-power" class="h-5 w-5"/>
-                        </button>
-                    @endif
+                    <button type="button" class="workflow-canvas-execution-action" data-workflow-reference-toggle x-on:click="window.dispatchEvent(new CustomEvent('workflow-masks-open', { detail: { anchor: {x: $event.currentTarget.getBoundingClientRect().left, y: $event.currentTarget.getBoundingClientRect().top, placement: 'above'} } }))" aria-label="Справочники" title="Справочники и переменные"><x-filament::icon icon="heroicon-o-book-open" class="h-5 w-5"/></button>
                     @unless($isRecordedOnly)
                     <button type="button" class="workflow-canvas-run" x-cloak
                         x-on:pointerdown.stop x-on:click.stop="if (playing) playing = false; else if (!$wire.debugOpen) openDebug(); else if ($wire.debugState.status === 'ready') runDebug(); else startDebug(true)"
@@ -219,6 +215,11 @@
                         <x-filament::icon x-show="!playing" icon="heroicon-s-play" class="h-4 w-4"/><x-filament::icon x-show="playing" icon="heroicon-s-pause" class="h-4 w-4"/><span x-text="playing ? 'Пауза' : 'Запустить'">Запустить</span>
                     </button>
                     @endunless
+                    @if($workflowRecord && !$isReplay)
+                        <button type="button" wire:click="toggleWorkflowActivation" wire:loading.attr="disabled" wire:target="toggleWorkflowActivation" class="workflow-canvas-execution-action workflow-canvas-activation" data-workflow-activation-toggle aria-pressed="{{ $workflowRecord->is_active ? 'true' : 'false' }}" aria-label="{{ $workflowRecord->is_active ? 'Выключить поток' : 'Включить поток' }}" title="{{ $workflowRecord->is_active ? 'Поток включён. Выключить' : 'Поток выключен. Сохранить и включить' }}">
+                            <x-filament::icon icon="heroicon-o-power" class="h-5 w-5"/>
+                        </button>
+                    @endif
                     @if($isReplay)
                         <button class="workflow-canvas-execution-action" type="button" x-on:click="openDebug()" aria-label="Данные шагов" title="Данные шагов"><x-filament::icon icon="heroicon-o-beaker" class="h-5 w-5"/></button>
                         <a href="{{ $this->getReplayBackUrl() }}" class="workflow-canvas-execution-action" aria-label="Вернуться к истории" title="История запусков"><x-filament::icon icon="heroicon-o-clock" class="h-5 w-5"/></a>
@@ -262,6 +263,7 @@
                                     :node-name="$start['name'] ?? null"
                                     :type="$start['type']"
                                     :config="$start['config'] ?? []"
+                                    :disabled="$start['disabled'] ?? false"
                                     :metadata="$startMetadata"
                                     :read-only="$isRecordedOnly"
                                 />

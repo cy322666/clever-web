@@ -39,15 +39,33 @@ class WorkflowCompactControlsTest extends TestCase
         $this->assertStringContainsString('Добавить переменную', $html);
     }
 
-    public function test_condition_logic_uses_separate_buttons_and_both_values_save(): void
+    public function test_condition_logic_appears_only_between_rows_and_both_values_save(): void
     {
         foreach (['and', 'or'] as $logic) {
-            $page = $this->editor('control-condition', ['logic' => $logic, 'conditions' => [['left' => 1, 'operator' => 'equals', 'right' => 1]]]);
+            $rule = ['left' => 1, 'operator' => 'equals', 'right' => 1];
+            $page = $this->editor('control-condition', ['logic' => $logic, 'conditions' => [$rule]]);
             $html = $this->form($page);
-            $this->assertStringContainsString('fi-fo-toggle-buttons', $html);
-            // Count bound controls in the mounted PHP form, excluding inert local templates.
-            $this->assertSame(2, preg_match_all('/<input\b(?=[^>]*fi-fo-toggle-buttons-input)(?=[^>]*wire:model)[^>]*>/s', $html));
-            $this->assertDoesNotMatchRegularExpression('/class="[^"]*fi-fo-toggle-buttons[^\"]*fi-btn-group/', $html);
+            $this->assertStringNotContainsString('data-workflow-condition-connector', $html);
+            $single = new \DOMDocument;
+            @$single->loadHTML('<?xml encoding="UTF-8">'.$html);
+            $this->assertCount(0, (new \DOMXPath($single))->query('//input[contains(@class,"fi-fo-toggle-buttons-input") and not(ancestor::template)]'));
+            $page->set('mountedActions.0.data.conditions', [$rule, $rule]);
+            $html = $this->form($page);
+            $document = new \DOMDocument;
+            @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
+            $xpath = new \DOMXPath($document);
+            $connectors = $xpath->query('//*[@data-workflow-condition-connector]');
+            $this->assertCount(1, $connectors);
+            $items = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " fi-fo-repeater-item ")]');
+            $this->assertCount(2, $items);
+            $this->assertCount(0, $xpath->query('.//*[@data-workflow-condition-connector]', $items[0]));
+            $this->assertCount(1, $xpath->query('.//*[@data-workflow-condition-connector]', $items[1]));
+            $this->assertCount(2, $xpath->query('//input[contains(@class,"fi-fo-toggle-buttons-input") and not(ancestor::template)]'));
+            $this->assertStringContainsString('mountedActions.0.data.logic', $connectors[0]->getAttribute('x-data'));
+            $page->set('mountedActions.0.data.conditions', [$rule, $rule, $rule]);
+            $this->assertSame(2, substr_count($this->form($page), 'data-workflow-condition-connector'));
+            $page->set('mountedActions.0.data.conditions', [$rule]);
+            $this->assertStringNotContainsString('data-workflow-condition-connector', $this->form($page));
             $this->assertStringNotContainsString('Все условия (И)', $html);
             $this->assertStringContainsString('workflow-value-field__header--unlabeled', $html);
             $this->assertDoesNotMatchRegularExpression('/<label\b[^>]*>\s*Значение [12]/u', $html);
@@ -93,6 +111,25 @@ class WorkflowCompactControlsTest extends TestCase
         }
     }
 
+    public function test_responsible_selection_keeps_multiple_ids_and_expressions(): void
+    {
+        $page = $this->editor('amocrm_query_leads', ['responsible_user_ids' => [9, '999'], 'limit' => 50, 'page' => 1]);
+        $html = $this->form($page);
+        $this->assertStringContainsString('workflow-value-field__multiple', $html);
+        $this->assertStringContainsString('workflow-value-field__select', $html);
+        $page->set('mountedActions.0.data.responsible_user_ids', ['999', '17'])
+            ->call('callMountedAction')->assertHasNoErrors();
+        $this->assertSame(['999', '17'], $page->get('workflowActions')[0]['config']['responsible_user_ids']);
+        foreach (['amocrm_copy_lead', 'amocrm_update_task'] as $type) {
+            $expression = '{{ $json.responsible_user_id }}';
+            $page = $this->editor($type, ['responsible_user_id' => $expression, 'target_entity' => 'lead', 'target_entity_id' => '42']);
+            $html = $this->form($page);
+            $this->assertStringContainsString('workflow-value-field__select', $html, $type);
+            $page->call('callMountedAction')->assertHasNoErrors();
+            $this->assertSame($expression, $page->get('workflowActions')[0]['config']['responsible_user_id']);
+        }
+    }
+
     public function test_query_filters_have_no_annotations_and_preserve_filter_and_pagination(): void
     {
         foreach ([
@@ -130,8 +167,9 @@ class WorkflowCompactControlsTest extends TestCase
             foreach (['workflow-entity-context', '>Основное<', '>Сущность<', 'ID появится из входа ноды', 'Новая сущность будет сразу'] as $removed) {
                 $this->assertStringNotContainsString($removed, $html, $type);
             }
-            $this->assertStringContainsString('Вручную', $html);
-            $this->assertStringContainsString('Переменная', $html);
+            $this->assertStringNotContainsString('>Вручную<', $html);
+            $this->assertStringNotContainsString('>Переменная<', $html);
+            $this->assertStringContainsString('aria-label="Вставить поле"', $html);
             if ($type === 'amocrm_create_lead') $this->assertStringContainsString('Поля сделки', $html);
             if ($type === 'amocrm_create_contact') {
                 $page->call('callMountedAction')->assertHasNoErrors();

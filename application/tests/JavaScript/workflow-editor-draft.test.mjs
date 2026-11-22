@@ -113,3 +113,14 @@ test('local loop return edits retain the same explicit-return guard as server ed
     assert.equal(wire.workflowActions.find(node => node.id === 'loop').config.require_return, true);
     assert.equal(wire.definition.connections.some(edge => edge.targetId === 'action:loop'), false);
 });
+
+test('removing an action locally bridges its continuation and preserves unrelated node config', () => {
+    const {draft,wire,events}=fixture();
+    const remaining=clone(wire.workflowActions[1]);
+    draft.removeWorkflowAction('a');
+    assert.deepEqual(wire.workflowActions[1],remaining);
+    assert.equal(wire.workflowActions[0].config.true_actions.length,0);
+    assert.equal(wire.definition.connections.some(edge=>edge.sourceId==='action:a'||edge.targetId==='action:a'),false);
+    assert.equal(wire.definition.connections.some(edge=>edge.sourceId==='action:if'&&edge.sourcePort==='yes'&&edge.targetId==='action:b'),true);
+    assert.equal(events.at(-1).name,'workflow-connections-updated');
+});

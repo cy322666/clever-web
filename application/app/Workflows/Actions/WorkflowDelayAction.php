@@ -11,6 +11,15 @@ class WorkflowDelayAction
 {
     use WorkflowAction;
 
+    public const MIN_SECONDS = 0;
+    public const MAX_SECONDS = 15;
+
+    public static function validSeconds(mixed $seconds): bool
+    {
+        return (is_int($seconds) || (is_string($seconds) && ctype_digit($seconds)))
+            && (int) $seconds >= self::MIN_SECONDS && (int) $seconds <= self::MAX_SECONDS;
+    }
+
     public static function workflowType(): string
     {
         return 'workflow_delay';
@@ -23,7 +32,7 @@ class WorkflowDelayAction
 
     public static function workflowDescription(): string
     {
-        return 'Пауза до 30 секунд';
+        return 'Пауза от 0 до 15 секунд';
     }
 
     public static function workflowIcon(): string
@@ -45,14 +54,14 @@ class WorkflowDelayAction
     {
         return [WorkflowValueInput::make('seconds')->label('Секунды')->default(5)->required()
             ->type('number')->inputMode('numeric')->step(1)
-            ->extraInputAttributes(['min' => 1, 'max' => 30])
-            ->placeholder('От 1 до 30')
+            ->extraInputAttributes(['min' => self::MIN_SECONDS, 'max' => self::MAX_SECONDS])
+            ->placeholder('От 0 до 15')
             ->rules([fn () => function (string $attribute, mixed $value, \Closure $fail): void {
                 if (is_string($value) && str_contains($value, '{{')) {
                     return;
                 }
-                if ((! is_int($value) && ! (is_string($value) && ctype_digit($value))) || (int) $value < 1 || (int) $value > 30) {
-                    $fail('Укажите целое число от 1 до 30 секунд.');
+                if (! self::validSeconds($value)) {
+                    $fail('Укажите целое число от 0 до 15 секунд.');
                 }
             }])];
     }
@@ -61,11 +70,11 @@ class WorkflowDelayAction
     {
         $seconds = array_key_exists('seconds', $config) ? $config['seconds'] : 5;
         $seconds = $context ? $context->resolve($seconds) : $seconds;
-        if ((! is_int($seconds) && ! (is_string($seconds) && ctype_digit($seconds))) || (int) $seconds < 1 || (int) $seconds > 30) {
-            return ['success' => false, 'error' => 'Задержка должна быть целым числом от 1 до 30 секунд.'];
+        if (! self::validSeconds($seconds)) {
+            return ['success' => false, 'error' => 'Задержка должна быть целым числом от 0 до 15 секунд.'];
         }
         $preview = (bool) ($context?->getVariable('_dry_run') || $context?->getVariable('_test_mode'));
-        if (! $preview) {
+        if (! $preview && (int) $seconds > 0) {
             Sleep::for((int) $seconds)->seconds();
         }
         $outputs = $context?->getStepOutputs() ?? [];

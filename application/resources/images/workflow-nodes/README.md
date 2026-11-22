@@ -1,19 +1,16 @@
-# Approved node artwork
+# Original approved artwork
 
-`duotone-approved.png` is the original generated image explicitly selected by the
-user (third displayed option), supplied again on 2026-10-13. It is used unchanged,
-not redrawn with a different icon library.
+`duotone-approved.png` and the generated `approved-glyphs-*.svg` sprites preserve
+the previous approved artwork. They are kept unchanged as source material.
 
-The CSS atlas windows are measured 194 × 194 square areas inside the twelve tiles,
-not including captions or canvas. The original is 1487 × 1058 pixels. At the
-editor's 96px node size this supplies 2x artwork. The atlas is loaded once by Vite
-with a content hash; the ports, captions, state badges and edges remain live UI.
-Disabled nodes grayscale only the artwork. Nodes not present in the approved
-sheet retain their existing library fallback, with distinct entity/action cues.
+The current editor renders inline outline SVGs from `resources/svg/workflow-nodes`
+through `workflow-node-icon.blade.php`. It uses one opaque color per node, hides
+duotone backing fills, and keeps the entity and operation cues distinct.
+No raster atlas, external sprite, SVG mask or image filter is loaded by the nodes.
+The JavaScript node retains its `JS` lettermark. Node backgrounds stay neutral.
 
-The JavaScript node uses an explicit `JS` lettermark instead of its atlas tile,
-as requested by the user. The other selected icons are unchanged.
+To regenerate the archived sprites with PHP GD:
 
-The condition tile is also embedded losslessly in `workflow-condition-artwork.css`
-(194 x 194 pixels at x=494, y=444). It paints from the loaded stylesheet and never
-switches from a different SVG while waiting for the shared atlas to download.
+```sh
+php scripts/build-workflow-approved-glyphs.php
+```

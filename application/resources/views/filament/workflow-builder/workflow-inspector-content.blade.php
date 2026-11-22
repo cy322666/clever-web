@@ -10,8 +10,4 @@
     x-init="inspectorMounted($el)" wire:submit.prevent="callMountedAction">
     <x-filament::link :href="$documentationUrl" target="_blank" rel="noopener noreferrer" size="sm" icon="heroicon-o-question-mark-circle">Справка о ноде</x-filament::link>
     <div class="workflow-inspector__fields">{{ $this->getMountedActionSchema(mountedAction: $action) }}</div>
-    <footer class="workflow-inspector__footer">
-        <button type="button" x-on:click="closeInspector(false)" x-bind:disabled="loading">Отменить</button>
-        <button type="button" x-on:click="closeInspector()" x-bind:disabled="loading">Применить</button>
-    </footer>
 </form>

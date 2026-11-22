@@ -912,7 +912,7 @@ class AmoCrmStatusLeadTrigger extends AmoCrmWebhookTrigger
 
     protected static function eventName(): string
     {
-        return 'amoCRM: сменился статус сделки';
+        return 'amoCRM: сменился статус';
     }
 
     protected static function eventDescription(): string

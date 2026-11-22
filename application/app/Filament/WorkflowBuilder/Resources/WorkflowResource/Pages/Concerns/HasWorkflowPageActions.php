@@ -51,14 +51,16 @@ trait HasWorkflowPageActions
         $actions = [];
         $registry = app(ActionRegistry::class);
         foreach ($registry->getAllWithMetadata() as $item) {
-            if (!($item['available'] ?? true) || in_array($item['type'], [...WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), 'run_workflow'], true)) continue;
-            $actions[$item['type']] = $item + ['defaults' => $registry->getDefaultConfig($item['type'])];
+            if (!($item['available'] ?? true) || in_array($item['type'], [...WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), 'run_workflow', 'workflow_filter_list'], true)) continue;
+            $actions[$item['type']] = $item + ['defaults' => $registry->getDefaultConfig($item['type']),
+                'catalog_visible' => \App\Services\Workflows\WorkflowNodeCatalog::includesAction($item['type'])];
         }
         $triggers = [];
         $registry = app(TriggerRegistry::class);
         foreach ($registry->getAllWithMetadata() as $item) {
             if (in_array($item['type'], ['date-condition', 'workflow-completed'], true)) continue;
-            $triggers[$item['type']] = $item + ['defaults' => $registry->getDefaultConfig($item['type'])];
+            $triggers[$item['type']] = $item + ['defaults' => $registry->getDefaultConfig($item['type']),
+                'catalog_visible' => \App\Services\Workflows\WorkflowNodeCatalog::includesTrigger($item['type'])];
         }
         $definition = array_merge($this->definition, ['trigger' => $this->trigger, 'actions' => $this->workflowActions]);
         return ['actions' => $actions, 'triggers' => $triggers,
@@ -813,7 +815,7 @@ trait HasWorkflowPageActions
         if (method_exists($this, 'applyWorkflowInspectorDraft') && !$this->applyWorkflowInspectorDraft(allowInvalid: true)) return;
         $registry = app(ActionRegistry::class);
 
-        if (in_array($type, array_merge(WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), ['run_workflow']), true)) {
+        if (in_array($type, array_merge(WorkflowAmoCrmActionCatalog::unsupportedWorkflowTypes(), ['run_workflow', 'workflow_filter_list']), true)) {
             Notification::make()
                 ->warning()
                 ->title('Действие пока недоступно')

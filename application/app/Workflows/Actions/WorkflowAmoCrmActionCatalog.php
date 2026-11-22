@@ -12,6 +12,7 @@ use App\Forms\Components\WorkflowValueInput;
 use App\Services\Workflows\WorkflowAmoCrmActionExecutor;
 use App\Services\Workflows\WorkflowAmoCrmSalesBotService;
 use App\Services\Workflows\WorkflowEntityQuery;
+use App\Services\Workflows\WorkflowEntityLinks;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Hidden;
@@ -396,31 +397,27 @@ abstract class WorkflowAmoCrmAction
      */
     protected static function targetEntityFields(
         array $entities = ['lead', 'contact', 'company'],
-        ?callable $afterEntityUpdated = null
+        ?callable $afterEntityUpdated = null,
+        bool $required = true,
     ): array {
         $defaultEntity = $entities[0] ?? 'lead';
-
+        $entity = static::entitySelect($entities)->required($required);
+        $id = static::targetEntityIdInput($defaultEntity)->required($required);
+        if (!$required) {
+            $entity->label('Привязать к')->default(null)->placeholder('Не привязывать')
+                ->required(fn(Get $get) => filled($get('target_entity_id')));
+            $id->visible(fn(Get $get) => filled($get('target_entity')))
+                ->required(fn(Get $get) => filled($get('target_entity')));
+        }
         return [
             Hidden::make('__context_entity')->dehydrated(false),
             Hidden::make('__context_entity_id')->dehydrated(false),
-
             static::entitySourceToggle(),
-
-            static::entitySelect($entities)
-                ->afterStateUpdated(
-                    function (Set $set) use ($afterEntityUpdated): void {
-                        $set('target_entity_id', null);
-
-                        if ($afterEntityUpdated) {
-                            $afterEntityUpdated($set);
-                        }
-                    }
-                )
-                ->visible(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual'),
-
-            static::targetEntityIdInput($defaultEntity)
-                ->required(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual')
-                ->visible(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual'),
+            $entity->afterStateUpdated(function(Set $set, Get $get) use ($afterEntityUpdated): void {
+                $set('target_entity_id', null);
+                if ($afterEntityUpdated) $afterEntityUpdated($set, $get);
+            }),
+            $id,
         ];
     }
 
@@ -436,23 +433,17 @@ abstract class WorkflowAmoCrmAction
             Hidden::make('__context_entity_id')->dehydrated(false),
             static::entitySourceToggle(),
             static::targetEntityIdInput($entity)
-                ->required(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual')
-                ->visible(fn(Get $get): bool => ($get('entity_source') ?? 'context') === 'manual'),
+                ->required(),
         ];
     }
 
-    protected static function entitySourceToggle(): ToggleButtons
+    protected static function entitySourceToggle(): Hidden
     {
-        return ToggleButtons::make('entity_source')
-            ->label('Как выбрать сущность')
-            ->hiddenLabel()
-            ->options([
-                'context' => 'Из контекста',
-                'manual' => 'Указать вручную',
-            ])
-            ->default('context')
-            ->inline()
-            ->live();
+        return Hidden::make('entity_source')
+            ->default('manual')
+            ->afterStateHydrated(fn (Set $set) => $set('entity_source', 'manual'))
+            ->dehydrateStateUsing(fn (): string => 'manual')
+            ->rules(['in:manual']);
     }
 
     protected static function targetEntityIdInput(string $entity = 'lead', ?string $label = null): WorkflowValueInput
@@ -489,7 +480,7 @@ abstract class WorkflowAmoCrmAction
                         WorkflowValueInput::make('value')
                             ->label('Значение')
                             ->placeholder('{{payload...}}')
-                            ,
+                            ->options(fn (): array => static::amoResponsibleOptions(), fn (Get $get): bool => $get('field') === 'system:responsible_user_id'),
                     ])
                     ->reorderable(false)
                     ->defaultItems(0)
@@ -522,7 +513,7 @@ abstract class WorkflowAmoCrmAction
                         WorkflowValueInput::make('value')
                             ->label('Значение')
                             ->placeholder('{{payload...}}')
-                            ,
+                            ->options(fn (): array => static::amoResponsibleOptions(), fn (Get $get): bool => $get('field') === 'system:responsible_user_id'),
                     ])
                     ->reorderable(false)
                     ->defaultItems(0)
@@ -538,6 +529,14 @@ abstract class WorkflowAmoCrmAction
     {
         $userId = Auth::id();
         $systemFields = static::amoSystemFieldOptions($entity);
+        $dedicated = match (static::workflowType()) {
+            'amocrm_create_lead' => ['name','price','responsible_user_id','pipeline_id','status_id'],
+            'amocrm_create_contact', 'amocrm_create_company' => ['name','responsible_user_id'],
+            'amocrm_update_lead_fields', 'amocrm_update_contact_fields', 'amocrm_update_company_fields'
+                => array_map(fn(string $key) => substr($key,7), array_keys($systemFields)),
+            default => [],
+        };
+        foreach ($dedicated as $field) unset($systemFields['system:'.$field]);
 
         if (!$userId) {
             return $systemFields;
@@ -627,17 +626,11 @@ abstract class WorkflowAmoCrmAction
                 ->label('Теги')
                 ->placeholder('Новый, VIP, {{tag}}'),
 
-            Select::make('responsible_user_id')
-                ->label('Ответственный')
-                ->options(fn(): array => static::amoResponsibleOptions())
-                ->searchable()
-                ->preload()
-                ->native(false)
-                ->placeholder('Выберите ответственного'),
+            static::responsibleField(),
         ];
     }
 
-    protected static function pipelineFields(bool $required = false): array
+    protected static function pipelineFields(bool $required = false, bool $stageTerminology = false): array
     {
         return [
             WorkflowValueInput::make('pipeline_id')
@@ -649,17 +642,21 @@ abstract class WorkflowAmoCrmAction
                 ->placeholder('Выберите воронку'),
 
             WorkflowValueInput::make('status_id')
-                ->label('Статус')
+                ->label($stageTerminology ? 'Этап' : 'Статус')
                 ->options(fn(Get $get): array => static::amoStatusOptions($get('pipeline_id')))
                 ->required($required)
-                ->placeholder(fn(Get $get): string => is_numeric($get('pipeline_id')) ? 'Выберите статус' : 'ID статуса или выражение'),
+                ->placeholder(fn(Get $get): string => is_numeric($get('pipeline_id'))
+                    ? ($stageTerminology ? 'Выберите этап' : 'Выберите статус')
+                    : ($stageTerminology ? 'ID этапа или выражение' : 'ID статуса или выражение')),
         ];
     }
 
-    protected static function bodyMode(): ToggleButtons
+    protected static function bodyMode(): Hidden
     {
-        return ToggleButtons::make('body_mode')->hiddenLabel()
-            ->options(['fields' => 'Поля', 'json' => 'JSON'])->default('fields')->inline()->live();
+        return Hidden::make('body_mode')->default('fields')
+            ->afterStateHydrated(fn (Set $set) => $set('body_mode', 'fields'))
+            ->dehydrateStateUsing(fn (): string => 'fields')
+            ->rules(['in:fields']);
     }
 
     protected static function standardUpdateFields(string $entity): array
@@ -702,16 +699,13 @@ abstract class WorkflowAmoCrmAction
                     ->placeholder('Необязательно: название задаст amoCRM')
                     ->columnSpanFull(),
 
+                static::responsibleField(),
+
                 WorkflowValueInput::make('price')->label('Бюджет')->placeholder('0'),
 
                 Grid::make(1)
                     ->columnSpanFull()
-                    ->schema(static::pipelineFields()),
-
-                WorkflowValueInput::make('responsible_user_id')
-                    ->label('Ответственный')
-                    ->options(fn(): array => static::amoResponsibleOptions())
-                    ->placeholder('Выберите ответственного'),
+                    ->schema(static::pipelineFields(stageTerminology: true)),
 
                 WorkflowValueInput::make('tags')
                     ->label('Теги')
@@ -741,10 +735,7 @@ abstract class WorkflowAmoCrmAction
                         ->placeholder($entity === 'contact' ? 'Имя контакта' : 'Название')
                         ->required(),
 
-                    WorkflowValueInput::make('responsible_user_id')
-                        ->label('Ответственный')
-                        ->options(fn(): array => static::amoResponsibleOptions())
-                        ->placeholder('Выберите ответственного'),
+                    static::responsibleField(),
 
                     WorkflowValueInput::make('tags')
                         ->label('Теги')
@@ -755,10 +746,17 @@ abstract class WorkflowAmoCrmAction
                 Section::make()
                     ->compact()
                     ->columns(2)
-                    ->schema(static::targetEntityFields($linkEntities))
+                    ->schema(static::targetEntityFields($linkEntities, required: false))
                     ->extraAttributes(['class' => 'workflow-entity-link-section']),
             ])
             ->extraAttributes(['class' => 'workflow-entity-create-section']);
+    }
+
+    protected static function responsibleField(string $name = 'responsible_user_id', string $label = 'Ответственный'): WorkflowValueInput
+    {
+        return WorkflowValueInput::make($name)->label($label)
+            ->options(fn (): array => static::amoResponsibleOptions())
+            ->placeholder('Выберите значение');
     }
 
     /**
@@ -906,6 +904,11 @@ class AmoCrmCreateContactAction extends WorkflowAmoCrmAction
         return '#16A34A';
     }
 
+    protected static function defaults(): array
+    {
+        return ['entity_source' => 'manual', 'target_entity' => null];
+    }
+
     protected static function schema(): array
     {
         return [
@@ -930,7 +933,7 @@ class AmoCrmCreateCompanyAction extends WorkflowAmoCrmAction
 
     public static function workflowDescription(): string
     {
-        return 'Создаёт компанию и связывает её со сделкой или контактом.';
+        return 'Создаёт компанию и при необходимости связывает её со сделкой или контактом.';
     }
 
     public static function workflowIcon(): string
@@ -941,6 +944,11 @@ class AmoCrmCreateCompanyAction extends WorkflowAmoCrmAction
     public static function workflowColor(): string
     {
         return '#16A34A';
+    }
+
+    protected static function defaults(): array
+    {
+        return ['entity_source' => 'manual', 'target_entity' => null];
     }
 
     protected static function schema(): array
@@ -987,9 +995,7 @@ class AmoCrmCopyLeadAction extends WorkflowAmoCrmAction
                 static::fixedTargetEntityFields('lead'), [
                 VariableTextInput::make('name')->label('Название новой сделки')->placeholder('{{lead.name}} (копия)'),
                 VariableTextInput::make('tags')->label('Теги')->placeholder('Копия, {{tag}}'),
-                VariableTextInput::make('responsible_user_id')->label('Ответственный')->placeholder(
-                    'ID пользователя или переменная'
-                ),
+                static::responsibleField(),
             ], static::pipelineFields())),
             static::delaySection(),
         ];
@@ -1032,7 +1038,6 @@ class AmoCrmUpdateFieldsAction extends WorkflowAmoCrmAction
             ),
             static::bodyMode(),
             static::amoFieldMappingsSection('Изменяемые поля')->visible(fn(Get $get): bool => $get('body_mode') !== 'json'),
-            static::jsonBody(),
             static::delaySection(),
         ];
     }
@@ -1075,7 +1080,6 @@ abstract class AmoCrmUpdateEntityFieldsAction extends WorkflowAmoCrmAction
             static::bodyMode(),
             ...static::standardUpdateFields($entity),
             static::fieldMappingsSection('Дополнительные поля', $entity)->visible(fn(Get $get): bool => $get('body_mode') !== 'json'),
-            static::jsonBody(),
             static::delaySection(),
         ];
     }
@@ -1166,11 +1170,9 @@ class AmoCrmCreateTaskAction extends WorkflowAmoCrmAction
     {
         return [
             static::bodyMode(),
-            Section::make('Задача')->schema(
+            Section::make()->schema(
                 array_merge(static::targetEntityFields(['lead', 'contact', 'company', 'customer']), [
-                    WorkflowValueInput::make('responsible_user_id')
-                        ->label('Ответственный')
-                        ->options(fn(): array => static::amoResponsibleOptions()),
+                    static::responsibleField(),
                     WorkflowValueInput::make('task_type_id')
                         ->label('Тип задачи')
                         ->options(fn () => \App\Services\Workflows\WorkflowNodeReferences::options('task_types') ?: ['1'=>'Звонок', '2'=>'Встреча'])
@@ -1191,7 +1193,6 @@ class AmoCrmCreateTaskAction extends WorkflowAmoCrmAction
                     WorkflowValueInput::make('text')->label('Текст задачи')->multiline(3)->required(),
                 ])
             )->visible(fn(Get $get): bool => $get('body_mode') !== 'json'),
-            static::jsonBody('{"entity_id": "{{ $json.id }}", "entity_type": "leads", "task_type_id": 1, "text": "Позвонить", "complete_till": "{{now:add(1 day):timestamp}}"}'),
             static::delaySection(),
         ];
     }
@@ -1532,7 +1533,7 @@ class AmoCrmUpdateTaskAction extends WorkflowAmoCrmAction
                 ])
             ),
             Section::make('Изменения')->schema([
-                VariableTextInput::make('responsible_user_id')->label('Новый ответственный'),
+                static::responsibleField(label: 'Новый ответственный'),
                 VariableTextInput::make('new_task_type_id')->label('Новый тип задачи'),
                 Select::make('status')->label('Статус задачи')->options(['open' => 'Открыта', 'closed' => 'Закрыта']
                 )->native(false),
@@ -1885,19 +1886,25 @@ class AmoCrmLinkEntityAction extends WorkflowAmoCrmAction
                     Section::make('1. Основная сущность')
                         ->description('Что уже есть в потоке')
                         ->compact()
-                        ->schema(static::targetEntityFields(['lead', 'contact', 'company', 'customer']))
+                        ->schema(static::targetEntityFields(['lead', 'contact', 'company', 'customer'], function (Set $set, Get $get): void {
+                            if (WorkflowEntityLinks::sameType($get('target_entity'), $get('linked_entity'))) {
+                                $set('linked_entity', null);
+                                $set('linked_entity_id', null);
+                            }
+                        }))
                         ->extraAttributes(['class' => 'workflow-entity-link-card']),
                     Section::make('2. Связать с ней')
                         ->description('Что нужно прикрепить')
                         ->compact()
                         ->schema([
-                        Select::make('linked_entity')->label('Сущность')->options([
-                            'lead' => 'Сделку',
-                            'contact' => 'Контакт',
-                            'company' => 'Компанию',
-                            'customer' => 'Покупателя',
-                        ])->required()->native(false),
-                        VariableTextInput::make('linked_entity_id')->label('ID или переменная')->required(),
+                        WorkflowValueInput::make('linked_entity')->label('Сущность')
+                            ->options(fn (Get $get): array => WorkflowEntityLinks::options($get('target_entity')))
+                            ->required()->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('linked_entity_id', null))
+                            ->rules([fn (Get $get): \Closure => function (string $attribute, mixed $value, \Closure $fail) use ($get): void {
+                                if (WorkflowEntityLinks::sameType($get('target_entity'), $value)) $fail(WorkflowEntityLinks::SAME_TYPE_ERROR);
+                            }]),
+                        WorkflowValueInput::make('linked_entity_id')->label('ID сущности')->placeholder('ID или переменная')->required(),
                     ])->extraAttributes(['class' => 'workflow-entity-link-card']),
                 ])
                 ->extraAttributes(['class' => 'workflow-entity-link-action']),
@@ -1939,7 +1946,7 @@ class AmoCrmQueryLeadsAction extends WorkflowAmoCrmAction
         return [
             VariableTextInput::make('query')->label('Поиск')->placeholder('Текст или выражение'),
             Grid::make(2)->schema(static::pipelineFields()),
-            Select::make('responsible_user_ids')->label('Ответственные')->multiple()->searchable()->options(fn () => static::amoResponsibleOptions()),
+            static::responsibleField('responsible_user_ids', 'Ответственные')->multiple()->default([]),
             Repeater::make('filters')->label('Фильтры')->addActionLabel('Добавить фильтр')->defaultItems(0)->columns(3)->schema([
                 Select::make('field')->label('Поле')->searchable()->live()->required()->options(fn () => [
                     'id' => 'ID сделки', 'name' => 'Название', 'price' => 'Бюджет', 'created_at' => 'Дата создания',
@@ -1977,7 +1984,7 @@ class AmoCrmGetContactAction extends WorkflowAmoCrmAction
     protected static function schema(): array
     {
         return [
-            Section::make('Контакт')->schema(static::fixedTargetEntityFields('contact')),
+            Section::make()->schema(static::fixedTargetEntityFields('contact')),
         ];
     }
 }
@@ -2013,18 +2020,10 @@ class AmoCrmReadAction extends WorkflowAmoCrmAction
         }
         return [...$fields,
             WorkflowValueInput::make('request_path')->label('Путь')->placeholder('/api/v4/contacts')->required()->visible(fn(Get $get) => $get('operation') === 'custom'),
-            ToggleButtons::make('body_mode')->hiddenLabel()->inline()->live()->default('fields')
-                ->options(fn(Get $get) => (WorkflowEntityQuery::supports($get('operation')) ? ['builder' => 'Конструктор'] : []) + ['fields' => 'Параметры']
-                    + ($get('body_mode') === 'json' ? ['json' => 'Сохранённый запрос'] : []))
-                ->visible(fn(Get $get) => WorkflowEntityQuery::supports((string)$get('operation')) || $get('body_mode') === 'json')
-                ->dehydratedWhenHidden()
-                ->afterStateUpdated(function(Get $get, Set $set) {
-                    if ($get('body_mode') !== 'builder') return;
-                    foreach (['limit'=>50, 'page'=>1, 'direction'=>'asc'] as $key=>$value) if (blank($get($key))) $set($key, $value);
-                }),
+            Hidden::make('body_mode')->default('fields'),
             ...static::queryBuilderFields(),
             Section::make('Параметры')->compact()->collapsible()->collapsed(fn(Get $get) => empty($get('parameters')))
-                ->visible(fn(Get $get) => !in_array($get('body_mode'), ['json', 'builder'], true))
+                ->visible(fn(Get $get) => $get('body_mode') !== 'json')
                 ->schema([
                     Select::make('with_preset')->label('Добавить к ответу')->native(false)->live()->dehydrated(false)
                         ->options(fn(Get $get): array => \App\Services\Workflows\WorkflowAmoReadCatalog::withOptions((string)$get('operation')))
@@ -2051,17 +2050,33 @@ class AmoCrmReadAction extends WorkflowAmoCrmAction
                         ->schema([TextInput::make('name')->label('Параметр')->placeholder('filter[id][]')->required(), WorkflowValueInput::make('value')->label('Значение')]),
                 ]),
             static::jsonBody()->label('Сохранённые параметры запроса')
-                ->helperText('Прежний запрос с динамическими параметрами. Передаётся в URL, без тела. Для нового запроса выберите конструктор или параметры.'),
+                ->helperText('Прежний запрос с динамическими параметрами. Передаётся в URL, без тела. Для нового запроса используйте поля настроек.'),
         ];
     }
 
     private static function queryBuilderFields(): array
     {
         $metadata = fn(Get $get) => WorkflowEntityQuery::fields((string)$get('../../operation'), Auth::id())[$get('field')] ?? [];
-        return [Grid::make(1)->visible(fn(Get $get) => $get('body_mode') === 'builder')->schema([
-            WorkflowValueInput::make('query')->label('Поиск')->placeholder('Текст или переменная')
+        $valueOptions = function(Get $get) use ($metadata): array {
+            // Resolve the operation before the row field so the local schema includes
+            // choices that exist only in another entity's query, such as lead pipelines.
+            $field = $metadata($get);
+            return match ($get('field')) {
+                'responsible_user_id', 'created_by', 'updated_by' => static::amoResponsibleOptions(),
+                'pipeline_id' => static::amoPipelineOptions(),
+                'statuses' => static::amoStatusOptions($get('pipeline_id')),
+                'task_type' => \App\Services\Workflows\WorkflowNodeReferences::options('task_types') ?: [1 => 'Звонок', 2 => 'Встреча'],
+                default => $field['options'] ?? [],
+            };
+        };
+        $activate = function(Get $get, Set $set): void {
+            $set('body_mode', 'builder');
+            foreach (['limit'=>50,'page'=>1,'direction'=>'asc'] as $key=>$value) if (blank($get($key))) $set($key,$value);
+        };
+        return [Grid::make(1)->visible(fn(Get $get) => WorkflowEntityQuery::supports((string)$get('operation')) && $get('body_mode') !== 'json')->schema([
+            WorkflowValueInput::make('query')->label('Поиск')->placeholder('Текст или переменная')->live()->afterStateUpdated($activate)
                 ->visible(fn(Get $get) => $get('operation') !== 'tasks.list'),
-            Repeater::make('filters')->label('Фильтры')->defaultItems(0)->maxItems(50)->reorderable(false)
+            Repeater::make('filters')->label('Фильтры')->defaultItems(0)->maxItems(50)->reorderable(false)->afterStateUpdated($activate)
                 ->addActionLabel('Добавить фильтр')->columns(2)->extraAttributes(['class' => 'workflow-query-filters'])
                 ->schema([
                     Select::make('field')->label('Поле')->searchable()->live()->required()
@@ -2070,22 +2085,16 @@ class AmoCrmReadAction extends WorkflowAmoCrmAction
                     Select::make('operator')->label('Условие')->options(fn(Get $get) => WorkflowEntityQuery::operators($metadata($get)))->default('eq')->required(),
                     WorkflowValueInput::make('pipeline_id')->label('Воронка')->options(fn() => static::amoPipelineOptions())
                         ->live()->afterStateUpdated(fn(Set $set) => $set('value', null))->required()->columnSpanFull()
-                        ->visible(fn(Get $get) => $get('field') === 'statuses'),
+                        ->visible(fn(Get $get) => ($metadata($get)['type'] ?? '') === 'status'),
                     WorkflowValueInput::make('value')->label('Значение')->required()->columnSpanFull()
                         ->placeholder(fn(Get $get) => ($metadata($get)['type'] ?? '') === 'date' ? 'YYYY-MM-DD или Unix-время' : 'Значение или переменная')
-                        ->options(fn(Get $get) => match ($get('field')) {
-                            'responsible_user_id', 'created_by', 'updated_by' => static::amoResponsibleOptions(),
-                            'pipeline_id' => static::amoPipelineOptions(),
-                            'statuses' => static::amoStatusOptions($get('pipeline_id')),
-                            'task_type' => \App\Services\Workflows\WorkflowNodeReferences::options('task_types') ?: [1 => 'Звонок', 2 => 'Встреча'],
-                            default => $metadata($get)['options'] ?? [],
-                        }),
+                        ->options($valueOptions, fn(Get $get): bool => $valueOptions($get) !== []),
                 ]),
             Grid::make(2)->schema([
-                WorkflowValueInput::make('limit')->label('На странице')->default(50)->required(),
-                WorkflowValueInput::make('page')->label('Страница')->default(1)->required(),
-                WorkflowValueInput::make('sort')->label('Сортировать по')->options(fn(Get $get) => WorkflowEntityQuery::sorts((string)$get('operation')))->placeholder('Без сортировки'),
-                WorkflowValueInput::make('direction')->label('Порядок')->options(['asc' => 'По возрастанию', 'desc' => 'По убыванию'])->default('asc'),
+                WorkflowValueInput::make('limit')->label('На странице')->default(50)->required(fn(Get $get) => $get('body_mode') === 'builder')->live()->afterStateUpdated($activate),
+                WorkflowValueInput::make('page')->label('Страница')->default(1)->required(fn(Get $get) => $get('body_mode') === 'builder')->live()->afterStateUpdated($activate),
+                WorkflowValueInput::make('sort')->label('Сортировать по')->options(fn(Get $get) => WorkflowEntityQuery::sorts((string)$get('operation')))->placeholder('Без сортировки')->live()->afterStateUpdated($activate),
+                WorkflowValueInput::make('direction')->label('Порядок')->options(['asc' => 'По возрастанию', 'desc' => 'По убыванию'])->default('asc')->live()->afterStateUpdated($activate),
             ]),
         ])];
     }

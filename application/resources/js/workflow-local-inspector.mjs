@@ -1,4 +1,6 @@
-import {compactPickerFields} from './workflow-compact-field-picker.mjs';
+import {clearConflictingLink, linkedEntityOptions, linkEntityType} from './workflow-entity-links.mjs';
+import {compactInspectorSections, createInspectorExtras, inspectorSectionsHaveErrors} from './workflow-inspector-sections.mjs';
+import {compactPickerFields, compactPickerEntity} from './workflow-compact-field-picker.mjs';
 import {crmTypedControl, crmLiteralValue, crmStoredValue} from './workflow-crm-typed-value.mjs';
 import {clone, setPath, flatActions, remapReferences} from './workflow-browser-document.mjs';
 
@@ -9,6 +11,15 @@ const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const at = (path, indexes) => { let n = 0; return path.replaceAll('*', () => indexes[n++]); };
 const sameChoice = (a, b) => a == null || b == null ? a == null && b == null
     : typeof a === 'object' || typeof b === 'object' ? equal(a, b) : String(a) === String(b);
+
+const inspectorField = (fields, path) => {
+    for (const field of fields || []) {
+        if (field.path === path) return field;
+        const nested = inspectorField(field.children, path);
+        if (nested) return nested;
+    }
+    return null;
+};
 
 export function inspectorRule(rule, config, indexes = [], conditionOptions = () => null) {
     if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return rule;
@@ -47,7 +58,9 @@ export class WorkflowLocalInspector {
         if (this.panel) this.panel.error=Object.values(this.errors[id] || {}).flat().join(' ');
         this.sourceCache = null;
         this.type = node.type;
-        this.schema = this.boot.schemas[(id.startsWith('trigger') ? 'trigger:' : 'action:') + node.type];
+        // A manual start has no configuration, but still exposes node actions.
+        this.schema = this.boot.schemas[(id.startsWith('trigger') ? 'trigger:' : 'action:') + node.type]
+            ?? (id.startsWith('trigger') && node.type === 'manual' ? [] : undefined);
         if (!this.schema) throw new Error('Схема настроек не загружена. Обновите страницу.');
         this.base = clone(node.config || {});
         this.config = clone(node.config || {});
@@ -56,9 +69,9 @@ export class WorkflowLocalInspector {
         this.defaults(this.schema);
         const declared=new Set();
         const collect=fields=>fields.forEach(field=>{declared.add(field.path);collect(field.children || []);});collect(this.schema);
+        if (node.type.startsWith('amocrm_') && node.type !== 'amocrm_read' && declared.has('body_mode')) this.config.body_mode = 'fields';
         if (node.type.startsWith('amocrm_') && declared.has('entity_source')) {
-            const configured = this.config.target_entity_id ?? this.config.entity_id;
-            this.config.entity_source ||= configured !== null && configured !== undefined && configured !== '' ? 'manual' : 'context';
+            this.config.entity_source = 'manual';
             const fields=new Map(this.sources()[0]?.fields.map(field=>[field.key,field.value]) || []);
             const singular=value=>({leads:'lead',contacts:'contact',companies:'company',customers:'customer'}[value] || value);
             const fixed={amocrm_copy_lead:'lead',amocrm_get_contact:'contact',amocrm_update_lead_fields:'lead',amocrm_update_contact_fields:'contact',amocrm_update_company_fields:'company',amocrm_change_lead_status:'lead',amocrm_distribution_queue:'lead'}[node.type];
@@ -110,6 +123,7 @@ export class WorkflowLocalInspector {
             if (field.kind === 'repeater') {
                 let rows = getPath(this.config, path);
                 if (!Array.isArray(rows)) { rows = Object.values(rows || {}); setPath(this.config, path, rows); }
+                while (rows.length < (field.minItems || 0)) rows.push({});
                 rows.forEach((_, index) => this.defaults(field.children, [...indexes,index]));
             } else this.defaults(field.children || [], indexes);
         }
@@ -148,7 +162,9 @@ export class WorkflowLocalInspector {
             this.config.operation = value;
             this.config.body_mode = this.boot.queryOperations.includes(value) ? 'builder' : 'fields';
         }
-        if (path === 'body_mode' && value === 'builder') {
+        if (this.type === 'amocrm_read' && this.boot.queryOperations.includes(this.config.operation)
+            && /^(query|filters|limit|page|sort|direction)(\.|$)/.test(path)) this.config.body_mode = 'builder';
+        if (this.config.body_mode === 'builder') {
             for (const [key, item] of Object.entries({limit:50,page:1,direction:'asc'})) if (this.config[key] == null || this.config[key] === '') this.config[key] = item;
         }
         if (path === 'with_preset' && value) {
@@ -164,12 +180,14 @@ export class WorkflowLocalInspector {
         }
         if (path === 'target_entity') {
             this.config.target_entity_id = null;
+            if (['amocrm_link_entity','amocrm_unlink_entity'].includes(this.type)) clearConflictingLink(this.config);
             if (this.type === 'amocrm_find_entity') {
                 this.config.conditions = [];
                 this.config.context_key = 'found_' + value + '_' + (this.config.context_key?.match(/^found_(?:lead|contact|company|customer)_(\d+)$/)?.[1] || '1');
                 this.rebuild?.();
             }
         }
+        if (path === 'linked_entity' && ['amocrm_link_entity','amocrm_unlink_entity'].includes(this.type)) this.config.linked_entity_id = null;
         if (path === 'pipeline_id' || path === 'standard_fields.pipeline_id') setPath(this.config, sibling('status_id'), null);
         if (/^filters\.\d+\.field$/.test(path)) for (const [key, item] of Object.entries({operator:'eq',value:null,pipeline_id:null})) setPath(this.config, sibling(key), item);
         if (/^filters\.\d+\.pipeline_id$/.test(path)) setPath(this.config, sibling('value'), null);
@@ -220,6 +238,7 @@ export class WorkflowLocalInspector {
     }
     begin(id) {
         this.open(id);
+        this.sections.delete(id + ':compact-advanced');
         this.sourceCache = null;
         this.openConfig = clone(this.config);
         this.flushedRevision = this.revision;
@@ -310,7 +329,10 @@ export class WorkflowLocalInspector {
             source.fields=source.fields.map(field=>({...field,expression:field.expression?'{{ $vars'+field.key+' }}':null,available:field.key==='' || known.has(field.key.match(/^\.([A-Za-z][A-Za-z0-9_]*)/)?.[1])}));
             sources.push(source);
         }
-        return this.sourceCache=sources;
+        return this.sourceCache=sources.map(source => {
+            const node=byId.get('action:'+source.id), entity=node && compactPickerEntity(node.type,node.config);
+            return entity ? {...source,entity} : source;
+        });
     }
     triggerReference() {
         return this.id?.startsWith('trigger') ? this.boot.triggerReferences?.[this.node()?.type] : null;
@@ -411,7 +433,7 @@ export function inspectorSource(id,name,value,available) {
         const type=object ? array?'array':'object' : value===null?'null':typeof value==='number' ? Number.isInteger(value)?'int':'float' : typeof value==='boolean'?'bool':typeof value;
         fields.push({path:key || 'Весь результат',key,parent,depth,label,type,available,count:object?Object.keys(value).length:null,
             value:object?null:value,expression:addressable?'{{ $('+JSON.stringify(name)+')'+key+' }}':null,
-            ...(array?{item_fields:itemFields(value)}:{}),});
+            ...(array?{item_fields:itemFields(value),item_examples:itemExamples(value)}:{}),});
         if(object && !array) for(const child in value) {
             if ((depth===0 && child==='headers') || /token|password|authorization|secret/i.test(child)) continue;
             const item=value[child];
@@ -436,28 +458,21 @@ function itemFields(items) {
     items.slice(0,20).forEach(item=>visit(item));return [...fields];
 }
 
+// Display-only examples from the first item. Never copy nested payloads or sensitive paths.
+function itemExamples(items) {
+    const examples = {};
+    for (const path of itemFields(items)) {
+        const value = getPath(items[0], path);
+        if (value === undefined) continue;
+        const structured = value !== null && typeof value === 'object';
+        const type = structured ? Array.isArray(value) ? 'array' : 'object' : value === null ? 'null' : typeof value;
+        examples[path] = {type, ...(structured ? {count:Object.keys(value).length} : {value:typeof value === 'string' ? value.slice(0,120) : value})};
+    }
+    return examples;
+}
+
 const el = (tag, className = '', text = '') => { const node = document.createElement(tag); node.className = className; node.textContent = text; return node; };
 const json = value => JSON.stringify(value ?? null);
-
-// Rearrange the existing CRM schema; it is still the only owner of the fields and their state.
-export function compactLeadSections(fields = []) {
-    const order = ['name', 'price', 'pipeline_id', 'status_id', 'contact_id'];
-    const primary = new Map();
-    const split = nodes => nodes.flatMap(node => {
-        if (node.kind === 'hidden') return [];
-        if (['section','group'].includes(node.kind) && !node.collapsible) {
-            const children = split(node.children || []);
-            return children.length ? [{...node, children}] : [];
-        }
-        if (order.includes(node.path)) {
-            primary.set(node.path, {...node, compactSlot:node.path});
-            return [];
-        }
-        return [node];
-    });
-    const secondary = split(fields);
-    return {primary:order.map(path => primary.get(path)).filter(Boolean), secondary};
-}
 
 /** Keep the production field widgets and CSS. Only their state owner changes. */
 export function installLocalInspector(panel, boot, root) {
@@ -479,28 +494,29 @@ export function installLocalInspector(panel, boot, root) {
     });
     local.render = () => {
         const target = root.querySelector('[data-local-inspector-fields]');
+        local.conditionLogic = ['condition','control-condition'].includes(local.type) ? inspectorField(local.schema, 'logic') : null;
         window.Alpine.mutateDom(() => {
             for (const node of [...target.children]) window.Alpine.destroyTree(node);
             target.replaceChildren(); local.controls.clear();
             const schema=el('div','fi-sc fi-grid fi-sc-has-gap');grid(schema,{default:1});
-            if (local.type === 'amocrm_create_lead' && !panel.embedded) {
-                const {primary, secondary} = compactLeadSections(local.schema);
-                schema.classList.add('workflow-inspector--lead-fields');
-                const core = el('div','workflow-inspector__lead-primary');
-                append(primary,core,[]);
-                schema.append(core);
-                if (secondary.length) {
-                    const advanced = el('details','workflow-inspector__advanced');
-                    advanced.open = Boolean(local.sections.get(local.id+':compact-advanced'));
-                    if (Object.keys(local.errors[local.id] || {}).some(path => !primary.some(field => field.path === path))) advanced.open = true;
-                    advanced.append(el('summary','','Ещё настройки'));
-                    const extras = el('div','fi-sc fi-grid fi-sc-has-gap'); grid(extras,{default:1});
-                    append(secondary,extras,[]);
-                    advanced.append(extras);
-                    advanced.addEventListener('toggle',() => local.sections.set(local.id+':compact-advanced',advanced.open));
-                    schema.append(advanced);
-                }
-            } else append(local.schema,schema,[]);
+            const {primary, secondary} = compactInspectorSections(local.schema, local.type);
+            const core = el('div', 'workflow-inspector__primary fi-sc fi-grid');
+            grid(core, {default:1});
+            append(primary, core, []);
+            schema.append(core);
+            local.extraFields = secondary;
+            local.extraSettings = null;
+            if (secondary.length) {
+                const extras = el('div', 'fi-sc fi-grid fi-sc-has-gap');
+                grid(extras, {default:1});
+                append(secondary, extras, []);
+                const sectionKey = local.id + ':compact-advanced';
+                local.extraSettings = createInspectorExtras(extras, {
+                    open: Boolean(local.sections.get(sectionKey)) || inspectorSectionsHaveErrors(secondary, local.errors[local.id]),
+                    onToggle: open => local.sections.set(sectionKey, open),
+                });
+                schema.append(local.extraSettings.element);
+            }
             target.append(schema);window.Alpine.initTree(schema);
         });
         local.refresh();
@@ -526,10 +542,11 @@ export function installLocalInspector(panel, boot, root) {
             }
             node.dispatchEvent(new CustomEvent('workflow-local-field-refresh',{detail:{key}}));
         }
+        if (local.extraSettings?.content.hidden && inspectorSectionsHaveErrors(local.extraFields, local.errors[local.id])) local.extraSettings.setOpen(true);
     };
     function append(fields, parent, indexes) {
         for (const field of fields) {
-            if (field.kind === 'hidden') continue;
+            if (field.kind === 'hidden' || (local.conditionLogic && field.path === 'logic' && !field.betweenConditions)) continue;
             const key = field.path + ':' + indexes.join('.') + ':' + local.controls.size;
             let node;
             if (['group','section','repeater'].includes(field.kind)) {
@@ -537,7 +554,7 @@ export function installLocalInspector(panel, boot, root) {
                 if (field.attributes?.class) node.className += ' ' + field.attributes.class;
                 const content = el('div',field.kind === 'section' ? 'fi-section-content fi-sc fi-grid' : 'fi-sc fi-grid');
                 grid(content,field.columns);
-                if (field.kind === 'section' && local.rule(field.label,indexes)) {
+                if (field.kind === 'section' && field.collapsible && local.rule(field.label,indexes)) {
                     const heading = el(field.collapsible?'button':'header','fi-section-header');
                     const title=el('div','fi-section-header-text-ctn');title.append(el('h3','fi-section-header-heading',local.rule(field.label,indexes)));heading.append(title);
                     if (field.collapsible) {
@@ -552,10 +569,17 @@ export function installLocalInspector(panel, boot, root) {
                 node.append(content);
                 if (field.kind === 'repeater') {
                     if (!field.labelHidden) content.append(el('label','fi-fo-field-label-content',local.rule(field.label,indexes) || ''));
-                    (local.value(at(field.path,indexes)) || []).forEach((row,index) => {
+                    const rows = local.value(at(field.path,indexes)) || [];
+                    rows.forEach((row,index) => {
+                        if (field.path === 'conditions' && index > 0 && local.conditionLogic) {
+                            const connector = el('div','workflow-condition-connector fi-sc fi-grid');
+                            grid(connector,{default:1});
+                            append([{...local.conditionLogic, hidden:false, visible:true, betweenConditions:true}],connector,[]);
+                            content.append(connector);
+                        }
                         const item = el('div','fi-fo-repeater-item fi-fo-repeater-item-has-header');
                         const header = el('div','fi-fo-repeater-item-header');
-                        if (field.reorderable) {
+                        if (field.reorderable && rows.length > 1) {
                             const reorder=local.template('reorder');
                             reorder.addEventListener('dragstart',event=>{local.draggedRow={key, index};event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',String(index));event.stopPropagation();});
                             reorder.addEventListener('dragend',()=>{local.draggedRow=null;});
@@ -564,9 +588,13 @@ export function installLocalInspector(panel, boot, root) {
                             const start=el('ul','fi-fo-repeater-item-header-start-actions'),handle=el('li');handle.append(reorder);start.append(handle);header.append(start);
                         }
                         const remove = local.template('remove');
-                        remove.disabled=(local.value(at(field.path,indexes)) || []).length <= (field.minItems || 0);
-                        const end=el('ul','fi-fo-repeater-item-header-end-actions'),removeItem=el('li');removeItem.append(remove);end.append(removeItem);
-                        remove.addEventListener('click',()=>local.remove(field,indexes,index)); header.append(end); item.append(header);
+                        remove.disabled=rows.length <= (field.minItems || 0);
+                        if (!remove.disabled) {
+                            const end=el('ul','fi-fo-repeater-item-header-end-actions'),removeItem=el('li');removeItem.append(remove);end.append(removeItem);
+                            remove.addEventListener('click',()=>local.remove(field,indexes,index)); header.append(end);
+                        }
+                        item.classList.toggle('fi-fo-repeater-item-has-header',header.childElementCount > 0);
+                        if (header.childElementCount) item.append(header);
                         const body = el('div','fi-fo-repeater-item-content fi-sc fi-grid'); grid(body,field.columns);
                         append(field.children,body,[...indexes,index]); item.append(body); content.append(item);
                     });
@@ -583,7 +611,6 @@ export function installLocalInspector(panel, boot, root) {
                 if (field.kind === 'code') node.querySelector('[data-local-code]').setAttribute('x-data','local.codeField('+json(key)+')');
             }
             node.classList.add('fi-grid-col');
-            if (field.compactSlot) node.dataset.compactSlot = field.compactSlot;
             for (const [breakpoint,span] of Object.entries(field.span || {default:1})) if(span) {
                 node.style.setProperty('--col-span-'+breakpoint,span==='full'?'1 / -1':'span '+span+' / span '+span);
                 if(breakpoint!=='default') node.classList.add(breakpoint+':fi-grid-col-span');
@@ -598,7 +625,11 @@ export function installLocalInspector(panel, boot, root) {
         const control = local.controls.get(key), {field,indexes} = control;
         const path = at(field.path,indexes);
         const value = local.value(path) ?? null;
-        const options = () => local.rule(field.options,indexes) || {};
+        const options = () => {
+            const choices = local.rule(field.options,indexes) || {};
+            return field.path === 'linked_entity' && ['amocrm_link_entity','amocrm_unlink_entity'].includes(local.type)
+                ? linkedEntityOptions(local.value('target_entity'), choices) : choices;
+        };
         const labels = () => local.rule(field.label,indexes) || '';
         let component = field.kind === 'value' ? window.workflowValueField(value,field.relativePath ? 'mountedActions.0.data.items' : null,field.collectionPath ? 'mountedActions.0.data.rules' : null)
             : field.kind === 'headers' ? window.workflowHeadersField(value)
@@ -657,11 +688,17 @@ export function installLocalInspector(panel, boot, root) {
         });
         if (field.kind === 'value') Object.defineProperties(component, Object.getOwnPropertyDescriptors({
             editingPickedExpression: false,
+            get unknownOptionAllowed() {
+                void this.crmRevision;
+                const source = linkEntityType(local.value('target_entity'));
+                return field.path !== 'linked_entity' || !['amocrm_link_entity','amocrm_unlink_entity'].includes(local.type)
+                    || !source || source !== linkEntityType(this.state);
+            },
             get pickedExpression() {
                 if (this.editingPickedExpression || typeof this.state !== 'string' || !this.state.startsWith('{{')) return null;
                 for (const source of this.sources) {
                     const item = compactPickerFields(source, '', Boolean(this.collectionRulesPath)).find(item => item.expression === this.state);
-                    if (item) return source.name + ' · ' + item.label;
+                    if (item) return source.name + ' · ' + item.label + (item.detail ? ' · ' + item.detail.toLocaleLowerCase() : '');
                 }
                 return null;
             },
@@ -673,19 +710,28 @@ export function installLocalInspector(panel, boot, root) {
             togglePickedExpression(anchor) {
                 const input = this.$refs.value;
                 const prior = this.state;
-                const preserveText = !this.pickedExpression && typeof prior === 'string' && prior.length && input &&
+                const valueOnly = Boolean(this.collectionRulesPath) || (local.type === 'workflow_loop' && path === 'items')
+                    || /(?:^|[._])id$/.test(path) || (!field.rows && typeof prior === 'string' && prior === prior.trim()
+                        && /^\{\{(?:(?!\}\})[\s\S])*\}\}$/.test(prior));
+                const preserveText = !valueOnly && !this.pickedExpression && typeof prior === 'string' && prior.length && input &&
                     !this.hasOptions && !this.crmControl && (this.mode === 'expression' || !field.type || field.type === 'text');
                 const start = preserveText ? input.selectionStart ?? prior.length : 0;
                 const end = preserveText ? input.selectionEnd ?? start : 0;
                 anchor.dispatchEvent(new CustomEvent('workflow-compact-picker-open', {bubbles:true, detail:{
-                    anchor, sources:local.sources(), collectionOnly:Boolean(this.collectionRulesPath),
+                    anchor, sources:local.sources(),
+                    collectionOnly:Boolean(this.collectionRulesPath) || (local.type === 'workflow_loop' && path === 'items'),
+                    allowStructured:local.type === 'workflow_set_variable' || (local.type === 'http_request' && path === 'body') || ['condition','control-condition'].includes(local.type),
+                    target:{label:this.label,path,choices:['target_entity','linked_entity'].includes(path) ? this.options : null,entity:path === 'linked_entity_id' ? linkEntityType(local.value('linked_entity'))
+                        : path === 'target_entity_id' ? linkEntityType(local.value('target_entity'))
+                        : path === 'contact_id' ? 'contact' : path === 'company_id' ? 'company' : null},
                     onEditExpression:() => this.editPickedExpression(),
                     onSelect:item => {
                         this.mode = 'expression';
                         this.suggestions = [];
-                        this.state = preserveText ? prior.slice(0,start) + item.expression + prior.slice(end) : item.expression;
-                        this.editingPickedExpression = Boolean(preserveText);
-                        if (preserveText) this.$nextTick(() => {
+                        const insertText = preserveText && !['array','object'].includes(item.type);
+                        this.state = insertText ? prior.slice(0,start) + item.expression + prior.slice(end) : item.expression;
+                        this.editingPickedExpression = Boolean(insertText);
+                        if (insertText) this.$nextTick(() => {
                             this.$refs.value?.focus();
                             this.$refs.value?.setSelectionRange(start + item.expression.length, start + item.expression.length);
                         });

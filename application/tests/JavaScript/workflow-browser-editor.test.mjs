@@ -1,3 +1,4 @@
+import {clearConflictingLink} from '../../resources/js/workflow-entity-links.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -13,6 +14,7 @@ import {
     applyTriggerDisplayInput,
 } from '../../resources/js/workflow-browser-document.mjs';
 import { nodeFields } from '../../resources/js/workflow-browser-fields.mjs';
+import {compactInspectorSections, createInspectorExtras} from '../../resources/js/workflow-inspector-sections.mjs';
 
 const source = readFileSync(
     new URL('../../resources/js/workflow-browser-editor.mjs', import.meta.url),
@@ -43,6 +45,9 @@ function editor() {
         filterItemFields,
         applyTriggerDisplayInput,
         nodeFields,
+        compactInspectorSections,
+        clearConflictingLink,
+        createInspectorExtras,
         console,
         setTimeout,
         clearTimeout,
@@ -368,4 +373,23 @@ test('one-node Play performs a real single-node request without silently simulat
     assert.equal(payload.real, true);
     assert.equal(payload.command, 'node');
     assert.equal(payload.nodeId, 'action:a');
+});
+
+
+test('compact node search excludes hidden types while saved-node metadata remains available', () => {
+    const state=editor();
+    state.triggers={
+        manual:{type:'manual',name:'Ручной запуск',category:'Запуски',catalog_visible:true},
+        'amocrm-delete-contact':{type:'amocrm-delete-contact',name:'Контакт удалён',category:'Запуски',catalog_visible:false},
+    };
+    state.catalog={
+        workflow_delay:{type:'workflow_delay',name:'Задержка',category:'Инструменты',catalog_visible:true},
+        amocrm_start_salesbot:{type:'amocrm_start_salesbot',name:'Salesbot',category:'amoCRM',catalog_visible:false},
+    };
+    state.libraryMode='all';
+    assert.deepEqual(Array.from(state.libraryItems(),item=>item.type),['manual','workflow_delay']);
+    state.librarySearch='Salesbot';
+    assert.equal(state.libraryItems().length,0);
+    assert.equal(state.metadata({id:'action:old',type:'amocrm_start_salesbot'}).name,'Salesbot');
+    assert.equal(state.metadata({id:'trigger:old',type:'amocrm-delete-contact'}).name,'Контакт удалён');
 });

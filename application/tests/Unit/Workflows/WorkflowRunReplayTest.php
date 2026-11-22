@@ -170,7 +170,9 @@ class WorkflowRunReplayTest extends TestCase
             ->assertDispatched('workflow-debug-updated', fn ($event, $params) => ($params['state']['preview_node_id'] ?? null) === 'yes')
             ->call('unmountAction')->call('runWorkflowCanvasNode', 'fetch')->assertHasNoErrors()
             ->assertSet('nodeRunResults.fetch.output.count', 2)
-            ->call('unmountAction')->call('openWorkflowActionEditor', 'yes')->call('runEditingWorkflowNode')->assertHasNoErrors();
+            ->call('unmountAction')->call('openWorkflowActionEditor', 'yes')
+            ->set('mountedActions.0.data.target_entity_id', '{{lead.id}}')
+            ->call('runEditingWorkflowNode')->assertHasNoErrors();
         $this->assertSame('Найдено: 1', $calls[0][1]['text']);
         $this->assertSame('Найдено: 2', $calls[2][1]['text']);
         $this->assertSame($beforeRuns, DB::table('workflow_runs')->get()->toJson());
