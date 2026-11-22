@@ -240,23 +240,39 @@ window.workflowSortableList = (path) => ({
 // The existing dock edits the loaded schema locally. PHP owns validation only
 // when Save or Run is requested; old clients retain their mounted form fallback.
 // Work in viewport coordinates so graph zoom never scales the form or its controls.
-window.workflowInspectorPlacement = (anchor, bounds, width, height, expanded = false, controlsHeight = 0) => {
+window.workflowInspectorPlacement = (anchor, bounds, width, height, expanded = false, controlsHeight = 0, reserved = null) => {
     const gap = 15, margin = 10;
     const leftEdge = bounds.left + margin, topEdge = bounds.top + margin;
     const rightEdge = bounds.right - margin, bottomEdge = bounds.bottom - margin;
     const pin = (value, min, max) => Math.max(min, Math.min(value, Math.max(min, max)));
     const center = anchor ? (anchor.left + anchor.right) / 2 : (leftEdge + rightEdge) / 2;
     const left = pin(expanded ? (leftEdge + rightEdge - width) / 2 : center - width / 2, leftEdge, rightEdge - width);
-    if (!anchor || expanded || anchor.bottom < topEdge || anchor.top > bottomEdge
-        || anchor.right < leftEdge || anchor.left > rightEdge) {
-        return {left, top: pin((topEdge + bottomEdge - height) / 2, topEdge, bottomEdge - height), arrow: null};
+    if (!anchor) {
+        const maxHeight = Math.max(1, Math.min(height, bottomEdge - topEdge));
+        return {left, top:pin((topEdge + bottomEdge - maxHeight) / 2,topEdge,bottomEdge-maxHeight), maxHeight, arrow:null};
     }
-    const above = anchor.top - gap - controlsHeight - topEdge;
-    const below = bottomEdge - anchor.bottom - gap;
-    const placement = above >= height || above >= below ? 'above' : 'below';
-    const top = pin(placement === 'above' ? anchor.top - gap - controlsHeight - height : anchor.bottom + gap, topEdge, bottomEdge - height);
-    const arrow = placement === 'above' ? top + height <= anchor.top : top >= anchor.bottom;
-    return {left, top, arrow: arrow ? placement : null, offset: pin(center - left, 18, width - 18)};
+    // Reserve the card, its caption and its toolbar, including clamped or zoomed controls.
+    const protectedBox = {
+        left:Math.min(anchor.left,reserved?.left ?? anchor.left),
+        right:Math.max(anchor.right,reserved?.right ?? anchor.right),
+        top:Math.min(anchor.top-controlsHeight,reserved?.top ?? anchor.top),
+        bottom:Math.max(anchor.bottom,reserved?.bottom ?? anchor.bottom),
+    };
+    const above = Math.max(0,protectedBox.top-gap-topEdge);
+    const below = Math.max(0,bottomEdge-protectedBox.bottom-gap);
+    // Keep a tall form beside the node when the canvas is wide enough.
+    if (above < height && below < height) {
+        const right = rightEdge-protectedBox.right-gap, leftSpace = protectedBox.left-gap-leftEdge;
+        if (right >= width || leftSpace >= width) {
+            const maxHeight = Math.max(1,Math.min(height,bottomEdge-topEdge));
+            return {left:right >= width ? protectedBox.right+gap : protectedBox.left-gap-width,
+                top:pin((anchor.top+anchor.bottom-maxHeight)/2,topEdge,bottomEdge-maxHeight),maxHeight,arrow:null};
+        }
+    }
+    const placement = above >= height || (below < height && above >= below) ? 'above' : 'below';
+    const maxHeight = Math.max(1,Math.min(height,placement === 'above' ? above : below));
+    const top = placement === 'above' ? protectedBox.top-gap-maxHeight : protectedBox.bottom+gap;
+    return {left,top,maxHeight,arrow:placement,offset:pin(center-left,18,width-18)};
 };
 
 // This is a UI preflight, not an expression evaluator. Only simple generated
@@ -316,6 +332,7 @@ window.workflowInspector = () => ({
             this.inspectorResize.observe(this.inspectorElement());
             const actions = this.inspectorElement().querySelector('.workflow-settings-actions');
             if (actions) this.inspectorResize.observe(actions);
+            for (const pane of this.inspectorElement().querySelectorAll?.('.workflow-inspector__pane') || []) this.inspectorResize.observe(pane);
         }
         if (typeof MutationObserver !== 'undefined') {
             const canvas = this.editorPage()?.querySelector?.('.workflow-node-editor__stage') || this.editorPage()?.querySelector?.('#workflow-canvas');
@@ -382,19 +399,27 @@ window.workflowInspector = () => ({
         const preferredWidth = this.expanded ? 820 : this.local?.triggerReference?.() ? 392 : 428;
         const width = Math.max(1, Math.min(preferredWidth, bounds.right - bounds.left - 20));
         const maxHeight = Math.max(1, Math.min(window.innerHeight * (this.expanded ? .88 : .70), bounds.bottom - bounds.top - 20));
-        const height = Math.min(maxHeight, panel.getBoundingClientRect?.().height || 290);
+        const panelHeight = panel.getBoundingClientRect?.().height || 290;
+        const fields = panel.querySelector('.workflow-inspector__fields');
+        // Measure the natural content too, so a previously shortened form can grow again.
+        const height = Math.min(maxHeight,panelHeight+Math.max(0,(fields?.scrollHeight || 0)-(fields?.clientHeight || 0)));
         const card = this.inspectorAnchor();
         this.paintInspectorAnchor(card);
         const anchor = card?.getBoundingClientRect();
         const controls = panel.querySelector('.workflow-settings-actions')?.getBoundingClientRect?.();
         const controlsWidth = controls?.width || (this.currentId?.startsWith('trigger') ? 28 : 62);
         const controlsHeight = controls?.height || 28;
-        const placed = window.workflowInspectorPlacement(anchor, bounds, width, height, this.expanded, controlsHeight + 8);
         const actions = window.workflowNodeActionsPlacement(anchor, bounds, controlsWidth, controlsHeight);
+        const controlsBox = actions ? {...actions,right:actions.left+controlsWidth,bottom:actions.top+controlsHeight} : null;
+        const caption = card?.querySelector?.('.workflow-node-card__caption')?.getBoundingClientRect?.();
+        const reserved = [controlsBox,caption].filter(rect=>rect && rect.right>rect.left && rect.bottom>rect.top)
+            .reduce((box,rect)=>box ? {left:Math.min(box.left,rect.left),right:Math.max(box.right,rect.right),
+                top:Math.min(box.top,rect.top),bottom:Math.max(box.bottom,rect.bottom)} : rect,null);
+        const placed = window.workflowInspectorPlacement(anchor,bounds,width,height,this.expanded,controlsHeight+8,reserved);
         this.actionPosition = actions ? {left:(actions.left-placed.left-1)+'px',top:(actions.top-placed.top-1)+'px',visibility:'visible'} : {visibility:'hidden'};
         this.selectedNodeDisabled = card?.dataset?.workflowNodeDisabled === 'true';
         this.placement = placed.arrow;
-        this.position = {left:placed.left+'px',top:placed.top+'px',width:width+'px',maxHeight:maxHeight+'px','--inspector-arrow-offset':(placed.offset || width / 2)+'px'};
+        this.position = {left:placed.left+'px',top:placed.top+'px',width:width+'px',maxHeight:placed.maxHeight+'px',minHeight:Math.min(116,placed.maxHeight)+'px','--inspector-arrow-offset':(placed.offset || width / 2)+'px'};
         this.$nextTick(() => this.inspectorElement().dispatchEvent?.(new CustomEvent('workflow-compact-picker-position',{bubbles:true})));
     },
     toggleExpanded() {

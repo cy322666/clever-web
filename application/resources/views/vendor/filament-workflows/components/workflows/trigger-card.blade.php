@@ -51,6 +51,7 @@
     <span class="workflow-node-card__icon">
         <x-workflow-node-icon :appearance="$appearance"/>
     </span>
+    @include('filament.workflow-builder.workflow-node-start-marker')
     <span class="workflow-node-result" data-workflow-node-result hidden></span>
     @include('filament.workflow-builder.workflow-node-status')
     <div class="workflow-node-card__body workflow-node-card__caption">

@@ -150,7 +150,7 @@ test('floating positioning leaves a closed panel hidden and puts open panels abo
     const below=window.workflowInspectorPlacement({left:78,right:144,top:135,bottom:201},bounds,428,300);
     assert.equal(below.left,82); assert.equal(below.top,216); assert.equal(below.arrow,'below');
     const expanded=window.workflowInspectorPlacement({left:78,right:144,top:135,bottom:201},bounds,820,300,true);
-    assert.equal(expanded.arrow,null); assert.equal(expanded.left,266);
+    assert.equal(expanded.arrow,'below'); assert.equal(expanded.left,266); assert.equal(expanded.top,216);
     panel.opened=true;panel.positionInspector();
     assert.equal('display' in panel.position,false);
     window.innerWidth=320;
@@ -465,4 +465,45 @@ test('inspector power flushes the selected draft and targets the matching canvas
         events.length=0;panel.anchorId='action:different';panel.toggleInspectorNode();
         assert.equal(events.length,0);
     }
+});
+
+
+test('tall settings never cover their node or toolbar and scroll when vertical space is limited',()=>{
+    const {window}=fixture();
+    const bounds={left:0,right:600,top:64,bottom:720};
+    const anchor={left:270,right:366,top:590,bottom:686};
+    const actions=window.workflowNodeActionsPlacement(anchor,bounds,62,28);
+    const controls={...actions,right:actions.left+62,bottom:actions.top+28};
+    const placed=window.workflowInspectorPlacement(anchor,bounds,428,1000,false,36,controls);
+    assert.equal(placed.arrow,'above');
+    assert.equal(placed.maxHeight,465);
+    assert.equal(placed.top,74);
+    assert.ok(placed.top+placed.maxHeight+15<=controls.top);
+    const wide=window.workflowInspectorPlacement(anchor,{...bounds,right:1280},428,600,false,36,controls);
+    assert.equal(wide.arrow,null);
+    assert.ok(wide.left>=anchor.right+15);
+    assert.equal(wide.maxHeight,600);
+});
+
+test('settings and controls stay disjoint across viewport sizes, zoom and expanded forms',()=>{
+    const {window}=fixture();
+    const overlaps=(a,b)=>a.left<b.right && a.right>b.left && a.top<b.bottom && a.bottom>b.top;
+    for(const viewportWidth of [320,640,1280]) for(const viewportHeight of [640,900])
+        for(const scale of [.5,1,2]) for(const expanded of [false,true]) for(const desiredHeight of [116,400,1000]) {
+            const bounds={left:0,right:viewportWidth,top:64,bottom:viewportHeight};
+            const size=96*scale;
+            for(const [x,y] of [[10,90],[(viewportWidth-size)/2,(viewportHeight-size)/2],[viewportWidth-size-10,viewportHeight-size-10]]) {
+                const anchor={left:x,right:x+size,top:y,bottom:y+size};
+                const actions=window.workflowNodeActionsPlacement(anchor,bounds,62,28);
+                const controls={...actions,right:actions.left+62,bottom:actions.top+28};
+                const width=Math.min(expanded?820:428,viewportWidth-20);
+                const result=window.workflowInspectorPlacement(anchor,bounds,width,desiredHeight,expanded,36,controls);
+                const panel={left:result.left,right:result.left+width,top:result.top,bottom:result.top+result.maxHeight};
+                assert.equal(overlaps(panel,anchor),false,'The selected card remains visible');
+                assert.equal(overlaps(panel,controls),false,'Run and Apply remain accessible');
+                assert.ok(panel.left>=10 && panel.right<=viewportWidth-10);
+                assert.ok(panel.top>=74 && panel.bottom<=viewportHeight-10);
+                assert.ok(result.maxHeight>0 && result.maxHeight<=desiredHeight);
+            }
+        }
 });
