@@ -24,7 +24,40 @@ class Form extends Model
         'contact_id',
         'user_id',
         'site',
+        'last_error',
+        'failed_at',
     ];
+
+    protected $casts = [
+        'status' => 'boolean',
+        'failed_at' => 'datetime',
+    ];
+
+    public function deliveryStatus(): string
+    {
+        return filled($this->last_error) ? 'Ошибка' : ($this->status ? 'Выгружен' : 'Ожидает');
+    }
+
+    public function markFailed(string $message): void
+    {
+        $message = trim((string) preg_replace('/\x1B\[[0-9;]*m/', '', $message));
+        $this->forceFill([
+            'status' => false,
+            'last_error' => mb_substr($message !== '' ? $message : 'Ошибка выгрузки Tilda.', 0, 2000),
+            'failed_at' => now(),
+        ])->save();
+    }
+
+    public function markExported(int $contactId, int $leadId): void
+    {
+        $this->forceFill([
+            'status' => true,
+            'contact_id' => $contactId,
+            'lead_id' => $leadId,
+            'last_error' => null,
+            'failed_at' => null,
+        ])->save();
+    }
 
     public function user(): BelongsTo
     {

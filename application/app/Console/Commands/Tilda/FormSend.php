@@ -198,10 +198,7 @@ class FormSend extends Command
             $lead = $this->addTagWithRetry($lead, $tags, $amoApi);
         }
 
-        $form->contact_id = $contact->id;
-        $form->lead_id = $lead->id;
-        $form->status = 1;
-        $form->save();
+        $form->markExported((int) $contact->id, (int) $lead->id);
 
         return self::SUCCESS;
     }
