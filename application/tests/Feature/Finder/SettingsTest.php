@@ -99,8 +99,7 @@ class SettingsTest extends TestCase
     public function test_another_tenant_cannot_open_settings(): void
     {
         $this->actingAs(User::findOrFail(2));
-        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
-        Livewire::test(EditFinder::class, ['record' => $this->setting->id]);
+        Livewire::test(EditFinder::class, ['record' => $this->setting->id])->assertNotFound();
     }
 
     public function test_intervals_below_three_minutes_cannot_be_saved_or_enabled(): void

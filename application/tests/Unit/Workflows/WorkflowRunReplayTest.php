@@ -199,8 +199,7 @@ class WorkflowRunReplayTest extends TestCase
 
     public function test_foreign_run_page_is_not_available_even_for_an_authenticated_user(): void
     {
-        $this->expectException(ModelNotFoundException::class);
-        Livewire::test(ReplayWorkflow::class, ['run' => 2]);
+        Livewire::test(ReplayWorkflow::class, ['run' => 2])->assertNotFound();
     }
 
     public function test_history_links_to_the_debugger_with_or_without_a_saved_schema(): void
@@ -238,12 +237,8 @@ class WorkflowRunReplayTest extends TestCase
     public function test_debug_history_selection_cannot_load_another_workflow_or_user(): void
     {
         foreach ([2, 3, 999] as $id) {
-            try {
-                Livewire::test(\Tests\Support\WorkflowSavedDebugFixture::class)->call('inspectWorkflowDebugRun', $id);
-                $this->fail('Another workflow or user was loaded.');
-            } catch (ModelNotFoundException) {
-                $this->assertTrue(true);
-            }
+            Livewire::test(\Tests\Support\WorkflowSavedDebugFixture::class)
+                ->call('inspectWorkflowDebugRun', $id)->assertNotFound();
         }
     }
 

@@ -117,7 +117,7 @@ class ScheduleSaveValidationTest extends TestCase
                 'timezone' => 'Europe/Moscow',
                 'exceptions' => [],
             ])
-            ->assertHasNoActionErrors();
+            ->assertHasNoErrors();
 
         $this->assertSame(1, Scheduler::query()->count());
         $this->assertSame('always', json_decode(Scheduler::query()->first()->settings, true)['mode']);
