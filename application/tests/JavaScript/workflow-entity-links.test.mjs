@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {linkEntityType, linkedEntityOptions, clearConflictingLink} from '../../resources/js/workflow-entity-links.mjs';
 import {WorkflowLocalInspector} from '../../resources/js/workflow-local-inspector.mjs';
 import {setPath} from '../../resources/js/workflow-browser-document.mjs';
-import {nodeFields} from '../../resources/js/workflow-browser-fields.mjs';
 
 const entities={lead:'Сделка',contact:'Контакт',company:'Компания',customer:'Покупатель'};
 
@@ -14,10 +13,6 @@ test('linked entity lists exclude the same normalized type in both link actions'
             const options=linkedEntityOptions(value,entities);
             assert.equal(Object.hasOwn(options,source),false);
             assert.equal(Object.keys(options).length,3);
-            for (const type of ['amocrm_link_entity','amocrm_unlink_entity']) {
-                const field=nodeFields({type,config:{target_entity:value}}, {}, {}).find(field=>field.path==='linked_entity');
-                assert.equal(Object.hasOwn(field.options,source),false);
-            }
         }
     }
     assert.deepEqual(linkedEntityOptions('{{ $json.entity }}',entities),entities);

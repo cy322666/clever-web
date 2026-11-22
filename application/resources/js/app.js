@@ -901,22 +901,8 @@ window.workflowWorkbench = () => ({
     },
 });
 
-// Load the browser editor only on its pages. Its document never enters $wire.
-window.workflowBrowserEditor = boot => ({
-    ready: false,
-    editor: null,
-    loadError: '',
-    async init() {
-        try {
-            const {createBrowserEditor} = await import('./workflow-browser-editor.mjs');
-            this.editor = createBrowserEditor(boot);
-            this.ready = true;
-        } catch (error) { this.loadError = 'Не удалось открыть редактор. ' + error.message; }
-    },
-});
-
 window.workflowNodeCanvas = (layoutKey = 'clever.workflow.layout.v2:draft', initialLayout = null, initialEdgeRoutes = null, initialCoordinates = null, initialAreas = null) => ({
-    // The legacy Livewire/replay views and the browser editor share geometry only.
+    // The routed editor and replay views share canvas geometry.
     clientWire: null,
     get editorWire() { return this.clientWire || window.workflowDraftFor?.(this.$wire)?.adapter || this.$wire; },
     layoutKey,
