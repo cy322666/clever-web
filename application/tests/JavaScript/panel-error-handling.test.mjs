@@ -51,11 +51,10 @@ function requestsAfterFailure({ notificationsEnabled, status = 419, offline = fa
     return { requests, notifications, prevented, pending: pending.length };
 }
 
-test('reproduces recursive error notifications with the installed Filament and Livewire 4 payload', () => {
-    const result = requestsAfterFailure({ notificationsEnabled: true });
-    assert.equal(result.requests, 100);
-    assert.equal(result.notifications, 100);
-    assert.equal(result.pending, 1);
+test('installed Filament stops after a failed notification request with the Livewire 4 payload', () => {
+    assert.deepEqual(requestsAfterFailure({ notificationsEnabled: true }), {
+        requests: 2, notifications: 1, prevented: 1, pending: 0,
+    });
 });
 
 for (const status of [401, 403, 419, 429, 500, 502, 503]) {

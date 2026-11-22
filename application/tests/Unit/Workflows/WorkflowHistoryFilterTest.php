@@ -158,8 +158,7 @@ class WorkflowHistoryFilterTest extends TestCase
 
     public function test_legacy_link_cannot_open_a_run_from_another_workflow(): void
     {
-        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
-        Livewire::withQueryParams(['run' => 4])->test(WorkflowHistory::class, ['record' => 1]);
+        Livewire::withQueryParams(['run' => 4])->test(WorkflowHistory::class, ['record' => 1])->assertNotFound();
     }
 
     public function test_runs_without_a_saved_schema_still_open_the_debugger(): void
