@@ -660,7 +660,13 @@ export function installLocalInspector(panel, boot, root) {
                 this.helper=local.rule(field.helper,indexes)||'';
                 this.sources=local.sources();this.customFields=local.boot.customFields;
                 const next=local.value(path) ?? null;
-                if (!equal(this.state,next)) this.state=clone(next);
+                if (!equal(this.state,next)) {
+                    this.state=clone(next);
+                    if (field.kind==='value') {
+                        this.mode=typeof next==='string' && next.includes('{{') ? 'expression' : 'value';
+                        this.editingPickedExpression=false;
+                    }
+                }
                 if (field.kind==='select' && (!field.native || field.searchable || field.multiple)) this.$el.querySelector('[data-local-select]')?.dispatchEvent(new CustomEvent('workflow-local-select-refresh'));
             },
         });

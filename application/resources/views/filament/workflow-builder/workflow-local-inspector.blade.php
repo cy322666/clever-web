@@ -49,7 +49,7 @@
                     <x-filament::input.wrapper x-show.important="mode === 'value' && hasOptions && !crmControl && !field.multiple">
                         <select class="fi-input workflow-value-field__select" x-model="state" :id="$id('local-value')" :aria-label="label">
                             <option value="" x-text="placeholder || (Object.keys(options).length ? 'Выберите значение' : 'Нет доступных вариантов, обновите справочник')"></option>
-                            <template x-if="state !== null && state !== '' && !String(state).includes('{'+'{') && !Object.hasOwn(options,state) && unknownOptionAllowed"><option :value="state" x-text="state"></option></template>
+                            <template x-if="state !== null && state !== '' && !String(state).includes('{'+'{') && !Object.hasOwn(options,state) && unknownOptionAllowed"><option :value="state" x-text="state" selected></option></template>
                             <template x-for="(option, value) in options" :key="value"><option :value="value" :selected="String(state) === String(value)" x-text="option"></option></template>
                         </select>
                     </x-filament::input.wrapper>
