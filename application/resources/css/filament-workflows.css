@@ -683,11 +683,11 @@ body.fi-body {
     width: 100%;
     height: 100%;
     pointer-events: none;
-    fill: #b5bec9;
+    fill: #9faaba;
 }
 
 .dark .workflow-canvas-grid {
-    fill: #555863;
+    fill: #687181;
 }
 
 .workflow-node-editor__viewport.is-node-dragging {
@@ -7131,6 +7131,23 @@ svg.workflow-control-icon { color: #248548 !important; }
 .dark .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family].workflow-node-card--disabled > .workflow-node-card__icon {
     color: #a1adbd !important;
 }
+/* A small, consistent bolt distinguishes every start from action nodes. */
+.workflow-node-start-marker {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    color: #c34a31;
+    pointer-events: none;
+    user-select: none;
+}
+.workflow-node-start-marker > svg { width: 14px; height: 14px; }
+.dark .workflow-node-start-marker { color: #ffad99; }
+[data-workflow-node-disabled="true"] > .workflow-node-start-marker { color: #7d899a; }
+.dark [data-workflow-node-disabled="true"] > .workflow-node-start-marker { color: #a1adbd; }
 /* Execution is a separate signal, never confused with the node's family color. */
 .workflow-node-editor #workflow-canvas .workflow-node-card[data-node-family] > .workflow-node-status {
     width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #fff;

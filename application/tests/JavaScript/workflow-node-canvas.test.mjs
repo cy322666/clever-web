@@ -265,7 +265,7 @@ test('canvas keeps its dotted grid and separates neutral port dots from the hit 
     const grid = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-canvas-grid.blade.php',import.meta.url),'utf8');
     assert.doesNotMatch(css,/radial-gradient\(circle/,'Do not reintroduce fractionally rounded CSS background tiles');
     assert.match(css,/\.workflow-canvas-grid\s*\{[^}]*position:\s*absolute;[^}]*pointer-events:\s*none;/s);
-    assert.match(css,/\.dark \.workflow-canvas-grid\s*\{[^}]*fill:\s*#555863;/s);
+    assert.match(css,/\.dark \.workflow-canvas-grid\s*\{[^}]*fill:\s*#687181;/s);
     assert.match(grid,/aria-hidden="true" focusable="false" x-id="\['workflow-grid'\]" wire:ignore/);
     assert.match(grid,/patternUnits="userSpaceOnUse"/);
     assert.match(grid,/x-bind:width="gridSpacing" x-bind:height="gridSpacing"/);
