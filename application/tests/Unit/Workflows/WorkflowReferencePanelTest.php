@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Workflows;
 
-use App\Forms\Components\WorkflowMaskTextarea;
 use App\Services\Workflows\WorkflowVariableService;
 use App\Workflows\Actions\WorkflowTriggerConditionVariableCatalog;
 use App\Workflows\Context\WorkflowContext;
@@ -24,7 +23,6 @@ class WorkflowReferencePanelTest extends TestCase
             WorkflowTriggerConditionVariableCatalog::groupedMaskOptions(),
             WorkflowTriggerConditionVariableCatalog::groupedOptions(),
             WorkflowTriggerConditionVariableCatalog::groupedConditionPickerOptions(),
-            WorkflowMaskTextarea::make('message')->getGroupedVariables(),
         ] as $groups) {
             foreach ($removedGroups as $group) $this->assertArrayNotHasKey($group, $groups);
             foreach (['Событие', 'Дата / время', 'Сделка', 'Контакт'] as $group) $this->assertArrayHasKey($group, $groups);

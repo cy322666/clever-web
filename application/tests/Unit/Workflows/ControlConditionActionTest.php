@@ -4,7 +4,6 @@ namespace Tests\Unit\Workflows;
 
 use App\Workflows\Actions\ControlConditionAction;
 use App\Workflows\Context\WorkflowContext;
-use App\Workflows\Actions\WorkflowConditionPreview;
 use Livewire\Livewire;
 use Tests\Support\WorkflowCanvasDatabase;
 use Tests\Support\WorkflowCanvasFixture;
@@ -39,9 +38,6 @@ class ControlConditionActionTest extends TestCase
 
             $config = $page->get('workflowActions.0.config');
             $this->assertSame($operator, array_values($config['conditions'])[0]['operator']);
-            $preview = WorkflowConditionPreview::rows($config);
-            $this->assertSame($label, $preview[0]['operator']);
-            $this->assertNull($preview[0]['right']);
 
             $page = Livewire::test(WorkflowCanvasFixture::class, ['workflowActions' => [[
                 'id' => 'flag-condition', 'type' => 'control-condition', 'config' => $config,

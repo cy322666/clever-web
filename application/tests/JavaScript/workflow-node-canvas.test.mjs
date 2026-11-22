@@ -204,7 +204,7 @@ test('an empty loop body offers a replace tile without a frame or stored placeho
     const canvas=localDraft([{id:'loop',type:'workflow_loop'}],[]);
     const each=canvas.canvasEdges([],['trigger']).find(edge=>edge.sourceId==='action:loop'&&edge.sourcePort==='each');
     assert.equal(each.targetId,null);
-    for (const name of ['vendor/filament-workflows/components/workflows/edge-controls','filament/workflow-builder/workflow-browser-page']) {
+    for (const name of ['vendor/filament-workflows/components/workflows/edge-controls']) {
         const view=readFileSync(new URL('../../resources/views/'+name+'.blade.php',import.meta.url),'utf8');
         assert.doesNotMatch(view,/workflow-loop-frame|Замените меня|Действие цикла/);
         assert.match(view,/workflow-loop-replace/);assert.match(view,/Заменить/);

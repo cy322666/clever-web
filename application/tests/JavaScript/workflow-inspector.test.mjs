@@ -315,23 +315,12 @@ test('Escape hides without a roundtrip and the side controls have Apply with no 
     assert.match(view,/keydown.escape.stop="if \(!\$event.defaultPrevented\) hideInspector\(\)"/);
 });
 
-test('editing controls offer play and apply while closed cards offer power and delete', () => {
+test('active inspector controls offer play and apply', () => {
     const view=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-inspector.blade.php',import.meta.url),'utf8');
     assert.match(view,/heroicon-s-play/);
     assert.doesNotMatch(view,/heroicon-o-beaker|heroicon-o-arrows-pointing-out|x-on:click="toggleExpanded\(\)"/);
     assert.match(view,/x-on:click="closeInspector\(\)"/);
     assert.doesNotMatch(view,/toggleInspectorNode\(\)|deleteInspectorNode\(\)|heroicon-o-power|heroicon-o-trash/);
-    const browser=readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-browser-page.blade.php',import.meta.url),'utf8');
-    const closed=browser.match(/<div class="workflow-node-card__tools"[\s\S]*?<\/div>/)[0];
-    const editing=browser.match(/<div class="workflow-settings-actions workflow-browser-node-actions"[\s\S]*?<\/div>/)[0];
-    assert.equal((closed.match(/<button /g)||[]).length,2);
-    assert.match(closed,/toggleNode\(node\.id\)/);
-    assert.match(closed,/removeNode\(node\.id\)/);
-    assert.doesNotMatch(closed,/runDebug|duplicateNode|x-show="!node.id.startsWith/);
-    assert.equal((editing.match(/<button /g)||[]).length,2);
-    assert.match(editing,/runDebug\('node',selectedId\)/);
-    assert.match(editing,/closeInspector\(\)/);
-    assert.doesNotMatch(editing,/toggleNode|removeNode/);
     assert.match(view,/class="workflow-settings-actions" role="toolbar"/);
     assert.doesNotMatch(view,/<header|data-inspector-icon|workflow-inspector__header/);
 });

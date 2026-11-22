@@ -6,7 +6,7 @@ import {
     getPath,
     setPath,
 } from '../../resources/js/workflow-browser-document.mjs';
-import { nodeFields } from '../../resources/js/workflow-browser-fields.mjs';
+
 
 const fixture = () => ({
     id: 120,
@@ -200,34 +200,9 @@ test('safe paths reject prototype pollution and handle nested repeater state', (
     assert.equal({}.polluted, undefined);
 });
 
-test('condition controls, loop limit and contact source are local field descriptions', () => {
-    const condition = nodeFields({ type: 'control-condition', config: { logic: 'and', conditions: [] } });
-    assert(condition[0].buttons);
-    assert.deepEqual(condition[0].options, { and: 'И', or: 'ИЛИ' });
-    assert.equal(condition[1].fields[0].label, '');
-    const loop = nodeFields({ type: 'workflow_loop', config: { mode: 'limit' } });
-    assert(loop.find((field) => field.path === 'limit').visible());
-    const contact = nodeFields({ type: 'amocrm_contact_leads', config: { source: 'contact' } });
-    assert(contact[0].buttons);
-    assert(contact[1].visible());
-    assert(!contact[2].visible());
-});
 
-test('read operation modes and with presets retain one shared config value', () => {
-    const fields = nodeFields(
-        { type: 'amocrm_read', config: { operation: 'leads.one' } },
-        {},
-        {
-            'leads.one': {
-                path: '/api/v4/leads/{id}',
-                variants: { 'leads.list': 'Список', 'leads.one': 'По ID' },
-                with: { contacts: 'Контакты' },
-            },
-        },
-    );
-    assert(fields.some((field) => field.path === 'id'));
-    assert.equal(fields.find((field) => field.path === 'with_preset').options.contacts, 'Контакты');
-});
+
+
 
 
 test('named fields in empty PHP groups survive cloning while repeater indexes remain arrays',()=>{

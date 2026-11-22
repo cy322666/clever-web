@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\Workflows\Workflow;
 use App\Services\Workflows\WorkflowBrowserDocument;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\Support\WorkflowBrowserDatabase;
 use Tests\TestCase;
 
@@ -159,16 +158,6 @@ class WorkflowBrowserDocumentTest extends TestCase
         $this->assertArrayNotHasKey('_browser_secret_source', $restored['actions'][1]['config']);
     }
 
-    public function test_browser_page_boots_once_without_workflow_data_in_livewire_snapshot(): void
-    {
-        $workflow = $this->workflow();
-        $page = Livewire::test(\App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\BrowserEditWorkflow::class, ['record' => $workflow->id]);
-        $page->assertSeeHtml('workflowBrowserEditor(')->assertSeeHtml('data-browser-boot');
-        $page->assertSee('Добавить действие в цикл')->assertDontSee('Замените меня')->assertDontSee('workflow-loop-frame', false);
-        $this->assertFalse(property_exists($page->instance(), 'workflowActions'));
-        $this->assertFalse(property_exists($page->instance(), 'definition'));
-        $this->assertFalse(property_exists($page->instance(), 'savedWorkflowEditorState'));
-    }
 
     public function test_node_debug_keeps_previous_outputs_and_loop_runs_only_one_node(): void
     {

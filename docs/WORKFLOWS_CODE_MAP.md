@@ -13,7 +13,7 @@
 | Настройки ноды в правой панели | [HasCompactWorkflowConfigurationPanels.php](../application/app/Filament/WorkflowBuilder/Resources/WorkflowResource/Pages/Concerns/HasCompactWorkflowConfigurationPanels.php) и [workflow-inspector.blade.php](../application/resources/views/filament/workflow-builder/workflow-inspector.blade.php) |
 | Внешний вид | [filament-workflows.css](../application/resources/css/filament-workflows.css) и [workflow-inspector.css](../application/resources/css/workflow-inspector.css) |
 
-[BrowserEditWorkflow.php](../application/app/Filament/WorkflowBuilder/Resources/WorkflowResource/Pages/BrowserEditWorkflow.php) и [workflow-browser-editor.mjs](../application/resources/js/workflow-browser-editor.mjs) содержат отдельный браузерный редактор, но текущий маршрут `edit` на него не указывает. Для правки действующего экрана начинай с файлов выше. Код пакета-основы лежит в `application/vendor/leek/filament-workflows/src/`; изменения продукта лучше искать в `application/app/` и `application/resources/`, а не в `vendor/`.
+Общая модель [workflow-browser-document.mjs](../application/resources/js/workflow-browser-document.mjs) используется действующим редактором и сохранена. Код пакета-основы находится в `application/vendor/leek/filament-workflows/src/`.
 
 ## Ноды, данные и выполнение
 
