@@ -44,6 +44,7 @@ class ClientTest extends TestCase
         );
         $this->assertSame(77, $setting->organization_id);
         $this->assertSame('new-token', $setting->token);
+        $this->assertSame('https://clever.example/api/sqns/hook/user/key', $setting->registered_webhook_url);
     }
 
     public function test_reads_visit_with_sqns_authorization_header(): void
@@ -125,6 +126,91 @@ class ClientTest extends TestCase
             && $request->method() === 'PATCH'
             && $request->hasHeader('Authorization', 'Bearer new-token')
         );
+    }
+
+    public function test_disconnect_removes_webhook_and_clears_connection_state(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/hook_settings' => Http::response([], 200),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'token' => 'test-token',
+            'webhook_secret' => 'hook-secret',
+            'registered_webhook_url' => 'https://old-clever.example/api/sqns/hook/user/key',
+            'organization_id' => 77,
+            'organization_name' => 'Clinic',
+            'connected_at' => now(),
+        ]);
+        $setting->shouldReceive('save')->once()->andReturnTrue();
+
+        (new Client($setting))->disconnect('https://new-clever.example/api/sqns/hook/user/key');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://crm3.sqns.ru/api/v2/hook_settings'
+            && $request->method() === 'DELETE'
+            && $request->hasHeader('Authorization', 'Bearer test-token')
+            && $request['urls'] === ['https://old-clever.example/api/sqns/hook/user/key']
+        );
+        $this->assertNull($setting->token);
+        $this->assertNull($setting->webhook_secret);
+        $this->assertNull($setting->registered_webhook_url);
+        $this->assertNull($setting->organization_id);
+        $this->assertNull($setting->organization_name);
+        $this->assertNull($setting->connected_at);
+    }
+
+    public function test_disconnect_accepts_an_already_missing_webhook(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/hook_settings' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'token' => 'test-token',
+            'connected_at' => now(),
+        ]);
+        $setting->shouldReceive('save')->once()->andReturnTrue();
+
+        (new Client($setting))->disconnect('https://clever.example/api/sqns/hook/user/key');
+
+        $this->assertNull($setting->token);
+        Http::assertSentCount(1);
+    }
+
+    public function test_disconnect_reauthenticates_when_the_stored_token_is_rejected(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/auth' => Http::response(['token' => 'renewed-token']),
+            'https://crm3.sqns.ru/api/v2/hook_settings' => Http::sequence()
+                ->push(['message' => 'unauthorized'], 401)
+                ->push([], 200),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'email' => 'owner@example.test',
+            'password' => 'secret',
+            'token' => 'expired-token',
+            'connected_at' => now(),
+        ]);
+        $setting->shouldReceive('save')->once()->andReturnTrue();
+
+        (new Client($setting))->disconnect('https://clever.example/api/sqns/hook/user/key');
+
+        $deleteRequests = collect(Http::recorded())
+            ->map(fn (array $entry) => $entry[0])
+            ->filter(fn (Request $request): bool => $request->method() === 'DELETE')
+            ->values();
+
+        $this->assertCount(2, $deleteRequests);
+        $this->assertTrue($deleteRequests[0]->hasHeader('Authorization', 'Bearer expired-token'));
+        $this->assertTrue($deleteRequests[1]->hasHeader('Authorization', 'Bearer renewed-token'));
+        $this->assertNull($setting->token);
     }
 
     public function test_requests_paginated_visits_with_documented_filters(): void

@@ -3,12 +3,12 @@
 namespace App\Jobs\Sqns;
 
 use App\Jobs\Concerns\BuildsHorizonTags;
-use App\Models\Core\Account;
 use App\Models\Integrations\Sqns\Setting;
 use App\Models\Integrations\Sqns\Visit;
 use App\Services\Sqns\Client;
 use App\Services\Sqns\VisitIngestor;
 use App\Services\Sqns\VisitPayload;
+use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -64,12 +64,19 @@ class ProcessWebhook implements ShouldQueue
         ];
     }
 
-    public function handle(VisitIngestor $ingestor): void
+    public function handle(VisitIngestor $ingestor, WebhookLifecycle $lifecycle): void
     {
-        $setting = Setting::query()->findOrFail($this->settingId);
-        $account = Account::query()
-            ->where('user_id', $setting->user_id)
-            ->findOrFail($this->accountId);
+        $setting = Setting::query()->with('user')->findOrFail($this->settingId);
+
+        if (! $lifecycle->isOperational($setting)) {
+            return;
+        }
+
+        $account = $setting->amoAccount(false, 'sqns');
+
+        if (! $account || (int) $account->id !== $this->accountId) {
+            return;
+        }
 
         try {
             $webhookVisit = VisitPayload::extract($this->payload) ?? VisitPayload::partial($this->payload);

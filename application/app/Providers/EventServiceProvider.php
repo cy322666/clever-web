@@ -6,7 +6,11 @@ use App\Listeners\SendFailedJobAlert;
 use App\Listeners\SendHorizonLongWaitAlert;
 use App\Listeners\SendTelegramRegistrationNotification;
 use App\Models\Billing\WidgetSubscription;
+use App\Models\Core\Account;
+use App\Models\Integrations\Sqns\Setting as SqnsSetting;
 use App\Models\User;
+use App\Observers\AmoAccountObserver;
+use App\Observers\SqnsSettingObserver;
 use App\Observers\UserObserver;
 use App\Observers\WidgetSubscriptionObserver;
 use Illuminate\Auth\Events\Registered;
@@ -44,6 +48,8 @@ class EventServiceProvider extends ServiceProvider
             $model::observe(\App\Observers\IntegrationFailureObserver::class);
         }
         User::observe(UserObserver::class);
+        Account::observe(AmoAccountObserver::class);
+        SqnsSetting::observe(SqnsSettingObserver::class);
         WidgetSubscription::observe(WidgetSubscriptionObserver::class);
     }
 

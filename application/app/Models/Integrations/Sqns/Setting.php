@@ -43,6 +43,7 @@ class Setting extends Model
         'token',
         'webhook_secret',
         'webhook_key',
+        'registered_webhook_url',
         'organization_id',
         'organization_name',
         'pipelines',
@@ -64,6 +65,7 @@ class Setting extends Model
         'token',
         'webhook_secret',
         'webhook_key',
+        'registered_webhook_url',
     ];
 
     protected $casts = [

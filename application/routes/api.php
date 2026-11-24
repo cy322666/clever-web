@@ -47,10 +47,6 @@ Route::group(['middleware' => ['user.active', 'user.inputs']], function () {
         ->middleware(['integration.active:vetmanager', 'throttle:120,1'])
         ->name('vetmanager.hook');
 
-    Route::post('sqns/hook/{user:uuid}/{key}', [SqnsController::class, 'hook'])
-        ->middleware(['integration.active:sqns', 'throttle:120,1'])
-        ->name('sqns.hook');
-
 });
 
 //amoCRM

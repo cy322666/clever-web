@@ -6,7 +6,7 @@ use App\Filament\Resources\Integrations\Sqns\SqnsResource;
 use App\Helpers\Actions\UpdateButton;
 use App\Helpers\Traits\SyncAmoCRMPage;
 use App\Jobs\Sqns\SyncVisits;
-use App\Services\Sqns\Client;
+use App\Services\Sqns\WebhookLifecycle;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
@@ -118,7 +118,7 @@ class EditSqns extends EditRecord
         try {
             $this->save(false, false);
             $this->record->refresh();
-            (new Client($this->record))->connect($this->record->webhookUrl());
+            app(WebhookLifecycle::class)->connect($this->record);
             $this->record->refresh();
             $this->refreshFormData(['organization_name', 'connected_at', 'last_error']);
 
@@ -145,7 +145,7 @@ class EditSqns extends EditRecord
     public function disconnectSqns(): void
     {
         try {
-            (new Client($this->record))->disconnect($this->record->webhookUrl());
+            app(WebhookLifecycle::class)->disconnect($this->record);
             $this->record->refresh();
             $this->refreshFormData(['organization_name', 'connected_at', 'last_error']);
 

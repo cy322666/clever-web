@@ -4,6 +4,7 @@ namespace Tests\Feature\Integrations;
 
 use App\Http\Controllers\Api\AuthController;
 use App\Jobs\Integrations\CompleteAmoCrmWidgetInstallation;
+use App\Jobs\Sqns\DisconnectWebhook;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -38,6 +39,11 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
         $this->assertSame(AuthController::class.'@offSqns', $off->getActionName());
         $this->assertContains('GET', $off->methods());
         $this->assertContains('POST', $off->methods());
+
+        $hookRoutes = collect($routes)->filter(
+            fn ($route): bool => $route->uri() === 'api/sqns/hook/{user}/{key}',
+        );
+        $this->assertCount(1, $hookRoutes);
     }
 
     public function test_install_hook_queues_sqns_widget_installation(): void
@@ -156,6 +162,7 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
     {
         $this->configureSqnsOauth();
         config([
+            'cache.default' => 'array',
             'database.default' => 'sqns_off_test',
             'database.connections.sqns_off_test' => ['driver' => 'sqlite', 'database' => ':memory:'],
         ]);
@@ -178,6 +185,12 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             $table->string('client_id')->nullable();
             $table->boolean('active')->default(false);
         });
+        Schema::create('sqns_settings', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('account_id');
+            $table->text('token')->nullable();
+        });
 
         $targetUserId = DB::table('users')->insertGetId([
             'name' => 'SQNS owner',
@@ -187,17 +200,17 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             'name' => 'Other SQNS owner',
             'email' => null,
         ]);
+        $targetAccountId = DB::table('accounts')->insertGetId([
+            'user_id' => $targetUserId,
+            'widget' => 'sqns',
+            'amo_account_id' => 33098322,
+            'subdomain' => 'widgetscenario',
+            'access_token' => 'sqns-access',
+            'refresh_token' => 'sqns-refresh',
+            'client_id' => self::SQNS_CLIENT_ID,
+            'active' => true,
+        ]);
         DB::table('accounts')->insert([
-            [
-                'user_id' => $targetUserId,
-                'widget' => 'sqns',
-                'amo_account_id' => 33098322,
-                'subdomain' => 'widgetscenario',
-                'access_token' => 'sqns-access',
-                'refresh_token' => 'sqns-refresh',
-                'client_id' => self::SQNS_CLIENT_ID,
-                'active' => true,
-            ],
             [
                 'user_id' => $targetUserId,
                 'widget' => 'workflows',
@@ -219,7 +232,14 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
                 'active' => true,
             ],
         ]);
+        DB::table('sqns_settings')->insert([
+            'id' => 5,
+            'user_id' => $targetUserId,
+            'account_id' => $targetAccountId,
+            'token' => 'encrypted-sqns-token',
+        ]);
         Mail::fake();
+        Queue::fake();
 
         $response = (new AuthController)->offSqns(Request::create(
             '/api/amocrm/off/sqns',
@@ -243,6 +263,9 @@ class AmoCrmSqnsLifecycleRoutesTest extends TestCase
             'refresh_token' => 'flow-refresh',
             'active' => true,
         ]);
+        Queue::assertPushed(DisconnectWebhook::class, fn (DisconnectWebhook $job): bool =>
+            $job->settingId === 5 && $job->reason === 'amocrm_disconnected'
+        );
         $this->assertDatabaseHas('accounts', [
             'widget' => 'sqns',
             'amo_account_id' => 44098322,

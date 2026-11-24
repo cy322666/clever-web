@@ -6,6 +6,7 @@ use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Integrations\Sqns\Setting;
 use App\Services\Sqns\Client;
 use App\Services\Sqns\VisitIngestor;
+use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,9 +41,9 @@ class SyncVisits implements ShouldQueue
         ]);
     }
 
-    public function handle(VisitIngestor $ingestor): void
+    public function handle(VisitIngestor $ingestor, WebhookLifecycle $lifecycle): void
     {
-        $setting = Setting::query()->findOrFail($this->settingId);
+        $setting = Setting::query()->with('user')->findOrFail($this->settingId);
         $account = $setting->amoAccount(false, 'sqns');
 
         if (! $account) {
@@ -53,11 +54,21 @@ class SyncVisits implements ShouldQueue
             throw new \RuntimeException('Настройте подключение SQNS и все этапы amoCRM перед загрузкой визитов.');
         }
 
+        if (! $lifecycle->isOperational($setting)) {
+            throw new \RuntimeException('Интеграция SQNS выключена или срок доступа истёк.');
+        }
+
         try {
             $client = new Client($setting);
             $page = 1;
 
             do {
+                $setting->refresh()->load('user');
+
+                if (! $lifecycle->isOperational($setting)) {
+                    return;
+                }
+
                 $response = $client->listVisits($page, $this->dateFrom, $this->dateTill);
                 $items = data_get($response, 'data', []);
 

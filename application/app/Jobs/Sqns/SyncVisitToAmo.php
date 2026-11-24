@@ -5,6 +5,7 @@ namespace App\Jobs\Sqns;
 use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Integrations\Sqns\Visit;
 use App\Services\Sqns\AmoSync;
+use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -38,7 +39,7 @@ class SyncVisitToAmo implements ShouldQueue
         ]);
     }
 
-    public function handle(AmoSync $sync): void
+    public function handle(AmoSync $sync, WebhookLifecycle $lifecycle): void
     {
         $visit = Visit::query()->findOrFail($this->visitId);
         $lockKey = $visit->client_id
@@ -47,8 +48,17 @@ class SyncVisitToAmo implements ShouldQueue
 
         Cache::store(config('cache.yclients_lock_store', 'database'))
             ->lock($lockKey, 330)
-            ->block(60, function () use ($sync): void {
-                $visit = Visit::query()->findOrFail($this->visitId);
+            ->block(60, function () use ($sync, $lifecycle): void {
+                $visit = Visit::query()->with(['setting.user', 'account'])->findOrFail($this->visitId);
+                $setting = $visit->setting;
+                $currentAccount = $setting?->amoAccount(false, 'sqns');
+
+                if (! $setting
+                    || ! $lifecycle->isOperational($setting)
+                    || ! $currentAccount
+                    || (int) $currentAccount->id !== (int) $visit->account_id) {
+                    return;
+                }
 
                 try {
                     $sync->sync($visit, $this->createNote);

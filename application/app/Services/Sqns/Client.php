@@ -26,28 +26,14 @@ class Client
 
     public function connect(string $webhookUrl): array
     {
-        if (blank($this->setting->email) || blank($this->setting->password)) {
-            throw new RuntimeException('Укажите email и пароль SQNS.');
-        }
-
-        $response = $this->send('post', '/api/v2/auth', [
-            'email' => $this->setting->email,
-            'password' => $this->setting->password,
-        ], false);
-
-        $auth = $response->json() ?? [];
-        $token = data_get($auth, 'token') ?? data_get($auth, 'data.token');
-
-        if (! is_string($token) || trim($token) === '') {
-            throw new RuntimeException('SQNS не вернул токен авторизации.');
-        }
-
-        $this->token = $token;
+        $auth = $this->authenticate();
+        $token = (string) $this->token;
         $this->registerWebhook($webhookUrl);
 
         $this->setting->forceFill([
             'token' => $token,
             'webhook_secret' => data_get($auth, 'webhookSecret') ?? data_get($auth, 'data.webhookSecret'),
+            'registered_webhook_url' => $webhookUrl,
             'organization_id' => data_get($auth, 'user.orgId') ?? data_get($auth, 'data.user.orgId'),
             'connected_at' => now(),
             'last_error' => null,
@@ -65,16 +51,25 @@ class Client
 
     public function disconnect(string $webhookUrl): void
     {
-        $this->send(
-            'delete',
-            '/api/v2/hook_settings',
-            ['urls' => [$webhookUrl]],
-            acceptedStatuses: [404],
-        );
+        $registeredWebhookUrl = filled($this->setting->registered_webhook_url)
+            ? (string) $this->setting->registered_webhook_url
+            : $webhookUrl;
+
+        try {
+            $this->deleteWebhook($registeredWebhookUrl);
+        } catch (RequestException $exception) {
+            if (! in_array($exception->response->status(), [401, 403], true)) {
+                throw $exception;
+            }
+
+            $this->authenticate();
+            $this->deleteWebhook($registeredWebhookUrl);
+        }
 
         $this->setting->forceFill([
             'token' => null,
             'webhook_secret' => null,
+            'registered_webhook_url' => null,
             'organization_id' => null,
             'organization_name' => null,
             'connected_at' => null,
@@ -82,6 +77,39 @@ class Client
         ])->save();
 
         $this->token = null;
+    }
+
+    private function authenticate(): array
+    {
+        if (blank($this->setting->email) || blank($this->setting->password)) {
+            throw new RuntimeException('Укажите email и пароль SQNS.');
+        }
+
+        $response = $this->send('post', '/api/v2/auth', [
+            'email' => $this->setting->email,
+            'password' => $this->setting->password,
+        ], false);
+
+        $auth = $response->json() ?? [];
+        $token = data_get($auth, 'token') ?? data_get($auth, 'data.token');
+
+        if (! is_string($token) || trim($token) === '') {
+            throw new RuntimeException('SQNS не вернул токен авторизации.');
+        }
+
+        $this->token = trim($token);
+
+        return $auth;
+    }
+
+    private function deleteWebhook(string $webhookUrl): void
+    {
+        $this->send(
+            'delete',
+            '/api/v2/hook_settings',
+            ['urls' => [$webhookUrl]],
+            acceptedStatuses: [404],
+        );
     }
 
     public function getVisit(int $visitId): array

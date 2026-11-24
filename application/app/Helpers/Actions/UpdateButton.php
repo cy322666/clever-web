@@ -57,9 +57,7 @@ abstract class UpdateButton
                 return Action::make('active')
                     ->color(Color::Red)
                     ->action(function () use ($app) {
-
-                        $app->status = App::STATE_INACTIVE;
-                        $app->save();
+                        static::setActive($app, false);
 
                         static::getNotification($app);
                     })
@@ -103,14 +101,7 @@ abstract class UpdateButton
                         return Action::make('active')
                             ->color(Color::Green)
                             ->action(function () use ($app) {
-
-                                $app->status = App::STATE_ACTIVE;
-                                $app->save();
-
-                                $setting = $app->getSettingModel();
-
-                                $setting->active = true;
-                                $setting->save();
+                                static::setActive($app, true);
 
                                 static::getNotification($app);
                             })
@@ -157,6 +148,20 @@ abstract class UpdateButton
                 ->disabled()
                 ->tooltip('Для активации подключите amoCRM');
         }
+    }
+
+    private static function setActive(App $app, bool $active): void
+    {
+        $app->status = $active ? App::STATE_ACTIVE : App::STATE_INACTIVE;
+        $app->save();
+
+        $setting = $app->getSettingModel();
+        if ($setting && (bool) $setting->active !== $active) {
+            $setting->active = $active;
+            $setting->save();
+        }
+
+        app(WidgetSubscriptionAccessService::class)->syncLegacyAppToManualSubscription($app);
     }
 
     //кнопка для синхронизации с амо
