@@ -7,6 +7,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -54,21 +56,30 @@ class Client
         $registeredWebhookUrl = filled($this->setting->registered_webhook_url)
             ? (string) $this->setting->registered_webhook_url
             : $webhookUrl;
+        $reauthenticated = false;
 
         try {
-            $this->deleteWebhook($registeredWebhookUrl);
+            $response = $this->deleteWebhook($registeredWebhookUrl);
         } catch (RequestException $exception) {
             if (! in_array($exception->response->status(), [401, 403], true)) {
                 throw $exception;
             }
 
             $this->authenticate();
-            $this->deleteWebhook($registeredWebhookUrl);
+            $reauthenticated = true;
+            $response = $this->deleteWebhook($registeredWebhookUrl);
         }
+
+        Log::info('SQNS webhook delete accepted.', [
+            'setting_id' => $this->setting->id,
+            'status' => $response->status(),
+            'reauthenticated' => $reauthenticated,
+        ]);
 
         $this->setting->forceFill([
             'token' => null,
             'webhook_secret' => null,
+            'webhook_key' => Str::random(48),
             'registered_webhook_url' => null,
             'organization_id' => null,
             'organization_name' => null,
@@ -102,9 +113,9 @@ class Client
         return $auth;
     }
 
-    private function deleteWebhook(string $webhookUrl): void
+    private function deleteWebhook(string $webhookUrl): Response
     {
-        $this->send(
+        return $this->send(
             'delete',
             '/api/v2/hook_settings',
             ['urls' => [$webhookUrl]],

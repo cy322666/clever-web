@@ -214,15 +214,19 @@ class WebhookLifecycleTest extends TestCase
         Http::fake([
             'https://crm3.sqns.ru/api/v2/hook_settings' => Http::response([], 200),
         ]);
+        $before = Setting::query()->findOrFail(1);
+        $registeredWebhookUrl = $before->webhookUrl();
+        $webhookKey = $before->webhook_key;
 
         (new DisconnectWebhook(1, 'subscription_expired'))->handle(app(WebhookLifecycle::class));
 
         $setting = Setting::query()->findOrFail(1);
         $this->assertFalse($setting->isConnected());
         $this->assertNull($setting->connected_at);
+        $this->assertNotSame($webhookKey, $setting->webhook_key);
         Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
             && $request->url() === 'https://crm3.sqns.ru/api/v2/hook_settings'
-            && $request['urls'] === [$setting->webhookUrl()]
+            && $request['urls'] === [$registeredWebhookUrl]
         );
     }
 

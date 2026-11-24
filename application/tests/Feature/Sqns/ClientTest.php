@@ -139,6 +139,7 @@ class ClientTest extends TestCase
             'api_base_url' => 'https://crm3.sqns.ru',
             'token' => 'test-token',
             'webhook_secret' => 'hook-secret',
+            'webhook_key' => 'old-webhook-key',
             'registered_webhook_url' => 'https://old-clever.example/api/sqns/hook/user/key',
             'organization_id' => 77,
             'organization_name' => 'Clinic',
@@ -155,6 +156,8 @@ class ClientTest extends TestCase
         );
         $this->assertNull($setting->token);
         $this->assertNull($setting->webhook_secret);
+        $this->assertNotSame('old-webhook-key', $setting->webhook_key);
+        $this->assertSame(48, strlen((string) $setting->webhook_key));
         $this->assertNull($setting->registered_webhook_url);
         $this->assertNull($setting->organization_id);
         $this->assertNull($setting->organization_name);
