@@ -30,15 +30,6 @@ class SqnsForm
                     ->schema([
                         Fieldset::make('Подключение SQNS')
                             ->schema([
-                                Select::make('api_base_url')
-                                    ->label('Сервер SQNS')
-                                    ->options([
-                                        'https://crm3.sqns.ru' => 'crm3.sqns.ru',
-                                        'https://crm2.sqns.ru' => 'crm2.sqns.ru',
-                                    ])
-                                    ->default('https://crm3.sqns.ru')
-                                    ->required(),
-
                                 TextInput::make('email')
                                     ->label('Email')
                                     ->email()

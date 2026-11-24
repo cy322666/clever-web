@@ -15,8 +15,8 @@ use Throwable;
 class Client
 {
     private const ALLOWED_BASE_URLS = [
-        'https://crm2.sqns.ru',
         'https://crm3.sqns.ru',
+        'https://crm2.sqns.ru',
     ];
 
     private ?string $token;
@@ -96,21 +96,39 @@ class Client
             throw new RuntimeException('Укажите email и пароль SQNS.');
         }
 
-        $response = $this->send('post', '/api/v2/auth', [
-            'email' => $this->setting->email,
-            'password' => $this->setting->password,
-        ], false);
+        $lastException = null;
 
-        $auth = $response->json() ?? [];
-        $token = data_get($auth, 'token') ?? data_get($auth, 'data.token');
+        foreach ($this->authenticationBaseUrls() as $baseUrl) {
+            try {
+                $response = $this->send('post', '/api/v2/auth', [
+                    'email' => $this->setting->email,
+                    'password' => $this->setting->password,
+                ], false, baseUrl: $baseUrl);
+            } catch (ConnectionException|RequestException $exception) {
+                $lastException = $exception;
 
-        if (! is_string($token) || trim($token) === '') {
-            throw new RuntimeException('SQNS не вернул токен авторизации.');
+                continue;
+            }
+
+            $auth = $response->json() ?? [];
+            $token = data_get($auth, 'token') ?? data_get($auth, 'data.token');
+
+            if (! is_string($token) || trim($token) === '') {
+                $lastException = new RuntimeException('SQNS не вернул токен авторизации.');
+
+                continue;
+            }
+
+            $this->token = trim($token);
+            $this->setting->api_base_url = $baseUrl;
+
+            return $auth;
         }
 
-        $this->token = trim($token);
-
-        return $auth;
+        throw new RuntimeException(
+            'Не удалось авторизоваться в SQNS. Проверьте email и пароль.',
+            previous: $lastException,
+        );
     }
 
     private function deleteWebhook(string $webhookUrl): Response
@@ -151,6 +169,7 @@ class Client
         array $data = [],
         bool $authorized = true,
         array $acceptedStatuses = [],
+        ?string $baseUrl = null,
     ): Response {
         if ($authorized && blank($this->token)) {
             throw new RuntimeException('SQNS не подключён: отсутствует токен.');
@@ -172,7 +191,7 @@ class Client
         }
 
         $method = strtolower($method);
-        $url = $this->baseUrl().'/'.ltrim($path, '/');
+        $url = $this->baseUrl($baseUrl).'/'.ltrim($path, '/');
         $response = $method === 'get'
             ? $request->get($url, $data)
             : $request->send(strtoupper($method), $url, ['json' => $data]);
@@ -199,9 +218,19 @@ class Client
         return $status === 429 || $status >= 500;
     }
 
-    private function baseUrl(): string
+    private function authenticationBaseUrls(): array
     {
-        $url = rtrim((string) $this->setting->api_base_url, '/');
+        $configured = rtrim(trim((string) $this->setting->api_base_url), '/');
+
+        return array_values(array_unique(array_filter(
+            [$configured, ...self::ALLOWED_BASE_URLS],
+            fn (string $url): bool => in_array($url, self::ALLOWED_BASE_URLS, true),
+        )));
+    }
+
+    private function baseUrl(?string $baseUrl = null): string
+    {
+        $url = rtrim(trim($baseUrl ?? (string) $this->setting->api_base_url), '/');
 
         if (! in_array($url, self::ALLOWED_BASE_URLS, true)) {
             throw new RuntimeException('Недопустимый адрес API SQNS.');

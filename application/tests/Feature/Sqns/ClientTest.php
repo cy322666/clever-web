@@ -47,6 +47,39 @@ class ClientTest extends TestCase
         $this->assertSame('https://clever.example/api/sqns/hook/user/key', $setting->registered_webhook_url);
     }
 
+    public function test_detects_the_sqns_server_during_authentication(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/auth' => Http::response([
+                'message' => 'user not found',
+            ], 422),
+            'https://crm2.sqns.ru/api/v2/auth' => Http::response([
+                'token' => 'crm2-token',
+                'user' => ['orgId' => 88],
+            ]),
+            'https://crm2.sqns.ru/api/v2/hook_settings' => Http::response([], 200),
+        ]);
+
+        $setting = Mockery::mock(Setting::class)->makePartial();
+        $setting->fill([
+            'api_base_url' => 'https://crm3.sqns.ru',
+            'email' => 'owner@example.test',
+            'password' => 'secret',
+        ]);
+        $setting->shouldReceive('save')->once()->andReturnTrue();
+
+        (new Client($setting))->connect('https://clever.example/api/sqns/hook/user/key');
+
+        $requests = collect(Http::recorded())->map(fn (array $entry) => $entry[0])->values();
+
+        $this->assertSame('https://crm3.sqns.ru/api/v2/auth', $requests[0]->url());
+        $this->assertSame('https://crm2.sqns.ru/api/v2/auth', $requests[1]->url());
+        $this->assertSame('https://crm2.sqns.ru/api/v2/hook_settings', $requests[2]->url());
+        $this->assertSame('https://crm2.sqns.ru', $setting->api_base_url);
+        $this->assertSame('crm2-token', $setting->token);
+        $this->assertSame(88, $setting->organization_id);
+    }
+
     public function test_reads_visit_with_sqns_authorization_header(): void
     {
         Http::fake([
