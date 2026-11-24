@@ -52,7 +52,7 @@ class SqnsForm
                                     ->required(fn (?Setting $record): bool => blank($record?->password)),
                             ]),
 
-                        Fieldset::make('Этапы amoCRM')
+                        Fieldset::make('Настройки')
                             ->schema([
                                 Select::make('pipelines')
                                     ->label('Воронки SQNS')
