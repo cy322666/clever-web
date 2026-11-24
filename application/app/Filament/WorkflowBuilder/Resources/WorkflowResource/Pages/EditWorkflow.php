@@ -8,6 +8,7 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\HasWo
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\Concerns\UsesWorkflowOwnerContext;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
 use Filament\Support\Enums\Width;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Contracts\Support\Htmlable;
 use Leek\FilamentWorkflows\Resources\WorkflowResource\Pages\EditWorkflow as BaseEditWorkflow;
 
@@ -24,6 +25,9 @@ class EditWorkflow extends BaseEditWorkflow
     protected string $view = 'filament.workflow-builder.workflow-editor-page';
 
     protected ?bool $requestedActivation = null;
+
+    #[\Livewire\Attributes\Locked]
+    public Model|int|string|null $record = null;
 
     // Signed, locked metadata avoids Livewire restoring the workflow from SQL
     // on every settings request. The editable definition stays in the browser.
@@ -45,11 +49,22 @@ class EditWorkflow extends BaseEditWorkflow
 
     public function hydrate(): void
     {
-        if (!isset($this->record) && $this->workflowRecordSnapshot !== []) {
+        $rehydratedFromSnapshot = !isset($this->record) && $this->workflowRecordSnapshot !== [];
+        if ($rehydratedFromSnapshot) {
+            $snapshot = $this->workflowRecordSnapshot;
+            abort_unless(isset($snapshot['id'], $snapshot['user_id']), 404);
             $this->record = (new \App\Models\Workflows\Workflow)->newFromBuilder($this->workflowRecordSnapshot);
             $this->record->definition = $this->definition;
         }
         $this->restoreWorkflowOwnerContext();
+        if ($rehydratedFromSnapshot) {
+            abort_unless(\App\Models\Workflows\Workflow::query()
+                ->useWritePdo()
+                ->whereKey($snapshot['id'])
+                ->where('user_id', $snapshot['user_id'])
+                ->exists(), 404);
+            $this->hasResolvedRecordForRequest = true;
+        }
         // A signed draft belongs to the session's owner, not a later account
         // signed into the same browser. This check needs no workflow SQL read.
         abort_unless((int) $this->getRecord()->user_id === (int) auth()->id(), 403);

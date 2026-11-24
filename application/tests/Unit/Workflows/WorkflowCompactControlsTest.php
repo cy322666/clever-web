@@ -76,6 +76,24 @@ class WorkflowCompactControlsTest extends TestCase
         }
     }
 
+    public function test_saving_node_preserves_notification_mailbox_and_other_messages(): void
+    {
+        $error = ['status' => 'danger', 'title' => 'Keep error'];
+        $notifications = [
+            'mailbox' => 'existing-mailbox',
+            0 => $error,
+        ];
+        session()->put('filament.notifications', $notifications);
+
+        $page = $this->editor('control-condition', [
+            'logic' => 'and',
+            'conditions' => [['left' => 1, 'operator' => 'equals', 'right' => 1]],
+        ]);
+        $page->call('callMountedAction')->assertHasNoErrors();
+
+        $this->assertSame($notifications, session('filament.notifications'));
+    }
+
     public function test_loop_form_has_no_annotations_and_preserves_input_and_mode(): void
     {
         foreach (['all', 'once'] as $mode) {
@@ -100,7 +118,7 @@ class WorkflowCompactControlsTest extends TestCase
             $page = $this->editor('amocrm_contact_leads', ['source' => $source, $id => '{{ $json.id }}']);
             $html = $this->form($page);
             $this->assertStringContainsString('fi-fo-toggle-buttons', $html);
-            $this->assertSame(2, preg_match_all('/<input\b(?=[^>]*fi-fo-toggle-buttons-input)(?=[^>]*wire:model)[^>]*>/s', $html));
+            $this->assertSame(2, preg_match_all('/<button\b[^>]*id="mountedActionSchema0\.source-(?:contact|lead)"[^>]*>/s', $html));
             $this->assertDoesNotMatchRegularExpression('/class="[^"]*fi-fo-toggle-buttons[^"]*fi-btn-group/', $html);
             $this->assertStringContainsString('Контакт сделки', $html);
             $this->assertStringNotContainsString('Указать ID контакта', $html);

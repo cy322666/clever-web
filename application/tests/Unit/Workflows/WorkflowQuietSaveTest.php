@@ -4,6 +4,7 @@ namespace Tests\Unit\Workflows;
 
 use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\EditWorkflow;
 use Filament\Notifications\Notification;
+use Filament\Notifications\NotificationMailbox;
 use Livewire\Livewire;
 use Tests\Support\WorkflowCanvasDatabase;
 use Tests\Support\WorkflowCanvasFixture;
@@ -72,7 +73,9 @@ class WorkflowQuietSaveTest extends TestCase
         Notification::make()->warning()->title('Keep warning')->send();
         $page->call('callMountedAction')->assertHasNoErrors()->assertSet('mountedActions', []);
         $this->assertSame('400', $page->get('workflowActions')[0]['config']['conditions'][0]['right']);
-        $notifications = session('filament.claimed_notifications', []);
+        $mailbox = app(NotificationMailbox::class);
+        $mailbox->flush();
+        $notifications = $mailbox->pull();
         $this->assertContains('Keep warning', array_column($notifications, 'title'));
         $this->assertNotContains(__('filament-workflows::workflows.notifications.action_updated.title'), array_column($notifications, 'title'));
     }

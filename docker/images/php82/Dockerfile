@@ -1,4 +1,4 @@
-FROM php:8.2-fpm-alpine
+FROM php:8.2.36-fpm-alpine
 
 ARG APK_REPOSITORY_MIRROR=https://dl-cdn.alpinelinux.org/alpine
 

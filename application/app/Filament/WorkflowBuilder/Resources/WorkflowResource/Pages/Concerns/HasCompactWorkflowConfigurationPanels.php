@@ -359,14 +359,31 @@ trait HasCompactWorkflowConfigurationPanels
             ->modalDescription(null)
             ->modalIcon(null)
             ->modalSubmitAction(fn (Action $action) => $action->label('Готово')->icon(null))
-            ->after(function (): void {
-                // The package sends this toast directly, outside successNotification().
-                // Keep its save handler intact and retain all errors and warnings.
-                session()->put('filament.notifications', array_values(array_filter(
-                    session('filament.notifications', []),
-                    fn (array $notification): bool => ($notification['status'] ?? null) !== 'success'
-                        || ($notification['title'] ?? null) !== __('filament-workflows::workflows.notifications.action_updated.title'),
-                )));
+            ->action(function (array $data): void {
+                // Keep the package's save logic, but do not enqueue its success toast.
+                $name = $data['_action_name'] ?? null;
+                unset($data['_action_name']);
+
+                foreach (['field_mappings', 'updates'] as $key) {
+                    if (isset($data[$key]) && is_array($data[$key])) {
+                        $data[$key] = array_map(function (array $mapping): array {
+                            $valueType = $mapping['value_type'] ?? 'static';
+                            $mapping['value'] = match ($valueType) {
+                                'static', 'trigger', 'context' => $mapping['value_text'] ?? $mapping['value'] ?? '',
+                                'lookup', 'enum' => $mapping['value_select'] ?? $mapping['value'] ?? '',
+                                'date' => $mapping['value_date'] ?? $mapping['value'] ?? '',
+                                default => $mapping['value'] ?? '',
+                            };
+                            unset($mapping['value_text'], $mapping['value_select'], $mapping['value_date']);
+
+                            return $mapping;
+                        }, $data[$key]);
+                    }
+                }
+
+                $this->updateWorkflowActionConfig($this->editingActionId, $data, $name);
+                $this->editingActionId = null;
+                $this->isNewAction = false;
             })
             ->form(fn () => $this->nodeWorkspace($this->getWorkflowActionConfigSchema()))
             ->extraModalWindowAttributes(['class' => 'workflow-node-settings'])

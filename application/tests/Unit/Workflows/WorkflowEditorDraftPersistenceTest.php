@@ -38,6 +38,14 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         return array_values(array_filter(DB::getQueryLog(), fn ($entry) => str_contains($entry['query'], '"'.$table.'"')));
     }
 
+    private function assertOnlyScopeChecks(array $queries): void
+    {
+        $this->assertNotEmpty($queries);
+        foreach ($queries as $query) {
+            $this->assertStringStartsWith('select exists(', $query['query']);
+        }
+    }
+
     public function test_identity_and_graph_changes_do_not_read_or_write_workflow_until_save(): void
     {
         $flow = $this->workflow();
@@ -48,7 +56,7 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         $page->call('renameWorkflow', 'Черновик')
             ->call('renameWorkflowNode', 'a', 'Ожидание', true)
             ->call('selectActionType', 'workflow_delay')->assertHasNoErrors();
-        $this->assertSame([], $this->queries('workflows'), 'Ordinary editor requests must not restore or autosave an Eloquent workflow.');
+        $this->assertOnlyScopeChecks($this->queries('workflows'));
         $this->assertSame($before, $flow->fresh()->getRawOriginal());
         $page->call('save')->assertHasNoErrors();
         $saved = $flow->fresh();
@@ -70,7 +78,7 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
         DB::flushQueryLog();
         $page->set('data.name', 'Черновик названия')->call('openWorkflowInspector', 'action:a')
             ->assertHasNoErrors()->assertSet('data.name', 'Черновик названия');
-        $this->assertSame([], $this->queries('workflows'));
+        $this->assertOnlyScopeChecks($this->queries('workflows'));
         $this->assertSame('Исходный', $flow->fresh()->name);
         $page->call('save')->assertHasNoErrors()->assertSet('savedWorkflowEditorState.name', 'Черновик названия');
         $this->assertSame('Черновик названия', $flow->fresh()->name);
@@ -107,9 +115,19 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
     {
         $flow = $this->workflow();
         $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id]);
+        $page->set('data.name', 'Нельзя записать');
         DB::table('workflows')->where('id', $flow->id)->update(['user_id' => 1]);
-        $page->set('data.name', 'Нельзя записать')->call('save')->assertNotFound();
+        $page->call('save')->assertNotFound();
         $this->assertSame('Исходный', DB::table('workflows')->where('id', $flow->id)->value('name'));
+    }
+
+    public function test_ordinary_editor_request_rechecks_current_owner(): void
+    {
+        $flow = $this->workflow();
+        $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id]);
+        DB::table('workflows')->where('id', $flow->id)->update(['user_id' => 1]);
+
+        $page->call('renameWorkflow', 'Нельзя открыть')->assertNotFound();
     }
 
     public function test_concurrent_saved_changes_are_not_overwritten_and_local_draft_is_retained(): void
@@ -133,7 +151,25 @@ class WorkflowEditorDraftPersistenceTest extends TestCase
     {
         $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $this->workflow()->id]);
         $this->actingAs(User::findOrFail(1));
-        $page->call('readDictionary')->assertForbidden();
+        $page->call('readDictionary')->assertNotFound();
+    }
+
+    public function test_root_editor_restores_owner_before_rechecking_scope(): void
+    {
+        \Illuminate\Support\Facades\Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table): void {
+            $table->boolean('is_root')->default(false);
+        });
+        DB::table('users')->where('id', 1)->update(['is_root' => true]);
+        $root = User::findOrFail(1);
+        $flow = $this->workflow();
+
+        $this->actingAs($root);
+        $page = Livewire::test(DraftPersistenceEditor::class, ['record' => $flow->id]);
+        $this->assertTrue($page->get('workflowAdminAccess'));
+
+        $this->actingAs($root);
+        $page->call('renameWorkflow', 'Черновик администратора')->assertHasNoErrors();
+        $this->assertSame('Черновик администратора', $page->get('data.name'));
     }
 }
 
