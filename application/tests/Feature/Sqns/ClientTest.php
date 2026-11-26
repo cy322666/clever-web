@@ -80,61 +80,6 @@ class ClientTest extends TestCase
         $this->assertSame(88, $setting->organization_id);
     }
 
-    public function test_reads_visit_with_sqns_authorization_header(): void
-    {
-        Http::fake([
-            'https://crm3.sqns.ru/api/v2/visit/123' => Http::response([
-                'id' => 123,
-                'datetime' => '2026-09-07 14:30:00',
-                'clientId' => 55,
-            ]),
-        ]);
-
-        $client = new Client($this->setting());
-        $visit = $client->getVisit(123);
-
-        $this->assertSame(123, $visit['id']);
-        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://crm3.sqns.ru/api/v2/visit/123'
-            && $request->hasHeader('Authorization', 'Bearer test-token')
-        );
-    }
-
-    public function test_reads_visit_from_nested_api_response(): void
-    {
-        Http::fake([
-            'https://crm3.sqns.ru/api/v2/visit/123' => Http::response([
-                'data' => [
-                    'visit' => [
-                        'id' => 123,
-                        'datetime' => '2026-09-07 14:30:00',
-                        'clientId' => 55,
-                    ],
-                ],
-            ]),
-        ]);
-
-        $visit = (new Client($this->setting()))->getVisit(123);
-
-        $this->assertSame(123, $visit['id']);
-        $this->assertSame(55, $visit['clientId']);
-    }
-
-    public function test_rejects_a_visit_response_with_another_id(): void
-    {
-        Http::fake([
-            'https://crm3.sqns.ru/api/v2/visit/123' => Http::response([
-                'id' => 456,
-                'datetime' => '2026-09-07 14:30:00',
-                'clientId' => 55,
-            ]),
-        ]);
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('SQNS вернул некорректные данные визита #123.');
-
-        (new Client($this->setting()))->getVisit(123);
-    }
-
     public function test_updates_webhook_when_reconnecting_existing_setting(): void
     {
         Http::fake([
@@ -263,6 +208,7 @@ class ClientTest extends TestCase
 
         $this->assertSame(2, data_get($response, 'meta.page'));
         Http::assertSent(fn (Request $request): bool => $request['page'] === 2
+            && $request->hasHeader('Authorization', 'Bearer test-token')
             && $request['perPage'] === 100
             && $request['dateFrom'] === '2026-09-01'
             && $request['dateTill'] === '2026-09-30'
@@ -277,22 +223,18 @@ class ClientTest extends TestCase
         $setting = $this->setting();
         $setting->api_base_url = 'https://example.test';
 
-        (new Client($setting))->getVisit(123);
+        (new Client($setting))->listVisits(1, '2026-09-01', '2026-09-30');
     }
 
     public function test_retries_transient_sqns_server_errors(): void
     {
-        Http::fakeSequence('https://crm3.sqns.ru/api/v2/visit/123')
+        Http::fakeSequence('https://crm3.sqns.ru/api/v2/visit*')
             ->push(['message' => 'temporary'], 500)
-            ->push([
-                'id' => 123,
-                'datetime' => '2026-09-10 12:00:00',
-                'clientId' => 55,
-            ], 200);
+            ->push(['data' => [['id' => 123]]], 200);
 
-        $visit = (new Client($this->setting()))->getVisit(123);
+        $response = (new Client($this->setting()))->listVisits(1, '2026-09-01', '2026-09-30');
 
-        $this->assertSame(123, $visit['id']);
+        $this->assertSame(123, data_get($response, 'data.0.id'));
         Http::assertSentCount(2);
     }
 

@@ -62,6 +62,11 @@ Route::get('/panel/integrations/open/{app}', IntegrationOpenController::class)
     ->name('integrations.open')
     ->middleware('auth');
 
+Route::post('/panel/integrations/connect/{widget}', [IntegrationOpenController::class, 'connect'])
+    ->where('widget', '[a-z0-9-]+')
+    ->middleware('auth')
+    ->name('integrations.connect');
+
 Route::get('/up', fn() => response('OK', 200))
     ->name('up');
 
@@ -78,6 +83,3 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('workflow-editor')->group(
 
 //архив? не смог зайти
 Route::get('/metrics', MetricsController::class)->name('metrics');
-
-//это че за форма?
-Route::get('/clever/bayers/forms/pay', \App\Livewire\Clever\Bayers\FormOrder::class);

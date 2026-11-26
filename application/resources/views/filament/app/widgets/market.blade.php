@@ -8,8 +8,14 @@
                     </header>
                     <ul class="clever-market-grid" role="list">
                         @foreach($section['cards'] as $card)
-                            <li wire:key="market-app-{{ $card['id'] }}">
-                                <a class="clever-market-card" href="{{ $card['url'] }}">
+                            <li wire:key="market-app-{{ $card['key'] }}">
+                                @if($card['connect'])
+                                    <form method="POST" action="{{ $card['url'] }}" class="clever-market-card-form">
+                                        @csrf
+                                        <button type="submit" class="clever-market-card">
+                                @else
+                                    <a class="clever-market-card" href="{{ $card['url'] }}">
+                                @endif
                                     <div class="clever-market-card__heading">
                                         <span class="clever-market-card__icon" aria-hidden="true">
                                             <img src="{{ $card['logo'] }}" alt="" width="48" height="48" decoding="async" />
@@ -22,7 +28,12 @@
                                         @endif
                                         <span class="clever-market-card__action">{{ $card['action'] }} <x-filament::icon icon="heroicon-m-arrow-right" aria-hidden="true" /></span>
                                     </div>
-                                </a>
+                                @if($card['connect'])
+                                        </button>
+                                    </form>
+                                @else
+                                    </a>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
@@ -60,6 +71,8 @@
             .clever-market-section__header h2 {font-size: 1.125rem; font-weight: 700;}
             .clever-market-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem;}
             .clever-market-grid > li {min-width: 0;}
+            .clever-market-card-form {height: 100%;}
+            button.clever-market-card {width: 100%; text-align: start; cursor: pointer;}
             .clever-market-card {display: flex; flex-direction: column; gap: 1.25rem; height: 100%; min-width: 0; padding: 1.125rem; border: 1px solid var(--market-border); border-radius: .875rem; background: var(--market-surface); box-shadow: 0 2px 4px rgb(28 25 23 / 3%);}
             .clever-market-card:hover {border-color: #fb923c;}
             .clever-market-card:focus-visible {outline: 2px solid #ea580c; outline-offset: 3px;}

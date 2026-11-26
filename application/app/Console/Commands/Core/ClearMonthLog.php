@@ -38,11 +38,13 @@ class ClearMonthLog extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         foreach (IntegrationHistoryPruner::INTEGRATIONS as $integration) {
+            $historyDays = $integration === 'import-excel' ? (int) config('retention.import_records_days') : $days;
+
             try {
                 $rows = $dryRun
-                    ? $pruner->count($integration, $days)
-                    : $pruner->prune($integration, $days, (int) $this->option('chunk'));
-                $this->line(sprintf('%s [%s]: %d successful rows older than %d days.', $dryRun ? 'Dry-run' : 'Deleted', $integration, $rows, $days));
+                    ? $pruner->count($integration, $historyDays)
+                    : $pruner->prune($integration, $historyDays, (int) $this->option('chunk'));
+                $this->line(sprintf('%s [%s]: %d successful rows older than %d days.', $dryRun ? 'Dry-run' : 'Deleted', $integration, $rows, $historyDays));
             } catch (Throwable $e) {
                 $errors++;
                 $this->error("Failed for [{$integration}]: {$e->getMessage()}");

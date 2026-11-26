@@ -27,10 +27,6 @@ class Kernel extends ConsoleKernel
             ->everyFifteenMinutes()
             ->withoutOverlapping();
 
-        $schedule->command('app:queue-backfill-failed --limit=1000')//почему так часто?
-            ->everyMinute()
-            ->withoutOverlapping();
-
         $schedule->command('horizon:snapshot')
             ->everyTenMinutes()
             ->withoutOverlapping();
@@ -84,13 +80,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('authentication-log:purge')
             ->dailyAt('02:20')
             ->timezone('Europe/Moscow')
-            ->when(static function (): bool {
-                $today = now('Europe/Moscow')->startOfDay();
-                $firstRun = $today->copy()->setDate(2026, 11, 27);
-
-                // A day-of-month cron step would reset the interval each month.
-                return $today->gte($firstRun) && (int) $firstRun->diffInDays($today) % 10 === 0;
-            })
             ->withoutOverlapping(30);
 
         //архив

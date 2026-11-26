@@ -4,13 +4,16 @@ namespace Tests\Feature;
 
 use App\Filament\App\Pages\Dashboard;
 use App\Filament\App\Widgets\Market;
+use App\Jobs\Core\InstallUserIntegrations;
 use App\Models\App;
 use App\Models\User;
 use DOMDocument;
 use DOMXPath;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -32,6 +35,7 @@ class MarketCatalogTest extends TestCase
             $table->foreignId('user_id');
             $table->string('name');
             $table->string('resource_name')->nullable();
+            $table->unsignedBigInteger('setting_id')->nullable();
             $table->integer('status')->default(App::STATE_CREATED);
             $table->date('expires_tariff_at')->nullable();
             $table->timestamps();
@@ -83,6 +87,7 @@ class MarketCatalogTest extends TestCase
         $this->assertSame(['Ветменеджер', 'SQNS', 'YClients'], $titles('industry'));
         $this->assertSame(App::STATE_ACTIVE, $expired->fresh()->status);
         $this->assertSame(1, App::where('user_id', 2)->count());
+        $this->assertSame(2, App::count());
     }
 
     public function test_cards_show_icons_names_and_actions_without_marketing_copy_or_crm_badges(): void
@@ -96,14 +101,17 @@ class MarketCatalogTest extends TestCase
             ->assertDontSee('Инструменты для вашей CRM')
             ->assertDontSee('Для вашей сферы');
 
-        foreach (App::all() as $app) {
-            $component->assertDontSee(App::getTooltipText($app->name));
+        foreach (App::definitionNames() as $widget) {
+            $description = App::getTooltipText($widget);
+            if ($description !== '') {
+                $component->assertDontSee($description);
+            }
         }
 
         $dom = new DOMDocument;
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$component->html());
         $xpath = new DOMXPath($dom);
-        $cards = $xpath->query('//a[@class="clever-market-card"]');
+        $cards = $xpath->query('//form[@method="POST"]/button[@class="clever-market-card"]');
 
         $this->assertCount(8, $cards);
         foreach ($cards as $card) {
@@ -112,6 +120,92 @@ class MarketCatalogTest extends TestCase
             $this->assertSame(0, $xpath->query('.//p', $card)->length);
         }
         $this->assertSame(0, $xpath->query('//*[contains(@class, "fi-badge")]')->length);
+        $this->assertDatabaseCount('apps', 0);
+    }
+
+    public function test_explicit_setup_creates_only_the_selected_app_and_reuses_it_on_repeat(): void
+    {
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('crm_provider');
+        });
+        DB::table('users')->insert(['id' => 1, 'crm_provider' => 'amocrm']);
+        Schema::create('tilda_settings', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('user_id');
+            $table->timestamps();
+        });
+
+        $setupUrl = route('integrations.connect', ['widget' => 'tilda']);
+        $this->get($setupUrl)->assertStatus(405);
+        $this->assertDatabaseCount('apps', 0);
+
+        $response = $this->post($setupUrl);
+        $app = App::query()->sole();
+        $this->assertSame('tilda', $app->name);
+        $this->assertSame(1, $app->user_id);
+        $this->assertSame(App::STATE_CREATED, $app->status);
+        $this->assertDatabaseHas('tilda_settings', ['id' => $app->setting_id, 'user_id' => 1]);
+        $settingsUrl = \App\Filament\Resources\Integrations\TildaResource::getUrl('edit', ['record' => $app->setting_id]);
+        $response->assertRedirect($settingsUrl);
+
+        $this->post($setupUrl)->assertRedirect($settingsUrl);
+        $app->update(['resource_name' => null]);
+        $this->get(route('integrations.open', ['app' => $app->id]))->assertRedirect($settingsUrl);
+        $this->assertSame(\App\Filament\Resources\Integrations\TildaResource::class, $app->fresh()->resource_name);
+        $this->assertDatabaseCount('apps', 1);
+        $this->assertDatabaseCount('tilda_settings', 1);
+    }
+
+    public function test_unsupported_or_incompatible_widget_cannot_create_a_record(): void
+    {
+        config(['integrations.definitions.tilda.crm_providers' => ['kommo']]);
+
+        foreach (['tilda', 'not-a-widget'] as $widget) {
+            $this->post(route('integrations.connect', ['widget' => $widget]))->assertNotFound();
+        }
+
+        $this->assertDatabaseCount('apps', 0);
+    }
+
+    public function test_opening_a_catalog_entry_without_setup_does_not_create_an_app(): void
+    {
+        $this->post(route('integrations.connect', ['widget' => 'workflows']))
+            ->assertRedirect(\App\Filament\WorkflowBuilder\Resources\WorkflowResource::getUrl('index'));
+
+        $this->assertDatabaseCount('apps', 0);
+    }
+
+    public function test_registration_does_not_enqueue_catalog_provisioning(): void
+    {
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('email');
+            $table->uuid('uuid')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('accounts', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('user_id');
+            $table->string('widget');
+        });
+        Schema::create('workflows', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('user_id');
+            $table->boolean('is_active');
+            $table->string('trigger_type');
+            $table->string('trigger_model_type');
+            $table->string('trigger_event');
+            $table->softDeletes();
+        });
+        Mail::fake();
+        Bus::fake([InstallUserIntegrations::class]);
+
+        $user = User::create(['email' => 'catalog-test@example.test']);
+
+        $this->assertDatabaseHas('accounts', ['user_id' => $user->id, 'widget' => 'default']);
+        $this->assertDatabaseCount('apps', 0);
+        Bus::assertNotDispatched(InstallUserIntegrations::class);
     }
 
     public function test_dashboard_has_no_visible_heading_but_keeps_its_browser_title(): void

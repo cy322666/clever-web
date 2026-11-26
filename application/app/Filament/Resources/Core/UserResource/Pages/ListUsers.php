@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Core\UserResource\Pages;
 use App\Filament\App\Pages\ApiRequests;
 use App\Filament\App\Pages\AppStats;
 use App\Filament\Resources\Core\UserResource;
-use Croustibat\FilamentJobsMonitor\Resources\QueueMonitorResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Colors\Color;
@@ -27,18 +26,6 @@ class ListUsers extends ListRecords
     protected function getActions(): array
     {
         $actions = [];
-
-        //архив, скорее всего плагин есть его сносим
-//        if (
-//            config('features.panel_actions.queues', true)
-//            && Route::has('filament.app.resources.queue-monitors.index')
-//        ) {
-//            $actions[] = Action::make('queues')
-//                ->label('Очереди')
-//                ->url(fn(): string => QueueMonitorResource::getUrl(panel: 'app'))
-//                ->openUrlInNewTab()
-//                ->color(Color::Green);
-//        }
 
 //        if (
 //            config('features.panel_actions.api_requests', true)

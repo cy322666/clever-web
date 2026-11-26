@@ -212,8 +212,7 @@ final class IntegrationErrorNotifier
                 $diagnostic['endpoint'] ? 'Запрос: '.$diagnostic['endpoint'] : null,
                 'ID ошибки: '.$alertId,
                 'Время: '.now()->format('d.m.Y H:i:s'),
-                $widget !== 'platform' || str_starts_with($operation, 'Фоновая задача:') || str_starts_with($operation, 'Очередь:')
-                    ? 'Открыть: '.$baseUrl.($workflowId ? '/panel/workflows/'.$workflowId.'/edit' : '/panel/queue-monitors') : null,
+                $workflowId ? 'Открыть: '.$baseUrl.'/panel/workflows/'.$workflowId.'/edit' : null,
             ], static fn ($line): bool => $line !== null));
             // Deferred record alerts keep separate pending keys so recovery cannot hide another record's error.
             $job = new SendIntegrationErrorAlert($message, $key);

@@ -7,7 +7,6 @@ use App\Jobs\Integrations\CompleteAmoCrmWidgetInstallation;
 use App\Mail\AmoDisconnected;
 use App\Mail\SignUp;
 use App\Mail\SignUpWidget;
-use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Support\Auth\AccountEmail;
@@ -626,11 +625,7 @@ class AuthController extends Controller
         // Отправляем пароль на почту.
         Mail::to($user->email)->queue(new SignUpWidget($user, $pass));
 
-        $provisioning->syncCatalogForUser($user);
-        $app = App::query()
-            ->where('user_id', $user->id)
-            ->where('name', $widget)
-            ->first();
+        $app = $provisioning->provisionAppForUser($user, $widget);
 
         if ($app) {
             $provisioning->ensureSettingForApp($app);

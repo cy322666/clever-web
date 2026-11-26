@@ -4,8 +4,8 @@ namespace App\Jobs\Sqns;
 
 use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Integrations\Sqns\Setting;
+use App\Models\Integrations\Sqns\Visit;
 use App\Services\Sqns\Client;
-use App\Services\Sqns\VisitIngestor;
 use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,7 +41,7 @@ class SyncVisits implements ShouldQueue
         ]);
     }
 
-    public function handle(VisitIngestor $ingestor, WebhookLifecycle $lifecycle): void
+    public function handle(WebhookLifecycle $lifecycle): void
     {
         $setting = Setting::query()->with('user')->findOrFail($this->settingId);
         $account = $setting->amoAccount(false, 'sqns');
@@ -77,7 +77,7 @@ class SyncVisits implements ShouldQueue
                         continue;
                     }
 
-                    $visit = $ingestor->ingest($setting, $account, $item);
+                    $visit = Visit::saveFromSqns($setting, $account, $item);
                     SyncVisitToAmo::dispatch($visit->id, $visit->wasRecentlyCreated);
                 }
 

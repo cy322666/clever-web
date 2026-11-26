@@ -41,6 +41,7 @@ trait SettingRelation
         return Account::normalizeWidget($app?->name);
     }
 
+    //тут пока работа с дефолтным и с публикованными виджетами
     public function amoAccount(bool $createIfMissing = false, ?string $fallbackWidget = null): ?Account
     {
         /** @var User|null $user */

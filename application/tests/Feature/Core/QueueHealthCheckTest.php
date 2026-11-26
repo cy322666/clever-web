@@ -24,14 +24,12 @@ class QueueHealthCheckTest extends TestCase
             'database.connections.queue_health_test' => ['driver' => 'sqlite', 'database' => ':memory:'],
             'queue.failed.database' => 'queue_health_test',
             'queue.failed.table' => 'failed_jobs',
-            'filament-jobs-monitor.connection' => 'queue_health_test',
             'alerts.enabled' => true,
             'alerts.cache_store' => 'array',
             'alerts.integration_errors.enabled' => true,
             'alerts.channels.telegram.enabled' => false,
             'alerts.channels.mail.enabled' => true,
             'alerts.channels.mail.to' => ['admin@example.test'],
-            'alerts.queue.auto_heal.enabled' => false,
             'widget_lifecycle.telegram.token' => 'test-token',
             'widget_lifecycle.telegram.chat_id' => 'test-chat',
             'widget_lifecycle.telegram.message_thread_id' => null,
@@ -96,7 +94,7 @@ class QueueHealthCheckTest extends TestCase
         $this->assertNoAlerts();
     }
 
-    public function test_stuck_queue_alerts_are_preserved(): void
+    public function test_legacy_database_jobs_are_not_checked_or_modified(): void
     {
         Schema::create('jobs', function (Blueprint $table): void {
             $table->id();
@@ -104,12 +102,14 @@ class QueueHealthCheckTest extends TestCase
         });
         DB::table('jobs')->insert(['reserved_at' => now()->subHour()->timestamp]);
 
-        $this->artisan('app:monitor-queue-health', ['--stuck-after' => 900])->assertSuccessful();
+        DB::enableQueryLog();
+        $this->artisan('app:monitor-queue-health')->assertSuccessful();
 
-        $this->assertSame(1, MonitoringCache::get('monitoring:queue:health:last_stuck'));
-        Mail::shouldHaveReceived('raw')->once()->withArgs(
-            fn (string $text, callable $callback): bool => str_contains($text, 'Очередь: зависшие jobs')
-        );
+        foreach (DB::getQueryLog() as $query) {
+            $this->assertStringNotContainsString('"jobs"', $query['query']);
+            $this->assertNotContains('jobs', $query['bindings']);
+        }
+        $this->assertNoAlerts();
         $this->assertSame(1, DB::table('jobs')->whereNotNull('reserved_at')->count());
     }
 

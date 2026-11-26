@@ -10,11 +10,19 @@ use Ufee\Amo\Models\Lead;
 
 class AmoSync
 {
+    /**
+     * Подключает сервисы контактов и сделок для синхронизации визитов.
+     */
     public function __construct(
         private readonly AmoContacts $contacts,
         private readonly AmoLeads $leads,
     ) {}
 
+    /**
+     * Переносит визит в amoCRM по настройкам и сохраняет результат.
+     *
+     * @throws \Throwable
+     */
     public function sync(Visit $visit, bool $createNote): void
     {
         $setting = $visit->setting;
@@ -44,21 +52,9 @@ class AmoSync
         $responsibleUserId = $setting->responsibleUserId();
         $client = $visit->scopedClient();
         $contact = $client
-            ? ($visit->deleted
-                ? $this->contacts->findExisting($client, $amoApi)
-                : $this->contacts->resolve($client, $amoApi, $responsibleUserId))
+            ? $this->contacts->resolve($client, $amoApi, $responsibleUserId)
             : null;
         $lead = $this->resolveLead($visit, $contact, $amoApi, $pipelines);
-
-        if (! $lead && $visit->deleted) {
-            $visit->forceFill([
-                'status' => Visit::STATUS_SUCCESS,
-                'error_message' => null,
-            ])->save();
-            $setting->forceFill(['last_error' => null])->save();
-
-            return;
-        }
 
         $lead = $lead
             ? $this->leads->update($lead, $status, $visit, $responsibleUserId)
@@ -88,6 +84,9 @@ class AmoSync
         $setting->forceFill(['last_error' => null])->save();
     }
 
+    /**
+     * Находит связанную сделку или открытую сделку контакта без привязки к другому визиту.
+     */
     private function resolveLead(Visit $visit, ?Contact $contact, AmoClient $amoApi, array $pipelines): ?Lead
     {
         if ($visit->lead_id) {
@@ -100,19 +99,13 @@ class AmoSync
             } else {
                 $lead = $this->leads->get($amoApi, (int) $visit->lead_id);
 
-                if ($lead) {
+                if ($lead)
                     return $lead;
-                }
             }
         }
 
-        if ($visit->deleted) {
+        if (! $contact)
             return null;
-        }
-
-        if (! $contact) {
-            return null;
-        }
 
         foreach ($this->leads->openForContact($contact, $pipelines) as $candidate) {
             $used = Visit::query()
@@ -129,6 +122,9 @@ class AmoSync
         return null;
     }
 
+    /**
+     * Добавляет к сделке примечание с деталями события SQNS.
+     */
     private function createNote(AmoClient $amoApi, Lead $lead, Visit $visit, ?string $clientName): void
     {
         $note = $amoApi->service->notes()->create();

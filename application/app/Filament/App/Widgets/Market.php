@@ -4,14 +4,10 @@ namespace App\Filament\App\Widgets;
 
 use App\Filament\App\Pages\Onboarding;
 use App\Models\App;
-use App\Services\Integrations\IntegrationProvisioningService;
 use App\Support\Crm\CrmProvider;
 use App\Support\Onboarding\IndustryProfile;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 class Market extends Widget
 {
@@ -22,21 +18,31 @@ class Market extends Widget
 
     protected int|string|array $columnSpan = 'full';
 
-    private bool $catalogSynced = false;
-
     protected function getViewData(): array
     {
-        $definitions = App::definitions();
-        $cards = $this->getFilteredQuery()->get()->map(function (App $app) use ($definitions): array {
-            $status = self::effectiveStatus($app);
+        $user = auth()->user();
+        $recommended = array_flip(IndustryProfile::recommendedApps($user?->industry));
+        $definitions = App::definitionsForCrmProvider(
+            $user?->crm_provider,
+            app()->environment('production') ? true : null,
+        )->sortBy(fn (array $definition, string $name): array => [$recommended[$name] ?? PHP_INT_MAX, $name]);
+
+        $apps = $user && $definitions->isNotEmpty()
+            ? $user->apps()->whereIn('name', $definitions->keys())->get()->keyBy('name')
+            : collect();
+
+        $cards = $definitions->map(function (array $definition, string $name) use ($apps): array {
+            $app = $apps->get($name);
+            $status = $app ? self::effectiveStatus($app) : App::STATE_CREATED;
 
             return [
-                'id' => $app->id,
-                'category' => $definitions->get($app->name)['category'] ?? 'universal',
-                'title' => self::safeRecordTitle($app),
-                'logo' => asset($definitions->get($app->name)['logo'] ?? 'logo/clever_mini_logo.png'),
-                'url' => route('integrations.open', ['app' => $app->id]),
-                'status' => self::statusBadgeText($app),
+                'key' => $name,
+                'category' => $definition['category'] ?? 'universal',
+                'title' => App::getTitle($name, $definition['resource']),
+                'logo' => asset($definition['logo'] ?? 'logo/clever_mini_logo.png'),
+                'url' => $app ? route('integrations.open', ['app' => $app->id]) : route('integrations.connect', ['widget' => $name]),
+                'connect' => $app === null,
+                'status' => $app ? self::statusBadgeText($app) : null,
                 'color' => match ($status) {
                     App::STATE_INACTIVE => 'warning',
                     App::STATE_ACTIVE => 'success',
@@ -59,60 +65,9 @@ class Market extends Widget
                 ],
             ],
             'isEmpty' => $cards->isEmpty(),
-            'crmLabel' => CrmProvider::label(auth()->user()?->crm_provider),
+            'crmLabel' => CrmProvider::label($user?->crm_provider),
             'settingsUrl' => Onboarding::getUrl(),
         ];
-    }
-
-    protected function getFilteredQuery(): Builder
-    {
-        $this->syncCatalog();
-
-        $query = App::query()
-            ->where('user_id', auth()->id());
-
-        $availableNames = App::definitionNamesForCrmProvider(
-            auth()->user()?->crm_provider,
-            app()->environment('production') ? true : null,
-        );
-
-        $query->whereIn('name', $availableNames);
-
-        $recommended = IndustryProfile::recommendedApps(auth()->user()?->industry);
-
-        if ($recommended !== []) {
-            $case = collect($recommended)
-                ->values()
-                ->map(fn (string $name, int $position): string => 'WHEN ? THEN '.($position + 1))
-                ->implode(' ');
-
-            $query->orderByRaw('CASE name '.$case.' ELSE '.(count($recommended) + 1).' END', $recommended);
-        }
-
-        return $query->orderBy('name');
-    }
-
-    private function syncCatalog(): void
-    {
-        if ($this->catalogSynced) {
-            return;
-        }
-
-        $this->catalogSynced = true;
-
-        $user = auth()->user();
-        if (! $user) {
-            return;
-        }
-
-        try {
-            app(IntegrationProvisioningService::class)->syncCatalogForUser($user);
-        } catch (Throwable $exception) {
-            Log::warning('Failed to sync integration catalog before rendering market.', [
-                'user_id' => $user->id,
-                'exception' => $exception,
-            ]);
-        }
     }
 
     private static function effectiveStatus(App $app): int
@@ -153,14 +108,5 @@ class Market extends Widget
             App::STATE_INACTIVE => App::STATE_INACTIVE_WORD,
             default => App::STATE_EXPIRES_WORD,
         };
-    }
-
-    private static function safeRecordTitle(?App $app): string
-    {
-        if (! $app) {
-            return '';
-        }
-
-        return App::getTitle((string) $app->name, $app->resource_name);
     }
 }

@@ -21,19 +21,18 @@ class VisitPayloadTest extends TestCase
 
         $this->assertSame(123, VisitPayload::id($visit));
         $this->assertSame(2, $visit['attendance']);
-        $this->assertFalse(VisitPayload::needsHydration($visit));
+        $this->assertSame(55, $visit['clientId']);
     }
 
-    public function test_accepts_id_only_webhook_for_api_hydration(): void
+    public function test_id_only_webhook_has_no_visit_data_to_sync(): void
     {
         $payload = ['visit' => ['id' => 987]];
 
         $this->assertSame(987, VisitPayload::id($payload));
         $this->assertNull(VisitPayload::extract($payload));
-        $this->assertTrue(VisitPayload::needsHydration(null));
     }
 
-    public function test_accepts_nested_body_and_id_only_data_wrappers(): void
+    public function test_accepts_nested_body_and_uses_visit_id_over_envelope_id(): void
     {
         $nested = [
             'body' => [
@@ -48,15 +47,15 @@ class VisitPayloadTest extends TestCase
         $this->assertSame(654, VisitPayload::id($nested));
         $this->assertSame(654, VisitPayload::extract($nested)['id']);
 
-        $idOnly = ['event' => 'visit.updated', 'data' => ['id' => 655]];
+        $event = ['id' => 12, 'event' => 'visit.cancelled', 'data' => ['id' => 655]];
 
-        $this->assertSame(655, VisitPayload::id($idOnly));
-        $this->assertSame(655, VisitPayload::partial($idOnly)['id']);
+        $this->assertSame(655, VisitPayload::id($event));
+        $this->assertSame(['id' => 655, 'attendance' => -1], VisitPayload::extract($event));
     }
 
     public function test_infers_deleted_state_from_id_only_event(): void
     {
-        $visit = VisitPayload::partial([
+        $visit = VisitPayload::extract([
             'event' => 'visit.deleted',
             'visitId' => 987,
         ]);
@@ -65,7 +64,21 @@ class VisitPayloadTest extends TestCase
         $this->assertTrue($visit['deleted']);
     }
 
-    public function test_merges_remote_visit_with_newer_webhook_values(): void
+    public function test_preserves_hints_and_fields_when_webhook_uses_visit_id_alias(): void
+    {
+        $visit = VisitPayload::extract([
+            'event' => 'visit.created',
+            'visitId' => 987,
+            'attendance' => 2,
+            'totalCost' => 3500,
+        ]);
+
+        $this->assertSame(987, $visit['id']);
+        $this->assertSame(2, $visit['attendance']);
+        $this->assertSame(3500, $visit['totalCost']);
+    }
+
+    public function test_merges_stored_visit_with_newer_webhook_values(): void
     {
         $merged = VisitPayload::merge([
             'id' => 123,

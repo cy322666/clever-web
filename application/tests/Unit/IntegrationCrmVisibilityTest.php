@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\App;
+use App\Models\User;
 use App\Services\Integrations\IntegrationProvisioningService;
 use App\Support\Crm\CrmProvider;
 use Illuminate\Database\Schema\Blueprint;
@@ -40,7 +41,7 @@ class IntegrationCrmVisibilityTest extends TestCase
         $this->assertSame(['kommo-only', 'shared'], App::definitionNamesForCrmProvider(CrmProvider::KOMMO, true));
     }
 
-    public function test_bulk_catalog_sync_creates_only_compatible_integrations(): void
+    public function test_catalog_sync_updates_existing_apps_without_provisioning_or_deleting_rows(): void
     {
         config([
             'database.default' => 'sqlite',
@@ -70,10 +71,20 @@ class IntegrationCrmVisibilityTest extends TestCase
             ['id' => 2, 'crm_provider' => CrmProvider::KOMMO],
         ]);
 
-        app(IntegrationProvisioningService::class)->syncCatalogForAllUsers();
+        $service = app(IntegrationProvisioningService::class);
+        $user = User::query()->findOrFail(1);
+        $existing = $service->provisionAppForUser($user, 'amo-only');
+        $existing->update(['resource_name' => null, 'status' => App::STATE_ACTIVE]);
+        App::create(['user_id' => 1, 'name' => 'retired-widget', 'status' => App::STATE_CREATED]);
+
+        $service->syncCatalogForAllUsers();
+        $this->assertSame(\App\Filament\Resources\Core\UserResource::class, $existing->fresh()->resource_name);
+        $this->assertSame(App::STATE_ACTIVE, $existing->fresh()->status);
+        $this->assertNull($service->provisionAppForUser($user, 'kommo-only'));
+        $this->assertSame($existing->id, $service->provisionAppForUser($user, 'amo-only')->id);
 
         $this->assertSame(
-            [[1, 'amo-only'], [1, 'shared'], [2, 'kommo-only'], [2, 'shared']],
+            [[1, 'amo-only'], [1, 'retired-widget']],
             DB::table('apps')->orderBy('user_id')->orderBy('name')->get()
                 ->map(fn ($app): array => [(int) $app->user_id, $app->name])
                 ->all(),

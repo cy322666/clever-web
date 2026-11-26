@@ -10,21 +10,19 @@ use Ufee\Amo\Models\Contact;
 
 class AmoContacts
 {
+    /**
+     * Находит или создаёт контакт и сохраняет связь с клиентом SQNS.
+     */
     public function resolve(SqnsClient $client, AmoClient $amoApi, ?int $responsibleUserId): Contact
     {
         $contact = $this->findExisting($client, $amoApi);
 
         if (! $contact) {
             $contact = $amoApi->service->contacts()->create();
-            $contact->name = 'Клиент SQNS';
-
-            if ($responsibleUserId) {
-                $contact->responsible_user_id = $responsibleUserId;
-            }
-        }
-
-        if (filled($client->name)) {
             $contact->name = $client->name;
+
+            if ($responsibleUserId)
+                $contact->responsible_user_id = $responsibleUserId;
         }
 
         if (filled($client->email)) {
@@ -38,12 +36,16 @@ class AmoContacts
         }
 
         $contact->save();
+
         $client->forceFill(['contact_id' => $contact->id])->save();
 
-        return $this->get($amoApi, (int) $contact->id) ?: $contact;
+        return $this->get($amoApi, (int) $contact->id);
     }
 
-    public function findExisting(SqnsClient $client, AmoClient $amoApi): ?Contact
+    /**
+     * Проверяет сохранённый ID контакта, затем ищет по телефону или email.
+     */
+    private function findExisting(SqnsClient $client, AmoClient $amoApi): ?Contact
     {
         $contact = $client->contact_id ? $this->get($amoApi, (int) $client->contact_id) : null;
         $contact ??= $this->search($client, $amoApi);
@@ -55,6 +57,9 @@ class AmoContacts
         return $contact;
     }
 
+    /**
+     * Загружает контакт по ID, при ошибке возвращает null.
+     */
     public function get(AmoClient $amoApi, int $id): ?Contact
     {
         try {
@@ -66,52 +71,42 @@ class AmoContacts
         }
     }
 
+    /**
+     * Ищет по телефону, затем по email, если телефон не дал совпадений.
+     */
     private function search(SqnsClient $client, AmoClient $amoApi): ?Contact
     {
         $phone = $this->phoneSearchKey(
             filled($client->phone) ? $client->phone : $client->additional_phone,
         );
-        $email = filled($client->email) ? mb_strtolower(trim((string) $client->email)) : null;
-        $phoneContacts = $this->searchResult(function () use ($amoApi, $phone) {
-            return $phone ? $amoApi->service->contacts()->searchByPhone($phone) : null;
-        }, 'phone', $phone);
-        $emailContacts = $this->searchResult(function () use ($amoApi, $email) {
-            return $email ? $amoApi->service->contacts()->searchByEmail($email) : null;
-        }, 'email', $email);
+        if ($phone !== null) {
+            $contact = $this->firstContact(
+                fn () => $amoApi->service->contacts()->searchByPhone($phone),
+                'phone',
+            );
 
-        if ($phone && $email) {
-            $emailIds = collect($emailContacts)->pluck('id')->map(fn ($id): int => (int) $id)->all();
-            $match = collect($phoneContacts)->first(fn (Contact $contact): bool => in_array((int) $contact->id, $emailIds, true));
-
-            if ($match instanceof Contact) {
-                return $match;
-            }
-
-            if ($phoneContacts !== [] && $emailContacts !== []) {
-                Log::warning('SQNS contact identifiers point to different amoCRM contacts.', [
-                    'sqns_client_id' => $client->client_id,
-                    'phone_matches' => count($phoneContacts),
-                    'email_matches' => count($emailContacts),
-                ]);
-
-                return null;
+            if ($contact !== null) {
+                return $contact;
             }
         }
 
-        return $phoneContacts[0] ?? $emailContacts[0] ?? null;
+        $email = mb_strtolower(trim((string) $client->email));
+
+        return $email !== ''
+            ? $this->firstContact(fn () => $amoApi->service->contacts()->searchByEmail($email), 'email')
+            : null;
     }
 
-    private function searchResult(callable $search, string $type, ?string $value): array
+    /**
+     * Возвращает первое совпадение и передаёт ошибку поиска в очередь.
+     */
+    private function firstContact(callable $search, string $type): ?Contact
     {
-        if (! $value) {
-            return [];
-        }
-
         try {
             $result = $search();
 
             if ($result instanceof Contact) {
-                return [$result];
+                return $result;
             }
 
             if (is_object($result)) {
@@ -119,19 +114,20 @@ class AmoContacts
             }
 
             return collect(is_iterable($result) ? $result : [])
-                ->filter(fn (mixed $contact): bool => $contact instanceof Contact)
-                ->values()
-                ->all();
+                ->first(fn (mixed $contact): bool => $contact instanceof Contact);
         } catch (Throwable $exception) {
             Log::warning('SQNS amoCRM contact search failed.', [
                 'type' => $type,
                 'error' => $exception->getMessage(),
             ]);
 
-            return [];
+            throw $exception;
         }
     }
 
+    /**
+     * Выделяет цифры номера для поиска контакта.
+     */
     private function phoneSearchKey(?string $phone): ?string
     {
         $digits = preg_replace('/\D+/', '', (string) $phone);
@@ -143,6 +139,9 @@ class AmoContacts
         return substr($digits, -10);
     }
 
+    /**
+     * Приводит телефон к формату записи в amoCRM.
+     */
     private function phoneForStore(?string $phone): ?string
     {
         $digits = preg_replace('/\D+/', '', (string) $phone);

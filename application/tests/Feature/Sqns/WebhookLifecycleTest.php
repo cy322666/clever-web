@@ -5,13 +5,16 @@ namespace Tests\Feature\Sqns;
 use App\Filament\Resources\Integrations\Sqns\SqnsResource;
 use App\Jobs\Sqns\DisconnectWebhook;
 use App\Jobs\Sqns\ProcessWebhook;
+use App\Jobs\Sqns\SyncVisits;
 use App\Jobs\Sqns\SyncVisitToAmo;
 use App\Models\Core\Account;
 use App\Models\Integrations\Sqns\Setting;
+use App\Models\Integrations\Sqns\Visit;
 use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
+use App\Services\Sqns\AmoContacts;
+use App\Services\Sqns\AmoLeads;
 use App\Services\Sqns\AmoSync;
-use App\Services\Sqns\VisitIngestor;
 use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +25,8 @@ use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 use Throwable;
+use Ufee\Amo\Models\Contact;
+use Ufee\Amo\Models\Lead;
 
 class WebhookLifecycleTest extends TestCase
 {
@@ -259,13 +264,43 @@ class WebhookLifecycleTest extends TestCase
     public function test_queued_webhook_is_ignored_after_integration_was_disabled(): void
     {
         DB::table('sqns_settings')->where('id', 1)->update(['active' => false]);
-        $ingestor = Mockery::mock(VisitIngestor::class);
-        $ingestor->shouldNotReceive('ingest');
 
-        (new ProcessWebhook(1, 10, ['visitId' => 123]))
-            ->handle($ingestor, app(WebhookLifecycle::class));
+        (new ProcessWebhook(1, 10, ['visitId' => 123, 'attendance' => 2]))
+            ->handle(app(WebhookLifecycle::class));
 
         $this->assertDatabaseMissing('sqns_visits', ['visit_id' => 123]);
+        Queue::assertNotPushed(SyncVisitToAmo::class);
+    }
+
+    public function test_webhooks_update_and_delete_an_existing_visit_without_requesting_sqns(): void
+    {
+        Http::fake(['*' => Http::response([], 404)]);
+        $visit = Visit::query()->create([
+            'user_id' => 1,
+            'account_id' => 10,
+            'setting_id' => 1,
+            'visit_id' => 123,
+            'lead_id' => 456,
+            'datetime' => '2026-09-10 12:00:00',
+            'cost' => 2000,
+            'body' => ['id' => 123, 'datetime' => '2026-09-10 12:00:00', 'totalCost' => 2000],
+        ]);
+        $lifecycle = app(WebhookLifecycle::class);
+
+        (new ProcessWebhook(1, 10, ['visitId' => 123, 'totalCost' => 2750]))
+            ->handle($lifecycle);
+        (new ProcessWebhook(1, 10, ['visitId' => 123, 'event' => 'visit.deleted']))
+            ->handle($lifecycle);
+
+        $visit->refresh();
+        $this->assertTrue($visit->deleted);
+        $this->assertSame(456, (int) $visit->lead_id);
+        $this->assertEquals(2750, $visit->cost);
+        $this->assertSame('2026-09-10 12:00:00', $visit->datetime->toDateTimeString());
+        $this->assertDatabaseCount('sqns_visits', 1);
+        Queue::assertPushed(SyncVisitToAmo::class, fn (SyncVisitToAmo $job): bool => $job->visitId === $visit->id && ! $job->createNote);
+        Queue::assertPushed(SyncVisitToAmo::class, 2);
+        Http::assertNothingSent();
     }
 
     public function test_queued_amocrm_sync_is_ignored_after_integration_was_disabled(): void
@@ -287,6 +322,67 @@ class WebhookLifecycleTest extends TestCase
         (new SyncVisitToAmo(50))->handle($sync, app(WebhookLifecycle::class));
 
         $this->assertDatabaseHas('sqns_visits', ['id' => 50, 'status' => 'pending']);
+    }
+
+    public function test_manual_import_saves_visits_and_queues_amocrm_sync(): void
+    {
+        Setting::query()->findOrFail(1)->update([
+            'status_id_wait' => '100.200',
+            'status_id_confirm' => '100.201',
+            'status_id_came' => '100.202',
+            'status_id_cancel' => '100.203',
+            'status_id_delete' => '100.204',
+        ]);
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/visit*' => Http::response([
+                'data' => [['id' => 123, 'attendance' => 2]],
+                'meta' => ['lastPage' => 1],
+            ]),
+        ]);
+
+        (new SyncVisits(1, '2026-09-01', '2026-09-30'))->handle(app(WebhookLifecycle::class));
+
+        $visit = Visit::query()->sole();
+        $this->assertSame(123, (int) $visit->visit_id);
+        $this->assertSame(2, (int) $visit->attendance);
+        Queue::assertPushed(SyncVisitToAmo::class, fn (SyncVisitToAmo $job): bool => $job->visitId === $visit->id);
+        Http::assertSentCount(1);
+    }
+
+    public function test_deleted_visit_uses_normal_contact_and_lead_sync_with_its_configured_stage(): void
+    {
+        $setting = Setting::query()->findOrFail(1);
+        $setting->update(['pipelines' => [100], 'status_id_delete' => '100.204']);
+        $visit = Visit::saveFromSqns($setting, Account::query()->findOrFail(10), [
+            'id' => 123,
+            'clientId' => 55,
+            'deleted' => true,
+        ]);
+
+        $contact = $this->createMock(Contact::class);
+        $contact->method('__get')->with('id')->willReturn(321);
+        $lead = $this->createMock(Lead::class);
+        $lead->method('__get')->with('id')->willReturn(456);
+        $contacts = Mockery::mock(AmoContacts::class);
+        $contacts->shouldReceive('resolve')->once()->andReturn($contact);
+        $leads = Mockery::mock(AmoLeads::class);
+        $leads->shouldReceive('openForContact')->once()->with($contact, [100])->andReturn([]);
+        $leads->shouldReceive('create')->once()->with(
+            $contact,
+            Mockery::any(),
+            Mockery::on(fn (object $status): bool => $status->pipeline_id === '100' && $status->status_id === '204'),
+            Mockery::on(fn (Visit $candidate): bool => $candidate->is($visit)),
+            null,
+        )->andReturn($lead);
+
+        (new SyncVisitToAmo($visit->id, false))
+            ->handle(new AmoSync($contacts, $leads), app(WebhookLifecycle::class));
+
+        $this->assertDatabaseHas('sqns_visits', [
+            'id' => $visit->id,
+            'lead_id' => 456,
+            'status' => Visit::STATUS_SUCCESS,
+        ]);
     }
 
     public function test_cleanup_command_finds_stale_webhook_without_changing_it_in_dry_run(): void

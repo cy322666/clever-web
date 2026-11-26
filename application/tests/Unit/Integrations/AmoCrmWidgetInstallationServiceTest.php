@@ -99,7 +99,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         ]);
 
         $provisioning = Mockery::mock(IntegrationProvisioningService::class);
-        $provisioning->shouldReceive('syncCatalogForUser')->twice();
+        $provisioning->shouldReceive('provisionAppForUser')->twice();
         $this->app->instance(IntegrationProvisioningService::class, $provisioning);
 
         $subscriptions = Mockery::mock(WidgetSubscriptionAccessService::class);
@@ -151,7 +151,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
                 'id' => 778899, 'email' => 'installer@example.com',
             ]),
         ]);
-        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('provisionAppForUser')->once();
         $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once()->andReturnNull();
         Password::shouldReceive('sendResetLink')->once()->andThrow(new \RuntimeException('Mail transport unavailable'));
         Artisan::shouldReceive('call')->once()->andReturn(0);
@@ -206,7 +206,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         ]);
 
         $provisioning = Mockery::mock(IntegrationProvisioningService::class);
-        $provisioning->shouldReceive('syncCatalogForUser')->once();
+        $provisioning->shouldReceive('provisionAppForUser')->once();
         $this->app->instance(IntegrationProvisioningService::class, $provisioning);
 
         $subscriptions = Mockery::mock(WidgetSubscriptionAccessService::class);
@@ -267,7 +267,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             ]),
         ]);
         $this->mock(IntegrationProvisioningService::class)
-            ->shouldReceive('syncCatalogForUser')->once();
+            ->shouldReceive('provisionAppForUser')->once();
         $this->mock(WidgetSubscriptionAccessService::class)
             ->shouldReceive('ensureTrialForWidget')->once()
             ->with(Mockery::type(User::class), 'finder', 7)->andReturnNull();
@@ -319,7 +319,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             'resource_name' => \App\Filament\Resources\Integrations\Finder\FinderResource::class,
         ]);
         $provisioning = $this->mock(IntegrationProvisioningService::class);
-        $provisioning->shouldReceive('syncCatalogForUser')->once();
+        $provisioning->shouldReceive('provisionAppForUser')->once()->with(Mockery::type(User::class), 'finder')->andReturn($app);
         $provisioning->shouldReceive('ensureSettingForApp')->once()->andReturn($app);
         $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
         Password::shouldReceive('sendResetLink')->never();
@@ -388,7 +388,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
                 'id' => 778899, 'email' => 'installer@example.test',
             ]),
         ]);
-        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('provisionAppForUser')->once();
         $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
         Password::shouldReceive('sendResetLink')->never();
         Artisan::shouldReceive('call')->once()->andReturn(0);
@@ -440,7 +440,7 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
                 'id' => 778899, 'email' => 'same-admin@example.test',
             ]),
         ]);
-        $this->mock(IntegrationProvisioningService::class)->shouldReceive('syncCatalogForUser')->once();
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('provisionAppForUser')->once();
         $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
         Password::shouldReceive('sendResetLink')->never();
         Artisan::shouldReceive('call')->once()->andReturn(0);

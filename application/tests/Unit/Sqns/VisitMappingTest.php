@@ -9,10 +9,19 @@ use App\Models\Integrations\Sqns\Client;
 use App\Models\Integrations\Sqns\Setting;
 use App\Models\Integrations\Sqns\Visit;
 use App\Services\Sqns\AmoFieldMapper;
+use App\Services\Sqns\AmoLeads;
 use Tests\TestCase;
 
 class VisitMappingTest extends TestCase
 {
+    public function test_normalizes_the_amo_budget_to_whole_rubles(): void
+    {
+        $this->assertSame(2491, AmoLeads::normalizePrice('2 490,50'));
+        $this->assertSame(0, AmoLeads::normalizePrice('0'));
+        $this->assertNull(AmoLeads::normalizePrice(''));
+        $this->assertNull(AmoLeads::normalizePrice([]));
+    }
+
     public function test_maps_sqns_attendance_to_configured_amo_status(): void
     {
         $setting = new Setting([

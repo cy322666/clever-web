@@ -4,7 +4,6 @@
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/` | Redirects to Filament login (`filament.app.auth.login`). |
-| GET | `/clever/bayers/forms/pay` | Livewire page for Clever Bayers payment form. |
 
 Source: `routes/web.php`.
 

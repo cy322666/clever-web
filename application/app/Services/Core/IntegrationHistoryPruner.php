@@ -3,6 +3,7 @@
 namespace App\Services\Core;
 
 use App\Models\Integrations\Distribution\Transaction;
+use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\Sqns\Visit as SqnsVisit;
 use App\Models\Integrations\Tilda\Form;
 use App\Models\Integrations\Vetmanager\Visit as VetmanagerVisit;
@@ -13,7 +14,7 @@ use InvalidArgumentException;
 
 final class IntegrationHistoryPruner
 {
-    public const INTEGRATIONS = ['tilda', 'distribution', 'yclients', 'sqns', 'vetmanager'];
+    public const INTEGRATIONS = ['tilda', 'distribution', 'yclients', 'sqns', 'vetmanager', 'import-excel'];
 
     public function query(string $integration, int $days): Builder
     {
@@ -28,6 +29,7 @@ final class IntegrationHistoryPruner
             'distribution' => [Transaction::class, true, null],
             'sqns' => [SqnsVisit::class, SqnsVisit::STATUS_SUCCESS, 'datetime'],
             'vetmanager' => [VetmanagerVisit::class, VetmanagerVisit::STATUS_SUCCESS, 'admission_date'],
+            'import-excel' => [ImportRecord::class, ImportRecord::STATUS_COMPLETED, null],
             default => throw new InvalidArgumentException('Unknown integration history: '.$integration),
         };
 

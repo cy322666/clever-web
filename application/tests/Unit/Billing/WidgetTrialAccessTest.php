@@ -105,6 +105,22 @@ class WidgetTrialAccessTest extends TestCase
         $this->assertDatabaseCount('widget_subscriptions', 1);
     }
 
+    public function test_granting_a_trial_without_a_placeholder_links_only_the_selected_widget(): void
+    {
+        $access = app(WidgetSubscriptionAccessService::class);
+        $this->assertFalse($access->canUse(141, 'yclients'));
+        $this->assertDatabaseCount('apps', 0);
+
+        $subscription = $access->ensureTrialForWidget(141, 'yclients');
+        $app = App::query()->sole();
+
+        $this->assertSame('yclients', $app->name);
+        $this->assertSame(App::STATE_ACTIVE, $app->status);
+        $this->assertSame($app->id, $subscription->fresh()->app_id);
+        $this->assertSame($subscription->id, $access->ensureTrialForWidget(141, 'yclients')->id);
+        $this->assertDatabaseCount('apps', 1);
+    }
+
     #[DataProvider('longerLegacyAccessCases')]
     public function test_reconnection_does_not_overwrite_legacy_renewal_with_a_stale_trial(
         int $appStatus,

@@ -18,12 +18,13 @@ final class DisconnectWebhook implements ShouldBeUniqueUntilProcessing, ShouldQu
 {
     use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 5;
+    public int $tries = 3;
 
     public int $timeout = 280;
 
     public int $uniqueFor = 900;
 
+    //удаляет хук из sqns
     public function __construct(
         public int $settingId,
         public string $reason = 'inactive',
@@ -51,6 +52,9 @@ final class DisconnectWebhook implements ShouldBeUniqueUntilProcessing, ShouldQu
         return [30, 120, 300, 900];
     }
 
+    /**
+     * @throws Throwable
+     */
     public function handle(WebhookLifecycle $lifecycle): void
     {
         try {

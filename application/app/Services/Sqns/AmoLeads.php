@@ -13,6 +13,9 @@ use Ufee\Amo\Models\Lead;
 
 class AmoLeads
 {
+    /**
+     * Загружает сделку по ID, при ошибке возвращает null.
+     */
     public function get(AmoClient $amoApi, int $id): ?Lead
     {
         try {
@@ -24,6 +27,9 @@ class AmoLeads
         }
     }
 
+    /**
+     * Возвращает открытые сделки контакта в выбранных воронках.
+     */
     public function openForContact(Contact $contact, array $pipelineIds): array
     {
         $pipelineIds = array_map('intval', $pipelineIds);
@@ -40,6 +46,9 @@ class AmoLeads
             ->all();
     }
 
+    /**
+     * Создаёт сделку по визиту на заданном этапе.
+     */
     public function create(
         ?Contact $contact,
         AmoClient $amoApi,
@@ -50,7 +59,7 @@ class AmoLeads
         [$pipelineId, $statusId] = $this->validatedStatus($status);
         $lead = $contact ? $contact->createLead() : $amoApi->service->leads()->create();
         $lead->name = 'Визит SQNS #'.$visit->visit_id;
-        $lead->sale = AmoPrice::normalize($visit->cost);
+        $lead->sale = self::normalizePrice($visit->cost);
         $lead->pipeline_id = $pipelineId;
         $lead->status_id = $statusId;
 
@@ -63,13 +72,17 @@ class AmoLeads
         return $lead;
     }
 
+    /**
+     * Обновляет этап, бюджет и ответственного. При конфликте повторяет сохранение.
+     * @throws Throwable
+     */
     public function update(Lead $lead, object $status, Visit $visit, ?int $responsibleUserId): Lead
     {
         [$pipelineId, $statusId] = $this->validatedStatus($status);
         $current = $lead;
 
-        for ($attempt = 1; $attempt <= 5; $attempt++) {
-            $current->sale = AmoPrice::normalize($visit->cost);
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $current->sale = self::normalizePrice($visit->cost);
             $current->pipeline_id = $pipelineId;
             $current->status_id = $statusId;
 
@@ -82,7 +95,7 @@ class AmoLeads
 
                 return $current;
             } catch (Throwable $exception) {
-                if (! Str::contains($exception->getMessage(), 'Last modified date is older than in', true) || $attempt === 5) {
+                if (! Str::contains($exception->getMessage(), 'Last modified date is older than in', true) || $attempt === 3) {
                     throw $exception;
                 }
 
@@ -106,6 +119,23 @@ class AmoLeads
         return $current;
     }
 
+    /**
+     * Приводит бюджет сделки к целому числу для amoCRM.
+     */
+    public static function normalizePrice(mixed $value): ?int
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = str_replace([' ', ','], ['', '.'], trim((string) $value));
+
+        return is_numeric($value) ? (int) round((float) $value) : null;
+    }
+
+    /**
+     * Проверяет и возвращает ID воронки и этапа.
+     */
     private function validatedStatus(object $status): array
     {
         $pipelineId = (int) ($status->pipeline_id ?? 0);

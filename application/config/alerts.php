@@ -31,23 +31,4 @@ return [
             ),
         ],
     ],
-
-    'queue' => [
-        'stuck_after_seconds' => (int)env('ALERTS_QUEUE_STUCK_AFTER_SECONDS', 900),
-        'monitor_stuck_after_seconds' => (int)env('ALERTS_QUEUE_MONITOR_STUCK_AFTER_SECONDS', env('ALERTS_QUEUE_STUCK_AFTER_SECONDS', 900)),
-        'monitor_auto_close_limit' => (int)env('ALERTS_QUEUE_MONITOR_AUTO_CLOSE_LIMIT', 100),
-        'auto_heal' => [
-            'enabled' => (bool)env('ALERTS_QUEUE_AUTO_HEAL_ENABLED', true),
-            'release_after_seconds' => (int)env('ALERTS_QUEUE_RELEASE_AFTER_SECONDS', 1800),
-            'max_releases_per_run' => (int)env('ALERTS_QUEUE_RELEASE_MAX', 100),
-            'exclude_queues' => array_values(
-                array_filter(
-                    array_map(
-                        static fn(string $queue): string => trim($queue),
-                        explode(',', (string)env('ALERTS_QUEUE_EXCLUDE', '')),
-                    )
-                )
-            ),
-        ],
-    ],
 ];

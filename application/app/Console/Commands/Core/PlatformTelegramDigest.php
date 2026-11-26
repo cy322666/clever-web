@@ -138,24 +138,9 @@ class PlatformTelegramDigest extends Command
 
     private function queueLines(Carbon $from, Carbon $to): array
     {
-        $lines = ['Очереди'];
-
-        $pendingJobs = Schema::hasTable('jobs') ? DB::table('jobs')->count() : 0;
-        $reservedJobs = Schema::hasTable('jobs') ? DB::table('jobs')->whereNotNull('reserved_at')->count() : 0;
         $failedJobs = $this->countBetween('failed_jobs', 'failed_at', $from, $to);
 
-        $lines[] = "Ожидают: {$pendingJobs} / выполняются: {$reservedJobs} / failed за период: {$failedJobs}";
-
-        if (Schema::hasTable('queue_monitors')) {
-            $monitors = DB::table('queue_monitors')
-                ->whereBetween('created_at', [$from, $to]);
-
-            $finished = (clone $monitors)->whereNotNull('finished_at')->count();
-            $failed = (clone $monitors)->where('failed', true)->count();
-            $lines[] = "Монитор задач: завершено {$finished}, ошибок {$failed}";
-        }
-
-        return $lines;
+        return ['Очереди', "Ошибок заданий за период: {$failedJobs}"];
     }
 
     private function topWorkflows(Carbon $from, Carbon $to, bool $onlyFailed): array

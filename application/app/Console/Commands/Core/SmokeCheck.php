@@ -29,7 +29,6 @@ class SmokeCheck extends Command
         foreach ([
             'jobs',
             'failed_jobs',
-            'queue_monitors',
         ] as $table) {
             try {
                 if (!Schema::hasTable($table)) {

@@ -4,21 +4,6 @@ namespace App\Services\Sqns;
 
 class VisitPayload
 {
-    public static function extract(array $payload): ?array
-    {
-        foreach (self::candidates($payload) as $candidate) {
-            if (! is_array($candidate)) {
-                continue;
-            }
-
-            if (self::id($candidate) !== null && self::looksLikeVisit($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
     public static function id(array $payload): ?int
     {
         $value = null;
@@ -47,7 +32,7 @@ class VisitPayload
             }
         }
 
-        if ($value === null && self::looksLikeVisit($payload)) {
+        if ($value === null && self::hasVisitFields($payload)) {
             $value = data_get($payload, 'id');
         }
 
@@ -58,6 +43,7 @@ class VisitPayload
                 data_get($payload, 'body.id'),
                 data_get($payload, 'body.data.id'),
                 data_get($payload, 'body.payload.id'),
+                data_get($payload, 'id'),
             ] as $candidate) {
                 if ($candidate !== null) {
                     $value = $candidate;
@@ -69,28 +55,35 @@ class VisitPayload
         return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
     }
 
-    public static function needsHydration(?array $visit): bool
-    {
-        if (! $visit) {
-            return true;
-        }
-
-        return ! array_key_exists('datetime', $visit)
-            || (! array_key_exists('clientData', $visit) && ! array_key_exists('clientId', $visit));
-    }
-
-    public static function partial(array $payload): ?array
+    public static function extract(array $payload): ?array
     {
         $visitId = self::id($payload);
 
-        if (! $visitId) {
+        if ($visitId === null) {
             return null;
         }
 
-        $visit = collect(self::candidates($payload))
-            ->first(fn (mixed $candidate): bool => is_array($candidate) && array_key_exists('id', $candidate));
-        $visit = is_array($visit) ? $visit : [];
-        $visit['id'] = $visitId;
+        $visit = [];
+
+        foreach (self::candidates($payload) as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+
+            $candidateId = $candidate['id'] ?? $candidate['visitId'] ?? $candidate['visit_id'] ?? null;
+            if ($candidateId !== null && (! is_numeric($candidateId) || (int) $candidateId !== $visitId)) {
+                continue;
+            }
+
+            if (self::hasVisitFields($candidate)) {
+                $visit = $candidate;
+                break;
+            }
+
+            if ($visit === [] && $candidateId !== null) {
+                $visit = $candidate;
+            }
+        }
 
         $event = collect([
             data_get($payload, 'event'),
@@ -105,47 +98,55 @@ class VisitPayload
             ->map(fn (mixed $value): string => mb_strtolower((string) $value))
             ->implode(' ');
 
-        if ($event !== '') {
-            if (str_contains($event, 'delet') || str_contains($event, 'remov') || str_contains($event, 'destroy')) {
-                $visit['deleted'] = true;
-            } elseif (str_contains($event, 'cancel')) {
-                $visit['attendance'] = -1;
-            } elseif (str_contains($event, 'confirm')) {
-                $visit['attendance'] = 2;
-            } elseif (str_contains($event, 'show') || str_contains($event, 'came')) {
-                $visit['attendance'] = 1;
-            } elseif (str_contains($event, 'new') || str_contains($event, 'creat')) {
-                $visit['attendance'] = 0;
+        if (str_contains($event, 'delet') || str_contains($event, 'remov') || str_contains($event, 'destroy')) {
+            $visit['deleted'] ??= true;
+        } elseif (! isset($visit['attendance'])) {
+            $attendance = match (true) {
+                str_contains($event, 'cancel') => -1,
+                str_contains($event, 'confirm') => 2,
+                str_contains($event, 'show') || str_contains($event, 'came') => 1,
+                str_contains($event, 'new') || str_contains($event, 'creat') => 0,
+                default => null,
+            };
+
+            if ($attendance !== null) {
+                $visit['attendance'] = $attendance;
             }
         }
+
+        if (! self::hasVisitFields($visit)) {
+            return null;
+        }
+
+        $visit['id'] = $visitId;
 
         return $visit;
     }
 
-    public static function merge(array $remote, ?array $webhook): array
+    public static function merge(array $stored, array $incoming): array
     {
-        if (! $webhook || self::isOlder($webhook, $remote)) {
-            return $remote;
+        if ($incoming === [] || self::isOlder($incoming, $stored)) {
+            return $stored;
         }
 
-        foreach ($webhook as $key => $value) {
-            $remoteValue = $remote[$key] ?? null;
+        foreach ($incoming as $key => $value) {
+            $storedValue = $stored[$key] ?? null;
 
             if (
                 is_array($value)
-                && is_array($remoteValue)
+                && is_array($storedValue)
                 && ! array_is_list($value)
-                && ! array_is_list($remoteValue)
+                && ! array_is_list($storedValue)
             ) {
-                $remote[$key] = self::merge($remoteValue, $value);
+                $stored[$key] = self::merge($storedValue, $value);
 
                 continue;
             }
 
-            $remote[$key] = $value;
+            $stored[$key] = $value;
         }
 
-        return $remote;
+        return $stored;
     }
 
     public static function isOlder(array $candidate, array $current): bool
@@ -211,17 +212,27 @@ class VisitPayload
         return str_contains($event, 'visit') || str_contains($event, 'appointment');
     }
 
-    private static function looksLikeVisit(array $payload): bool
+    private static function hasVisitFields(array $payload): bool
     {
-        return array_key_exists('id', $payload)
-            && collect([
-                'datetime',
-                'clientData',
-                'clientId',
-                'services',
-                'attendance',
-                'resourceId',
-                'deleted',
-            ])->contains(fn (string $key): bool => array_key_exists($key, $payload));
+        return array_intersect(array_keys($payload), [
+            'datetime',
+            'clientData',
+            'clientId',
+            'services',
+            'attendance',
+            'resourceId',
+            'deleted',
+            'totalCost',
+            'totalPrice',
+            'organization',
+            'online',
+            'isPaid',
+            'author',
+            'comment',
+            'commodities',
+            'subscriptions',
+            'certificates',
+            'master_requested',
+        ]) !== [];
     }
 }

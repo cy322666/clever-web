@@ -93,7 +93,7 @@ class Client
     private function authenticate(): array
     {
         if (blank($this->setting->email) || blank($this->setting->password)) {
-            throw new RuntimeException('Укажите email и пароль SQNS.');
+            throw new RuntimeException('Не указан email и/или пароль SQNS.');
         }
 
         $lastException = null;
@@ -139,18 +139,6 @@ class Client
             ['urls' => [$webhookUrl]],
             acceptedStatuses: [404],
         );
-    }
-
-    public function getVisit(int $visitId): array
-    {
-        $data = $this->send('get', '/api/v2/visit/'.$visitId)->json() ?? [];
-        $visit = VisitPayload::extract($data);
-
-        if (! is_array($visit) || VisitPayload::id($visit) !== $visitId) {
-            throw new RuntimeException('SQNS вернул некорректные данные визита #'.$visitId.'.');
-        }
-
-        return $visit;
     }
 
     public function listVisits(int $page, string $dateFrom, string $dateTill): array

@@ -101,7 +101,7 @@ class Setting extends Model
     {
         return route('sqns.hook', [
             'user' => $this->user?->uuid,
-            'key' => $this->webhook_key,
+            'key'  => $this->webhook_key,
         ]);
     }
 

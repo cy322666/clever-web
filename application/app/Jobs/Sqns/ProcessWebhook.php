@@ -5,8 +5,6 @@ namespace App\Jobs\Sqns;
 use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Integrations\Sqns\Setting;
 use App\Models\Integrations\Sqns\Visit;
-use App\Services\Sqns\Client;
-use App\Services\Sqns\VisitIngestor;
 use App\Services\Sqns\VisitPayload;
 use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Bus\Queueable;
@@ -21,13 +19,13 @@ class ProcessWebhook implements ShouldQueue
 {
     use BuildsHorizonTags, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 12;
+    public int $tries = 3; //попыток
 
-    public int $maxExceptions = 3;
+    public int $maxExceptions = 3; //макс ошибок
 
-    public int $timeout = 120;
+    public int $timeout = 60; //лимит времени на 1
 
-    public array $backoff = [30, 120, 300];
+    public array $backoff = [30, 60, 90]; //секунд для повтора
 
     public function __construct(
         public int $settingId,
@@ -49,11 +47,13 @@ class ProcessWebhook implements ShouldQueue
         ]);
     }
 
+    //защита от параллельного запуска 1 транзакции
+    //снимает блокировку через 150 сек
     public function middleware(): array
     {
         $visitId = VisitPayload::id($this->payload);
 
-        if (! $visitId) {
+        if (!$visitId) {
             return [];
         }
 
@@ -64,7 +64,10 @@ class ProcessWebhook implements ShouldQueue
         ];
     }
 
-    public function handle(VisitIngestor $ingestor, WebhookLifecycle $lifecycle): void
+    /**
+     * @throws Throwable
+     */
+    public function handle(WebhookLifecycle $lifecycle): void
     {
         $setting = Setting::query()->with('user')->findOrFail($this->settingId);
 
@@ -79,36 +82,13 @@ class ProcessWebhook implements ShouldQueue
         }
 
         try {
-            $webhookVisit = VisitPayload::extract($this->payload) ?? VisitPayload::partial($this->payload);
-            $visitId = VisitPayload::id($this->payload);
+            $visit = VisitPayload::extract($this->payload);
 
-            if (! $visitId) {
-                throw new \RuntimeException('SQNS webhook does not contain visit id.');
+            if ($visit === null) {
+                return;
             }
 
-            $visit = $webhookVisit;
-
-            if (VisitPayload::needsHydration($visit)) {
-                $storedVisit = Visit::query()
-                    ->where('setting_id', $setting->id)
-                    ->where('visit_id', $visitId)
-                    ->first();
-                $storedPayload = is_array($storedVisit?->body) ? $storedVisit->body : [];
-
-                try {
-                    $remotePayload = (new Client($setting))->getVisit($visitId);
-                } catch (Throwable $exception) {
-                    if ($storedPayload === []) {
-                        throw $exception;
-                    }
-
-                    $remotePayload = $storedPayload;
-                }
-
-                $visit = VisitPayload::merge($remotePayload, $visit);
-            }
-
-            $model = $ingestor->ingest($setting, $account, $visit);
+            $model = Visit::saveFromSqns($setting, $account, $visit);
 
             SyncVisitToAmo::dispatch($model->id, $model->wasRecentlyCreated);
         } catch (Throwable $exception) {

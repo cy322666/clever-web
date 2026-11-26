@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands\Install;
 
-use App\Models\App;
 use App\Models\User;
 use App\Services\Integrations\IntegrationProvisioningService;
 use Illuminate\Console\Command;
@@ -37,12 +36,12 @@ class All extends Command
             return self::FAILURE;
         }
 
-        $service->syncCatalogForUser($user);
-
-        App::query()
-            ->where('user_id', $user->id)
-            ->get()
-            ->each(fn(App $app) => $service->ensureSettingForApp($app));
+        foreach ($service->definitions($user->crm_provider) as $definition) {
+            $app = $service->provisionAppForUser($user, $definition['name']);
+            if ($app) {
+                $service->ensureSettingForApp($app);
+            }
+        }
 
         return self::SUCCESS;
     }

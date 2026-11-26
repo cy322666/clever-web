@@ -107,6 +107,7 @@ class IntegrationErrorDiagnosticsTest extends TestCase
         $error = 'amoCRM API v4 error: PATCH /api/v4/leads/123 returned 400: {"validation-errors":[{"request_id":"0","errors":[{"code":"InvalidType","path":"price","detail":"This value should be of type int."}]}],"private":"secret-body"}';
         app(IntegrationErrorNotifier::class)->report('sqns', $error, 1, 11, 'Обработка записи #140');
         Queue::assertPushed(SendIntegrationErrorAlert::class, function ($job): bool {
+            $this->assertStringNotContainsString('/panel/queue-monitors', $job->message);
             foreach (['owner@example.test', 'test-client.amocrm.ru', 'записи #140', 'поле price: ожидает целое число', 'PATCH /api/v4/leads/123'] as $text) {
                 $this->assertStringContainsString($text, $job->message);
             }

@@ -326,13 +326,6 @@ class YClientsMarketplaceTest extends TestCase
             'uuid' => 'user-7',
             'email' => 'user@example.com',
         ]);
-        DB::table('apps')->insert([
-            'id' => 20,
-            'user_id' => 7,
-            'setting_id' => 30,
-            'name' => 'yclients',
-            'status' => App::STATE_CREATED,
-        ]);
         DB::table('yclients_settings')->insert([
             'id' => 30,
             'user_id' => 7,
@@ -340,17 +333,6 @@ class YClientsMarketplaceTest extends TestCase
         ]);
 
         $user = User::query()->findOrFail(7);
-        $app = App::query()->findOrFail(20);
-
-        $provisioning = $this->createMock(IntegrationProvisioningService::class);
-        $provisioning->expects($this->once())
-            ->method('syncCatalogForUser')
-            ->with($this->callback(fn (User $value): bool => $value->is($user)));
-        $provisioning->expects($this->once())
-            ->method('ensureSettingForApp')
-            ->with($this->callback(fn (App $value): bool => $value->is($app)))
-            ->willReturn($app);
-        $this->app->instance(IntegrationProvisioningService::class, $provisioning);
 
         $access = $this->createMock(WidgetSubscriptionAccessService::class);
         $access->expects($this->exactly(2))
@@ -373,6 +355,8 @@ class YClientsMarketplaceTest extends TestCase
 
         $this->assertSame(4564, (int)$installation->salon_id);
         $this->assertSame(MarketplaceInstallation::STATUS_ACTIVE, $installation->status);
+        $this->assertDatabaseHas('apps', ['user_id' => 7, 'name' => 'yclients', 'setting_id' => 30]);
+        $this->assertDatabaseCount('apps', 1);
         $this->assertDatabaseHas('yclients_settings', [
             'id' => 30,
             'partner_token' => 'partner-secret',
@@ -450,6 +434,7 @@ class YClientsMarketplaceTest extends TestCase
         DB::table('yclients_settings')->insert(['id' => 30, 'user_id' => 7, 'active' => false]);
         $app = App::query()->findOrFail(20);
         $provisioning = $this->createMock(IntegrationProvisioningService::class);
+        $provisioning->method('provisionAppForUser')->willReturn($app);
         $provisioning->method('ensureSettingForApp')->willReturn($app);
         $this->app->instance(IntegrationProvisioningService::class, $provisioning);
         $access = $this->createMock(WidgetSubscriptionAccessService::class);

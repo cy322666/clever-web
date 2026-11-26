@@ -41,7 +41,8 @@ class MetricsController extends Controller
         $metricsUp = 1;
 
         try {
-            $queueStats = $this->queueStats();
+            $queueStats = $this->redisQueueStats();
+            ksort($queueStats);
             $jobsTotal = array_sum(array_column($queueStats, 'count'));
             $failedJobsTotal = (int)DB::table('failed_jobs')->count();
             $recentFailedJobsTotal = (int)DB::table('failed_jobs')
@@ -193,26 +194,6 @@ class MetricsController extends Controller
     }
 
     /**
-     * @return array<string, array{count: int, oldest_age: int}>
-     */
-    private function queueStats(): array
-    {
-        $stats = [];
-
-        foreach ($this->databaseQueueStats() as $queue => $queueStats) {
-            $this->mergeQueueStats($stats, $queue, $queueStats['count'], $queueStats['oldest_age']);
-        }
-
-        foreach ($this->redisQueueStats() as $queue => $queueStats) {
-            $this->mergeQueueStats($stats, $queue, $queueStats['count'], $queueStats['oldest_age']);
-        }
-
-        ksort($stats);
-
-        return $stats;
-    }
-
-    /**
      * @return list<array{connection: string, source: string, name: string, total: int}>
      */
     private function slowQueryContextStats(): array
@@ -239,34 +220,6 @@ class MetricsController extends Controller
         }
 
         usort($stats, static fn(array $a, array $b): int => $b['total'] <=> $a['total']);
-
-        return $stats;
-    }
-
-    /**
-     * @return array<string, array{count: int, oldest_age: int}>
-     */
-    private function databaseQueueStats(): array
-    {
-        if (!DB::getSchemaBuilder()->hasTable('jobs')) {
-            return [];
-        }
-
-        $stats = [];
-        $rows = DB::table('jobs')
-            ->select('queue', DB::raw('count(*) as count'), DB::raw('min(available_at) as oldest_available_at'))
-            ->groupBy('queue')
-            ->get();
-
-        foreach ($rows as $row) {
-            $queue = (string)($row->queue ?? 'default');
-            $oldestAvailableAt = (int)($row->oldest_available_at ?? 0);
-
-            $stats[$queue] = [
-                'count' => (int)$row->count,
-                'oldest_age' => $oldestAvailableAt > 0 ? max(0, now()->timestamp - $oldestAvailableAt) : 0,
-            ];
-        }
 
         return $stats;
     }
@@ -365,20 +318,6 @@ class MetricsController extends Controller
         return $score > 0 && $score < now()->timestamp
             ? now()->timestamp - $score
             : 0;
-    }
-
-    /**
-     * @param array<string, array{count: int, oldest_age: int}> $stats
-     */
-    private function mergeQueueStats(array &$stats, string $queue, int $count, int $oldestAge): void
-    {
-        if ($count <= 0) {
-            return;
-        }
-
-        $stats[$queue] ??= ['count' => 0, 'oldest_age' => 0];
-        $stats[$queue]['count'] += $count;
-        $stats[$queue]['oldest_age'] = max($stats[$queue]['oldest_age'], $oldestAge);
     }
 
     private function escapeLabel(string $value): string

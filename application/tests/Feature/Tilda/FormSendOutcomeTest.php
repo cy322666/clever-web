@@ -8,7 +8,6 @@ use App\Models\Core\Account;
 use App\Models\Integrations\Tilda\Form;
 use App\Models\Integrations\Tilda\Setting;
 use App\Models\User;
-use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -17,8 +16,10 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\SyncQueue;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -38,8 +39,7 @@ class FormSendOutcomeTest extends TestCase
     {
         parent::setUp();
         config(['database.default'=>'sqlite', 'database.connections.sqlite.database'=>':memory:',
-            'queue.failed.database'=>'sqlite', 'filament-jobs-monitor.connection'=>'sqlite',
-            'filament-jobs-monitor.tenancy.enabled'=>false, 'alerts.cache_store'=>'array']);
+            'queue.failed.database'=>'sqlite', 'alerts.cache_store'=>'array']);
         DB::purge('sqlite');
         Http::preventStrayRequests();
         Queue::fake();
@@ -60,13 +60,6 @@ class FormSendOutcomeTest extends TestCase
             $table->string('site')->nullable(); $table->boolean('status')->nullable();
             $table->integer('lead_id')->nullable(); $table->integer('contact_id')->nullable(); $table->timestamps();
         });
-        Schema::create('queue_monitors', function (Blueprint $table): void {
-            $table->id(); $table->string('job_id'); $table->string('name')->nullable(); $table->string('queue')->nullable();
-            $table->timestamp('started_at')->nullable(); $table->timestamp('finished_at')->nullable();
-            $table->boolean('failed')->default(false); $table->integer('attempt')->default(0);
-            $table->integer('progress')->nullable(); $table->text('exception_message')->nullable();
-            $table->string('tenant_id')->nullable(); $table->timestamps();
-        });
         Schema::create('failed_jobs', function (Blueprint $table): void {
             $table->id(); $table->string('uuid'); $table->string('connection'); $table->string('queue');
             $table->text('payload'); $table->text('exception'); $table->timestamp('failed_at');
@@ -83,6 +76,7 @@ class FormSendOutcomeTest extends TestCase
     public function test_returned_command_error_stays_failed_after_the_queue_finishes_without_resending(): void
     {
         $processed=0;
+        $errors=$this->captureQueueFailures();
         Event::listen(JobProcessing::class, function () use (&$processed): void { $processed++; });
         $this->synchronousQueue()->push($this->job(), '', 'tilda_form');
         $form=Form::findOrFail(1);
@@ -92,12 +86,8 @@ class FormSendOutcomeTest extends TestCase
         $this->assertNotNull($form->failed_at);
         $this->assertSame(202,$form->lead_id);
         $this->assertSame(101,$form->contact_id);
-        $monitor=QueueMonitor::firstOrFail();
-        $this->assertSame('failed',$monitor->status);
-        $this->assertTrue($monitor->failed);
-        $this->assertStringContainsString('missing site settings',$monitor->exception_message);
-        $this->assertNotNull($monitor->finished_at);
-        $this->assertSame(1,QueueMonitor::count());
+        $this->assertCount(1,$errors);
+        $this->assertStringContainsString('missing site settings',$errors[0]);
         $this->assertSame(1,$processed);
         Queue::assertNotPushed(FormSend::class);
         Http::assertNothingSent();
@@ -105,6 +95,7 @@ class FormSendOutcomeTest extends TestCase
 
     public function test_thrown_error_is_terminal_and_preserves_crm_references(): void
     {
+        $errors=$this->captureQueueFailures();
         Artisan::shouldReceive('call')->once()->with('app:tilda-form-send',['form'=>1,'account'=>1,'setting'=>1])
             ->andThrow(new RuntimeException('CRM temporarily unavailable'));
         $this->synchronousQueue()->push($this->job(), '', 'tilda_form');
@@ -112,13 +103,14 @@ class FormSendOutcomeTest extends TestCase
         $this->assertSame('CRM temporarily unavailable',$form->last_error);
         $this->assertSame(202,$form->lead_id);
         $this->assertSame(101,$form->contact_id);
-        $this->assertSame('failed',QueueMonitor::firstOrFail()->status);
+        $this->assertSame(['CRM temporarily unavailable'],$errors->all());
         Queue::assertNotPushed(FormSend::class);
         Http::assertNothingSent();
     }
 
     public function test_a_successful_send_remains_successful_and_clears_a_previous_error(): void
     {
+        $errors=$this->captureQueueFailures();
         Form::findOrFail(1)->markFailed('Previous error');
         Artisan::shouldReceive('call')->once()->andReturnUsing(function (): int {
             Form::findOrFail(1)->markExported(303,404);
@@ -133,7 +125,7 @@ class FormSendOutcomeTest extends TestCase
         $this->assertNull($form->failed_at);
         $this->assertSame(303,$form->contact_id);
         $this->assertSame(404,$form->lead_id);
-        $this->assertSame('succeeded',QueueMonitor::firstOrFail()->status);
+        $this->assertCount(0,$errors);
         Queue::assertNotPushed(FormSend::class);
         Http::assertNothingSent();
     }
@@ -170,6 +162,16 @@ class FormSendOutcomeTest extends TestCase
         $this->assertSame($form->last_error,$column->getTooltip());
         Queue::assertNotPushed(FormSend::class);
         Http::assertNothingSent();
+    }
+
+    private function captureQueueFailures(): Collection
+    {
+        $errors=collect();
+        Event::listen(JobFailed::class, function (JobFailed $event) use ($errors): void {
+            $errors->push($event->exception->getMessage());
+        });
+
+        return $errors;
     }
 
     private function synchronousQueue(): SyncQueue

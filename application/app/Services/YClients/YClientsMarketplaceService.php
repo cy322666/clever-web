@@ -376,12 +376,7 @@ class YClientsMarketplaceService
         bool $webhookRegistered
     ): MarketplaceInstallation {
         $provisioning = app(IntegrationProvisioningService::class);
-        $provisioning->syncCatalogForUser($user);
-
-        $app = App::query()
-            ->where('user_id', $user->id)
-            ->where('name', 'yclients')
-            ->first();
+        $app = $provisioning->provisionAppForUser($user, 'yclients');
 
         if (!$app) {
             throw new RuntimeException('YClients application record was not provisioned.');

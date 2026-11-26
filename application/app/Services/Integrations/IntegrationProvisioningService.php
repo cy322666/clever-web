@@ -22,30 +22,33 @@ class IntegrationProvisioningService
 
     public function syncCatalogForUser(User $user): void
     {
-        $definitions = $this->definitions($user->crm_provider);
-        $validNames = $this->definitions()->pluck('name')->all();
+        $definitions = App::definitionsForCrmProvider($user->crm_provider);
 
-        if ($validNames !== []) {
-            App::query()
-                ->where('user_id', $user->id)
-                ->whereNotIn('name', $validNames)
-                ->delete();
+        foreach ($user->apps()->whereIn('name', $definitions->keys())->get() as $app) {
+            $app->resource_name = $definitions->get($app->name)['resource'];
+            if ($app->isDirty('resource_name')) {
+                $app->save();
+            }
+        }
+    }
+
+    public function provisionAppForUser(User $user, string $name): ?App
+    {
+        $definition = App::definitionsForCrmProvider($user->crm_provider)->get($name);
+        if ($definition === null) {
+            return null;
         }
 
-        foreach ($definitions as $definition) {
-            $app = App::query()->firstOrNew([
-                'user_id' => $user->id,
-                'name' => $definition['name'],
-            ]);
-
-            $app->resource_name = $definition['resource'];
-
-            if (! $app->exists) {
-                $app->status = App::STATE_CREATED;
-            }
-
+        $app = $user->apps()->firstOrCreate(['name' => $name], [
+            'resource_name' => $definition['resource'],
+            'status' => App::STATE_CREATED,
+        ]);
+        $app->resource_name = $definition['resource'];
+        if ($app->isDirty('resource_name')) {
             $app->save();
         }
+
+        return $app;
     }
 
     public function definitions(?string $crmProvider = null): Collection

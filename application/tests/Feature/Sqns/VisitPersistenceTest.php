@@ -6,13 +6,12 @@ use App\Models\Core\Account;
 use App\Models\Integrations\Sqns\Client;
 use App\Models\Integrations\Sqns\Setting;
 use App\Models\Integrations\Sqns\Visit;
-use App\Services\Sqns\VisitIngestor;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-class VisitIngestorTest extends TestCase
+class VisitPersistenceTest extends TestCase
 {
     public function test_repeated_partial_visit_updates_are_idempotent_and_preserve_payload_data(): void
     {
@@ -20,9 +19,7 @@ class VisitIngestorTest extends TestCase
         $setting->forceFill(['id' => 10, 'user_id' => 1]);
         $account = new Account;
         $account->forceFill(['id' => 20, 'user_id' => 1]);
-        $ingestor = new VisitIngestor;
-
-        $first = $ingestor->ingest($setting, $account, [
+        $first = Visit::saveFromSqns($setting, $account, [
             'id' => 501,
             'clientId' => 601,
             'clientData' => [
@@ -41,7 +38,7 @@ class VisitIngestorTest extends TestCase
             'totalCost' => '3500',
         ]);
 
-        $second = $ingestor->ingest($setting, $account, [
+        $second = Visit::saveFromSqns($setting, $account, [
             'id' => 501,
             'clientId' => 601,
             'clientData' => [
@@ -70,7 +67,7 @@ class VisitIngestorTest extends TestCase
         $this->assertSame('+79000000000', $client->phone);
         $this->assertSame('1990-01-31', $client->birth_date->toDateString());
 
-        $stale = $ingestor->ingest($setting, $account, [
+        $stale = Visit::saveFromSqns($setting, $account, [
             'id' => 501,
             'clientId' => 601,
             'clientData' => [

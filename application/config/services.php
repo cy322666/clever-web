@@ -137,9 +137,4 @@ return [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_CHAT_ID'),
     ],
-
-    'clever_bayers_invoice_telegram' => [
-        'token' => env('CLEVER_BAYERS_INVOICE_TG_TOKEN'),
-        'chat_id' => env('CLEVER_BAYERS_INVOICE_TG_CHAT_ID'),
-    ],
 ];

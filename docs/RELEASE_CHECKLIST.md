@@ -59,14 +59,13 @@ curl -fsS "https://<app>/metrics?token=<METRICS_TOKEN>" | head
 3. Проверить очередь и мониторинг:
 
 ```bash
-php artisan app:queue-backfill-failed --limit=1000 --dry-run
+php artisan horizon:status
 php artisan app:monitor-queue-health --sample=3
 ```
 
 4. Проверить UI:
 
-- `/panel/core/users` (кнопка "Очереди")
-- `/panel/queue-monitors`
+- `/panel/core/users`
 - `/panel/api-requests` (последние API запросы)
 
 5. Сделать тестовую регистрацию и убедиться, что пришёл alert в TG/mail.

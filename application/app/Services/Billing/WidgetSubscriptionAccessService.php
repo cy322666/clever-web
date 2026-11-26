@@ -8,6 +8,7 @@ use App\Models\Billing\WidgetSubscription;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Core\PlatformTechnicalMonitor;
+use App\Services\Integrations\IntegrationProvisioningService;
 use App\Services\Workflows\WorkflowSubscriptionAccess;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -146,7 +147,7 @@ class WidgetSubscriptionAccessService
         $endsAt = now()->addDays($days)->toDateString();
 
         if (!$this->manualSubscriptionsAvailable()) {
-            $app = $this->legacyApp($userId, $widget);
+            $app = $this->legacyApp($userId, $widget) ?? $this->provisionAppForAccess($userId, $widget);
 
             if ($app && (int)$app->status === App::STATE_CREATED) {
                 $app->status = App::STATE_ACTIVE;
@@ -227,13 +228,26 @@ class WidgetSubscriptionAccessService
             return;
         }
 
-        $app = $subscription->app ?: $this->legacyApp((int)$subscription->user_id, (string)$subscription->widget);
+        $userId = (int)$subscription->user_id;
+        $widget = (string)$subscription->widget;
+        $isActive = $subscription->isCurrentlyUsable();
+        $app = $subscription->app;
+        if (!$app || (int)$app->user_id !== $userId || $app->name !== $widget) {
+            $app = $this->legacyApp($userId, $widget);
+        }
+        if (!$app && $isActive) {
+            $app = $this->provisionAppForAccess($userId, $widget);
+        }
 
         if (!$app || !$this->widgetAvailable((string)$app->name)) {
             return;
         }
 
-        $isActive = $subscription->isCurrentlyUsable();
+        if ((int)$subscription->app_id !== (int)$app->id) {
+            $subscription->forceFill(['app_id' => $app->id])->saveQuietly();
+            $subscription->setRelation('app', $app);
+        }
+
         $targetStatus = $isActive ? App::STATE_ACTIVE : App::STATE_EXPIRES;
 
         $app->status = $targetStatus;
@@ -421,6 +435,13 @@ class WidgetSubscriptionAccessService
             ->when($lockForUpdate, fn (Builder $query) => $query->lockForUpdate())
             ->latest('id')
             ->first();
+    }
+
+    private function provisionAppForAccess(int $userId, string $widget): ?App
+    {
+        $user = Schema::hasTable('apps') ? User::query()->find($userId) : null;
+
+        return $user ? app(IntegrationProvisioningService::class)->provisionAppForUser($user, $widget) : null;
     }
 
     private function legacyAccessOutlastsTrial(App $app, WidgetSubscription $subscription): bool

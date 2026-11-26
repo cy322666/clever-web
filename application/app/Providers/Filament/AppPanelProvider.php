@@ -9,7 +9,6 @@ use App\Filament\Resources\Core\UserResource;
 use App\Filament\WorkflowBuilder\CleverWorkflowsPlugin;
 use App\Http\Middleware\ApplyUserLocale;
 use App\Http\Middleware\EnsureOnboardingCompleted;
-use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 use Exception;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
@@ -38,13 +37,7 @@ class AppPanelProvider extends PanelProvider
      */
     public function panel(Panel $panel): Panel
     {
-        $plugins = [
-            FilamentJobsMonitorPlugin::make()
-                ->enableNavigation(
-                    fn (): bool => config('features.queues.monitor_navigation', true) && auth()->check() && auth(
-                    )->user()->is_root
-                ),
-        ];
+        $plugins = [];
 
         if (
             class_exists(\Leek\FilamentWorkflows\WorkflowsPlugin::class)

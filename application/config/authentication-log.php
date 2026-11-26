@@ -48,7 +48,7 @@ return [
 
     // When the clean-up command is run, delete old logs greater than `purge` days
     // Don't schedule the clean-up command if you want to keep logs forever.
-    'purge' => 365,
+    'purge' => 10,
 
     // If you are behind an CDN proxy, set 'behind_cdn.http_header_field' to the corresponding http header field of your cdn
     // For cloudflare you can have look at: https://developers.cloudflare.com/fundamentals/get-started/reference/http-request-headers/

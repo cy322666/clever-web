@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Core;
 
+use App\Models\Integrations\ImportExcel\ImportRecord;
 use App\Models\Integrations\YClients\Record;
 use App\Services\Core\IntegrationHistoryPruner;
 use Illuminate\Database\Schema\Blueprint;
@@ -21,7 +22,7 @@ class IntegrationHistoryPruningTest extends TestCase
         DB::purge('sqlite');
         Http::preventStrayRequests();
 
-        foreach (['tilda_forms', 'distribution_transactions', 'yclients_records', 'sqns_visits', 'vetmanager_visits'] as $name) {
+        foreach (['tilda_forms', 'distribution_transactions', 'yclients_records', 'sqns_visits', 'vetmanager_visits', 'import_records'] as $name) {
             Schema::create($name, function (Blueprint $table) use ($name): void {
                 $table->id();
                 $table->unsignedBigInteger('user_id')->nullable();
@@ -120,6 +121,34 @@ class IntegrationHistoryPruningTest extends TestCase
         $this->artisan('app:clear-month-log', ['--chunk' => 1])->assertSuccessful();
         $this->assertDatabaseMissing('tilda_forms', ['id' => $sent]);
         $this->assertDatabaseHas('tilda_forms', ['id' => $pending]);
+    }
+
+    public function test_nightly_command_prunes_only_completed_import_records_older_than_ten_days(): void
+    {
+        $this->freezeSecond();
+        $cutoff = now()->subDays(10);
+        $table = 'import_records';
+        $completed = ImportRecord::STATUS_COMPLETED;
+        $oldTimestamp = $cutoff->copy()->subSecond();
+        $old = $this->row($table, ['status' => $completed, 'created_at' => $oldTimestamp, 'updated_at' => $oldTimestamp]);
+        $keep = [
+            $this->row($table, ['status' => $completed, 'created_at' => $cutoff, 'updated_at' => $cutoff]),
+            $this->row($table, ['status' => $completed, 'updated_at' => $cutoff->copy()->addSecond()]),
+            $this->row($table, ['status' => ImportRecord::STATUS_PROCESSING]),
+            $this->row($table, ['status' => ImportRecord::STATUS_FAILED]),
+        ];
+        $sent = $this->row('tilda_forms', ['status' => true, 'created_at' => $oldTimestamp, 'updated_at' => $oldTimestamp]);
+
+        $this->artisan('app:clear-month-log', ['--days' => 14, '--dry-run' => true])
+            ->expectsOutput('Dry-run [import-excel]: 1 successful rows older than 10 days.')
+            ->assertSuccessful();
+        $this->assertDatabaseHas($table, ['id' => $old]);
+
+        $this->artisan('app:clear-month-log', ['--days' => 14, '--chunk' => 1])
+            ->expectsOutput('Deleted [import-excel]: 1 successful rows older than 10 days.')
+            ->assertSuccessful();
+        $this->assertSame($keep, DB::table($table)->orderBy('id')->pluck('id')->all());
+        $this->assertDatabaseHas('tilda_forms', ['id' => $sent]);
     }
 
     private function row(string $table, array $attributes): int

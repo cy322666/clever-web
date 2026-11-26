@@ -2,7 +2,6 @@
 
 namespace App\Services\Integrations;
 
-use App\Models\App;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
@@ -231,12 +230,7 @@ class AmoCrmWidgetInstallationService
         $account = $result['account'];
 
         $provisioning = app(IntegrationProvisioningService::class);
-        $provisioning->syncCatalogForUser($user);
-
-        $app = App::query()
-            ->where('user_id', $user->id)
-            ->where('name', $widget)
-            ->first();
+        $app = $provisioning->provisionAppForUser($user, $widget);
         if ($app) {
             $app = $provisioning->ensureSettingForApp($app);
             if ($widget === 'finder') {

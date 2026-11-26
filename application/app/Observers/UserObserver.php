@@ -2,7 +2,6 @@
 
 namespace App\Observers;
 
-use App\Jobs\Core\InstallUserIntegrations;
 use App\Jobs\Sqns\DisconnectWebhook;
 use App\Mail\SignUp;
 use App\Models\Core\Account;
@@ -26,9 +25,6 @@ class UserObserver
         ]);
 
         Mail::to($user->email)->queue(new SignUp($user, null));
-
-        /* создание моделей интеграции */
-        InstallUserIntegrations::dispatch($user->id);
     }
 
     public function updated(User $user): void

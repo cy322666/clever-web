@@ -8,7 +8,6 @@ use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\ReplayWorkflow
 use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
 use App\Models\Workflows\Workflow;
 use App\Models\Workflows\WorkflowRun as AppWorkflowRun;
-use App\Observers\QueueMonitorObserver;
 use App\Services\Core\MonitoringCache;
 use App\Services\Workflows\WorkflowRunEntityIndexService;
 use App\Services\Workflows\WorkflowVariableService;
@@ -24,7 +23,6 @@ use App\Workflows\Triggers\AmoCrmButtonTrigger;
 use App\Workflows\Triggers\GenericWebhookTrigger;
 use App\Workflows\Triggers\ManualTrigger;
 use App\Workflows\Triggers\WorkflowCompletedTrigger;
-use Croustibat\FilamentJobsMonitor\Models\QueueMonitor;
 use Filament\Panel;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
@@ -142,8 +140,6 @@ class AppServiceProvider extends ServiceProvider
             'path' => resource_path('svg/workflow-nodes'),
             'prefix' => 'wficon',
         ]);
-        QueueMonitor::observe(QueueMonitorObserver::class);
-
         FilamentView::registerRenderHook(
             PanelsRenderHook::STYLES_BEFORE,
             fn(): string => $this->optionalViteAsset('resources/css/filament-workflows.css'),
