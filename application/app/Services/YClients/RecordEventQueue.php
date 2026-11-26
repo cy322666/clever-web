@@ -56,19 +56,21 @@ final class RecordEventQueue
             ->orderBy('id')->first();
     }
 
-    public static function dispatchHead(int $recordId, bool $recover = false): bool
+    public static function dispatchHead(int $recordId, ?int $recoverEventId = null): bool
     {
         if (!self::ready()) {
             return false;
         }
-        return DB::transaction(function () use ($recordId, $recover): bool {
+        return DB::transaction(function () use ($recordId, $recoverEventId): bool {
             $record = Record::query()->lockForUpdate()->find($recordId);
             $event = $record ? self::head($recordId) : null;
             if (!$event || $event->status !== Record::STATUS_PENDING || !$record->account || !$record->setting) {
                 return false;
             }
-            if ($event->dispatched_at && (!$recover || $event->dispatched_at->greaterThan(now()->subMinutes(15))
-                    || $event->available_at?->isFuture())) {
+            if ($recoverEventId !== null && ((int) $event->id !== $recoverEventId || $event->available_at?->isFuture())) {
+                return false;
+            }
+            if ($event->dispatched_at && ($recoverEventId === null || $event->dispatched_at->greaterThanOrEqualTo(now()->subMinutes(15)))) {
                 return false;
             }
             $event->forceFill(['dispatched_at' => now()])->save();
