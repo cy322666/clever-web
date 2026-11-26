@@ -86,12 +86,10 @@ class Kernel extends ConsoleKernel
 //            ->dailyAt('03:00')
 //            ->withoutOverlapping();
 
-        //нужна общая чистка и внутри нее уже эту
-//        if ((bool)env('YCLIENTS_RECORDS_PRUNE_ENABLED', false)) {
-//            $schedule->command('yc:prune-records --days=' . (int)env('YCLIENTS_RECORDS_RETENTION_DAYS', 5))
-//                ->dailyAt('03:30')
-//                ->withoutOverlapping();
-//        }
+        $schedule->command('yc:prune-records --days=5')
+            ->dailyAt('03:30')
+            ->timezone('Europe/Moscow')
+            ->withoutOverlapping(180);
 
         //походу архив?
         $schedule->command(sprintf(
