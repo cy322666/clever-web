@@ -115,7 +115,7 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     assert.match(builder, /data-workflow-start-add/);
     assert.match(builder, /Выбрать событие/);
     assert.match(builder, /@if\(\$workflowStarts === \[\]\)\s*<div class="workflow-node-shell workflow-node-shell--trigger" data-workflow-start-add/s);
-    assert.match(builder, /class="workflow-canvas-fit workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
+    assert.match(builder, /class="workflow-canvas-fit workflow-canvas-add-trigger"[^>]*x-show="Boolean\(editorWire\.trigger\)"/);
     assert.match(builder, /aria-label="Добавить способ запуска" title="Добавить способ запуска"/);
     assert.doesNotMatch(builder, /<span>Добавить запуск<\/span>/);
     assert.match(builder, /captureTriggerAdd\(\); workflowEditorCall\(\$wire, 'beginTriggerAdd'\)/);
@@ -127,7 +127,7 @@ test('empty start, plus controls, node hover and toolbar have distinct visual fe
     assert.match(draft, /announce\('workflow-canvas-before-update'/);
     assert.match(draft, /announce\('workflow-canvas-after-update'/);
     assert.match(draft, /const starts = main\.querySelector\('\.workflow-node-starts'\);/);
-    assert.match(draft, /if \(wire\.trigger\) \{\s*if \(addSlot\) window\.Alpine\.mutateDom/s);
+    assert.match(draft, /if \(trigger\) \{\s*if \(addSlot\) window\.Alpine\.mutateDom/s);
     assert.match(draft, /if \(addSlot !== starts\.lastElementChild\)/);
     assert.match(catalog, /<span>amoCRM<\/span><small>/);
     assert.match(catalog, /<span>Сервисы<\/span><small>1<\/small>/);

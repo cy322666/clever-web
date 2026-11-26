@@ -11,7 +11,7 @@ function fixture() {
         {id: 'b', name: 'Следующий', type: 'workflow_delay', config: {seconds: '{{ $("Пауза").seconds }}'}},
     ], vendor_metadata: {secret: 'never-drop'}, canvas_areas: [{id: 'area', title: 'Этап'}]};
     const writes = [], events = [];
-    const wire = {definition: clone(definition), trigger: clone(definition.trigger), workflowActions: clone(definition.actions), mountedActions: [],
+    const remote = {definition: clone(definition), trigger: clone(definition.trigger), workflowActions: clone(definition.actions), mountedActions: [],
         data: {name: 'Поток'}, $set(path, value, live) {assert.equal(live, false); setPath(this, path, value); writes.push(path);},
         openWorkflowInspector() {assert.fail('Unexpected server call');},
     };
@@ -23,10 +23,17 @@ function fixture() {
             {sourceId: 'action:if', sourcePort: 'yes', targetId: 'action:a'},
             {sourceId: 'action:a', sourcePort: 'output', targetId: 'action:b'},
         ]};
-    return {draft: new WorkflowEditorDraft(wire, catalog, () => {}, (name, detail) => events.push({name, detail})), wire, writes, definition, events};
+    const draft = new WorkflowEditorDraft(remote, catalog, () => {}, (name, detail) => events.push({name, detail}));
+    // Simulate live UI reads/edits without sharing the transport snapshot.
+    const wire = new Proxy(draft.wire, {set(target, path, value) {
+        if (['mountedActions', 'renameWorkflowNode'].includes(path)) remote[path] = value;
+        else target.$set(path, value, false);
+        return true;
+    }});
+    return {draft, wire, remote, writes, definition, events};
 }
 test('local editing never requests persistence and preserves nested branches and unknown keys', () => {
-    const {draft, wire, definition} = fixture();
+    const {draft, wire, definition, remote, writes} = fixture();
     draft.renameWorkflow('Переименован'); draft.setWorkflowFolder('Папка');
     draft.renameWorkflowNode('a', 'Ожидание');
     assert.equal(wire.workflowActions[0].config.true_actions[0].name, 'Ожидание');
@@ -36,6 +43,53 @@ test('local editing never requests persistence and preserves nested branches and
     assert.deepEqual(wire.definition.canvas_areas, definition.canvas_areas);
     assert.equal('connections' in wire.definition, false, 'A rename must not convert a legacy tree');
     assert.equal(wire.data.group_name, 'Папка');
+    assert.equal(wire.definition.actions, wire.workflowActions);
+    assert.equal(wire.definition.trigger, wire.trigger);
+    assert.deepEqual(remote.definition, definition);
+    assert.deepEqual(writes, []);
+});
+
+test('only an action that needs the draft receives a snapshot, and acknowledges only the edits it sent', () => {
+    const {draft, remote, wire, definition, writes} = fixture();
+    const canonical = {definition: clone(definition), trigger: clone(definition.trigger), workflowActions: clone(definition.actions),
+        data: clone(remote.data), workflowLocalInspectorDirty: []};
+    let intercept;
+    remote.$interceptMessage = callback => { intercept = callback; };
+    draft.attachTransport(remote);
+    const send = method => {
+        const message = {payload: {calls: [{method}], updates: {debugOpen: true}}, component: {canonical}};
+        const body = {components: [message.payload]};
+        message.request = {payload: body, options: {body: JSON.stringify(body)}};
+        let success;
+        intercept({message, onSuccess: callback => { success = callback; }});
+        return {message, respond(server) {
+            let sync;
+            message.component.canonical = server;
+            success?.({onSync: callback => { sync = callback; }});
+            sync?.();
+        }};
+    };
+    draft.renameWorkflow('Новый поток');
+    draft.renameWorkflowNode('a', 'Ожидание');
+    draft.inspectorChanged('action:a');
+    wire.$set('definition.canvas_positions', {'action:b': {x: 100, y: 100}}, false);
+    assert.deepEqual(send('pollWorkflowNodePreview').message.payload.updates, {debugOpen: true});
+    const {message, respond} = send('save');
+    const sent = message.payload.updates;
+    assert.deepEqual(JSON.parse(message.request.options.body).components[0].updates, sent);
+    assert.equal(sent['data.name'], 'Новый поток');
+    assert.equal(sent.workflowActions[0].config.true_actions[0].name, 'Ожидание');
+    assert.deepEqual(sent.workflowLocalInspectorDirty, {'action:a': true});
+    assert.deepEqual(writes, []);
+
+    const normalized = clone(sent.definition);
+    normalized.actions[0].config.true_actions[0].config.seconds = '1';
+    wire.$set('definition.canvas_positions', {'action:b': {x: 130, y: 100}}, false);
+    draft.inspectorChanged('action:b');
+    respond({...canonical, data: {name: 'Новый поток'}, definition: normalized, workflowActions: normalized.actions});
+    assert.deepEqual(wire.definition.canvas_positions, {'action:b': {x: 130, y: 100}});
+    assert.equal(wire.workflowActions[0].config.true_actions[0].config.seconds, '1');
+    assert.deepEqual(Object.keys(wire.workflowLocalInspectorDirty), ['action:b']);
 });
 test('insertion splits the chosen edge locally without flattening existing nodes', () => {
     const {draft, wire, events} = fixture();
@@ -123,4 +177,76 @@ test('removing an action locally bridges its continuation and preserves unrelate
     assert.equal(wire.definition.connections.some(edge=>edge.sourceId==='action:a'||edge.targetId==='action:a'),false);
     assert.equal(wire.definition.connections.some(edge=>edge.sourceId==='action:if'&&edge.sourcePort==='yes'&&edge.targetId==='action:b'),true);
     assert.equal(events.at(-1).name,'workflow-connections-updated');
+});
+
+test('undoing an insertion restores its split connection and moved nodes without reverting later edits', () => {
+    const {draft, wire, definition} = fixture();
+    wire.definition.connections = clone(draft.catalog.connections);
+    const original = clone(wire.definition.connections);
+    wire.insertConnection = original.at(-1);
+    wire.definition.canvas_positions = {'action:a':{x:100,y:200},'action:b':{x:300,y:200}};
+    const inserted = draft.selectActionType('workflow_delay');
+    const shifted = {'action:a':{x:100,y:200},'action:b':{x:570,y:200},[inserted]:{x:325,y:200}};
+    draft.rememberInsertionPlacement(inserted, wire.definition.canvas_positions, shifted);
+    wire.definition.canvas_positions = shifted;
+    draft.renameWorkflowNode('a', 'Новое название');
+    draft.connectWorkflowNodes('action:if', 'no', 'action:b');
+    draft.updateWorkflowDescription('Новый текст');
+    assert.equal(draft.undo(), true);
+    assert.deepEqual(wire.definition.connections, [...original, {sourceId:'action:if',sourcePort:'no',targetId:'action:b'}]);
+    assert.equal(wire.workflowActions.length, definition.actions.length);
+    assert.equal(wire.workflowActions[0].config.true_actions[0].name, 'Новое название');
+    assert.equal(wire.workflowActions[1].config.seconds, '{{ $("Новое название").seconds }}');
+    assert.equal(wire.definition.description, 'Новый текст');
+    assert.deepEqual(wire.definition.canvas_positions, {'action:a':{x:100,y:200},'action:b':{x:300,y:200}});
+    assert.equal(draft.undo(), false);
+});
+
+test('undoing deletion restores a condition, live branch children, positions and pinned links', () => {
+    const {draft, wire} = fixture();
+    const original = clone(draft.catalog.connections);
+    wire.definition.connections = original;
+    const points = {'action:if':{x:100,y:200},'action:a':{x:300,y:200},'action:b':{x:550,y:340}};
+    const key = JSON.stringify(['action:if','yes','action:a']);
+    const routes = {[key]:{kind:'curve',x:160,y:240}};
+    wire.definition.canvas_positions = clone(points);
+    wire.definition.canvas_edge_routes = clone(routes);
+    draft.removeWorkflowAction('if');
+    assert.equal(wire.workflowActions.some(node => node.id === 'if'), false);
+    draft.renameWorkflowNode('a', 'Новое имя');
+    assert.equal(draft.undo(), true);
+    assert.equal(wire.workflowActions[0].id, 'if');
+    assert.equal(wire.workflowActions[0].config.true_actions[0].name, 'Новое имя');
+    assert.deepEqual(wire.definition.connections, original);
+    assert.deepEqual(wire.definition.canvas_positions, points);
+    assert.deepEqual(wire.definition.canvas_edge_routes, routes);
+});
+
+test('undoing deletion of the primary start restores both triggers and their original connections', () => {
+    const {draft, wire} = fixture();
+    wire.definition.additional_triggers = [{id:'trigger:extra',type:'manual',name:'Запасной',config:[]}];
+    const edges = [...draft.catalog.connections, {sourceId:'trigger:extra',sourcePort:'output',targetId:'action:if'}];
+    wire.definition.connections = clone(edges);
+    wire.definition.canvas_positions = {trigger:{x:100,y:200},'trigger:extra':{x:100,y:450}};
+    draft.removeTriggerNode('trigger');
+    assert.equal(wire.trigger.name, 'Запасной');
+    draft.renameWorkflowNode('trigger', 'Бывший запасной');
+    assert.equal(draft.undo(), true);
+    assert.equal(wire.trigger.name, 'Старт');
+    assert.equal(wire.definition.additional_triggers[0].name, 'Бывший запасной');
+    assert.deepEqual(wire.definition.connections, edges);
+    assert.deepEqual(wire.definition.canvas_positions, {trigger:{x:100,y:200},'trigger:extra':{x:100,y:450}});
+});
+
+test('undoing deletion of an additional start preserves the current primary start', () => {
+    const {draft, wire} = fixture();
+    wire.definition.additional_triggers = [{id:'trigger:extra',type:'manual',name:'Запасной',config:[]}];
+    const edges = [...draft.catalog.connections, {sourceId:'trigger:extra',sourcePort:'output',targetId:'action:b'}];
+    wire.definition.connections = clone(edges);
+    draft.removeTriggerNode('trigger:extra');
+    draft.renameWorkflowNode('trigger', 'Первый');
+    assert.equal(draft.undo(), true);
+    assert.equal(wire.trigger.name, 'Первый');
+    assert.equal(wire.definition.additional_triggers[0].name, 'Запасной');
+    assert.deepEqual(wire.definition.connections, edges);
 });

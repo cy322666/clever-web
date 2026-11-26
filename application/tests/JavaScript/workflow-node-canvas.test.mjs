@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
+import {WorkflowEditorDraft} from '../../resources/js/workflow-editor-draft.mjs';
 
 function assertOrthogonal(path, maximumBends = 4) {
     assert.doesNotMatch(path, /[CQASTHV]/, 'Connections use sharp horizontal and vertical segments');
@@ -161,24 +162,60 @@ test('local toggle updates nested draft configuration and can be reversed withou
     }
 });
 
-test('local removal bridges ordinary nodes, preserves branch children and keeps loop return semantics', () => {
+test('local removal bridges ordinary nodes, preserves branch children and keeps loop return semantics', async () => {
     const edge = (s,p,t) => ({sourceId:s,sourcePort:p,targetId:t});
     const canvas = localDraft([
         {id:'loop',type:'workflow_loop'},
         {id:'if',type:'control-condition',config:{true_actions:[{id:'a',type:'workflow_delay'}],false_actions:[{id:'b',type:'workflow_delay'}]}},
         {id:'end',type:'workflow_delay'},
     ],[edge('trigger','output','action:loop'),edge('action:loop','each','action:if'),edge('action:if','yes','action:a'),edge('action:if','no','action:b'),edge('action:a','output','action:end'),edge('action:b','output','action:loop'),edge('action:end','output','action:loop')]);
-    canvas.removeCanvasAction('end');
+    const draft = new WorkflowEditorDraft(canvas.$wire, {names:{},actions:{},triggers:{}});
+    canvas.$wire.removeWorkflowAction = id => draft.removeWorkflowAction(id);
+    canvas.clientWire = draft.wire;
+    await canvas.removeCanvasAction('end');
     let edges=canvas.canvasEdges([], ['trigger']);
     assert.equal(edges.find(e=>e.sourceId==='action:a').targetId,'action:loop');
     assert.equal(edges.find(e=>e.sourceId==='action:a').loopReturn,true);
     assert.equal(edges.find(e=>e.sourceId==='action:loop'&&e.sourcePort==='each').loopReturn,false);
-    canvas.removeCanvasAction('if');
+    await canvas.removeCanvasAction('if');
     assert.deepEqual(Array.from(canvas.canvasActions().map(a=>a.id)),['loop','a','b']);
-    assert.equal(canvas.$wire.definition.connections.some(e=>e.sourceId==='action:loop'&&e.sourcePort==='each'),false,'Never bridge both condition branches');
+    assert.equal(draft.wire.definition.connections.some(e=>e.sourceId==='action:loop'&&e.sourcePort==='each'),false,'Never bridge both condition branches');
     edges=canvas.canvasEdges([], ['trigger']);
     assert.equal(edges.find(e=>e.sourceId==='action:a').loopReturn,false,'Detached nodes are not loop returns');
     assert.equal(edges.find(e=>e.sourceId==='action:loop'&&e.sourcePort==='each').targetId,null);
+});
+
+test('Ctrl+Z undoes one whole group drag and leaves native text undo alone', async () => {
+    const f = fixture();
+    const draft = new WorkflowEditorDraft({}, {}, undefined, undefined, () => f.canvas);
+    f.window.workflowDraftFor = () => draft;
+    f.canvas.$el = {isConnected:true,getClientRects:() => [{}]};
+    f.canvas.$wire = {};
+    f.canvas.$refs.stage = {getBoundingClientRect:() => ({left:0,top:0,width:500,height:500})};
+    const box = (node, base) => () => {
+        const [x,y] = (node.style.transform || '').match(/-?\d+(?=px)/g)?.map(Number) || [0,0];
+        return {left:base+x,top:y,width:96,height:96};
+    };
+    f.node.getBoundingClientRect = box(f.node, 100);
+    const second = {...f.node, dataset:{workflowNodeId:'action:second'},style:{}};
+    second.getBoundingClientRect = box(second, 400);
+    f.canvas.nodeElements = () => [f.node,second];
+    f.canvas.selectedNodeIds = ['action:test','action:second'];
+    f.canvas.startNodeDrag(f.event());
+    f.canvas.moveCanvas(f.event(70,80));
+    f.canvas.moveCanvas(f.event(90,110));
+    f.canvas.stopCanvasInteraction(f.event(90,110));
+    assert.equal(draft.undoStack.length, 1);
+    assert.equal(second.getBoundingClientRect().left, 480);
+    let handled = 0;
+    const event = {ctrlKey:true,code:'KeyZ',key:'я',preventDefault() {handled++;}};
+    await f.canvas.clipboardShortcut({...event,target:{closest:() => true}});
+    assert.equal(handled, 0);
+    await f.canvas.clipboardShortcut({...event,target:{closest:() => false}});
+    assert.equal(handled, 1);
+    assert.equal(f.node.getBoundingClientRect().left, 100);
+    assert.equal(second.getBoundingClientRect().left, 400);
+    assert.equal(draft.undoStack.length, 0);
 });
 
 test('local edge projection recognizes done feedback, multiple starts and empty output ports', () => {
@@ -640,7 +677,7 @@ test('the ordinary add-node menu offers actions; starts have their own button', 
     f.canvas.preparePalette(null);
     assert.equal(f.events().at(-1).detail.mode, 'action');
     const markup = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php',import.meta.url),'utf8');
-    assert.match(markup, /class="workflow-canvas-fit workflow-canvas-add-trigger"[^>]*x-show="Boolean\(\$wire\.trigger\)"/);
+    assert.match(markup, /class="workflow-canvas-fit workflow-canvas-add-trigger"[^>]*x-show="Boolean\(editorWire\.trigger\)"/);
     assert.match(markup, /x-on:click\.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall\(\$wire, 'beginTriggerAdd'\)"/);
 });
 
@@ -1103,6 +1140,8 @@ test('dragging routes is zoom-correct, does not reconnect or move nodes, and per
         f.canvas.$wire = {definition:{},$set:(name,value,defer)=>{changes[name]=structuredClone(value);assert.equal(defer,false);}};
         f.canvas.saveNodeLayout = f.persistLayout;
         f.canvas.positions = {'action:test':{x:14,y:23}};
+        f.canvas.$refs.stage = {getBoundingClientRect:() => ({left:0,top:0})};
+        f.node.getBoundingClientRect = () => ({left:14*scale,top:23*scale,width:96*scale,height:96*scale});
         const edge = {sourceId:'action:source',sourcePort:'no',targetId:'action:test'};
         const key = f.canvas.edgeRouteKey(edge);
         const route = {kind:'loop',exitX:600,entryX:100,y:200};
@@ -1525,6 +1564,83 @@ test('attribute-only Livewire resets restore node positions and schedule edge co
     assert.equal(refreshes, 1);
     f.mutate([{type:'attributes',target:svg}]);
     assert.equal(refreshes, 1, 'Drawing SVG edges must not trigger another refresh');
+});
+
+test('a save during a partial render preserves coordinates for nodes still in the draft', () => {
+    const f = fixture();
+    const wire = localDraft([{id:'test'}, {id:'other'}], []).$wire;
+    f.canvas.$wire = wire;
+    const offsets = {'action:test':{x:40,y:180}, 'action:other':{x:20,y:-220}};
+    const points = {trigger:{x:0,y:0}, 'action:test':{x:200,y:180}, 'action:other':{x:400,y:-220}};
+    Object.assign(wire.definition, {canvas_layout:offsets, canvas_positions:points});
+    const original = JSON.stringify({version:1,nodes:offsets,edges:{}});
+    let stored = original;
+    f.window.localStorage = {getItem:() => stored, setItem:(_, value) => {stored = value;}};
+    f.canvas.restoreNodeLayout();
+    f.canvas.$refs.stage = {getBoundingClientRect:() => ({left:0,top:0,width:800,height:600})};
+    f.node.getBoundingClientRect = () => ({left:200,top:180,width:96,height:96});
+    f.persistLayout();
+    assert.deepEqual(wire.definition.canvas_positions, points);
+    assert.deepEqual(wire.definition.canvas_layout, offsets);
+    assert.deepEqual(structuredClone(f.canvas.positions), offsets);
+    assert.equal(stored, original);
+
+    const card = (id, x, y) => ({...f.node, dataset:{workflowNodeId:id},
+        getBoundingClientRect:() => ({left:x,top:y,width:96,height:96})});
+    f.canvas.nodeElements = () => [card('trigger', 0, 0), card('action:test', 250, 180), card('action:other', 400, -220)];
+    f.canvas.saveNodeLayout = f.persistLayout;
+    f.canvas.restoreCardPositions();
+    assert.equal(wire.definition.canvas_positions['action:test'].x, 250);
+    assert.equal(wire.definition.canvas_positions['action:other'].y, -220);
+});
+
+test('a replacement canvas recovers unsaved coordinates and routes after becoming measurable', () => {
+    const f = fixture(), hooks = new Map(), root = {contains: el => el.isConnected};
+    f.window.Livewire = {hook(name, callback) {
+        if (!hooks.has(name)) hooks.set(name, new Set());
+        hooks.get(name).add(callback);
+        return () => hooks.get(name).delete(callback);
+    }};
+    const wire = localDraft([], []).$wire;
+    delete wire.workflowActions;
+    const edge = JSON.stringify(['trigger','output','action:test']);
+    const route = {kind:'curve',x:400,y:240};
+    const configure = (canvas, base, visible) => {
+        const node = {...f.node, style:{}, getBoundingClientRect() {
+            if (!visible()) return {left:0,top:0,width:0,height:0};
+            const [x,y] = (this.style.transform || '').match(/-?\d+(?=px)/g)?.map(Number) || [0,0];
+            return {left:base+x,top:y,width:96,height:96};
+        }};
+        Object.assign(canvas, {
+            $wire:wire, $el:{isConnected:true,closest:() => root},
+            $refs:{stage:{querySelector:() => null, querySelectorAll:() => [],
+                getBoundingClientRect:() => ({left:0,top:0,width:800,height:600})}},
+            $nextTick:callback => callback(), nodeElements:() => [node],
+            restoreViewport:() => true, scheduleGraphRefresh:() => {}, scheduleGraphRefreshAfterPaint:() => {},
+        });
+        return node;
+    };
+    const original = configure(f.canvas, 100, () => true);
+    f.canvas.initializeCanvas();
+    f.canvas.positions['action:test'] = {x:100,y:180};
+    f.canvas.edgeRoutes[edge] = route;
+    f.canvas.applyNodePositions();
+    for (const hook of hooks.get('morph')) hook({el:root});
+    f.canvas.$el.isConnected = false;
+    f.canvas.destroy();
+    assert.equal(original.getBoundingClientRect().left, 200);
+
+    let visible = false;
+    const replacement = f.window.workflowNodeCanvas(f.canvas.layoutKey, {}, {});
+    const node = configure(replacement, 380, () => visible);
+    replacement.initializeCanvas();
+    for (const hook of hooks.get('morphed')) hook({el:root});
+    visible = true;
+    f.resize();
+    assert.equal(node.getBoundingClientRect().left, 200);
+    assert.equal(node.getBoundingClientRect().top, 180);
+    assert.equal(wire.definition.canvas_positions['action:test'].x, 200);
+    assert.deepEqual(structuredClone(replacement.edgeRoutes[edge]), route);
 });
 
 test('browser-normalized translations do not cause mutation redraw loops', () => {
@@ -2024,6 +2140,45 @@ test('branches from different columns use one vertical spine before a shared inp
         assert.deepEqual(Object.keys(f.canvas.edgeRoutes),[],'Drawing must not write saved routes');
         assert.deepEqual(Object.keys(f.canvas.positions),[],'Drawing must not move nodes');
     }
+});
+
+test('a short automatic branch to the email input turns once and preserves a manual detour', () => {
+    const f = routingFixture([
+        {id:'action:has-email',x:1081,y:642},
+        {id:'action:find-email',x:1150,y:317},
+    ], [{source:'action:has-email',port:'yes',target:'action:find-email'}]);
+    assert.deepEqual(assertOrthogonal(f.draw()[0],1), [
+        {x:1129,y:642}, {x:1129,y:365}, {x:1150,y:365},
+    ]);
+    const key = f.canvas.edgeRouteKey({sourceId:'action:has-email',sourcePort:'yes',targetId:'action:find-email'});
+    const manual = {kind:'curve',x:1126,y:301};
+    f.canvas.edgeRoutes[key] = manual;
+    assert.deepEqual(assertOrthogonal(f.draw()[0],3), [
+        {x:1129,y:642}, {x:1129,y:301}, {x:1126,y:301}, {x:1126,y:365}, {x:1150,y:365},
+    ]);
+    assert.deepEqual(f.canvas.edgeRoutes[key], manual);
+});
+
+test('short and long automatic branches share a single approach to the phone input', () => {
+    const f = routingFixture([
+        {id:'action:short',x:1572,y:315},
+        {id:'action:long',x:1081,y:638},
+        {id:'action:phone',x:1650,y:671},
+    ], [{source:'action:short',port:'no',target:'action:phone'}, {source:'action:long',port:'no',target:'action:phone'}]);
+    const [short, long] = f.draw().map(path => assertOrthogonal(path,3));
+    const approach = [{x:1620,y:719}, {x:1650,y:719}];
+    assert.deepEqual(short, [{x:1620,y:411}, ...approach]);
+    assert.deepEqual(long.slice(-2), approach);
+    assert.deepEqual(Object.keys(f.canvas.edgeRoutes), []);
+    assert.deepEqual(Object.keys(f.canvas.positions), []);
+
+    const key = f.canvas.edgeRouteKey({sourceId:'action:long',sourcePort:'no',targetId:'action:phone'});
+    const manual = {kind:'curve',x:1626,y:798};
+    f.canvas.edgeRoutes[key] = manual;
+    const [other, pinned] = f.draw().map(path => assertOrthogonal(path,3));
+    assert.deepEqual(other, short);
+    assert.deepEqual(pinned.slice(-2), [{x:1626,y:719}, {x:1650,y:719}]);
+    assert.deepEqual(f.canvas.edgeRoutes[key], manual);
 });
 
 test('vertical branch outputs share the final input spine and a nearly level branch stays flat', () => {

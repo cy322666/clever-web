@@ -215,26 +215,26 @@ export class WorkflowLocalInspector {
         if (this.flushedRevision === this.revision || equal(this.config, this.openConfig)) return;
         if (!this.openConfig) { this.openConfig = clone(this.config); this.flushedRevision = this.revision; return; }
         const config = this.cleanConfig();
-        const actions = clone(this.wire.workflowActions);
         const definition = clone(this.wire.definition);
         if (this.id.startsWith('action:')) {
+            const actions = this.draft ? definition.actions : clone(this.wire.workflowActions);
             const node = this.node(this.id, actions);
             if (!node) return;
             node.config = config;
             definition.actions = actions;
-            this.wire.$set('workflowActions', actions, false);
+            if (!this.draft) this.wire.$set('workflowActions', actions, false);
         } else if (this.id === 'trigger') {
-            const trigger = {...this.wire.trigger, config};
-            definition.trigger = trigger;
-            this.wire.$set('trigger', trigger, false);
+            definition.trigger = {...this.wire.trigger, config};
+            if (!this.draft) this.wire.$set('trigger', definition.trigger, false);
         } else {
             const start = definition.additional_triggers?.find(node => node.id === this.id);
             if (!start) return;
             start.config = config;
         }
         this.wire.$set('definition', definition, false);
-        this.wire.$set('workflowLocalInspectorDirty', {...this.wire.workflowLocalInspectorDirty,[this.id]:true}, false);
         this.flushedRevision = this.revision;
+        if (this.draft) this.draft.inspectorChanged(this.id);
+        else this.wire.$set('workflowLocalInspectorDirty', {...this.wire.workflowLocalInspectorDirty,[this.id]:true}, false);
     }
     begin(id) {
         this.open(id);
@@ -476,7 +476,10 @@ const json = value => JSON.stringify(value ?? null);
 
 /** Keep the production field widgets and CSS. Only their state owner changes. */
 export function installLocalInspector(panel, boot, root) {
-    const local = new WorkflowLocalInspector(panel.$wire, boot);
+    const draft = window.workflowDraftFor(panel.$wire);
+    const local = new WorkflowLocalInspector(draft?.wire || panel.$wire, boot);
+    local.draft = draft;
+    if (draft) draft.flushInspector = () => local.flush();
     local.panel = panel;
     local.root = root;
     local.widgetsReady = Promise.all([

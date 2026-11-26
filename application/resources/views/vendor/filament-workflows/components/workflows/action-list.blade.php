@@ -48,7 +48,7 @@
                     </section>
                     <section class="condition-branch condition-branch--no" aria-label="Ветка Нет">
                         @if(! array_key_exists('connections', $this->definition ?? []) && ! ($config['has_false_branch'] ?? false) && ! empty($config['false_actions'] ?? []))
-                            <div class="workflow-node-branch-warning">Ветка выключена, сохранено шагов: {{ count($config['false_actions']) }}</div>
+                            <div class="workflow-node-branch-warning" x-show="!Array.isArray(editorWire.definition?.connections)">Ветка выключена, сохранено шагов: {{ count($config['false_actions']) }}</div>
                         @endif
                         <x-filament-workflows::workflows.action-list
                             :actions="$config['false_actions'] ?? []"

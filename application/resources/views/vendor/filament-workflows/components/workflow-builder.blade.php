@@ -47,7 +47,9 @@
         'workflow-workbench--page' => $pageMode,
     ])
 >
-    @include('filament.workflow-builder.workflow-draft-templates')
+    @unless($isRecordedOnly)
+        @include('filament.workflow-builder.workflow-draft-templates')
+    @endunless
     {{-- Keep the poll directive mounted: Filament may update only the node modal.
          The expression sends no request while there is no active preview. --}}
     <span wire:poll.2s="$wire.nodePreviewTaskId && $wire.pollWorkflowNodePreview()" aria-hidden="true"></span>
@@ -75,8 +77,8 @@
                     </div>
                     @unless($isRecordedOnly)
                     <details class="workflow-identity-popover" x-on:click.outside="$el.open=false">
-                        <summary title="Папка потока" aria-label="Папка потока"><x-filament::icon icon="heroicon-o-folder" class="h-4 w-4"/><span x-text="$wire.data.group_name || ''">{{ $this->data['group_name'] ?? $workflowRecord?->group_name ?? '' }}</span></summary>
-                        <div><select aria-label="Папка потока" x-on:change="workflowEditorCall($wire, 'setWorkflowFolder', $event.target.value)">
+                        <summary title="Папка потока" aria-label="Папка потока"><x-filament::icon icon="heroicon-o-folder" class="h-4 w-4"/><span x-text="workflowEditorWire($wire).data.group_name || ''">{{ $this->data['group_name'] ?? $workflowRecord?->group_name ?? '' }}</span></summary>
+                        <div><select aria-label="Папка потока" x-bind:value="workflowEditorWire($wire).data.group_name ?? ''" x-on:change="workflowEditorCall($wire, 'setWorkflowFolder', $event.target.value)">
                             <option value="">Без папки</option>
                             @foreach($this->workflowEditorFolderOptions() as $folder)
                                 <option value="{{ $folder }}" @selected(($this->data['group_name'] ?? $workflowRecord?->group_name) === $folder)>{{ $folder }}</option>
@@ -163,7 +165,7 @@
                 x-on:workflow-node-created.window="placeCreatedNode($event.detail)"
                 x-on:workflow-node-toggle.window="if ($event.detail.componentId === $wire.$id) { if ($event.detail.nodeId.startsWith('trigger')) toggleCanvasTrigger($event.detail.nodeId); else if ($event.detail.nodeId.startsWith('action:')) toggleCanvasAction($event.detail.nodeId.slice(7)); }"
                 x-on:workflow-nodes-copied.window="placeCopiedNodes($event.detail)"
-                x-on:workflow-canvas-before-update.window="if ($event.detail.componentId === $wire.$id) draftPositions = cardPositions()"
+                x-on:workflow-canvas-before-update.window="if ($event.detail.componentId === $wire.$id) draftPositions = captureCardPositions()"
                 x-on:workflow-canvas-after-update.window="if ($event.detail.componentId === $wire.$id) { applyNodePositions(); restoreCardPositions(draftPositions); draftPositions = null }"
                 x-on:workflow-connections-updated.window="scheduleGraphRefresh()"
                 x-on:workflow-node-library-closed.window="pendingDropPosition = null; pendingInsertion = null; pendingTriggerPosition = null"
@@ -194,7 +196,7 @@
                 </div>
                 <div class="workflow-canvas-controls" x-on:pointerdown.stop>
                     @unless($isRecordedOnly)
-                    <button type="button" class="workflow-canvas-fit workflow-canvas-add-trigger" x-show="Boolean($wire.trigger)" x-cloak
+                    <button type="button" class="workflow-canvas-fit workflow-canvas-add-trigger" x-show="Boolean(editorWire.trigger)" x-cloak
                         x-on:click.stop="pendingDropPosition = null; pendingInsertion = null; workflowEditorCall($wire, 'beginTriggerAdd')"
                         aria-label="Добавить способ запуска" title="Добавить способ запуска">
                         <x-filament::icon icon="heroicon-o-bolt" class="h-4 w-4"/><span class="workflow-canvas-add-trigger__plus" aria-hidden="true">+</span>
