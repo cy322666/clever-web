@@ -6,7 +6,7 @@ import test from 'node:test';
 test('click copies the full expression, not the name or field ID, including duplicate field names', async () => {
     const writes = [], timers = [];
     const window = {addEventListener() {}, setTimeout(callback) { timers.push(callback); }};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: {addEventListener() {}},
         navigator: {clipboard: {async writeText(value) { writes.push(value); }}},
     });

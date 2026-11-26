@@ -11,7 +11,7 @@ function fixture() {
         addEventListener: (name, callback) => events.set(name, callback),
         querySelectorAll: () => { scans++; return []; },
     };
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window: {addEventListener() {}}, document,
         queueMicrotask: callback => tasks.push(callback),
         requestAnimationFrame: () => assert.fail('Expression color must not wait for another frame'),

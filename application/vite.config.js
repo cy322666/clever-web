@@ -11,7 +11,8 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/css/filament-workflows.css',
-                'resources/js/app.js'
+                'resources/js/app.js',
+                'resources/js/workflows.js',
             ],
             refresh: [
                 ...refreshPaths,

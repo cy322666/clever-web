@@ -4,7 +4,7 @@ import {runInNewContext} from 'node:vm';
 import test from 'node:test';
 
 function fixture() {
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     const window = {};
     runInNewContext(source.slice(source.indexOf('const workflowEditorDrafts ='), source.indexOf('window.workflowNodeCanvas =')), {window});
     const workbench = window.workflowWorkbench();

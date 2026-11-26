@@ -9,7 +9,7 @@ function fixture() {
         Alpine: {store(name, value) { if (value) stores[name] = value; return stores[name]; }},
         Livewire: {interceptAction(callback) { interceptors.push(callback); }},
     };
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     runInNewContext(source.slice(0, source.indexOf('window.workflowExpressionParts =')), {window, document: {addEventListener() {}}});
     window.initializeWorkflowNodeLoading();
     assert.equal(interceptors.length, 1, 'navigation must not register a second handler');

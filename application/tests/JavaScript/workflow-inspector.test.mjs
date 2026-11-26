@@ -12,7 +12,7 @@ function fixture() {
         removeAttribute: name => attributes.delete(name),
         hasAttribute: name => attributes.has(name),
     };
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: {addEventListener() {}, querySelector: selector => selector === '.workflow-editor-page' ? editorPage : null,
             getElementById: id => id === 'debug-slot' ? {getBoundingClientRect:()=>({top:280,left:840,width:600,bottom:1060})} : null}, CustomEvent: class {constructor(type, props) {this.type=type;Object.assign(this,props);}},
     });

@@ -7,7 +7,7 @@ const source = readFileSync(new URL('../../resources/views/vendor/filament-workf
 const catalog = readFileSync(new URL('../../resources/views/filament/workflow-builder/workflow-node-catalog.blade.php', import.meta.url), 'utf8');
 function fixture(inspector = null) {
     const window={innerWidth:1440,innerHeight:900,addEventListener(){},dispatchEvent(){}};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8'), {window,document:{addEventListener(){},querySelector:()=>inspector && {getBoundingClientRect:()=>inspector}},CustomEvent:class{}});
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js',import.meta.url),'utf8'), {window,document:{addEventListener(){},querySelector:()=>inspector && {getBoundingClientRect:()=>inspector}},CustomEvent:class{}});
     const state=window.workflowNodeLibrary(), changes=[];
     state.$nextTick=fn=>fn();state.$refs={panel:{contains:()=>false}};state.$wire={$set:(...args)=>changes.push(args)};
     return {state,changes};

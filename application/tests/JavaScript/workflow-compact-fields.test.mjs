@@ -6,7 +6,7 @@ import test from 'node:test';
 const plain = value => JSON.parse(JSON.stringify(value));
 function components(writeText = async () => {}, windowOverrides = {}, documentOverrides = {}) {
     const window = {addEventListener() {}, setTimeout() {}, clearTimeout() {}, ...windowOverrides};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document:{addEventListener() {},...documentOverrides}, navigator:{clipboard:{writeText}},
     });
     return window;

@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 
 function fixture() {
     const window = {addEventListener() {}};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: {addEventListener() {}},
     });
     const field = window.workflowValueField('');

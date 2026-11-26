@@ -291,7 +291,7 @@ test('condition edges are neutral until evaluated and only the selected route is
     assert.equal(canvas.edgeCompleted(edge('no'),'true'),true);
     assert.equal(canvas.edgeCompleted(edge('yes'),'false'),false);
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css',import.meta.url),'utf8');
-    const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js',import.meta.url),'utf8');
     assert.doesNotMatch(css,/workflow-node-edge--(?:yes|no)/);
     assert.doesNotMatch(source,/marker-end|workflow-edge-arrow-/);
     assert.match(source,/const completed = !preview && this\.edgeCompleted/);
@@ -553,7 +553,7 @@ test('connected edge buttons and node tools are hover-only on pointer devices', 
     assert.match(css,/\.workflow-node-card--compact:hover\s*>\s*\.workflow-node-card__tools/);
     assert.doesNotMatch(css,/\.workflow-node-card--compact:focus-within\s*>\s*\.workflow-node-card__tools/);
     assert.doesNotMatch(css,/\.workflow-node-card__tools:focus-within/);
-    const source = readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js',import.meta.url),'utf8');
     assert.match(source,/hit\.addEventListener\('pointerenter', \(\) => this\.showEdgeControls\(control\)\)/);
 });
 
@@ -568,7 +568,7 @@ test('edge trash disconnects exactly the selected connection without deleting no
 });
 
 test('edge controls are centred on the path at every zoom without repeated style mutations', () => {
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     const code = source.slice(source.indexOf('        const positionControl ='), source.indexOf('        const sourceSelector ='));
     for (const scale of [0.25, 1, 2]) {
         const positionedControls = new Set();
@@ -592,7 +592,7 @@ test('edge controls are centred on the path at every zoom without repeated style
 });
 
 test('another-branch plus is positioned by the card without inventing an edge', () => {
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     const code = source.slice(source.indexOf('controls.filter((button) => !button.dataset.workflowEdgeTarget)'), source.indexOf('        controls.forEach((button) => {'));
     const button = {dataset:{workflowEdgeSource:'trigger',workflowEdgeBranch:'true'}, getBoundingClientRect:()=>({width:22})};
     const card = {querySelector:()=>null,getBoundingClientRect:()=>({left:0,right:100,top:0,height:100})};
@@ -805,7 +805,7 @@ function fixture() {
     window.sessionStorage = {getItem: key => viewportStorage.get(key) ?? null, setItem: (key, value) => viewportStorage.set(key, value)};
     let mutationCallback, observedOptions, resizeCallback;
     const resizedElements = new Set();
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: { addEventListener() {}, elementsFromPoint() { return hitStack || [hitElement]; }, elementFromPoint() { return hitElement; }, createElementNS() {
             return {attributes:{}, dataset:{}, listeners:{}, classList:{add(){}},
                 setAttribute(key,value) {this.attributes[key]=value;}, appendChild(){},
@@ -1209,7 +1209,7 @@ test('curve axis locks for a gesture and abandoned or irrelevant movement does n
 test('edge selection has no floating menu while direct manipulation remains available', () => {
     const view = readFileSync(new URL('../../resources/views/vendor/filament-workflows/components/workflow-builder.blade.php', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     assert.doesNotMatch(view + css + source, /workflow-connection-menu|Перетащите линию или точки|Сбросить изгиб|resetSelectedEdgeRoute|reconnectSelectedEdge/);
     assert.match(view, /x-show="connecting \|\| connectionError"/);
     assert.match(source, /this\.startEdgeRouteDrag\(edge, route, event, handles\?\.\[0\]\?\.part\)/);

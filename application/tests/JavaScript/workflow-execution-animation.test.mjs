@@ -11,7 +11,7 @@ function fixture() {
         appendChild() {}, addEventListener() {},
     });
     const window = {addEventListener() {}};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: {addEventListener() {}, createElementNS: element},
         MutationObserver: class {constructor() {} disconnect() {} observe(el, options) {observed = options;}},
         ResizeObserver: class {disconnect() {} observe() {} unobserve() {}},
@@ -97,7 +97,7 @@ test('run state updates redraw paths once without an animation timer or server r
     const {canvas, observed} = fixture();
     canvas.observeCanvas();
     assert.ok(observed().attributeFilter.includes('data-node-running'));
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     const draw = source.slice(source.indexOf('    drawConnections() {'), source.indexOf('window.workflowDebugPanel ='));
     assert.doesNotMatch(draw, /setInterval|fetch\(|\$call\(/);
 });

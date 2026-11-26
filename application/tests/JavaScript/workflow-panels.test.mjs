@@ -5,7 +5,7 @@ import test from 'node:test';
 
 function components() {
     const window = {addEventListener() {}};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: {addEventListener() {}},
     });
     return window;
@@ -22,7 +22,7 @@ test('expression coloring marks only placeholders and treats markup as plain tex
 test('expression fields use compact typography on the native input before measuring the painted overlay', () => {
     const css = readFileSync(new URL('../../resources/css/filament-workflows.css', import.meta.url), 'utf8');
     assert.match(css, /\.workflow-expression-painted\s*\{[^}]*font-family:\s*ui-monospace[^}]*font-size:\s*12px !important;[^}]*font-weight:\s*400 !important;/s);
-    const source = readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8');
     assert.ok(source.indexOf("field.classList.add('workflow-expression-painted')") < source.indexOf('const style = getComputedStyle(field)'));
     assert.match(source, /font:style.font,letterSpacing:style.letterSpacing,lineHeight:style.lineHeight/);
     assert.match(source, /field.classList.remove\('workflow-expression-painted'\)/);
@@ -243,7 +243,7 @@ test('function completion offers examples and puts the caret inside cf parenthes
 
 test('picker recognizes fields in the inspector, ignores other editors and transmits local field metadata', () => {
     const window={addEventListener(){}};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js',import.meta.url),'utf8'),{window,document:{addEventListener(){}},CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}}});
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js',import.meta.url),'utf8'),{window,document:{addEventListener(){}},CustomEvent:class{constructor(type,options){this.type=type;Object.assign(this,options);}}});
     const customFields=[{id:'123',label:'Тест',entity:'contacts'}];
     const picker=window.workflowExpressionPicker([],customFields);
     let received;

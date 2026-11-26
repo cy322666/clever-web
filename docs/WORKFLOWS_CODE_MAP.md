@@ -8,7 +8,7 @@
 | --- | --- |
 | Страница редактирования, сохранение и доступ | [EditWorkflow.php](../application/app/Filament/WorkflowBuilder/Resources/WorkflowResource/Pages/EditWorkflow.php) |
 | Разметка полотна, карточки нод и кнопки | [workflow-builder.blade.php](../application/resources/views/vendor/filament-workflows/components/workflow-builder.blade.php) и соседние файлы в `components/workflows/` |
-| Клиентское поведение: перетаскивание, связи, меню, панель ноды, отладка | [app.js](../application/resources/js/app.js), ищи `workflowNodeCanvas`, `workflowNodeLibrary`, `workflowInspector`, `workflowDebugPanel` |
+| Клиентское поведение: перетаскивание, связи, меню, панель ноды, отладка | [workflows.js](../application/resources/js/workflows.js), ищи `workflowNodeCanvas`, `workflowNodeLibrary`, `workflowInspector`, `workflowDebugPanel` |
 | Локальные изменения графа до сохранения | [workflow-editor-draft.mjs](../application/resources/js/workflow-editor-draft.mjs) и [workflow-browser-document.mjs](../application/resources/js/workflow-browser-document.mjs) |
 | Настройки ноды в правой панели | [HasCompactWorkflowConfigurationPanels.php](../application/app/Filament/WorkflowBuilder/Resources/WorkflowResource/Pages/Concerns/HasCompactWorkflowConfigurationPanels.php) и [workflow-inspector.blade.php](../application/resources/views/filament/workflow-builder/workflow-inspector.blade.php) |
 | Внешний вид | [filament-workflows.css](../application/resources/css/filament-workflows.css) и [workflow-inspector.css](../application/resources/css/workflow-inspector.css) |
@@ -32,7 +32,7 @@
 
 ## С чего начать правку
 
-- Кнопка, карточка или линия: Blade-шаблон полотна, затем `app.js` и CSS.
+- Кнопка, карточка или линия: Blade-шаблон полотна, затем `workflows.js` и CSS.
 - Поле настроек ноды: соответствующий класс в `Workflows/Actions/` или `Workflows/Triggers/`, затем `HasCompactWorkflowConfigurationPanels.php`.
 - Ошибка при исполнении: `WorkflowExecutor.php`, затем класс действия и профильный сервис в `Services/Workflows/`.
 - История и отладка: `WorkflowHistory.php`, `HasWorkflowDebugger.php`, `WorkflowDebugger.php` и Blade-файлы `workflow-history-page.blade.php`, `workflow-debugger.blade.php`.

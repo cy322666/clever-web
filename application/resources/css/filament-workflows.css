@@ -3270,106 +3270,6 @@ body:has(.workflow-builder) .fi-textarea,
     color: rgb(231 229 228);
 }
 
-.workflow-inline-action-picker-wrap {
-    width: min(100%, 980px);
-    margin-inline: auto;
-}
-
-.workflow-inline-action-picker {
-    width: min(100%, 980px);
-    margin: 0.75rem auto 0;
-    display: grid;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    border: 1px solid rgb(217 209 199 / 0.95);
-    border-radius: 0.5rem;
-    background: #fff;
-    box-shadow: 0 8px 24px rgb(29 24 20 / 0.06);
-}
-
-.workflow-inline-action-picker__group {
-    display: grid;
-    gap: 0.5rem;
-}
-
-.workflow-inline-action-picker__group-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    color: rgb(107 114 128);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1rem;
-    text-transform: uppercase;
-}
-
-.workflow-inline-action-picker__items {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.5rem;
-}
-
-.workflow-inline-action-picker__item {
-    min-height: 3rem;
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid rgb(226 218 208 / 0.9);
-    border-radius: 0.4rem;
-    background: #fff;
-    text-align: left;
-    transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
-}
-
-.workflow-inline-action-picker__item:hover {
-    border-color: rgb(255 106 0 / 0.45);
-    background: #fffaf6;
-    transform: translateY(-1px);
-}
-
-.workflow-inline-action-picker__icon {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.375rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.workflow-inline-action-picker__name {
-    color: rgb(31 41 55);
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1.25rem;
-}
-
-.dark .workflow-inline-action-picker {
-    border-color: rgb(82 75 66 / 0.95);
-    background: rgb(23 21 19);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.24);
-}
-
-.dark .workflow-inline-action-picker__group-title {
-    color: rgb(168 162 158);
-}
-
-.dark .workflow-inline-action-picker__item {
-    border-color: rgb(82 75 66 / 0.9);
-    background: rgb(29 26 23);
-}
-
-.dark .workflow-inline-action-picker__item:hover {
-    border-color: rgb(255 106 0 / 0.5);
-    background: rgb(35 27 21);
-}
-
-.dark .workflow-inline-action-picker__name {
-    color: rgb(245 245 244);
-}
-
 .workflow-runs-count-link {
     display: inline-flex;
     min-width: 1.5rem;
@@ -3382,12 +3282,6 @@ body:has(.workflow-builder) .fi-textarea,
 
 .workflow-runs-count-link:hover {
     color: rgb(255 106 0);
-}
-
-@media (max-width: 900px) {
-    .workflow-inline-action-picker__items {
-        grid-template-columns: 1fr;
-    }
 }
 
 /* Workflow builder usability pass: visible start, readable toolbar and searchable palettes. */
@@ -3955,10 +3849,6 @@ body:has(.workflow-builder) .fi-textarea,
 
 .workflow-palette__empty span {
     font-size: 0.75rem;
-}
-
-.workflow-inline-action-picker__items {
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 }
 
 .dark .workflow-workbench__identity-title,

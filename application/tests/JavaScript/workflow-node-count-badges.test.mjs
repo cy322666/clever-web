@@ -6,7 +6,7 @@ import {runInNewContext} from 'node:vm';
 function fixture() {
     const events = [];
     const window = {addEventListener() {}, dispatchEvent: event => events.push(event)};
-    runInNewContext(readFileSync(new URL('../../resources/js/app.js', import.meta.url), 'utf8'), {
+    runInNewContext(readFileSync(new URL('../../resources/js/workflows.js', import.meta.url), 'utf8'), {
         window, document: {addEventListener() {}, querySelector: () => null},
         CustomEvent: class {constructor(type, props) {this.type = type; Object.assign(this, props);}},
     });

@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\CreateWorkflow;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\EditWorkflow;
+use App\Filament\WorkflowBuilder\Resources\WorkflowResource\Pages\ReplayWorkflow;
 use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
 use App\Models\Workflows\Workflow;
 use App\Models\Workflows\WorkflowRun as AppWorkflowRun;
@@ -149,6 +152,12 @@ class AppServiceProvider extends ServiceProvider
         FilamentView::registerRenderHook(
             PanelsRenderHook::SCRIPTS_AFTER,
             fn(): string => $this->optionalViteAsset('resources/js/app.js'),
+        );
+
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SCRIPTS_AFTER,
+            fn(): string => $this->optionalViteAsset('resources/js/workflows.js'),
+            [CreateWorkflow::class, EditWorkflow::class, ReplayWorkflow::class],
         );
 
         FilamentAsset::register([
