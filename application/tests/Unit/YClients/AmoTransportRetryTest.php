@@ -120,6 +120,7 @@ class AmoTransportRetryTest extends TestCase
     public static function serverErrors(): array
     {
         return [
+            ['Invalid response code: 0'],
             ['Invalid API response (non JSON), code: 500'],
             ['Invalid API response (non JSON), code: 502'],
             ['Invalid API response (non JSON), code: 503'],
@@ -169,6 +170,7 @@ class AmoTransportRetryTest extends TestCase
     {
         return [
             'forbidden' => [new Exception('Invalid API response (non JSON), code: 403', 403)],
+            'SDK forbidden' => [new Exception('Invalid response code: 403', 403)],
             'rate limit' => [new Exception('Invalid API response (non JSON), code: 429', 429)],
             'invalid JSON with HTTP response' => [new Exception('Invalid API response (non JSON), code: 200')],
             'validation with default exception code' => [new Exception('Invalid value for custom field', 0)],

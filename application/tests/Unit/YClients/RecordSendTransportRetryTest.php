@@ -179,7 +179,7 @@ class RecordSendTransportRetryTest extends TestCase
                 return 0;
             });
         Artisan::shouldReceive('call')->once()->withArgs(fn ($command) => $command === 'yc:update-entities')
-            ->andThrow(new Exception('Invalid API response (non JSON), code: 0'));
+            ->andThrow(new Exception('Invalid response code: 0'));
         $queueJob = $this->createMock(QueueJob::class);
         $queueJob->expects($this->once())->method('release')->with(30);
         $job = $this->job($record);
