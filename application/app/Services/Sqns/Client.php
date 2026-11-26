@@ -141,6 +141,24 @@ class Client
         );
     }
 
+    public function getVisit(int $visitId): array
+    {
+        try {
+            $data = $this->send('get', '/api/v2/visit/'.$visitId, timeoutSeconds: 10)->json();
+        } catch (ConnectionException|RequestException $exception) {
+            $reason = $exception instanceof RequestException ? 'HTTP '.$exception->response->status() : 'connection error';
+
+            throw new RuntimeException("Could not load SQNS visit #{$visitId}: {$reason}.");
+        }
+
+        $visit = is_array($data) ? VisitPayload::extract($data) : null;
+        if ($visit === null || VisitPayload::id($visit) !== $visitId) {
+            throw new RuntimeException("SQNS returned invalid data for visit #{$visitId}.");
+        }
+
+        return $visit;
+    }
+
     public function listVisits(int $page, string $dateFrom, string $dateTill): array
     {
         return $this->send('get', '/api/v2/visit', [
@@ -158,6 +176,7 @@ class Client
         bool $authorized = true,
         array $acceptedStatuses = [],
         ?string $baseUrl = null,
+        int $timeoutSeconds = 30,
     ): Response {
         if ($authorized && blank($this->token)) {
             throw new RuntimeException('SQNS не подключён: отсутствует токен.');
@@ -165,8 +184,8 @@ class Client
 
         $request = Http::acceptJson()
             ->asJson()
-            ->connectTimeout(10)
-            ->timeout(30)
+            ->connectTimeout(min(10, $timeoutSeconds))
+            ->timeout($timeoutSeconds)
             ->retry(
                 [500, 1000, 2000],
                 0,

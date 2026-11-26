@@ -303,6 +303,46 @@ class WebhookLifecycleTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_id_only_webhook_loads_the_requested_visit_before_crm_sync(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/visit/123' => Http::response([
+                'id' => 123,
+                'datetime' => '2026-09-10 12:00:00',
+                'attendance' => 2,
+            ]),
+        ]);
+
+        (new ProcessWebhook(1, 10, ['visit' => ['id' => 123]]))->handle(app(WebhookLifecycle::class));
+
+        $visit = Visit::query()->where('visit_id', 123)->sole();
+        $this->assertSame('2026-09-10 12:00:00', $visit->datetime->toDateTimeString());
+        Queue::assertPushed(SyncVisitToAmo::class, fn (SyncVisitToAmo $job): bool => $job->visitId === $visit->id && $job->createNote);
+        Http::assertSentCount(1);
+    }
+
+    public function test_id_only_webhook_fails_without_syncing_when_visit_cannot_be_verified(): void
+    {
+        Http::fake([
+            'https://crm3.sqns.ru/api/v2/visit/123' => Http::response([
+                'id' => 124,
+                'datetime' => '2026-09-10 12:00:00',
+            ]),
+        ]);
+
+        try {
+            (new ProcessWebhook(1, 10, ['visit' => ['id' => 123]]))->handle(app(WebhookLifecycle::class));
+            $this->fail('The job must fail on a mismatched visit ID.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('SQNS returned invalid data for visit #123.', $exception->getMessage());
+            $this->assertSame($exception->getMessage(), Setting::findOrFail(1)->last_error);
+        }
+
+        $this->assertDatabaseCount('sqns_visits', 0);
+        Queue::assertNotPushed(SyncVisitToAmo::class);
+        Http::assertSentCount(1);
+    }
+
     public function test_queued_amocrm_sync_is_ignored_after_integration_was_disabled(): void
     {
         DB::table('sqns_settings')->where('id', 1)->update(['active' => false]);

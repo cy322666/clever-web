@@ -5,6 +5,7 @@ namespace App\Jobs\Sqns;
 use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Models\Integrations\Sqns\Setting;
 use App\Models\Integrations\Sqns\Visit;
+use App\Services\Sqns\Client;
 use App\Services\Sqns\VisitPayload;
 use App\Services\Sqns\WebhookLifecycle;
 use Illuminate\Bus\Queueable;
@@ -13,6 +14,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
+use RuntimeException;
 use Throwable;
 
 class ProcessWebhook implements ShouldQueue
@@ -82,11 +84,9 @@ class ProcessWebhook implements ShouldQueue
         }
 
         try {
-            $visit = VisitPayload::extract($this->payload);
-
-            if ($visit === null) {
-                return;
-            }
+            $visitId = VisitPayload::id($this->payload)
+                ?? throw new RuntimeException('SQNS webhook does not contain a visit ID.');
+            $visit = VisitPayload::extract($this->payload) ?? (new Client($setting))->getVisit($visitId);
 
             $model = Visit::saveFromSqns($setting, $account, $visit);
 
