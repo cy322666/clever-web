@@ -81,6 +81,18 @@ class Kernel extends ConsoleKernel
             ->dailyAt('02:00')
             ->withoutOverlapping(180);
 
+        $schedule->command('authentication-log:purge')
+            ->dailyAt('02:20')
+            ->timezone('Europe/Moscow')
+            ->when(static function (): bool {
+                $today = now('Europe/Moscow')->startOfDay();
+                $firstRun = $today->copy()->setDate(2026, 11, 27);
+
+                // A day-of-month cron step would reset the interval each month.
+                return $today->gte($firstRun) && (int) $firstRun->diffInDays($today) % 10 === 0;
+            })
+            ->withoutOverlapping(30);
+
         //архив
 //        $schedule->command('app:api-requests-prune --days=' . (int)env('API_REQUESTS_RETENTION_DAYS', 30))
 //            ->dailyAt('03:00')
