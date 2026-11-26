@@ -13,19 +13,29 @@ final class ApiRequestRetention
 {
     public function query(int $days, int $errorDays = 30): Builder
     {
-        $query = ApiRequest::query()->where('created_at', '<', now()->subDays(max(1, $days)))
-            ->where(fn (Builder $query) => $query->where('status_code', '<', 500)
-                ->orWhere('created_at', '<', now()->subDays(max($days, $errorDays))));
+        $days = max(1, $days);
+        $now = now();
+        $maximumAgeCutoff = $now->copy()->subDays(max($days, $errorDays));
 
+        return ApiRequest::query()->where('created_at', '<', $now->subDays($days))
+            ->where(function (Builder $query) use ($maximumAgeCutoff): void {
+                // Reconciliation inputs are protected only until the maximum age.
+                $query->where('created_at', '<', $maximumAgeCutoff)
+                    ->orWhere(fn (Builder $recent) => $this->applyShortRetention($recent));
+            });
+    }
+
+    private function applyShortRetention(Builder $query): void
+    {
         // Recent record webhooks can still be needed for cross-account incident review.
-        $query->where(fn (Builder $query) => $query->whereNull('route_name')
-            ->orWhere('route_name', '!=', 'yclients.hook')
-            ->orWhere('created_at', '<', now()->subDays(max($days, $errorDays)))
-            ->orWhere(fn (Builder $payload) => $payload->whereNotNull('payload->resource')
-                ->where('payload->resource', '!=', 'record')));
+        $query->where('status_code', '<', 500)
+            ->where(fn (Builder $query) => $query->whereNull('route_name')
+                ->orWhere('route_name', '!=', 'yclients.hook')
+                ->orWhere(fn (Builder $payload) => $payload->whereNotNull('payload->resource')
+                    ->where('payload->resource', '!=', 'record')));
 
         if (!Schema::hasTable('yclients_records')) {
-            return $query;
+            return;
         }
 
         $grammar = DB::connection()->getQueryGrammar();
@@ -61,7 +71,6 @@ final class ApiRequestRetention
                 ->orWhereNotIn(DB::raw('CAST('.$expression.' AS VARCHAR)'), clone $unresolved));
         }
 
-        return $query;
     }
 
     public function count(int $days, int $errorDays = 30): int

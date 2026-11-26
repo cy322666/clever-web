@@ -21,10 +21,11 @@ class ApiRequestsPrune extends Command
 
         $this->info(
             sprintf(
-                'api_requests %s: %d rows. Threshold: before %s. Unresolved exports retained.',
+                'api_requests %s: %d rows. Standard cutoff: before %s. Maximum age cutoff: before %s.',
                 $dryRun ? 'dry-run' : 'pruned',
                 $deleted,
                 now()->subDays($days)->toDateTimeString(),
+                now()->subDays($errorDays)->toDateTimeString(),
             )
         );
 

@@ -40,6 +40,8 @@ class PlatformHistoryRetentionTest extends TestCase
 
     public function test_api_cleanup_keeps_recent_requests_errors_and_unresolved_export_inputs(): void
     {
+        $this->freezeSecond();
+        config(['retention.api_requests_days' => 3, 'retention.api_errors_days' => 10]);
         DB::table('yclients_records')->insert([
             ['id' => 1, 'record_id' => 55, 'status' => 'failed'],
             ['id' => 2, 'record_id' => 66, 'status' => '1'],
@@ -48,19 +50,22 @@ class PlatformHistoryRetentionTest extends TestCase
         DB::table('yclients_record_events')->insert(['record_id' => 2, 'status' => '0']);
         $old = $this->request(10, 200);
         $fresh = $this->request(1, 200);
-        $error = $this->request(10, 500);
-        $expiredError = $this->request(45, 500);
-        $failed = $this->request(45, 201, ['resource_id' => '55']);
-        $nested = $this->request(45, 201, ['data' => ['id' => 55]]);
-        $blocked = $this->request(45, 201, ['resource_id' => 66]);
-        $completed = $this->request(10, 201, ['resource_id' => 77]);
+        $error = $this->request(9, 500);
+        $expiredError = $this->request(11, 500);
+        $failed = $this->request(9, 201, ['resource_id' => '55']);
+        $nested = $this->request(9, 201, ['data' => ['id' => 55]]);
+        $blocked = $this->request(10, 201, ['resource_id' => 66]);
+        $completed = $this->request(9, 201, ['resource_id' => 77]);
+        $expiredFailed = $this->request(11, 201, ['resource_id' => '55']);
+        $expiredNested = $this->request(11, 201, ['data' => ['id' => 55]]);
+        $expiredBlocked = $this->request(11, 201, ['resource_id' => 66]);
         $retention = app(ApiRequestRetention::class);
-        $this->assertSame(3, $retention->count(3));
-        $this->artisan('app:api-requests-prune', ['--days' => 3, '--dry-run' => true])->assertSuccessful();
-        $this->assertSame(8, DB::table('api_requests')->count());
-        $this->artisan('app:api-requests-prune', ['--days' => 3, '--chunk' => 1])->assertSuccessful();
+        $this->assertSame(6, $retention->count(3, 10));
+        $this->artisan('app:api-requests-prune', ['--dry-run' => true])->assertSuccessful();
+        $this->assertSame(11, DB::table('api_requests')->count());
+        $this->artisan('app:api-requests-prune', ['--chunk' => 1])->assertSuccessful();
         $this->assertSame([$fresh, $error, $failed, $nested, $blocked], DB::table('api_requests')->orderBy('id')->pluck('id')->all());
-        foreach ([$old, $expiredError, $completed] as $id) {
+        foreach ([$old, $expiredError, $completed, $expiredFailed, $expiredNested, $expiredBlocked] as $id) {
             $this->assertDatabaseMissing('api_requests', ['id' => $id]);
         }
     }
@@ -83,23 +88,28 @@ class PlatformHistoryRetentionTest extends TestCase
 
     public function test_recent_record_webhooks_are_kept_while_unsupported_noise_expires(): void
     {
-        $record = DB::table('api_requests')->insertGetId(['created_at' => now()->subDays(10), 'status_code' => 201,
+        $record = DB::table('api_requests')->insertGetId(['created_at' => now()->subDays(9), 'status_code' => 201,
+            'route_name' => 'yclients.hook', 'payload' => json_encode(['resource' => 'record', 'resource_id' => 888])]);
+        $expired = DB::table('api_requests')->insertGetId(['created_at' => now()->subDays(11), 'status_code' => 201,
             'route_name' => 'yclients.hook', 'payload' => json_encode(['resource' => 'record', 'resource_id' => 888])]);
         $noise = DB::table('api_requests')->insertGetId(['created_at' => now()->subDays(10), 'status_code' => 422,
             'route_name' => 'yclients.hook', 'payload' => json_encode(['resource' => 'goods_operations_consumable'])]);
-        $this->assertSame(1, app(ApiRequestRetention::class)->prune(3));
+        $this->assertSame(2, app(ApiRequestRetention::class)->prune(3, 10));
         $this->assertDatabaseHas('api_requests', ['id' => $record]);
+        $this->assertDatabaseMissing('api_requests', ['id' => $expired]);
         $this->assertDatabaseMissing('api_requests', ['id' => $noise]);
     }
 
-    public function test_pending_field_replay_keeps_its_old_input_until_resolved(): void
+    public function test_pending_field_replay_keeps_its_input_until_resolved_or_the_maximum_age_is_reached(): void
     {
         DB::table('yclients_records')->insert(['record_id' => 99, 'status' => '1', 'lead_fields_replay_status' => 'pending']);
-        $request = $this->request(45, 201, ['resource_id' => '99']);
-        $this->assertSame(0, app(ApiRequestRetention::class)->prune(3));
+        $request = $this->request(9, 201, ['resource_id' => '99']);
+        $expired = $this->request(11, 201, ['resource_id' => '99']);
+        $this->assertSame(1, app(ApiRequestRetention::class)->prune(3, 10));
         $this->assertDatabaseHas('api_requests', ['id' => $request]);
+        $this->assertDatabaseMissing('api_requests', ['id' => $expired]);
         DB::table('yclients_records')->update(['lead_fields_replay_status' => 'success']);
-        $this->assertSame(1, app(ApiRequestRetention::class)->prune(3));
+        $this->assertSame(1, app(ApiRequestRetention::class)->prune(3, 10));
     }
 
     private function request(int $days, int $status, array $payload = []): int
