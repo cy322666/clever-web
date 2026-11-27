@@ -60,6 +60,8 @@ class VetmanagerWebhookManager
                 || rtrim((string) ($webhook['value'] ?? ''), '/') === rtrim($url, '/');
         });
 
+        $timezone = blank($setting->webhook_id) ? $client->clinicTimezone() : null;
+
         $payload = [
             'title' => 'CleverCRM: посещения в amoCRM',
             'value' => $url,
@@ -76,6 +78,7 @@ class VetmanagerWebhookManager
         $setting->forceFill([
             'webhook_id' => (string) $webhook['id'],
             'webhook_synced_at' => now(),
+            'timezone' => $timezone ?? $setting->timezone,
         ])->save();
 
         return $webhook;

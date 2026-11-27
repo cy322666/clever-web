@@ -3,6 +3,9 @@
 namespace App\Services\Vetmanager;
 
 use App\Models\Integrations\Vetmanager\Setting;
+use DateTimeZone;
+use Exception;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -50,6 +53,28 @@ class VetmanagerApiClient
     public function ping(): void
     {
         $this->request('GET', '/rest/api/Admission', query: ['limit' => 1, 'offset' => 0]);
+    }
+
+    public function clinicTimezone(): ?string
+    {
+        try {
+            $response = $this->request('GET', '/rest/api/clinics');
+        } catch (ConnectionException|RuntimeException) {
+            return null;
+        }
+
+        $clinic = $this->modelItems($response, ['clinics'])[0] ?? [];
+        $timezone = $clinic['time_zone'] ?? null;
+
+        if (! is_string($timezone) || blank($timezone)) {
+            return null;
+        }
+
+        try {
+            return (new DateTimeZone(trim($timezone)))->getName();
+        } catch (Exception) {
+            return null;
+        }
     }
 
     /**

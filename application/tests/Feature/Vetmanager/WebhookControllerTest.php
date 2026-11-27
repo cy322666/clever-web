@@ -114,6 +114,10 @@ class WebhookControllerTest extends TestCase
         $setting = $this->setting($user, $this->account(active: true));
         Http::preventStrayRequests();
         Http::fake([
+            'https://clinic.vetmanager.ru/rest/api/clinics' => Http::response([
+                'success' => true,
+                'data' => ['clinics' => [['time_zone' => 'Asia/Yekaterinburg']]],
+            ]),
             'https://clinic.vetmanager.ru/rest/api/webHook' => Http::sequence()
                 ->push(['success' => true, 'data' => ['webHook' => []]])
                 ->push(['success' => true, 'data' => ['webHook' => [['id' => '230']]]])
@@ -142,6 +146,7 @@ class WebhookControllerTest extends TestCase
         $action->call();
 
         $this->assertSame('230', $setting->refresh()->webhook_id);
+        $this->assertSame('Asia/Yekaterinburg', $setting->timezone);
         $this->assertSame('Проверить Ветменеджер', $action->getLabel());
         Http::assertSent(function (ClientRequest $request) use ($setting): bool {
             if ($request->method() !== 'POST') {
@@ -160,7 +165,7 @@ class WebhookControllerTest extends TestCase
         $action->call();
 
         Notification::assertNotified('Вебхук Ветменеджера активен');
-        $this->assertSame(['GET', 'POST', 'GET'], Http::recorded()->map(
+        $this->assertSame(['GET', 'GET', 'POST', 'GET'], Http::recorded()->map(
             fn (array $exchange): string => $exchange[0]->method(),
         )->all());
     }

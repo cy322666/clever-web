@@ -61,25 +61,6 @@ class VetmanagerForm
                                     ->dehydrated(fn (?string $state): bool => filled($state))
                                     ->required(fn (?Setting $record): bool => blank($record?->api_key))
                                     ->columnSpanFull(),
-
-                                Select::make('timezone')
-                                    ->label('Часовой пояс')
-                                    ->options([
-                                        'Europe/Kaliningrad' => 'Калининград',
-                                        'Europe/Moscow' => 'Москва',
-                                        'Asia/Yekaterinburg' => 'Екатеринбург',
-                                        'Asia/Novosibirsk' => 'Новосибирск',
-                                        'Asia/Vladivostok' => 'Владивосток',
-                                    ])
-                                    ->default('Europe/Moscow')
-                                    ->searchable()
-                                    ->required(),
-
-                                TextInput::make('webhook_url')
-                                    ->label('Webhook URL')
-                                    ->copyable()
-                                    ->disabled()
-                                    ->columnSpanFull(),
                             ]),
 
                         Fieldset::make('Настройки')

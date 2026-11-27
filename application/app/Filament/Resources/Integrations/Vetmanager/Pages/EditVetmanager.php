@@ -64,7 +64,7 @@ class EditVetmanager extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['api_key'] = null;
-        $data['webhook_url'] = $this->record->webhookUrl();
+        unset($data['timezone']);
         $data['fields_contact'] = Setting::fieldMappingRows($data, 'contacts');
         $data['fields_lead'] = Setting::fieldMappingRows($data, 'leads');
 
@@ -80,7 +80,6 @@ class EditVetmanager extends EditRecord
         );
 
         unset(
-            $data['webhook_url'],
             $data['vetmanager_connection'],
             $data['visits_count'],
             $data['entities'],
