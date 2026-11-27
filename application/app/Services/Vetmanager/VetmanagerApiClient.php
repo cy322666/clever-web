@@ -58,7 +58,7 @@ class VetmanagerApiClient
     public function webhooks(): array
     {
         try {
-            $response = $this->request('GET', '/rest/api/webHook', query: ['limit' => 100, 'offset' => 0]);
+            $response = $this->request('GET', '/rest/api/webHook');
             $this->webhookModel = 'webHook';
 
             return $this->modelItems($response, ['webHook', 'webhook']);

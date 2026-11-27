@@ -99,6 +99,25 @@ class VetmanagerApiClientTest extends TestCase
             && $request['combo_manual_id'] === 11);
     }
 
+    public function test_lists_modern_webhooks_without_unsupported_query_parameters(): void
+    {
+        Http::fake([
+            'https://clinic.vetmanager.ru/rest/api/webHook' => Http::response([
+                'success' => true,
+                'data' => ['webHook' => []],
+            ]),
+        ]);
+
+        $client = new VetmanagerApiClient(new Setting([
+            'base_url' => 'clinic.vetmanager.ru',
+            'api_key' => 'test-key',
+        ]));
+
+        $this->assertSame([], $client->webhooks());
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+            && $request->url() === 'https://clinic.vetmanager.ru/rest/api/webHook');
+    }
+
     public function test_accepts_empty_success_response_when_updating_webhook(): void
     {
         Http::fake([
