@@ -30,12 +30,21 @@ class VisitSynchronizer
             throw new RuntimeException('Аккаунт amoCRM не подключен.');
         }
 
-        if (! $setting->targetStatusIds()) {
-            throw new RuntimeException('Не выбран этап для сделок amoCRM.');
+        if (! $setting->isReadyToSync()) {
+            throw new RuntimeException('Настройте все этапы amoCRM для событий Ветменеджера.');
         }
 
-        $admission = (new VetmanagerApiClient($setting))->admission((string) $visit->external_id);
         $eventData = data_get($visit->event_payload, 'data', []);
+
+        try {
+            $admission = (new VetmanagerApiClient($setting))->admission((string) $visit->external_id);
+        } catch (RuntimeException $exception) {
+            if ($exception->getCode() !== 404 || ! is_array($eventData) || $eventData === []) {
+                throw $exception;
+            }
+
+            $admission = $eventData;
+        }
 
         if (is_array($eventData)) {
             $admission = array_replace($eventData, $admission);
@@ -49,6 +58,16 @@ class VisitSynchronizer
 
         if ($data->clientId() === '') {
             throw new RuntimeException('В приеме Ветменеджера отсутствует ID клиента.');
+        }
+
+        $targetStatus = $setting->statusIdsFor($data->stageKey((string) $visit->event_name));
+
+        if (! $targetStatus) {
+            throw new RuntimeException('Не настроен этап amoCRM для текущего статуса приема.');
+        }
+
+        if (! in_array($targetStatus['pipeline_id'], $setting->pipelineIds(), true)) {
+            throw new RuntimeException('Этап события находится вне выбранных воронок Ветменеджера.');
         }
 
         $contactId = Cache::lock(
@@ -86,7 +105,7 @@ class VisitSynchronizer
         });
 
         $visit->forceFill(['contact_id' => $contactId])->save();
-        $leadId = $this->resolveLead($visit, $setting, $account, $data, $contactId);
+        $leadId = $this->resolveLead($visit, $setting, $account, $data, $contactId, $targetStatus);
 
         $visit->forceFill([
             'vetmanager_status' => $data->status(),
@@ -280,6 +299,7 @@ class VisitSynchronizer
         Account $account,
         AdmissionData $data,
         int $contactId,
+        array $targetStatus,
     ): int {
         $lead = $visit->lead_id
             ? $this->entityById($account, 'leads', (int) $visit->lead_id, ['with' => 'contacts'])
@@ -290,7 +310,7 @@ class VisitSynchronizer
         }
 
         if (! $lead) {
-            $payload = $this->leadPayload($setting, $data, true);
+            $payload = $this->leadPayload($setting, $data, $targetStatus);
             $payload['_embedded']['contacts'] = [['id' => $contactId]];
             $response = $this->amo->request($account, 'POST', '/api/v4/leads', [$payload]);
             $leadId = $this->embeddedEntityId($response, 'leads');
@@ -301,7 +321,7 @@ class VisitSynchronizer
         }
 
         $leadId = (int) $lead['id'];
-        $payload = $this->leadPayload($setting, $data, false);
+        $payload = $this->leadPayload($setting, $data, $targetStatus);
         $this->amo->request($account, 'PATCH', '/api/v4/leads/'.$leadId, $payload);
 
         $linkedContactIds = collect((array) data_get($lead, '_embedded.contacts', []))
@@ -376,7 +396,7 @@ class VisitSynchronizer
     /**
      * @return array<string, mixed>
      */
-    private function leadPayload(Setting $setting, AdmissionData $data, bool $forCreate): array
+    private function leadPayload(Setting $setting, AdmissionData $data, array $targetStatus): array
     {
         $fields = [];
 
@@ -388,15 +408,11 @@ class VisitSynchronizer
 
         $payload = [
             'name' => $data->leadName(),
+            'pipeline_id' => $targetStatus['pipeline_id'],
+            'status_id' => $targetStatus['status_id'],
         ];
 
-        if ($forCreate) {
-            $target = $setting->targetStatusIds();
-            $payload['pipeline_id'] = $target['pipeline_id'];
-            $payload['status_id'] = $target['status_id'];
-        }
-
-        if ($forCreate && $setting->responsible_user_id) {
+        if ($setting->responsible_user_id) {
             $payload['responsible_user_id'] = (int) $setting->responsible_user_id;
         }
 

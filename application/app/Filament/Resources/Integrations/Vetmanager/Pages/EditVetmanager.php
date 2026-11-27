@@ -110,7 +110,7 @@ class EditVetmanager extends EditRecord
 
             Notification::make()
                 ->title('Вебхук Ветменеджера подключен')
-                ->body('Будут обрабатываться прием и изменение его суммы.')
+                ->body('Будут обрабатываться создание, изменение, статусы и удаление приемов.')
                 ->success()
                 ->send();
         } catch (Throwable $exception) {

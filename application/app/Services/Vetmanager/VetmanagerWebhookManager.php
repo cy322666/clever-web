@@ -22,8 +22,8 @@ class VetmanagerWebhookManager
             throw new RuntimeException('Сначала подключите amoCRM.');
         }
 
-        if (! $setting->targetStatusIds()) {
-            throw new RuntimeException('Выберите этап для сделок amoCRM.');
+        if (! $setting->isReadyToSync()) {
+            throw new RuntimeException('Настройте все этапы amoCRM для событий Ветменеджера.');
         }
 
         $url = $setting->webhookUrl();

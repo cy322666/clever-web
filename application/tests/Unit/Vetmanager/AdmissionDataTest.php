@@ -60,4 +60,13 @@ class AdmissionDataTest extends TestCase
         $this->assertSame([], $data->phones());
         $this->assertNull($data->email());
     }
+
+    public function test_maps_vetmanager_state_to_sqns_style_stages(): void
+    {
+        $this->assertSame('wait', (new AdmissionData(['status' => 'save'], 'Europe/Moscow'))->stageKey('admissionAdd'));
+        $this->assertSame('confirm', (new AdmissionData(['status' => 'save'], 'Europe/Moscow'))->stageKey('admissionConfirmed'));
+        $this->assertSame('came', (new AdmissionData(['status' => 'in_treatment'], 'Europe/Moscow'))->stageKey('admissionChanged'));
+        $this->assertSame('cancel', (new AdmissionData(['confirmation' => 'cancelled'], 'Europe/Moscow'))->stageKey('admissionChanged'));
+        $this->assertSame('delete', (new AdmissionData(['status' => 'deleted'], 'Europe/Moscow'))->stageKey('admissionDelete'));
+    }
 }

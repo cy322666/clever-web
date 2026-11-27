@@ -81,4 +81,30 @@ class SettingFieldMappingTest extends TestCase
             'contact_external_id_field_id' => null,
         ], Setting::fieldMappingAttributes([], 'contacts'));
     }
+
+    public function test_resolves_all_sqns_style_statuses_and_pipeline_scope(): void
+    {
+        $setting = (new Setting)->forceFill([
+            'pipelines' => [100, '200', 0],
+            'status_id_wait' => '100.10',
+            'status_id_confirm' => '100.20',
+            'status_id_came' => '200.30',
+            'status_id_cancel' => '200.40',
+            'status_id_delete' => '200.50',
+        ]);
+
+        $this->assertTrue($setting->isReadyToSync());
+        $this->assertSame(['pipeline_id' => 100, 'status_id' => 10], $setting->statusIdsFor('wait'));
+        $this->assertSame(['pipeline_id' => 200, 'status_id' => 30], $setting->statusIdsFor('came'));
+        $this->assertSame([100, 200], $setting->pipelineIds());
+    }
+
+    public function test_legacy_target_status_remains_a_safe_fallback(): void
+    {
+        $setting = (new Setting)->forceFill(['target_status' => '300.400']);
+
+        $this->assertTrue($setting->isReadyToSync());
+        $this->assertSame(['pipeline_id' => 300, 'status_id' => 400], $setting->statusIdsFor('delete'));
+        $this->assertSame([300], $setting->pipelineIds());
+    }
 }

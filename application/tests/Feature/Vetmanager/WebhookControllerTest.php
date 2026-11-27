@@ -134,7 +134,7 @@ class WebhookControllerTest extends TestCase
             return $request->hasHeader('Content-Type', 'text/plain')
                 && str_ends_with((string) ($payload['value'] ?? ''), '/api/vetmanager/hook/user-uuid')
                 && ($payload['dop_param1'] ?? null) === $setting->webhook_secret
-                && ($payload['dop_param3'] ?? null) === 'admissionAccepted,admissionInvoicesSumChanged'
+                && ($payload['dop_param3'] ?? null) === implode(',', Setting::WEBHOOK_EVENTS)
                 && ($payload['is_active'] ?? null) === 1;
         });
     }
@@ -186,7 +186,13 @@ class WebhookControllerTest extends TestCase
             'base_url' => 'clinic.vetmanager.ru',
             'api_key' => 'test-key',
             'timezone' => 'Europe/Moscow',
+            'pipelines' => [100],
             'target_status' => '100.200',
+            'status_id_wait' => '100.200',
+            'status_id_confirm' => '100.250',
+            'status_id_came' => '100.300',
+            'status_id_cancel' => '100.400',
+            'status_id_delete' => '100.500',
             'user_id' => $user->id,
             'account_id' => $account->id,
         ]);

@@ -57,14 +57,20 @@ class VisitSynchronizerTest extends TestCase
             'base_url' => 'clinic.vetmanager.ru',
             'api_key' => 'test-key',
             'timezone' => 'Europe/Moscow',
+            'pipelines' => [100],
             'target_status' => '100.200',
+            'status_id_wait' => '100.200',
+            'status_id_confirm' => '100.250',
+            'status_id_came' => '100.300',
+            'status_id_cancel' => '100.400',
+            'status_id_delete' => '100.500',
             'sync_price' => true,
             'user_id' => 1,
             'account_id' => $account->id,
         ]);
         $visit = Visit::query()->create([
             'external_id' => '123',
-            'event_name' => 'admissionAccepted',
+            'event_name' => 'admissionAdd',
             'event_payload' => [
                 'data' => [
                     'id' => '123',
@@ -78,13 +84,33 @@ class VisitSynchronizerTest extends TestCase
         ]);
 
         Http::fake([
-            'https://clinic.vetmanager.ru/rest/api/Admission/123' => Http::response([
+            'https://clinic.vetmanager.ru/rest/api/Admission/123' => Http::sequence()->push([
                 'success' => true,
                 'data' => [
                     'admission' => [
                         'id' => '123',
                         'client_id' => '45',
                         'patient_id' => '67',
+                        'status' => 'save',
+                        'admission_date' => '2026-09-07 14:30:00',
+                        'client' => [
+                            'last_name' => 'Иванов',
+                            'first_name' => 'Иван',
+                            'phone_prefix' => '7',
+                            'cell_phone' => '8 900 123-45-67',
+                            'email' => 'owner@example.test',
+                        ],
+                        'pet' => ['alias' => 'Барсик'],
+                    ],
+                ],
+            ])->push([
+                'success' => true,
+                'data' => [
+                    'admission' => [
+                        'id' => '123',
+                        'client_id' => '45',
+                        'patient_id' => '67',
+                        'status' => 'accepted',
                         'admission_date' => '2026-09-07 14:30:00',
                         'client' => [
                             'last_name' => 'Иванов',
@@ -162,6 +188,7 @@ class VisitSynchronizerTest extends TestCase
 
         $synchronizer = new VisitSynchronizer($gateway);
         $synchronizer->synchronize($visit);
+        $visit->forceFill(['event_name' => 'admissionAccepted'])->save();
         $synchronizer->synchronize($visit->refresh());
 
         $createContactCalls = collect($gateway->calls)
@@ -184,8 +211,8 @@ class VisitSynchronizerTest extends TestCase
         $updateLeadCall = collect($gateway->calls)
             ->first(fn (array $call): bool => $call['method'] === 'PATCH' && $call['path'] === '/api/v4/leads/601');
         $this->assertIsArray($updateLeadCall);
-        $this->assertArrayNotHasKey('pipeline_id', $updateLeadCall['payload']);
-        $this->assertArrayNotHasKey('status_id', $updateLeadCall['payload']);
+        $this->assertSame(100, $updateLeadCall['payload']['pipeline_id']);
+        $this->assertSame(300, $updateLeadCall['payload']['status_id']);
 
         foreach ($gateway->calls as $call) {
             $this->assertMatchesRegularExpression('#^/api/v4/(contacts|leads)(?:/|$)#', $call['path']);

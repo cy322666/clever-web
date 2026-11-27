@@ -82,18 +82,49 @@ class VetmanagerForm
                                     ->columnSpanFull(),
                             ]),
 
-                        Fieldset::make('Создание сделки')
+                        Fieldset::make('Настройки')
                             ->schema([
-                                Select::make('target_status')
-                                    ->label('Этап сделки')
+                                Select::make('pipelines')
+                                    ->label('Воронки Ветменеджера')
+                                    ->options(fn ($record = null): array => self::pipelineOptions($record))
+                                    ->multiple()
+                                    ->searchable()
+                                    ->helperText('Поиск и обновление сделок выполняются только в этих воронках.'),
+
+                                Select::make('responsible_user_id')
+                                    ->label('Ответственный по умолчанию')
+                                    ->options(fn ($record = null): array => self::staffOptions($record))
+                                    ->searchable(),
+
+                                Select::make('status_id_wait')
+                                    ->label('Клиент записан')
                                     ->options(fn ($record = null): array => self::statusOptions($record))
                                     ->searchable()
                                     ->required(),
 
-                                Select::make('responsible_user_id')
-                                    ->label('Ответственный')
-                                    ->options(fn ($record = null): array => self::staffOptions($record))
-                                    ->searchable(),
+                                Select::make('status_id_confirm')
+                                    ->label('Клиент подтвердил')
+                                    ->options(fn ($record = null): array => self::statusOptions($record))
+                                    ->searchable()
+                                    ->required(),
+
+                                Select::make('status_id_came')
+                                    ->label('Клиент пришел')
+                                    ->options(fn ($record = null): array => self::statusOptions($record))
+                                    ->searchable()
+                                    ->required(),
+
+                                Select::make('status_id_cancel')
+                                    ->label('Клиент отменил')
+                                    ->options(fn ($record = null): array => self::statusOptions($record))
+                                    ->searchable()
+                                    ->required(),
+
+                                Select::make('status_id_delete')
+                                    ->label('Запись удалена')
+                                    ->options(fn ($record = null): array => self::statusOptions($record))
+                                    ->searchable()
+                                    ->required(),
 
                                 Toggle::make('sync_price')
                                     ->label('Записывать сумму приема в бюджет сделки')
@@ -218,6 +249,21 @@ class VetmanagerForm
         }
 
         return $options;
+    }
+
+    private static function pipelineOptions(mixed $record): array
+    {
+        $userId = self::ownerUserId($record);
+
+        return $userId ? Status::query()
+            ->where('user_id', $userId)
+            ->where('active', true)
+            ->where('is_archive', false)
+            ->select('pipeline_id', 'pipeline_name')
+            ->groupBy('pipeline_id', 'pipeline_name')
+            ->orderBy('pipeline_name')
+            ->pluck('pipeline_name', 'pipeline_id')
+            ->toArray() : [];
     }
 
     private static function staffOptions(mixed $record): array

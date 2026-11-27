@@ -46,6 +46,40 @@ class AdmissionData
         return trim((string) ($this->admission['status'] ?? ''));
     }
 
+    public function confirmation(): string
+    {
+        return mb_strtolower(trim((string) ($this->admission['confirmation'] ?? '')));
+    }
+
+    public function stageKey(string $eventName = ''): string
+    {
+        $status = mb_strtolower($this->status());
+
+        if ($eventName === 'admissionDelete' || $status === 'deleted') {
+            return 'delete';
+        }
+
+        if ($this->confirmation() === 'cancelled') {
+            return 'cancel';
+        }
+
+        if (
+            $this->confirmation() === 'confirmed'
+            || in_array($eventName, ['admissionConfirm', 'admissionConfirmed'], true)
+        ) {
+            return 'confirm';
+        }
+
+        if (
+            in_array($status, ['directed', 'in_treatment', 'accepted'], true)
+            || in_array($eventName, ['admissionDirected', 'admissionInTreatment', 'admissionAccepted'], true)
+        ) {
+            return 'came';
+        }
+
+        return 'wait';
+    }
+
     public function description(): string
     {
         return trim((string) ($this->admission['description'] ?? ''));

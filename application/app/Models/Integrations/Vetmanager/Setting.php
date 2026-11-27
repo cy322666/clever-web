@@ -14,6 +14,14 @@ class Setting extends Model
 {
     use SettingRelation;
 
+    private const STATUS_MAPPING_FIELDS = [
+        'wait' => 'status_id_wait',
+        'confirm' => 'status_id_confirm',
+        'came' => 'status_id_came',
+        'cancel' => 'status_id_cancel',
+        'delete' => 'status_id_delete',
+    ];
+
     private const FIELD_MAPPING_DEFINITIONS = [
         'contacts' => [
             'client_id' => [
@@ -52,7 +60,17 @@ class Setting extends Model
     ];
 
     public const WEBHOOK_EVENTS = [
+        'admissionAdd',
+        'admissionEdit',
+        'admissionChanged',
+        'admissionDelete',
+        'admissionRestored',
+        'admissionDirected',
+        'admissionInTreatment',
         'admissionAccepted',
+        'admissionDelayed',
+        'admissionConfirm',
+        'admissionConfirmed',
         'admissionInvoicesSumChanged',
     ];
 
@@ -74,7 +92,13 @@ class Setting extends Model
         'webhook_secret',
         'webhook_id',
         'webhook_synced_at',
+        'pipelines',
         'target_status',
+        'status_id_cancel',
+        'status_id_wait',
+        'status_id_came',
+        'status_id_confirm',
+        'status_id_delete',
         'responsible_user_id',
         'sync_price',
         'contact_external_id_field_id',
@@ -97,6 +121,7 @@ class Setting extends Model
         'api_key' => 'encrypted',
         'webhook_secret' => 'encrypted',
         'sync_price' => 'boolean',
+        'pipelines' => 'array',
         'webhook_synced_at' => 'datetime',
     ];
 
@@ -138,15 +163,67 @@ class Setting extends Model
      */
     public function targetStatusIds(): ?array
     {
-        if (! is_string($this->target_status) || ! str_contains($this->target_status, '.')) {
+        return $this->parseStatus($this->target_status);
+    }
+
+    /**
+     * @return array{pipeline_id: int, status_id: int}|null
+     */
+    public function statusIdsFor(string $stage): ?array
+    {
+        $field = self::STATUS_MAPPING_FIELDS[$stage] ?? null;
+
+        if (! $field) {
             return null;
         }
 
-        [$pipelineId, $statusId] = array_map('intval', explode('.', $this->target_status, 2));
+        return $this->parseStatus($this->getAttribute($field)) ?? $this->targetStatusIds();
+    }
 
-        if ($pipelineId <= 0 || $statusId <= 0) {
+    public function isReadyToSync(): bool
+    {
+        foreach (array_keys(self::STATUS_MAPPING_FIELDS) as $stage) {
+            if (! $this->statusIdsFor($stage)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public function pipelineIds(): array
+    {
+        $configured = array_values(array_unique(array_filter(array_map(
+            'intval',
+            is_array($this->pipelines) ? $this->pipelines : [],
+        ))));
+
+        if ($configured !== []) {
+            return $configured;
+        }
+
+        return collect(array_keys(self::STATUS_MAPPING_FIELDS))
+            ->map(fn (string $stage): ?int => $this->statusIdsFor($stage)['pipeline_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{pipeline_id: int, status_id: int}|null
+     */
+    private function parseStatus(mixed $mapping): ?array
+    {
+        if (! is_string($mapping) || ! preg_match('/^([1-9]\d*)\.([1-9]\d*)$/', $mapping, $matches)) {
             return null;
         }
+
+        $pipelineId = (int) $matches[1];
+        $statusId = (int) $matches[2];
 
         return [
             'pipeline_id' => $pipelineId,

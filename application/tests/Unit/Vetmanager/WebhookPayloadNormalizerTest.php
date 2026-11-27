@@ -47,6 +47,10 @@ class WebhookPayloadNormalizerTest extends TestCase
         $normalizer = new WebhookPayloadNormalizer;
 
         $this->assertTrue($normalizer->isSupported('admissionAccepted'));
+        $this->assertTrue($normalizer->isSupported('admissionAdd'));
+        $this->assertTrue($normalizer->isSupported('admissionChanged'));
+        $this->assertTrue($normalizer->isSupported('admissionDelete'));
+        $this->assertTrue($normalizer->isSupported('admissionConfirmed'));
         $this->assertTrue($normalizer->isSupported('admissionInvoicesSumChanged'));
         $this->assertFalse($normalizer->isSupported('invoiceAdded'));
     }

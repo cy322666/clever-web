@@ -18,7 +18,13 @@ return new class extends Migration
             $table->text('webhook_secret');
             $table->string('webhook_id')->nullable();
             $table->timestamp('webhook_synced_at')->nullable();
+            $table->json('pipelines')->nullable();
             $table->string('target_status')->nullable();
+            $table->string('status_id_cancel', 20)->nullable();
+            $table->string('status_id_wait', 20)->nullable();
+            $table->string('status_id_came', 20)->nullable();
+            $table->string('status_id_confirm', 20)->nullable();
+            $table->string('status_id_delete', 20)->nullable();
             $table->unsignedBigInteger('responsible_user_id')->nullable();
             $table->boolean('sync_price')->default(true);
             $table->unsignedBigInteger('contact_external_id_field_id')->nullable();
