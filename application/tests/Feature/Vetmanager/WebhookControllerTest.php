@@ -2,14 +2,16 @@
 
 namespace Tests\Feature\Vetmanager;
 
+use App\Filament\Resources\Integrations\Vetmanager\Pages\EditVetmanager;
 use App\Http\Controllers\Api\VetmanagerController;
 use App\Jobs\Vetmanager\SyncVisit;
 use App\Models\Core\Account;
 use App\Models\Integrations\Vetmanager\Setting;
 use App\Models\Integrations\Vetmanager\Visit;
 use App\Models\User;
-use App\Services\Vetmanager\VetmanagerWebhookManager;
 use App\Services\Vetmanager\WebhookPayloadNormalizer;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\JsonResponse;
@@ -104,26 +106,43 @@ class WebhookControllerTest extends TestCase
         Bus::assertNothingDispatched();
     }
 
-    public function test_installs_the_expected_vetmanager_webhook(): void
+    public function test_connection_action_installs_and_then_checks_the_vetmanager_webhook(): void
     {
         URL::forceRootUrl('https://app.clevercrm.pro');
         URL::forceScheme('https');
         $user = $this->user();
         $setting = $this->setting($user, $this->account(active: true));
-        Http::fake(function (ClientRequest $request) {
-            if ($request->method() === 'GET') {
-                return Http::response(['success' => true, 'data' => ['webHook' => []]]);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://clinic.vetmanager.ru/rest/api/webHook' => Http::sequence()
+                ->push(['success' => true, 'data' => ['webHook' => []]])
+                ->push(['success' => true, 'data' => ['webHook' => [['id' => '230']]]])
+                ->push(['success' => true, 'data' => ['webHook' => [[
+                    'id' => '230',
+                    'value' => $setting->webhookUrl(),
+                    'is_active' => 1,
+                ]]]]),
+        ]);
+
+        $page = new class extends EditVetmanager
+        {
+            public function vetmanagerConnectionAction(): Action
+            {
+                return parent::vetmanagerConnectionAction();
             }
 
-            return Http::response([
-                'success' => true,
-                'data' => ['webHook' => [['id' => '230']]],
-            ]);
-        });
+            public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void {}
 
-        app(VetmanagerWebhookManager::class)->synchronize($setting);
+            public function refreshFormData(array $statePaths): void {}
+        };
+        $page->record = $setting;
+        $action = $page->vetmanagerConnectionAction();
+
+        $this->assertSame('Подключить Ветменеджер', $action->getLabel());
+        $action->call();
 
         $this->assertSame('230', $setting->refresh()->webhook_id);
+        $this->assertSame('Проверить Ветменеджер', $action->getLabel());
         Http::assertSent(function (ClientRequest $request) use ($setting): bool {
             if ($request->method() !== 'POST') {
                 return false;
@@ -137,6 +156,13 @@ class WebhookControllerTest extends TestCase
                 && ($payload['dop_param3'] ?? null) === implode(',', Setting::WEBHOOK_EVENTS)
                 && ($payload['is_active'] ?? null) === 1;
         });
+
+        $action->call();
+
+        Notification::assertNotified('Вебхук Ветменеджера активен');
+        $this->assertSame(['GET', 'POST', 'GET'], Http::recorded()->map(
+            fn (array $exchange): string => $exchange[0]->method(),
+        )->all());
     }
 
     private function send(User $user, Setting $setting, string $event, string $amount): JsonResponse

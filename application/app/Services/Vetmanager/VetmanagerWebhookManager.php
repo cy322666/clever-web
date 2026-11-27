@@ -7,6 +7,23 @@ use RuntimeException;
 
 class VetmanagerWebhookManager
 {
+    public function verify(Setting $setting): void
+    {
+        $url = rtrim($setting->webhookUrl(), '/');
+        $webhooks = (new VetmanagerApiClient($setting))->webhooks();
+        $webhook = collect($webhooks)->first(
+            fn (array $item): bool => (string) ($item['id'] ?? '') === (string) $setting->webhook_id,
+        );
+
+        if ($url === '' || ! $webhook || rtrim((string) ($webhook['value'] ?? ''), '/') !== $url) {
+            throw new RuntimeException('В Ветменеджере не найден вебхук этой интеграции.');
+        }
+
+        if ((int) ($webhook['is_active'] ?? 0) !== 1) {
+            throw new RuntimeException('Вебхук отключен в Ветменеджере.');
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

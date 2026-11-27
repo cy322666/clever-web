@@ -30,21 +30,35 @@ class EditVetmanager extends EditRecord
                 fn () => $this->amocrmUpdate(),
             ),
 
-            Action::make('test_vetmanager')
-                ->label('Проверить доступ')
-                ->icon('heroicon-o-signal')
-                ->action(fn () => $this->testConnection()),
-
-            Action::make('install_webhook')
-                ->label('Подключить Ветменеджер')
-                ->icon('heroicon-o-link')
-                ->action(fn () => $this->installWebhook()),
+            $this->vetmanagerConnectionAction(),
 
             Action::make('history')
                 ->label('История')
                 ->icon('heroicon-o-list-bullet')
                 ->url(VetmanagerResource::getUrl('visits')),
         ];
+    }
+
+    protected function vetmanagerConnectionAction(): Action
+    {
+        return Action::make('install_webhook')
+            ->label(fn (): string => filled($this->record->webhook_id)
+                ? 'Проверить Ветменеджер'
+                : 'Подключить Ветменеджер')
+            ->icon(fn (): string => filled($this->record->webhook_id)
+                ? 'heroicon-o-signal'
+                : 'heroicon-o-link')
+            ->action(function (): void {
+                $this->record->refresh();
+
+                if (filled($this->record->webhook_id)) {
+                    $this->checkConnection();
+
+                    return;
+                }
+
+                $this->installWebhook();
+            });
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
@@ -84,19 +98,17 @@ class EditVetmanager extends EditRecord
         return $data;
     }
 
-    public function testConnection(): void
+    private function checkConnection(): void
     {
         try {
-            $this->save(false, false);
-            $this->record->refresh();
-            (new VetmanagerApiClient($this->record))->ping();
+            app(VetmanagerWebhookManager::class)->verify($this->record);
 
             Notification::make()
-                ->title('Доступ к Ветменеджеру подтвержден')
+                ->title('Вебхук Ветменеджера активен')
                 ->success()
                 ->send();
         } catch (Throwable $exception) {
-            $this->failureNotification('Не удалось подключиться к Ветменеджеру', $exception);
+            $this->failureNotification('Не удалось проверить Ветменеджер', $exception);
         }
     }
 
