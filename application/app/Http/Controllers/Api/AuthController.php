@@ -113,9 +113,12 @@ class AuthController extends Controller
         }
 
         try {
-            $platformUserId = $widget === 'finder'
-                ? app(\App\Services\Finder\InstallationContext::class)->userId((string) $request->input('state', ''))
-                : null;
+            $state = (string) $request->input('state', '');
+            $platformUserId = match ($widget) {
+                'finder' => app(\App\Services\Finder\InstallationContext::class)->userId($state),
+                'workflows' => app(\App\Services\Workflows\WorkflowAmoCrmInstallationContext::class)->consume($state),
+                default => null,
+            };
         } catch (\Illuminate\Validation\ValidationException $exception) {
             return response()->json(['ok' => false, 'message' => $exception->getMessage()], 422);
         }
@@ -221,7 +224,7 @@ class AuthController extends Controller
     private function logWidgetLifecycleCallback(string $callback, string $event, Request $request): void
     {
         $payload = $request->all();
-        if ($callback === 'finder' && isset($payload['state'])) {
+        if (in_array($callback, ['finder', 'flow'], true) && isset($payload['state'])) {
             $payload['state'] = '[received]';
         }
         $authorizationCode = trim((string) data_get($payload, 'code', ''));

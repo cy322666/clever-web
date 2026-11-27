@@ -81,6 +81,8 @@ class WorkflowCredentialsTest extends TestCase
         Livewire::test(WorkflowConnections::class)
             ->assertStatus(200)
             ->assertSee('Подключений пока нет')
+            ->assertSee('Добавить подключение')
+            ->assertDontSee('wire:model.live="workflowCredentialProvider"', false)
             ->assertSet('workflowCredentialProvider', 'telegram')
             ->call('beginCreateWorkflowCredential')
             ->assertSee('Токен бота')

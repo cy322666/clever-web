@@ -10,6 +10,7 @@ use App\Services\Workflows\WorkflowAmoCrmWebhookService;
 use App\Workflows\Triggers\AmoCrmButtonTrigger;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Leek\FilamentWorkflows\Enums\TriggerType;
@@ -22,6 +23,10 @@ class WorkflowWebhookSetupTest extends TestCase
     {
         parent::setUp();
         WorkflowListDatabase::prepare();
+        Schema::table('accounts', function (Blueprint $table): void {
+            $table->string('client_secret')->nullable();
+            $table->string('redirect_uri')->nullable();
+        });
         \Illuminate\Support\Facades\Http::preventStrayRequests();
         // Activation requires the owner's connection; do not bypass that production guard.
         (new Account)->forceFill(['user_id'=>1, 'widget'=>'workflows', 'client_id'=>'workflow-test-client', 'active'=>true, 'subdomain'=>'test', 'refresh_token'=>'test-only'])->saveQuietly();
@@ -163,10 +168,6 @@ class WorkflowWebhookSetupTest extends TestCase
 
     public function test_current_workflow_oauth_secret_and_redirect_are_applied_before_api_calls(): void
     {
-        Schema::table('accounts', function (Blueprint $table): void {
-            $table->string('client_secret')->nullable();
-            $table->string('redirect_uri')->nullable();
-        });
         config([
             'services.amocrm.widgets.workflows.client_id' => 'workflow-client-id',
             'services.amocrm.widgets.workflows.client_secret' => 'current-secret',
@@ -189,6 +190,39 @@ class WorkflowWebhookSetupTest extends TestCase
         $account->refresh();
         $this->assertSame('current-secret', $account->client_secret);
         $this->assertSame('https://app.example.test/api/amocrm/install/flow', $account->redirect_uri);
+    }
+
+    public function test_explicit_integration_check_queries_both_amocrm_and_hooks_without_active_scenarios(): void
+    {
+        Account::query()->findOrFail(1)->forceFill(['access_token' => 'test-access'])->saveQuietly();
+        Http::fake([
+            'https://test.amocrm.ru/api/v4/account' => Http::response(['id' => 123]),
+            'https://test.amocrm.ru/api/v4/webhooks' => Http::response(['_embedded' => ['webhooks' => []]]),
+        ]);
+
+        $result = app(WorkflowAmoCrmWebhookService::class)->statusForUser(1, verifyConnection: true);
+
+        $this->assertTrue($result['connection_verified']);
+        $this->assertSame('not_required', $result['state']);
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($request) => $request->method() === 'GET' && $request->url() === 'https://test.amocrm.ru/api/v4/account');
+        Http::assertSent(fn ($request) => $request->method() === 'GET' && $request->url() === 'https://test.amocrm.ru/api/v4/webhooks');
+    }
+
+    public function test_hook_failure_does_not_hide_a_valid_amocrm_connection(): void
+    {
+        Account::query()->findOrFail(1)->forceFill(['access_token' => 'test-access'])->saveQuietly();
+        Http::fake([
+            'https://test.amocrm.ru/api/v4/account' => Http::response(['id' => 123]),
+            'https://test.amocrm.ru/api/v4/webhooks' => Http::response(['error' => 'private details'], 403),
+        ]);
+
+        $result = app(WorkflowAmoCrmWebhookService::class)->statusForUser(1, verifyConnection: true);
+
+        $this->assertTrue($result['connection_verified']);
+        $this->assertFalse($result['ok']);
+        $this->assertSame('Не удалось проверить вебхуки amoCRM.', $result['message']);
+        Http::assertSentCount(2);
     }
 
     private function workflow(string $type, bool $active = true): Workflow

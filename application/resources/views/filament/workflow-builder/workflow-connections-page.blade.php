@@ -2,6 +2,7 @@
     @include('filament.workflow-builder.workflow-overview-nav', ['active' => 'connections', 'folder' => $this->workflowGroupFilter, 'launch' => $this->workflowLaunchFilter])
     <section class="workflow-overview__content">
         @include('filament.workflow-builder.workflow-credentials', [
+            'showProviderFilter' => false,
             'providers' => \App\Services\Workflows\WorkflowCredentials::providers(),
             'connections' => \App\Services\Workflows\WorkflowCredentials::options($this->workflowCredentialProvider),
             'workflowCredentialProvider' => $this->workflowCredentialProvider,

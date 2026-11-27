@@ -2,6 +2,8 @@
 
 namespace App\Services\Integrations;
 
+use App\Exceptions\WorkflowAmoCrmAccountAlreadyLinked;
+use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
@@ -107,6 +109,11 @@ class AmoCrmWidgetInstallationService
                 ->get();
 
             $ownerUserIds = $ownerAccounts->pluck('user_id')->filter()->unique()->values();
+            if ($widget === 'workflows' && $platformUserId
+                && $ownerUserIds->contains(fn ($ownerUserId): bool => (int) $ownerUserId !== $platformUserId)) {
+                throw new WorkflowAmoCrmAccountAlreadyLinked('amoCRM is already linked to another Clever account.');
+            }
+
             if ($ownerUserIds->count() > 1) {
                 throw new \App\Exceptions\AmoCrmOwnershipConflict(
                     $domain['subdomain'].'.amocrm.'.$domain['zone'], $ownerUserIds->all(), $ownerAccounts->pluck('id')->all(),
@@ -117,7 +124,7 @@ class AmoCrmWidgetInstallationService
                 $account = $ownerAccounts->firstWhere('widget', $widget);
             }
 
-            $targetUser = $widget === 'finder' && $platformUserId
+            $targetUser = in_array($widget, ['finder', 'workflows'], true) && $platformUserId
                 ? User::query()->lockForUpdate()->findOrFail($platformUserId)
                 : null;
             if ($targetUser && $ownerUserIds->isNotEmpty() && ! $ownerUserIds->contains($targetUser->id)) {
@@ -189,6 +196,7 @@ class AmoCrmWidgetInstallationService
                 'user_id' => $user->id,
                 'widget' => $widget,
             ]);
+            $reconnected = $widget === 'workflows' && $account->exists && ! $account->active;
 
             if (in_array($widget, ['yclients', 'sqns'], true)) {
                 $account->oauth_connector = Account::CONNECTOR_WIDGET;
@@ -221,7 +229,7 @@ class AmoCrmWidgetInstallationService
                 'created_user' => $createdUser,
             ]);
 
-            return compact('user', 'account', 'createdUser');
+            return compact('user', 'account', 'createdUser', 'reconnected');
         });
 
         /** @var User $user */
@@ -271,6 +279,10 @@ class AmoCrmWidgetInstallationService
                 'account_id' => $account->id,
                 'error' => $exception->getMessage(),
             ]);
+        }
+
+        if ($result['reconnected']) {
+            SynchronizeAmoCrmWebhooks::dispatch($user->id);
         }
 
         return [

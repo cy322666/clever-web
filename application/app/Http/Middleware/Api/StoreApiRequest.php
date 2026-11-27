@@ -88,7 +88,8 @@ class StoreApiRequest
             return $sanitized;
         }
 
-        if ($key !== null && $this->isSensitiveKey($key)) {
+        if (($key === 'state' && is_string($value) && str_starts_with($value, 'workflows.'))
+            || ($key !== null && $this->isSensitiveKey($key))) {
             return '***';
         }
 

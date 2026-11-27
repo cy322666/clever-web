@@ -17,11 +17,19 @@ class AmoCrmInstallationController extends Controller
         $headers = ['Cache-Control' => 'no-store', 'Referrer-Policy' => 'no-referrer', 'X-Robots-Tag' => 'noindex, nofollow'];
 
         if ($state === 'completed') {
-            $target = app(IntegrationReturnTarget::class)->forUser((int) ($status['user_id'] ?? 0), $widget);
-            if ($target !== null) {
+            $ownerId = (int) ($status['user_id'] ?? 0);
+            $target = app(IntegrationReturnTarget::class)->forUser($ownerId, $widget);
+            $browserUser = $request->user();
+            if ($target === null) {
+                $state = 'unavailable';
+            } elseif ($widget !== 'workflows' || (int) $browserUser?->getAuthIdentifier() === $ownerId) {
                 return redirect()->to($target)->withHeaders($headers);
+            } elseif ($browserUser === null) {
+                return redirect()->setIntendedUrl(route('amocrm.installation.status', ['token' => $token]))
+                    ->route('filament.app.auth.login')->withHeaders($headers);
+            } else {
+                $state = 'account_conflict';
             }
-            $state = 'unavailable';
         }
 
         if ($state === 'pending' && now()->timestamp - (int) ($status['started_at'] ?? 0) > 120) {
@@ -33,6 +41,6 @@ class AmoCrmInstallationController extends Controller
             'widgetLabel' => config('widget_lifecycle.labels.'.$widget, ''),
             'dashboardUrl' => route('filament.app.pages.dashboard'),
             'refreshUrl' => route('amocrm.installation.status', ['token' => $token]),
-        ])->withHeaders($headers);
+        ], $state === 'account_conflict' ? 409 : 200, $headers);
     }
 }

@@ -5,12 +5,55 @@ namespace App\Services\Integrations;
 use App\Models\Core\Account;
 use App\Models\Integrations\Finder\Setting as FinderSetting;
 use App\Services\Finder\MonitoringState;
+use App\Services\Workflows\WorkflowAmoCrmWebhookService;
+use App\Services\Workflows\WorkflowConnectionAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class AmoCrmDisconnectService
 {
+    /** Null means no active Workflows connection. True means webhook cleanup succeeded. */
+    public function disconnectWorkflowsForUser(int $userId): ?bool
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($userId): ?bool {
+            $account = WorkflowConnectionAccess::accounts()
+                ->where('user_id', $userId)
+                ->where('active', true)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$account) {
+                return null;
+            }
+
+            try {
+                $hooksRemoved = app(WorkflowAmoCrmWebhookService::class)->removeAccount($account)['ok'];
+            } catch (Throwable $exception) {
+                report($exception);
+                $hooksRemoved = false;
+            }
+
+            // Preserve the account, CRM identity and domain, including legacy rows without an amo_account_id.
+            $account->forceFill([
+                'active' => false,
+                'code' => null,
+                'access_token' => null,
+                'refresh_token' => null,
+                'client_secret' => null,
+                'expires_in' => null,
+                'created_at' => null,
+            ])->save();
+
+            return $hooksRemoved;
+        });
+    }
+
     /**
      * Call only after verifying the callback signature. Returns pre-disconnect
      * snapshots for notifications; repeated callbacks do not queue more emails.

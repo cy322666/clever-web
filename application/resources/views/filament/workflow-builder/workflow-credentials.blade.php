@@ -1,21 +1,26 @@
 <div class="workflow-credentials-manager">
-    <div class="workflow-credentials-toolbar">
-        <label class="workflow-credentials-service">
-            <span>Сервис</span>
-            <select wire:model.live="workflowCredentialProvider" @disabled($workflowCredentialMode !== 'list')>
-                @foreach ($providers as $value => $label)
-                    <option value="{{ $value }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </label>
+    @php($showProviderFilter = $showProviderFilter ?? true)
+    @if ($showProviderFilter || $workflowCredentialMode === 'list')
+        <div @class(['workflow-credentials-toolbar', 'workflow-credentials-toolbar--actions-only' => !$showProviderFilter])>
+            @if ($showProviderFilter)
+                <label class="workflow-credentials-service">
+                    <span>Сервис</span>
+                    <select wire:model.live="workflowCredentialProvider" @disabled($workflowCredentialMode !== 'list')>
+                        @foreach ($providers as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            @endif
 
-        @if ($workflowCredentialMode === 'list')
-            <button type="button" class="workflow-credentials-primary" wire:click="beginCreateWorkflowCredential">
-                <x-filament::icon icon="heroicon-o-plus" />
-                <span>Добавить подключение</span>
-            </button>
-        @endif
-    </div>
+            @if ($workflowCredentialMode === 'list')
+                <button type="button" class="workflow-credentials-primary" wire:click="beginCreateWorkflowCredential">
+                    <x-filament::icon icon="heroicon-o-plus" />
+                    <span>Добавить подключение</span>
+                </button>
+            @endif
+        </div>
+    @endif
 
     @if (in_array($workflowCredentialMode, ['create', 'edit'], true))
         <section class="workflow-credentials-form" aria-labelledby="workflow-credential-form-title">
@@ -130,6 +135,7 @@
         }
 
         .workflow-credentials-toolbar { justify-content: space-between; gap: 1rem; }
+        .workflow-credentials-toolbar--actions-only { justify-content: flex-end; }
 
         .workflow-credentials-service {
             display: grid;

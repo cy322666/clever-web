@@ -56,7 +56,7 @@ class WorkflowAmoCrmWebhookService
     /**
      * @return array<string, mixed>
      */
-    public function statusForUser(int $userId): array
+    public function statusForUser(int $userId, bool $verifyConnection = false): array
     {
         $account = $this->resolvePrimaryAccount($userId);
 
@@ -64,13 +64,13 @@ class WorkflowAmoCrmWebhookService
             return $this->missingAccountStatus($userId);
         }
 
-        return $this->statusForAccount($account);
+        return $this->statusForAccount($account, $verifyConnection);
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function statusForAccount(Account $account): array
+    public function statusForAccount(Account $account, bool $verifyConnection = false): array
     {
         if (!$this->accountCanUseWebhooks($account)) {
             return $this->baseStatus(
@@ -85,13 +85,24 @@ class WorkflowAmoCrmWebhookService
 
         $requiredEvents = $this->requiredEventsForUser((int)$account->user_id);
         $targetUrl = $this->callbackUrl($account);
+        $connectionVerified = false;
 
         try {
-            if (!$this->isValidPublicWebhookUrl($targetUrl)) {
+            $receiverAvailable = $this->isValidPublicWebhookUrl($targetUrl);
+            if (!$receiverAvailable && !$verifyConnection) {
                 return $this->unavailableReceiverStatus($account, $requiredEvents);
             }
 
             $client = new Client($account);
+            if ($verifyConnection) {
+                $identity = $client->requestV4('GET', '/api/v4/account');
+                $amoId = (int) ($identity['id'] ?? 0);
+                if ($amoId <= 0 || ($account->amo_account_id && $account->amo_account_id !== $amoId)) {
+                    throw new \RuntimeException('amoCRM returned an unexpected account ID.');
+                }
+                $connectionVerified = true;
+            }
+
             $currentHooks = $this->platformHooks($client, $account);
             $targetHook = collect($currentHooks)->firstWhere('url', $targetUrl);
             $currentEvents = $targetHook['events'] ?? [];
@@ -115,12 +126,13 @@ class WorkflowAmoCrmWebhookService
             }
 
             return [
-                ...$this->baseStatus(
+                ...($receiverAvailable ? $this->baseStatus(
                     account: $account,
                     requiredEvents: $requiredEvents,
                     state: $state,
                     message: $message,
-                ),
+                ) : $this->unavailableReceiverStatus($account, $requiredEvents)),
+                'connection_verified' => $connectionVerified,
                 'installed_events' => $currentEvents,
                 'installed' => $installed,
                 'matches' => $matches,
@@ -134,13 +146,19 @@ class WorkflowAmoCrmWebhookService
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->baseStatus(
-                account: $account,
-                requiredEvents: $requiredEvents,
-                ok: false,
-                state: 'error',
-                message: 'Не удалось проверить вебхуки amoCRM: ' . $e->getMessage(),
-            );
+            return [
+                ...$this->baseStatus(
+                    account: $account,
+                    requiredEvents: $requiredEvents,
+                    ok: false,
+                    state: 'error',
+                    connected: !$verifyConnection || $connectionVerified,
+                    message: $verifyConnection
+                        ? ($connectionVerified ? 'Не удалось проверить вебхуки amoCRM.' : 'Проверьте доступ к amoCRM и повторите проверку.')
+                        : 'Не удалось проверить вебхуки amoCRM: ' . $e->getMessage(),
+                ),
+                'connection_verified' => $connectionVerified,
+            ];
         }
     }
 
@@ -245,7 +263,7 @@ class WorkflowAmoCrmWebhookService
         }
 
         try {
-            $client = new Client($account);
+            $client = new Client($this->applyCurrentWorkflowOauthCredentials($account));
             $removed = 0;
 
             foreach ($this->platformHooks($client, $account) as $hook) {
@@ -401,8 +419,10 @@ class WorkflowAmoCrmWebhookService
             }
         }
 
-        if ($updates !== []) {
-            $account->forceFill($updates)->saveQuietly();
+        if ($updates !== [] && $account->active && $account->newQuery()->whereKey($account->getKey())
+            ->where('active', true)->where('refresh_token', $account->getRawOriginal('refresh_token'))
+            ->update($updates)) {
+            $account->forceFill($updates)->syncOriginalAttributes(array_keys($updates));
 
             Log::info('Workflow amoCRM OAuth credentials synchronized', [
                 'account_id' => $account->id,

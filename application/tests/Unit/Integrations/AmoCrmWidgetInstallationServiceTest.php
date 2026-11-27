@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Integrations;
 
+use App\Exceptions\WorkflowAmoCrmAccountAlreadyLinked;
+use App\Jobs\Workflows\SynchronizeAmoCrmWebhooks;
 use App\Models\Core\Account;
 use App\Models\User;
 use App\Services\Billing\WidgetSubscriptionAccessService;
@@ -15,6 +17,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AmoCrmWidgetInstallationServiceTest extends TestCase
@@ -228,6 +231,111 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
             'widget' => 'workflows',
             'amo_account_id' => 33098322,
         ]);
+    }
+
+    #[DataProvider('foreignWorkflowConnections')]
+    public function test_workflow_platform_install_preserves_another_owners_connection(string $widget, bool $active): void
+    {
+        Queue::fake();
+        $initiator = User::withoutEvents(fn () => User::create([
+            'name' => 'Initiator', 'email' => 'installer@example.test', 'password' => 'test',
+        ]));
+        $owner = User::withoutEvents(fn () => User::create([
+            'name' => 'Existing owner', 'email' => 'owner@example.test', 'password' => 'test',
+        ]));
+        $existing = (new Account)->forceFill([
+            'user_id' => $owner->id,
+            'widget' => $widget,
+            'amo_account_id' => 33098322,
+            'subdomain' => $active ? 'widgetscenario' : null,
+            'zone' => 'ru',
+            'active' => $active,
+            'access_token' => $active ? 'old-access' : null,
+            'refresh_token' => $active ? 'old-refresh' : null,
+        ]);
+        $existing->save();
+        $before = $existing->fresh()->getAttributes();
+
+        $this->fakeWorkflowAuthorization();
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('provisionAppForUser')->never();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->never();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->never();
+
+        try {
+            app(AmoCrmWidgetInstallationService::class)
+                ->install('workflow-code', 'widgetscenario.amocrm.ru', 'workflows', $initiator->id);
+            $this->fail('The installation must preserve existing Clever ownership.');
+        } catch (WorkflowAmoCrmAccountAlreadyLinked) {
+            $this->assertSame($before, $existing->fresh()->getAttributes());
+            $this->assertDatabaseCount('accounts', 1);
+            $this->assertDatabaseCount('users', 2);
+            $this->assertDatabaseCount('apps', 0);
+        }
+
+        Queue::assertNothingPushed();
+    }
+
+    public static function foreignWorkflowConnections(): array
+    {
+        return [
+            'active workflow connection' => ['workflows', true],
+            'disconnected workflow connection' => ['workflows', false],
+            'disconnected connection for a different widget' => ['tilda', false],
+        ];
+    }
+
+    public function test_workflow_platform_install_reconnects_the_same_owner_to_the_same_account(): void
+    {
+        Queue::fake();
+        $owner = User::withoutEvents(fn () => User::create([
+            'name' => 'Existing owner', 'email' => 'owner@example.test', 'password' => 'test',
+        ]));
+        $existing = (new Account)->forceFill([
+            'user_id' => $owner->id, 'widget' => 'workflows', 'amo_account_id' => 33098322, 'active' => false,
+        ]);
+        $existing->save();
+        $this->fakeWorkflowAuthorization();
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('provisionAppForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)
+            ->install('workflow-code', 'widgetscenario.amocrm.ru', 'workflows', $owner->id);
+
+        $this->assertSame($owner->id, $result['user']->id);
+        $this->assertSame($existing->id, $result['account']->id);
+        $this->assertTrue($result['account']->active);
+        $this->assertSame('workflow-refresh', $result['account']->refresh_token);
+        $this->assertFalse($result['created_user']);
+        $this->assertDatabaseCount('accounts', 1);
+        Queue::assertPushed(SynchronizeAmoCrmWebhooks::class, fn ($job) => $job->userId === $owner->id);
+    }
+
+    public function test_workflow_platform_install_binds_unowned_amocrm_to_the_initiating_user(): void
+    {
+        $initiator = User::withoutEvents(fn () => User::create([
+            'name' => 'Initiator', 'email' => 'initiator@example.test', 'password' => 'test',
+        ]));
+        $installer = User::withoutEvents(fn () => User::create([
+            'name' => 'Installer', 'email' => 'installer@example.test', 'password' => 'test',
+        ]));
+        $this->fakeWorkflowAuthorization();
+        $this->mock(IntegrationProvisioningService::class)->shouldReceive('provisionAppForUser')->once();
+        $this->mock(WidgetSubscriptionAccessService::class)->shouldReceive('ensureTrialForWidget')->once();
+        Password::shouldReceive('sendResetLink')->never();
+        Artisan::shouldReceive('call')->once()->andReturn(0);
+
+        $result = app(AmoCrmWidgetInstallationService::class)
+            ->install('workflow-code', 'widgetscenario.amocrm.ru', 'workflows', $initiator->id);
+
+        $this->assertSame($initiator->id, $result['user']->id);
+        $this->assertSame($initiator->id, $result['account']->user_id);
+        $this->assertSame(33098322, $result['account']->amo_account_id);
+        $this->assertFalse($result['created_user']);
+        $this->assertDatabaseMissing('accounts', ['user_id' => $installer->id]);
+        $this->assertDatabaseCount('accounts', 1);
     }
 
     public function test_finder_install_uses_its_own_keys_and_preserves_the_shared_connection(): void
@@ -490,5 +598,21 @@ class AmoCrmWidgetInstallationServiceTest extends TestCase
         ]);
 
         return User::withoutEvents(fn () => User::create(['name' => 'Platform owner', 'email' => 'platform@example.test', 'password' => 'test']));
+    }
+
+    private function fakeWorkflowAuthorization(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://widgetscenario.amocrm.ru/oauth2/access_token' => Http::response([
+                'access_token' => 'workflow-access', 'refresh_token' => 'workflow-refresh',
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/account' => Http::response([
+                'id' => 33098322, 'current_user_id' => 778899,
+            ]),
+            'https://widgetscenario.amocrm.ru/api/v4/users/778899' => Http::response([
+                'id' => 778899, 'email' => 'installer@example.test',
+            ]),
+        ]);
     }
 }

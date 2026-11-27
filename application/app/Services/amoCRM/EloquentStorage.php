@@ -2,6 +2,7 @@
 
 namespace App\Services\amoCRM;
 
+use App\Models\Core\Account;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Ufee\Amo\Base\Storage\Oauth\AbstractStorage;
@@ -63,6 +64,26 @@ class EloquentStorage extends AbstractStorage
 
     private function setOauth(array $oauth): void
     {
+        if ($this->model instanceof Account && $this->model->widget === 'workflows') {
+            // A refresh started before disconnect/reconnect must not restore the old authorization.
+            $updated = $this->model->newQuery()->whereKey($this->model->getKey())
+                ->where('refresh_token', $this->model->getRawOriginal('refresh_token'))
+                ->where('code', $this->model->getRawOriginal('code'))
+                ->update([
+                    'access_token' => $oauth['access_token'],
+                    'refresh_token' => $oauth['refresh_token'],
+                    'expires_in' => $oauth['expires_in'],
+                    'created_at' => $oauth['created_at'],
+                ]);
+            if (!$updated) {
+                throw new \RuntimeException('Workflow amoCRM authorization changed during token refresh.');
+            }
+
+            $this->model->refresh();
+
+            return;
+        }
+
         $this->model->access_token  = $oauth['access_token'];
         $this->model->refresh_token = $oauth['refresh_token'];
         $this->model->expires_in    = $oauth['expires_in'];

@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Integrations;
 
+use App\Exceptions\WorkflowAmoCrmAccountAlreadyLinked;
 use App\Jobs\Concerns\BuildsHorizonTags;
 use App\Services\Integrations\AmoCrmWidgetInstallationService;
 use App\Services\Integrations\AmoCrmWidgetLifecycleTelegramNotifier;
@@ -52,7 +53,20 @@ class CompleteAmoCrmWidgetInstallation implements ShouldQueue
         if ($this->platformUserId ?? null) {
             $arguments[] = $this->platformUserId;
         }
-        $result = $installation->install(...$arguments);
+        try {
+            $result = $installation->install(...$arguments);
+        } catch (WorkflowAmoCrmAccountAlreadyLinked) {
+            if ($this->completionToken ?? null) {
+                app(\App\Services\Integrations\AmoCrmInstallationStatus::class)->put($this->completionToken, [
+                    'status' => 'account_conflict', 'widget' => 'workflows',
+                ]);
+                app(\App\Services\Workflows\WorkflowInstallationStatus::class)->put($this->completionToken, [
+                    'status' => 'account_conflict',
+                ]);
+            }
+
+            return;
+        }
 
         if ($this->completionToken ?? null) {
             app(\App\Services\Integrations\AmoCrmInstallationStatus::class)->put($this->completionToken, [
